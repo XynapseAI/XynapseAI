@@ -1,21 +1,22 @@
-import { useState } from 'react';
-import Loading from '../components/Loading';
+// pages/_app.jsx
 import '../styles/globals.css';
+import { WagmiProvider } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SessionProvider } from 'next-auth/react';
+import { config } from '../lib/wagmiConfig';
 
-export default function MyApp({ Component, pageProps }) {
-  const [isLoading, setIsLoading] = useState(true);
+const queryClient = new QueryClient();
 
-  const handleLoadingComplete = () => {
-    setIsLoading(false);
-  };
-
+function MyApp({ Component, pageProps: { session, ...pageProps } }) {
   return (
-    <div className="grid-background">
-      {isLoading ? (
-        <Loading onComplete={handleLoadingComplete} />
-      ) : (
-        <Component {...pageProps} />
-      )}
-    </div>
+    <SessionProvider session={session}>
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          <Component {...pageProps} />
+        </QueryClientProvider>
+      </WagmiProvider>
+    </SessionProvider>
   );
 }
+
+export default MyApp;

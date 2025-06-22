@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Matrix Hacker Flip (1s Hover)</title>
+  <style>
+    body {
+      background-color: #000;
+      color: #00ff99;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .matrix-text {
+      font-size: 40px;
+      display: inline-block;
+      cursor: pointer;
+      perspective: 1000px;
+    }
+
+    .matrix-text span {
+      display: inline-block;
+      transform-style: preserve-3d;
+      transition: transform 0.3s ease;
+    }
+
+    /* Khi hover trigger animation */
+    .matrix-text.active span {
+      animation: matrixFlip 1s ease-in-out, flicker 0.4s linear 2;
+    }
+
+    /* Animation delay không đều cho từng ký tự */
+    .matrix-text span:nth-child(1) { animation-delay: 0s; }
+    .matrix-text span:nth-child(2) { animation-delay: 0.05s; }
+    .matrix-text span:nth-child(3) { animation-delay: 0.1s; }
+    .matrix-text span:nth-child(4) { animation-delay: 0.03s; }
+    .matrix-text span:nth-child(5) { animation-delay: 0.08s; }
+    .matrix-text span:nth-child(6) { animation-delay: 0.12s; }
+    .matrix-text span:nth-child(7) { animation-delay: 0.04s; }
+    .matrix-text span:nth-child(8) { animation-delay: 0.07s; }
+    .matrix-text span:nth-child(9) { animation-delay: 0.01s; }
+    .matrix-text span:nth-child(10) { animation-delay: 0.06s; }
+    .matrix-text span:nth-child(11) { animation-delay: 0.02s; }
+    .matrix-text span:nth-child(12) { animation-delay: 0.09s; }
+
+    @keyframes matrixFlip {
+      0%   { transform: rotateX(0); }
+      10%  { transform: rotateX(180deg); }
+      20%  { transform: rotateX(360deg); }
+      30%  { transform: rotateX(540deg); }
+      40%  { transform: rotateX(720deg); }
+      50%  { transform: rotateX(900deg); }
+      60%  { transform: rotateX(1080deg); }
+      70%  { transform: rotateX(1260deg); }
+      80%  { transform: rotateX(1440deg); }
+      100% { transform: rotateX(0); }
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      10% { opacity: 0.2; }
+      20% { opacity: 0.8; }
+      30% { opacity: 0.1; }
+      40% { opacity: 1; }
+      50% { opacity: 0.5; }
+      60% { opacity: 1; }
+      70% { opacity: 0.3; }
+      80% { opacity: 0.9; }
+      90% { opacity: 0.2; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="matrix-text" id="matrixText">
+    <!-- Tự động tạo ký tự -->
+  </div>
+
+  <script>
+    const text = "Matrix Text Hover";
+    const container = document.getElementById("matrixText");
+
+    container.innerHTML = text
+      .split("")
+      .map(char => `<span>${char === " " ? "&nbsp;" : char}</span>`)
+      .join("");
+
+    container.addEventListener("mouseenter", () => {
+      // Thêm class để bắt đầu hiệu ứng
+      container.classList.add("active");
+
+      // Xóa class sau 0.5s để reset (hết animation)
+      setTimeout(() => {
+        container.classList.remove("active");
+      }, 500);
+    });
+  </script>
+
+</body>
+</html>

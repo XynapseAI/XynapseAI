@@ -1,0 +1,83 @@
+// firestore.rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users: Only authenticated user can read/write their own document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Tasks: Public read, admin-only write with schema validation
+    match /tasks/{taskId} {
+      allow read: if true;
+      allow write: if request.auth != null && isAdmin(request.auth.uid)
+        && request.resource.data.keys().hasAll(['description', 'points', 'isDaily', 'maxCompletions', 'type'])
+        && request.resource.data.description is string
+        && request.resource.data.points is number
+        && request.resource.data.isDaily is bool
+        && request.resource.data.maxCompletions is number
+        && request.resource.data.type is string;
+    }
+
+    // Task Completions: Read/write only by user matching userId
+    match /taskCompletions/{completionId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow write: if request.auth != null && request.auth.uid == request.resource.data.userId
+        && request.resource.data.keys().hasAll(['userId', 'taskId', 'completedAt', 'completionCount'])
+        && request.resource.data.userId is string
+        && request.resource.data.taskId is string
+        && request.resource.data.completedAt is timestamp
+        && request.resource.data.completionCount is number;
+    }
+
+    // Tweet Analyses: Public read, admin-only write
+    match /tweetAnalyses/{tweetId} {
+      allow read: if true;
+      allow write: if request.auth != null && isAdmin(request.auth.uid)
+        && request.resource.data.keys().hasAll(['text', 'createdAt'])
+        && request.resource.data.text is string
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    // AI Interactions: Public read, write only by user matching userId
+    match /aiInteractions/{interactionId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == request.resource.data.userId
+        && request.resource.data.keys().hasAll(['userId', 'interactionType', 'createdAt'])
+        && request.resource.data.userId is string
+        && request.resource.data.interactionType is string
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    // Daily AI Interactions: Read/write only by user matching userId
+    match /dailyAIInteractions/{interactionId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow write: if request.auth != null && request.auth.uid == request.resource.data.userId
+        && request.resource.data.keys().hasAll(['userId', 'timestamp', 'count'])
+        && request.resource.data.userId is string
+        && request.resource.data.timestamp is timestamp
+        && request.resource.data.count is number;
+    }
+
+    // Wallet Histories: Read/write only by user matching userId
+    match /walletHistories/{historyId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow write: if request.auth != null && request.auth.uid == request.resource.data.userId
+        && request.resource.data.keys().hasAll(['userId', 'timestamp'])
+        && request.resource.data.userId is string
+        && request.resource.data.timestamp is timestamp;
+    }
+
+    // Admins: Only authenticated admin can read their own status, no direct write
+    match /admins/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false; // Only Firebase Admin SDK can write
+    }
+
+    // Function to check admin status
+    function isAdmin(uid) {
+      return exists(/databases/$(database)/documents/admins/$(uid))
+        && get(/databases/$(database)/documents/admins/$(uid)).data.isAdmin == true;
+    }
+  }
+}
