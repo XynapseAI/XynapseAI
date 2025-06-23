@@ -44,7 +44,7 @@ export const config = {
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
-  logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}, query: ${JSON.stringify(req.query)}, headers: ${JSON.stringify(req.headers)}`);
+  logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}, query: ${JSON.stringify(req.query)}`);
 
   try {
     await new Promise((resolve, reject) => {
@@ -77,11 +77,20 @@ export default async function handler(req, res) {
       }
 
       try {
-        await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-        logger.info('reCAPTCHA verified successfully for get_user', { token: recaptchaToken.substring(0, 8) + '...' });
+        const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
+        logger.info('reCAPTCHA verified successfully for get_user', {
+          token: recaptchaToken.substring(0, 8) + '...',
+          score,
+        });
       } catch (error) {
-        logger.error(`reCAPTCHA verification failed: ${error.message}`, { stack: error.stack, token: recaptchaToken.substring(0, 8) + '...' });
-        return res.status(403).json({ detail: `reCAPTCHA verification failed: ${error.message}` });
+        logger.error(`reCAPTCHA verification failed: ${error.message}`, {
+          stack: error.stack,
+          token: recaptchaToken.substring(0, 8) + '...',
+        });
+        return res.status(403).json({
+          detail: `reCAPTCHA verification failed: ${error.message}`,
+          errorCodes: error.message.includes('timeout-or-duplicate') ? ['timeout-or-duplicate'] : [],
+        });
       }
 
       const { uid } = req.query;

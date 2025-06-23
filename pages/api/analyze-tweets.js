@@ -1,4 +1,3 @@
-// pages/api/analyze-tweets.js
 import { config as dotenvConfig } from 'dotenv';
 import { db } from '../../utils/firebaseAdmin.js';
 import { getServerSession } from 'next-auth/next';
@@ -42,11 +41,14 @@ export const config = {
 
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
-  logger.info(`Request to ${req.url} from IP ${req.headers['x-forwarded-for'] || req.socket.remoteAddress}`);
-
-  await new Promise((resolve, reject) => {
-    limiter(req, res, (err) => (err ? reject(err) : resolve()));
-  });
+  try {
+    await new Promise((resolve, reject) => {
+      limiter(req, res, (err) => (err ? reject(err) : resolve()));
+    });
+  } catch (err) {
+    logger.error(`Rate limit error: ${err.message}`);
+    return res.status(429).json({ detail: 'Too many requests, please try again later.' });
+  }
 
   const session = await getServerSession(req, res, authOptions);
   if (!session) {
@@ -75,7 +77,6 @@ export default async function handler(req, res) {
   try {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
     await verifyRecaptcha(recaptchaToken, 'analyze_tweets', ip);
-    logger.info('reCAPTCHA verified for action: analyze_tweets');
   } catch (error) {
     logger.error(`reCAPTCHA verification failed: ${error.message}`);
     return res.status(403).json({ detail: 'reCAPTCHA verification failed. Please try again.' });
@@ -165,7 +166,6 @@ export default async function handler(req, res) {
     });
 
     await batch.commit();
-    logger.info(`Tweet analysis successful: ${uid}, total points: ${totalPoints}`);
     return res.status(200).json({
       success: true,
       points: totalPoints,

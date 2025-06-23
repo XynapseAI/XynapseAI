@@ -19,7 +19,7 @@ export default function ConnectButton() {
         await modal.open();
       }
     } catch (error) {
-      console.error('Lỗi kết nối ví:', error);
+      console.error('Wallet connection error:', error);
     }
   };
 
@@ -29,7 +29,7 @@ export default function ConnectButton() {
         onClick={() => disconnect()}
         className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all duration-300"
       >
-        Ngắt Kết Nối
+        Disconnect
       </button>
     );
   }
@@ -39,7 +39,7 @@ export default function ConnectButton() {
       onClick={handleConnect}
       className="px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-all duration-300"
     >
-      Kết Nối Ví
+      Connect Wallet
     </button>
   );
 }

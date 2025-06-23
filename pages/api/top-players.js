@@ -7,7 +7,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('Fetching top players');
     const usersSnapshot = await db.collection('users')
       .orderBy('points', 'desc')
       .limit(10)
@@ -17,10 +16,8 @@ export default async function handler(req, res) {
       points: doc.data().points,
       tier: doc.data().tier,
     }));
-    console.log('Top players:', topPlayers);
     return res.status(200).json({ success: true, players: topPlayers });
   } catch (error) {
-    console.error('Error fetching top players:', error);
     return res.status(500).json({ detail: `Failed to fetch top players: ${error.message}` });
   }
 }

@@ -14,107 +14,119 @@ export default function PointTab({ userData, error: propError, loading, handleAn
   const [error, setError] = useState(propError);
   const [recaptchaToken, setRecaptchaToken] = useState(null);
   const [tokenTimestamp, setTokenTimestamp] = useState(null);
+  const [isRecaptchaExecuting, setIsRecaptchaExecuting] = useState(false);
 
-  const executeRecaptcha = async (action = 'fetch_points', retries = 3) => {
-    const now = Date.now();
-    if (recaptchaToken && tokenTimestamp && now - tokenTimestamp < 120000 && retries === 3) {
-      console.log('Tái sử dụng token reCAPTCHA:', { action, token: recaptchaToken.substring(0, 8) + '...' });
-      return recaptchaToken;
+  const executeRecaptcha = async (action = 'fetch_points', retries = 2) => {
+    if (isRecaptchaExecuting) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return executeRecaptcha(action, retries);
     }
-    if (!recaptchaRef.current) {
-      throw new Error('reCAPTCHA chưa được khởi tạo.');
-    }
+
+    setIsRecaptchaExecuting(true);
     try {
-      const token = await Promise.race([
-        recaptchaRef.current.executeAsync(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 15000)),
-      ]);
-      console.log('Tạo token reCAPTCHA:', { action, token: token.substring(0, 8) + '...' });
-      setRecaptchaToken(token);
-      setTokenTimestamp(now);
-      return token;
-    } catch (error) {
-      console.error('Lỗi thực thi reCAPTCHA:', error);
-      if (retries > 0 && error.message.includes('timeout')) {
-        console.log(`Retrying reCAPTCHA (${retries} attempts left)`);
-        return executeRecaptcha(action, retries - 1);
+      const now = Date.now();
+      if (recaptchaToken && tokenTimestamp && now - tokenTimestamp < 30000 && retries === 2) {
+        return recaptchaToken;
       }
-      throw new Error('Không thể thực thi reCAPTCHA.');
+
+      if (!recaptchaRef.current) {
+        throw new Error('reCAPTCHA not initialized');
+      }
+
+      try {
+        await recaptchaRef.current.reset();
+        const token = await Promise.race([
+          recaptchaRef.current.executeAsync().then(token => {
+            if (!token) throw new Error('Empty reCAPTCHA token');
+            return token;
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)),
+        ]);
+        setRecaptchaToken(token);
+        setTokenTimestamp(now);
+        return token;
+      } catch (error) {
+        if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          return executeRecaptcha(action, retries - 1);
+        }
+        throw new Error(`reCAPTCHA failed after ${2 - retries + 1} attempts: ${error.message}`);
+      }
     } finally {
-      if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
-      }
+      setIsRecaptchaExecuting(false);
     }
   };
 
   useEffect(() => {
     async function fetchData() {
+      if (!session?.user?.id) return;
+
       try {
-        if (session?.user?.id) {
-          let recaptchaToken;
+        let recaptchaToken;
+        try {
+          recaptchaToken = await executeRecaptcha('get_user');
+        } catch (recaptchaError) {
+          setError('Failed to verify reCAPTCHA. Please try again later.');
+          return;
+        }
+
+        const userResponse = await axios.get(`/api/user?uid=${session.user.id}`, {
+          headers: { 'X-Recaptcha-Token': recaptchaToken },
+          withCredentials: true,
+        });
+
+        if (userResponse.data.success) {
+          setAiPoints(userResponse.data.user.aiPoints || 0);
+          setTaskPoints(userResponse.data.user.taskPoints || 0);
+
+          let historyRecaptchaToken;
           try {
-            recaptchaToken = await executeRecaptcha('get_user');
+            historyRecaptchaToken = await executeRecaptcha('get_point_history');
           } catch (recaptchaError) {
-            setError('Không thể xác minh reCAPTCHA. Vui lòng thử lại.');
+            setError('Failed to load point history. Please try again.');
             return;
           }
-          const response = await axios.get(`/api/user?uid=${session.user.id}`, {
-            headers: { 'X-Recaptcha-Token': recaptchaToken },
+
+          const historyResponse = await axios.get(`/api/point-history?uid=${session.user.id}`, {
+            headers: { 'X-Recaptcha-Token': historyRecaptchaToken },
             withCredentials: true,
           });
-          if (response.data.success) {
-            setAiPoints(response.data.user.aiPoints || 0);
-            setTaskPoints(response.data.user.taskPoints || 0);
-            let historyRecaptchaToken;
-            try {
-              historyRecaptchaToken = await executeRecaptcha('get_point_history');
-            } catch (recaptchaError) {
-              setError('Không thể xác minh reCAPTCHA cho lịch sử điểm. Vui lòng thử lại.');
-              return;
-            }
-            const historyResponse = await axios.get(`/api/point-history?uid=${session.user.id}`, {
-              headers: { 'X-Recaptcha-Token': historyRecaptchaToken },
-              withCredentials: true,
-            });
-            const history = historyResponse.data.history || [];
-            setPointHistory(history.map(item => ({
-              ...item,
-              tweetPoints: 0,
-              aiPoints: item.aiPoints || 0,
-              taskPoints: 0,
-            })));
 
-            const todayAiPoints = response.data.user.aiPoints || 0;
-            const yesterdayAiPoints = history.length > 1 ? history[history.length - 2]?.aiPoints || 0 : 0;
-            const aiGrowthValue = ((todayAiPoints - yesterdayAiPoints) / (yesterdayAiPoints || 1)) * 100;
-            setAiGrowth({
-              value: aiGrowthValue.toFixed(2),
-              color: aiGrowthValue > 0 ? 'green' : aiGrowthValue < 0 ? 'red' : 'gray',
-            });
+          const history = historyResponse.data.history || [];
+          setPointHistory(history.map(item => ({
+            ...item,
+            tweetPoints: 0,
+            aiPoints: item.aiPoints || 0,
+            taskPoints: 0,
+          })));
 
-            const todayTaskPoints = response.data.user.taskPoints || 0;
-            const yesterdayTaskPoints = history.length > 1 ? history[history.length - 2]?.taskPoints || 0 : 0;
-            const taskGrowthValue = ((todayTaskPoints - yesterdayTaskPoints) / (yesterdayTaskPoints || 1)) * 100;
-            setTaskGrowth({
-              value: taskGrowthValue.toFixed(2),
-              color: taskGrowthValue > 0 ? 'green' : taskGrowthValue < 0 ? 'red' : 'gray',
-            });
-          }
+          const todayAiPoints = userResponse.data.user.aiPoints || 0;
+          const yesterdayAiPoints = history.length > 1 ? history[history.length - 2]?.aiPoints || 0 : 0;
+          const aiGrowthValue = ((todayAiPoints - yesterdayAiPoints) / (yesterdayAiPoints || 1)) * 100;
+          setAiGrowth({
+            value: aiGrowthValue.toFixed(2),
+            color: aiGrowthValue > 0 ? 'green' : aiGrowthValue < 0 ? 'red' : 'gray',
+          });
+
+          const todayTaskPoints = userResponse.data.user.taskPoints || 0;
+          const yesterdayTaskPoints = history.length > 1 ? history[history.length - 2]?.taskPoints || 0 : 0;
+          const taskGrowthValue = ((todayTaskPoints - yesterdayTaskPoints) / (yesterdayTaskPoints || 1)) * 100;
+          setTaskGrowth({
+            value: taskGrowthValue.toFixed(2),
+            color: taskGrowthValue > 0 ? 'green' : taskGrowthValue < 0 ? 'red' : 'gray',
+          });
+        } else {
+          setError('Invalid user data.');
         }
       } catch (err) {
-        console.error('Error fetching point data:', {
-          message: err.message,
-          status: err.response?.status,
-          data: err.response?.data,
-        });
         setError(
           err.response?.status === 429
-            ? 'Vượt quá giới hạn API. Vui lòng thử lại sau.'
+            ? 'API rate limit exceeded. Please try again later.'
             : err.response?.status === 403
-            ? 'Xác minh reCAPTCHA thất bại hoặc truy cập bị từ chối. Vui lòng thử lại.'
+            ? `reCAPTCHA verification failed: ${err.response?.data?.detail || 'Please try again.'}`
             : err.response?.status === 500 && err.response?.data?.detail?.includes('index missing')
-            ? 'Lỗi hệ thống: Thiếu index Firestore. Vui lòng liên hệ hỗ trợ.'
-            : 'Không thể tải dữ liệu điểm.'
+            ? 'System error: Missing Firestore index. Please contact support.'
+            : 'Failed to load point data. Please try again later.'
         );
       }
     }
@@ -123,11 +135,10 @@ export default function PointTab({ userData, error: propError, loading, handleAn
 
   const handleAnalyzeTweetsWithRecaptcha = async () => {
     try {
-      const token = await executeRecaptcha();
+      const token = await executeRecaptcha('analyze_tweets');
       await handleAnalyzeTweets({ recaptchaToken: token });
       setError(null);
     } catch (err) {
-      console.error('Tweet analysis error:', err);
       setError(
         err.message.includes('reCAPTCHA')
           ? 'reCAPTCHA verification failed. Please try again.'
@@ -143,7 +154,6 @@ export default function PointTab({ userData, error: propError, loading, handleAn
       className="font-plexmono w-[100%] min-h-[calc(100vh-4rem)] max-w-10xl mx-auto p-2 sm:p-6 rounded-xl shadow-card overflow-y-auto custom-scrollbar mt-14 sm:mt-0 backdrop-blur-md flex flex-col"
     >
       <div className="w-full mx-auto h-full flex flex-col">
-        {/* Chart */}
         <div className="rounded-xl border border-gray-400 shadow-card p-4 mb-6 backdrop-blur-md">
           <h2 className="text-lg font-bold text-white mb-4">Point History</h2>
           <div className="h-64 sm:h-80">
@@ -196,10 +206,7 @@ export default function PointTab({ userData, error: propError, loading, handleAn
             </ResponsiveContainer>
           </div>
         </div>
-
-        {/* Metrics */}
         <div className="flex-1 flex flex-col sm:flex-row space-y-6 sm:space-y-0 sm:space-x-6">
-          {/* Total Points */}
           <div className="flex-1 rounded-xl shadow-card p-6 flex flex-col justify-between bg-tech backdrop-blur-md border border-gray-400">
             <h3 className="text-base font-semibold text-white">Total Points</h3>
             <p className="text-4xl font-bold text text-center">{userData?.points || 0}</p>
@@ -216,8 +223,6 @@ export default function PointTab({ userData, error: propError, loading, handleAn
               {isAnalyzing ? 'Processing...' : 'Analyze Tweets'}
             </button>
           </div>
-
-          {/* AI Points */}
           <div className="flex-1 rounded-xl shadow-card p-6 backdrop-blur-md bg-tech border border-gray-400 flex flex-col justify-between">
             <h3 className="text-base font-semibold text-white mb-4">AI Points</h3>
             <div className="flex text-center justify-center items-center mb-6">
@@ -227,8 +232,6 @@ export default function PointTab({ userData, error: propError, loading, handleAn
               </p>
             </div>
           </div>
-
-          {/* Task Points */}
           <div className="flex-1 rounded-xl shadow-card p-6 bg-tech backdrop-blur-md border border-gray-400 flex flex-col justify-between">
             <h3 className="text-base font-semibold text-white mb-4">Task Points</h3>
             <div className="flex text-center justify-center items-center mb-6">

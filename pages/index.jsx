@@ -70,7 +70,6 @@ export default function Home() {
         !text2Ref.current ||
         !text3Ref.current
       ) {
-        console.log('Refs not ready yet. Retrying...');
         return false;
       }
       return true;

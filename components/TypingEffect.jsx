@@ -1,10 +1,9 @@
-// components/TypingEffect.jsx
 'use client';
 
 import { useState, useEffect } from 'react';
 
 export default function TypingEffect({
-  text = '', // Đặt giá trị mặc định là chuỗi rỗng để tránh undefined
+  text = '',
   speed = 100,
   loop = false,
   cursorWidth = '2px',
@@ -14,22 +13,21 @@ export default function TypingEffect({
   const [displayedText, setDisplayedText] = useState('');
   const [showCursor, setShowCursor] = useState(true);
 
-  // Hiệu ứng đánh chữ
   useEffect(() => {
-    if (!text) return; // Nếu text rỗng, không chạy hiệu ứng
+    if (!text) return;
 
     let index = 0;
     const typingInterval = setInterval(() => {
       if (index < text.length) {
-        setDisplayedText(text.slice(0, index + 1)); // Sử dụng slice để tránh cộng chuỗi không mong muốn
+        setDisplayedText(text.slice(0, index + 1));
         index++;
       } else {
-        clearInterval(typingInterval); // Dừng interval khi hoàn thành
+        clearInterval(typingInterval);
         if (loop) {
           setTimeout(() => {
             setDisplayedText('');
             index = 0;
-          }, 2000); // Chờ 2s trước khi lặp lại nếu loop = true
+          }, 2000);
         }
       }
     }, speed);
@@ -37,11 +35,10 @@ export default function TypingEffect({
     return () => clearInterval(typingInterval);
   }, [text, speed, loop]);
 
-  // Hiệu ứng nhấp nháy cursor
   useEffect(() => {
     const cursorInterval = setInterval(() => {
       setShowCursor((prev) => !prev);
-    }, 500); // Nhấp nháy mỗi 0.5s
+    }, 500);
 
     return () => clearInterval(cursorInterval);
   }, []);

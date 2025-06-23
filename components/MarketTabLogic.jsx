@@ -9,11 +9,9 @@ import rateLimit from 'axios-rate-limit';
 const logger = {
   log: (message, data) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[MarketTabLogic] ${message}`, data);
     }
   },
   error: (message, data) => {
-    console.error(`[MarketTabLogic] ${message}`, data);
   },
 };
 

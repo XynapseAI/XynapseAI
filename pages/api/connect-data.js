@@ -50,7 +50,6 @@ export default async function handler(req, res) {
       rankings,
     });
   } catch (error) {
-    console.error('Error fetching leaderboard data:', error);
     return res.status(500).json({ detail: `Failed to fetch leaderboard data: ${error.message}` });
   }
 }

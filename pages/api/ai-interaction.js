@@ -1,4 +1,3 @@
-// pages/api/ai-interaction.js
 import { config as dotenvConfig } from 'dotenv';
 import { db } from '../../utils/firebaseAdmin.js';
 import { requireAuth } from './middleware/auth.js';
@@ -49,8 +48,6 @@ export const config = {
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
-  logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}`);
-
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
@@ -84,7 +81,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ detail: 'Missing reCAPTCHA token in header' });
     }
     await verifyRecaptcha(recaptchaToken, req.method === 'POST' ? 'ai_interaction' : 'get_ai_interaction', ip);
-    logger.info(`reCAPTCHA verified for action: ${req.method === 'POST' ? 'ai_interaction' : 'get_ai_interaction'}`);
 
     if (req.method === 'POST') {
       const { uid, query, response, interactionType = 'chat' } = req.body;
@@ -103,7 +99,6 @@ export default async function handler(req, res) {
 
       const maxDailyInteractions = interactionType === 'chat' ? 50 : 5;
       if (dailyInteraction.count >= maxDailyInteractions) {
-        logger.info(`User ${uid} reached maximum daily ${interactionType} limit of ${maxDailyInteractions}`);
         return res.status(400).json({
           detail: `You have reached the maximum of ${maxDailyInteractions} daily ${interactionType} interactions. Try again tomorrow.`,
         });
@@ -113,8 +108,6 @@ export default async function handler(req, res) {
       const pointsPerInteraction = 10;
       const batch = db.batch();
 
-      // Update dailyAIInteractions (omit taskId if undefined)
-      logger.info(`Updating dailyAIInteractions for ${uid}_${dateString}_${interactionType}`);
       const dailyInteractionData = {
         userId: uid,
         date: today,
@@ -124,7 +117,6 @@ export default async function handler(req, res) {
       };
       batch.set(dailyInteractionRef, dailyInteractionData);
 
-      // Update users for market interactions
       if (interactionType === 'market') {
         const userRef = db.collection('users').doc(uid);
         const userDoc = await userRef.get();
@@ -140,7 +132,6 @@ export default async function handler(req, res) {
         pointsAwarded = pointsPerInteraction;
       }
 
-      // Save aiInteractions
       const interactionRef = db.collection('aiInteractions').doc();
       batch.set(interactionRef, {
         userId: uid,
@@ -150,13 +141,10 @@ export default async function handler(req, res) {
         interactionType,
       });
 
-      // Handle task completion
       const taskId = interactionType === 'chat' ? 'task8' : 'task9';
       const taskRef = db.collection('tasks').doc(taskId);
       const taskDoc = await taskRef.get();
-      if (!taskDoc.exists) {
-        logger.warn(`Task ${taskId} not found`);
-      } else {
+      if (taskDoc.exists) {
         const task = taskDoc.data();
         if (task.isDaily) {
           const taskCompletionRef = db.collection('taskCompletions').doc(`${uid}_${task.id}_${dateString}`);
@@ -184,9 +172,7 @@ export default async function handler(req, res) {
         }
       }
 
-      // Commit batch
       await batch.commit();
-      logger.info(`Saved ${interactionType} AI interaction: ${interactionRef.id}, points awarded: ${pointsAwarded}`);
       return res.status(200).json({
         success: true,
         interaction: { id: interactionRef.id, userId: uid, query, response, createdAt: new Date(), interactionType },
@@ -214,7 +200,6 @@ export default async function handler(req, res) {
       const interactionsSnapshot = await query.orderBy('createdAt', 'desc').limit(parseInt(limit)).get();
       const interactions = interactionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      logger.info(`Fetched ${interactions.length} ${interactionType || 'all'} AI interactions for user: ${uid}`);
       return res.status(200).json({
         success: true,
         interactions,

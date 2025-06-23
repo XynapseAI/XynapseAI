@@ -1,4 +1,3 @@
-// components/TaskTab.jsx
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -9,24 +8,22 @@ export default function TaskTab({ recaptchaRef }) {
   const [tasks, setTasks] = useState([]);
   const [isVerifying, setIsVerifying] = useState({});
   const [error, setError] = useState(null);
-  const [taskProgress, setTaskProgress] = useState({}); // Track progress for daily tasks
+  const [taskProgress, setTaskProgress] = useState({});
 
   useEffect(() => {
     async function fetchTasks() {
       try {
         const response = await axios.get('/api/tasks');
         if (response.data.success) {
-          // Ensure tasks have description field
           const tasksWithDefault = response.data.tasks.map(task => ({
             ...task,
-            description: task.description || 'No description available', // Default description
+            description: task.description || 'No description available',
           }));
           setTasks(tasksWithDefault);
         } else {
           throw new Error('Failed to fetch tasks.');
         }
       } catch (err) {
-        console.error('Error fetching tasks:', err);
         setError('Failed to load tasks.');
       }
     }
@@ -51,11 +48,6 @@ export default function TaskTab({ recaptchaRef }) {
           }, {});
           setTaskProgress(progress);
         } catch (err) {
-          console.error('Error fetching task progress:', {
-            message: err.message,
-            status: err.response?.status,
-            data: err.response?.data,
-          });
           setError('Failed to load task progress.');
         }
       }
@@ -65,15 +57,13 @@ export default function TaskTab({ recaptchaRef }) {
 
   const executeRecaptcha = async () => {
     if (!recaptchaRef.current) {
-      throw new Error('reCAPTCHA not initialized.');
+      throw new Error('reCAPTCHA not initialized');
     }
     try {
       const token = await recaptchaRef.current.executeAsync({ action: 'verify_task' });
-      console.log('reCAPTCHA token generated for verify_task:', token);
       return token;
     } catch (error) {
-      console.error('reCAPTCHA execution error:', error);
-      throw new Error('Failed to execute reCAPTCHA.');
+      throw new Error('Failed to execute reCAPTCHA');
     } finally {
       if (recaptchaRef.current) {
         recaptchaRef.current.reset();
@@ -83,7 +73,7 @@ export default function TaskTab({ recaptchaRef }) {
 
   const handleVerifyTask = async (task) => {
     if (!session?.user?.id) {
-      setError('Vui lòng đăng nhập.');
+      setError('Please sign in');
       return;
     }
     setIsVerifying((prev) => ({ ...prev, [task.id]: true }));
@@ -102,18 +92,17 @@ export default function TaskTab({ recaptchaRef }) {
           ...prev,
           [task.id]: response.data.completionCount || prev[task.id] || 0,
         }));
-        alert(`Nhiệm vụ "${task.description}" đã được xác minh! +${task.points} điểm`);
+        alert(`Task "${task.description}" verified! +${task.points} points`);
       } else {
-        setError(response.data.message || 'Không thể xác minh nhiệm vụ.');
+        setError(response.data.message || 'Failed to verify task');
       }
     } catch (err) {
-      console.error('Lỗi xác minh nhiệm vụ:', err);
       setError(
         err.response?.status === 429
-          ? 'Vượt quá giới hạn API. Vui lòng thử lại sau.'
+          ? 'API rate limit exceeded. Please try again later'
           : err.message.includes('reCAPTCHA')
-          ? 'Xác minh reCAPTCHA thất bại. Vui lòng thử lại.'
-          : err.response?.data?.detail || 'Xác minh thất bại.'
+          ? 'reCAPTCHA verification failed. Please try again'
+          : err.response?.data?.detail || 'Verification failed'
       );
     } finally {
       setIsVerifying((prev) => ({ ...prev, [task.id]: false }));

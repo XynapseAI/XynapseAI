@@ -39,7 +39,6 @@ export default function Dashboard() {
     setIsMounted(true);
   }, []);
 
-  // Fetch top players (Leaderboard)
   useEffect(() => {
     if (!isMounted) return;
     async function fetchTopPlayers() {
@@ -50,15 +49,15 @@ export default function Dashboard() {
         const response = await fetch('/api/connect-data', { signal: controller.signal });
         clearTimeout(timeoutId);
         const result = await response.json();
-        if (!response.ok) throw new Error(result.detail || 'Lỗi tải danh sách người chơi');
+        if (!response.ok) throw new Error(result.detail || 'Failed to load player list');
         logger.info('Fetched top players:', result);
         setTopPlayers(result || {});
       } catch (err) {
-        logger.error('Lỗi lấy danh sách người chơi:', {
+        logger.error('Error fetching player list:', {
           message: err.message,
           stack: err.stack,
         });
-        setError(`Không thể tải danh sách người chơi: ${err.message}`);
+        setError(`Unable to load player list: ${err.message}`);
       } finally {
         setLoading(false);
       }
@@ -66,29 +65,28 @@ export default function Dashboard() {
     fetchTopPlayers();
   }, [isMounted]);
 
-  // Initialize user data
   useEffect(() => {
     if (!isMounted || !session?.user?.id || userData) return;
     async function initUserData() {
       setLoading(true);
       try {
-        if (!recaptchaRef.current) throw new Error('reCAPTCHA chưa được khởi tạo');
+        if (!recaptchaRef.current) throw new Error('reCAPTCHA not initialized');
         let recaptchaToken = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             recaptchaToken = await recaptchaRef.current.executeAsync();
-            logger.info(`Tạo token reCAPTCHA (lần ${attempt}): ${recaptchaToken ? 'success' : 'failed'}`);
+            logger.info(`Generate reCAPTCHA token (attempt ${attempt}): ${recaptchaToken ? 'success' : 'failed'}`);
             if (recaptchaToken) break;
           } catch (err) {
-            logger.warn(`Lỗi tạo token reCAPTCHA (lần ${attempt}):`, {
+            logger.warn(`Error generating reCAPTCHA token (attempt ${attempt}):`, {
               message: err.message,
               stack: err.stack,
             });
-            if (attempt === 3) throw new Error('Không thể tạo token reCAPTCHA sau 3 lần thử');
+            if (attempt === 3) throw new Error('Unable to generate reCAPTCHA token after 3 attempts');
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
-        if (!recaptchaToken) throw new Error('Không thể tạo token reCAPTCHA');
+        if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -104,24 +102,24 @@ export default function Dashboard() {
         clearTimeout(timeoutId);
         const result = await response.json();
         if (!response.ok) {
-          const errorDetail = result.detail || 'Lỗi không xác định';
+          const errorDetail = result.detail || 'Unknown error';
           const errorMessages = result.errors?.map((e) => e.msg).join(', ') || '';
           throw new Error(`${errorDetail}${errorMessages ? `: ${errorMessages}` : ''} (HTTP ${response.status})`);
         }
-        logger.info('Khởi tạo dữ liệu người dùng:', { user: result.user });
+        logger.info('Initialized user data:', { user: result.user });
         setUserData(result.user);
       } catch (err) {
-        logger.error('Lỗi khởi tạo dữ liệu người dùng:', {
+        logger.error('Error initializing user data:', {
           message: err.message,
           status: err.response?.status,
           data: err.response?.data,
         });
         if (err.message.includes('HTTP 404')) {
-          setError('Không tìm thấy người dùng. Đang đăng xuất và chuyển hướng đến trang đăng nhập...');
+          setError('User not found. Signing out and redirecting to login page...');
           await signOut({ redirect: false });
           window.location.href = '/auth/signin';
         } else {
-          setError(`Không thể tải dữ liệu người dùng: ${err.message}`);
+          setError(`Unable to load user data: ${err.message}`);
         }
       } finally {
         setLoading(false);
@@ -131,18 +129,17 @@ export default function Dashboard() {
     initUserData();
   }, [isMounted, session, userData]);
 
-  // Handle wallet verification
   const handleConnectWallet = async () => {
     try {
-      if (!session?.user) throw new Error('Chưa đăng nhập Twitter');
-      if (!isConnected || !address) throw new Error('Ví chưa được kết nối');
-      if (!recaptchaRef.current) throw new Error('reCAPTCHA chưa sẵn sàng');
+      if (!session?.user) throw new Error('Twitter not logged in');
+      if (!isConnected || !address) throw new Error('Wallet not connected');
+      if (!recaptchaRef.current) throw new Error('reCAPTCHA not ready');
       const recaptchaToken = await recaptchaRef.current.executeAsync();
-      logger.info('Tạo token reCAPTCHA cho verify wallet:', { token: recaptchaToken ? 'success' : 'failed' });
+      logger.info('Generated reCAPTCHA token for wallet verification:', { token: recaptchaToken ? 'success' : 'failed' });
       const message = `Sign this message to authenticate: ${address}`;
-      logger.info('Ký message:', { message });
+      logger.info('Signing message:', { message });
       const signature = await signMessageAsync({ message });
-      logger.info('Chữ ký:', { signature });
+      logger.info('Signature:', { signature });
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       const response = await fetch(`${API_BASE_URL}/verify-wallet`, {
@@ -159,64 +156,61 @@ export default function Dashboard() {
       });
       clearTimeout(timeoutId);
       const result = await response.json();
-      if (!response.ok) throw new Error(result.detail || 'Lỗi xác minh ví');
-      logger.info('Kết quả xác minh ví:', { result });
+      if (!response.ok) throw new Error(result.detail || 'Wallet verification failed');
+      logger.info('Wallet verification result:', { result });
       setError(null);
       setUserData((prev) => ({
         ...prev,
         walletAddress: address,
       }));
     } catch (err) {
-      logger.error('Lỗi xác minh ví:', {
+      logger.error('Wallet verification error:', {
         message: err.message,
         stack: err.stack,
       });
-      setError(`Lỗi xác minh ví: ${err.message}`);
+      setError(`Wallet verification error: ${err.message}`);
     } finally {
       if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   };
 
-  // Handle Twitter sign-in
   const handleSignInTwitter = async () => {
     try {
-      logger.info('Bắt đầu đăng nhập Twitter');
+      logger.info('Starting Twitter login');
       await signIn('twitter', { callbackUrl: '/dashboard' });
     } catch (error) {
-      logger.error('Lỗi đăng nhập Twitter:', {
+      logger.error('Twitter login error:', {
         message: error.message,
         stack: error.stack,
       });
-      setError(`Không thể đăng nhập Twitter: ${error.message || 'Lỗi hệ thống'}`);
+      setError(`Unable to login with Twitter: ${error.message || 'System error'}`);
     }
   };
 
-  // Handle sign-out
   const handleSignOut = async () => {
     try {
       await signOut({ callbackUrl: '/' });
       if (isConnected) disconnect();
       setUserData(null);
       setError(null);
-      logger.info('Đăng xuất thành công');
+      logger.info('Logged out successfully');
     } catch (error) {
-      logger.error('Lỗi đăng xuất:', {
+      logger.error('Logout error:', {
         message: error.message,
         stack: error.stack,
       });
-      setError('Không thể đăng xuất.');
+      setError('Unable to log out.');
     }
   };
 
-  // Analyze tweets
   const handleAnalyzeTweets = async () => {
     if (isAnalyzing) return;
     setIsAnalyzing(true);
     try {
-      if (!session?.user) throw new Error('Chưa đăng nhập');
-      if (!recaptchaRef.current) throw new Error('reCAPTCHA chưa sẵn sàng');
+      if (!session?.user) throw new Error('Not logged in');
+      if (!recaptchaRef.current) throw new Error('reCAPTCHA not ready');
       const recaptchaToken = await recaptchaRef.current.executeAsync();
-      logger.info('Tạo token reCAPTCHA cho analyze tweets:', { token: recaptchaToken ? 'success' : 'failed' });
+      logger.info('Generated reCAPTCHA token for analyzing tweets:', { token: recaptchaToken ? 'success' : 'failed' });
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       const response = await fetch(`${API_BASE_URL}/analyze-tweets`, {
@@ -228,17 +222,17 @@ export default function Dashboard() {
       });
       clearTimeout(timeoutId);
       const result = await response.json();
-      if (!response.ok) throw new Error(result.detail || 'Lỗi phân tích tweet');
-      logger.info('Kết quả phân tích tweet:', { result });
+      if (!response.ok) throw new Error(result.detail || 'Tweet analysis failed');
+      logger.info('Tweet analysis result:', { result });
       setUserData((prev) => (prev ? { ...prev, points: result.points } : null));
       setError(null);
       setLastAnalysisSuccess(true);
     } catch (error) {
-      logger.error('Lỗi phân tích tweet:', {
+      logger.error('Tweet analysis error:', {
         message: error.message,
         stack: error.stack,
       });
-      setError(`Lỗi phân tích tweet: ${error.message}`);
+      setError(`Tweet analysis error: ${error.message}`);
     } finally {
       setIsAnalyzing(false);
       if (recaptchaRef.current) recaptchaRef.current.reset();
@@ -249,47 +243,47 @@ export default function Dashboard() {
 
   if (status === 'unauthenticated') {
     return (
-    <div className="h-screen w-screen flex items-center justify-center bg-black text-white overflow-hidden font-courier">
-      <Head>
-        <title>Dashboard - Đăng Nhập</title>
-        <meta name="description" content="Đăng nhập bằng Twitter để truy cập dashboard" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap"
-          rel="stylesheet"
-        />
-      </Head>
-      <div className="p-8 bg-tech backdrop-blur-md border border-white/10 rounded-xl shadow-card text-center">
-        <h1 className="text-3xl font-bold text-white mb-6 uppercase">
-          Chào Mừng Đến Với Dashboard
-        </h1>
-        <p className="mb-6 text-sm text-gray-500">
-          Đăng nhập bằng Twitter để bắt đầu.
-        </p>
-        <button
-          onClick={handleSignInTwitter}
-          className="px-6 py-3 border border-2 border-white text-white rounded-full text-sm font-medium transition-all duration-300 uppercase"
-        >
-          <MatrixHoverEffect text="Đăng Nhập Twitter" hoverColor="#00BFFF" />
-        </button>
-      </div>
+      <div className="h-screen w-screen flex items-center justify-center bg-black text-white overflow-hidden font-courier">
+        <Head>
+          <title>Dashboard - Sign In</title>
+          <meta name="description" content="Sign in with Twitter to access the dashboard" />
+          <link
+            href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap"
+            rel="stylesheet"
+          />
+        </Head>
+        <div className="p-8 bg-tech backdrop-blur-md border border-white/10 rounded-xl shadow-card text-center">
+          <h1 className="text-3xl font-bold text-white mb-6 uppercase">
+            Welcome to the Dashboard
+          </h1>
+          <p className="mb-6 text-sm text-gray-500">
+            Sign in with Twitter to get started.
+          </p>
+          <button
+            onClick={handleSignInTwitter}
+            className="px-6 py-3 border border-2 border-white text-white rounded-full text-sm font-medium transition-all duration-300 uppercase"
+          >
+            <MatrixHoverEffect text="Sign In with Twitter" hoverColor="#00BFFF" />
+          </button>
+        </div>
 
-      <style jsx>{`
-        .shadow-card {
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-        }
-        .bg-tech {
-          background: linear-gradient(135deg, rgba(17, 24, 39, 0.8), rgba(0, 0, 0, 0.9));
-        }
-      `}</style>
-    </div>
-  );
+        <style jsx>{`
+          .shadow-card {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+          }
+          .bg-tech {
+            background: linear-gradient(135deg, rgba(17, 24, 39, 0.8), rgba(0, 0, 0, 0.9));
+          }
+        `}</style>
+      </div>
+    );
   }
 
   return (
     <div className="h-screen w-screen bg-black text-white overflow-x-hidden flex flex-col">
       <Head>
         <title>Dashboard</title>
-        <meta name="description" content="Quản lý ví, điểm số và tương tác" />
+        <meta name="description" content="Manage wallet, points, and interactions" />
       </Head>
       <Header activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} />
       <main className="flex-1 flex items-center justify-center overflow-hidden">

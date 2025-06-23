@@ -1,4 +1,3 @@
-// components/ProfileTab.jsx
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -17,7 +16,6 @@ export default function ProfileTab({ recaptchaRef }) {
   const [csrfToken, setCsrfToken] = useState(null);
   const [jwtToken, setJwtToken] = useState(null);
 
-  // Fetch CSRF and JWT tokens with retry logic
   useEffect(() => {
     async function fetchTokens() {
       let attempts = 0;
@@ -25,7 +23,6 @@ export default function ProfileTab({ recaptchaRef }) {
       while (attempts < maxAttempts) {
         try {
           attempts++;
-          logger.info(`Attempting to fetch CSRF and JWT (attempt ${attempts})`);
           const [csrfResponse, jwtResponse] = await Promise.all([
             axios.get('/api/csrf-token', { withCredentials: true }),
             axios.get('/api/auth/jwt', { withCredentials: true }),
@@ -40,18 +37,9 @@ export default function ProfileTab({ recaptchaRef }) {
 
           setCsrfToken(csrf);
           setJwtToken(jwt);
-          logger.info('Successfully fetched CSRF and JWT', {
-            csrfToken: csrf.substring(0, 8) + '...',
-            jwtToken: jwt.substring(0, 8) + '...',
-          });
           setError(null);
           return;
         } catch (err) {
-          logger.error(`Error fetching tokens (attempt ${attempts}):`, {
-            message: err.message,
-            status: err.response?.status,
-            data: err.response?.data,
-          });
           if (attempts === maxAttempts) {
             setError(`Failed to fetch CSRF or JWT after ${maxAttempts} attempts: ${err.message}`);
           }
@@ -65,25 +53,18 @@ export default function ProfileTab({ recaptchaRef }) {
     }
   }, [status]);
 
-  // Execute reCAPTCHA
   const executeRecaptcha = async (action) => {
     if (!recaptchaRef.current) {
       throw new Error('reCAPTCHA not initialized');
     }
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        await recaptchaRef.current.reset(); // Reset reCAPTCHA for fresh token
+        await recaptchaRef.current.reset();
         const token = await recaptchaRef.current.executeAsync();
         if (!token) throw new Error('Empty reCAPTCHA token');
-        logger.info(`Generated reCAPTCHA token (attempt ${attempt}) for ${action}`, {
-          token: token.substring(0, 8) + '...',
-        });
         setRecaptchaTokens((prev) => ({ ...prev, [action]: token }));
         return token;
       } catch (err) {
-        logger.warn(`Error generating reCAPTCHA token (attempt ${attempt}) for ${action}:`, {
-          message: err.message,
-        });
         if (attempt === 3) throw new Error(`Failed to generate reCAPTCHA token after 3 attempts: ${err.message}`);
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
@@ -91,14 +72,11 @@ export default function ProfileTab({ recaptchaRef }) {
     throw new Error('Unable to generate reCAPTCHA token');
   };
 
-  // Fetch user data
   useEffect(() => {
     async function fetchUserData() {
       if (status !== 'authenticated' || !session?.user?.id) {
-        logger.warn('Invalid session or missing user ID:', { status, userId: session?.user?.id });
         return;
       }
-      logger.info('Starting fetchUserData with user ID:', session.user.id);
       try {
         const token = await executeRecaptcha('get_user');
         const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
@@ -112,15 +90,9 @@ export default function ProfileTab({ recaptchaRef }) {
             'Unable to fetch user data'
           );
         }
-        logger.info('Fetched user data:', response.data.user);
         setUserData(response.data.user);
         setError(null);
       } catch (err) {
-        logger.error('Error fetching user data:', {
-          message: err.message,
-          status: err.response?.status,
-          data: err.response?.data,
-        });
         if (err.response?.status === 404) {
           setError('User not found. Signing out...');
           await signOut({ redirect: false });
@@ -137,16 +109,13 @@ export default function ProfileTab({ recaptchaRef }) {
     fetchUserData();
   }, [status, session?.user?.id]);
 
-  // Connect wallet
   const handleConnectWallet = async () => {
     if (!window.ethereum) {
       setError('Please install MetaMask.');
-      logger.error('MetaMask not installed');
       return;
     }
     if (!csrfToken || !jwtToken) {
       setError('CSRF token or JWT not fetched');
-      logger.error('Missing CSRF token or JWT for wallet connection');
       return;
     }
     setIsConnectingWallet(true);
@@ -159,13 +128,6 @@ export default function ProfileTab({ recaptchaRef }) {
       const message = `Verify wallet for UID: ${session.user.id}`;
       const signature = await signer.signMessage(message);
       const token = await executeRecaptcha('verify-wallet');
-
-      logger.info('Sending wallet verification request:', {
-        csrfToken: csrfToken.substring(0, 8) + '...',
-        jwtToken: jwtToken.substring(0, 8) + '...',
-        walletAddress: walletAddress.substring(0, 8) + '...',
-        recaptchaToken: token.substring(0, 8) + '...',
-      });
 
       const response = await axios.post(
         '/api/verify-wallet',
@@ -190,14 +152,8 @@ export default function ProfileTab({ recaptchaRef }) {
       if (!response.data.success) {
         throw new Error(response.data.detail || 'Unable to verify wallet');
       }
-      logger.info('Wallet connected successfully:', { walletAddress });
       setUserData({ ...userData, walletAddress });
     } catch (err) {
-      logger.error('Error connecting wallet:', {
-        message: err.message,
-        status: err.response?.status,
-        data: err.response?.data,
-      });
       setError(`Unable to connect wallet: ${err.response?.data?.detail || err.message}`);
     } finally {
       setIsConnectingWallet(false);
@@ -205,11 +161,9 @@ export default function ProfileTab({ recaptchaRef }) {
     }
   };
 
-  // Disconnect wallet
   const handleDisconnectWallet = async () => {
     if (!csrfToken || !jwtToken) {
       setError('CSRF token or JWT not fetched');
-      logger.error('Missing CSRF token or JWT for wallet disconnection');
       return;
     }
     setIsDisconnectingWallet(true);
@@ -236,14 +190,8 @@ export default function ProfileTab({ recaptchaRef }) {
       if (!response.data.success) {
         throw new Error(response.data.detail || 'Unable to disconnect wallet');
       }
-      logger.info('Wallet disconnected successfully');
       setUserData({ ...userData, walletAddress: null });
     } catch (err) {
-      logger.error('Error disconnecting wallet:', {
-        message: err.message,
-        status: err.response?.status,
-        data: err.response?.data,
-      });
       setError(`Unable to disconnect wallet: ${err.message}`);
     } finally {
       setIsDisconnectingWallet(false);
@@ -251,24 +199,17 @@ export default function ProfileTab({ recaptchaRef }) {
     }
   };
 
-  // Disconnect Twitter
   const handleDisconnectTwitter = async () => {
     try {
       await signOut({ redirect: false });
       setUserData(null);
       setError(null);
-      logger.info('Twitter disconnected successfully');
       window.location.href = '/auth/signin';
     } catch (err) {
-      logger.error('Error disconnecting Twitter:', {
-        message: err.message,
-        stack: err.stack,
-      });
       setError('Unable to disconnect Twitter');
     }
   };
 
-  // Calculate days active
   const getDaysActive = () => {
     if (!userData?.lastConnected) return 0;
     const lastConnectedDate = new Date(userData.lastConnected);

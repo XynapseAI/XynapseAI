@@ -1,14 +1,13 @@
-// pages/api/coingecko/info.js
 import axios from 'axios';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Phương thức không được phép' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { id } = req.query;
   if (!id) {
-    return res.status(400).json({ error: 'Thiếu ID token' });
+    return res.status(400).json({ error: 'Missing token ID' });
   }
 
   try {
@@ -23,9 +22,8 @@ export default async function handler(req, res) {
     });
     return res.status(200).json({ data: { [id]: response.data } });
   } catch (error) {
-    console.error('Error fetching CoinGecko info:', error.response?.data || error.message);
     return res.status(error.response?.status || 500).json({
-      error: error.response?.data?.message || 'Không thể tải thông tin token',
+      error: error.response?.data?.message || 'Failed to fetch token information',
     });
   }
 }

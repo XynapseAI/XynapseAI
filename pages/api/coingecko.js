@@ -1,4 +1,3 @@
-// pages/api/coingecko.js
 import axios from 'axios';
 import rateLimit from 'express-rate-limit';
 import { query, validationResult } from 'express-validator';
@@ -7,7 +6,6 @@ import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
 
-// Logger setup
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
@@ -17,25 +15,22 @@ const logger = winston.createLogger({
   ],
 });
 
-// Rate limiter: 20 requests per minute per IP
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   message: { error: 'Too many requests, please try again later.' },
 });
 
-// Configure axios retry
 axiosRetry(axios, {
   retries: 3,
   retryDelay: (retryCount) => retryCount * 1000,
   retryCondition: (error) => error.response?.status === 429,
 });
 
-// Validation middleware
 const validate = [
   query('action')
     .optional()
-    .isIn(['market-info', 'search', 'public-treasury', 'tickers', 'coin-details']) // Add 'coin-details'
+    .isIn(['market-info', 'search', 'public-treasury', 'tickers', 'coin-details'])
     .withMessage('Invalid action'),
   query('ids').optional().isString().isLength({ max: 100 }).withMessage('Invalid ids'),
   query('convert').optional().isIn(['usd', 'eur', 'btc']).withMessage('Invalid currency'),
@@ -48,7 +43,7 @@ const validate = [
     .isIn(['bitcoin', 'ethereum'])
     .withMessage('Invalid token type'),
   query('id')
-    .if(query('action').isIn(['tickers', 'coin-details'])) // Add 'coin-details'
+    .if(query('action').isIn(['tickers', 'coin-details']))
     .notEmpty()
     .isString()
     .isLength({ max: 100 })
@@ -61,14 +56,9 @@ const validate = [
 ];
 
 export default async function handler(req, res) {
-  // Apply helmet for security headers
   helmet()(req, res, () => {});
 
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const startTime = Date.now();
-  logger.info(`Request to ${req.url} from IP ${ip}, params: ${JSON.stringify(req.query)}`);
-
-  // Apply rate limiter
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
@@ -79,21 +69,19 @@ export default async function handler(req, res) {
   }
 
   if (req.method !== 'GET') {
-    logger.warn(`Invalid method ${req.method} for ${req.url}`);
+    logger.warn(`Invalid method ${req.method}`);
     return res.status(405).json({ detail: 'Method not allowed' });
   }
 
-  // Validate query parameters
   await Promise.all(validate.map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    logger.warn(`Validation errors for ${req.url}: ${JSON.stringify(errors.array())}`);
+    logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`);
     return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
   }
 
   const { action, ids, convert, limit, start, query, recaptchaToken, id } = req.query;
 
-  // Verify reCAPTCHA, except for search action
   if (action !== 'search') {
     try {
       await verifyRecaptcha(recaptchaToken, action || 'fetch_market_data', ip);
@@ -103,20 +91,19 @@ export default async function handler(req, res) {
     }
   }
 
-  // Check API key
   const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
   if (!COINGECKO_API_KEY) {
-    logger.error('COINGECKO_API_KEY is not configured');
+    logger.error('COINGECKO_API_KEY not configured');
     return res.status(500).json({ detail: 'Server configuration error: Missing COINGECKO_API_KEY' });
   }
 
   try {
     if (action === 'list-all') {
-      logger.warn(`Attempt to access disabled endpoint: ${req.url}`);
+      logger.warn(`Attempt to access disabled endpoint`);
       return res.status(404).json({ detail: 'Endpoint disabled' });
     } else if (action === 'market-info') {
       if (!ids) {
-        logger.warn(`Missing ids parameter for ${req.url}`);
+        logger.warn(`Missing ids parameter`);
         return res.status(400).json({ detail: 'Missing ids parameter' });
       }
       const response = await axios.get('https://api.coingecko.com/api/v3/coins/markets', {
@@ -129,16 +116,13 @@ export default async function handler(req, res) {
           sparkline: false,
           price_change_percentage: '24h',
         },
-warden: {
-          headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
-          timeout: 10000,
-        },
+        headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
+        timeout: 10000,
       });
-      logger.info(`Successfully fetched market info for ${ids}, duration: ${Date.now() - startTime}ms`);
       return res.status(200).json(response.data);
     } else if (action === 'search') {
       if (!query) {
-        logger.warn(`Missing query parameter for ${req.url}`);
+        logger.warn(`Missing query parameter`);
         return res.status(400).json({ detail: 'Missing query parameter' });
       }
       const response = await axios.get('https://api.coingecko.com/api/v3/search', {
@@ -146,11 +130,10 @@ warden: {
         headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
         timeout: 10000,
       });
-      logger.info(`Successfully searched for ${query}, duration: ${Date.now() - startTime}ms`);
       return res.status(200).json(response.data.coins);
     } else if (action === 'public-treasury') {
       if (!tokenType) {
-        logger.warn(`Missing tokenType parameter for ${req.url}`);
+        logger.warn(`Missing tokenType parameter`);
         return res.status(400).json({ detail: 'Missing tokenType parameter' });
       }
       const response = await axios.get(
@@ -160,11 +143,10 @@ warden: {
           timeout: 10000,
         }
       );
-      logger.info(`Successfully fetched public treasury data for ${tokenType}, duration: ${Date.now() - startTime}ms`);
       return res.status(200).json(response.data);
     } else if (action === 'tickers') {
       if (!id) {
-        logger.warn(`Missing id parameter for ${req.url}`);
+        logger.warn(`Missing id parameter`);
         return res.status(400).json({ detail: 'Missing id parameter' });
       }
       const response = await axios.get(`https://api.coingecko.com/api/v3/coins/${id}/tickers`, {
@@ -172,11 +154,10 @@ warden: {
         headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
         timeout: 10000,
       });
-      logger.info(`Successfully fetched tickers for ${id}, duration: ${Date.now() - startTime}ms`);
       return res.status(200).json(response.data);
-    } else if (action === 'coin-details') { // New action for coin details
+    } else if (action === 'coin-details') {
       if (!id) {
-        logger.warn(`Missing id parameter for ${req.url}`);
+        logger.warn(`Missing id parameter`);
         return res.status(400).json({ detail: 'Missing id parameter' });
       }
       const response = await axios.get(`https://api.coingecko.com/api/v3/coins/${id}`, {
@@ -191,7 +172,6 @@ warden: {
         headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
         timeout: 10000,
       });
-      logger.info(`Successfully fetched coin details for ${id}, duration: ${Date.now() - startTime}ms`);
       return res.status(200).json(response.data);
     } else {
       const response = await axios.get('https://api.coingecko.com/api/v3/coins/markets', {
@@ -206,7 +186,6 @@ warden: {
         headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
         timeout: 10000,
       });
-      logger.info(`Successfully fetched market data, duration: ${Date.now() - startTime}ms`);
       return res.status(200).json(response.data);
     }
   } catch (error) {

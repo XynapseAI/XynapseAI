@@ -42,11 +42,9 @@ export default async function handler(req, res) {
 
   const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
-  console.log(`[TwitterSearch] Request received: ${req.url}, IP: ${ip}`);
 
   if (req.method !== 'POST') {
     logger.warn(`Invalid method ${req.method} for ${req.url}`);
-    console.log(`[TwitterSearch] Invalid method: ${req.method}`);
     return res.status(405).json({ detail: 'Method not allowed' });
   }
 
@@ -56,7 +54,6 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     logger.error(`Rate limit error: ${err.message}`);
-    console.log(`[TwitterSearch] Rate limit error: ${err.message}`);
     return res.status(429).json({ success: false, tweets: [], message: 'Rate limit exceeded, try again later.' });
   }
 
@@ -64,17 +61,14 @@ export default async function handler(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`);
-    console.log(`[TwitterSearch] Validation errors: ${JSON.stringify(errors.array())}`);
     return res.status(400).json({ errors: errors.array() });
   }
 
   const { query, tokenSymbol } = req.body;
   logger.info(`Processing Twitter search: query="${query}", tokenSymbol="${tokenSymbol || 'none'}"`);
-  console.log(`[TwitterSearch] Query: ${query}, Token: ${tokenSymbol || 'none'}`);
 
   if (!process.env.TWITTER_BEARER_TOKEN) {
     logger.error('TWITTER_BEARER_TOKEN is not configured');
-    console.log('[TwitterSearch] Error: TWITTER_BEARER_TOKEN missing');
     return res.status(500).json({
       success: false,
       tweets: [],
@@ -87,7 +81,6 @@ export default async function handler(req, res) {
   const cached = global.tweetCache?.[cacheKey];
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
     logger.info(`Using cached tweets for ${cacheKey}`);
-    console.log(`[TwitterSearch] Using cache for ${cacheKey}`);
     return res.status(200).json({
       success: true,
       tweets: cached.data,
@@ -98,7 +91,6 @@ export default async function handler(req, res) {
   const trySearch = async (searchQuery) => {
     try {
       logger.info(`Calling Twitter/X API with query: ${searchQuery}`);
-      console.log(`[TwitterSearch] Calling Twitter/X API with: ${searchQuery}`);
       const params = new URLSearchParams({
         query: searchQuery,
         'tweet.fields': 'created_at,text,public_metrics,author_id',
@@ -117,7 +109,6 @@ export default async function handler(req, res) {
         reset: response.headers.get('x-rate-limit-reset') || 'unknown',
       };
       logger.info(`Twitter/X API response: status=${response.status}, rateLimit=${JSON.stringify(rateLimit)}`);
-      console.log(`[TwitterSearch] API status: ${response.status}, RateLimit: ${JSON.stringify(rateLimit)}`);
 
       const data = await response.json();
       if (!response.ok) {
@@ -126,7 +117,6 @@ export default async function handler(req, res) {
 
       const tweets = data.data || [];
       logger.info(`Raw tweets received: ${tweets.length}`);
-      console.log(`[TwitterSearch] Raw tweets: ${tweets.length}`);
 
       const MIN_LIKES = 10;
       const formattedTweets = tweets
@@ -143,7 +133,6 @@ export default async function handler(req, res) {
         }));
 
       logger.info(`Filtered tweets (likes >= ${MIN_LIKES}): ${formattedTweets.length}`);
-      console.log(`[TwitterSearch] Filtered tweets: ${formattedTweets.length}`);
 
       return formattedTweets;
     } catch (error) {
@@ -156,7 +145,6 @@ export default async function handler(req, res) {
 
     if (formattedTweets.length === 0) {
       logger.info('No tweets found, trying fallback query');
-      console.log('[TwitterSearch] No tweets found, trying fallback: ${tokenSymbol}');
       formattedTweets = await trySearch(`${tokenSymbol || 'XRP'} -is:retweet lang:en`);
     }
 
@@ -179,7 +167,6 @@ export default async function handler(req, res) {
     if (!global.tweetCache) global.tweetCache = {};
     global.tweetCache[cacheKey] = { data: formattedTweets, timestamp: Date.now() };
     logger.info(`Saved ${tweetAnalyses.length} tweets to tweetAnalysis and cache`);
-    console.log(`[TwitterSearch] Saved ${tweetAnalyses.length} tweets`);
 
     return res.status(200).json({
       success: true,
@@ -188,10 +175,8 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     logger.error(`Twitter/X API error: ${error.message}`);
-    console.log(`[TwitterSearch] Error: ${error.message}`);
     if (error.response?.status === 429 && cached) {
       logger.info(`API limit reached, using cached tweets for ${cacheKey}`);
-      console.log(`[TwitterSearch] API limit reached, using cache`);
       return res.status(200).json({
         success: true,
         tweets: cached.data,
@@ -200,7 +185,6 @@ export default async function handler(req, res) {
     }
     if (error.response?.status === 429) {
       logger.warn('Twitter/X API rate limit reached');
-      console.log('[TwitterSearch] Rate limit reached');
       return res.status(200).json({
         success: false,
         tweets: [],

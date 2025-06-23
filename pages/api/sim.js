@@ -267,7 +267,6 @@ export default async function handler(req, res) {
 
       logger.info(`Processed top holders data: ${data.length} holders`);
       if (process.env.NODE_ENV === 'development') {
-        console.log('Processed top holders data (first 5):', data.slice(0, 5));
       }
 
       return res.status(200).json({ success: true, data });
@@ -301,7 +300,6 @@ export default async function handler(req, res) {
 
       logger.info(`Processed wallet balances data: ${data.length} tokens`);
       if (process.env.NODE_ENV === 'development') {
-        console.log('Processed wallet balances data (first 5):', data.slice(0, 5));
       }
 
       return res.status(200).json({ success: true, data });
@@ -332,7 +330,6 @@ export default async function handler(req, res) {
 
       logger.info(`Processed transactions data: ${data.length} transactions`);
       if (process.env.NODE_ENV === 'development') {
-        console.log('Processed transactions data (first 5):', data.slice(0, 5));
       }
 
       return res.status(200).json({ success: true, data });

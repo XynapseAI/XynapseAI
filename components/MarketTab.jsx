@@ -16,11 +16,9 @@ import 'react-toastify/dist/ReactToastify.css';
 const logger = {
   log: (message, data) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[MarketTab] ${message}`, data);
     }
   },
   error: (message, data) => {
-    console.error(`[MarketTab] ${message}`, data);
   },
 };
 

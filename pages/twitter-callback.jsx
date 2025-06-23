@@ -33,7 +33,6 @@ export default function TwitterCallback() {
           await handleTwitterCallback({ code, state, walletAddress: address });
           router.push('/dashboard');
         } catch (error) {
-          console.error('Lỗi xử lý callback Twitter:', error);
           router.push('/dashboard?error=twitter-auth-failed');
         }
       }
@@ -43,7 +42,7 @@ export default function TwitterCallback() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black text-white">
-      <p>Đang xử lý kết nối Twitter...</p>
+      <p>Processing Twitter connection...</p>
     </div>
   );
 }

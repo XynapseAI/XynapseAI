@@ -6,7 +6,6 @@ import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
 
-// Logger setup
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
@@ -16,21 +15,18 @@ const logger = winston.createLogger({
   ],
 });
 
-// Rate limiter
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
   message: { error: 'Too many requests, please try again later.' },
 });
 
-// Configure axios retry
 axiosRetry(axios, {
   retries: 3,
   retryDelay: (retryCount) => retryCount * 1000,
   retryCondition: (error) => error.response?.status === 429,
 });
 
-// Validation middleware
 const validate = [
   query('id').notEmpty().isString().isLength({ max: 100 }).withMessage('Invalid token ID'),
   query('vs_currency').optional().isIn(['usd', 'eur', 'btc']).withMessage('Invalid currency'),
@@ -39,14 +35,9 @@ const validate = [
 ];
 
 export default async function handler(req, res) {
-  // Apply helmet
   helmet()(req, res, () => {});
 
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const startTime = Date.now();
-  logger.info(`Request to ${req.url} from IP ${ip}`);
-
-  // Apply rate limiter
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
@@ -56,17 +47,15 @@ export default async function handler(req, res) {
     return res.status(429).json({ detail: 'Rate limit exceeded, please try again later.' });
   }
 
-  // Validate query parameters
   await Promise.all(validate.map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    logger.warn(`Validation errors for ${req.url}: ${JSON.stringify(errors.array())}`);
+    logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`);
     return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
   }
 
   const { id, vs_currency = 'usd', days = '30', recaptchaToken } = req.query;
 
-  // Verify reCAPTCHA
   try {
     await verifyRecaptcha(recaptchaToken, 'fetch_price_history', ip);
   } catch (error) {
@@ -74,10 +63,9 @@ export default async function handler(req, res) {
     return res.status(403).json({ detail: `reCAPTCHA error: ${error.message}` });
   }
 
-  // Check API key
   const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
   if (!COINGECKO_API_KEY) {
-    logger.error('COINGECKO_API_KEY is not configured');
+    logger.error('COINGECKO_API_KEY not configured');
     return res.status(500).json({ detail: 'Server configuration error: Missing COINGECKO_API_KEY' });
   }
 
@@ -100,15 +88,14 @@ export default async function handler(req, res) {
 
     if (parsedDays === 0.5) {
       prices = prices
-        .filter((_, index) => index % Math.ceil(prices.length / 144) === 0) // Xóa 'value', chỉ giữ 'index'
+        .filter((_, index) => index % Math.ceil(prices.length / 144) === 0)
         .slice(-144);
     } else if (parsedDays === 1) {
       prices = prices
-        .filter((_, index) => index % Math.ceil(prices.length / 24) === 0) // Xóa 'value', chỉ giữ 'index'
+        .filter((_, index) => index % Math.ceil(prices.length / 24) === 0)
         .slice(-24);
     }
 
-    logger.info(`Successfully fetched price history for ${id}, duration: ${Date.now() - startTime}ms`);
     return res.status(200).json({ prices });
   } catch (err) {
     logger.error(`Error fetching historical data: ${err.message}`, {

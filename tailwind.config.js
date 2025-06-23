@@ -101,9 +101,9 @@ module.exports = {
         },
       },
       animation: {
-        'matrix-flip': 'matrixFlip 0.4s ease-in-out', // Tăng thời gian để rõ hiệu ứng lật
+        'matrix-flip': 'matrixFlip 0.4s ease-in-out', 
         flicker: 'flicker 0.3s linear 3',
-        'shuffle-position': 'shufflePosition 0.4s ease-in-out', // Đồng bộ với matrixFlip
+        'shuffle-position': 'shufflePosition 0.4s ease-in-out',
       },
       animationDelay: {
         '0': '0s',
