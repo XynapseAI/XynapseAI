@@ -1,14 +1,19 @@
-// utils/firebaseAdmin.js
-const admin = require('firebase-admin');
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
-const serviceAccount = require('../firebase/next-62115-firebase-adminsdk-fbsvc-831aef7d77.json');
+const serviceAccount = {
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+};
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`,
+let app;
+if (!initializeApp().length) {
+  app = initializeApp({
+    credential: cert(serviceAccount),
   });
 }
 
-const db = admin.firestore();
-module.exports = { admin, db };
+const db = getFirestore(app);
+
+export { db };
