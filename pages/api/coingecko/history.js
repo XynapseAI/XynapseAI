@@ -100,11 +100,11 @@ export default async function handler(req, res) {
 
     if (parsedDays === 0.5) {
       prices = prices
-        .filter(([timestamp], index) => index % Math.ceil(prices.length / 144) === 0)
+        .filter((_, index) => index % Math.ceil(prices.length / 144) === 0) // Xóa 'value', chỉ giữ 'index'
         .slice(-144);
     } else if (parsedDays === 1) {
       prices = prices
-        .filter(([timestamp], index) => index % Math.ceil(prices.length / 24) === 0)
+        .filter((_, index) => index % Math.ceil(prices.length / 24) === 0) // Xóa 'value', chỉ giữ 'index'
         .slice(-24);
     }
 

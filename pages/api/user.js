@@ -1,12 +1,12 @@
 // pages/api/user.js
-const { db } = require('../../utils/firebaseAdmin');
-const { getServerSession } = require('next-auth/next');
-const { authOptions } = require('./auth/[...nextauth]');
-const { verifyRecaptcha } = require('../../utils/verifyRecaptcha');
-const rateLimit = require('express-rate-limit');
-const { body, query, validationResult } = require('express-validator');
-const winston = require('winston');
-const helmet = require('helmet');
+import { db } from '../../utils/firebaseAdmin.js';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from './auth/[...nextauth].js';
+import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
+import rateLimit from 'express-rate-limit';
+import { body, query, validationResult } from 'express-validator';
+import winston from 'winston';
+import helmet from 'helmet';
 
 const logger = winston.createLogger({
   level: 'info',

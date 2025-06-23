@@ -19,7 +19,7 @@ export const authOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, profile }) {
       try {
         const userRef = db.collection('users').doc(user.id);
         const userDoc = await userRef.get();

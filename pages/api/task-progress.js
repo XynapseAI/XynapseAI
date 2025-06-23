@@ -1,11 +1,11 @@
 // pages/api/task-progress.js
-const { db, admin } = require('../../utils/firebaseAdmin');
-const { getServerSession } = require('next-auth/next');
-const { authOptions } = require('./auth/[...nextauth]');
-const rateLimit = require('express-rate-limit');
-const { query, validationResult } = require('express-validator');
-const winston = require('winston');
-const helmet = require('helmet');
+import { db, admin } from '../../utils/firebaseAdmin.js';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from './auth/[...nextauth].js';
+import rateLimit from 'express-rate-limit';
+import { query, validationResult } from 'express-validator';
+import winston from 'winston';
+import helmet from 'helmet';
 
 const logger = winston.createLogger({
   level: 'info',

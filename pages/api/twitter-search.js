@@ -1,10 +1,12 @@
 // pages/api/twitter-search.js
-require('dotenv').config({ path: '.env' });
-const { db } = require('../../utils/firebaseAdmin');
-const rateLimit = require('express-rate-limit');
-const { body, validationResult } = require('express-validator');
-const winston = require('winston');
-const helmet = require('helmet');
+import { config as dotenvConfig } from 'dotenv';
+import { db } from '../../utils/firebaseAdmin.js';
+import rateLimit from 'express-rate-limit';
+import { body, validationResult } from 'express-validator';
+import winston from 'winston';
+import helmet from 'helmet';
+
+dotenvConfig({ path: '.env' });
 
 const logger = winston.createLogger({
   level: 'info',

@@ -1,13 +1,15 @@
-require('dotenv').config({ path: '.env' });
-const { db } = require('../../utils/firebaseAdmin');
-const { braveSearch } = require('../../utils/braveSearch');
-const { verifyRecaptcha } = require('../../utils/verifyRecaptcha');
-const { requireAuth } = require('./middleware/auth');
-const rateLimit = require('express-rate-limit');
-const { body, validationResult } = require('express-validator');
-const winston = require('winston');
-const helmet = require('helmet');
-const axios = require('axios');
+import { config as dotenvConfig } from 'dotenv';
+import { db } from '../../utils/firebaseAdmin.js';
+import { braveSearch } from '../../utils/braveSearch.js';
+import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
+import { requireAuth } from './middleware/auth.js';
+import rateLimit from 'express-rate-limit';
+import { body, validationResult } from 'express-validator';
+import winston from 'winston';
+import helmet from 'helmet';
+import axios from 'axios';
+
+dotenvConfig({ path: '.env' });
 
 const logger = winston.createLogger({
   level: 'info',

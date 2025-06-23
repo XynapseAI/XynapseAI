@@ -1,15 +1,15 @@
 // pages/api/verify-wallet.js
-const { db } = require('../../utils/firebaseAdmin');
-const { ethers } = require('ethers');
-const { getServerSession } = require('next-auth/next');
-const { getCsrfToken } = require('next-auth/react');
-const { authOptions } = require('./auth/[...nextauth]');
-const { verifyRecaptcha } = require('../../utils/verifyRecaptcha');
-const rateLimit = require('express-rate-limit');
-const { body, validationResult } = require('express-validator');
-const { logger } = require('../../utils/logger');
-const helmet = require('helmet');
-const jwt = require('jsonwebtoken');
+import { db } from '../../utils/firebaseAdmin.js';
+import { ethers } from 'ethers';
+import { getServerSession } from 'next-auth/next';
+import { getCsrfToken } from 'next-auth/react';
+import { authOptions } from './auth/[...nextauth].js';
+import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
+import rateLimit from 'express-rate-limit';
+import { body, validationResult } from 'express-validator';
+import { logger } from '../../utils/logger.js';
+import helmet from 'helmet';
+import jwt from 'jsonwebtoken';
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,

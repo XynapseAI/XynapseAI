@@ -1,10 +1,10 @@
 // pages/api/daily-ai-interactions.js
-const { db } = require('../../utils/firebaseAdmin');
-const { requireAuth } = require('./middleware/auth');
-const rateLimit = require('express-rate-limit');
-const { query, validationResult } = require('express-validator');
-const winston = require('winston');
-const helmet = require('helmet');
+import { db } from '../../utils/firebaseAdmin.js';
+import { requireAuth } from './middleware/auth.js';
+import rateLimit from 'express-rate-limit';
+import { query, validationResult } from 'express-validator';
+import winston from 'winston';
+import helmet from 'helmet';
 
 const logger = winston.createLogger({
   level: 'info',

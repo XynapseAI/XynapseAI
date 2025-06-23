@@ -1,6 +1,6 @@
 // pages/api/tasks.js
-const { db } = require('../../utils/firebaseAdmin');
-const winston = require('winston');
+import { db } from '../../utils/firebaseAdmin';
+import winston from 'winston';
 
 const logger = winston.createLogger({
   level: 'info',

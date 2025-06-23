@@ -1,5 +1,5 @@
 // pages/api/connect-data.js
-const { db } = require('../../utils/firebaseAdmin');
+import { db } from '../../utils/firebaseAdmin';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
