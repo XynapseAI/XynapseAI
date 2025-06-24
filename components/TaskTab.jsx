@@ -99,9 +99,9 @@ export default function TaskTab({ recaptchaRef }) {
     } catch (err) {
       setError(
         err.response?.status === 429
-          ? 'API rate limit exceeded. Please try again later'
+          ? 'API rate limit exceeded. Please try again later.'
           : err.message.includes('reCAPTCHA')
-          ? 'reCAPTCHA verification failed. Please try again'
+          ? 'reCAPTCHA verification failed. Please try again.'
           : err.response?.data?.detail || 'Verification failed'
       );
     } finally {
@@ -113,60 +113,70 @@ export default function TaskTab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-plexmono w-[100%] min-h-[calc(100vh-4rem)] max-w-9xl mx-auto p-2 sm:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar mt-14 sm:mt-0 backdrop-blur-md"
+      className="font-courier w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
     >
-      <div className="w-full rounded-xl shadow-card p-4 backdrop-blur-md border border-gray-400">
-        <h2 className="text-lg font-bold text-white uppercase mb-4">Tasks</h2>
-        {error && <p className="text-red-500 text-sm mb-4">Error: {error}</p>}
+      <div className="w-full rounded-xl shadow-card p-3 md:p-6 backdrop-blur-md border border-gray-400">
+        <h2 className="text-base md:text-lg font-bold text-white uppercase mb-3 md:mb-4">Tasks</h2>
+        {error && <p className="text-red-500 text-xs md:text-sm mb-3 md:mb-4">Error: {error}</p>}
         {!tasks.length && !error && (
-          <p className="text-sm text-gray-600 text-center">Loading tasks...</p>
+          <p className="text-xs md:text-sm text-gray-600 text-center">Loading tasks...</p>
         )}
-        <div className="bg-tech grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[calc(100vh-12rem)] overflow-y-auto custom-scrollbar">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           {tasks.map((task) => (
             <div
               key={task.id}
-              className="p-4 bg-gray-800/50 rounded-xl border border-white/10 backdrop-blur-md"
+              className="p-3 md:p-4 bg-gray-800/50 rounded-lg border border-white/10 backdrop-blur-md flex flex-col"
             >
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                <div className="mb-2 sm:mb-0">
-                  <h3 className="text-sm font-semibold text-white">
-                    {task.isDaily && typeof task.description === 'string'
-                      ? task.description.replace(
-                          /\(\d+\/\d+\)/,
-                          `(${taskProgress[task.id] || 0}/${task.maxCompletions})`
-                        )
-                      : task.description}
-                  </h3>
-                  {task.link && (
-                    <a
-                      href={task.link.startsWith('http') ? task.link : `https://x.com/${task.link.replace('@', '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-neon-blue hover:underline"
-                    >
-                      {task.link}
-                    </a>
-                  )}
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-green">+{task.points} Points</span>
-                  <button
-                    onClick={() => handleVerifyTask(task)}
-                    disabled={isVerifying[task.id] || (task.isDaily && (taskProgress[task.id] || 0) >= task.maxCompletions)}
-                    className={`px-3 py-1 rounded-xl text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
-                      isVerifying[task.id] || (task.isDaily && (taskProgress[task.id] || 0) >= task.maxCompletions)
-                        ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
-                        : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
-                    }`}
+              <div className="flex-1">
+                <h3 className="text-xs md:text-sm font-semibold text-white mb-2">
+                  {task.isDaily && typeof task.description === 'string'
+                    ? task.description.replace(
+                        /\(\d+\/\d+\)/,
+                        `(${taskProgress[task.id] || 0}/${task.maxCompletions})`
+                      )
+                    : task.description}
+                </h3>
+                {task.link && (
+                  <a
+                    href={task.link.startsWith('http') ? task.link : `https://x.com/${task.link.replace('@', '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs md:text-sm text-neon-blue hover:underline"
                   >
-                    {isVerifying[task.id] ? 'Verifying...' : 'Verify'}
-                  </button>
-                </div>
+                    {task.link}
+                  </a>
+                )}
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs md:text-xs text-green">+{task.points} Points</span>
+                <button
+                  onClick={() => handleVerifyTask(task)}
+                  disabled={isVerifying[task.id] || (task.isDaily && (taskProgress[task.id] || 0) >= task.maxCompletions)}
+                  className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
+                    isVerifying[task.id] || (task.isDaily && (taskProgress[task.id] || 0) >= task.maxCompletions)
+                      ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
+                      : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
+                  }`}
+                >
+                  {isVerifying[task.id] ? 'Verifying...' : 'Verify'}
+                </button>
               </div>
             </div>
           ))}
         </div>
       </div>
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+      `}</style>
     </motion.div>
   );
 }

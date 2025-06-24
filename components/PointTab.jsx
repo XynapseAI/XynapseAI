@@ -123,10 +123,10 @@ export default function PointTab({ userData, error: propError, loading, handleAn
           err.response?.status === 429
             ? 'API rate limit exceeded. Please try again later.'
             : err.response?.status === 403
-            ? `reCAPTCHA verification failed: ${err.response?.data?.detail || 'Please try again.'}`
-            : err.response?.status === 500 && err.response?.data?.detail?.includes('index missing')
-            ? 'System error: Missing Firestore index. Please contact support.'
-            : 'Failed to load point data. Please try again later.'
+              ? `reCAPTCHA verification failed: ${err.response?.data?.detail || 'Please try again.'}`
+              : err.response?.status === 500 && err.response?.data?.detail?.includes('index missing')
+                ? 'System error: Missing Firestore index. Please contact support.'
+                : 'Failed to load point data. Please try again later.'
         );
       }
     }
@@ -148,101 +148,113 @@ export default function PointTab({ userData, error: propError, loading, handleAn
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="font-plexmono w-[100%] min-h-[calc(100vh-4rem)] max-w-10xl mx-auto p-2 sm:p-6 rounded-xl shadow-card overflow-y-auto custom-scrollbar mt-14 sm:mt-0 backdrop-blur-md flex flex-col"
-    >
-      <div className="w-full mx-auto h-full flex flex-col">
-        <div className="rounded-xl border border-gray-400 shadow-card p-4 mb-6 backdrop-blur-md">
-          <h2 className="text-lg font-bold text-white mb-4">Point History</h2>
-          <div className="h-64 sm:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={pointHistory} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                <CartesianGrid stroke="#404040" strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#FFFFFF"
-                  tick={{ fontSize: 12, fill: '#FFFFFF' }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis stroke="#FFFFFF" tick={{ fontSize: 12, fill: '#FFFFFF' }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1A1A1A', border: 'none', borderRadius: '0.5rem', padding: '0.5rem' }}
-                  labelStyle={{ color: '#FFFFFF' }}
-                  itemStyle={{ color: '#FFFFFF' }}
-                  cursor={{ stroke: '#FFFFFF', strokeWidth: 1 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="tweetPoints"
-                  stroke="#00BFFF"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ fill: '#00BFFF', r: 4 }}
-                  name="Tweet Points"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="aiPoints"
-                  stroke="#FFFFFF"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ fill: '#FFFFFF', r: 4 }}
-                  name="AI Points"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="taskPoints"
-                  stroke="#00FF00"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ fill: '#00FF00', r: 4 }}
-                  name="Task Points"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="font-plexmono w-full h-[calc(100vh-4rem)] max-w-screen-md md:max-w-full mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+  >
+    <div className="w-full flex flex-col">
+      <div className="rounded-xl border border-gray-400 shadow-card p-4 mb-4 backdrop-blur-md">
+        <h2 className="text-base font-bold text-white mb-3">Point History</h2>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={pointHistory} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+              <CartesianGrid stroke="#404040" strokeDasharray="3 3" />
+              <XAxis
+                dataKey="date"
+                stroke="#FFFFFF"
+                tick={{ fontSize: 10, fill: '#FFFFFF' }}
+                angle={-45}
+                textAnchor="end"
+                height={50}
+              />
+              <YAxis stroke="#FFFFFF" tick={{ fontSize: 10, fill: '#FFFFFF' }} />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#1A1A1A', border: 'none', borderRadius: '0.5rem', padding: '0.5rem' }}
+                labelStyle={{ color: '#FFFFFF' }}
+                itemStyle={{ color: '#FFFFFF' }}
+                cursor={{ stroke: '#FFFFFF', strokeWidth: 1 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="tweetPoints"
+                stroke="#00BFFF"
+                strokeWidth={1}
+                dot={false}
+                activeDot={{ fill: '#00BFFF', r: 3 }}
+                name="Tweet Points"
+              />
+              <Line
+                type="monotone"
+                dataKey="aiPoints"
+                stroke="#FFD700"
+                strokeWidth={1}
+                dot={false}
+                activeDot={{ fill: '#FFD700', r: 3 }}
+                name="AI Points"
+              />
+              <Line
+                type="monotone"
+                dataKey="taskPoints"
+                stroke="#00FF00"
+                strokeWidth={1}
+                dot={false}
+                activeDot={{ fill: '#00FF00', r: 3 }}
+                name="Task Points"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div className="flex-1 flex flex-col sm:flex-row gap-4">
+        <div className="flex-1 rounded-xl shadow-card p-3 flex flex-col justify-between bg-tech backdrop-blur-md border border-gray-400 min-h-[100px]">
+          <h3 className="text-sm font-semibold text-white">Total Points</h3>
+          <p className="text-4xl md:text-5xl font-bold text-center">{userData?.points || 0}</p>
+          {error && <p className="text-red-500 text-xs mt-2">Error: {error}</p>}
+          <button
+            onClick={handleAnalyzeTweetsWithRecaptcha}
+            className={`mt-2 px-3 py-1 rounded-lg text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
+              isAnalyzing || loading
+                ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
+                : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
+            }`}
+            disabled={isAnalyzing || loading}
+          >
+            {isAnalyzing ? 'Processing...' : 'Analyze Tweets'}
+          </button>
+        </div>
+        <div className="flex-1 rounded-xl shadow-card p-3 backdrop-blur-md bg-tech border border-gray-400 flex flex-col items-center justify-center min-h-[100px]"> {/* Changed to items-center justify-center */}
+          <h3 className="text-sm font-semibold text-white mb-2">AI Points</h3>
+          <div className="flex items-center justify-center gap-2 mt-10"> {/* Centered content */}
+            <p className="text-4xl md:text-5xl font-bold">{aiPoints}</p>
+            <p className={`text-xs font-semibold text-${aiGrowth.color}`}>
+              {aiGrowth.value}% {aiGrowth.value > 0 ? '↑' : aiGrowth.value < 0 ? '↓' : '–'}
+            </p>
           </div>
         </div>
-        <div className="flex-1 flex flex-col sm:flex-row space-y-6 sm:space-y-0 sm:space-x-6">
-          <div className="flex-1 rounded-xl shadow-card p-6 flex flex-col justify-between bg-tech backdrop-blur-md border border-gray-400">
-            <h3 className="text-base font-semibold text-white">Total Points</h3>
-            <p className="text-4xl font-bold text text-center">{userData?.points || 0}</p>
-            {error && <p className="text-red-500 text-xs mt-2">Error: {error}</p>}
-            <button
-              onClick={handleAnalyzeTweetsWithRecaptcha}
-              className={`mt-4 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
-                isAnalyzing || loading
-                  ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
-                  : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
-              }`}
-              disabled={isAnalyzing || loading}
-            >
-              {isAnalyzing ? 'Processing...' : 'Analyze Tweets'}
-            </button>
-          </div>
-          <div className="flex-1 rounded-xl shadow-card p-6 backdrop-blur-md bg-tech border border-gray-400 flex flex-col justify-between">
-            <h3 className="text-base font-semibold text-white mb-4">AI Points</h3>
-            <div className="flex text-center justify-center items-center mb-6">
-              <p className="text-5xl font-bold text text-center">{aiPoints}</p>
-              <p className={`text-xs font-semibold text-${aiGrowth.color} mt-4 ml-2`}>
-                {aiGrowth.value}% {aiGrowth.value > 0 ? '↑' : aiGrowth.value < 0 ? '↓' : '–'}
-              </p>
-            </div>
-          </div>
-          <div className="flex-1 rounded-xl shadow-card p-6 bg-tech backdrop-blur-md border border-gray-400 flex flex-col justify-between">
-            <h3 className="text-base font-semibold text-white mb-4">Task Points</h3>
-            <div className="flex text-center justify-center items-center mb-6">
-              <p className="text-5xl font-bold text text-center">{taskPoints}</p>
-              <p className={`text-xs font-semibold text-${taskGrowth.color} mt-4 ml-2`}>
-                {taskGrowth.value}% {taskGrowth.value > 0 ? '↑' : taskGrowth.value < 0 ? '↓' : '–'}
-              </p>
-            </div>
+        <div className="flex-1 rounded-xl shadow-card p-3 backdrop-blur-md bg-tech border border-gray-400 flex flex-col items-center justify-center min-h-[100px]"> {/* Changed to items-center justify-center */}
+          <h3 className="text-sm font-semibold text-white mb-2">Task Points</h3>
+          <div className="flex items-center justify-center gap-2 mt-10"> {/* Centered content */}
+            <p className="text-4xl md:text-5xl font-bold">{taskPoints}</p>
+            <p className={`text-xs font-semibold text-${taskGrowth.color}`}>
+              {taskGrowth.value}% {taskGrowth.value > 0 ? '↑' : taskGrowth.value < 0 ? '↓' : '–'}
+            </p>
           </div>
         </div>
       </div>
-    </motion.div>
-  );
+    </div>
+    <style jsx>{`
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 2px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+    `}</style>
+  </motion.div>
+);
 }

@@ -1,4 +1,3 @@
-// components/ProfileTab.jsx
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -224,9 +223,9 @@ export default function ProfileTab({ recaptchaRef }) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="font-plexmono w-[90%] min-h-[calc(100vh-4rem)] max-w-7xl mx-auto p-2 sm:p-6 bg-gray-900/95 rounded-xl shadow-card overflow-y-auto custom-scrollbar mt-14 sm:mt-0 backdrop-blur-md "
+        className="font-plexmono w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 bg-gray-900/95 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
       >
-        <p className="text-sm text-gray-600 text-center">Loading...</p>
+        <p className="text-sm md:text-base text-gray-600 text-center">Loading...</p>
       </motion.div>
     );
   }
@@ -236,9 +235,9 @@ export default function ProfileTab({ recaptchaRef }) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="font-plexmono w-[90%] min-h-[calc(100vh-4rem)] max-w-7xl mx-auto p-2 sm:p-6 bg-gray-900/95 rounded-xl shadow-card overflow-y-auto custom-scrollbar mt-14 sm:mt-0 backdrop-blur-md"
+        className="font-plexmono w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 bg-gray-900/95 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
       >
-        <p className="text-sm text-gray-600 text-center">Please sign in to view your profile.</p>
+        <p className="text-sm md:text-base text-gray-600 text-center">Please sign in to view your profile.</p>
       </motion.div>
     );
   }
@@ -247,39 +246,39 @@ export default function ProfileTab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-plexmono w-[100%] min-h-[calc(100vh)] max-w-10xl mx-auto p-2 sm:p-6 bg-tech rounded-xl shadow-card overflow-y-auto custom-scrollbar mt-12 sm:mt-0 backdrop-blur-md"
+      className="font-plexmono w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 bg-tech rounded-xl shadow-card overflow-y-auto custom-scrollbar"
     >
-      <div className="w-full rounded-xl shadow-card backdrop-blur-md p-6 mt-6">
-        {error && <p className="text-red-500 text-sm mb-4">Error: {error}</p>}
+      <div className="w-full rounded-xl shadow-card backdrop-blur-md p-4 md:p-6">
+        {error && <p className="text-red-500 text-sm md:text-base mb-4">Error: {error}</p>}
         {!userData && !error && (
-          <p className="text-sm text-gray-600 text-center">Loading profile...</p>
+          <p className="text-sm md:text-base text-gray-600 text-center">Loading profile...</p>
         )}
         {userData && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm font-bold text-white mb-3">TWITTER (X)</h3>
+              <h3 className="text-sm md:text-base font-bold text-white mb-3">TWITTER (X)</h3>
               <div className="flex items-center">
                 <img
                   src={userData.twitterPFP || '/default-avatar.png'}
                   alt={userData.twitterHandle}
-                  className="w-16 h-16 border border-white rounded-2xl mr-3"
+                  className="w-12 h-12 md:w-16 md:h-16 border border-white rounded-xl mr-2 md:mr-3"
                 />
-                <span className="text-sm text-white">{userData.twitterHandle || 'Not connected'}</span>
+                <span className="text-xs md:text-sm text-white">{userData.twitterHandle || 'Not connected'}</span>
               </div>
               <button
                 onClick={handleDisconnectTwitter}
-                className="w-1/3 mt-4 px-4 py-2 rounded-xl text-sm font-medium text-red hover:bg-white/15 transition-all duration-300 border-2 border-red backdrop-blur-md mx-auto"
+                className="w-full mt-3 md:mt-4 px-3 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium text-red-500 hover:bg-white/15 transition-all duration-300 border border-red-500/50 backdrop-blur-md"
               >
                 Log Out
               </button>
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm font-bold text-white mb-3">WALLET</h3>
-              <p className="text-sm text-white truncate">{userData.walletAddress || 'Not connected'}</p>
+              <h3 className="text-sm md:text-base font-bold text-white mb-3">WALLET</h3>
+              <p className="text-xs md:text-sm text-white truncate">{userData.walletAddress || 'Not connected'}</p>
               <button
                 onClick={handleConnectWallet}
                 disabled={isConnectingWallet || userData.walletAddress}
-                className={`w-1/2 mt-4 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md mx-auto ${
+                className={`w-full mt-3 md:mt-4 px-3 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
                   isConnectingWallet || userData.walletAddress
                     ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
                     : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
@@ -291,10 +290,10 @@ export default function ProfileTab({ recaptchaRef }) {
                 <button
                   onClick={handleDisconnectWallet}
                   disabled={isDisconnectingWallet}
-                  className={`w-1/2 mt-4 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 border-2 border-red backdrop-blur-md mx-auto ${
+                  className={`w-full mt-2 px-3 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${
                     isDisconnectingWallet
                       ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
-                      : 'bg-white/10 text-red hover:bg-white/15'
+                      : 'bg-white/10 text-red-500 hover:bg-white/15'
                   }`}
                 >
                   {isDisconnectingWallet ? 'Disconnecting...' : 'Disconnect'}
@@ -302,20 +301,32 @@ export default function ProfileTab({ recaptchaRef }) {
               )}
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm font-bold text-white mb-3">POINTS</h3>
-              <p className="text-5xl font-bold text-green-500 text-center mb-3">{userData.points || 12}</p>
+              <h3 className="text-sm md:text-base font-bold text-white mb-3">POINTS</h3>
+              <p className="text-3xl md:text-5xl font-bold text-green-500 text-center">{userData.points || 12}</p>
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm font-bold text-white mb-3">DAYS ACTIVE</h3>
-              <p className="text-2xl font-bold text-green-500 text-center mb-12">{getDaysActive()}</p>
+              <h3 className="text-sm md:text-base font-bold text-white mb-3">DAYS ACTIVE</h3>
+              <p className="text-xl md:text-2xl font-bold text-green-500 text-center">{getDaysActive()}</p>
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm font-bold text-white mb-3">TIER</h3>
-              <p className="text-sm text-center text-white mb-12">{userData.tier || 'Basic'}</p>
+              <h3 className="text-sm md:text-base font-bold text-white mb-3">TIER</h3>
+              <p className="text-xs md:text-sm text-center text-white">{userData.tier || 'Basic'}</p>
             </div>
           </div>
         )}
       </div>
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+      `}</style>
     </motion.div>
   );
 }

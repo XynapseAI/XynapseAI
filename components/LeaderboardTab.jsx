@@ -81,33 +81,33 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         rel="noopener noreferrer"
         className="grid grid-cols-12 gap-2 p-1 font-courier hover:bg-white/15 rounded-lg transition-all duration-300 border border-white/10 backdrop-blur-md"
       >
-        <div className="col-span-2 text-sm text-white">{rank}</div>
+        <div className="col-span-2 text-sm md:text-base text-white">{rank}</div>
         <div className="col-span-6 flex items-center">
           <img
             src={user.twitterPFP || '/default-avatar.png'}
             alt={user.twitterHandle}
-            className="w-6 h-6 rounded-full mr-2"
+            className="w-5 h-5 md:w-6 h-6 rounded-full mr-1 md:mr-2"
           />
-          <span className="font-courier text-xs text-white flex items-center">
+          <span className="font-courier text-xs md:text-sm text-white flex items-center">
             {user.twitterHandle || 'Anonymous'}
             {isCurrentUser && (
-              <span className="ml-2 text-xs font-medium text-white bg-blue-500 px-1 rounded">
+              <span className="ml-1 text-xs md:text-xs font-medium text-white bg-blue-500 px-1 rounded">
                 You
               </span>
             )}
             {user.isCreator && !isCurrentUser && (
-              <span className="ml-2 text-xs font-medium bg-red text-white px-1 rounded">
+              <span className="ml-1 text-xs md:text-xs font-medium bg-red text-white px-1 rounded">
                 Creator+
               </span>
             )}
             {user.isAiRank && !isCurrentUser && (
-              <span className="ml-2 text-xs font-medium text-white bg-yellow-500 px-1 rounded">
+              <span className="ml-1 text-xs md:text-xs font-medium text-white bg-yellow-500 px-1 rounded">
                 AI Hunter
               </span>
             )}
           </span>
         </div>
-        <div className="col-span-4 text-right text-sm text-white">{user.points || 0}</div>
+        <div className="col-span-4 text-right text-sm md:text-base text-white">{user.points || 0}</div>
       </a>
     );
   };
@@ -116,19 +116,19 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-courier w-[100%] min-h-[calc(100vh-4rem)] max-w-8xl mx-auto p-2 sm:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar mt-14 sm:mt-0 bg-tech backdrop-blur-md"
+      className="font-courier w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
     >
-      <div className="w-full flex flex-col lg:flex-row gap-4 mb-4 p-6">
-        <div className="w-full lg:w-1/2 rounded-xl p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
-          <h3 className="text-xl font-bold text-white mb-3 uppercase">Creator Rank</h3>
-          {loading && <p className="text-sm text-gray-600">Loading...</p>}
+      <div className="w-full flex flex-col md:flex-row gap-4 mb-4 p-4 md:p-6">
+        <div className="w-full md:w-1/2 rounded-xl p-3 md:p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
+          <h3 className="text-lg md:text-sm font-bold text-white mb-2 md:mb-3 uppercase">Creator Rank</h3>
+          {loading && <p className="text-xs md:text-sm text-gray-600">Loading...</p>}
           {(tabError || propError) && (
-            <p className="text-sm text-red-500">Error: {tabError || propError}</p>
+            <p className="text-xs md:text-sm text-red-500">Error: {tabError || propError}</p>
           )}
           {!loading && !(tabError || propError) && creators.length === 0 && (
-            <p className="text-sm text-gray-600">No top creators.</p>
+            <p className="text-xs md:text-sm text-gray-600">No top creators.</p>
           )}
-          <div className="grid grid-cols-12 gap-2 text-lg text-gray-600">
+          <div className="grid grid-cols-12 gap-2 text-sm md:text-sm text-gray-600">
             <div className="col-span-2">Rank</div>
             <div className="col-span-6">User</div>
             <div className="col-span-4 text-right">Points</div>
@@ -136,16 +136,16 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
           {userInfo && userInfo.isCreator && renderUserRow(userInfo, -1, true, creators)}
           {creators.map((user, index) => renderUserRow(user, index, false, creators))}
         </div>
-        <div className="w-full lg:w-1/2 rounded-xl p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
-          <h3 className="text-xl font-bold text-white mb-3 uppercase">AI Rank</h3>
-          {loading && <p className="text-sm text-gray-600">Loading...</p>}
+        <div className="w-full md:w-1/2 rounded-xl p-3 md:p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
+          <h3 className="text-lg md:text-sm font-bold text-white mb-2 md:mb-3 uppercase">AI Rank</h3>
+          {loading && <p className="text-xs md:text-sm text-gray-600">Loading...</p>}
           {(tabError || propError) && (
-            <p className="text-sm text-red-500">Error: {tabError || propError}</p>
+            <p className="text-xs md:text-sm text-red-500">Error: {tabError || propError}</p>
           )}
           {!loading && !(tabError || propError) && aiRank.length === 0 && (
-            <p className="text-sm text-gray-600">No AI rank users.</p>
+            <p className="text-xs md:text-sm text-gray-600">No AI rank users.</p>
           )}
-          <div className="grid grid-cols-12 gap-2 text-lg text-gray-600">
+          <div className="grid grid-cols-12 gap-2 text-sm md:text-sm text-gray-600">
             <div className="col-span-2">Rank</div>
             <div className="col-span-6">User</div>
             <div className="col-span-4 text-right">Points</div>
@@ -154,17 +154,16 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
           {aiRank.map((user, index) => renderUserRow(user, index, false, aiRank))}
         </div>
       </div>
-
-      <div className="flex flex-col w-full rounded-xl p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
-        <h3 className="text-xl font-bold text-white mb-3 text-center uppercase">Top 100 Rankings</h3>
-        {loading && <p className="text-sm text-gray-600">Loading...</p>}
+      <div className="w-full rounded-xl p-3 md:p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
+        <h3 className="text-lg md:text-sm font-bold text-white mb-2 md:mb-3 text-center uppercase">Top 100 Rankings</h3>
+        {loading && <p className="text-xs md:text-sm text-gray-600">Loading...</p>}
         {(tabError || propError) && (
-          <p className="text-sm text-red-500">Error: {tabError || propError}</p>
+          <p className="text-xs md:text-sm text-red-500">Error: {tabError || propError}</p>
         )}
         {!loading && !(tabError || propError) && rankings.length === 0 && (
-          <p className="text-sm text-gray-600">No ranking data.</p>
+          <p className="text-xs md:text-sm text-gray-600">No ranking data.</p>
         )}
-        <div className="grid grid-cols-12 gap-2 text-lg text-gray-400">
+        <div className="grid grid-cols-12 gap-2 text-sm md:text-sm text-gray-400">
           <div className="col-span-2">Rank</div>
           <div className="col-span-6">User</div>
           <div className="col-span-4 text-right">Points</div>
@@ -172,6 +171,18 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         {userInfo && renderUserRow(userInfo, -1, true, rankings)}
         {rankings.map((user, index) => renderUserRow(user, index, false, rankings))}
       </div>
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+      `}</style>
     </motion.div>
   );
 }

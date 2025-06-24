@@ -16,9 +16,11 @@ import 'react-toastify/dist/ReactToastify.css';
 const logger = {
   log: (message, data) => {
     if (process.env.NODE_ENV === 'development') {
+      console.log(message, data);
     }
   },
   error: (message, data) => {
+    console.error(message, data);
   },
 };
 
@@ -107,7 +109,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
             rehypePlugins={[rehypeHighlight]}
             components={{
               a: ({ href, children }) => (
-                <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                <a href={href} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
                   {children}
                 </a>
               ),
@@ -139,7 +141,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
                   <a
                     href={link}
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel="noreferrer"
                     className="text-sm text-blue-400 hover:underline"
                   >
                     {link.length > 30 ? `${link.slice(0, 30)}...` : link}
@@ -385,7 +387,7 @@ const WalletBalances = ({
                             <a
                               href={txUrl}
                               target="_blank"
-                              rel="noopener noreferrer"
+                              rel="noreferrer"
                               className="text-blue-400 hover:underline"
                               title={tx.hash}
                             >
@@ -396,7 +398,7 @@ const WalletBalances = ({
                             <a
                               href={fromUrl}
                               target="_blank"
-                              rel="noopener noreferrer"
+                              rel="noreferrer"
                               className="text-blue-400 hover:underline"
                               title={tx.from}
                             >
@@ -406,7 +408,7 @@ const WalletBalances = ({
                             <a
                               href={toUrl}
                               target="_blank"
-                              rel="noopener noreferrer"
+                              rel="noreferrer"
                               className="text-blue-400 hover:underline"
                               title={tx.to}
                             >
@@ -461,9 +463,9 @@ const MarketTab = ({ recaptchaRef }) => {
     selectedPair,
     selectedChain,
     analysis,
-    setAnalysis, // Added
+    setAnalysis,
     analysisLinks,
-    setAnalysisLinks, // Added
+    setAnalysisLinks,
     prediction,
     setPrediction,
     priceHistory,
@@ -488,8 +490,8 @@ const MarketTab = ({ recaptchaRef }) => {
     tickerData,
     isLoadingTickers,
     tickerError,
-    dailyMarketInteractions, // Add this
-  setDailyMarketInteractions,
+    dailyMarketInteractions,
+    setDailyMarketInteractions,
     setSearchQuery,
     setIsDropdownOpen,
     setSelectedChain,
@@ -519,7 +521,7 @@ const MarketTab = ({ recaptchaRef }) => {
   const searchInputRef = useRef(null);
   const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
   const [isWalletSearchOpen, setIsWalletSearchOpen] = useState(false);
-
+  const [isChartLoading, setIsChartLoading] = useState(false);
 
   const getPlatformImage = (chainValue) => {
     const platformKey = Object.keys(COINGECKO_TO_DUNE_CHAIN_MAP).find(
@@ -548,6 +550,16 @@ const MarketTab = ({ recaptchaRef }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [setIsDropdownOpen]);
 
+  // Debug priceHistory
+  useEffect(() => {
+    logger.log('Price History:', { priceHistory, selectedToken, timeRange });
+    if (selectedToken && timeRange) {
+      setIsChartLoading(true);
+      // Assume useMarketTabLogic handles data fetching; set loading false after fetch
+      setTimeout(() => setIsChartLoading(false), 1000); // Placeholder for async fetch
+    }
+  }, [selectedToken, timeRange, priceHistory]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -569,15 +581,257 @@ const MarketTab = ({ recaptchaRef }) => {
       {error && <p className="text-sm text-red-500 text-center">Error: {error}</p>}
       {!loading && !error && tokens.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 grid-rows-[1fr_1fr] gap-3 h-[calc(100%-2.5rem)] md:overflow-hidden overflow-y-auto hide-scrollbar">
-          {/* Top Left: Price Chart */}
+          {/* Top Left: Token Info */}
+          <div className="rounded-xl p-3 backdrop-blur-md border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-5rem)] sm:min-h-[300px]">
+            {selectedToken ? (
+              <>
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div className="flex items-center">
+                    {selectedToken.image && (
+                      <img
+                        src={selectedToken.image}
+                        alt={`${selectedToken.symbol} logo`}
+                        className="w-6 h-6 mr-2 rounded-full"
+                        onError={(e) => (e.target.src = '/fallback-image.png')}
+                      />
+                    )}
+                    <div>
+                      <h4 className="text-sm font-bold text-white">
+                        {selectedToken.name} ({selectedToken.symbol?.toUpperCase()})
+                      </h4>
+                      {selectedToken.market_cap_rank && (
+                        <span className="text-xs text-gray-400">Rank #{selectedToken.market_cap_rank}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="relative w-full sm:w-56" ref={dropdownRef}>
+                    <button
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs flex items-center w-full sm:w-56 border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300"
+                      aria-label="Select token"
+                    >
+                      {selectedToken ? (
+                        <>
+                          <img
+                            src={selectedToken.image}
+                            alt={`${selectedToken.symbol} logo`}
+                            className="w-4 h-4 mr-1.5"
+                            onError={(e) => (e.target.src = '/fallback-image.png')}
+                          />
+                          {selectedToken.symbol?.toUpperCase()}/USD
+                        </>
+                      ) : (
+                        'Select Token'
+                      )}
+                      <span className="ml-auto">{isDropdownOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {isDropdownOpen && (
+                      <div className="absolute z-20 bg-gray-800/95 rounded-lg mt-1 w-full sm:w-56 max-h-52 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
+                        <input
+                          type="text"
+                          placeholder="Search token (e.g., BTC, ETH)"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          ref={searchInputRef}
+                          className="bg-gray-700/80 text-white px-3 py-1.5 w-full rounded-t-lg text-xs border-b border-white/20 backdrop-blur-md focus:outline-none"
+                        />
+                        <div className="p-1.5">
+                          {(searchQuery ? searchResults : tokens.slice(0, 20)).map((token) => (
+                            <button
+                              key={token.id}
+                              onClick={() => debouncedHandleTokenSelect(token)}
+                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/15 rounded-md text-white text-xs transition-all duration-300"
+                            >
+                              {token.image && (
+                                <img
+                                  src={token.image}
+                                  alt={`${token.symbol} logo`}
+                                  className="w-4 h-4 mr-1.5"
+                                  onError={(e) => (e.target.src = '/fallback-image.png')}
+                                />
+                              )}
+                              {token.name} ({token.symbol?.toUpperCase()})
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Token Info Content */}
+                <div className="flex-1 md:overflow-y-auto sm:overflow-hidden">
+                  {/* Price Section */}
+                  <div className="mb-2 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg sm:text-xl font-bold text-white">
+                          {selectedToken.current_price != null
+                            ? `$${selectedToken.current_price.toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}`
+                            : 'N/A'}
+                        </p>
+                        <span
+                          className={`text-xs font-medium ${selectedToken.price_change_percentage_24h >= 0 ? 'text-green' : 'text-red'}`}
+                        >
+                          {selectedToken.price_change_percentage_24h != null
+                            ? `${selectedToken.price_change_percentage_24h.toFixed(2)}% (24h)`
+                            : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:gap-4 text-xs text-gray-200">
+                      <p>
+                        24h High:{' '}
+                        <span className="text-green font-bold">
+                          {selectedToken.high_24h != null
+                            ? `$${selectedToken.high_24h.toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}`
+                            : 'N/A'}
+                        </span>
+                      </p>
+                      <p className="sm:ml-2">
+                        24h Low:{' '}
+                        <span className="text-red font-bold">
+                          {selectedToken.low_24h != null
+                            ? `$${selectedToken.low_24h.toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}`
+                            : 'N/A'}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 m-2">
+                    <div>
+                      <h5 className="text-sm font-bold text-white mb-1 uppercase m-2">Market Stats</h5>
+                      <div className="grid grid-cols-1 gap-1 text-xs">
+                        <p className="text-gray-200">
+                          Market Cap:{' '}
+                          <span className="text-white font-bold">
+                            {selectedToken.market_cap != null
+                              ? `$${selectedToken.market_cap.toLocaleString('en-US')}`
+                              : 'N/A'}
+                          </span>
+                          {selectedToken.market_cap_change_percentage_24h != null && (
+                            <span
+                              className={`ml-1 text-xs ${selectedToken.market_cap_change_percentage_24h >= 0 ? 'text-green' : 'text-red'}`}
+                            >
+                              ({selectedToken.market_cap_change_percentage_24h.toFixed(2)}%)
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-gray-200">
+                          Fully Diluted Valuation:{' '}
+                          <span className="text-white font-bold">
+                            {selectedToken.fully_diluted_valuation != null
+                              ? `$${selectedToken.fully_diluted_valuation.toLocaleString('en-US')}`
+                              : 'N/A'}
+                          </span>
+                        </p>
+                        <p className="text-gray-200">
+                          24h Volume:{' '}
+                          <span className="text-white font-bold">
+                            {selectedToken.total_volume != null
+                              ? `$${selectedToken.total_volume.toLocaleString('en-US')}`
+                              : 'N/A'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h5 className="text-sm font-bold text-white uppercase m-2">Supply Stats</h5>
+                      <div className="grid grid-cols-1 gap-1 text-xs">
+                        <p className="text-gray-200">
+                          Circulating Supply:{' '}
+                          <span className="text-white font-bold">
+                            {selectedToken.circulating_supply != null
+                              ? `${selectedToken.circulating_supply.toLocaleString('en-US')}`
+                              : 'N/A'}
+                          </span>
+                        </p>
+                        <p className="text-gray-200">
+                          Total Supply:{' '}
+                          <span className="text-white font-bold">
+                            {selectedToken.total_supply != null
+                              ? `${selectedToken.total_supply.toLocaleString('en-US')}`
+                              : 'N/A'}
+                          </span>
+                        </p>
+                        <p className="text-gray-200">
+                          Max Supply:{' '}
+                          <span className="text-white font-bold">
+                            {selectedToken.max_supply != null
+                              ? `${selectedToken.max_supply.toLocaleString('en-US')}`
+                              : 'N/A'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h5 className="text-sm font-bold text-white uppercase mb-2">All-Time Stats</h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
+                        <p className="text-gray-200">
+                          ATH:{' '}
+                          <span className={typeof selectedToken.ath === 'number' ? (selectedToken.ath_change_percentage >= 0 ? 'text-green font-medium' : 'text-red font-medium') : 'text-white'}>
+                            {typeof selectedToken.ath === 'number'
+                              ? `$${selectedToken.ath.toLocaleString('en-US')}`
+                              : 'N/A'}
+                          </span>
+                        </p>
+                        <p className="text-gray-200">
+                          ATL:{' '}
+                          <span className={typeof selectedToken.atl === 'number' ? (selectedToken.atl_change_percentage >= 0 ? 'text-green font-medium' : 'text-red font-medium') : 'text-white'}>
+                            {typeof selectedToken.atl === 'number'
+                              ? `$${selectedToken.atl.toLocaleString('en-US')}`
+                              : 'N/A'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h5 className="text-sm font-bold text-white uppercase m-2">Additional Info</h5>
+                      <div className="text-xs">
+                        <p className="text-gray-200">
+                          Last Updated:{' '}
+                          <span className="text-white font-semibold">
+                            {selectedToken.last_updated
+                              ? new Date(selectedToken.last_updated).toLocaleString('en-US', {
+                                  dateStyle: 'medium',
+                                  timeStyle: 'short',
+                                })
+                              : 'N/A'}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-gray-400 text-center flex-1">Please select a token to view details.</p>
+            )}
+          </div>
+
+          {/* Top Right: Price Chart */}
           <div className="bg-gray-900/95 rounded-xl shadow-lg p-3 bg-tech backdrop-blur-md border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-4rem)]">
             <div className="flex flex-col sm:flex-row sm:justify-center mb-2 gap-1.5">
               <div className="flex space-x-1.5 justify-center">
                 <button
                   onClick={debouncedHandleAnalysis}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 border border-green-500 ${selectedToken && dailyMarketInteractions < 5
-                      ? 'text-green-500 hover:bg-white/15 hover:shadow-lg'
-                      : 'text-gray-400 cursor-not-allowed opacity-50'
+                    ? 'text-green-500 hover:bg-white/15 hover:shadow-lg'
+                    : 'text-gray-400 cursor-not-allowed opacity-50'
                     }`}
                   disabled={!selectedToken || dailyMarketInteractions >= 5}
                   aria-label="Analyze token"
@@ -587,8 +841,8 @@ const MarketTab = ({ recaptchaRef }) => {
                 <button
                   onClick={debouncedHandlePrediction}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 border border-blue-500 ${selectedToken && dailyMarketInteractions < 5
-                      ? 'text-blue-500 hover:bg-white/15 hover:shadow-lg'
-                      : 'text-gray-400 cursor-not-allowed opacity-50'
+                    ? 'text-blue-500 hover:bg-white/15 hover:shadow-lg'
+                    : 'text-gray-400 cursor-not-allowed opacity-50'
                     }`}
                   disabled={!selectedToken || dailyMarketInteractions >= 5}
                   aria-label="Predict token price"
@@ -609,7 +863,9 @@ const MarketTab = ({ recaptchaRef }) => {
                 </button>
               ))}
             </div>
-            {priceHistory.length > 0 ? (
+            {isChartLoading ? (
+              <p className="text-xs text-gray-400 text-center flex-1">Loading chart data...</p>
+            ) : priceHistory && priceHistory.length > 0 ? (
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={priceHistory} margin={{ top: 5, right: 15, bottom: 50, left: -15 }}>
@@ -628,7 +884,7 @@ const MarketTab = ({ recaptchaRef }) => {
                       tick={{ fontSize: 8, fill: '#FFFFFF' }}
                       domain={['auto', 'auto']}
                       width={50}
-                      tickFormatter={(value) => `$${value.toLocaleString('en-US')}`}
+                      tickFormatter={(value) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Area
@@ -655,253 +911,16 @@ const MarketTab = ({ recaptchaRef }) => {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-xs text-gray-400 text-center">No price data available.</p>
+              <p className="text-xs text-gray-400 text-center flex-1">
+                {selectedToken ? 'No price data available for this token.' : 'Please select a token to view the chart.'}
+              </p>
             )}
           </div>
 
-          {/* Top Right: Token Info */}
-          {selectedToken && (
-            <div className="bg-gray-800/95 rounded-xl p-3 backdrop-blur-md border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-5rem)] sm:min-h-[300px]">
-              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                <div className="flex items-center">
-                  {selectedToken.image && (
-                    <img
-                      src={selectedToken.image}
-                      alt={`${selectedToken.symbol} logo`}
-                      className="w-6 h-6 mr-2 rounded-full"
-                      onError={(e) => (e.target.src = '/fallback-image.png')}
-                    />
-                  )}
-                  <div>
-                    <h4 className="text-sm font-bold text-white">
-                      {selectedToken.name} ({selectedToken.symbol?.toUpperCase()})
-                    </h4>
-                    {selectedToken.market_cap_rank && (
-                      <span className="text-xs text-gray-400">Rank #{selectedToken.market_cap_rank}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="relative w-full sm:w-56" ref={dropdownRef}>
-                  <button
-                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs flex items-center w-full sm:w-56 border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300"
-                    aria-label="Select token"
-                  >
-                    {selectedToken ? (
-                      <>
-                        <img
-                          src={selectedToken.image}
-                          alt={`${selectedToken.symbol} logo`}
-                          className="w-4 h-4 mr-1.5"
-                          onError={(e) => (e.target.src = '/fallback-image.png')}
-                        />
-                        {selectedToken.symbol?.toUpperCase()}/USD
-                      </>
-                    ) : (
-                      'Select Token'
-                    )}
-                    <span className="ml-auto">{isDropdownOpen ? '▲' : '▼'}</span>
-                  </button>
-                  {isDropdownOpen && (
-                    <div className="absolute z-20 bg-gray-800/95 rounded-lg mt-1 w-full sm:w-56 max-h-52 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
-                      <input
-                        type="text"
-                        placeholder="Search token (e.g., BTC, ETH)"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        ref={searchInputRef}
-                        className="bg-gray-700/80 text-white px-3 py-1.5 w-full rounded-t-lg text-xs border-b border-white/20 backdrop-blur-md focus:outline-none"
-                      />
-                      <div className="p-1.5">
-                        {(searchQuery ? searchResults : tokens.slice(0, 20)).map((token) => (
-                          <button
-                            key={token.id}
-                            onClick={() => debouncedHandleTokenSelect(token)}
-                            className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/15 rounded-md text-white text-xs transition-all duration-300"
-                          >
-                            {token.image && (
-                              <img
-                                src={token.image}
-                                alt={`${token.symbol} logo`}
-                                className="w-4 h-4 mr-1.5"
-                                onError={(e) => (e.target.src = '/fallback-image.png')}
-                              />
-                            )}
-                            {token.name} ({token.symbol?.toUpperCase()})
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Token Info Content */}
-              <div className="flex-1 md:overflow-y-auto sm:overflow-hidden">
-                {/* Price Section */}
-                <div className="mb-2 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                      <p className="text-lg sm:text-xl font-bold text-white">
-                        {selectedToken.current_price != null
-                          ? `$${selectedToken.current_price.toLocaleString('en-US', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}`
-                          : 'N/A'}
-                      </p>
-                      <span
-                        className={`text-xs font-medium ${selectedToken.price_change_percentage_24h >= 0 ? 'text-green' : 'text-red'}`}
-                      >
-                        {selectedToken.price_change_percentage_24h != null
-                          ? `${selectedToken.price_change_percentage_24h.toFixed(2)}% (24h)`
-                          : 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:gap-4 text-xs text-gray-200">
-                    <p>
-                      24h High:{' '}
-                      <span className="text-green font-bold">
-                        {selectedToken.high_24h != null
-                          ? `$${selectedToken.high_24h.toLocaleString('en-US', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}`
-                          : 'N/A'}
-                      </span>
-                    </p>
-                    <p className="sm:ml-2">
-                      24h Low:{' '}
-                      <span className="text-red font-bold">
-                        {selectedToken.low_24h != null
-                          ? `$${selectedToken.low_24h.toLocaleString('en-US', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}`
-                          : 'N/A'}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 m-2">
-                  <div>
-                    <h5 className="text-sm font-bold text-white mb-1 uppercase m-2">Market Stats</h5>
-                    <div className="grid grid-cols-1 gap-1 text-xs">
-                      <p className="text-gray-200">
-                        Market Cap:{' '}
-                        <span className="text-white font-bold">
-                          {selectedToken.market_cap != null
-                            ? `$${selectedToken.market_cap.toLocaleString('en-US')}`
-                            : 'N/A'}
-                        </span>
-                        {selectedToken.market_cap_change_percentage_24h != null && (
-                          <span
-                            className={`ml-1 text-[10px] ${selectedToken.market_cap_change_percentage_24h >= 0 ? 'text-green' : 'text-red'}`}
-                          >
-                            ({selectedToken.market_cap_change_percentage_24h.toFixed(2)}%)
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-gray-200">
-                        Fully Diluted Valuation:{' '}
-                        <span className="text-white font-bold">
-                          {selectedToken.fully_diluted_valuation != null
-                            ? `$${selectedToken.fully_diluted_valuation.toLocaleString('en-US')}`
-                            : 'N/A'}
-                        </span>
-                      </p>
-                      <p className="text-gray-200">
-                        24h Volume:{' '}
-                        <span className="text-white font-bold">
-                          {selectedToken.total_volume != null
-                            ? `$${selectedToken.total_volume.toLocaleString('en-US')}`
-                            : 'N/A'}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h5 className="text-sm font-bold text-white uppercase m-2">Supply Stats</h5>
-                    <div className="grid grid-cols-1 gap-1 text-xs">
-                      <p className="text-gray-200">
-                        Circulating Supply:{' '}
-                        <span className="text-white font-bold">
-                          {selectedToken.circulating_supply != null
-                            ? `${selectedToken.circulating_supply.toLocaleString('en-US')}`
-                            : 'N/A'}
-                        </span>
-                      </p>
-                      <p className="text-gray-200">
-                        Total Supply:{' '}
-                        <span className="text-white font-bold">
-                          {selectedToken.total_supply != null
-                            ? `${selectedToken.total_supply.toLocaleString('en-US')}`
-                            : 'N/A'}
-                        </span>
-                      </p>
-                      <p className="text-gray-200">
-                        Max Supply:{' '}
-                        <span className="text-white font-bold">
-                          {selectedToken.max_supply != null
-                            ? `${selectedToken.max_supply.toLocaleString('en-US')}`
-                            : 'N/A'}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h5 className="text-sm font-bold text-white uppercase mb-2">All-Time Stats</h5>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
-                      <p className="text-gray-200">
-                        ATH:{' '}
-                        <span className={typeof selectedToken.ath === 'number' ? (selectedToken.ath_change_percentage >= 0 ? 'text-green font-bold' : 'text-red font-bold') : 'text-white'}>
-                          {typeof selectedToken.ath === 'number'
-                            ? `$${selectedToken.ath.toLocaleString('en-US')}`
-                            : 'N/A'}
-                        </span>
-                      </p>
-                      <p className="text-gray-200">
-                        ATL:{' '}
-                        <span className={typeof selectedToken.atl === 'number' ? (selectedToken.atl_change_percentage >= 0 ? 'text-green font-bold' : 'text-red font-bold') : 'text-white'}>
-                          {typeof selectedToken.atl === 'number'
-                            ? `$${selectedToken.atl.toLocaleString('en-US')}`
-                            : 'N/A'}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h5 className="text-base font-bold text-white uppercase m-2">Additional Info</h5>
-                    <div className="text-xs">
-                      <p className="text-gray-200">
-                        Last Updated:{' '}
-                        <span className="text-white font-bold">
-                          {selectedToken.last_updated
-                            ? new Date(selectedToken.last_updated).toLocaleString('en-US', {
-                              dateStyle: 'medium',
-                              timeStyle: 'short',
-                            })
-                            : 'N/A'}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Bottom Left: Top 100 Holders */}
-          {selectedToken && (
-            <div className="bg-gray-900 rounded-xl border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)]">
-              {isLoadingOnChain && <LoadingOverlay message="Loading on-chain data..." />}
-
+          <div className="bg-gray-900 rounded-xl border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)]">
+            {isLoadingOnChain && <LoadingOverlay message="Loading on-chain data..." />}
+            {selectedToken ? (
               <div className="flex-1 overflow-y-auto hide-scrollbar p-3">
                 <div className="flex justify-between items-center sticky top-0 mb-2">
                   {/* Left: Chain Dropdown */}
@@ -918,7 +937,7 @@ const MarketTab = ({ recaptchaRef }) => {
                             <img
                               src={getPlatformImage(selectedChain)}
                               alt={`${getAvailableChains().find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
-                              className="w-4 h-4 mr-1.5"
+                              className="w-4 h-4 mr-4"
                               onError={(e) => (e.target.src = '/fallback-image.png')}
                             />
                             <span className="text-xs">
@@ -926,7 +945,7 @@ const MarketTab = ({ recaptchaRef }) => {
                             </span>
                           </>
                         ) : (
-                          <div className="w-4 h-4 bg-gray-600 rounded-full mr-1.5"></div>
+                          <div className="w-4 h-4 bg-gray-600 rounded-full mr-4"></div>
                         )}
                       </span>
                       <span className="text-xs ml-1.5">{isChainDropdownOpen ? '▲' : '▼'}</span>
@@ -943,12 +962,12 @@ const MarketTab = ({ recaptchaRef }) => {
                                 setSelectedChain(chain.value);
                                 setIsChainDropdownOpen(false);
                               }}
-                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/15 rounded-md text-white text-xs transition-all duration-300"
+                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/15 rounded-md text-white font-medium text-xs"
                             >
                               <img
                                 src={getPlatformImage(chain.value)}
                                 alt={`${chain.label} logo`}
-                                className="w-4 h-4 mr-1.5"
+                                className="w-4 h-4 mr-4"
                                 onError={(e) => (e.target.src = '/fallback-image.png')}
                               />
                               {chain.label}
@@ -986,7 +1005,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     )}
                     <button
                       onClick={() => setIsWalletSearchOpen(!isWalletSearchOpen)}
-                      className="text-white p-1.5 rounded-lg transition-all duration-300 border border-white order-2"
+                      className="text-white p-1.5 rounded-lg transition-all duration-300 border border-white/20 backdrop-blur-md order-2"
                       aria-label="Toggle wallet search"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1043,92 +1062,98 @@ const MarketTab = ({ recaptchaRef }) => {
                   </p>
                 )}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-gray-400 text-center flex-1 p-3">Please select a token to view holders.</p>
+            )}
+          </div>
 
           {/* Bottom Right: Activity */}
-          {selectedToken && (
-            <div className="bg-gray-900 rounded-xl p-3 border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)] sm:min-h-[300px] min-h-[400px] overflow-auto hide-scrollbar">
-              <h3 className="text-xs font-bold text-white mb-2 text-center">Market Activity</h3>
-              {isLoadingTickers && <LoadingOverlay message="Loading ticker data..." />}
-              {tickerError && <p className="text-xs text-red-500 text-center flex-1">{tickerError}</p>}
-              {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
-                <div className="overflow-x-hidden md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
-                  <table className="w-full border border-gray-500 table-auto text-xs">
-                    <thead>
-                      <tr>
-                        <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[100px]">Market</th>
-                        <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[60px]">Pair</th>
-                        <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[80px]">Price (USD)</th>
-                        <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[100px]">Volume (USD)</th>
-                        <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[80px]">Spread (%)</th>
-                        <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[100px]">Last Traded</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tickerData.slice(0, 10).map((ticker, index) => (
-                        <tr key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}>
-                          <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              {ticker.market.logo && (
-                                <img
-                                  src={ticker.market.logo}
-                                  alt={`${ticker.market.name} logo`}
-                                  className="w-4 h-4"
-                                  onError={(e) => (e.target.src = '/fallback-image.png')}
-                                />
-                              )}
-                              <a
-                                href={ticker.trade_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-400 hover:underline truncate max-w-[80px]"
-                                title={ticker.market.name}
-                              >
-                                {ticker.market.name}
-                              </a>
-                            </div>
-                          </td>
-                          <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
-                            {ticker.base}/{ticker.target}
-                          </td>
-                          <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
-                            ${ticker.converted_last.usd?.toLocaleString('en-US', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }) || 'N/A'}
-                          </td>
-                          <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
-                            ${ticker.converted_volume.usd?.toLocaleString('en-US', {
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 0,
-                            }) || 'N/A'}
-                          </td>
-                          <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
-                            {ticker.bid_ask_spread_percentage?.toFixed(2) || 'N/A'}%
-                          </td>
-                          <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
-                            {ticker.last_traded_at
-                              ? new Date(ticker.last_traded_at).toLocaleString('en-US', {
-                                dateStyle: 'short',
-                                timeStyle: 'short',
-                              })
-                              : 'N/A'}
-                          </td>
+          <div className="bg-gray-900 rounded-xl p-3 border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)] sm:min-h-[300px] min-h-[400px] overflow-auto hide-scrollbar">
+            {selectedToken ? (
+              <>
+                <h3 className="text-xs font-bold text-white mb-2 text-center">Market Activity</h3>
+                {isLoadingTickers && <LoadingOverlay message="Loading ticker data..." />}
+                {tickerError && <p className="text-xs text-red-500 text-center flex-1">{tickerError}</p>}
+                {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
+                  <div className="overflow-x-hidden md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
+                    <table className="w-full border border-gray-500 table-auto text-xs">
+                      <thead>
+                        <tr>
+                          <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[100px]">Market</th>
+                          <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[60px]">Pair</th>
+                          <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[80px]">Price (USD)</th>
+                          <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[100px]">Volume (USD)</th>
+                          <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[80px]">Spread (%)</th>
+                          <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center min-w-[100px]">Last Traded</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                !isLoadingTickers && (
-                  <p className="text-xs text-gray-400 text-center flex-1">
-                    No ticker data available for {selectedToken.symbol?.toUpperCase()}.
-                  </p>
-                )
-              )}
-            </div>
-          )}
+                      </thead>
+                      <tbody>
+                        {tickerData.slice(0, 10).map((ticker, index) => (
+                          <tr key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}>
+                            <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {ticker.market.logo && (
+                                  <img
+                                    src={ticker.market.logo}
+                                    alt={`${ticker.market.name} logo`}
+                                    className="w-4 h-4"
+                                    onError={(e) => (e.target.src = '/fallback-image.png')}
+                                  />
+                                )}
+                                <a
+                                  href={ticker.trade_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-blue-400 hover:underline truncate max-w-[80px]"
+                                  title={ticker.market.name}
+                                >
+                                  {ticker.market.name}
+                                </a>
+                              </div>
+                            </td>
+                            <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
+                              {ticker.base}/{ticker.target}
+                            </td>
+                            <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
+                              ${ticker.converted_last.usd?.toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }) || 'N/A'}
+                            </td>
+                            <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
+                              ${ticker.converted_volume.usd?.toLocaleString('en-US', {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }) || 'N/A'}
+                            </td>
+                            <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
+                              {ticker.bid_ask_spread_percentage?.toFixed(2) || 'N/A'}%
+                            </td>
+                            <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
+                              {ticker.last_traded_at
+                                ? new Date(ticker.last_traded_at).toLocaleString('en-US', {
+                                    dateStyle: 'short',
+                                    timeStyle: 'short',
+                                  })
+                                : 'N/A'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  !isLoadingTickers && (
+                    <p className="text-xs text-gray-400 text-center flex-1">
+                      No ticker data available for {selectedToken.symbol?.toUpperCase()}.
+                    </p>
+                  )
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-gray-400 text-center flex-1 p-3">Please select a token to view market activity.</p>
+            )}
+          </div>
 
           {/* Wallet Balances Modal */}
           <WalletBalances

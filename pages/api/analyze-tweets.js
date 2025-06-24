@@ -34,7 +34,7 @@ const validate = [
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '1kb',
+      sizeLimit: '10kb',
     },
   },
 };
