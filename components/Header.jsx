@@ -1,5 +1,7 @@
+// components/Header.jsx
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
+import { Power } from 'lucide-react';
 
 export default function Header({ activeTab, setActiveTab, handleSignOut }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -34,7 +36,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
     if (container) {
       container.classList.add('active');
       const spans = container.querySelectorAll('span');
-      const positions = Array.from(spans).map(span => span.offsetLeft);
+      const positions = Array.from(spans).map((span) => span.offsetLeft);
       const charCount = spans.length;
 
       const shuffledIndices1 = Array.from({ length: charCount }, (_, i) => i);
@@ -78,7 +80,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
             'animate-matrix-flip',
             'animate-flicker',
             'animate-shuffle-position',
-            ...Array.from(span.classList).filter(c => c.startsWith('animation-delay-'))
+            ...Array.from(span.classList).filter((c) => c.startsWith('animation-delay-'))
           );
           span.style.removeProperty('--shuffle-offset-1');
           span.style.removeProperty('--shuffle-offset-2');
@@ -104,7 +106,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
     return text.split('').map((char, index) => (
       <span
         key={index}
-        className={`inline-block transform-style-3d transition-transform-opacity duration-300 ease-in-out ${char === ' ' ? '' : `animation-delay-${(index % 13) + 1}`}`}
+        className={`inline-block transform-style-3d transition-transform-opacity duration-300 ease-in-out ${char === ' ' ? '' : `animation-delay-${(index % 13) + 1}`
+          }`}
       >
         {char === ' ' ? '\u00A0' : char}
       </span>
@@ -112,7 +115,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
   };
 
   return (
-    <header className="h-200 sm:h-[7vh] bg-gray-900/90 border-b-2 rounded-xl p-3 flex justify-between items-center sticky top-0 z-20 font-plexmono">
+    <header className="h-100 sm:h-[7vh] bg-gray-900/90 border-b-2 rounded-xl p-3 flex justify-between items-center sticky top-0 z-20 font-plexmono">
       <div className="block sm:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -143,36 +146,38 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             onMouseEnter={handleMouseEnter}
-            className={`group px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-300 border border-white/20 text-white backdrop-blur-md perspective-1000 ${activeTab === tab.id ? 'bg-tech text-black' : ''}`}
+            className={`group px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-300 border border-white/20 text-white backdrop-blur-md perspective-1000 ${activeTab === tab.id ? 'bg-gray-400 text-black' : ''
+              }`}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <span className="matrix-text inline-block">
-              {renderMatrixText(tab.label)}
-            </span>
+            <span className="matrix-text inline-block">{renderMatrixText(tab.label)}</span>
           </motion.button>
         ))}
       </div>
 
-      <button
+      <motion.button
         onClick={handleSignOut}
-        className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 border border-white/20 text-red backdrop-blur-md"
+        className="fixed bottom-4 right-4 sm:static w-8 h-8 rounded-full text-red flex items-center justify-center border border-2 border-red backdrop-blur-md z-50 mr-4"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.9 }}
+        aria-label="Sign out"
       >
-        Sign Out
-      </button>
+        <Power size={20} />
+      </motion.button>
 
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
             ref={menuRef}
-            className="fixed top-0 left-0 w-3/4 max-w-xs h-full bg-gray-800/95 backdrop-blur-md z-30 flex flex-col p-4 sm:hidden border-r border-white/10"
+            className="fixed top-0 left-0 w-3/4 max-w-xs h-2/3 bg-black/80 backdrop-blur-lg z-30 flex flex-col p-4 sm:hidden border-r border-white/10"
             initial="closed"
             animate="open"
             exit="closed"
             variants={menuVariants}
           >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold text-white">Menu</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold text-white">MENU</h2>
               <button
                 onClick={() => setIsMenuOpen(false)}
                 className="text-white text-xl"
@@ -181,33 +186,33 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
                 ✕
               </button>
             </div>
-            <nav className="flex flex-col space-y-2">
+            <nav className="flex flex-col space-y-2 flex-grow overflow-y-auto">
               {tabs.map((tab) => (
                 <motion.button
                   key={tab.id}
                   onClick={() => handleTabClick(tab.id)}
                   onMouseEnter={handleMouseEnter}
-                  className={`group w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 border border-white/20 bg-white/10 text-neon-purple backdrop-blur-md hover:bg-white/15 hover:shadow-glow-neon perspective-1000 ${activeTab === tab.id ? 'bg-white text-black' : ''}`}
+                  className={`group w-1/2 text-left px-2 py-2 rounded-xl text-sm font-medium transition-all duration-300 border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/15 hover:shadow-glow-neon perspective-1000 ${activeTab === tab.id ? 'bg-white text-black' : ''
+                    }`}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                 >
-                  <span className="matrix-text inline-block group-hover:text-neon-blue">
+                  <span className="matrix-text inline-block">
                     {renderMatrixText(tab.label)}
                   </span>
                 </motion.button>
               ))}
-              <motion.button
-                onClick={() => {
-                  handleSignOut();
-                  setIsMenuOpen(false);
-                }}
-                className="w-full text-left px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-300 border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/15 hover:shadow-glow-neon"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                Sign Out
-              </motion.button>
             </nav>
+
+            <motion.button
+              onClick={handleSignOut}
+              className="fixed bottom-4 right-4 sm:static w-10 h-10 rounded-full text-red flex items-center justify-center border border-2 border-red backdrop-blur-md z-50"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              aria-label="Sign out"
+            >
+              <Power size={20} />
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -215,7 +220,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
-            className="fixed inset-0 bg-black/50 z-20 sm:hidden"
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-20 sm:hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

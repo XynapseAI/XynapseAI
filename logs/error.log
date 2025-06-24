@@ -3565,3 +3565,6 @@
 {"level":"error","message":"Missing reCAPTCHA token","timestamp":"2025-06-23T13:16:51.739Z"}
 {"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-23T13:18:58.677Z"}
 {"level":"error","message":"xAI API error: {\"code\":\"Some resource has been exhausted\",\"error\":\"Your team e5a733d3-b65d-4332-aeea-cd9d194ed4ed has either used all available credits or reached its monthly spending limit. To continue making API requests, please purchase more credits or raise your spending limit.\"}","timestamp":"2025-06-23T13:18:59.386Z"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-24T02:42:55.372Z"}
+{"detail":"Not signed in","level":"error","message":"Lỗi lấy tương tác AI:"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-24T02:50:55.093Z"}

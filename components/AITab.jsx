@@ -238,7 +238,7 @@ export default function AITab({ recaptchaRef }) {
           clearInterval(typingInterval);
           setTypingText('');
         }
-      }, 5);
+      }, 2);
 
       return () => clearInterval(typingInterval);
     }
@@ -390,7 +390,7 @@ export default function AITab({ recaptchaRef }) {
           </div>
         )}
         {chatHistory.length === 0 && !isLoading && (
-          <div className="text-sm text-gray-600 text-center">
+          <div className="text-xs text-gray-600 text-center">
             Start a conversation by entering a prompt below.
           </div>
         )}
@@ -400,13 +400,13 @@ export default function AITab({ recaptchaRef }) {
             className={`mb-3 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[70%] p-3 rounded-xl text-sm overflow-y-auto custom-scrollbar ${message.role === 'user'
+              className={`max-w-[70%] p-3 rounded-xl text-xs overflow-y-auto custom-scrollbar ${message.role === 'user'
                 ? 'max-w-[40%] bg-blue-500/20 text-white'
                 : 'max-w-[70%] text-white backdrop-blur-md'
                 } relative group`}
             >
               {message.role === 'assistant' && index === chatHistory.length - 1 && typingText ? (
-                <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeHighlight]}
@@ -416,7 +416,7 @@ export default function AITab({ recaptchaRef }) {
                   </ReactMarkdown>
                 </div>
               ) : (
-                <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeHighlight]}
@@ -459,7 +459,7 @@ export default function AITab({ recaptchaRef }) {
         ))}
         {isLoading && (
           <div className="mb-3 flex justify-start">
-            <div className="max-w-[70%] p-4 bg-gray-800/95 text-white text-sm rounded-xl flex items-center backdrop-blur-md">
+            <div className="max-w-[70%] p-4 bg-gray-800/95 text-white text-xs rounded-xl flex items-center backdrop-blur-md">
               <div className="wave-loading">
                 <span className="dot"></span>
                 <span className="dot"></span>
@@ -478,7 +478,7 @@ export default function AITab({ recaptchaRef }) {
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Enter your prompt..."
-            className="flex-1 px-4 py-2 bg-gray-900/95 text-white rounded-l-xl text-sm placeholder-gray-600 focus:outline-none focus:ring-2 backdrop-blur-md border border-green-400 resize-none whitespace-pre-wrap overflow-y-auto custom-scrollbar"
+            className="flex-1 px-4 py-2 bg-gray-900/95 text-white rounded-l-xl text-xs placeholder-gray-600 focus:outline-none focus:ring-2 backdrop-blur-md border border-gray-400 resize-none whitespace-pre-wrap overflow-y-auto custom-scrollbar"
             rows={1}
             disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
             ref={textareaRef}
@@ -486,7 +486,7 @@ export default function AITab({ recaptchaRef }) {
           />
           <button
             type="submit"
-            className={`px-4 py-2 rounded-r-xl text-sm font-medium transition-all duration-300 border border-green-400 backdrop-blur-md ${isLoading || totalDailyChats >= maxTotalDailyChats
+            className={`px-4 py-2 rounded-r-xl text-sm font-medium transition-all duration-300 border border-gray-400 backdrop-blur-md ${isLoading || totalDailyChats >= maxTotalDailyChats
               ? 'bg-gray-600 text-gray-200 cursor-not-allowed'
               : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
               }`}

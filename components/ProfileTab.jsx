@@ -1,3 +1,4 @@
+// components/ProfileTab.jsx
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -256,32 +257,33 @@ export default function ProfileTab({ recaptchaRef }) {
         {userData && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm font-bold text-white mb-3">Twitter</h3>
+              <h3 className="text-sm font-bold text-white mb-3">TWITTER (X)</h3>
               <div className="flex items-center">
                 <img
                   src={userData.twitterPFP || '/default-avatar.png'}
                   alt={userData.twitterHandle}
-                  className="w-20 h-20 border border-white rounded-2xl mr-3"
+                  className="w-16 h-16 border border-white rounded-2xl mr-3"
                 />
                 <span className="text-sm text-white">{userData.twitterHandle || 'Not connected'}</span>
               </div>
               <button
                 onClick={handleDisconnectTwitter}
-                className="mt-4 px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-red-500 hover:bg-white/15 transition-all duration-300 border border-white/20 backdrop-blur-md"
+                className="w-1/3 mt-4 px-4 py-2 rounded-xl text-sm font-medium text-red hover:bg-white/15 transition-all duration-300 border-2 border-red backdrop-blur-md mx-auto"
               >
-                Disconnect Twitter
+                Log Out
               </button>
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm font-bold text-white mb-3">Wallet</h3>
+              <h3 className="text-sm font-bold text-white mb-3">WALLET</h3>
               <p className="text-sm text-white truncate">{userData.walletAddress || 'Not connected'}</p>
               <button
                 onClick={handleConnectWallet}
                 disabled={isConnectingWallet || userData.walletAddress}
-                className={`mt-4 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${isConnectingWallet || userData.walletAddress
+                className={`w-1/2 mt-4 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md mx-auto ${
+                  isConnectingWallet || userData.walletAddress
                     ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
                     : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
-                  }`}
+                }`}
               >
                 {isConnectingWallet ? 'Connecting...' : 'Connect Wallet'}
               </button>
@@ -289,26 +291,27 @@ export default function ProfileTab({ recaptchaRef }) {
                 <button
                   onClick={handleDisconnectWallet}
                   disabled={isDisconnectingWallet}
-                  className={`mt-4 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${isDisconnectingWallet
+                  className={`w-1/2 mt-4 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 border-2 border-red backdrop-blur-md mx-auto ${
+                    isDisconnectingWallet
                       ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
-                      : 'bg-white/10 text-red-500 hover:bg-white/15'
-                    }`}
+                      : 'bg-white/10 text-red hover:bg-white/15'
+                  }`}
                 >
-                  {isDisconnectingWallet ? 'Disconnecting...' : 'Disconnect Wallet'}
+                  {isDisconnectingWallet ? 'Disconnecting...' : 'Disconnect'}
                 </button>
               )}
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm font-bold text-white mb-3">Points</h3>
+              <h3 className="text-sm font-bold text-white mb-3">POINTS</h3>
               <p className="text-5xl font-bold text-green-500 text-center mb-3">{userData.points || 12}</p>
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm font-bold text-white mb-3">Days Active</h3>
-              <p className="text-sm font-bold text-green-500 text-center mb-12">{getDaysActive()}</p>
+              <h3 className="text-sm font-bold text-white mb-3">DAYS ACTIVE</h3>
+              <p className="text-2xl font-bold text-green-500 text-center mb-12">{getDaysActive()}</p>
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm font-bold text-white mb-3">Tier</h3>
-              <p className="text-sm text-white">{userData.tier || 'Basic'}</p>
+              <h3 className="text-sm font-bold text-white mb-3">TIER</h3>
+              <p className="text-sm text-center text-white mb-12">{userData.tier || 'Basic'}</p>
             </div>
           </div>
         )}

@@ -27,7 +27,7 @@ const limiter = rateLimit({
 });
 
 const validate = [
-  body('prompt').isString().isLength({ min: 1, max: 1500 }).withMessage('Prompt must be a string between 1 and 1500 characters'),
+  body('prompt').isString().isLength({ min: 1, max: 3000 }).withMessage('Prompt must be a string between 1 and 3000 characters'),
   body('deepSearch').optional().isBoolean().withMessage('deepSearch must be a boolean'),
   body('tokenSymbol').optional().isString().isLength({ max: 20 }).withMessage('tokenSymbol must not exceed 20 characters'),
   body('recaptchaToken').isString().notEmpty().withMessage('reCAPTCHA token is required'),
@@ -36,7 +36,7 @@ const validate = [
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10kb', // Increased to match grok.js
+      sizeLimit: '15kb', // Increased to match grok.js
     },
   },
 };

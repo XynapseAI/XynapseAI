@@ -79,7 +79,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         href={`https://x.com/${user.twitterHandle}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="grid grid-cols-12 gap-2 p-2 hover:bg-white/15 rounded-lg transition-all duration-300 border border-white/10 backdrop-blur-md"
+        className="grid grid-cols-12 gap-2 p-1 font-courier hover:bg-white/15 rounded-lg transition-all duration-300 border border-white/10 backdrop-blur-md"
       >
         <div className="col-span-2 text-sm text-white">{rank}</div>
         <div className="col-span-6 flex items-center">
@@ -88,20 +88,20 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
             alt={user.twitterHandle}
             className="w-6 h-6 rounded-full mr-2"
           />
-          <span className="text-sm text-white flex items-center">
+          <span className="font-courier text-xs text-white flex items-center">
             {user.twitterHandle || 'Anonymous'}
             {isCurrentUser && (
-              <span className="ml-2 text-xs font-medium text-white bg-blue-500 px-2 py-1 rounded">
+              <span className="ml-2 text-xs font-medium text-white bg-blue-500 px-1 rounded">
                 You
               </span>
             )}
             {user.isCreator && !isCurrentUser && (
-              <span className="ml-2 text-xs font-medium bg-red text-white px-2 py-1 rounded">
+              <span className="ml-2 text-xs font-medium bg-red text-white px-1 rounded">
                 Creator+
               </span>
             )}
             {user.isAiRank && !isCurrentUser && (
-              <span className="ml-2 text-xs font-medium text-white bg-yellow-500 px-2 py-1 rounded">
+              <span className="ml-2 text-xs font-medium text-white bg-yellow-500 px-1 rounded">
                 AI Hunter
               </span>
             )}
@@ -116,10 +116,10 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-plexmono w-[95%] min-h-[calc(100vh-4rem)] max-w-8xl mx-auto p-2 sm:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar mt-14 sm:mt-0 backdrop-blur-md"
+      className="font-courier w-[100%] min-h-[calc(100vh-4rem)] max-w-8xl mx-auto p-2 sm:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar mt-14 sm:mt-0 bg-tech backdrop-blur-md"
     >
-      <div className="w-full flex flex-col lg:flex-row gap-4 mb-4">
-        <div className="w-full lg:w-1/2 rounded-xl p-4 overflow-y-auto custom-scrollbar bg-tech backdrop-blur-md border border-white/10">
+      <div className="w-full flex flex-col lg:flex-row gap-4 mb-4 p-6">
+        <div className="w-full lg:w-1/2 rounded-xl p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
           <h3 className="text-xl font-bold text-white mb-3 uppercase">Creator Rank</h3>
           {loading && <p className="text-sm text-gray-600">Loading...</p>}
           {(tabError || propError) && (
@@ -136,7 +136,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
           {userInfo && userInfo.isCreator && renderUserRow(userInfo, -1, true, creators)}
           {creators.map((user, index) => renderUserRow(user, index, false, creators))}
         </div>
-        <div className="w-full lg:w-1/2 rounded-xl p-4 overflow-y-auto custom-scrollbar bg-tech backdrop-blur-md border border-white/10">
+        <div className="w-full lg:w-1/2 rounded-xl p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
           <h3 className="text-xl font-bold text-white mb-3 uppercase">AI Rank</h3>
           {loading && <p className="text-sm text-gray-600">Loading...</p>}
           {(tabError || propError) && (
@@ -155,7 +155,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         </div>
       </div>
 
-      <div className="flex flex-col w-full rounded-xl p-4 overflow-y-auto custom-scrollbar bg-tech backdrop-blur-md border border-white/10">
+      <div className="flex flex-col w-full rounded-xl p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
         <h3 className="text-xl font-bold text-white mb-3 text-center uppercase">Top 100 Rankings</h3>
         {loading && <p className="text-sm text-gray-600">Loading...</p>}
         {(tabError || propError) && (
