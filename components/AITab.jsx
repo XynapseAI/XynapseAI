@@ -347,7 +347,7 @@ export default function AITab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-courier w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar flex flex-col"
+      className={`font-courier w-full max-w-screen-md md:max-w-full ${isMobile ? 'h-[calc(100vh-4rem)]' : 'h-[calc(100vh-2rem)]'} mx-auto p-1 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar flex flex-col`}
     >
       {/* Header */}
       <div className="p-2 bg-tech border-b border-white/10 flex justify-between items-center shrink-0">
@@ -407,9 +407,9 @@ export default function AITab({ recaptchaRef }) {
 
       {/* Chat Content */}
       <div
-        className="flex-1 p-2 md:p-4 overflow-y-auto custom-scrollbar"
+        className="flex-1 p-1 md:p-4 overflow-y-auto custom-scrollbar"
         ref={chatContainerRef}
-        style={{ maxHeight: 'calc(100vh - 10rem)' }}
+        style={{ maxHeight: isMobile ? 'calc(100vh - 8rem)' : 'calc(100vh - 2rem)' }}
       >
         {error && !error.includes('maximum of 50 daily chats') && (
           <div className="text-xs md:text-xs text-red-500 mb-2 p-2 bg-red-900/20 rounded-md border border-red-500/50">
@@ -509,7 +509,7 @@ export default function AITab({ recaptchaRef }) {
             rows={1}
             disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
             ref={textareaRef}
-            style={{ minHeight: '32px', maxHeight: '120px', lineHeight: '1.4' }}
+            style={{ minHeight: '32px', maxHeight: '120px', lineHeight: '1.4' , touchAction: 'manipulation'}}
           />
           <button
             type="submit"

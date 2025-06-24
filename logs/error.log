@@ -3613,3 +3613,5 @@
 {"level":"error","message":"Twitter API rate limit exceeded for usersByUsernames endpoint: Request failed with code 429"}
 {"level":"error","message":"Twitter API rate limit exceeded for usersByUsernames endpoint: Request failed with code 429"}
 {"level":"error","message":"Twitter API rate limit exceeded for usersByUsernames endpoint: Request failed with code 429"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-24T14:43:27.621Z"}
+{"level":"error","message":"No Twitter access token for user: 1927681051373305858"}

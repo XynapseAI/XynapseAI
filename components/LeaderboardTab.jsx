@@ -116,7 +116,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-courier w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+      className="font-courier w-full max-w-screen-md md:max-w-full h-[calc(100vh-2rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
     >
       <div className="w-full flex flex-col md:flex-row gap-4 mb-4 p-4 md:p-6">
         <div className="w-full md:w-1/2 rounded-xl p-3 md:p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
