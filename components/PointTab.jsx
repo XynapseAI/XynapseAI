@@ -226,7 +226,7 @@ export default function PointTab({ userData, error: propError, loading, handleAn
         <div className="flex-1 rounded-xl shadow-card p-3 backdrop-blur-md bg-tech border border-gray-400 flex flex-col items-center justify-center min-h-[100px]"> {/* Changed to items-center justify-center */}
           <h3 className="text-sm font-semibold text-white mb-2">AI Points</h3>
           <div className="flex items-center justify-center gap-2 mt-10"> {/* Centered content */}
-            <p className="text-4xl md:text-5xl font-bold">{aiPoints}</p>
+            <p className="text-4xl md:text-5xl font-bold mb-6">{aiPoints}</p>
             <p className={`text-xs font-semibold text-${aiGrowth.color}`}>
               {aiGrowth.value}% {aiGrowth.value > 0 ? '↑' : aiGrowth.value < 0 ? '↓' : '–'}
             </p>
@@ -235,7 +235,7 @@ export default function PointTab({ userData, error: propError, loading, handleAn
         <div className="flex-1 rounded-xl shadow-card p-3 backdrop-blur-md bg-tech border border-gray-400 flex flex-col items-center justify-center min-h-[100px]"> {/* Changed to items-center justify-center */}
           <h3 className="text-sm font-semibold text-white mb-2">Task Points</h3>
           <div className="flex items-center justify-center gap-2 mt-10"> {/* Centered content */}
-            <p className="text-4xl md:text-5xl font-bold">{taskPoints}</p>
+            <p className="text-4xl md:text-5xl font-bold mb-6">{taskPoints}</p>
             <p className={`text-xs font-semibold text-${taskGrowth.color}`}>
               {taskGrowth.value}% {taskGrowth.value > 0 ? '↑' : taskGrowth.value < 0 ? '↓' : '–'}
             </p>

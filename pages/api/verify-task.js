@@ -1,4 +1,3 @@
-// pages/api/verify-task.js
 import { db, admin } from '../../utils/firebaseAdmin.js';
 import { requireAuth } from './middleware/auth.js';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
@@ -35,13 +34,12 @@ const validate = [
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '1kb',
+      sizeLimit: '10kb',
     },
   },
 };
 
 export default async function handler(req, res) {
-  // Apply security headers
   helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
@@ -143,42 +141,64 @@ export default async function handler(req, res) {
         return res.status(400).json({ detail: 'Twitter not connected' });
       }
       const user = userDoc.data();
+      if (!user.twitterHandle || user.twitterHandle === '@undefined') {
+        logger.error(`Invalid Twitter handle for user: ${userId}, twitterHandle: ${user.twitterHandle}`);
+        return res.status(400).json({ detail: 'Invalid Twitter handle. Please reconnect your Twitter account.' });
+      }
       const twitterClient = new TwitterApi(user.twitterAccessToken);
 
       if (taskType === 'follow' && link) {
-        const targetHandle = link.replace('@', '');
-        const { data: targetUser } = await twitterClient.v2.usersByUsernames([targetHandle]);
-        if (!targetUser?.[0]?.id) {
-          logger.error(`Target Twitter user not found: ${targetHandle}`);
-          return res.status(400).json({ detail: 'Invalid Twitter handle' });
+        const targetHandle = link.startsWith('@') ? link.slice(1) : link;
+        if (!targetHandle.match(/^[A-Za-z0-9_]{1,15}$/)) {
+          logger.error(`Invalid Twitter handle format: ${targetHandle}`);
+          return res.status(400).json({ detail: `Invalid Twitter handle format: ${targetHandle}` });
         }
         try {
+          const { data: targetUser } = await twitterClient.v2.usersByUsernames([targetHandle]);
+          if (!targetUser?.[0]?.id) {
+            logger.error(`Target Twitter user not found: ${targetHandle}`);
+            return res.status(400).json({ detail: `Twitter user @${targetHandle} not found` });
+          }
+          const userTwitter = await twitterClient.v2.usersByUsernames([user.twitterHandle.replace('@', '')]);
+          const userTwitterId = userTwitter.data?.[0]?.id;
+          if (!userTwitterId) {
+            logger.error(`Invalid Twitter user handle: ${user.twitterHandle}`);
+            return res.status(400).json({ detail: 'Invalid Twitter user handle' });
+          }
           let allFollowers = [];
           let nextToken = null;
-          do {
-            const { data, meta } = await twitterClient.v2.followers(targetUser[0].id, {
-              max_results: 1000,
-              pagination_token: nextToken,
-            });
-            allFollowers = allFollowers.concat(data || []);
-            nextToken = meta.next_token;
-          } while (nextToken);
-          const userTwitter = await twitterClient.v2.usersByUsernames([user.twitterHandle]);
-          const userTwitterId = userTwitter.data?.[0]?.id;
-          isCompleted = allFollowers.some((follower) => follower.id === userTwitterId);
-          if (!isCompleted) {
-            logger.info(`User ${userId} does not follow ${targetHandle}`);
-            return res.status(400).json({ detail: `You must follow ${link} to complete this task.` });
+          try {
+            do {
+              const { data, meta } = await twitterClient.v2.followers(targetUser[0].id, {
+                max_results: 100, // Giảm để tránh rate limit
+                pagination_token: nextToken,
+              });
+              allFollowers = allFollowers.concat(data || []);
+              nextToken = meta.next_token;
+            } while (nextToken);
+            isCompleted = allFollowers.some((follower) => follower.id === userTwitterId);
+            if (!isCompleted) {
+              logger.info(`User ${userId} does not follow ${targetHandle}`);
+              return res.status(400).json({ detail: `You must follow @${targetHandle} to complete this task.` });
+            }
+          } catch (error) {
+            if (error.code === 429 || error.message.includes('Rate limit')) {
+              logger.error(`Twitter API rate limit exceeded for followers endpoint: ${error.message}`);
+              return res.status(429).json({ detail: 'Twitter API rate limit exceeded. Please try again later.' });
+            }
+            logger.error(`Twitter API error for follow task: ${error.message}`, { stack: error.stack });
+            return res.status(400).json({ detail: `Failed to verify follow task: ${error.message}` });
           }
         } catch (error) {
-          if (error.code === 429) {
-            logger.error('Twitter API rate limit exceeded');
-            return res.status(429).json({ detail: 'Twitter API rate limit exceeded. Try again later.' });
+          if (error.code === 429 || error.message.includes('Rate limit')) {
+            logger.error(`Twitter API rate limit exceeded for usersByUsernames endpoint: ${error.message}`);
+            return res.status(429).json({ detail: 'Twitter API rate limit exceeded. Please try again later.' });
           }
-          throw error;
+          logger.error(`Error fetching target user ${targetHandle}: ${error.message}`, { stack: error.stack });
+          return res.status(400).json({ detail: `Twitter user @${targetHandle} not found` });
         }
       } else if (taskType === 'tweet' && link) {
-        const userTwitter = await twitterClient.v2.usersByUsernames([user.twitterHandle]);
+        const userTwitter = await twitterClient.v2.usersByUsernames([user.twitterHandle.replace('@', '')]);
         const userTwitterId = userTwitter.data?.[0]?.id;
         if (!userTwitterId) {
           logger.error(`Invalid Twitter user: ${user.twitterHandle}`);
@@ -201,11 +221,12 @@ export default async function handler(req, res) {
             return res.status(400).json({ detail: `You must tweet with ${link} to complete this task.` });
           }
         } catch (error) {
-          if (error.code === 429) {
-            logger.error('Twitter API rate limit exceeded');
-            return res.status(429).json({ detail: 'Twitter API rate limit exceeded. Try again later.' });
+          if (error.code === 429 || error.message.includes('Rate limit')) {
+            logger.error(`Twitter API rate limit exceeded for userTimeline endpoint: ${error.message}`);
+            return res.status(429).json({ detail: 'Twitter API rate limit exceeded. Please try again later.' });
           }
-          throw error;
+          logger.error(`Twitter API error for tweet task: ${error.message}`, { stack: error.stack });
+          return res.status(400).json({ detail: `Failed to verify tweet task: ${error.message}` });
         }
       } else if (taskType === 'like' && link) {
         const tweetId = link.match(/status\/(\d+)/)?.[1];
@@ -224,19 +245,24 @@ export default async function handler(req, res) {
             allLikers = allLikers.concat(data || []);
             nextToken = meta.next_token;
           } while (nextToken);
-          const userTwitter = await twitterClient.v2.usersByUsernames([user.twitterHandle]);
+          const userTwitter = await twitterClient.v2.usersByUsernames([user.twitterHandle.replace('@', '')]);
           const userTwitterId = userTwitter.data?.[0]?.id;
+          if (!userTwitterId) {
+            logger.error(`Invalid Twitter user: ${user.twitterHandle}`);
+            return res.status(400).json({ detail: 'Invalid Twitter user' });
+          }
           isCompleted = allLikers.some((liker) => liker.id === userTwitterId);
           if (!isCompleted) {
             logger.info(`User ${userId} has not liked tweet ${tweetId}`);
             return res.status(400).json({ detail: `You must like the tweet to complete this task.` });
           }
         } catch (error) {
-          if (error.code === 429) {
-            logger.error('Twitter API rate limit exceeded');
-            return res.status(429).json({ detail: 'Twitter API rate limit exceeded. Try again later.' });
+          if (error.code === 429 || error.message.includes('Rate limit')) {
+            logger.error(`Twitter API rate limit exceeded for tweetLikedBy endpoint: ${error.message}`);
+            return res.status(429).json({ detail: 'Twitter API rate limit exceeded. Please try again later.' });
           }
-          throw error;
+          logger.error(`Twitter API error for like task: ${error.message}`, { stack: error.stack });
+          return res.status(400).json({ detail: `Failed to verify like task: ${error.message}` });
         }
       } else if (taskType === 'join' && link) {
         if (!userDoc.data().discordAccessToken) {
@@ -264,8 +290,8 @@ export default async function handler(req, res) {
             return res.status(400).json({ detail: 'You must join the Discord server to complete this task.' });
           }
         } catch (error) {
-          logger.error(`Discord API error: ${error.message}`);
-          return res.status(400).json({ detail: 'Failed to verify Discord membership' });
+          logger.error(`Discord API error: ${error.message}`, { stack: error.stack });
+          return res.status(400).json({ detail: `Failed to verify Discord membership: ${error.message}` });
         }
       } else {
         logger.error(`Invalid task type: ${taskType}`);

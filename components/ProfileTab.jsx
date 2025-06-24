@@ -246,7 +246,7 @@ export default function ProfileTab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-plexmono w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 bg-tech rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+      className="font-courier w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
     >
       <div className="w-full rounded-xl shadow-card backdrop-blur-md p-4 md:p-6">
         {error && <p className="text-red-500 text-sm md:text-base mb-4">Error: {error}</p>}
@@ -255,9 +255,9 @@ export default function ProfileTab({ recaptchaRef }) {
         )}
         {userData && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
+            <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-tech backdrop-blur-md">
               <h3 className="text-sm md:text-base font-bold text-white mb-3">TWITTER (X)</h3>
-              <div className="flex items-center">
+              <div className="flex items-center mb-10">
                 <img
                   src={userData.twitterPFP || '/default-avatar.png'}
                   alt={userData.twitterHandle}
@@ -265,12 +265,6 @@ export default function ProfileTab({ recaptchaRef }) {
                 />
                 <span className="text-xs md:text-sm text-white">{userData.twitterHandle || 'Not connected'}</span>
               </div>
-              <button
-                onClick={handleDisconnectTwitter}
-                className="w-full mt-3 md:mt-4 px-3 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium text-red-500 hover:bg-white/15 transition-all duration-300 border border-red-500/50 backdrop-blur-md"
-              >
-                Log Out
-              </button>
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
               <h3 className="text-sm md:text-base font-bold text-white mb-3">WALLET</h3>
@@ -292,8 +286,8 @@ export default function ProfileTab({ recaptchaRef }) {
                   disabled={isDisconnectingWallet}
                   className={`w-full mt-2 px-3 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${
                     isDisconnectingWallet
-                      ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
-                      : 'bg-white/10 text-red-500 hover:bg-white/15'
+                      ? 'text-white/50 cursor-not-allowed opacity-50'
+                      : 'text-red border border-red'
                   }`}
                 >
                   {isDisconnectingWallet ? 'Disconnecting...' : 'Disconnect'}
@@ -302,7 +296,7 @@ export default function ProfileTab({ recaptchaRef }) {
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
               <h3 className="text-sm md:text-base font-bold text-white mb-3">POINTS</h3>
-              <p className="text-3xl md:text-5xl font-bold text-green-500 text-center">{userData.points || 12}</p>
+              <p className="text-3xl md:text-5xl font-bold text-green-500 text-center mb-10">{userData.points || 12}</p>
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
               <h3 className="text-sm md:text-base font-bold text-white mb-3">DAYS ACTIVE</h3>

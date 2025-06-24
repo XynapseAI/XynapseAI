@@ -88,11 +88,11 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
   if (!isOpen) return null;
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 font-plexmono"
+      className="fixed inset-0 flex items-center justify-center z-50 font-courier"
       onClick={onClose}
     >
       <div
-        className="bg-gray-800/95 backdrop-blur-md p-4 sm:p-6 rounded-xl max-w-[90%] sm:max-w-4xl w-full relative my-4 border border-white/10"
+        className="backdrop-blur-md p-4 sm:p-6 rounded-xl max-w-[90%] sm:max-w-4xl w-full relative my-4 border border-white/10"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -102,8 +102,8 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
         >
           ✕
         </button>
-        <h4 className="text-sm font-bold text-white mb-4">{title}</h4>
-        <div className="text-sm text-gray-200 mb-4 prose prose-invert max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+        <h4 className="text-sm font-bold text-white mb-4 uppercase">{title}</h4>
+        <div className="text-xs text-gray-200 mb-4 prose prose-invert max-h-96 overflow-y-auto pr-2 custom-scrollbar">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeHighlight]}
@@ -134,7 +134,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
         </div>
         {links.length > 0 && (
           <div>
-            <h5 className="text-sm font-bold text-white mb-2">References:</h5>
+            <h5 className="text-xs font-bold text-white mb-2 uppercase">References:</h5>
             <ul className="list-none">
               {links.map((link, index) => (
                 <li key={index} className="mb-2">
@@ -142,7 +142,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
                     href={link}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-sm text-blue-400 hover:underline"
+                    className="text-xs text-blue-400 hover:underline"
                   >
                     {link.length > 30 ? `${link.slice(0, 30)}...` : link}
                   </a>
@@ -240,10 +240,10 @@ const WalletBalances = ({
   };
 
   const overlayContent = (
-    <div className="fixed inset-0 bg-tech flex items-center justify-center z-50 font-plexmono min-h-screen">
+    <div className="fixed inset-0 bg-tech flex items-center justify-center z-50 font-courier min-h-screen">
       <div
         ref={walletBalancesRef}
-        className="bg-black rounded-sm p-4 max-w-6xl w-[90%] border border-gray-500 relative max-h-[80vh] overflow-y-auto custom-scrollbar"
+        className="backdrop-blur-md p-4 max-w-6xl w-[90%] border border-gray-500 rounded-xs relative max-h-[80vh] min-h-[80vh] overflow-y-auto custom-scrollbar"
       >
         <div className="flex justify-between items-center mb-4 uppercase">
           <h4 className="text-sm font-bold text-white">
@@ -568,9 +568,9 @@ const MarketTab = ({ recaptchaRef }) => {
     >
       {/* Stock button next to Crypto */}
       <div className="flex items-center gap-2 mb-2">
-        <h2 className="text-xl font-bold text-white uppercase">Crypto</h2>
+        <h2 className="text-sm font-bold text-white uppercase">Crypto</h2>
         <button
-          className="text-xl font-bold text-white/50 uppercase cursor-default flex items-center gap-1"
+          className="text-sm font-bold text-white/50 uppercase cursor-default flex items-center gap-1"
           disabled
           aria-label="Stock tab (coming soon)"
         >
@@ -663,7 +663,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 {/* Token Info Content */}
                 <div className="flex-1 md:overflow-y-auto sm:overflow-hidden">
                   {/* Price Section */}
-                  <div className="mb-2 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                  <div className="mb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
                         <p className="text-lg sm:text-xl font-bold text-white">
@@ -711,7 +711,7 @@ const MarketTab = ({ recaptchaRef }) => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 m-2">
                     <div>
-                      <h5 className="text-sm font-bold text-white mb-1 uppercase m-2">Market Stats</h5>
+                      <h5 className="text-sm font-bold text-white mb-2 uppercase">Market Stats</h5>
                       <div className="grid grid-cols-1 gap-1 text-xs">
                         <p className="text-gray-200">
                           Market Cap:{' '}
@@ -748,7 +748,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     </div>
 
                     <div>
-                      <h5 className="text-sm font-bold text-white uppercase m-2">Supply Stats</h5>
+                      <h5 className="text-sm font-bold text-white uppercase mb-2">Supply Stats</h5>
                       <div className="grid grid-cols-1 gap-1 text-xs">
                         <p className="text-gray-200">
                           Circulating Supply:{' '}
@@ -778,7 +778,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     </div>
 
                     <div>
-                      <h5 className="text-sm font-bold text-white uppercase mb-2">All-Time Stats</h5>
+                      <h5 className="text-sm font-bold text-white uppercase mt-2 mb-2">All-Time Stats</h5>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
                         <p className="text-gray-200">
                           ATH:{' '}
@@ -800,7 +800,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     </div>
 
                     <div>
-                      <h5 className="text-sm font-bold text-white uppercase m-2">Additional Info</h5>
+                      <h5 className="text-sm font-bold text-white uppercase mb-2 mt-2">Additional Info</h5>
                       <div className="text-xs">
                         <p className="text-gray-200">
                           Last Updated:{' '}
@@ -918,7 +918,7 @@ const MarketTab = ({ recaptchaRef }) => {
           </div>
 
           {/* Bottom Left: Top 100 Holders */}
-          <div className="bg-gray-900 rounded-xl border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)]">
+          <div className="rounded-xl border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)]">
             {isLoadingOnChain && <LoadingOverlay message="Loading on-chain data..." />}
             {selectedToken ? (
               <div className="flex-1 overflow-y-auto hide-scrollbar p-3">
@@ -1068,10 +1068,10 @@ const MarketTab = ({ recaptchaRef }) => {
           </div>
 
           {/* Bottom Right: Activity */}
-          <div className="bg-gray-900 rounded-xl p-3 border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)] sm:min-h-[300px] min-h-[400px] overflow-auto hide-scrollbar">
+          <div className="rounded-xl p-3 border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)] sm:min-h-[300px] min-h-[400px] overflow-auto hide-scrollbar">
             {selectedToken ? (
               <>
-                <h3 className="text-xs font-bold text-white mb-2 text-center">Market Activity</h3>
+                <h3 className="text-xs font-bold text-white mb-2 text-center uppercase">Market Activity</h3>
                 {isLoadingTickers && <LoadingOverlay message="Loading ticker data..." />}
                 {tickerError && <p className="text-xs text-red-500 text-center flex-1">{tickerError}</p>}
                 {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
