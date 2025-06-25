@@ -295,7 +295,7 @@ export default function ProfileTab({ recaptchaRef }) {
               )}
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm md:text-base font-bold text-white mb-3">POINTS</h3>
+              <h3 className="text-sm md:text-base font-bold text-white mb-3">POINTS:</h3>
               <p className="text-3xl md:text-5xl font-bold text-green-500 text-center mb-10">{userData.points || 12}</p>
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
