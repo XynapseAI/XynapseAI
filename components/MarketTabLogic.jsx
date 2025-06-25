@@ -170,36 +170,36 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const WALLET_SEARCH_WINDOW = 60 * 1000;
 
   const executeRecaptcha = useCallback(
-  async (action, retryCount = 0) => {
-    if (!recaptchaRef.current) {
-      logger.error('reCAPTCHA is not initialized.');
-      console.error('reCAPTCHA is not initialized.');
-      throw new Error('reCAPTCHA is not initialized.');
-    }
-    try {
-      console.log('Executing reCAPTCHA for action:', action);
-      const token = await recaptchaRef.current.executeAsync({ action });
-      if (!token) {
-        logger.error('Empty reCAPTCHA token', { action });
-        console.error('Empty reCAPTCHA token:', { action });
-        throw new Error('Empty reCAPTCHA token.');
+    async (action, retryCount = 0) => {
+      if (!recaptchaRef.current) {
+        logger.error('reCAPTCHA is not initialized.');
+        console.error('reCAPTCHA is not initialized.');
+        throw new Error('reCAPTCHA is not initialized.');
       }
-      logger.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
-      console.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
-      return token;
-    } catch (error) {
-      logger.error('Error executing reCAPTCHA:', { action, error: error.message });
-      console.error('Error executing reCAPTCHA:', { action, error: error.message });
-      if (retryCount < 2) {
-        console.log(`Retrying reCAPTCHA for action ${action}, attempt ${retryCount + 1}`);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        return executeRecaptcha(action, retryCount + 1);
+      try {
+        console.log('Executing reCAPTCHA for action:', action);
+        const token = await recaptchaRef.current.executeAsync({ action });
+        if (!token) {
+          logger.error('Empty reCAPTCHA token', { action });
+          console.error('Empty reCAPTCHA token:', { action });
+          throw new Error('Empty reCAPTCHA token.');
+        }
+        logger.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
+        console.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
+        return token;
+      } catch (error) {
+        logger.error('Error executing reCAPTCHA:', { action, error: error.message });
+        console.error('Error executing reCAPTCHA:', { action, error: error.message });
+        if (retryCount < 2) {
+          console.log(`Retrying reCAPTCHA for action ${action}, attempt ${retryCount + 1}`);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return executeRecaptcha(action, retryCount + 1);
+        }
+        throw new Error('Unable to execute reCAPTCHA: ' + error.message);
       }
-      throw new Error('Unable to execute reCAPTCHA: ' + error.message);
-    }
-  },
-  [recaptchaRef]
-);
+    },
+    [recaptchaRef]
+  );
 
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token) => {
@@ -828,15 +828,18 @@ Use natural, professional tone with recent data.
   );
 
   const fetchOnChainData = useCallback(
-  debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride) => {
-    logger.info('fetchOnChainData called', { action, chain, tokenAddress, address });
-    console.log('fetchOnChainData called:', { action, chain, tokenAddress, decimalPlace, address });
+  debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride, retryCount = 0) => {
+    logger.info('fetchOnChainData called', { action, chain, tokenAddress, address, retryCount });
+    console.log('fetchOnChainData called:', { action, chain, tokenAddress, decimalPlace, address, retryCount });
+
+    // Map action to valid reCAPTCHA action name
+    const recaptchaAction = action === 'top-holders' ? 'top_holders' : action;
 
     // Validate input parameters
     if (
       (action === 'top-holders' && (!chain || !tokenAddress)) ||
       ((action === 'wallet-balances' || action === 'transactions') && !address) ||
-      typeof document !== 'undefined' && document.visibilityState !== 'visible'
+      (typeof document !== 'undefined' && document.visibilityState !== 'visible')
     ) {
       logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
       console.error('Invalid parameters:', { action, chain, tokenAddress, address });
@@ -861,7 +864,7 @@ Use natural, professional tone with recent data.
     }
 
     // Validate EVM address
-    if ((action === 'wallet-balances' || action === 'transactions') && !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+    if ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) {
       const errorMessage = 'Wallet address must be a valid EVM address.';
       logger.error(errorMessage, { action, address });
       console.error(errorMessage, { action, address });
@@ -892,16 +895,16 @@ Use natural, professional tone with recent data.
 
     try {
       // Execute reCAPTCHA
-      console.log('Executing reCAPTCHA for action:', action);
-      const recaptchaToken = recaptchaTokenOverride || await executeRecaptcha(action);
+      console.log('Executing reCAPTCHA for action:', recaptchaAction);
+      const recaptchaToken = recaptchaTokenOverride || await executeRecaptcha(recaptchaAction);
       if (!recaptchaToken) {
         throw new Error('Empty reCAPTCHA token');
       }
-      console.log('reCAPTCHA token generated:', { action, token: recaptchaToken.slice(0, 20) + '...' });
+      console.log('reCAPTCHA token generated:', { action: recaptchaAction, token: recaptchaToken.slice(0, 20) + '...' });
 
       // Prepare payload
       const payload = {
-        action,
+        action, // Keep original action for API
         recaptchaToken,
       };
       if (action === 'top-holders') {
@@ -915,13 +918,22 @@ Use natural, professional tone with recent data.
       console.log('Sending on-chain data request:', { payload, apiUrl });
       customLogger.log('Sending on-chain data request', { payload, apiUrl });
 
-      // Make API request
+      // Make API request with retry
       const response = await axios.post(apiUrl, payload, {
         headers: {
           Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
           'Content-Type': 'application/json',
         },
         timeout: 30000,
+      }).catch(async (error) => {
+        if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
+          const delay = Math.pow(2, retryCount) * 1000;
+          logger.info(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
+          console.log(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          return fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride, retryCount + 1);
+        }
+        throw error;
       });
 
       // Log response
@@ -1014,15 +1026,18 @@ Use natural, professional tone with recent data.
             ? 'reCAPTCHA verification failed or invalid API key.'
             : error.response?.status === 429
               ? 'Dune Sim API rate limit exceeded. Please try again later.'
-              : error.response?.data?.errors
-                ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
-                : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
+              : error.response?.status === 503
+                ? 'Service temporarily unavailable. Please try again later.'
+                : error.response?.data?.errors
+                  ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
+                  : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
       if (action === 'wallet-balances') {
         setWalletBalancesError(errorMessage);
       } else if (action === 'transactions') {
         setTransactionsError(errorMessage);
       } else {
         setOnChainError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
       }
     } finally {
       setIsLoadingOnChain(false);
