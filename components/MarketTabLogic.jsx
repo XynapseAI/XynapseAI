@@ -4,16 +4,14 @@ import axios from 'axios';
 import { useSession } from 'next-auth/react';
 import debounce from 'lodash.debounce';
 import rateLimit from 'axios-rate-limit';
+import { logger } from '../utils/logger';
 
 // Custom logger
-const logger = {
+const customLogger = {
   log: (message, data) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log(message, data);
+      console.log(`[${new Date().toISOString()}] ${message}`, data);
     }
-  },
-  error: (message, data) => {
-    console.error(message, data);
   },
 };
 
@@ -168,23 +166,23 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const WALLET_SEARCH_WINDOW = 60 * 1000;
 
   const executeRecaptcha = useCallback(async (action) => {
-  if (!recaptchaRef.current) {
-    logger.error('reCAPTCHA is not initialized.');
-    throw new Error('reCAPTCHA is not initialized.');
-  }
-  try {
-    const token = await recaptchaRef.current.executeAsync({ action });
-    if (!token) {
-      logger.error('Empty reCAPTCHA token', { action });
-      throw new Error('Empty reCAPTCHA token.');
+    if (!recaptchaRef.current) {
+      logger.error('reCAPTCHA is not initialized.');
+      throw new Error('reCAPTCHA is not initialized.');
     }
-    logger.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
-    return token;
-  } catch (error) {
-    logger.error('Error executing reCAPTCHA:', { action, error: error.message });
-    throw new Error('Unable to execute reCAPTCHA: ' + error.message);
-  }
-}, [recaptchaRef]);
+    try {
+      const token = await recaptchaRef.current.executeAsync({ action });
+      if (!token) {
+        logger.error('Empty reCAPTCHA token', { action });
+        throw new Error('Empty reCAPTCHA token.');
+      }
+      logger.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
+      return token;
+    } catch (error) {
+      logger.error('Error executing reCAPTCHA:', { action, error: error.message });
+      throw new Error('Unable to execute reCAPTCHA: ' + error.message);
+    }
+  }, [recaptchaRef]);
 
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token) => {
@@ -814,13 +812,17 @@ Use natural, professional tone with recent data.
 
   const fetchOnChainData = useCallback(
   debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride) => {
+    // Sử dụng logger từ utils/logger.js
+    logger.info('fetchOnChainData called', { action, chain, tokenAddress, address });
+
     // Validate input parameters
     if (
       (action === 'top-holders' && (!chain || !tokenAddress)) ||
       ((action === 'wallet-balances' || action === 'transactions') && !address) ||
-      document.visibilityState !== 'visible'
+      typeof document !== 'undefined' && document.visibilityState !== 'visible'
     ) {
       logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
+      customLogger.log('Error: Invalid parameters', { action, chain, tokenAddress, address });
       setOnChainError(`Invalid parameters: action=${action}, chain=${chain}, address=${address}`);
       setIsLoadingOnChain(false);
       setIsLoadingWalletBalances(false);
@@ -828,9 +830,10 @@ Use natural, professional tone with recent data.
       return;
     }
 
-    // Check authentication for wallet-related actions
+    // Check authentication
     if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
-      logger.warn('User not authenticated for wallet data', { action });
+      logger.warn('User not authenticated for wallet data', { action, status });
+      customLogger.log('Warning: User not authenticated', { action, status });
       setOnChainError('Please log in to access wallet data.');
       setIsLoadingOnChain(false);
       setIsLoadingWalletBalances(false);
@@ -842,6 +845,7 @@ Use natural, professional tone with recent data.
     if ((action === 'wallet-balances' || action === 'transactions') && !address.match(/^0x[a-fA-F0-9]{40}$/)) {
       const errorMessage = 'Wallet address must be a valid EVM address.';
       logger.error(errorMessage, { action, address });
+      customLogger.log('Error: Invalid EVM address', { action, address });
       if (action === 'wallet-balances') {
         setWalletBalancesError(errorMessage);
       } else {
@@ -853,12 +857,10 @@ Use natural, professional tone with recent data.
       return;
     }
 
-    // Check API base URL
+    // Build API URL
     const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
     const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}${apiBaseUrl}/sim`;
-    if (!process.env.NEXT_PUBLIC_APP_URL) {
-      logger.warn('NEXT_PUBLIC_APP_URL is not configured');
-    }
+    logger.info('API URL configuration', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
 
     setIsLoadingOnChain(true);
     if (action === 'wallet-balances') {
@@ -886,37 +888,42 @@ Use natural, professional tone with recent data.
       } else if (action === 'wallet-balances' || action === 'transactions') {
         payload.address = address;
       }
-      logger.log('Sending on-chain data request to /api/sim', { payload, apiUrl });
+      logger.info('Sending on-chain data request', { payload, apiUrl });
+      customLogger.log('Sending on-chain data request', { payload, apiUrl });
 
-      // Make API request with increased timeout
+      // Make API request
       const response = await axios.post(apiUrl, payload, {
         headers: {
           Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
         },
-        timeout: 20000, // Increased timeout for Vercel serverless
+        timeout: 30000,
       });
 
       // Log response
-      logger.log(`On-chain data response for ${action}`, {
-        count: response.data.data?.length || 0,
+      logger.info(`On-chain data response for ${action}`, {
         success: response.data.success,
+        count: response.data.data?.length || 0,
+        dataSample: response.data.data?.slice(0, 5),
       });
+      customLogger.log(`On-chain data response for ${action}`, {
+        success: response.data.success,
+        count: response.data.data?.length || 0,
+      });
+
+      if (!response.data.success) {
+        throw new Error(response.data.detail || `Failed to fetch ${action} data`);
+      }
 
       // Handle response based on action
       if (action === 'top-holders') {
-        logger.log('Top holders data (first 5):', response.data.data?.slice(0, 5) || []);
         setOnChainData((prev) => ({
           ...prev,
           topHolders: response.data.data || [],
         }));
       } else if (action === 'wallet-balances') {
-        logger.log('Wallet balances data (first 5):', response.data.data?.slice(0, 5) || []);
         setWalletBalances(response.data.data || []);
       } else if (action === 'transactions') {
-        logger.log('Transactions data (first 5):', response.data.data?.slice(0, 5) || []);
         setTransactions(response.data.data || []);
-
-        // Save transaction history if authenticated
         if (session?.user?.id) {
           try {
             const historyRecaptchaToken = await executeRecaptcha('wallet_history');
@@ -936,15 +943,16 @@ Use natural, professional tone with recent data.
                 timeout: 15000,
               }
             );
-            logger.log('Transactions history saved successfully', { address });
+            logger.info('Transactions history saved', { address });
+            customLogger.log('Transactions history saved', { address });
           } catch (historyError) {
             logger.error('Error saving transactions history', {
               message: historyError.message,
               response: historyError.response?.data,
             });
-            setTransactionsError(
-              `Failed to save transactions history: ${historyError.response?.data?.detail || historyError.message}`
-            );
+            customLogger.log('Error saving transactions history', {
+              message: historyError.message,
+            });
           }
         }
       }
@@ -954,17 +962,20 @@ Use natural, professional tone with recent data.
         data: error.response?.data,
         message: error.message,
       });
+      customLogger.log(`Error fetching ${action} data`, {
+        status: error.response?.status,
+        message: error.message,
+      });
       const errorMessage =
         error.response?.status === 401
           ? 'Unauthorized: Please log in again.'
           : error.response?.status === 403
-          ? 'reCAPTCHA verification failed or invalid API key. Please try again.'
+          ? 'reCAPTCHA verification failed or invalid API key.'
           : error.response?.status === 429
           ? 'Dune Sim API rate limit exceeded. Please try again later.'
           : error.response?.data?.errors
-          ? `Validation errors: ${error.response.data.errors.map((e) => e.msg).join(', ')}`
+          ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
           : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
-      
       if (action === 'wallet-balances') {
         setWalletBalancesError(errorMessage);
       } else if (action === 'transactions') {
@@ -1079,83 +1090,83 @@ Use natural, professional tone with recent data.
   );
 
   const getDefaultChainAndAddress = useCallback(
-  (token, selectedChain = 'ethereum') => {
-    if (!token) {
-      setOnChainError('No token selected.');
-      return { chain: null, tokenAddress: null, decimalPlace: null };
-    }
-
-    const normalizedPlatforms = Object.keys(token.detail_platforms).reduce((acc, key) => {
-      const duneChain = COINGECKO_TO_DUNE_CHAIN_MAP[key] || key;
-      if (
-        token.detail_platforms[key].contract_address &&
-        token.detail_platforms[key].contract_address.match(/^0x[a-fA-F0-9]{40}$/)
-      ) {
-        const decimalPlace = Number(token.detail_platforms[key].decimal_place) || 18;
-        if (decimalPlace < 0 || decimalPlace > 36) {
-          logger.warn(`Invalid decimalPlace for ${key}: ${decimalPlace}, defaulting to 18`);
-        }
-        acc[duneChain] = {
-          address: token.detail_platforms[key].contract_address,
-          decimal_place: decimalPlace,
-        };
+    (token, selectedChain = 'ethereum') => {
+      if (!token) {
+        setOnChainError('No token selected.');
+        return { chain: null, tokenAddress: null, decimalPlace: null };
       }
-      return acc;
-    }, {});
 
-    const availableChains = SUPPORTED_CHAINS.filter(
-      (chain) =>
-        normalizedPlatforms[chain.value] &&
-        (process.env.NODE_ENV === 'development' || !chain.testnet)
-    );
+      const normalizedPlatforms = Object.keys(token.detail_platforms).reduce((acc, key) => {
+        const duneChain = COINGECKO_TO_DUNE_CHAIN_MAP[key] || key;
+        if (
+          token.detail_platforms[key].contract_address &&
+          token.detail_platforms[key].contract_address.match(/^0x[a-fA-F0-9]{40}$/)
+        ) {
+          const decimalPlace = Number(token.detail_platforms[key].decimal_place) || 18;
+          if (decimalPlace < 0 || decimalPlace > 36) {
+            logger.warn(`Invalid decimalPlace for ${key}: ${decimalPlace}, defaulting to 18`);
+          }
+          acc[duneChain] = {
+            address: token.detail_platforms[key].contract_address,
+            decimal_place: decimalPlace,
+          };
+        }
+        return acc;
+      }, {});
 
-    if (
-      normalizedPlatforms[selectedChain] &&
-      SUPPORTED_CHAINS.some((net) => net.value === selectedChain) &&
-      normalizedPlatforms[selectedChain].address.match(/^0x[a-fA-F0-9]{40}$/)
-    ) {
-      const result = {
-        chain: selectedChain,
-        tokenAddress: normalizedPlatforms[selectedChain].address,
-        decimalPlace: normalizedPlatforms[selectedChain].decimal_place,
+      const availableChains = SUPPORTED_CHAINS.filter(
+        (chain) =>
+          normalizedPlatforms[chain.value] &&
+          (process.env.NODE_ENV === 'development' || !chain.testnet)
+      );
+
+      if (
+        normalizedPlatforms[selectedChain] &&
+        SUPPORTED_CHAINS.some((net) => net.value === selectedChain) &&
+        normalizedPlatforms[selectedChain].address.match(/^0x[a-fA-F0-9]{40}$/)
+      ) {
+        const result = {
+          chain: selectedChain,
+          tokenAddress: normalizedPlatforms[selectedChain].address,
+          decimalPlace: normalizedPlatforms[selectedChain].decimal_place,
+        };
+        logger.log('Default chain and address:', result);
+        return result;
+      }
+
+      if (availableChains.length > 0) {
+        const defaultChain = availableChains[0].value;
+        const tokenAddress = normalizedPlatforms[defaultChain].address;
+        const decimalPlace = normalizedPlatforms[defaultChain].decimal_place;
+        const result = { chain: defaultChain, tokenAddress, decimalPlace };
+        logger.log('Default chain and address:', result);
+        return result;
+      }
+
+      const fallbackTokens = {
+        usdc: {
+          chain: 'ethereum',
+          tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          decimalPlace: 6,
+        },
+        dai: {
+          chain: 'ethereum',
+          tokenAddress: '0x6b175474e89094c44da98b954eedeac495271d0f',
+          decimalPlace: 18,
+        },
       };
-      logger.log('Default chain and address:', result);
-      return result;
-    }
 
-    if (availableChains.length > 0) {
-      const defaultChain = availableChains[0].value;
-      const tokenAddress = normalizedPlatforms[defaultChain].address;
-      const decimalPlace = normalizedPlatforms[defaultChain].decimal_place;
-      const result = { chain: defaultChain, tokenAddress, decimalPlace };
-      logger.log('Default chain and address:', result);
-      return result;
-    }
+      const tokenSymbol = token.symbol?.toLowerCase();
+      if (fallbackTokens[tokenSymbol]) {
+        logger.log(`Using fallback for ${tokenSymbol.toUpperCase()}:`, fallbackTokens[tokenSymbol]);
+        return fallbackTokens[tokenSymbol];
+      }
 
-    const fallbackTokens = {
-      usdc: {
-        chain: 'ethereum',
-        tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-        decimalPlace: 6,
-      },
-      dai: {
-        chain: 'ethereum',
-        tokenAddress: '0x6b175474e89094c44da98b954eedeac495271d0f',
-        decimalPlace: 18,
-      },
-    };
-
-    const tokenSymbol = token.symbol?.toLowerCase();
-    if (fallbackTokens[tokenSymbol]) {
-      logger.log(`Using fallback for ${tokenSymbol.toUpperCase()}:`, fallbackTokens[tokenSymbol]);
-      return fallbackTokens[tokenSymbol];
-    }
-
-    setOnChainError('This token does not have on-chain data available on supported chains. Try selecting a different token.');
-    return { chain: null, tokenAddress: null, decimalPlace: null };
-  },
-  []
-);
+      setOnChainError('This token does not have on-chain data available on supported chains. Try selecting a different token.');
+      return { chain: null, tokenAddress: null, decimalPlace: null };
+    },
+    []
+  );
 
   const getAvailableChains = useCallback(() => {
     if (!selectedToken?.detail_platforms) return [];
@@ -1229,46 +1240,46 @@ Use natural, professional tone with recent data.
   }, [searchQuery, debouncedSearch]);
 
   useEffect(() => {
-  if (!selectedToken?.id) return;
+    if (!selectedToken?.id) return;
 
-  const tokenSymbol = selectedToken.id.toLowerCase();
-  const isTreasuryToken = ['bitcoin', 'ethereum'].includes(tokenSymbol);
-  const { chain, tokenAddress, decimalPlace } = getDefaultChainAndAddress(selectedToken, selectedChain);
-  const tokenKey = isTreasuryToken
-    ? `${selectedToken.id}-treasury`
-    : `${selectedToken.id}-${chain}-${tokenAddress}-${decimalPlace}`;
+    const tokenSymbol = selectedToken.id.toLowerCase();
+    const isTreasuryToken = ['bitcoin', 'ethereum'].includes(tokenSymbol);
+    const { chain, tokenAddress, decimalPlace } = getDefaultChainAndAddress(selectedToken, selectedChain);
+    const tokenKey = isTreasuryToken
+      ? `${selectedToken.id}-treasury`
+      : `${selectedToken.id}-${chain}-${tokenAddress}-${decimalPlace}`;
 
-  if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
-    logger.log('Skipping redundant fetch for:', { tokenKey });
-    return;
-  }
-
-  setIsLoadingOnChain(true);
-  setOnChainData((prev) => ({ ...prev, topHolders: [] }));
-  setOnChainError(null);
-
-  if (isTreasuryToken) {
-    logger.log(`Fetching public treasury data for ${tokenSymbol}`);
-    lastFetchedTokenRef.current = tokenKey;
-    fetchPublicTreasuryData(tokenSymbol);
-  } else {
-    if (!chain || !tokenAddress) {
-      logger.log('Skipping on-chain data fetch: no valid chain or token address');
-      setIsLoadingOnChain(false);
-      setOnChainError('No valid chain or token address available for this token.');
+    if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
+      logger.log('Skipping redundant fetch for:', { tokenKey });
       return;
     }
 
-    logger.log('Triggering fetchOnChainData for:', { chain, tokenAddress, decimalPlace });
-    lastFetchedTokenRef.current = tokenKey;
-    fetchOnChainData(chain, tokenAddress, 'top-holders', decimalPlace);
-  }
+    setIsLoadingOnChain(true);
+    setOnChainData((prev) => ({ ...prev, topHolders: [] }));
+    setOnChainError(null);
 
-  return () => {
-    fetchPublicTreasuryData.cancel();
-    fetchOnChainData.cancel();
-  };
-}, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData, onChainData.topHolders.length]);
+    if (isTreasuryToken) {
+      logger.log(`Fetching public treasury data for ${tokenSymbol}`);
+      lastFetchedTokenRef.current = tokenKey;
+      fetchPublicTreasuryData(tokenSymbol);
+    } else {
+      if (!chain || !tokenAddress) {
+        logger.log('Skipping on-chain data fetch: no valid chain or token address');
+        setIsLoadingOnChain(false);
+        setOnChainError('No valid chain or token address available for this token.');
+        return;
+      }
+
+      logger.log('Triggering fetchOnChainData for:', { chain, tokenAddress, decimalPlace });
+      lastFetchedTokenRef.current = tokenKey;
+      fetchOnChainData(chain, tokenAddress, 'top-holders', decimalPlace);
+    }
+
+    return () => {
+      fetchPublicTreasuryData.cancel();
+      fetchOnChainData.cancel();
+    };
+  }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData, onChainData.topHolders.length]);
 
   useEffect(() => {
     prevTopHoldersRef.current = onChainData.topHolders;

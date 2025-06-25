@@ -5,8 +5,12 @@ let logger;
 if (typeof window === 'undefined') {
   const winston = require('winston');
   const path = require('path');
+  const fs = require('fs');
 
   const logsDir = path.join(process.cwd(), 'logs');
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
 
   logger = winston.createLogger({
     level: 'info',
@@ -38,6 +42,7 @@ if (typeof window === 'undefined') {
     info: (...args) => console.log('[INFO]', ...args),
     warn: (...args) => console.warn('[WARN]', ...args),
     error: (...args) => console.error('[ERROR]', ...args),
+    log: (...args) => console.log('[LOG]', ...args), // Thêm phương thức log
   };
 }
 
