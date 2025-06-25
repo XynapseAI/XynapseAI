@@ -828,14 +828,14 @@ Use natural, professional tone with recent data.
   );
 
   const fetchOnChainData = useCallback(
-  debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride, retryCount = 0) => {
-    logger.info('fetchOnChainData called', { action, chain, tokenAddress, address, retryCount });
-    console.log('fetchOnChainData called:', { action, chain, tokenAddress, decimalPlace, address, retryCount });
+  debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride = null, retryCount = 0) => {
+    logger.info('fetchOnChainData called', { action, chain, address, tokenAddress, retryCount });
+    console.log('fetchOnChainData called:', { action, chain, address, tokenAddress, decimalPlace, retryCount });
 
     // Map action to valid reCAPTCHA action name
-    const recaptchaAction = action === 'top-holders' ? 'top_holders' : action;
+    const recaptchaAction = action === 'top-holders' ? 'onchainData' : action; // Fallback to 'onchain_data'
 
-    // Validate input parameters
+    // Validate request parameters
     if (
       (action === 'top-holders' && (!chain || !tokenAddress)) ||
       ((action === 'wallet-balances' || action === 'transactions') && !address) ||
@@ -903,7 +903,7 @@ Use natural, professional tone with recent data.
       const timeout = (ms, promise) => {
         return new Promise((resolve, reject) => {
           const timer = setTimeout(() => {
-            reject(new Error('reCAPTCHA timeout after ' + ms + 'ms'));
+            reject(new Error(`reCAPTCHA timeout after ${ms}ms`));
           }, ms);
           promise.then(
             (value) => {
@@ -918,13 +918,29 @@ Use natural, professional tone with recent data.
         });
       };
 
-      // Execute reCAPTCHA with timeout
-      console.log('Executing reCAPTCHA for action:', recaptchaAction);
-      const recaptchaToken = recaptchaTokenOverride || await timeout(10000, executeRecaptcha(recaptchaAction));
+      // Execute reCAPTCHA with retry on timeout
+      let recaptchaToken = recaptchaTokenOverride;
       if (!recaptchaToken) {
-        throw new Error('Empty reCAPTCHA token');
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            console.log(`Executing reCAPTCHA for action: ${recaptchaAction}, attempt: ${attempt}`);
+            recaptchaToken = await timeout(10000, executeRecaptcha(recaptchaAction));
+            if (recaptchaToken) {
+              console.log('reCAPTCHA token generated:', { action: recaptchaAction, token: recaptchaToken.slice(0, 20) + '...' });
+              break;
+            } else {
+              throw new Error('Empty reCAPTCHA token');
+            }
+          } catch (recaptchaError) {
+            logger.warn(`reCAPTCHA attempt ${attempt} failed`, { action: recaptchaAction, message: recaptchaError.message });
+            console.warn(`reCAPTCHA attempt ${attempt} failed:`, { action: recaptchaAction, message: recaptchaError.message });
+            if (attempt === 3) {
+              throw recaptchaError;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+          }
+        }
       }
-      console.log('reCAPTCHA token generated:', { action: recaptchaAction, token: recaptchaToken.slice(0, 20) + '...' });
 
       // Prepare payload
       const payload = {
@@ -1054,7 +1070,7 @@ Use natural, professional tone with recent data.
               ? 'Dune Sim API rate limit exceeded. Please try again later.'
               : error.response?.status === 503
                 ? 'Service temporarily unavailable. Please try again later.'
-                : error.message === 'reCAPTCHA timeout after 10000ms'
+                : error.message.includes('reCAPTCHA timeout')
                   ? 'reCAPTCHA request timed out. Please try again.'
                   : error.response?.data?.errors
                     ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
