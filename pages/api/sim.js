@@ -13,8 +13,13 @@ const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
+    new winston.transports.Console(), // Log ra console cho Vercel
+    ...(process.env.NODE_ENV !== 'production'
+      ? [
+          new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+          new winston.transports.File({ filename: 'logs/combined.log' }),
+        ]
+      : []),
   ],
 });
 
@@ -41,19 +46,25 @@ const addressLimiter = rateLimit({
 
 axiosRetry(axios, {
   retries: 5,
-  retryDelay: (retryCount) => retryCount * 2000, // Tăng delay lên 2s mỗi lần retry
-  retryCondition: (error) => error.response?.status === 429,
+  retryDelay: (retryCount) => Math.min(retryCount * 2000, 10000), // Giới hạn delay tối đa 10s
+  retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
   onRetry: (retryCount, error) => {
-    logger.warn(`Retrying Dune API request (attempt ${retryCount}) due to 429 error`, {
+    logger.warn(`Retrying Dune API request (attempt ${retryCount})`, {
       status: error.response?.status,
       data: error.response?.data,
+      message: error.message,
     });
   },
 });
 
 const cors = Cors({
   origin: (origin, callback) => {
-    const allowedOrigins = [process.env.NEXT_PUBLIC_APP_URL, 'http://localhost:3000'].filter(Boolean);
+    const allowedOrigins = [
+      process.env.NEXT_PUBLIC_APP_URL,
+      'http://localhost:3000',
+      'https://xynapse-ai.vercel.app', // Thêm rõ ràng domain Vercel
+    ].filter(Boolean);
+    logger.info(`CORS check: Origin ${origin}, Allowed origins: ${allowedOrigins}`);
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
