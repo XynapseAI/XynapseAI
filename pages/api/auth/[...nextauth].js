@@ -11,36 +11,32 @@ export const authOptions = {
       clientSecret: process.env.TWITTER_CLIENT_SECRET,
       version: '2.0',
       authorization: {
-        url: 'https://api.twitter.com/2/oauth2/authorize',
         params: {
-          scope: 'tweet.read users.read offline.access',
+          scope: 'tweet.read users.read offline.access', // Giảm scope để thử nghiệm
         },
-      },
-      token: 'https://api.twitter.com/2/oauth2/token',
-      userinfo: 'https://api.twitter.com/2/users/me?user.fields=profile_image_url,username',
-      profile(profile) {
-        // Chuẩn hóa profile để tương thích với NextAuth
-        return {
-          id: profile.data.id,
-          name: profile.data.name,
-          email: null, // Twitter không cung cấp email
-          image: profile.data.profile_image_url,
-          twitterHandle: `@${profile.data.username}`,
-        };
       },
     }),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
-        logger.info('Twitter signIn', { userId: user.id, twitterHandle: user.twitterHandle });
+        logger.info('Twitter signIn profile:', { profile, user, account });
         const userRef = db.collection('users').doc(user.id);
         const userDoc = await userRef.get();
-
+        // Linh hoạt lấy twitterHandle từ profile
+        const twitterHandle = profile?.data?.username 
+          ? `@${profile.data.username}`
+          : profile?.username 
+            ? `@${profile.username}` 
+            : user.name || '';
+        if (!twitterHandle) {
+          logger.error('No valid Twitter username found', { userId: user.id, profile });
+          return false; // Ngăn đăng nhập nếu không có username
+        }
         const userData = {
-          twitterAccessToken: account.access_token,
-          twitterHandle: user.twitterHandle || `@${profile.data.username}`,
-          twitterPFP: profile.data.profile_image_url || user.image || '',
+          twitterAccessToken: account.access_token, // Lưu access token
+          twitterHandle,
+          twitterPFP: profile?.data?.profile_image_url || profile?.profile_image_url || user.image || '',
           twitterConnected: true,
           lastConnected: admin.firestore.Timestamp.fromDate(new Date()),
         };
@@ -68,7 +64,7 @@ export const authOptions = {
         }
         return true;
       } catch (error) {
-        logger.error('Error in signIn callback', {
+        logger.error('Error in signIn callback:', {
           error: error.message,
           userId: user.id,
           stack: error.stack,
@@ -77,14 +73,18 @@ export const authOptions = {
       }
     },
     async jwt({ token, account, profile }) {
-      if (account && profile) {
+      if (account) {
         token.id = account.providerAccountId;
         token.twitterAccessToken = account.access_token;
-        token.twitterHandle = `@${profile.data.username}`;
+        token.twitterHandle = profile?.data?.username 
+          ? `@${profile.data.username}` 
+          : profile?.username 
+            ? `@${profile.username}` 
+            : '';
       }
-      logger.info('JWT callback', {
+      logger.info('JWT callback:', {
         tokenId: token.id,
-        twitterHandle: token.twitterHandle,
+        accountId: account?.providerAccountId,
       });
       return token;
     },
@@ -92,7 +92,7 @@ export const authOptions = {
       session.user.id = token.id;
       session.user.twitterHandle = token.twitterHandle;
       session.user.twitterAccessToken = token.twitterAccessToken;
-      logger.info('Session callback', { userId: session.user.id });
+      logger.info('Session callback:', { userId: session.user.id });
       return session;
     },
   },
@@ -101,10 +101,6 @@ export const authOptions = {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 ngày
     updateAge: 24 * 60 * 60, // Cập nhật mỗi 24 giờ
-  },
-  pages: {
-    signIn: '/auth/signin', // Tùy chọn: Trang đăng nhập tùy chỉnh
-    error: '/auth/error', // Tùy chọn: Trang lỗi tùy chỉnh
   },
 };
 
