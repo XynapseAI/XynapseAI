@@ -133,7 +133,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const [prediction, setPrediction] = useState(null);
   const [priceHistory, setPriceHistory] = useState([]);
   const [priceHistoryCache, setPriceHistoryCache] = useState({});
-  const [timeRange, setTimeRange] = useState('30');
+  const [timeRange, setTimeRange] = useState('1');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -201,6 +201,74 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
     [recaptchaRef]
   );
 
+  const fetchPriceHistory = useCallback(
+    debounce(
+      (tokenId, days, callback) => {
+        if (document.visibilityState !== 'visible') {
+          callback(null);
+          return;
+        }
+        const cacheKey = `${tokenId}-${days}`;
+        const cached = priceHistoryCache[cacheKey];
+
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+          setPriceHistory(cached.data);
+          callback(null, cached.data);
+          return;
+        }
+
+        return new Promise(async (resolve, reject) => {
+          try {
+            logger.log('Fetching price history from API:', { tokenId, days });
+            const recaptchaToken = await executeRecaptcha('fetch_price_history');
+            const response = await axios.get('/api/coingecko/history', {
+              params: { id: tokenId, vs_currency: 'usd', days, recaptchaToken },
+              timeout: 15000,
+            });
+            const priceData = response.data.prices.map(([timestamp, price]) => ({
+              title: new Date(timestamp).toLocaleString('en-GB', {
+                day: '2-digit',
+                month: '2-digit',
+                year: '2-digit',
+                hour: days === '0.5' || days === '1' ? '2-digit' : undefined,
+                minute: days === '0.5' ? '2-digit' : undefined,
+                hour12: false,
+              }),
+              price: parseFloat(price.toFixed(2)),
+            }));
+
+            setPriceHistoryCache((prev) => ({
+              ...prev,
+              [cacheKey]: { data: priceData, timestamp: Date.now() },
+            }));
+            setPriceHistory(priceData);
+            resolve(priceData);
+            callback(null, priceData);
+          } catch (err) {
+            logger.error('Error fetching price history:', err.response?.data || err.message);
+            const errorMessage =
+              err.response?.status === 429
+                ? 'API rate limit reached. Please wait a minute and try again.'
+                : err.response?.status === 403 && err.response?.data?.detail?.includes('reCAPTCHA')
+                  ? 'reCAPTCHA verification failed. Please try again.'
+                  : err.response?.data?.detail || 'Failed to load price history.';
+            setError(errorMessage);
+            toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+            reject(err);
+            callback(err);
+          } finally {
+            if (recaptchaRef.current) {
+              recaptchaRef.current.reset();
+            }
+          }
+        });
+      },
+      500,
+      { leading: false, trailing: true }
+    ),
+    [priceHistoryCache, setPriceHistory, setPriceHistoryCache, executeRecaptcha, setError]
+  );
+
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token) => {
       logger.log('debouncedHandleTokenSelect called for token:', { id: token.id, symbol: token.symbol });
@@ -254,6 +322,22 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         setIsDropdownOpen(false);
         setOnChainData({ topHolders: [], whaleActivity: [] });
         setOnChainError(null);
+
+        // Trigger fetchPriceHistory
+        const days = timeRange || '1';
+        logger.log('Triggering fetchPriceHistory from token select:', { tokenId: fullToken.id, days });
+        fetchPriceHistory(fullToken.id, days, (err, data) => {
+          if (err) {
+            logger.error('Price history fetch failed on token select:', { error: err.message });
+            setError(
+              err.response?.status === 429
+                ? 'API rate limit reached. Please wait a minute and try again.'
+                : err.response?.data?.detail || 'Failed to load price history.'
+            );
+          } else {
+            logger.log('Price history fetched on token select:', { tokenId: fullToken.id, count: data?.length || 0 });
+          }
+        });
       } catch (error) {
         logger.error('Error fetching token details:', error.response?.data || error.message);
         setError(
@@ -263,7 +347,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         );
       }
     }, 500),
-    []
+    [timeRange, fetchPriceHistory, setSelectedToken, setSelectedPair, setSelectedChain, setAnalysis, setPrediction, setAnalysisLinks, setIsDropdownOpen, setOnChainData, setOnChainError, setError, executeRecaptcha]
   );
 
   const fetchAssetPlatforms = useCallback(
@@ -352,57 +436,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       }
     }, 3000),
     [selectedToken, debouncedHandleTokenSelect, executeRecaptcha]
-  );
-
-  const fetchPriceHistory = useCallback(
-    debounce(async (tokenId, days) => {
-      if (document.visibilityState !== 'visible') return;
-      const cacheKey = `${tokenId}-${days}`;
-      const cached = priceHistoryCache[cacheKey];
-
-      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-        setPriceHistory(cached.data);
-        return;
-      }
-
-      try {
-        const recaptchaToken = await executeRecaptcha('fetch_price_history');
-        const response = await axios.get('/api/coingecko/history', {
-          params: { id: tokenId, vs_currency: 'usd', days, recaptchaToken },
-        });
-        const priceData = response.data.prices.map(([timestamp, price]) => ({
-          title: new Date(timestamp).toLocaleString('en-GB', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: days === '0.5' || days === '1' ? '2-digit' : undefined,
-            minute: days === '0.5' ? '2-digit' : undefined,
-            hour12: false,
-          }),
-          price: parseFloat(price.toFixed(2)),
-        }));
-
-        setPriceHistoryCache((prev) => ({
-          ...prev,
-          [cacheKey]: { data: priceData, timestamp: Date.now() },
-        }));
-        setPriceHistory(priceData);
-      } catch (error) {
-        logger.error('Error fetching price history:', error.response?.data || error.message);
-        setError(
-          error.response?.status === 429
-            ? 'API rate limit reached. Please wait a minute and try again.'
-            : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
-              ? 'reCAPTCHA verification failed. Please try again.'
-              : error.response?.data?.detail || 'Failed to load price history.'
-        );
-      } finally {
-        if (recaptchaRef.current) {
-          recaptchaRef.current.reset();
-        }
-      }
-    }, 500),
-    [priceHistoryCache, executeRecaptcha]
   );
 
   const debouncedHandleAnalysis = useCallback(
@@ -828,275 +861,275 @@ Use natural, professional tone with recent data.
   );
 
   const fetchOnChainData = useCallback(
-  debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride = null, retryCount = 0) => {
-    logger.info('fetchOnChainData called', { action, chain, address, tokenAddress, retryCount });
-    console.log('fetchOnChainData called:', { action, chain, address, tokenAddress, decimalPlace, retryCount });
+    debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride = null, retryCount = 0) => {
+      logger.info('fetchOnChainData called', { action, chain, address, tokenAddress, retryCount });
+      console.log('fetchOnChainData called:', { action, chain, address, tokenAddress, decimalPlace, retryCount });
 
-    // Map action to valid reCAPTCHA action name
-    const recaptchaAction = action === 'top-holders' ? 'onchainData' : action; // Fallback to 'onchain_data'
+      // Map action to valid reCAPTCHA action name
+      const recaptchaAction = action === 'top-holders' ? 'onchainData' : action; // Fallback to 'onchain_data'
 
-    // Validate request parameters
-    if (
-      (action === 'top-holders' && (!chain || !tokenAddress)) ||
-      ((action === 'wallet-balances' || action === 'transactions') && !address) ||
-      (typeof document !== 'undefined' && document.visibilityState !== 'visible')
-    ) {
-      const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address}`;
-      logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
-      console.error('Invalid parameters:', { action, chain, tokenAddress, address });
-      customLogger.log('Error: Invalid parameters', { action, chain, tokenAddress, address });
-      setOnChainError(errorMessage);
-      setIsLoadingOnChain(false);
-      setIsLoadingWalletBalances(false);
-      setIsLoadingTransactions(false);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      return;
-    }
+      // Validate request parameters
+      if (
+        (action === 'top-holders' && (!chain || !tokenAddress)) ||
+        ((action === 'wallet-balances' || action === 'transactions') && !address) ||
+        (typeof document !== 'undefined' && document.visibilityState !== 'visible')
+      ) {
+        const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address}`;
+        logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
+        console.error('Invalid parameters:', { action, chain, tokenAddress, address });
+        customLogger.log('Error: Invalid parameters', { action, chain, tokenAddress, address });
+        setOnChainError(errorMessage);
+        setIsLoadingOnChain(false);
+        setIsLoadingWalletBalances(false);
+        setIsLoadingTransactions(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
 
-    // Check authentication
-    if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
-      const errorMessage = 'Please log in to access wallet data.';
-      logger.warn('User not authenticated for wallet data', { action, status });
-      console.warn('User not authenticated:', { action, status });
-      customLogger.log('Warning: User not authenticated', { action, status });
-      setOnChainError(errorMessage);
-      setIsLoadingOnChain(false);
-      setIsLoadingWalletBalances(false);
-      setIsLoadingTransactions(false);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      return;
-    }
+      // Check authentication
+      if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
+        const errorMessage = 'Please log in to access wallet data.';
+        logger.warn('User not authenticated for wallet data', { action, status });
+        console.warn('User not authenticated:', { action, status });
+        customLogger.log('Warning: User not authenticated', { action, status });
+        setOnChainError(errorMessage);
+        setIsLoadingOnChain(false);
+        setIsLoadingWalletBalances(false);
+        setIsLoadingTransactions(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
 
-    // Validate EVM address
-    if ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) {
-      const errorMessage = 'Wallet address must be a valid EVM address.';
-      logger.error(errorMessage, { action, address });
-      console.error(errorMessage, { action, address });
-      customLogger.log('Error: Invalid EVM address', { action, address });
+      // Validate EVM address
+      if ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+        const errorMessage = 'Wallet address must be a valid EVM address.';
+        logger.error(errorMessage, { action, address });
+        console.error(errorMessage, { action, address });
+        customLogger.log('Error: Invalid EVM address', { action, address });
+        if (action === 'wallet-balances') {
+          setWalletBalancesError(errorMessage);
+        } else {
+          setTransactionsError(errorMessage);
+        }
+        setIsLoadingOnChain(false);
+        setIsLoadingWalletBalances(false);
+        setIsLoadingTransactions(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
+
+      // Build API URL
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+      const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}${apiBaseUrl}/sim`;
+      logger.info('API URL configuration', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
+      console.log('API URL configuration:', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
+
+      setIsLoadingOnChain(true);
       if (action === 'wallet-balances') {
-        setWalletBalancesError(errorMessage);
-      } else {
-        setTransactionsError(errorMessage);
-      }
-      setIsLoadingOnChain(false);
-      setIsLoadingWalletBalances(false);
-      setIsLoadingTransactions(false);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      return;
-    }
-
-    // Build API URL
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-    const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}${apiBaseUrl}/sim`;
-    logger.info('API URL configuration', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
-    console.log('API URL configuration:', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
-
-    setIsLoadingOnChain(true);
-    if (action === 'wallet-balances') {
-      setIsLoadingWalletBalances(true);
-    } else if (action === 'transactions') {
-      setIsLoadingTransactions(true);
-    }
-
-    try {
-      // Timeout wrapper for reCAPTCHA
-      const timeout = (ms, promise) => {
-        return new Promise((resolve, reject) => {
-          const timer = setTimeout(() => {
-            reject(new Error(`reCAPTCHA timeout after ${ms}ms`));
-          }, ms);
-          promise.then(
-            (value) => {
-              clearTimeout(timer);
-              resolve(value);
-            },
-            (error) => {
-              clearTimeout(timer);
-              reject(error);
-            }
-          );
-        });
-      };
-
-      // Execute reCAPTCHA with retry on timeout
-      let recaptchaToken = recaptchaTokenOverride;
-      if (!recaptchaToken) {
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            console.log(`Executing reCAPTCHA for action: ${recaptchaAction}, attempt: ${attempt}`);
-            recaptchaToken = await timeout(10000, executeRecaptcha(recaptchaAction));
-            if (recaptchaToken) {
-              console.log('reCAPTCHA token generated:', { action: recaptchaAction, token: recaptchaToken.slice(0, 20) + '...' });
-              break;
-            } else {
-              throw new Error('Empty reCAPTCHA token');
-            }
-          } catch (recaptchaError) {
-            logger.warn(`reCAPTCHA attempt ${attempt} failed`, { action: recaptchaAction, message: recaptchaError.message });
-            console.warn(`reCAPTCHA attempt ${attempt} failed:`, { action: recaptchaAction, message: recaptchaError.message });
-            if (attempt === 3) {
-              throw recaptchaError;
-            }
-            await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-          }
-        }
-      }
-
-      // Prepare payload
-      const payload = {
-        action, // Keep original action for API
-        recaptchaToken,
-      };
-      if (action === 'top-holders') {
-        payload.chain = chain;
-        payload.tokenAddress = tokenAddress;
-        if (decimalPlace != null) payload.decimalPlace = Number(decimalPlace);
-      } else if (action === 'wallet-balances' || action === 'transactions') {
-        payload.address = address;
-      }
-      logger.info('Sending on-chain data request', { payload, apiUrl });
-      console.log('Sending on-chain data request:', { payload, apiUrl });
-      customLogger.log('Sending on-chain data request', { payload, apiUrl });
-
-      // Make API request with retry
-      const response = await axios.post(apiUrl, payload, {
-        headers: {
-          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-          'Content-Type': 'application/json',
-        },
-        timeout: 30000,
-      }).catch(async (error) => {
-        if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
-          const delay = Math.pow(2, retryCount) * 1000;
-          logger.info(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
-          console.log(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          return fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride, retryCount + 1);
-        }
-        throw error;
-      });
-
-      // Log response
-      logger.info(`On-chain data response for ${action}`, {
-        success: response.data.success,
-        count: response.data.data?.length || 0,
-        dataSample: response.data.data?.slice(0, 5),
-      });
-      console.log(`On-chain data response for ${action}:`, {
-        status: response.status,
-        success: response.data.success,
-        count: response.data.data?.length || 0,
-      });
-      customLogger.log(`On-chain data response for ${action}`, {
-        success: response.data.success,
-        count: response.data.data?.length || 0,
-      });
-
-      if (!response.data.success) {
-        throw new Error(response.data.detail || `Failed to fetch ${action} data`);
-      }
-
-      // Handle response based on action
-      if (action === 'top-holders') {
-        setOnChainData((prev) => ({
-          ...prev,
-          topHolders: response.data.data || [],
-        }));
-      } else if (action === 'wallet-balances') {
-        setWalletBalances(response.data.data || []);
+        setIsLoadingWalletBalances(true);
       } else if (action === 'transactions') {
-        setTransactions(response.data.data || []);
-        if (session?.user?.id) {
-          try {
-            const historyRecaptchaToken = await timeout(10000, executeRecaptcha('wallet_history'));
-            await axios.post(
-              '/api/wallet-history',
-              {
-                uid: session.user.id,
-                walletAddress: address,
-                action: 'transactions',
-                data: response.data.data || [],
-                recaptchaToken: historyRecaptchaToken,
+        setIsLoadingTransactions(true);
+      }
+
+      try {
+        // Timeout wrapper for reCAPTCHA
+        const timeout = (ms, promise) => {
+          return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+              reject(new Error(`reCAPTCHA timeout after ${ms}ms`));
+            }, ms);
+            promise.then(
+              (value) => {
+                clearTimeout(timer);
+                resolve(value);
               },
-              {
-                headers: {
-                  Authorization: `Bearer ${session.accessToken}`,
-                },
-                timeout: 15000,
+              (error) => {
+                clearTimeout(timer);
+                reject(error);
               }
             );
-            logger.info('Transactions history saved', { address });
-            console.log('Transactions history saved:', { address });
-            customLogger.log('Transactions history saved', { address });
-          } catch (historyError) {
-            logger.error('Error saving transactions history', {
-              message: historyError.message,
-              response: historyError.response?.data,
-            });
-            console.error('Error saving transactions history:', {
-              message: historyError.message,
-              response: historyError.response?.data,
-            });
-            customLogger.log('Error saving transactions history', {
-              message: historyError.message,
-            });
+          });
+        };
+
+        // Execute reCAPTCHA with retry on timeout
+        let recaptchaToken = recaptchaTokenOverride;
+        if (!recaptchaToken) {
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              console.log(`Executing reCAPTCHA for action: ${recaptchaAction}, attempt: ${attempt}`);
+              recaptchaToken = await timeout(10000, executeRecaptcha(recaptchaAction));
+              if (recaptchaToken) {
+                console.log('reCAPTCHA token generated:', { action: recaptchaAction, token: recaptchaToken.slice(0, 20) + '...' });
+                break;
+              } else {
+                throw new Error('Empty reCAPTCHA token');
+              }
+            } catch (recaptchaError) {
+              logger.warn(`reCAPTCHA attempt ${attempt} failed`, { action: recaptchaAction, message: recaptchaError.message });
+              console.warn(`reCAPTCHA attempt ${attempt} failed:`, { action: recaptchaAction, message: recaptchaError.message });
+              if (attempt === 3) {
+                throw recaptchaError;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+            }
           }
         }
+
+        // Prepare payload
+        const payload = {
+          action, // Keep original action for API
+          recaptchaToken,
+        };
+        if (action === 'top-holders') {
+          payload.chain = chain;
+          payload.tokenAddress = tokenAddress;
+          if (decimalPlace != null) payload.decimalPlace = Number(decimalPlace);
+        } else if (action === 'wallet-balances' || action === 'transactions') {
+          payload.address = address;
+        }
+        logger.info('Sending on-chain data request', { payload, apiUrl });
+        console.log('Sending on-chain data request:', { payload, apiUrl });
+        customLogger.log('Sending on-chain data request', { payload, apiUrl });
+
+        // Make API request with retry
+        const response = await axios.post(apiUrl, payload, {
+          headers: {
+            Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+        }).catch(async (error) => {
+          if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
+            const delay = Math.pow(2, retryCount) * 1000;
+            logger.info(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
+            console.log(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride, retryCount + 1);
+          }
+          throw error;
+        });
+
+        // Log response
+        logger.info(`On-chain data response for ${action}`, {
+          success: response.data.success,
+          count: response.data.data?.length || 0,
+          dataSample: response.data.data?.slice(0, 5),
+        });
+        console.log(`On-chain data response for ${action}:`, {
+          status: response.status,
+          success: response.data.success,
+          count: response.data.data?.length || 0,
+        });
+        customLogger.log(`On-chain data response for ${action}`, {
+          success: response.data.success,
+          count: response.data.data?.length || 0,
+        });
+
+        if (!response.data.success) {
+          throw new Error(response.data.detail || `Failed to fetch ${action} data`);
+        }
+
+        // Handle response based on action
+        if (action === 'top-holders') {
+          setOnChainData((prev) => ({
+            ...prev,
+            topHolders: response.data.data || [],
+          }));
+        } else if (action === 'wallet-balances') {
+          setWalletBalances(response.data.data || []);
+        } else if (action === 'transactions') {
+          setTransactions(response.data.data || []);
+          if (session?.user?.id) {
+            try {
+              const historyRecaptchaToken = await timeout(10000, executeRecaptcha('wallet_history'));
+              await axios.post(
+                '/api/wallet-history',
+                {
+                  uid: session.user.id,
+                  walletAddress: address,
+                  action: 'transactions',
+                  data: response.data.data || [],
+                  recaptchaToken: historyRecaptchaToken,
+                },
+                {
+                  headers: {
+                    Authorization: `Bearer ${session.accessToken}`,
+                  },
+                  timeout: 15000,
+                }
+              );
+              logger.info('Transactions history saved', { address });
+              console.log('Transactions history saved:', { address });
+              customLogger.log('Transactions history saved', { address });
+            } catch (historyError) {
+              logger.error('Error saving transactions history', {
+                message: historyError.message,
+                response: historyError.response?.data,
+              });
+              console.error('Error saving transactions history:', {
+                message: historyError.message,
+                response: historyError.response?.data,
+              });
+              customLogger.log('Error saving transactions history', {
+                message: historyError.message,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        logger.error(`Error fetching ${action} data`, {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+          stack: error.stack,
+          url: apiUrl,
+        });
+        console.error(`Error fetching ${action} data:`, {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+          stack: error.stack,
+        });
+        customLogger.log(`Error fetching ${action} data`, {
+          status: error.response?.status,
+          message: error.message,
+        });
+        const errorMessage =
+          error.response?.status === 401
+            ? 'Unauthorized: Please log in again.'
+            : error.response?.status === 403
+              ? 'reCAPTCHA verification failed or invalid API key.'
+              : error.response?.status === 429
+                ? 'Dune Sim API rate limit exceeded. Please try again later.'
+                : error.response?.status === 503
+                  ? 'Service temporarily unavailable. Please try again later.'
+                  : error.message.includes('reCAPTCHA timeout')
+                    ? 'reCAPTCHA request timed out. Please try again.'
+                    : error.response?.data?.errors
+                      ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
+                      : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
+        if (action === 'wallet-balances') {
+          setWalletBalancesError(errorMessage);
+        } else if (action === 'transactions') {
+          setTransactionsError(errorMessage);
+        } else {
+          setOnChainError(errorMessage);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        }
+      } finally {
+        setIsLoadingOnChain(false);
+        if (action === 'wallet-balances') {
+          setIsLoadingWalletBalances(false);
+        } else if (action === 'transactions') {
+          setIsLoadingTransactions(false);
+        }
+        if (recaptchaRef.current) {
+          recaptchaRef.current.reset();
+        }
       }
-    } catch (error) {
-      logger.error(`Error fetching ${action} data`, {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-        stack: error.stack,
-        url: apiUrl,
-      });
-      console.error(`Error fetching ${action} data:`, {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-        stack: error.stack,
-      });
-      customLogger.log(`Error fetching ${action} data`, {
-        status: error.response?.status,
-        message: error.message,
-      });
-      const errorMessage =
-        error.response?.status === 401
-          ? 'Unauthorized: Please log in again.'
-          : error.response?.status === 403
-            ? 'reCAPTCHA verification failed or invalid API key.'
-            : error.response?.status === 429
-              ? 'Dune Sim API rate limit exceeded. Please try again later.'
-              : error.response?.status === 503
-                ? 'Service temporarily unavailable. Please try again later.'
-                : error.message.includes('reCAPTCHA timeout')
-                  ? 'reCAPTCHA request timed out. Please try again.'
-                  : error.response?.data?.errors
-                    ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
-                    : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
-      if (action === 'wallet-balances') {
-        setWalletBalancesError(errorMessage);
-      } else if (action === 'transactions') {
-        setTransactionsError(errorMessage);
-      } else {
-        setOnChainError(errorMessage);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      }
-    } finally {
-      setIsLoadingOnChain(false);
-      if (action === 'wallet-balances') {
-        setIsLoadingWalletBalances(false);
-      } else if (action === 'transactions') {
-        setIsLoadingTransactions(false);
-      }
-      if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
-      }
-    }
-  }, 500),
-  [executeRecaptcha, status, session?.accessToken]
-);
+    }, 500),
+    [executeRecaptcha, status, session?.accessToken]
+  );
 
   const handleAddressClick = useCallback(
     (address) => {
@@ -1321,16 +1354,29 @@ Use natural, professional tone with recent data.
   }, [fetchMarketData]);
 
   useEffect(() => {
-    if (!selectedToken?.id) return;
-    fetchPriceHistory(selectedToken.id, timeRange);
+    if (selectedToken && timeRange) {
+      fetchPriceHistory(selectedToken.id, timeRange, (err, data) => {
+        if (err) {
+          logger.error('Price history callback error:', { error: err.message });
+        } else {
+          logger.log('Price history callback success:', { tokenId: selectedToken.id, count: data?.length || 0 });
+        }
+      });
+    }
     const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchPriceHistory(selectedToken.id, timeRange);
+      if (selectedToken && timeRange) {
+        fetchPriceHistory(selectedToken.id, timeRange, (err, data) => {
+          if (err) {
+            logger.error('Price history interval callback error:', { error: err.message });
+          } else {
+            logger.log('Price history interval callback success:', { tokenId: selectedToken.id, count: data?.length || 0 });
+          }
+        });
       }
-    }, 10 * 60 * 1000);
+    }, 60000); // Update every minute
     return () => {
       clearInterval(interval);
-      fetchPriceHistory.cancel();
+      fetchPriceHistory.cancel && fetchPriceHistory.cancel(); // Safe cancellation
     };
   }, [selectedToken, timeRange, fetchPriceHistory]);
 
@@ -1465,6 +1511,9 @@ Use natural, professional tone with recent data.
     setWalletSearchCount,
     lastWalletSearchTime,
     setLastWalletSearchTime,
+    fetchPriceHistory,
+    setPriceHistory,
+    debouncedHandleTokenSelect,
     tickerData,
     isLoadingTickers,
     tickerError,
@@ -1476,6 +1525,7 @@ Use natural, professional tone with recent data.
     setSelectedChain,
     setTimeRange,
     setWalletAddress,
+    setError,
     debouncedHandleTokenSelect,
     debouncedHandleAnalysis,
     debouncedHandlePrediction,

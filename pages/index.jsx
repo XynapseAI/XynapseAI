@@ -1,5 +1,4 @@
 'use client';
-
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
@@ -312,16 +311,16 @@ export default function Home() {
             ))}
           </nav>
         </div> */}
-        <div className="flex items-center gap-4">
-          <Link href="https://x.com" className="transition-all duration-300 mr-4">
+        <div className="flex items-center gap-2">
+          <Link href="https://x.com" className="transition-all duration-300 mr-1 sm:mr-4">
             <img
               src="/icons/x.png" // Placeholder for Twitter logo
               alt="Twitter Logo"
-              className="h-6"
+              className="h-4 sm:h-6"
             />
           </Link>
           <span>
-            <img src="/icons/discord.png" alt="Discord Logo" className="h-6 opacity-50 mr-4" />
+            <img src="/icons/discord.png" alt="Discord Logo" className="h-5 sm:h-6 opacity-50 mr-1 sm:mr-4" />
           </span>
           {/* <Link href="https://discord.com" className="transition-all duration-300 mr-4">
             <img
@@ -332,7 +331,7 @@ export default function Home() {
           </Link> */}
           <Link
             href="/dashboard"
-            className="px-4 py-2 text-white border border-2 rounded-xl font-medium transition-all duration-300"
+            className="px-2 py-1 sm:px-4 sm:py-2 text-white text-xs sm:text-sm border border-2 rounded-lg font-medium transition-all duration-300"
           >
             <MatrixHoverEffect text="Launch App" hoverColor="#00BFFF" />
           </Link>

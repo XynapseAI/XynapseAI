@@ -205,9 +205,19 @@ const WalletBalances = ({
   }, [onClose]);
 
   useEffect(() => {
-    if (activeTab === 'transactions' && !transactions && !isLoadingTransactions && !transactionsError) {
+    if (
+      activeTab === 'transactions' &&
+      walletAddress?.match(/^0x[a-fA-F0-9]{40}$/) &&
+      !transactions &&
+      !isLoadingTransactions &&
+      !transactionsError
+    ) {
+      logger.log('Fetching transactions for wallet:', { walletAddress });
       fetchTransactions(walletAddress);
     }
+    return () => {
+      fetchTransactions.cancel && fetchTransactions.cancel(); // Cancel debounced calls
+    };
   }, [activeTab, transactions, isLoadingTransactions, transactionsError, fetchTransactions, walletAddress]);
 
   if (!walletAddress) return null;
@@ -260,15 +270,13 @@ const WalletBalances = ({
         <div className="flex space-x-2 mb-4">
           <button
             onClick={() => setActiveTab('portfolio')}
-            className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
-              }`}
+            className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
           >
             Portfolio
           </button>
           <button
             onClick={() => setActiveTab('transactions')}
-            className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'transactions' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
-              }`}
+            className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'transactions' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
           >
             Transactions
           </button>
@@ -514,6 +522,7 @@ const MarketTab = ({ recaptchaRef }) => {
     setTransactionsError,
     fetchPublicTreasuryData,
     fetchTickerData,
+    fetchPriceHistory, // Added from useMarketTabLogic
   } = useMarketTabLogic({ recaptchaRef, toast });
 
   const dropdownRef = useRef(null);
@@ -559,16 +568,24 @@ const MarketTab = ({ recaptchaRef }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [setIsDropdownOpen]);
 
-  // Debug priceHistory
+  // Fetch price history when token or time range changes
   useEffect(() => {
-  logger.log('Price History:', { priceHistory, selectedToken, timeRange });
+  console.log('useEffect triggered:', { selectedToken: selectedToken?.id, timeRange });
   if (selectedToken && timeRange) {
+    logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange });
     setIsChartLoading(true);
-    if (priceHistory && priceHistory.length > 0) {
+    fetchPriceHistory(selectedToken.id, timeRange, (err, data) => {
+      if (err) {
+        logger.error('Price history fetch failed:', { error: err.message });
+      } else {
+        logger.log('Price history fetch completed:', { tokenId: selectedToken.id, count: data?.length || 0 });
+      }
       setIsChartLoading(false);
-    }
+    });
+  } else {
+    console.log('useEffect skipped:', { selectedToken: selectedToken?.id, timeRange });
   }
-}, [selectedToken, timeRange, priceHistory]);
+}, [selectedToken, timeRange, fetchPriceHistory]);
 
   return (
     <motion.div
@@ -953,9 +970,9 @@ const MarketTab = ({ recaptchaRef }) => {
                               className="w-4 h-4 mr-2"
                               onError={(e) => (e.target.src = '/fallback-image.png')}
                             />
-                            {/* <span className="text-xs">
+                            <span className="text-xs">
                               {getAvailableChains().find((c) => c.value === selectedChain)?.label || ''}
-                            </span> */}
+                            </span>
                           </>
                         ) : (
                           <div className="w-4 h-4 bg-gray-600 rounded-full mr-4"></div>
@@ -1082,91 +1099,91 @@ const MarketTab = ({ recaptchaRef }) => {
 
           {/* Bottom Right: Activity */}
           <div className="rounded-xl p-2 border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)] sm:min-h-[300px] min-h-[300px] overflow-auto hide-scrollbar">
-  {selectedToken ? (
-    <>
-      <h3 className={`font-bold text-white mb-2 text-center uppercase ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Market Activity</h3>
-      {isLoadingTickers && <LoadingOverlay message="Loading ticker data..." />}
-      {tickerError && <p className={`textizion text-red-500 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-xs'}`}>{tickerError}</p>}
-      {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
-        <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
-          <table className={`w-full border border-gray-500 table-auto ${isMobile ? 'text-[9px]' : 'text-xs'}`}>
-            <thead>
-              <tr>
-                <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Market</th>
-                <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[40px]' : 'min-w-[60px]'}`}>Pair</th>
-                <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>Price</th>
-                <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Volume</th>
-                <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>Spread</th>
-                <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Last Traded</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tickerData.slice(0, 10).map((ticker, index) => (
-                <tr key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}>
-                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                    <div className="flex items-center justify-center gap-0.5">
-                      {ticker.market.logo && (
-                        <img
-                          src={ticker.market.logo}
-                          alt={`${ticker.market.name} logo`}
-                          className={` ${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
-                          onError={(e) => (e.target.src = '/fallback-image.png')}
-                        />
-                      )}
-                      <a
-                        href={ticker.trade_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={`text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[40px]' : 'max-w-[60px]'}`}
-                        title={ticker.market.name}
-                      >
-                        {ticker.market.name}
-                      </a>
-                    </div>
-                  </td>
-                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[40px]' : 'min-w-[60px]'}`}>
-                    {ticker.base}/{ticker.target}
-                  </td>
-                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>
-                    ${ticker.converted_last.usd?.toLocaleString('en-US', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    }) || 'N/A'}
-                  </td>
-                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                    ${ticker.converted_volume.usd?.toLocaleString('en-US', {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    }) || 'N/A'}
-                  </td>
-                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>
-                    {ticker.bid_ask_spread_percentage?.toFixed(2) || 'N/A'}%
-                  </td>
-                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                    {ticker.last_traded_at
-                      ? new Date(ticker.last_traded_at).toLocaleTimeString('en-US', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : 'N/A'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        !isLoadingTickers && (
-          <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
-            No ticker data available for {selectedToken.symbol?.toUpperCase()}.
-          </p>
-        )
-      )}
-    </>
-  ) : (
-    <p className={`text-gray-400 text-center flex-1 p-3 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Please select a token to view market activity.</p>
-  )}
-</div>
+            {selectedToken ? (
+              <>
+                <h3 className={`font-bold text-white mb-2 text-center uppercase ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Market Activity</h3>
+                {isLoadingTickers && <LoadingOverlay message="Loading ticker data..." />}
+                {tickerError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-xs'}`}>{tickerError}</p>}
+                {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
+                  <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
+                    <table className={`w-full border border-gray-500 table-auto ${isMobile ? 'text-[9px]' : 'text-xs'}`}>
+                      <thead>
+                        <tr>
+                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Market</th>
+                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[40px]' : 'min-w-[60px]'}`}>Pair</th>
+                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>Price</th>
+                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Volume</th>
+                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>Spread</th>
+                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Last Traded</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tickerData.slice(0, 10).map((ticker, index) => (
+                          <tr key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}>
+                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                              <div className="flex items-center justify-center gap-0.5">
+                                {ticker.market.logo && (
+                                  <img
+                                    src={ticker.market.logo}
+                                    alt={`${ticker.market.name} logo`}
+                                    className={` ${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
+                                    onError={(e) => (e.target.src = '/fallback-image.png')}
+                                  />
+                                )}
+                                <a
+                                  href={ticker.trade_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={`text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[40px]' : 'max-w-[60px]'}`}
+                                  title={ticker.market.name}
+                                >
+                                  {ticker.market.name}
+                                </a>
+                              </div>
+                            </td>
+                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[40px]' : 'min-w-[60px]'}`}>
+                              {ticker.base}/{ticker.target}
+                            </td>
+                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>
+                              ${ticker.converted_last.usd?.toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }) || 'N/A'}
+                            </td>
+                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                              ${ticker.converted_volume.usd?.toLocaleString('en-US', {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }) || 'N/A'}
+                            </td>
+                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>
+                              {ticker.bid_ask_spread_percentage?.toFixed(2) || 'N/A'}%
+                            </td>
+                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                              {ticker.last_traded_at
+                                ? new Date(ticker.last_traded_at).toLocaleTimeString('en-US', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                                : 'N/A'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  !isLoadingTickers && (
+                    <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                      No ticker data available for {selectedToken.symbol?.toUpperCase()}.
+                    </p>
+                  )
+                )}
+              </>
+            ) : (
+              <p className={`text-gray-400 text-center flex-1 p-3 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Please select a token to view market activity.</p>
+            )}
+          </div>
 
           {/* Wallet Balances Modal */}
           <WalletBalances
