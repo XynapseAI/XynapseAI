@@ -19,7 +19,15 @@ const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   message: { error: 'Too many requests, please try again later.' },
+  keyGenerator: (req) => {
+    return (
+      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      'unknown'
+    );
+  },
 });
+
 
 axiosRetry(axios, {
   retries: 3,
@@ -58,7 +66,7 @@ const validate = [
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
 
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '0.0.0.0';
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));

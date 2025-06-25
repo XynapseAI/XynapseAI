@@ -25,15 +25,26 @@ const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 100,
   message: { error: 'Too many requests, please try again later.' },
+  keyGenerator: (req) => {
+    return (
+      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.socket?.remoteAddress ||
+      'unknown'
+    );
+  },
 });
+
 
 // Address-specific rate limiter
 const addressLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
-  keyGenerator: (req) => req.body.address,
+  keyGenerator: (req) => {
+    return req.body?.address || 'unknown-address';
+  },
   message: { error: 'Too many requests for this wallet address.' },
 });
+
 
 // Configure axios retry
 axiosRetry(axios, {
@@ -146,7 +157,7 @@ export default async function handler(req, res) {
   });
 
   helmet()(req, res, () => {});
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '0.0.0.0';
   const startTime = Date.now();
   logger.info(`Request to ${req.url} from IP ${ip}, body: ${JSON.stringify(req.body)}`);
 
