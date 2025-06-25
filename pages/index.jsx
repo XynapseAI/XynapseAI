@@ -347,7 +347,7 @@ export default function Home() {
           transition={{ duration: 0.5 }}
           className="text-4xl sm:text-5xl md:text-6xl font-bold text-center text-white mb-6 uppercase"
         >
-          Master the Market with AI
+          Master the Market with AI.
         </motion.h1>
         <p className="text-sm text-gray-400 mb-8 text-center max-w-2xl">
           Unlock real-time insights, predictive analytics, and social sentiment analysis powered by Grok, Gemini, and ChatGPT. Start trading smarter today.
