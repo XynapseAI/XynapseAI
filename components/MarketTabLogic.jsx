@@ -841,25 +841,29 @@ Use natural, professional tone with recent data.
       ((action === 'wallet-balances' || action === 'transactions') && !address) ||
       (typeof document !== 'undefined' && document.visibilityState !== 'visible')
     ) {
+      const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address}`;
       logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
       console.error('Invalid parameters:', { action, chain, tokenAddress, address });
       customLogger.log('Error: Invalid parameters', { action, chain, tokenAddress, address });
-      setOnChainError(`Invalid parameters: action=${action}, chain=${chain}, address=${address}`);
+      setOnChainError(errorMessage);
       setIsLoadingOnChain(false);
       setIsLoadingWalletBalances(false);
       setIsLoadingTransactions(false);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
       return;
     }
 
     // Check authentication
     if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
+      const errorMessage = 'Please log in to access wallet data.';
       logger.warn('User not authenticated for wallet data', { action, status });
       console.warn('User not authenticated:', { action, status });
       customLogger.log('Warning: User not authenticated', { action, status });
-      setOnChainError('Please log in to access wallet data.');
+      setOnChainError(errorMessage);
       setIsLoadingOnChain(false);
       setIsLoadingWalletBalances(false);
       setIsLoadingTransactions(false);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
       return;
     }
 
@@ -877,6 +881,7 @@ Use natural, professional tone with recent data.
       setIsLoadingOnChain(false);
       setIsLoadingWalletBalances(false);
       setIsLoadingTransactions(false);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
       return;
     }
 
@@ -894,9 +899,28 @@ Use natural, professional tone with recent data.
     }
 
     try {
-      // Execute reCAPTCHA
+      // Timeout wrapper for reCAPTCHA
+      const timeout = (ms, promise) => {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            reject(new Error('reCAPTCHA timeout after ' + ms + 'ms'));
+          }, ms);
+          promise.then(
+            (value) => {
+              clearTimeout(timer);
+              resolve(value);
+            },
+            (error) => {
+              clearTimeout(timer);
+              reject(error);
+            }
+          );
+        });
+      };
+
+      // Execute reCAPTCHA with timeout
       console.log('Executing reCAPTCHA for action:', recaptchaAction);
-      const recaptchaToken = recaptchaTokenOverride || await executeRecaptcha(recaptchaAction);
+      const recaptchaToken = recaptchaTokenOverride || await timeout(10000, executeRecaptcha(recaptchaAction));
       if (!recaptchaToken) {
         throw new Error('Empty reCAPTCHA token');
       }
@@ -968,7 +992,7 @@ Use natural, professional tone with recent data.
         setTransactions(response.data.data || []);
         if (session?.user?.id) {
           try {
-            const historyRecaptchaToken = await executeRecaptcha('wallet_history');
+            const historyRecaptchaToken = await timeout(10000, executeRecaptcha('wallet_history'));
             await axios.post(
               '/api/wallet-history',
               {
@@ -1009,11 +1033,13 @@ Use natural, professional tone with recent data.
         data: error.response?.data,
         message: error.message,
         stack: error.stack,
+        url: apiUrl,
       });
       console.error(`Error fetching ${action} data:`, {
         status: error.response?.status,
         data: error.response?.data,
         message: error.message,
+        stack: error.stack,
       });
       customLogger.log(`Error fetching ${action} data`, {
         status: error.response?.status,
@@ -1028,9 +1054,11 @@ Use natural, professional tone with recent data.
               ? 'Dune Sim API rate limit exceeded. Please try again later.'
               : error.response?.status === 503
                 ? 'Service temporarily unavailable. Please try again later.'
-                : error.response?.data?.errors
-                  ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
-                  : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
+                : error.message === 'reCAPTCHA timeout after 10000ms'
+                  ? 'reCAPTCHA request timed out. Please try again.'
+                  : error.response?.data?.errors
+                    ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
+                    : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
       if (action === 'wallet-balances') {
         setWalletBalancesError(errorMessage);
       } else if (action === 'transactions') {
