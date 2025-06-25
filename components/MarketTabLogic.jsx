@@ -168,17 +168,23 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const WALLET_SEARCH_WINDOW = 60 * 1000;
 
   const executeRecaptcha = useCallback(async (action) => {
-    if (!recaptchaRef.current) {
-      throw new Error('reCAPTCHA not initialized.');
+  if (!recaptchaRef.current) {
+    logger.error('reCAPTCHA is not initialized.');
+    throw new Error('reCAPTCHA is not initialized.');
+  }
+  try {
+    const token = await recaptchaRef.current.executeAsync({ action });
+    if (!token) {
+      logger.error('Empty reCAPTCHA token', { action });
+      throw new Error('Empty reCAPTCHA token.');
     }
-    try {
-      const token = await recaptchaRef.current.executeAsync({ action });
-      return token;
-    } catch (error) {
-      logger.error('reCAPTCHA execution error:', error);
-      throw new Error('Failed to execute reCAPTCHA.');
-    }
-  }, [recaptchaRef]);
+    logger.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
+    return token;
+  } catch (error) {
+    logger.error('Error executing reCAPTCHA:', { action, error: error.message });
+    throw new Error('Unable to execute reCAPTCHA: ' + error.message);
+  }
+}, [recaptchaRef]);
 
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token) => {

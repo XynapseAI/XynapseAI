@@ -41,12 +41,26 @@ const addressLimiter = rateLimit({
 
 axiosRetry(axios, {
   retries: 5,
-  retryDelay: (retryCount) => retryCount * 1000,
+  retryDelay: (retryCount) => retryCount * 2000, // Tăng delay lên 2s mỗi lần retry
   retryCondition: (error) => error.response?.status === 429,
+  onRetry: (retryCount, error) => {
+    logger.warn(`Retrying Dune API request (attempt ${retryCount}) due to 429 error`, {
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+  },
 });
 
 const cors = Cors({
-  origin: process.env.NEXT_PUBLIC_APP_URL,
+  origin: (origin, callback) => {
+    const allowedOrigins = [process.env.NEXT_PUBLIC_APP_URL, 'http://localhost:3000'].filter(Boolean);
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      logger.error(`CORS error: Origin ${origin} not allowed`, { allowedOrigins });
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['POST'],
 });
 
@@ -187,6 +201,15 @@ export default async function handler(req, res) {
     }
   }
 
+  if (!process.env.SIM_API_KEY) {
+  logger.error('SIM_API_KEY is not configured');
+  return res.status(500).json({ detail: 'Server configuration error: Missing SIM_API_KEY' });
+}
+if (!process.env.NEXT_PUBLIC_APP_URL) {
+  logger.error('NEXT_PUBLIC_APP_URL is not configured');
+}
+logger.info(`CORS configured for origin: ${process.env.NEXT_PUBLIC_APP_URL}`);
+
   if (['wallet-balances', 'transactions'].includes(action) && address) {
     if (!isAddress(address)) {
       logger.warn(`Địa chỉ EVM không hợp lệ: ${address}`);
@@ -195,15 +218,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const recaptchaResult = await verifyRecaptcha(recaptchaToken, action, ip);
-    if (['wallet-balances', 'transactions'].includes(action) && recaptchaResult.score < 0.7) {
-      logger.warn(`Điểm reCAPTCHA quá thấp: ${recaptchaResult.score}`);
-      return res.status(403).json({ detail: 'Xác minh reCAPTCHA thất bại: điểm quá thấp' });
-    }
-  } catch (error) {
-    logger.error(`Xác minh reCAPTCHA thất bại: ${error.message}`);
-    return res.status(403).json({ detail: `Lỗi reCAPTCHA: ${error.message}` });
+  const recaptchaResult = await verifyRecaptcha(recaptchaToken, action, ip);
+  logger.info(`reCAPTCHA score for ${action}: ${recaptchaResult.score}`);
+  if (['wallet-balances', 'transactions'].includes(action) && recaptchaResult.score < 0.7) {
+    logger.warn(`reCAPTCHA score too low: ${recaptchaResult.score}`);
+    return res.status(403).json({ detail: 'reCAPTCHA verification failed: score too low' });
   }
+} catch (error) {
+  logger.error(`reCAPTCHA verification failed: ${error.message}`);
+  return res.status(403).json({ detail: `reCAPTCHA error: ${error.message}` });
+}
 
   const SIM_API_KEY = process.env.SIM_API_KEY;
   if (!SIM_API_KEY) {
