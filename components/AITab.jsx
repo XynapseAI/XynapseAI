@@ -352,7 +352,7 @@ export default function AITab({ recaptchaRef }) {
       {/* Header */}
       <div className="p-2 bg-tech border-b border-white/10 flex justify-between items-center shrink-0">
         <span className="text-xs md:text-xs text-gray-400">
-          Daily: {dailyInteractions}/{maxDailyInteractions}
+          Daily Points: {dailyInteractions}/{maxDailyInteractions}
           {totalDailyChats >= maxTotalDailyChats && ' (Limit)'}
         </span>
         <div className="relative">
@@ -409,7 +409,7 @@ export default function AITab({ recaptchaRef }) {
       <div
         className="flex-1 p-1 md:p-4 overflow-y-auto custom-scrollbar"
         ref={chatContainerRef}
-        style={{ maxHeight: isMobile ? 'calc(100vh - 8rem)' : 'calc(100vh - 2rem)' }}
+        style={{ maxHeight: isMobile ? 'calc(100vh - 14rem)' : 'calc(100vh - 2rem)' }}
       >
         {error && !error.includes('maximum of 50 daily chats') && (
           <div className="text-xs md:text-xs text-red-500 mb-2 p-2 bg-red-900/20 rounded-md border border-red-500/50">

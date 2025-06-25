@@ -23,21 +23,21 @@ const logger = winston.createLogger({
 // Rate limiter
 const limiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 50,
+  max: 100,
   message: { error: 'Too many requests, please try again later.' },
 });
 
 // Address-specific rate limiter
 const addressLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 15,
+  max: 30,
   keyGenerator: (req) => req.body.address,
   message: { error: 'Too many requests for this wallet address.' },
 });
 
 // Configure axios retry
 axiosRetry(axios, {
-  retries: 3,
+  retries: 5,
   retryDelay: (retryCount) => retryCount * 1000,
   retryCondition: (error) => error.response?.status === 429,
 });
