@@ -115,20 +115,20 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
   };
 
   return (
-  <header className="h-100 sm:h-[7vh] bg-gray-900/90 border-b-2 rounded-xl p-3 flex justify-between items-center sticky top-0 z-20 font-courier">
+  <header className="h-[5vh] sm:h-[7vh] bg-gray-900/90 border-b-2 rounded-xl p-3 flex justify-between items-center sticky top-0 z-20 font-courier">
     <div className="block sm:hidden">
       <button
         onClick={() => setIsMenuOpen(!isMenuOpen)}
-        className="w-8 h-8 flex flex-col justify-center items-center"
+        className="w-6 h-6 flex flex-col justify-center items-center"
         aria-label="Toggle menu"
       >
         <motion.span
-          className="w-6 h-0.5 bg-white mb-1.5"
+          className="w-6 h-0.5 bg-white mb-1 sm:mb-1.5"
           variants={lineVariants}
           animate={isMenuOpen ? 'openTop' : 'closed'}
         />
         <motion.span
-          className="w-6 h-0.5 bg-white mb-1.5"
+          className="w-6 h-0.5 bg-white mb-1 sm:mb-1.5"
           variants={lineVariants}
           animate={isMenuOpen ? 'hidden' : 'closed'}
         />
@@ -193,7 +193,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
                 key={tab.id}
                 onClick={() => handleTabClick(tab.id)}
                 onMouseEnter={handleMouseEnter}
-                className={`group w-1/2 text-left px-2 py-2 rounded-xl text-xs font-medium transition-all duration-300 border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/15 hover:shadow-glow-neon perspective-1000 ${
+                className={`group w-2/3 text-left px-2 py-2 rounded-xl text-xs font-medium transition-all duration-300 border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/15 hover:shadow-glow-neon perspective-1000 ${
                   activeTab === tab.id ? 'bg-white text-black' : ''
                 }`}
                 whileHover={{ scale: 1.03 }}

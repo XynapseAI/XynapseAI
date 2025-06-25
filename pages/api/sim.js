@@ -1,4 +1,3 @@
-// pages/api/sim.js
 import axios from 'axios';
 import winston from 'winston';
 import rateLimit from 'express-rate-limit';
@@ -10,7 +9,6 @@ import Cors from 'cors';
 import { isAddress } from 'ethers';
 import { requireAuth } from './middleware/auth';
 
-// Logger setup
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
@@ -20,72 +18,64 @@ const logger = winston.createLogger({
   ],
 });
 
-// Rate limiter
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 100,
-  message: { error: 'Too many requests, please try again later.' },
+  message: { error: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' },
   keyGenerator: (req) => {
-    return (
-      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-      req.socket?.remoteAddress ||
-      'unknown'
-    );
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
+    return ip;
   },
+  trustProxy: true,
 });
 
-
-// Address-specific rate limiter
 const addressLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
   keyGenerator: (req) => {
     return req.body?.address || 'unknown-address';
   },
-  message: { error: 'Too many requests for this wallet address.' },
+  message: { error: 'Quá nhiều yêu cầu cho địa chỉ ví này.' },
+  trustProxy: true,
 });
 
-
-// Configure axios retry
 axiosRetry(axios, {
   retries: 5,
   retryDelay: (retryCount) => retryCount * 1000,
   retryCondition: (error) => error.response?.status === 429,
 });
 
-// CORS configuration
 const cors = Cors({
   origin: process.env.NEXT_PUBLIC_APP_URL,
   methods: ['POST'],
 });
 
-// Validation middleware
 const validate = [
   body('action')
     .isString()
     .isIn(['top-holders', 'wallet-balances', 'transactions'])
-    .withMessage('Invalid action'),
-  body('recaptchaToken').isString().notEmpty().withMessage('reCAPTCHA token is required'),
+    .withMessage('Hành động không hợp lệ'),
+  body('recaptchaToken').isString().notEmpty().withMessage('Yêu cầu token reCAPTCHA'),
   body('chain')
     .if(body('action').equals('top-holders'))
     .isString()
     .notEmpty()
-    .withMessage('Chain is required for top-holders'),
+    .withMessage('Yêu cầu chain cho top-holders'),
   body('tokenAddress')
     .if(body('action').equals('top-holders'))
     .isString()
     .matches(/^0x[a-fA-F0-9]{40}$/)
-    .withMessage('Token address must be a valid EVM address for top-holders'),
+    .withMessage('Địa chỉ token phải là địa chỉ EVM hợp lệ cho top-holders'),
   body('address')
     .if(body('action').isIn(['wallet-balances', 'transactions']))
     .notEmpty()
     .isString()
     .matches(/^0x[a-fA-F0-9]{40}$/)
-    .withMessage('Wallet address must be a valid EVM address'),
+    .withMessage('Địa chỉ ví phải là địa chỉ EVM hợp lệ'),
   body('decimalPlace')
     .optional({ nullable: true })
     .isInt({ min: 0 })
-    .withMessage('Decimal place must be a non-negative integer'),
+    .withMessage('Số thập phân phải là số nguyên không âm'),
 ];
 
 const CHAIN_ID_MAP = {
@@ -151,15 +141,14 @@ const SUPPORTED_CHAIN_IDS = Object.values(CHAIN_ID_MAP).join(',');
 export const config = { api: { bodyParser: { sizeLimit: '10kb' } } };
 
 export default async function handler(req, res) {
-  // Apply CORS
   await new Promise((resolve, reject) => {
     cors(req, res, (err) => (err ? reject(err) : resolve()));
   });
 
   helmet()(req, res, () => {});
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || '0.0.0.0';
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
   const startTime = Date.now();
-  logger.info(`Request to ${req.url} from IP ${ip}, body: ${JSON.stringify(req.body)}`);
+  logger.info(`Yêu cầu tới ${req.url} từ IP ${ip}, body: ${JSON.stringify(req.body)}`);
 
   try {
     await new Promise((resolve, reject) => {
@@ -169,83 +158,82 @@ export default async function handler(req, res) {
       addressLimiter(req, res, (err) => (err ? reject(err) : resolve()));
     });
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`);
-    return res.status(429).json({ detail: 'Rate limit exceeded, please try again later.' });
+    logger.error(`Lỗi giới hạn yêu cầu: ${err.message}`);
+    return res.status(429).json({ detail: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' });
   }
 
   if (req.method !== 'POST') {
-    logger.warn(`Invalid method ${req.method} for ${req.url}`);
-    return res.status(405).json({ detail: 'Method not allowed' });
+    logger.warn(`Phương thức không được phép: ${req.method}`);
+    return res.status(405).json({ detail: 'Phương thức không được phép' });
   }
 
-  // Validate query parameters
   await Promise.all(validate.map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`);
-    return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
+    logger.warn(`Lỗi xác thực: ${JSON.stringify(errors.array())}`);
+    return res.status(400).json({ detail: 'Xác thực thất bại', errors: errors.array() });
   }
 
   const { chain, tokenAddress, action, recaptchaToken, decimalPlace = 18, address } = req.body;
 
-  // Require authentication for wallet-balances and transactions
   if (['wallet-balances', 'transactions'].includes(action)) {
     try {
       await new Promise((resolve, reject) => {
         requireAuth(req, res, (err) => (err ? reject(err) : resolve()));
       });
     } catch (err) {
-      logger.error(`Authentication error: ${err.message}`);
-      return res.status(401).json({ detail: 'Unauthorized: Please log in.' });
+      logger.error(`Lỗi xác thực: ${err.message}`);
+      return res.status(401).json({ detail: 'Chưa đăng nhập: Vui lòng đăng nhập.' });
     }
   }
 
-  // Validate EVM address with ethers
   if (['wallet-balances', 'transactions'].includes(action) && address) {
     if (!isAddress(address)) {
-      logger.warn(`Invalid EVM address: ${address}`);
-      return res.status(400).json({ detail: 'Invalid EVM address' });
+      logger.warn(`Địa chỉ EVM không hợp lệ: ${address}`);
+      return res.status(400).json({ detail: 'Địa chỉ EVM không hợp lệ' });
     }
   }
 
-  // Verify reCAPTCHA with score check
   try {
     const recaptchaResult = await verifyRecaptcha(recaptchaToken, action, ip);
-    if (action === 'wallet-balances' || action === 'transactions') {
-      if (recaptchaResult.score < 0.7) {
-        logger.warn(`reCAPTCHA score too low: ${recaptchaResult.score}`);
-        return res.status(403).json({ detail: 'reCAPTCHA verification failed: score too low' });
-      }
+    if (['wallet-balances', 'transactions'].includes(action) && recaptchaResult.score < 0.7) {
+      logger.warn(`Điểm reCAPTCHA quá thấp: ${recaptchaResult.score}`);
+      return res.status(403).json({ detail: 'Xác minh reCAPTCHA thất bại: điểm quá thấp' });
     }
   } catch (error) {
-    logger.error(`reCAPTCHA verification failed: ${error.message}`);
-    return res.status(403).json({ detail: `reCAPTCHA error: ${error.message}` });
+    logger.error(`Xác minh reCAPTCHA thất bại: ${error.message}`);
+    return res.status(403).json({ detail: `Lỗi reCAPTCHA: ${error.message}` });
   }
 
-  // Check API key
   const SIM_API_KEY = process.env.SIM_API_KEY;
   if (!SIM_API_KEY) {
-    logger.error('SIM_API_KEY is not configured');
-    return res.status(500).json({ detail: 'Server configuration error: Missing SIM_API_KEY' });
+    logger.error('SIM_API_KEY không được cấu hình');
+    return res.status(500).json({ detail: 'Lỗi cấu hình server: Thiếu SIM_API_KEY' });
+  }
+
+  if (!axios || typeof axios.get !== 'function') {
+    logger.error('Axios không được khởi tạo đúng cách');
+    return res.status(500).json({ detail: 'Lỗi server: Axios không được khởi tạo' });
   }
 
   try {
     if (action === 'top-holders' && chain && tokenAddress) {
       const chainId = CHAIN_ID_MAP[chain?.toLowerCase()];
       if (!chainId) {
-        logger.warn(`Unsupported chain: ${chain}`);
-        return res.status(400).json({ detail: `Unsupported chain: ${chain}` });
+        logger.warn(`Chuỗi không được hỗ trợ: ${chain}`);
+        return res.status(400).json({ detail: `Chuỗi không được hỗ trợ: ${chain}` });
       }
 
       const url = `https://api.sim.dune.com/v1/evm/token-holders/${chainId}/${tokenAddress}?limit=100`;
+      logger.info(`Gọi API Dune Sim: ${url}`);
       const response = await axios.get(url, {
         headers: { 'X-Sim-Api-Key': SIM_API_KEY },
-        timeout: 10000,
+        timeout: 15000,
       });
 
-      logger.info(`Top holders response for chain ${chain} (${chainId}): ${response.data.holders?.length || 0} holders, duration: ${Date.now() - startTime}ms`);
+      logger.info(`Phản hồi top holders cho chuỗi ${chain} (${chainId}): ${response.data.holders?.length || 0} holders, thời gian: ${Date.now() - startTime}ms`);
       if (process.env.NODE_ENV === 'development') {
-        console.log('Top holders raw response:', {
+        console.log('Phản hồi thô top holders:', {
           totalSupply: response.data.totalSupply,
           holders: response.data.holders.slice(0, 5),
         });
@@ -253,7 +241,7 @@ export default async function handler(req, res) {
 
       let effectiveDecimalPlace = Number(decimalPlace);
       if (isNaN(effectiveDecimalPlace) || effectiveDecimalPlace < 0 || effectiveDecimalPlace > 36) {
-        logger.warn(`Invalid decimalPlace: ${decimalPlace}, defaulting to 18`);
+        logger.warn(`Số thập phân không hợp lệ: ${decimalPlace}, mặc định là 18`);
         effectiveDecimalPlace = 18;
       }
       const knownTokens = {
@@ -262,7 +250,7 @@ export default async function handler(req, res) {
       };
       if (knownTokens[tokenAddress.toLowerCase()] && effectiveDecimalPlace !== knownTokens[tokenAddress.toLowerCase()]) {
         logger.info(
-          `Overriding decimalPlace for known token ${tokenAddress}: ${effectiveDecimalPlace} -> ${knownTokens[tokenAddress.toLowerCase()]}`
+          `Ghi đè số thập phân cho token đã biết ${tokenAddress}: ${effectiveDecimalPlace} -> ${knownTokens[tokenAddress.toLowerCase()]}`
         );
         effectiveDecimalPlace = knownTokens[tokenAddress.toLowerCase()];
       }
@@ -276,22 +264,19 @@ export default async function handler(req, res) {
         };
       }) || [];
 
-      logger.info(`Processed top holders data: ${data.length} holders`);
-      if (process.env.NODE_ENV === 'development') {
-      }
-
+      logger.info(`Dữ liệu top holders đã xử lý: ${data.length} holders`);
       return res.status(200).json({ success: true, data });
     } else if (action === 'wallet-balances' && address) {
-      logger.info(`Processing wallet-balances for address: ${address}`);
+      logger.info(`Xử lý wallet-balances cho địa chỉ: ${address}`);
       const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${SUPPORTED_CHAIN_IDS}&metadata=logo&limit=100`;
       const response = await axios.get(url, {
         headers: { 'X-Sim-Api-Key': SIM_API_KEY },
         timeout: 15000,
       });
 
-      logger.info(`Wallet balances response for address ${address}: ${response.data.balances?.length || 0} tokens, duration: ${Date.now() - startTime}ms`);
+      logger.info(`Phản hồi wallet balances cho địa chỉ ${address}: ${response.data.balances?.length || 0} tokens, thời gian: ${Date.now() - startTime}ms`);
       if (process.env.NODE_ENV === 'development') {
-        console.log('Wallet balances raw response:', {
+        console.log('Phản hồi thô wallet balances:', {
           wallet_address: response.data.wallet_address,
           balances: response.data.balances.slice(0, 5),
         });
@@ -309,22 +294,19 @@ export default async function handler(req, res) {
         logo: balance.token_metadata?.logo || null,
       })) || [];
 
-      logger.info(`Processed wallet balances data: ${data.length} tokens`);
-      if (process.env.NODE_ENV === 'development') {
-      }
-
+      logger.info(`Dữ liệu wallet balances đã xử lý: ${data.length} tokens`);
       return res.status(200).json({ success: true, data });
     } else if (action === 'transactions' && address) {
-      logger.info(`Processing transactions for address: ${address}`);
+      logger.info(`Xử lý transactions cho địa chỉ: ${address}`);
       const url = `https://api.sim.dune.com/v1/evm/transactions/${address}?chain_ids=${SUPPORTED_CHAIN_IDS}&limit=100`;
       const response = await axios.get(url, {
         headers: { 'X-Sim-Api-Key': SIM_API_KEY },
         timeout: 15000,
       });
 
-      logger.info(`Transactions response for address ${address}: ${response.data.transactions?.length || 0} transactions, duration: ${Date.now() - startTime}ms`);
+      logger.info(`Phản hồi transactions cho địa chỉ ${address}: ${response.data.transactions?.length || 0} transactions, thời gian: ${Date.now() - startTime}ms`);
       if (process.env.NODE_ENV === 'development') {
-        console.log('Transactions raw response:', {
+        console.log('Phản hồi thô transactions:', {
           wallet_address: response.data.wallet_address,
           transactions: response.data.transactions.slice(0, 5),
         });
@@ -339,27 +321,24 @@ export default async function handler(req, res) {
         block_time: tx.block_time,
       })) || [];
 
-      logger.info(`Processed transactions data: ${data.length} transactions`);
-      if (process.env.NODE_ENV === 'development') {
-      }
-
+      logger.info(`Dữ liệu transactions đã xử lý: ${data.length} transactions`);
       return res.status(200).json({ success: true, data });
     }
 
-    logger.warn(`Invalid parameters for action: ${action}`);
-    return res.status(400).json({ detail: `Invalid parameters for action: ${action}` });
+    logger.warn(`Tham số không hợp lệ cho hành động: ${action}`);
+    return res.status(400).json({ detail: `Tham số không hợp lệ cho hành động: ${action}` });
   } catch (error) {
-    logger.error(`Dune Sim API error for action ${action}: ${error.message}`, {
+    logger.error(`Lỗi API Dune Sim cho hành động ${action}: ${error.message}`, {
       status: error.response?.status,
       data: error.response?.data,
     });
     const status = error.response?.status || 500;
     const detail =
       status === 429
-        ? 'Dune Sim API rate limit exceeded, please try again later.'
+        ? 'Vượt quá giới hạn API Dune Sim, vui lòng thử lại sau.'
         : status === 404
-        ? 'Requested data not found.'
-        : `Dune Sim API error: ${error.message}`;
+        ? 'Không tìm thấy dữ liệu yêu cầu.'
+        : `Lỗi API Dune Sim: ${error.message}`;
     return res.status(status).json({ detail });
   }
 }

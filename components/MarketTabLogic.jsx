@@ -807,137 +807,179 @@ Use natural, professional tone with recent data.
   );
 
   const fetchOnChainData = useCallback(
-    debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride) => {
-      if (
-        (action === 'top-holders' && (!chain || !tokenAddress)) ||
-        ((action === 'wallet-balances' || action === 'transactions') && !address) ||
-        document.visibilityState !== 'visible'
-      ) {
-        setOnChainError(`Invalid parameters: action=${action}, chain=${chain}, address=${address}`);
-        return;
+  debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride) => {
+    // Validate input parameters
+    if (
+      (action === 'top-holders' && (!chain || !tokenAddress)) ||
+      ((action === 'wallet-balances' || action === 'transactions') && !address) ||
+      document.visibilityState !== 'visible'
+    ) {
+      logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
+      setOnChainError(`Invalid parameters: action=${action}, chain=${chain}, address=${address}`);
+      setIsLoadingOnChain(false);
+      setIsLoadingWalletBalances(false);
+      setIsLoadingTransactions(false);
+      return;
+    }
+
+    // Check authentication for wallet-related actions
+    if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
+      logger.warn('User not authenticated for wallet data', { action });
+      setOnChainError('Please log in to access wallet data.');
+      setIsLoadingOnChain(false);
+      setIsLoadingWalletBalances(false);
+      setIsLoadingTransactions(false);
+      return;
+    }
+
+    // Validate EVM address
+    if ((action === 'wallet-balances' || action === 'transactions') && !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+      const errorMessage = 'Wallet address must be a valid EVM address.';
+      logger.error(errorMessage, { action, address });
+      if (action === 'wallet-balances') {
+        setWalletBalancesError(errorMessage);
+      } else {
+        setTransactionsError(errorMessage);
       }
-      if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
-        setOnChainError('Please log in to access wallet data.');
-        return;
-      }
-      if ((action === 'wallet-balances' || action === 'transactions') && !address.match(/^0x[a-fA-F0-9]{40}$/)) {
-        const errorMessage = 'Wallet address must be a valid EVM address.';
-        if (action === 'wallet-balances') {
-          setWalletBalancesError(errorMessage);
-        } else {
-          setTransactionsError(errorMessage);
-        }
-        setIsLoadingOnChain(false);
-        setIsLoadingWalletBalances(false);
-        setIsLoadingTransactions(false);
-        return;
+      setIsLoadingOnChain(false);
+      setIsLoadingWalletBalances(false);
+      setIsLoadingTransactions(false);
+      return;
+    }
+
+    // Check API base URL
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+    const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}${apiBaseUrl}/sim`;
+    if (!process.env.NEXT_PUBLIC_APP_URL) {
+      logger.warn('NEXT_PUBLIC_APP_URL is not configured');
+    }
+
+    setIsLoadingOnChain(true);
+    if (action === 'wallet-balances') {
+      setIsLoadingWalletBalances(true);
+    } else if (action === 'transactions') {
+      setIsLoadingTransactions(true);
+    }
+
+    try {
+      // Execute reCAPTCHA
+      const recaptchaToken = recaptchaTokenOverride || await executeRecaptcha(action);
+      if (!recaptchaToken) {
+        throw new Error('Empty reCAPTCHA token');
       }
 
-      setIsLoadingOnChain(true);
-      if (action === 'wallet-balances' || action === 'transactions') {
-        if (action === 'wallet-balances') {
-          setIsLoadingWalletBalances(true);
-        } else {
-          setIsLoadingTransactions(true);
-        }
+      // Prepare payload
+      const payload = {
+        action,
+        recaptchaToken,
+      };
+      if (action === 'top-holders') {
+        payload.chain = chain;
+        payload.tokenAddress = tokenAddress;
+        if (decimalPlace != null) payload.decimalPlace = Number(decimalPlace);
+      } else if (action === 'wallet-balances' || action === 'transactions') {
+        payload.address = address;
       }
+      logger.log('Sending on-chain data request to /api/sim', { payload, apiUrl });
 
-      try {
-        const recaptchaToken = recaptchaTokenOverride || await executeRecaptcha(action);
-        const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL
-          ? `${process.env.NEXT_PUBLIC_APP_URL}${process.env.NEXT_PUBLIC_API_BASE_URL}/sim`
-          : '/api/sim';
-        const payload = {
-          action,
-          recaptchaToken,
-        };
-        if (action === 'top-holders') {
-          payload.chain = chain;
-          payload.tokenAddress = tokenAddress;
-          if (decimalPlace != null) payload.decimalPlace = decimalPlace;
-        } else if (action === 'wallet-balances' || action === 'transactions') {
-          payload.address = address;
-        }
-        logger.log('Sending on-chain data request:', payload);
-        const response = await axios.post(apiUrl, payload, {
-          headers: {
-            Authorization: `Bearer ${session?.accessToken}`,
-          },
-        });
-        logger.log(`On-chain data response for ${action}:`, { count: response.data.data?.length });
+      // Make API request with increased timeout
+      const response = await axios.post(apiUrl, payload, {
+        headers: {
+          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+        },
+        timeout: 20000, // Increased timeout for Vercel serverless
+      });
 
-        if (action === 'top-holders') {
-          logger.log('Top holders data (first 5):', response.data.data.slice(0, 5));
-          setOnChainData((prev) => ({
-            ...prev,
-            topHolders: response.data.data || [],
-          }));
-        } else if (action === 'wallet-balances') {
-          logger.log('Wallet balances data (first 5):', response.data.data.slice(0, 5));
-          setWalletBalances(response.data.data || []);
-        } else if (action === 'transactions') {
-          logger.log('Transactions data (first 5):', response.data.data.slice(0, 5));
-          setTransactions(response.data.data || []);
-          if (session?.user?.id) {
-            try {
-              await axios.post(
-                '/api/wallet-history',
-                {
-                  uid: session.user.id,
-                  walletAddress: address,
-                  action: 'transactions',
-                  data: response.data.data || [],
+      // Log response
+      logger.log(`On-chain data response for ${action}`, {
+        count: response.data.data?.length || 0,
+        success: response.data.success,
+      });
+
+      // Handle response based on action
+      if (action === 'top-holders') {
+        logger.log('Top holders data (first 5):', response.data.data?.slice(0, 5) || []);
+        setOnChainData((prev) => ({
+          ...prev,
+          topHolders: response.data.data || [],
+        }));
+      } else if (action === 'wallet-balances') {
+        logger.log('Wallet balances data (first 5):', response.data.data?.slice(0, 5) || []);
+        setWalletBalances(response.data.data || []);
+      } else if (action === 'transactions') {
+        logger.log('Transactions data (first 5):', response.data.data?.slice(0, 5) || []);
+        setTransactions(response.data.data || []);
+
+        // Save transaction history if authenticated
+        if (session?.user?.id) {
+          try {
+            const historyRecaptchaToken = await executeRecaptcha('wallet_history');
+            await axios.post(
+              '/api/wallet-history',
+              {
+                uid: session.user.id,
+                walletAddress: address,
+                action: 'transactions',
+                data: response.data.data || [],
+                recaptchaToken: historyRecaptchaToken,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${session.accessToken}`,
                 },
-                {
-                  headers: {
-                    Authorization: `Bearer ${session?.accessToken}`,
-                  },
-                }
-              );
-              logger.log('Transactions history saved for:', { address });
-            } catch (historyError) {
-              logger.error('Error saving transactions history:', historyError.response?.data || historyError.message);
-              setTransactionsError(`Failed to save transactions history: ${historyError.response?.data?.detail || historyError.message}`);
-            }
+                timeout: 15000,
+              }
+            );
+            logger.log('Transactions history saved successfully', { address });
+          } catch (historyError) {
+            logger.error('Error saving transactions history', {
+              message: historyError.message,
+              response: historyError.response?.data,
+            });
+            setTransactionsError(
+              `Failed to save transactions history: ${historyError.response?.data?.detail || historyError.message}`
+            );
           }
         }
-      } catch (error) {
-        logger.error(`Error fetching ${action} data:`, {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-        });
-        const errorMessage =
-          error.response?.status === 401
-            ? 'Unauthorized: Please log in again.'
-            : error.response?.status === 403
-              ? 'Invalid API key or reCAPTCHA verification failed.'
-              : error.response?.status === 429
-                ? 'Dune Sim API rate limit exceeded. Please try again later.'
-                : error.response?.data?.errors
-                  ? `Validation errors: ${error.response.data.errors.map((e) => e.msg).join(', ')}`
-                  : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
-        if (action === 'wallet-balances') {
-          setWalletBalancesError(errorMessage);
-        } else if (action === 'transactions') {
-          setTransactionsError(errorMessage);
-        } else {
-          setOnChainError(errorMessage);
-        }
-      } finally {
-        setIsLoadingOnChain(false);
-        if (action === 'wallet-balances') {
-          setIsLoadingWalletBalances(false);
-        } else if (action === 'transactions') {
-          setIsLoadingTransactions(false);
-        }
-        if (recaptchaRef.current) {
-          recaptchaRef.current.reset();
-        }
       }
-    }, 500),
-    [executeRecaptcha, status, session?.accessToken]
-  );
+    } catch (error) {
+      logger.error(`Error fetching ${action} data`, {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      const errorMessage =
+        error.response?.status === 401
+          ? 'Unauthorized: Please log in again.'
+          : error.response?.status === 403
+          ? 'reCAPTCHA verification failed or invalid API key. Please try again.'
+          : error.response?.status === 429
+          ? 'Dune Sim API rate limit exceeded. Please try again later.'
+          : error.response?.data?.errors
+          ? `Validation errors: ${error.response.data.errors.map((e) => e.msg).join(', ')}`
+          : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
+      
+      if (action === 'wallet-balances') {
+        setWalletBalancesError(errorMessage);
+      } else if (action === 'transactions') {
+        setTransactionsError(errorMessage);
+      } else {
+        setOnChainError(errorMessage);
+      }
+    } finally {
+      setIsLoadingOnChain(false);
+      if (action === 'wallet-balances') {
+        setIsLoadingWalletBalances(false);
+      } else if (action === 'transactions') {
+        setIsLoadingTransactions(false);
+      }
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+      }
+    }
+  }, 500),
+  [executeRecaptcha, status, session?.accessToken]
+);
 
   const handleAddressClick = useCallback(
     (address) => {

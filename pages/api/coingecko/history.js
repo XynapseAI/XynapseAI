@@ -18,7 +18,12 @@ const logger = winston.createLogger({
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
-  message: { error: 'Too many requests, please try again later.' },
+  message: { error: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' },
+  keyGenerator: (req) => {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
+    return ip;
+  },
+  trustProxy: true,
 });
 
 axiosRetry(axios, {
@@ -28,30 +33,32 @@ axiosRetry(axios, {
 });
 
 const validate = [
-  query('id').notEmpty().isString().isLength({ max: 100 }).withMessage('Invalid token ID'),
-  query('vs_currency').optional().isIn(['usd', 'eur', 'btc']).withMessage('Invalid currency'),
-  query('days').isIn(['0.5', '1', '7', '30', '90', '365']).withMessage('Invalid days parameter'),
-  query('recaptchaToken').notEmpty().isString().withMessage('reCAPTCHA token is required'),
+  query('id').notEmpty().isString().isLength({ max: 100 }).withMessage('ID token không hợp lệ'),
+  query('vs_currency').optional().isIn(['usd', 'eur', 'btc']).withMessage('Đơn vị tiền tệ không hợp lệ'),
+  query('days').isIn(['0.5', '1', '7', '30', '90', '365']).withMessage('Tham số ngày không hợp lệ'),
+  query('recaptchaToken').notEmpty().isString().withMessage('Yêu cầu token reCAPTCHA'),
 ];
 
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
 
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
+  logger.info(`Yêu cầu tới /api/coingecko/history từ IP ${ip}, query: ${JSON.stringify(req.query)}`);
+
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
     });
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`);
-    return res.status(429).json({ detail: 'Rate limit exceeded, please try again later.' });
+    logger.error(`Lỗi giới hạn yêu cầu: ${err.message}`);
+    return res.status(429).json({ detail: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' });
   }
 
   await Promise.all(validate.map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`);
-    return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
+    logger.warn(`Lỗi xác thực: ${JSON.stringify(errors.array())}`);
+    return res.status(400).json({ detail: 'Xác thực thất bại', errors: errors.array() });
   }
 
   const { id, vs_currency = 'usd', days = '30', recaptchaToken } = req.query;
@@ -59,14 +66,19 @@ export default async function handler(req, res) {
   try {
     await verifyRecaptcha(recaptchaToken, 'fetch_price_history', ip);
   } catch (error) {
-    logger.error(`reCAPTCHA verification failed: ${error.message}`);
-    return res.status(403).json({ detail: `reCAPTCHA error: ${error.message}` });
+    logger.error(`Xác minh reCAPTCHA thất bại: ${error.message}`);
+    return res.status(403).json({ detail: `Lỗi reCAPTCHA: ${error.message}` });
   }
 
   const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
   if (!COINGECKO_API_KEY) {
-    logger.error('COINGECKO_API_KEY not configured');
-    return res.status(500).json({ detail: 'Server configuration error: Missing COINGECKO_API_KEY' });
+    logger.error('COINGECKO_API_KEY không được cấu hình');
+    return res.status(500).json({ detail: 'Lỗi cấu hình server: Thiếu COINGECKO_API_KEY' });
+  }
+
+  if (!axios || typeof axios.get !== 'function') {
+    logger.error('Axios không được khởi tạo đúng cách');
+    return res.status(500).json({ detail: 'Lỗi server: Axios không được khởi tạo' });
   }
 
   try {
@@ -74,6 +86,7 @@ export default async function handler(req, res) {
     const parsedDays = parseFloat(days);
     const startDate = endDate - parsedDays * 24 * 60 * 60;
 
+    logger.info(`Đang lấy dữ liệu lịch sử cho token ${id}, vs_currency: ${vs_currency}, days: ${days}`);
     const response = await axios.get(`https://api.coingecko.com/api/v3/coins/${id}/market_chart/range`, {
       params: {
         vs_currency,
@@ -81,7 +94,7 @@ export default async function handler(req, res) {
         to: endDate,
       },
       headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
-      timeout: 10000,
+      timeout: 15000,
     });
 
     let prices = response.data.prices;
@@ -96,19 +109,28 @@ export default async function handler(req, res) {
         .slice(-24);
     }
 
+    logger.info(`Lấy dữ liệu lịch sử thành công cho ${id}, số lượng điểm dữ liệu: ${prices.length}`);
     return res.status(200).json({ prices });
   } catch (err) {
-    logger.error(`Error fetching historical data: ${err.message}`, {
+    logger.error(`Lỗi khi lấy dữ liệu lịch sử: ${err.message}`, {
       status: err.response?.status,
       data: err.response?.data,
     });
     const status = err.response?.status || 500;
     const detail =
       status === 429
-        ? 'CoinGecko API rate limit exceeded, please try again later.'
+        ? 'Vượt quá giới hạn API CoinGecko, vui lòng thử lại sau.'
         : status === 404
-        ? `Token ID ${id} not found.`
-        : 'Failed to fetch historical data.';
+        ? `Không tìm thấy token ID ${id}.`
+        : 'Không thể lấy dữ liệu lịch sử.';
     return res.status(status).json({ detail });
   }
 }
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10kb',
+    },
+  },
+};
