@@ -932,6 +932,7 @@ const MarketTab = ({ recaptchaRef }) => {
           {/* Bottom Left: Top 100 Holders */}
           <div className="rounded-xl border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)]">
             {isLoadingOnChain && <LoadingOverlay message="Loading on-chain data..." />}
+            {onChainError && <div className="error">{onChainError}</div>}
             {selectedToken ? (
               <div className="flex-1 overflow-y-auto hide-scrollbar p-3">
                 <div className="flex justify-between items-center sticky top-0 mb-2">

@@ -6,6 +6,10 @@ import debounce from 'lodash.debounce';
 import rateLimit from 'axios-rate-limit';
 import { logger } from '../utils/logger';
 
+if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
+  console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
+}
+
 // Custom logger
 const customLogger = {
   log: (message, data) => {
@@ -165,24 +169,37 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const WALLET_SEARCH_LIMIT = 3;
   const WALLET_SEARCH_WINDOW = 60 * 1000;
 
-  const executeRecaptcha = useCallback(async (action) => {
+  const executeRecaptcha = useCallback(
+  async (action, retryCount = 0) => {
     if (!recaptchaRef.current) {
       logger.error('reCAPTCHA is not initialized.');
+      console.error('reCAPTCHA is not initialized.');
       throw new Error('reCAPTCHA is not initialized.');
     }
     try {
+      console.log('Executing reCAPTCHA for action:', action);
       const token = await recaptchaRef.current.executeAsync({ action });
       if (!token) {
         logger.error('Empty reCAPTCHA token', { action });
+        console.error('Empty reCAPTCHA token:', { action });
         throw new Error('Empty reCAPTCHA token.');
       }
       logger.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
+      console.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
       return token;
     } catch (error) {
       logger.error('Error executing reCAPTCHA:', { action, error: error.message });
+      console.error('Error executing reCAPTCHA:', { action, error: error.message });
+      if (retryCount < 2) {
+        console.log(`Retrying reCAPTCHA for action ${action}, attempt ${retryCount + 1}`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return executeRecaptcha(action, retryCount + 1);
+      }
       throw new Error('Unable to execute reCAPTCHA: ' + error.message);
     }
-  }, [recaptchaRef]);
+  },
+  [recaptchaRef]
+);
 
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token) => {
@@ -812,8 +829,8 @@ Use natural, professional tone with recent data.
 
   const fetchOnChainData = useCallback(
   debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride) => {
-    // Sử dụng logger từ utils/logger.js
     logger.info('fetchOnChainData called', { action, chain, tokenAddress, address });
+    console.log('fetchOnChainData called:', { action, chain, tokenAddress, decimalPlace, address });
 
     // Validate input parameters
     if (
@@ -822,6 +839,7 @@ Use natural, professional tone with recent data.
       typeof document !== 'undefined' && document.visibilityState !== 'visible'
     ) {
       logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
+      console.error('Invalid parameters:', { action, chain, tokenAddress, address });
       customLogger.log('Error: Invalid parameters', { action, chain, tokenAddress, address });
       setOnChainError(`Invalid parameters: action=${action}, chain=${chain}, address=${address}`);
       setIsLoadingOnChain(false);
@@ -833,6 +851,7 @@ Use natural, professional tone with recent data.
     // Check authentication
     if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
       logger.warn('User not authenticated for wallet data', { action, status });
+      console.warn('User not authenticated:', { action, status });
       customLogger.log('Warning: User not authenticated', { action, status });
       setOnChainError('Please log in to access wallet data.');
       setIsLoadingOnChain(false);
@@ -845,6 +864,7 @@ Use natural, professional tone with recent data.
     if ((action === 'wallet-balances' || action === 'transactions') && !address.match(/^0x[a-fA-F0-9]{40}$/)) {
       const errorMessage = 'Wallet address must be a valid EVM address.';
       logger.error(errorMessage, { action, address });
+      console.error(errorMessage, { action, address });
       customLogger.log('Error: Invalid EVM address', { action, address });
       if (action === 'wallet-balances') {
         setWalletBalancesError(errorMessage);
@@ -859,8 +879,9 @@ Use natural, professional tone with recent data.
 
     // Build API URL
     const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-    const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}${apiBaseUrl}/sim`;
+    const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}${apiBaseUrl}/sim`;
     logger.info('API URL configuration', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
+    console.log('API URL configuration:', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
 
     setIsLoadingOnChain(true);
     if (action === 'wallet-balances') {
@@ -871,10 +892,12 @@ Use natural, professional tone with recent data.
 
     try {
       // Execute reCAPTCHA
+      console.log('Executing reCAPTCHA for action:', action);
       const recaptchaToken = recaptchaTokenOverride || await executeRecaptcha(action);
       if (!recaptchaToken) {
         throw new Error('Empty reCAPTCHA token');
       }
+      console.log('reCAPTCHA token generated:', { action, token: recaptchaToken.slice(0, 20) + '...' });
 
       // Prepare payload
       const payload = {
@@ -889,12 +912,14 @@ Use natural, professional tone with recent data.
         payload.address = address;
       }
       logger.info('Sending on-chain data request', { payload, apiUrl });
+      console.log('Sending on-chain data request:', { payload, apiUrl });
       customLogger.log('Sending on-chain data request', { payload, apiUrl });
 
       // Make API request
       const response = await axios.post(apiUrl, payload, {
         headers: {
           Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+          'Content-Type': 'application/json',
         },
         timeout: 30000,
       });
@@ -904,6 +929,11 @@ Use natural, professional tone with recent data.
         success: response.data.success,
         count: response.data.data?.length || 0,
         dataSample: response.data.data?.slice(0, 5),
+      });
+      console.log(`On-chain data response for ${action}:`, {
+        status: response.status,
+        success: response.data.success,
+        count: response.data.data?.length || 0,
       });
       customLogger.log(`On-chain data response for ${action}`, {
         success: response.data.success,
@@ -944,9 +974,14 @@ Use natural, professional tone with recent data.
               }
             );
             logger.info('Transactions history saved', { address });
+            console.log('Transactions history saved:', { address });
             customLogger.log('Transactions history saved', { address });
           } catch (historyError) {
             logger.error('Error saving transactions history', {
+              message: historyError.message,
+              response: historyError.response?.data,
+            });
+            console.error('Error saving transactions history:', {
               message: historyError.message,
               response: historyError.response?.data,
             });
@@ -961,6 +996,12 @@ Use natural, professional tone with recent data.
         status: error.response?.status,
         data: error.response?.data,
         message: error.message,
+        stack: error.stack,
+      });
+      console.error(`Error fetching ${action} data:`, {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
       });
       customLogger.log(`Error fetching ${action} data`, {
         status: error.response?.status,
@@ -970,12 +1011,12 @@ Use natural, professional tone with recent data.
         error.response?.status === 401
           ? 'Unauthorized: Please log in again.'
           : error.response?.status === 403
-          ? 'reCAPTCHA verification failed or invalid API key.'
-          : error.response?.status === 429
-          ? 'Dune Sim API rate limit exceeded. Please try again later.'
-          : error.response?.data?.errors
-          ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
-          : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
+            ? 'reCAPTCHA verification failed or invalid API key.'
+            : error.response?.status === 429
+              ? 'Dune Sim API rate limit exceeded. Please try again later.'
+              : error.response?.data?.errors
+                ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
+                : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
       if (action === 'wallet-balances') {
         setWalletBalancesError(errorMessage);
       } else if (action === 'transactions') {
