@@ -253,81 +253,92 @@ const WalletBalances = ({
   };
 
   const overlayContent = (
-    <div className="fixed inset-0 flex items-center border border-gray-500 rounded-xs justify-center z-50 font-courier min-h-screen">
-      <div
-        ref={walletBalancesRef}
-        className="backdrop-blur-md p-2 sm:p-4 max-w-6xl w-[90%] border border-gray-500 rounded-md relative max-h-[80vh] min-h-[80vh] overflow-y-auto custom-scrollbar"
-      >
-        {/* Header section remains unchanged */}
-        <div className="flex justify-between items-center mb-4 uppercase">
-          <h4 className="text-xs sm:text-sm font-bold text-white">
-            Wallet Details: {truncateAddress(walletAddress)}
-          </h4>
-          <button
-            onClick={onClose}
-            className="text-white text-lg font-bold bg-white/10 border border-white/20 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/15 transition-all duration-300"
-            aria-label="Close balances"
-          >
-            ✕
-          </button>
-        </div>
-        {/* Tab buttons remain unchanged */}
-        <div className="flex space-x-2 mb-4">
-          <button
-            onClick={() => setActiveTab('portfolio')}
-            className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
-          >
-            Portfolio
-          </button>
-          <button
-            onClick={() => setActiveTab('transactions')}
-            className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'transactions' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
-          >
-            Transactions
-          </button>
-        </div>
+  <div className="fixed inset-0 flex items-center justify-center z-50 font-courier min-h-screen">
+    <div
+      ref={walletBalancesRef}
+      className="backdrop-blur-md p-2 sm:p-4 max-w-6xl w-[90%] border border-gray-500 rounded-md relative max-h-[80vh] min-h-[80vh] overflow-y-auto custom-scrollbar"
+    >
+      {/* Header section remains unchanged */}
+      <div className="flex justify-between items-center mb-4 uppercase">
+        <h4 className="text-xs sm:text-sm font-bold text-white">
+          Wallet Details: {truncateAddress(walletAddress)}
+        </h4>
+        <button
+          onClick={onClose}
+          className="text-white text-lg font-bold bg-white/10 border border-white/20 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/15 transition-all duration-300"
+          aria-label="Close balances"
+        >
+          ✕
+        </button>
+      </div>
+      {/* Tab buttons remain unchanged */}
+      <div className="flex space-x-2 mb-4">
+        <button
+          onClick={() => setActiveTab('portfolio')}
+          className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
+            activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
+          }`}
+        >
+          Portfolio
+        </button>
+        <button
+          onClick={() => setActiveTab('transactions')}
+          className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
+            activeTab === 'transactions' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
+          }`}
+        >
+          Transactions
+        </button>
+      </div>
 
-        {/* Portfolio Tab */}
-        {activeTab === 'portfolio' && (
-          <>
-            {isLoading && <p className="text-sm text-gray-400 text-center">Loading portfolio...</p>}
-            {error && <p className="text-sm text-red-500 text-center">Error: {error}</p>}
-            {!isLoading && !error && balances.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full border border-gray-500 table-auto">
-                  <thead>
-                    <tr>
-                      {/* MODIFIED: Reduced padding for more compact cells */}
-                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Chain</th>
-                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Token</th>
-                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Balance</th>
-                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Price</th>
-                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {balances.map((balance, index) => (
-                      <tr key={`${balance.chain}-${balance.address}-${index}`}>
-                        {/* MODIFIED: Reduced padding */}
-                        <td className="border border-gray-500 p-0 sm:p-1 text-gray-200 text-[10px] sm:text-xs text-center">
-                          <div className="flex flex-col items-center justify-center sm:flex-row sm:space-x-1">
+      {/* Portfolio Tab (remains unchanged) */}
+      {activeTab === 'portfolio' && (
+        <>
+          {isLoading && <p className="text-xs sm:text-sm text-gray-400 text-center">Loading portfolio...</p>}
+          {error && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {error}</p>}
+          {!isLoading && !error && balances.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full border border-gray-500 table-auto">
+                <thead>
+                  <tr>
+                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                      Token
+                    </th>
+                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                      Balance
+                    </th>
+                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                      Price
+                    </th>
+                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                      Value
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {balances.map((balance, index) => (
+                    <tr key={`${balance.chain}-${balance.address}-${index}`}>
+                      <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                        <div className="relative flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-2">
+                          {/* Chain info in top-left corner */}
+                          <div className="absolute top-0 left-0 flex items-center space-x-1 sm:space-x-1">
                             <img
                               src={getPlatformImage(balance.chain)}
                               alt={`${balance.chain} logo`}
-                              className="w-4 h-4 mb-1 sm:mb-0 sm:mr-1 flex-shrink-0"
+                              className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"
                               onError={(e) => (e.target.src = '/fallback-image.png')}
                             />
-                            <span className="flex-shrink-0">{balance.chain.charAt(0).toUpperCase() + balance.chain.slice(1)}</span>
+                            <span className="text-[8px] sm:text-[10px] text-gray-400 flex-shrink-0">
+                              {balance.chain.charAt(0).toUpperCase() + balance.chain.slice(1)}
+                            </span>
                           </div>
-                        </td>
-                        {/* MODIFIED: Reduced padding */}
-                        <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
-                          <div className="flex flex-col items-center sm:flex-row sm:justify-center">
+                          {/* Token info */}
+                          <div className="flex flex-col items-center sm:flex-row sm:space-x-2 pt-5 sm:pt-0">
                             {balance.logo && (
                               <img
                                 src={balance.logo}
                                 alt={`${balance.symbol} logo`}
-                                className="w-5 h-5 mb-1 sm:mb-0 sm:mr-2"
+                                className="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-0"
                                 onError={(e) => (e.target.src = '/fallback-image.png')}
                               />
                             )}
@@ -335,109 +346,139 @@ const WalletBalances = ({
                               {balance.symbol} {balance.address === 'native' ? '(Native)' : ''}
                             </span>
                           </div>
-                        </td>
-                        {/* MODIFIED: Reduced padding */}
-                        <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
-                          {balance.amount?.toLocaleString('en-US', { maximumFractionDigits: 2 }) || 'N/A'}
-                        </td>
-                        {/* MODIFIED: Reduced padding */}
-                        <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
-                          {balance.price_usd ? `$${balance.price_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : 'N/A'}
-                        </td>
-                        {/* MODIFIED: Reduced padding */}
-                        <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
-                          {balance.value_usd ? `$${balance.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : 'N/A'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              !isLoading && <p className="text-sm text-gray-400 text-center">No balances found for this wallet.</p>
-            )}
-          </>
-        )}
-
-        {/* Transactions Tab */}
-        {activeTab === 'transactions' && (
-          <>
-            {isLoadingTransactions && <p className="text-sm text-gray-400 text-center">Loading transactions...</p>}
-            {transactionsError && <p className="text-sm text-red-500 text-center">Error: {transactionsError}</p>}
-            {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full border border-gray-500 table-auto">
-                  <thead>
-                    <tr>
-                      {/* MODIFIED: Reduced padding */}
-                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Chain</th>
-                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Hash</th>
-                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Transfer</th>
-                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Value</th>
-                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Time</th>
+                        </div>
+                      </td>
+                      <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                        {balance.amount?.toLocaleString('en-US', { maximumFractionDigits: 2 }) || 'N/A'}
+                      </td>
+                      <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                        {balance.price_usd
+                          ? `$${balance.price_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+                          : 'N/A'}
+                      </td>
+                      <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                        {balance.value_usd
+                          ? `$${balance.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+                          : 'N/A'}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((tx, index) => {
-                      // ...variable definitions remain the same...
-                      const { txUrl, addressUrl: fromUrl } = getExplorerUrls(tx.chain, tx.hash, tx.from);
-                      const { addressUrl: toUrl } = getExplorerUrls(tx.chain, tx.hash, tx.to);
-                      const fromNameTag = nameTags[tx.from.toLowerCase()]?.nameTag;
-                      const toNameTag = nameTags[tx.to.toLowerCase()]?.nameTag;
-                      return (
-                        <tr key={`${tx.chain}-${tx.hash}-${index}`}>
-                          {/* MODIFIED: Reduced padding */}
-                          <td className="border border-gray-500 p-1.5 sm:p-2 text-gray-200 text-[10px] sm:text-xs text-center">
-                            <div className="flex flex-col items-center justify-center sm:flex-row sm:space-x-1">
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            !isLoading && <p className="text-xs sm:text-sm text-gray-400 text-center">No balances found for this wallet.</p>
+          )}
+        </>
+      )}
+
+      {/* Transactions Tab (updated to move chain info to Hash column) */}
+      {activeTab === 'transactions' && (
+        <>
+          {isLoadingTransactions && (
+            <p className="text-xs sm:text-sm text-gray-400 text-center">Loading transactions...</p>
+          )}
+          {transactionsError && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {transactionsError}</p>}
+          {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full border border-gray-500 table-auto">
+                <thead>
+                  <tr>
+                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                      Hash
+                    </th>
+                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                      Transfer
+                    </th>
+                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                      Value
+                    </th>
+                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                      Time
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx, index) => {
+                    const { txUrl, addressUrl: fromUrl } = getExplorerUrls(tx.chain, tx.hash, tx.from);
+                    const { addressUrl: toUrl } = getExplorerUrls(tx.chain, tx.hash, tx.to);
+                    const fromNameTag = nameTags[tx.from.toLowerCase()]?.nameTag;
+                    const toNameTag = nameTags[tx.to.toLowerCase()]?.nameTag;
+                    return (
+                      <tr key={`${tx.chain}-${tx.hash}-${index}`}>
+                        <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                          <div className="relative flex flex-col items-center sm:flex-row sm:justify-center">
+                            {/* Chain info in top-left corner */}
+                            <div className="absolute top-0 left-0 flex items-center space-x-1 sm:space-x-1">
                               <img
                                 src={getPlatformImage(tx.chain)}
                                 alt={`${tx.chain} logo`}
-                                className="w-4 h-4 mb-1 sm:mb-0 sm:mr-1 flex-shrink-0"
+                                className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"
                                 onError={(e) => (e.target.src = '/fallback-image.png')}
                               />
-                              <span className="flex-shrink-0">{tx.chain.charAt(0).toUpperCase() + tx.chain.slice(1)}</span>
+                              <span className="text-[8px] sm:text-[10px] text-gray-400 flex-shrink-0">
+                                {tx.chain.charAt(0).toUpperCase() + tx.chain.slice(1)}
+                              </span>
                             </div>
-                          </td>
-                          {/* MODIFIED: Reduced padding */}
-                          <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
-                            <a href={txUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline" title={tx.hash}>
-                              {truncateAddress(tx.hash)}
+                            {/* Hash info */}
+                            <div className="pt-5 sm:pt-0">
+                              <a
+                                href={txUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-blue-400 hover:underline"
+                                title={tx.hash}
+                              >
+                                {truncateAddress(tx.hash)}
+                              </a>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                          <div className="flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-1">
+                            <a
+                              href={fromUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-400 hover:underline"
+                              title={tx.from}
+                            >
+                              {fromNameTag || truncateAddress(tx.from)}
                             </a>
-                          </td>
-                          {/* MODIFIED: Reduced padding */}
-                          <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
-                            <div className="flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-1">
-                              <a href={fromUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline" title={tx.from}>
-                                {fromNameTag || truncateAddress(tx.from)}
-                              </a>
-                              <span className="sm:mx-1">→</span>
-                              <a href={toUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline" title={tx.to}>
-                                {toNameTag || truncateAddress(tx.to)}
-                              </a>
-                            </div>
-                          </td>
-                          {/* MODIFIED: Reduced padding */}
-                          <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
-                            {weiToEth(tx.value)}
-                          </td>
-                          {/* MODIFIED: Reduced padding */}
-                          <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
-                            {new Date(tx.block_time).toLocaleString('en-US')}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              !isLoadingTransactions && <p className="text-sm text-gray-400 text-center">No transactions found for this address.</p>
-            )}
-          </>
-        )}
-      </div>
+                            <span className="sm:mx-1">→</span>
+                            <a
+                              href={toUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-400 hover:underline"
+                              title={tx.to}
+                            >
+                              {toNameTag || truncateAddress(tx.to)}
+                            </a>
+                          </div>
+                        </td>
+                        <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                          {weiToEth(tx.value)}
+                        </td>
+                        <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                          {new Date(tx.block_time).toLocaleString('en-US')}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            !isLoadingTransactions && (
+              <p className="text-xs sm:text-sm text-gray-400 text-center">No transactions found for this address.</p>
+            )
+          )}
+        </>
+      )}
     </div>
-  );
+  </div>
+);
 
   return createPortal(overlayContent, document.body);
 };

@@ -175,7 +175,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const lastFetchedTokenRef = useRef(null);
   const prevTopHoldersRef = useRef([]);
   const prevAvailableChainsRef = useRef([]);
-  const mergedAddressesPromiseRef = useRef(null);
 
   const executeRecaptcha = useCallback(
     async (action, retryCount = 0) => {
@@ -221,38 +220,41 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       return cached.nameTag;
     }
 
-    // Đảm bảo file merged_addresses.json đã được tải
-    if (!mergedAddressesPromiseRef.current) {
-      mergedAddressesPromiseRef.current = axios.get('/merged_addresses.json', {
-        timeout: 5000,
-      }).then(response => response.data).catch(error => {
-        logger.error('Error fetching merged addresses:', { message: error.message });
-        return {}; // Trả về object rỗng nếu lỗi
-      });
-    }
-
     try {
-      const mergedAddresses = await mergedAddressesPromiseRef.current;
-      const data = mergedAddresses[normalizedAddress];
-      if (!data) {
+      // Kiểm tra session để đảm bảo người dùng đã đăng nhập
+      if (status !== 'authenticated') {
+        logger.warn('User not authenticated for Name Tag fetch:', { address: normalizedAddress });
+        throw new Error('Unauthorized: Please log in to fetch Name Tag.');
+      }
+
+      // Thực hiện reCAPTCHA
+      const recaptchaToken = await executeRecaptcha('fetch_nametag');
+      logger.log('reCAPTCHA token generated for fetchNameTag:', { action: 'fetch_nametag', token: recaptchaToken.slice(0, 8) + '...' });
+
+      // Gọi API /api/nametags
+      const response = await axios.get('/api/nametags', {
+        params: { address: normalizedAddress },
+        headers: {
+          Authorization: `Bearer ${session?.accessToken}`,
+          'x-recaptcha-token': recaptchaToken,
+        },
+        timeout: 5000,
+      });
+
+      // Kiểm tra dữ liệu phản hồi
+      if (!response.data.success || !response.data.data[normalizedAddress]) {
+        logger.log('Name Tag not found for address:', { address: normalizedAddress });
         const cacheEntry = { nameTag: null, timestamp: Date.now() };
         nameTagsRef.current[normalizedAddress] = cacheEntry;
         setNameTags((prev) => ({
           ...prev,
           [normalizedAddress]: cacheEntry,
         }));
-        if (error.response?.status === 404) {
-          logger.log('Name Tag file not found:', { address: normalizedAddress });
-        } else {
-          logger.error('Error fetching Name Tag:', {
-            address: normalizedAddress,
-            message: error.message,
-            status: error.response?.status,
-          });
-        }
         return null;
       }
 
+      // Lấy Name Tag từ dữ liệu
+      const data = response.data.data[normalizedAddress];
       const nameTag = data.Labels ? Object.values(data.Labels)[0]?.['Name Tag'] || null : null;
       const cacheEntry = { nameTag, timestamp: Date.now() };
       nameTagsRef.current[normalizedAddress] = cacheEntry;
@@ -263,72 +265,111 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       logger.log('Name Tag fetched successfully:', { address: normalizedAddress, nameTag });
       return nameTag;
     } catch (error) {
+      // Xử lý lỗi chi tiết
+      let errorMessage;
+      if (error.response?.status === 401) {
+        errorMessage = 'Unauthorized: Please log in again.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'reCAPTCHA verification failed. Please try again.';
+      } else if (error.response?.status === 429) {
+        errorMessage = 'Too many requests. Please try again later.';
+      } else if (error.response?.status === 404) {
+        errorMessage = `Name Tag not found for address ${normalizedAddress}`;
+      } else {
+        errorMessage = error.response?.data?.detail || `Failed to fetch Name Tag: ${error.message}`;
+      }
+
+      logger.error('Error fetching Name Tag:', {
+        address: normalizedAddress,
+        message: errorMessage,
+        status: error.response?.status,
+      });
+
+      // Lưu vào cache ngay cả khi lỗi để tránh gọi lại API liên tục
       const cacheEntry = { nameTag: null, timestamp: Date.now() };
       nameTagsRef.current[normalizedAddress] = cacheEntry;
       setNameTags((prev) => ({
         ...prev,
         [normalizedAddress]: cacheEntry,
       }));
-      if (error.response?.status === 404) {
-        logger.log('Name Tag file not found:', { address: normalizedAddress });
-      } else {
-        logger.error('Error fetching Name Tag:', {
-          address: normalizedAddress,
-          message: error.message,
-          status: error.response?.status,
-        });
-      }
+
+      // Hiển thị thông báo lỗi cho người dùng
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
       return null;
+    } finally {
+      // Reset reCAPTCHA
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        logger.log('reCAPTCHA reset for fetchNameTag');
+      }
     }
   },
-  []
+  [executeRecaptcha, session, status, toast]
 );
 
   const fetchNameTagsForAddresses = useCallback(
-    async (addresses) => {
-      const uniqueAddresses = [...new Set(addresses.filter((addr) => addr?.match(/^0x[a-fA-F0-9]{40}$/)))];
-      if (uniqueAddresses.length === 0) {
-        logger.log('No valid addresses to fetch Name Tags');
-        setIsLoadingNameTags(false);
-        return;
-      }
+  async (addresses) => {
+    const uniqueAddresses = [...new Set(addresses.filter((addr) => addr?.match(/^0x[a-fA-F0-9]{40}$/)))];
+    if (uniqueAddresses.length === 0) {
+      logger.log('No valid addresses to fetch Name Tags');
+      setIsLoadingNameTags(false);
+      return;
+    }
 
-      setIsLoadingNameTags(true);
-      logger.log('Fetching Name Tags for addresses:', { count: uniqueAddresses.length, addresses: uniqueAddresses });
-      try {
-        const promises = uniqueAddresses.map((address) =>
-          limit(() => fetchNameTag(address).then((nameTag) => ({ address: address.toLowerCase(), nameTag })))
-        );
-        const results = await Promise.allSettled(promises);
-        const newNameTags = results.reduce((acc, result, index) => {
-          if (result.status === 'fulfilled') {
-            const { address, nameTag } = result.value;
-            acc[address] = { nameTag, timestamp: Date.now() };
-            logger.log('Name Tag processed:', { address, nameTag });
-          } else {
-            const address = uniqueAddresses[index].toLowerCase();
-            acc[address] = { nameTag: null, timestamp: Date.now() };
-            logger.error('Failed to fetch Name Tag:', { address, error: result.reason.message });
-          }
-          return acc;
-        }, {});
-        setNameTags((prev) => {
-          const updated = { ...prev, ...newNameTags };
-          logger.log('Name Tags updated in state:', {
-            count: Object.keys(updated).length,
-            sample: Object.entries(updated).slice(0, 5),
-          });
-          return updated;
+    setIsLoadingNameTags(true);
+    logger.log('Fetching Name Tags for addresses:', { count: uniqueAddresses.length });
+
+    try {
+      const recaptchaToken = await executeRecaptcha('fetch_nametags');
+      const response = await axios.post(
+        '/api/nametags',
+        { addresses: uniqueAddresses },
+        {
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`,
+            'x-recaptcha-token': recaptchaToken,
+          },
+          timeout: 10000,
+        }
+      );
+
+      const newNameTags = uniqueAddresses.reduce((acc, address) => {
+        const normalizedAddress = address.toLowerCase();
+        const data = response.data.data[normalizedAddress];
+        const nameTag = data?.Labels ? Object.values(data.Labels)[0]?.['Name Tag'] || null : null;
+        acc[normalizedAddress] = { nameTag, timestamp: Date.now() };
+        logger.log('Name Tag processed:', { address: normalizedAddress, nameTag });
+        return acc;
+      }, {});
+
+      setNameTags((prev) => {
+        const updated = { ...prev, ...newNameTags };
+        logger.log('Name Tags updated in state:', {
+          count: Object.keys(updated).length,
+          sample: Object.entries(updated).slice(0, 5),
         });
-        logger.log('Name Tags fetched:', { count: Object.keys(newNameTags).length, newNameTags });
-      } catch (error) {
-        logger.error('Error in fetchNameTagsForAddresses:', { message: error.message });
-      } finally {
-        setIsLoadingNameTags(false);
+        return updated;
+      });
+      logger.log('Name Tags fetched:', { count: Object.keys(newNameTags).length });
+    } catch (error) {
+      logger.error('Error in fetchNameTagsForAddresses:', { message: error.message });
+      uniqueAddresses.forEach((address) => {
+        const normalizedAddress = address.toLowerCase();
+        nameTagsRef.current[normalizedAddress] = { nameTag: null, timestamp: Date.now() };
+        setNameTags((prev) => ({
+          ...prev,
+          [normalizedAddress]: { nameTag: null, timestamp: Date.now() },
+        }));
+      });
+    } finally {
+      setIsLoadingNameTags(false);
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
       }
-    },
-    [fetchNameTag]
-  );
+    }
+  },
+  [fetchNameTag, executeRecaptcha, session]
+);
 
   const fetchPriceHistory = useCallback(
     debounce(
