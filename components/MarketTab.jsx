@@ -190,6 +190,7 @@ const WalletBalances = ({
   setWalletBalancesError,
   setTransactionsError,
   setWalletAddress,
+  nameTags, // Thêm prop nameTags
 }) => {
   const walletBalancesRef = useRef(null);
   const [activeTab, setActiveTab] = useState('portfolio');
@@ -229,7 +230,9 @@ const WalletBalances = ({
 
   const truncateAddress = (address) => {
     if (!address || address === 'None') return address;
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    const normalizedAddress = address.toLowerCase();
+    const nameTag = nameTags[normalizedAddress]?.nameTag;
+    return nameTag || `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   const getPlatformImage = (chainValue) => {
@@ -250,14 +253,15 @@ const WalletBalances = ({
   };
 
   const overlayContent = (
-    <div className="fixed inset-0 bg-tech flex items-center justify-center z-50 font-courier min-h-screen">
+    <div className="fixed inset-0 flex items-center border border-gray-500 rounded-xs justify-center z-50 font-courier min-h-screen">
       <div
         ref={walletBalancesRef}
-        className="backdrop-blur-md p-4 max-w-6xl w-[90%] border border-gray-500 rounded-xs relative max-h-[80vh] min-h-[80vh] overflow-y-auto custom-scrollbar"
+        className="backdrop-blur-md p-2 sm:p-4 max-w-6xl w-[90%] border border-gray-500 rounded-md relative max-h-[80vh] min-h-[80vh] overflow-y-auto custom-scrollbar"
       >
+        {/* Header section remains unchanged */}
         <div className="flex justify-between items-center mb-4 uppercase">
-          <h4 className="text-sm font-bold text-white">
-            Wallet Details : {truncateAddress(walletAddress)}
+          <h4 className="text-xs sm:text-sm font-bold text-white">
+            Wallet Details: {truncateAddress(walletAddress)}
           </h4>
           <button
             onClick={onClose}
@@ -267,6 +271,7 @@ const WalletBalances = ({
             ✕
           </button>
         </div>
+        {/* Tab buttons remain unchanged */}
         <div className="flex space-x-2 mb-4">
           <button
             onClick={() => setActiveTab('portfolio')}
@@ -281,6 +286,8 @@ const WalletBalances = ({
             Transactions
           </button>
         </div>
+
+        {/* Portfolio Tab */}
         {activeTab === 'portfolio' && (
           <>
             {isLoading && <p className="text-sm text-gray-400 text-center">Loading portfolio...</p>}
@@ -290,34 +297,37 @@ const WalletBalances = ({
                 <table className="w-full border border-gray-500 table-auto">
                   <thead>
                     <tr>
-                      <th className="border border-gray-500 px-4 py-2 bg-gray-700 text-white text-center text-xs">Chain</th>
-                      <th className="border border-gray-500 px-4 py-2 bg-gray-700 text-white text-center text-xs">Token</th>
-                      <th className="border border-gray-500 px-4 py-2 bg-gray-700 text-white text-center text-xs">Balance</th>
-                      <th className="border border-gray-500 px-4 py-2 bg-gray-700 text-white text-center text-xs">Price (USD)</th>
-                      <th className="border border-gray-500 px-4 py-2 bg-gray-700 text-white text-center text-xs">Value (USD)</th>
+                      {/* MODIFIED: Reduced padding for more compact cells */}
+                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Chain</th>
+                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Token</th>
+                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Balance</th>
+                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Price</th>
+                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Value</th>
                     </tr>
                   </thead>
                   <tbody>
                     {balances.map((balance, index) => (
                       <tr key={`${balance.chain}-${balance.address}-${index}`}>
-                        <td className="border border-gray-500 px-4 py-2 text-gray-200 text-xs text-center">
-                          <div className="flex items-center justify-center">
+                        {/* MODIFIED: Reduced padding */}
+                        <td className="border border-gray-500 p-0 sm:p-1 text-gray-200 text-[10px] sm:text-xs text-center">
+                          <div className="flex flex-col items-center justify-center sm:flex-row sm:space-x-1">
                             <img
                               src={getPlatformImage(balance.chain)}
                               alt={`${balance.chain} logo`}
-                              className="w-4 h-4 mr-2"
+                              className="w-4 h-4 mb-1 sm:mb-0 sm:mr-1 flex-shrink-0"
                               onError={(e) => (e.target.src = '/fallback-image.png')}
                             />
-                            <span>{balance.chain.charAt(0).toUpperCase() + balance.chain.slice(1)}</span>
+                            <span className="flex-shrink-0">{balance.chain.charAt(0).toUpperCase() + balance.chain.slice(1)}</span>
                           </div>
                         </td>
-                        <td className="border border-gray-500 px-4 py-2 text-gray-200 text-xs text-center">
-                          <div className="flex items-center justify-center">
+                        {/* MODIFIED: Reduced padding */}
+                        <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
+                          <div className="flex flex-col items-center sm:flex-row sm:justify-center">
                             {balance.logo && (
                               <img
                                 src={balance.logo}
                                 alt={`${balance.symbol} logo`}
-                                className="w-5 h-5 mr-2"
+                                className="w-5 h-5 mb-1 sm:mb-0 sm:mr-2"
                                 onError={(e) => (e.target.src = '/fallback-image.png')}
                               />
                             )}
@@ -326,29 +336,17 @@ const WalletBalances = ({
                             </span>
                           </div>
                         </td>
-                        <td className="border border-gray-500 px-4 py-2 text-gray-200 text-xs text-center">
-                          {balance.amount
-                            ? balance.amount.toLocaleString('en-US', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })
-                            : 'N/A'}
+                        {/* MODIFIED: Reduced padding */}
+                        <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
+                          {balance.amount?.toLocaleString('en-US', { maximumFractionDigits: 2 }) || 'N/A'}
                         </td>
-                        <td className="border border-gray-500 px-4 py-2 text-gray-200 text-xs text-center">
-                          {balance.price_usd
-                            ? `$${balance.price_usd.toLocaleString('en-US', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}`
-                            : 'N/A'}
+                        {/* MODIFIED: Reduced padding */}
+                        <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
+                          {balance.price_usd ? `$${balance.price_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : 'N/A'}
                         </td>
-                        <td className="border border-gray-500 px-4 py-2 text-gray-200 text-xs text-center">
-                          {balance.value_usd
-                            ? `$${balance.value_usd.toLocaleString('en-US', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}`
-                            : 'N/A'}
+                        {/* MODIFIED: Reduced padding */}
+                        <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
+                          {balance.value_usd ? `$${balance.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : 'N/A'}
                         </td>
                       </tr>
                     ))}
@@ -360,6 +358,8 @@ const WalletBalances = ({
             )}
           </>
         )}
+
+        {/* Transactions Tab */}
         {activeTab === 'transactions' && (
           <>
             {isLoadingTransactions && <p className="text-sm text-gray-400 text-center">Loading transactions...</p>}
@@ -369,64 +369,59 @@ const WalletBalances = ({
                 <table className="w-full border border-gray-500 table-auto">
                   <thead>
                     <tr>
-                      <th className="border border-gray-500 px-4 py-2 bg-gray-700 text-white text-center text-xs">Chain</th>
-                      <th className="border border-gray-500 px-4 py-2 bg-gray-700 text-white text-center text-xs">Hash</th>
-                      <th className="border border-gray-500 px-4 py-2 bg-gray-700 text-white text-center text-xs">Transfer</th>
-                      <th className="border border-gray-500 px-4 py-2 bg-gray-700 text-white text-center text-xs">Value (ETH)</th>
-                      <th className="border border-gray-500 px-4 py-2 bg-gray-700 text-white text-center text-xs">Block Time</th>
+                      {/* MODIFIED: Reduced padding */}
+                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Chain</th>
+                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Hash</th>
+                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Transfer</th>
+                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Value</th>
+                      <th className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 bg-gray-700 text-white text-center text-[10px] sm:text-xs">Time</th>
                     </tr>
                   </thead>
                   <tbody>
                     {transactions.map((tx, index) => {
+                      // ...variable definitions remain the same...
                       const { txUrl, addressUrl: fromUrl } = getExplorerUrls(tx.chain, tx.hash, tx.from);
                       const { addressUrl: toUrl } = getExplorerUrls(tx.chain, tx.hash, tx.to);
+                      const fromNameTag = nameTags[tx.from.toLowerCase()]?.nameTag;
+                      const toNameTag = nameTags[tx.to.toLowerCase()]?.nameTag;
                       return (
                         <tr key={`${tx.chain}-${tx.hash}-${index}`}>
-                          <td className="border border-gray-500 px-4 py-2 text-gray-200 text-xs text-center flex items-center justify-center">
-                            <img
-                              src={getPlatformImage(tx.chain)}
-                              alt={`${tx.chain} logo`}
-                              className="w-4 h-4 mr-2"
-                              onError={(e) => (e.target.src = '/fallback-image.png')}
-                            />
-                            {tx.chain.charAt(0).toUpperCase() + tx.chain.slice(1)}
+                          {/* MODIFIED: Reduced padding */}
+                          <td className="border border-gray-500 p-1.5 sm:p-2 text-gray-200 text-[10px] sm:text-xs text-center">
+                            <div className="flex flex-col items-center justify-center sm:flex-row sm:space-x-1">
+                              <img
+                                src={getPlatformImage(tx.chain)}
+                                alt={`${tx.chain} logo`}
+                                className="w-4 h-4 mb-1 sm:mb-0 sm:mr-1 flex-shrink-0"
+                                onError={(e) => (e.target.src = '/fallback-image.png')}
+                              />
+                              <span className="flex-shrink-0">{tx.chain.charAt(0).toUpperCase() + tx.chain.slice(1)}</span>
+                            </div>
                           </td>
-                          <td className="border border-gray-500 px-4 py-2 text-gray-200 text-xs text-center">
-                            <a
-                              href={txUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-400 hover:underline"
-                              title={tx.hash}
-                            >
+                          {/* MODIFIED: Reduced padding */}
+                          <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
+                            <a href={txUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline" title={tx.hash}>
                               {truncateAddress(tx.hash)}
                             </a>
                           </td>
-                          <td className="border border-gray-500 px-4 py-2 text-gray-200 text-xs text-center">
-                            <a
-                              href={fromUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-400 hover:underline"
-                              title={tx.from}
-                            >
-                              {truncateAddress(tx.from)}
-                            </a>
-                            {' → '}
-                            <a
-                              href={toUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-400 hover:underline"
-                              title={tx.to}
-                            >
-                              {truncateAddress(tx.to)}
-                            </a>
+                          {/* MODIFIED: Reduced padding */}
+                          <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
+                            <div className="flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-1">
+                              <a href={fromUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline" title={tx.from}>
+                                {fromNameTag || truncateAddress(tx.from)}
+                              </a>
+                              <span className="sm:mx-1">→</span>
+                              <a href={toUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline" title={tx.to}>
+                                {toNameTag || truncateAddress(tx.to)}
+                              </a>
+                            </div>
                           </td>
-                          <td className="border border-gray-500 px-4 py-2 text-gray-200 text-xs text-center">
+                          {/* MODIFIED: Reduced padding */}
+                          <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
                             {weiToEth(tx.value)}
                           </td>
-                          <td className="border border-gray-500 px-4 py-2 text-gray-200 text-xs text-center">
+                          {/* MODIFIED: Reduced padding */}
+                          <td className="border border-gray-500 px-1 py-1.5 sm:px-2 sm:py-2 text-gray-200 text-[10px] sm:text-xs text-center">
                             {new Date(tx.block_time).toLocaleString('en-US')}
                           </td>
                         </tr>
@@ -522,7 +517,9 @@ const MarketTab = ({ recaptchaRef }) => {
     setTransactionsError,
     fetchPublicTreasuryData,
     fetchTickerData,
-    fetchPriceHistory, // Added from useMarketTabLogic
+    fetchPriceHistory,
+    nameTags, // Thêm nameTags từ useMarketTabLogic
+    isLoadingNameTags,
   } = useMarketTabLogic({ recaptchaRef, toast });
 
   const dropdownRef = useRef(null);
@@ -570,22 +567,22 @@ const MarketTab = ({ recaptchaRef }) => {
 
   // Fetch price history when token or time range changes
   useEffect(() => {
-  console.log('useEffect triggered:', { selectedToken: selectedToken?.id, timeRange });
-  if (selectedToken && timeRange) {
-    logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange });
-    setIsChartLoading(true);
-    fetchPriceHistory(selectedToken.id, timeRange, (err, data) => {
-      if (err) {
-        logger.error('Price history fetch failed:', { error: err.message });
-      } else {
-        logger.log('Price history fetch completed:', { tokenId: selectedToken.id, count: data?.length || 0 });
-      }
-      setIsChartLoading(false);
-    });
-  } else {
-    console.log('useEffect skipped:', { selectedToken: selectedToken?.id, timeRange });
-  }
-}, [selectedToken, timeRange, fetchPriceHistory]);
+    console.log('useEffect triggered:', { selectedToken: selectedToken?.id, timeRange });
+    if (selectedToken && timeRange) {
+      logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange });
+      setIsChartLoading(true);
+      fetchPriceHistory(selectedToken.id, timeRange, (err, data) => {
+        if (err) {
+          logger.error('Price history fetch failed:', { error: err.message });
+        } else {
+          logger.log('Price history fetch completed:', { tokenId: selectedToken.id, count: data?.length || 0 });
+        }
+        setIsChartLoading(false);
+      });
+    } else {
+      console.log('useEffect skipped:', { selectedToken: selectedToken?.id, timeRange });
+    }
+  }, [selectedToken, timeRange, fetchPriceHistory]);
 
   return (
     <motion.div
@@ -602,19 +599,74 @@ const MarketTab = ({ recaptchaRef }) => {
           disabled
           aria-label="Stock tab (coming soon)"
         >
-          Stock <span className="text-xs text-white/50">(Soon)</span>
+          Stock <span className="text-[8px] text-white/50">(Soon)</span>
         </button>
-        <span>|</span>
       </div>
       {loading && <p className="text-sm text-gray-400 text-center">Loading market data...</p>}
       {error && <p className="text-sm text-red-500 text-center">Error: {error}</p>}
       {!loading && !error && tokens.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 grid-rows-[1fr_1fr] gap-3 h-[calc(100%-2.5rem)] md:overflow-hidden overflow-y-auto hide-scrollbar">
           {/* Top Left: Token Info */}
-          <div className="rounded-xl p-3 backdrop-blur-md border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-5rem)] sm:min-h-[300px]">
+          <div className="rounded-lg p-4 backdrop-blur-md border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-5rem)] sm:min-h-[300px] relative">
             {selectedToken ? (
-              <>
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div> {/* Thay <> bằng <div> hoặc bỏ luôn nếu không cần wrapper */}
+                <div className="absolute top-2 right-2 w-32 sm:w-56 z-20" ref={dropdownRef}>
+                  <button
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="bg-white/10 text-white px-2 py-1 rounded-md text-xs flex items-center w-full border border-gray-500/20 backdrop-blur-md hover:bg-white/15 transition-all duration-200"
+                    aria-label="Select token"
+                  >
+                    {selectedToken ? (
+                      <>
+                        <img
+                          src={selectedToken.image}
+                          alt={`${selectedToken.symbol} logo`}
+                          className="w-4 h-4 mr-1"
+                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                        />
+                        {selectedToken.symbol?.toUpperCase()}/USD
+                      </>
+                    ) : (
+                      'Select Token'
+                    )}
+                    <span className="ml-auto">{isDropdownOpen ? '▲' : '▼'}</span>
+                  </button>
+                  {isDropdownOpen && (
+                    <div className="absolute bg-gray-800/95 rounded-md mt-1 w-full max-h-52 overflow-y-auto custom-scrollbar backdrop-blur-md border border-gray-500/10 shadow-lg">
+                      <input
+                        type="text"
+                        placeholder="Search token (e.g, BTC)"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        ref={searchInputRef}
+                        className="bg-gray-700/80 text-white px-2 py-1 w-full rounded-t-md text-xs border-b border-gray-500/20 backdrop-blur-md focus:outline-none"
+                      />
+                      <div className="p-1">
+                        {(searchQuery ? searchResults : tokens.slice(0, 20)).map((token) => (
+                          <button
+                            key={token.id}
+                            onClick={() => debouncedHandleTokenSelect(token)}
+                            className="flex items-center w-full text-left px-2 py-1 hover:bg-white/15 rounded-sm text-white sm:text-xs text-[9px] transition-all duration-200"
+                          >
+                            {token.image && (
+                              <img
+                                src={token.image}
+                                alt={`${token.symbol} logo`}
+                                className="w-4 h-4 mr-1"
+                                onError={(e) => (e.target.src = '/fallback-image.png')}
+                              />
+                            )}
+                            {token.name} ({token.symbol?.toUpperCase()})
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Thông tin token */}
+                <div className="mb-3 pt-2 sm:pt-0">
                   <div className="flex items-center">
                     {selectedToken.image && (
                       <img
@@ -633,60 +685,6 @@ const MarketTab = ({ recaptchaRef }) => {
                       )}
                     </div>
                   </div>
-                  <div className="relative w-full sm:w-56" ref={dropdownRef}>
-                    <button
-                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                      className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs flex items-center w-full sm:w-56 border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300"
-                      aria-label="Select token"
-                    >
-                      {selectedToken ? (
-                        <>
-                          <img
-                            src={selectedToken.image}
-                            alt={`${selectedToken.symbol} logo`}
-                            className="w-4 h-4 mr-1.5"
-                            onError={(e) => (e.target.src = '/fallback-image.png')}
-                          />
-                          {selectedToken.symbol?.toUpperCase()}/USD
-                        </>
-                      ) : (
-                        'Select Token'
-                      )}
-                      <span className="ml-auto">{isDropdownOpen ? '▲' : '▼'}</span>
-                    </button>
-                    {isDropdownOpen && (
-                      <div className="absolute z-20 bg-gray-800/95 rounded-lg mt-1 w-full sm:w-56 max-h-52 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
-                        <input
-                          type="text"
-                          placeholder="Search token (e.g, BTC)"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                          ref={searchInputRef}
-                          className="bg-gray-700/80 text-white px-3 py-1.5 w-full rounded-t-lg text-xs border-b border-white/20 backdrop-blur-md focus:outline-none"
-                        />
-                        <div className="p-1.5">
-                          {(searchQuery ? searchResults : tokens.slice(0, 20)).map((token) => (
-                            <button
-                              key={token.id}
-                              onClick={() => debouncedHandleTokenSelect(token)}
-                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/15 rounded-md text-white text-xs transition-all duration-300"
-                            >
-                              {token.image && (
-                                <img
-                                  src={token.image}
-                                  alt={`${token.symbol} logo`}
-                                  className="w-4 h-4 mr-1.5"
-                                  onError={(e) => (e.target.src = '/fallback-image.png')}
-                                />
-                              )}
-                              {token.name} ({token.symbol?.toUpperCase()})
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 {/* Token Info Content */}
@@ -695,7 +693,7 @@ const MarketTab = ({ recaptchaRef }) => {
                   <div className="mb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
-                        <p className="text-lg sm:text-xl font-bold text-white">
+                        <p className="text-2xl sm:text-xl font-bold text-white">
                           {selectedToken.current_price != null
                             ? `$${selectedToken.current_price.toLocaleString('en-US', {
                               minimumFractionDigits: 2,
@@ -811,7 +809,7 @@ const MarketTab = ({ recaptchaRef }) => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
                         <p className="text-gray-200">
                           ATH:{' '}
-                          <span className={typeof selectedToken.ath === 'number' ? (selectedToken.ath_change_percentage >= 0 ? 'text-green font-medium' : 'text-red font-medium') : 'text-white'}>
+                          <span className={typeof selectedToken.ath === 'number' ? (selectedToken.ath_change_percentage >= 0 ? 'text-red font-medium' : 'text-green font-medium') : 'text-white'}>
                             {typeof selectedToken.ath === 'number'
                               ? `$${selectedToken.ath.toLocaleString('en-US')}`
                               : 'N/A'}
@@ -819,7 +817,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         </p>
                         <p className="text-gray-200">
                           ATL:{' '}
-                          <span className={typeof selectedToken.atl === 'number' ? (selectedToken.atl_change_percentage >= 0 ? 'text-green font-medium' : 'text-red font-medium') : 'text-white'}>
+                          <span className={typeof selectedToken.atl === 'number' ? (selectedToken.atl_change_percentage >= 0 ? 'text-red font-medium' : 'text-green font-medium') : 'text-white'}>
                             {typeof selectedToken.atl === 'number'
                               ? `$${selectedToken.atl.toLocaleString('en-US')}`
                               : 'N/A'}
@@ -846,14 +844,14 @@ const MarketTab = ({ recaptchaRef }) => {
                     </div>
                   </div>
                 </div>
-              </>
+              </div>
             ) : (
               <p className="text-xs text-gray-400 text-center flex-1">Please select a token to view details.</p>
             )}
           </div>
 
           {/* Top Right: Price Chart */}
-          <div className="bg-gray-900/95 rounded-xl shadow-lg p-3 bg-tech backdrop-blur-md border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-4rem)]">
+          <div className="rounded-xl shadow-lg p-3 backdrop-blur-md border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-4rem)]">
             <div className="flex flex-col sm:flex-row sm:justify-center mb-2 gap-1.5">
               <div className="flex space-x-1.5 justify-center">
                 <button
@@ -949,10 +947,9 @@ const MarketTab = ({ recaptchaRef }) => {
           {/* Bottom Left: Top 100 Holders */}
           <div className="rounded-xl border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)]">
             {isLoadingOnChain && <LoadingOverlay message="Loading on-chain data..." />}
-            {onChainError && <div className="error">{onChainError}</div>}
             {selectedToken ? (
-              <div className="flex-1 overflow-y-auto hide-scrollbar p-3">
-                <div className="flex justify-between items-center sticky top-0 mb-2">
+              <div className="flex-1 overflow-y-auto hide-scrollbar rounded-xl">
+                <div className="flex justify-between items-center sticky top-0 bg-tech p-1.5">
                   {/* Left: Chain Dropdown */}
                   <div className="relative" ref={chainDropdownRef}>
                     <button
@@ -1009,7 +1006,7 @@ const MarketTab = ({ recaptchaRef }) => {
                   </div>
 
                   {/* Center: Title */}
-                  <div className={`flex-grow flex justify-center items-center absolute left-1/2 transform -translate-x-1/2 ${isMobile ? 'top-[-0.5rem]' : ''}`}>
+                  <div className={`flex-grow flex justify-center items-center absolute left-1/2 transform -translate-x-1/2 ${isMobile ? 'top-[1rem]' : ''}`}>
                     <h4 className="text-xs font-bold text-white text-center uppercase">
                       Top 100 {selectedToken.symbol?.toUpperCase()} Holders
                     </h4>
@@ -1059,18 +1056,21 @@ const MarketTab = ({ recaptchaRef }) => {
                       <tbody>
                         {onChainData.topHolders.slice(0, 100).map((holder, index) => {
                           const isPublicTreasury = ['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase());
+                          const address = holder.address.toLowerCase();
+                          const nameTag = nameTags[address]?.nameTag;
+                          const displayAddress = isPublicTreasury
+                            ? holder.address
+                            : `${holder.address.slice(0, 6)}...${holder.address.slice(-4)}${nameTag ? ` (${nameTag})` : isLoadingNameTags ? ' (Loading...)' : ''}`;
                           return (
                             <tr key={index}>
                               <td
                                 className={`border border-gray-500 px-2 py-1 text-gray-200 font-plexmono text-center break-all ${isPublicTreasury ? 'cursor-default' : 'cursor-pointer hover:text-blue-400'}`}
                                 {...(!isPublicTreasury && {
                                   onClick: () => handleAddressClick(holder.address),
-                                  title: holder.address,
+                                  title: nameTag ? `${holder.address} (${nameTag})` : isLoadingNameTags ? 'Loading Name Tag...' : holder.address,
                                 })}
                               >
-                                {isPublicTreasury
-                                  ? holder.address
-                                  : `${holder.address.slice(0, 6)}...${holder.address.slice(-4)}`}
+                                {displayAddress}
                               </td>
                               <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
                                 {holder.balance.toLocaleString('en-US', {
@@ -1086,9 +1086,11 @@ const MarketTab = ({ recaptchaRef }) => {
                   </div>
                 ) : (
                   <p className="text-xs text-gray-400 text-center">
-                    {['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase())
-                      ? `No public treasury data available for ${selectedToken.symbol?.toUpperCase()}.`
-                      : `No top holders data available for ${selectedChain || 'selected chain'}.`}
+                    {isLoadingOnChain
+                      ? 'Loading top holders data...'
+                      : ['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase())
+                        ? `No public treasury data available for ${selectedToken.symbol?.toUpperCase()}.`
+                        : `No top holders data available for ${selectedToken.symbol?.toUpperCase()} on ${selectedChain || 'selected chain'}.`}
                   </p>
                 )}
               </div>
@@ -1098,11 +1100,10 @@ const MarketTab = ({ recaptchaRef }) => {
           </div>
 
           {/* Bottom Right: Activity */}
-          <div className="rounded-xl p-2 border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)] sm:min-h-[300px] min-h-[300px] overflow-auto hide-scrollbar">
+          <div className="rounded-xl border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)] sm:min-h-[300px] min-h-[300px] overflow-auto hide-scrollbar">
             {selectedToken ? (
               <>
-                <h3 className={`font-bold text-white mb-2 text-center uppercase ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Market Activity</h3>
-                {isLoadingTickers && <LoadingOverlay message="Loading ticker data..." />}
+                <h3 className={`font-bold text-white text-center bg-tech uppercase p-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Market Activity</h3>
                 {tickerError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-xs'}`}>{tickerError}</p>}
                 {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
                   <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
@@ -1113,7 +1114,6 @@ const MarketTab = ({ recaptchaRef }) => {
                           <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[40px]' : 'min-w-[60px]'}`}>Pair</th>
                           <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>Price</th>
                           <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Volume</th>
-                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>Spread</th>
                           <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Last Traded</th>
                         </tr>
                       </thead>
@@ -1155,9 +1155,6 @@ const MarketTab = ({ recaptchaRef }) => {
                                 minimumFractionDigits: 0,
                                 maximumFractionDigits: 0,
                               }) || 'N/A'}
-                            </td>
-                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>
-                              {ticker.bid_ask_spread_percentage?.toFixed(2) || 'N/A'}%
                             </td>
                             <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
                               {ticker.last_traded_at
@@ -1204,6 +1201,7 @@ const MarketTab = ({ recaptchaRef }) => {
             setWalletBalancesError={setWalletBalancesError}
             setTransactionsError={setTransactionsError}
             setWalletAddress={setWalletAddress}
+            nameTags={nameTags} // Truyền nameTags vào WalletBalances
             onClose={() => {
               setSelectedWallet(null);
               setWalletBalances([]);

@@ -41,7 +41,6 @@ const validate = [
 
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
-
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
   logger.info(`Yêu cầu tới /api/coingecko/history từ IP ${ip}, query: ${JSON.stringify(req.query)}`);
 
@@ -76,37 +75,31 @@ export default async function handler(req, res) {
     return res.status(500).json({ detail: 'Lỗi cấu hình server: Thiếu COINGECKO_API_KEY' });
   }
 
-  if (!axios || typeof axios.get !== 'function') {
-    logger.error('Axios không được khởi tạo đúng cách');
-    return res.status(500).json({ detail: 'Lỗi server: Axios không được khởi tạo' });
-  }
-
   try {
     const endDate = Math.floor(Date.now() / 1000);
     const parsedDays = parseFloat(days);
     const startDate = endDate - parsedDays * 24 * 60 * 60;
-
     logger.info(`Đang lấy dữ liệu lịch sử cho token ${id}, vs_currency: ${vs_currency}, days: ${days}`);
     const response = await axios.get(`https://api.coingecko.com/api/v3/coins/${id}/market_chart/range`, {
-      params: {
-        vs_currency,
-        from: startDate,
-        to: endDate,
-      },
+      params: { vs_currency, from: startDate, to: endDate },
       headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
-      timeout: 15000,
+      timeout: 30000, // Tăng timeout lên 30 giây
+    }).catch(async (error) => {
+      if (error.response?.status === 429 && req.retryCount < 3) {
+        const delay = Math.pow(2, req.retryCount || 0) * 1000;
+        logger.info(`Retrying API request after ${delay}ms due to 429 error`);
+        req.retryCount = (req.retryCount || 0) + 1;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return handler(req, res);
+      }
+      throw error;
     });
 
     let prices = response.data.prices;
-
     if (parsedDays === 0.5) {
-      prices = prices
-        .filter((_, index) => index % Math.ceil(prices.length / 144) === 0)
-        .slice(-144);
+      prices = prices.filter((_, index) => index % Math.ceil(prices.length / 144) === 0).slice(-144);
     } else if (parsedDays === 1) {
-      prices = prices
-        .filter((_, index) => index % Math.ceil(prices.length / 24) === 0)
-        .slice(-24);
+      prices = prices.filter((_, index) => index % Math.ceil(prices.length / 24) === 0).slice(-24);
     }
 
     logger.info(`Lấy dữ liệu lịch sử thành công cho ${id}, số lượng điểm dữ liệu: ${prices.length}`);
@@ -122,7 +115,7 @@ export default async function handler(req, res) {
         ? 'Vượt quá giới hạn API CoinGecko, vui lòng thử lại sau.'
         : status === 404
         ? `Không tìm thấy token ID ${id}.`
-        : 'Không thể lấy dữ liệu lịch sử.';
+        : `Không thể lấy dữ liệu lịch sử: ${err.message}`;
     return res.status(status).json({ detail });
   }
 }
