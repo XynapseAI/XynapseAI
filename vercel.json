@@ -20,5 +20,18 @@
       ],
       "destination": "/api/:path*"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/dashboard/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "xynapseai.net"
+        }
+      ],
+      "destination": "https://app.xynapseai.net/:path*",
+      "permanent": true
+    }
   ]
 }
