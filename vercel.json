@@ -1,0 +1,24 @@
+{
+  "rewrites": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.xynapseai.net"
+        }
+      ],
+      "destination": "/dashboard/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.xynapseai.net"
+        }
+      ],
+      "destination": "/api/:path*"
+    }
+  ]
+}
