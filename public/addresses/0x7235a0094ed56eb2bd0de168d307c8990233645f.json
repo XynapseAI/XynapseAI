@@ -1,9 +1,0 @@
-{
-  "Address": "0x7235a0094ed56eb2bd0de168d307c8990233645f",
-  "Labels": {
-    "reflexer-finance": {
-      "Name Tag": "Reflexer: UniswapPriceFeedMedianizer",
-      "Description": "Reflexer is a platform where anyone can use their crypto collateral to issue non-​pegged stable assets, otherwise called stablecoins."
-    }
-  }
-}

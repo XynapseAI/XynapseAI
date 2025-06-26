@@ -1,9 +1,0 @@
-{
-  "Address": "0xaf820bb236fde6f084641c74a4c62fa61d10b293",
-  "Labels": {
-    "oracle-dao": {
-      "Name Tag": "Etherscan: Oracle DAO Node",
-      "Description": "Rocket Pool's Oracle DAO members provide duties to the protocol such as oracle tasks and providing staking liveliness for the protocol."
-    }
-  }
-}

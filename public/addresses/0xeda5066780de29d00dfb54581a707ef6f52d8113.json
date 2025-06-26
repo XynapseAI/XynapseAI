@@ -1,9 +1,0 @@
-{
-  "Address": "0xeda5066780de29d00dfb54581a707ef6f52d8113",
-  "Labels": {
-    "blocked": {
-      "Name Tag": "ChainSwap Hacker",
-      "Description": "These addresses have been blocked by a custodial stablecoin provider (such as USDT and USDC)."
-    }
-  }
-}

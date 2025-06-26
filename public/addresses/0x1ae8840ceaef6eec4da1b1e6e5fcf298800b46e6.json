@@ -1,9 +1,0 @@
-{
-  "Address": "0x1ae8840ceaef6eec4da1b1e6e5fcf298800b46e6",
-  "Labels": {
-    "blocked": {
-      "Name Tag": "bZx PrivKey Exploiter 7",
-      "Description": "These addresses have been blocked by a custodial stablecoin provider (such as USDT and USDC)."
-    }
-  }
-}

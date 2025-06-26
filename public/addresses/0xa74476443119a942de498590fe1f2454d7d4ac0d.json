@@ -1,9 +1,0 @@
-{
-  "Address": "0xa74476443119a942de498590fe1f2454d7d4ac0d",
-  "Labels": {
-    "blocked": {
-      "Name Tag": "Golem Token",
-      "Description": "These addresses have been blocked by a custodial stablecoin provider (such as USDT and USDC)."
-    }
-  }
-}

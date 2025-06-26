@@ -1,8 +1,0 @@
-{
-  "Address": "0x9c399c4859c95330d4cd03dbedd8f03566b1ab70",
-  "Labels": {
-    "blocked": {
-      "Description": "These addresses have been blocked by a custodial stablecoin provider (such as USDT and USDC)."
-    }
-  }
-}

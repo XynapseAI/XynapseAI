@@ -1,9 +1,0 @@
-{
-  "Address": "0x7b9bf97ba021f548e73dad82e7a49c24eda526fe",
-  "Labels": {
-    "airdrop-hunter": {
-      "Description": "Addresses found to be actively looking for airdrops from projects.",
-      "Subcategory": "Main"
-    }
-  }
-}

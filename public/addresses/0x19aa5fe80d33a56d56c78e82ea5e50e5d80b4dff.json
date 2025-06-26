@@ -1,9 +1,0 @@
-{
-  "Address": "0x19aa5fe80d33a56d56c78e82ea5e50e5d80b4dff",
-  "Labels": {
-    "blocked": {
-      "Name Tag": "OFAC SDN: 0x19a...dff",
-      "Description": "These addresses have been blocked by a custodial stablecoin provider (such as USDT and USDC)."
-    }
-  }
-}

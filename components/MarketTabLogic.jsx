@@ -175,6 +175,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const lastFetchedTokenRef = useRef(null);
   const prevTopHoldersRef = useRef([]);
   const prevAvailableChainsRef = useRef([]);
+  const mergedAddressesPromiseRef = useRef(null);
 
   const executeRecaptcha = useCallback(
     async (action, retryCount = 0) => {
@@ -207,55 +208,81 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   );
 
   const fetchNameTag = useCallback(
-    async (address) => {
-      if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
-        logger.log('Invalid address for Name Tag fetch:', { address });
-        return null;
-      }
+  async (address) => {
+    if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+      logger.log('Invalid address for Name Tag fetch:', { address });
+      return null;
+    }
 
-      const normalizedAddress = address.toLowerCase();
-      const cached = nameTagsRef.current[normalizedAddress];
-      if (cached && Date.now() - cached.timestamp < NAME_TAG_CACHE_DURATION) {
-        logger.log('Name Tag loaded from cache:', { address: normalizedAddress, nameTag: cached.nameTag });
-        return cached.nameTag;
-      }
+    const normalizedAddress = address.toLowerCase();
+    const cached = nameTagsRef.current[normalizedAddress];
+    if (cached && Date.now() - cached.timestamp < NAME_TAG_CACHE_DURATION) {
+      logger.log('Name Tag loaded from cache:', { address: normalizedAddress, nameTag: cached.nameTag });
+      return cached.nameTag;
+    }
 
-      try {
-        logger.log('Fetching Name Tag for address:', { address: normalizedAddress });
-        const response = await axios.get(`/addresses/${normalizedAddress}.json`, {
-          timeout: 5000,
-        });
-        const data = response.data;
-        const nameTag = data.Address && data.Labels ? Object.values(data.Labels)[0]?.['Name Tag'] || null : null;
-        const cacheEntry = { nameTag, timestamp: Date.now() };
+    // Đảm bảo file merged_addresses.json đã được tải
+    if (!mergedAddressesPromiseRef.current) {
+      mergedAddressesPromiseRef.current = axios.get('/merged_addresses.json', {
+        timeout: 5000,
+      }).then(response => response.data).catch(error => {
+        logger.error('Error fetching merged addresses:', { message: error.message });
+        return {}; // Trả về object rỗng nếu lỗi
+      });
+    }
+
+    try {
+      const mergedAddresses = await mergedAddressesPromiseRef.current;
+      const data = mergedAddresses[normalizedAddress];
+      if (!data) {
+        const cacheEntry = { nameTag: null, timestamp: Date.now() };
         nameTagsRef.current[normalizedAddress] = cacheEntry;
         setNameTags((prev) => ({
           ...prev,
           [normalizedAddress]: cacheEntry,
         }));
-        logger.log('Name Tag fetched successfully:', { address: normalizedAddress, nameTag });
-        return nameTag;
-      } catch (error) {
-  const cacheEntry = { nameTag: null, timestamp: Date.now() };
-  nameTagsRef.current[normalizedAddress] = cacheEntry;
-  setNameTags((prev) => ({
-    ...prev,
-    [normalizedAddress]: cacheEntry,
-  }));
-  if (error.response?.status === 404) {
-    logger.log('Name Tag file not found:', { address: normalizedAddress });
-  } else {
-    logger.error('Error fetching Name Tag:', {
-      address: normalizedAddress,
-      message: error.message,
-      status: error.response?.status,
-    });
-  }
-  return null;
-}
-    },
-    []
-  );
+        if (error.response?.status === 404) {
+          logger.log('Name Tag file not found:', { address: normalizedAddress });
+        } else {
+          logger.error('Error fetching Name Tag:', {
+            address: normalizedAddress,
+            message: error.message,
+            status: error.response?.status,
+          });
+        }
+        return null;
+      }
+
+      const nameTag = data.Labels ? Object.values(data.Labels)[0]?.['Name Tag'] || null : null;
+      const cacheEntry = { nameTag, timestamp: Date.now() };
+      nameTagsRef.current[normalizedAddress] = cacheEntry;
+      setNameTags((prev) => ({
+        ...prev,
+        [normalizedAddress]: cacheEntry,
+      }));
+      logger.log('Name Tag fetched successfully:', { address: normalizedAddress, nameTag });
+      return nameTag;
+    } catch (error) {
+      const cacheEntry = { nameTag: null, timestamp: Date.now() };
+      nameTagsRef.current[normalizedAddress] = cacheEntry;
+      setNameTags((prev) => ({
+        ...prev,
+        [normalizedAddress]: cacheEntry,
+      }));
+      if (error.response?.status === 404) {
+        logger.log('Name Tag file not found:', { address: normalizedAddress });
+      } else {
+        logger.error('Error fetching Name Tag:', {
+          address: normalizedAddress,
+          message: error.message,
+          status: error.response?.status,
+        });
+      }
+      return null;
+    }
+  },
+  []
+);
 
   const fetchNameTagsForAddresses = useCallback(
     async (addresses) => {

@@ -1,9 +1,0 @@
-{
-  "Address": "0x96b71e2551915d98d22c448b040a3bc4801ea4ff",
-  "Labels": {
-    "safe-formerly-gnosis-safe": {
-      "Name Tag": "Safe: SAFE Token Vesting",
-      "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur."
-    }
-  }
-}

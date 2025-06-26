@@ -1,9 +1,0 @@
-{
-  "Address": "0x24179cd81c9e782a4096035f7ec97fb8b783e007",
-  "Labels": {
-    "liquity": {
-      "Name Tag": "Liquity: Borrower Operations",
-      "Description": "Liquity provides interest-free borrowing on Ethereum."
-    }
-  }
-}
