@@ -119,6 +119,35 @@ const CHAIN_MAPPING = {
   'monad': { simChain: 'monad_testnet', chainId: null },
 };
 
+const GECKOTERMINAL_CHAIN_MAPPING = {
+  'ethereum': 'eth',
+  'arbitrum': 'arbitrum',
+  'avalanche_c': 'avalanche',
+  'bnb': 'bsc',
+  'polygon': 'polygon',
+  'optimism': 'optimism',
+  'base': 'base',
+  'zksync': 'zksync',
+  'zora': 'zora',
+  'linea': 'linea',
+  'mantle': 'mantle',
+  'scroll': 'scroll',
+  'celo': 'celo',
+  'opbnb': 'op_bnb',
+  'boba': 'boba',
+  'metis': 'metis',
+  'blast': 'blast',
+  'sei': 'sei',
+  'kaia': 'kaia',
+  'world': 'worldchain',
+  'unichain': 'unichain',
+  'sonic': 'sonic',
+  'berachain': 'berachain',
+  'ink': 'ink',
+  'mode': 'mode',
+  'soneium': 'soneium',
+};
+
 const COINGECKO_API_KEY = process.env.NEXT_PUBLIC_COINGECKO_API_KEY || '';
 const CACHE_DURATION = 5 * 60 * 1000;
 const NAME_TAG_CACHE_DURATION = 24 * 60 * 60 * 1000;
@@ -172,6 +201,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const prevTopHoldersRef = useRef([]);
   const prevAvailableChainsRef = useRef([]);
   const [chains, setChains] = useState([]);
+  const [dexData, setDexData] = useState({ pools: [], trades: [] });
+  const [isLoadingDex, setIsLoadingDex] = useState(false);
+  const [dexError, setDexError] = useState(null);
 
   const executeRecaptcha = useCallback(
     async (action, retryCount = 0) => {
@@ -204,13 +236,67 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   );
 
   const fetchSupportedChains = useCallback(async () => {
-  try {
-    const response = await axios.get('/api/coingecko/chains', {
-      timeout: 15000,
-    });
+    try {
+      const response = await axios.get('/api/coingecko/chains', {
+        timeout: 15000,
+      });
 
-    if (!response.data.success) {
-      logger.error('Failed to fetch CoinGecko chains:', { detail: response.data.detail });
+      if (!response.data.success) {
+        logger.error('Failed to fetch CoinGecko chains:', { detail: response.data.detail });
+        setChains(
+          SUPPORTED_CHAINS.map((chain) => ({
+            coingeckoId: Object.keys(CHAIN_MAPPING).find(
+              (key) => CHAIN_MAPPING[key].simChain === chain.value
+            ) || null,
+            value: chain.value,
+            label: chain.label,
+            shortName: chain.label.split(' ')[0],
+            chainId: chain.chainId,
+            testnet: chain.testnet || false,
+            image: '/fallback-image.png', // Fallback image for unsupported chains
+          }))
+        );
+        logger.info('Using SUPPORTED_CHAINS as fallback', {
+          count: SUPPORTED_CHAINS.length,
+        });
+        return;
+      }
+
+      const coingeckoChains = response.data.data;
+      const mappedChains = SUPPORTED_CHAINS.map((simChain) => {
+        const coingeckoChain = coingeckoChains.find(
+          (cg) => CHAIN_MAPPING[cg.id]?.simChain === simChain.value
+        );
+        const imageUrl = coingeckoChain?.image?.thumb || '/fallback-image.png';
+        logger.log('Chain image mapping:', {
+          chain: simChain.value,
+          coingeckoId: coingeckoChain?.id,
+          image: imageUrl,
+        });
+        return {
+          coingeckoId: coingeckoChain?.id || null,
+          value: simChain.value,
+          label: simChain.label,
+          shortName: coingeckoChain?.shortname || simChain.label.split(' ')[0],
+          chainId: simChain.chainId,
+          testnet: simChain.testnet || false,
+          image: imageUrl,
+        };
+      });
+
+      setChains(mappedChains);
+      logger.info(`Merged ${mappedChains.length} chains`, {
+        sample: mappedChains.slice(0, 5).map((c) => ({
+          value: c.value,
+          label: c.label,
+          image: c.image,
+        })),
+      });
+    } catch (error) {
+      logger.error('Error fetching CoinGecko chains:', {
+        message: error.message,
+        status: error.response?.status,
+      });
       setChains(
         SUPPORTED_CHAINS.map((chain) => ({
           coingeckoId: Object.keys(CHAIN_MAPPING).find(
@@ -221,69 +307,15 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           shortName: chain.label.split(' ')[0],
           chainId: chain.chainId,
           testnet: chain.testnet || false,
-          image: '/fallback-image.png', // Fallback image for unsupported chains
+          image: '/fallback-image.png', // Fallback image for error case
         }))
       );
-      logger.info('Using SUPPORTED_CHAINS as fallback', {
+      logger.info('Using SUPPORTED_CHAINS as fallback due to error', {
         count: SUPPORTED_CHAINS.length,
       });
-      return;
+      toast.error('Failed to load supported chains', { position: 'top-center', autoClose: 5000 });
     }
-
-    const coingeckoChains = response.data.data;
-    const mappedChains = SUPPORTED_CHAINS.map((simChain) => {
-      const coingeckoChain = coingeckoChains.find(
-        (cg) => CHAIN_MAPPING[cg.id]?.simChain === simChain.value
-      );
-      const imageUrl = coingeckoChain?.image?.thumb || '/fallback-image.png';
-      logger.log('Chain image mapping:', {
-        chain: simChain.value,
-        coingeckoId: coingeckoChain?.id,
-        image: imageUrl,
-      });
-      return {
-        coingeckoId: coingeckoChain?.id || null,
-        value: simChain.value,
-        label: simChain.label,
-        shortName: coingeckoChain?.shortname || simChain.label.split(' ')[0],
-        chainId: simChain.chainId,
-        testnet: simChain.testnet || false,
-        image: imageUrl,
-      };
-    });
-
-    setChains(mappedChains);
-    logger.info(`Merged ${mappedChains.length} chains`, {
-      sample: mappedChains.slice(0, 5).map((c) => ({
-        value: c.value,
-        label: c.label,
-        image: c.image,
-      })),
-    });
-  } catch (error) {
-    logger.error('Error fetching CoinGecko chains:', {
-      message: error.message,
-      status: error.response?.status,
-    });
-    setChains(
-      SUPPORTED_CHAINS.map((chain) => ({
-        coingeckoId: Object.keys(CHAIN_MAPPING).find(
-          (key) => CHAIN_MAPPING[key].simChain === chain.value
-        ) || null,
-        value: chain.value,
-        label: chain.label,
-        shortName: chain.label.split(' ')[0],
-        chainId: chain.chainId,
-        testnet: chain.testnet || false,
-        image: '/fallback-image.png', // Fallback image for error case
-      }))
-    );
-    logger.info('Using SUPPORTED_CHAINS as fallback due to error', {
-      count: SUPPORTED_CHAINS.length,
-    });
-    toast.error('Failed to load supported chains', { position: 'top-center', autoClose: 5000 });
-  }
-}, [toast]);
+  }, [toast]);
 
   const fetchNameTag = useCallback(
     async (address) => {
@@ -868,6 +900,109 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       }
     }, 500),
     [chains, status, session?.accessToken, toast]
+  );
+
+  const fetchDexData = useCallback(
+    debounce(async (chain, tokenAddress, retryCount = 0) => {
+      if (!chain || !tokenAddress || document.visibilityState !== 'visible') {
+        const errorMessage = 'Invalid chain or token address for DEX data';
+        logger.error(errorMessage, { chain, tokenAddress });
+        setDexError(errorMessage);
+        setIsLoadingDex(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
+
+      const geckoChain = GECKOTERMINAL_CHAIN_MAPPING[chain];
+      if (!geckoChain) {
+        const errorMessage = `Unsupported chain for DEX data: ${chain}`;
+        logger.error(errorMessage, { chain });
+        setDexError(errorMessage);
+        setIsLoadingDex(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
+
+      setIsLoadingDex(true);
+      setDexError(null);
+
+      try {
+        // Fetch top pools
+        let pools = [];
+        let page = 1;
+        const poolPromises = [];
+        do {
+          poolPromises.push(
+            coingeckoAxios.get(`https://api.geckoterminal.com/api/v2/networks/${geckoChain}/tokens/${tokenAddress}/pools?page=${page}`, {
+              headers: { accept: 'application/json' },
+              timeout: 15000,
+            })
+          );
+          page++;
+        } while (page <= 2); // Limit to 2 pages to avoid rate limit
+
+        const poolResponses = await Promise.all(poolPromises);
+        poolResponses.forEach((response) => {
+          if (response.data?.data) {
+            pools = pools.concat(response.data.data);
+          }
+        });
+
+        // Sort pools by 24h volume
+        pools.sort((a, b) => parseFloat(b.attributes.volume_usd.h24) - parseFloat(a.attributes.volume_usd.h24));
+        const topPools = pools.slice(0, 10); // Limit to top 5 pools
+
+        // Fetch trades for top pools
+        const tradePromises = topPools.map((pool) =>
+          coingeckoAxios.get(
+            `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/pools/${pool.attributes.address}/trades?trade_volume_in_usd_greater_than=100`,
+            {
+              headers: { accept: 'application/json' },
+              timeout: 15000,
+            }
+          )
+        );
+
+        const tradeResponses = await Promise.all(tradePromises);
+        const trades = tradeResponses.reduce((acc, response, index) => {
+          if (response.data?.data) {
+            return acc.concat(
+              response.data.data.map((trade) => ({
+                ...trade.attributes,
+                pool_name: topPools[index].attributes.name,
+                pool_address: topPools[index].attributes.address,
+              }))
+            );
+          }
+          return acc;
+        }, []);
+
+        setDexData({ pools: topPools, trades });
+        logger.info('DEX data fetched successfully', {
+          chain: geckoChain,
+          tokenAddress,
+          poolCount: topPools.length,
+          tradeCount: trades.length,
+        });
+      } catch (error) {
+        logger.error('Error fetching DEX data:', {
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+        const errorMessage =
+          error.response?.status === 429
+            ? 'GeckoTerminal API rate limit exceeded. Please try again later.'
+            : error.response?.status === 404
+              ? `No DEX data found for token ${tokenAddress} on ${chain}.`
+              : error.response?.data?.detail || 'Failed to load DEX data.';
+        setDexError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      } finally {
+        setIsLoadingDex(false);
+      }
+    }, 500),
+    [toast]
   );
 
   const handleAddressClick = useCallback(
@@ -1504,38 +1639,38 @@ Use natural, professional tone with recent data.
   }, [fetchSupportedChains]);
 
   useEffect(() => {
-  if (selectedToken && timeRange) {
-    const tokenId = selectedToken.id;
-    fetchPriceHistory(tokenId, timeRange, (err, data) => {
-      if (err) {
-        logger.error('Price history fetch failed:', { error: err.message });
-        setError(
-          err.response?.status === 429
-            ? 'API rate limit reached. Please wait a minute and try again.'
-            : err.response?.data?.detail || 'Failed to load price history.'
-        );
-      } else {
-        logger.log('Price history fetched:', { tokenId, count: data?.length || 0 });
-      }
-    });
-  }
-  const interval = setInterval(() => {
     if (selectedToken && timeRange) {
       const tokenId = selectedToken.id;
       fetchPriceHistory(tokenId, timeRange, (err, data) => {
         if (err) {
-          logger.error('Price history interval fetch failed:', { error: err.message });
+          logger.error('Price history fetch failed:', { error: err.message });
+          setError(
+            err.response?.status === 429
+              ? 'API rate limit reached. Please wait a minute and try again.'
+              : err.response?.data?.detail || 'Failed to load price history.'
+          );
         } else {
-          logger.log('Price history interval callback success:', { tokenId: selectedToken.id, count: data?.length || 0 });
+          logger.log('Price history fetched:', { tokenId, count: data?.length || 0 });
         }
       });
     }
-  }, 60000);
-  return () => {
-    clearInterval(interval);
-    fetchPriceHistory.cancel && fetchPriceHistory.cancel();
-  };
-}, [selectedToken, timeRange, fetchPriceHistory]);
+    const interval = setInterval(() => {
+      if (selectedToken && timeRange) {
+        const tokenId = selectedToken.id;
+        fetchPriceHistory(tokenId, timeRange, (err, data) => {
+          if (err) {
+            logger.error('Price history interval fetch failed:', { error: err.message });
+          } else {
+            logger.log('Price history interval callback success:', { tokenId: selectedToken.id, count: data?.length || 0 });
+          }
+        });
+      }
+    }, 60000);
+    return () => {
+      clearInterval(interval);
+      fetchPriceHistory.cancel && fetchPriceHistory.cancel();
+    };
+  }, [selectedToken, timeRange, fetchPriceHistory]);
 
   useEffect(() => {
     debouncedSearch(searchQuery);
@@ -1635,6 +1770,27 @@ Use natural, professional tone with recent data.
   }, [onChainData.topHolders, fetchNameTagsForAddresses, nameTags]);
 
   useEffect(() => {
+    if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase())) {
+      setDexData({ pools: [], trades: [] });
+      setDexError(null);
+      return;
+    }
+
+    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+    if (chain && tokenAddress) {
+      logger.log('Triggering fetchDexData for:', { chain, tokenAddress });
+      fetchDexData(chain, tokenAddress);
+    } else {
+      setDexError('No valid chain or token address for DEX data.');
+      setIsLoadingDex(false);
+    }
+
+    return () => {
+      fetchDexData.cancel();
+    };
+  }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData]);
+
+  useEffect(() => {
     if (selectedWallet && selectedWallet.match(/^0x[a-fA-F0-9]{40}$/)) {
       fetchNameTag(selectedWallet);
     }
@@ -1714,6 +1870,10 @@ Use natural, professional tone with recent data.
     fetchTickerData,
     chains,
     fetchSupportedChains,
+    dexData,
+    isLoadingDex,
+    dexError,
+    fetchDexData,
 
     // Constants
     SUPPORTED_CHAINS,

@@ -83,6 +83,42 @@ const CHAIN_EXPLORER_MAP = {
   zora: { baseUrl: 'https://zora.superscan.network', supportsTx: true, supportsAddress: true },
 };
 
+const getExplorerUrls = (chain, hash, address) => {
+  const explorer = CHAIN_EXPLORER_MAP[chain] || CHAIN_EXPLORER_MAP.ethereum;
+  const txUrl = explorer.supportsTx ? `${explorer.baseUrl}/tx/${hash}` : '#';
+  const addressUrl = explorer.supportsAddress ? `${explorer.baseUrl}/address/${address}` : '#';
+  return { txUrl, addressUrl };
+};
+
+const GECKOTERMINAL_CHAIN_MAPPING = {
+  'ethereum': 'eth',
+  'arbitrum': 'arbitrum',
+  'avalanche_c': 'avalanche',
+  'bnb': 'bsc',
+  'polygon': 'polygon',
+  'optimism': 'optimism',
+  'base': 'base',
+  'zksync': 'zksync',
+  'zora': 'zora',
+  'linea': 'linea',
+  'mantle': 'mantle',
+  'scroll': 'scroll',
+  'celo': 'celo',
+  'opbnb': 'op_bnb',
+  'boba': 'boba',
+  'metis': 'metis',
+  'blast': 'blast',
+  'sei': 'sei',
+  'kaia': 'kaia',
+  'world': 'worldchain',
+  'unichain': 'unichain',
+  'sonic': 'sonic',
+  'berachain': 'berachain',
+  'ink': 'ink',
+  'mode': 'mode',
+  'soneium': 'soneium',
+};
+
 // Modal component (unchanged)
 const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
   if (!isOpen) return null;
@@ -238,13 +274,6 @@ const WalletBalances = ({
     const imageUrl = chain?.image || '/fallback-image.png';
     logger.log('getPlatformImage:', { chainValue, imageUrl, found: !!chain });
     return imageUrl;
-  };
-
-  const getExplorerUrls = (chain, hash, address) => {
-    const explorer = CHAIN_EXPLORER_MAP[chain] || CHAIN_EXPLORER_MAP.ethereum;
-    const txUrl = explorer.supportsTx ? `${explorer.baseUrl}/tx/${hash}` : '#';
-    const addressUrl = explorer.supportsAddress ? `${explorer.baseUrl}/address/${address}` : '#';
-    return { txUrl, addressUrl };
   };
 
   const overlayContent = (
@@ -541,6 +570,10 @@ const MarketTab = ({ recaptchaRef }) => {
     fetchPriceHistory,
     nameTags,
     isLoadingNameTags,
+    dexData,
+    isLoadingDex,
+    dexError,
+    fetchDexData,
   } = useMarketTabLogic({ recaptchaRef, toast });
 
   const dropdownRef = useRef(null);
@@ -549,6 +582,8 @@ const MarketTab = ({ recaptchaRef }) => {
   const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
   const [isWalletSearchOpen, setIsWalletSearchOpen] = useState(false);
   const [isChartLoading, setIsChartLoading] = useState(false);
+  const [activeMarketTab, setActiveMarketTab] = useState('cex');
+  const [showTrades, setShowTrades] = useState(false);
 
   const getPlatformImage = (chainValue) => {
     const chain = chains.find((c) => c.value === chainValue);
@@ -1126,82 +1161,249 @@ const MarketTab = ({ recaptchaRef }) => {
           <div className="rounded-lg border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-3rem)] sm:min-h-[300px] min-h-[300px] overflow-auto hide-scrollbar mb-12">
             {selectedToken ? (
               <>
-                <h3 className={`font-bold text-white text-center backdrop-blur-md uppercase p-3 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Market Activity</h3>
-                {tickerError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-xs'}`}>{tickerError}</p>}
-                {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
-                  <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
-                    <table className={`w-full border border-gray-500 table-auto ${isMobile ? 'text-[9px]' : 'text-xs'}`}>
-                      <thead>
-                        <tr>
-                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Market</th>
-                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[40px]' : 'min-w-[60px]'}`}>Pair</th>
-                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>Price</th>
-                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Volume</th>
-                          <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Last Traded</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tickerData.slice(0, 10).map((ticker, index) => (
-                          <tr key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}>
-                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                              <div className="flex items-center justify-center gap-0.5">
-                                {ticker.market.logo && (
-                                  <img
-                                    src={ticker.market.logo}
-                                    alt={`${ticker.market.name} logo`}
-                                    className={` ${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
-                                    onError={(e) => (e.target.src = '/fallback-image.png')}
-                                  />
-                                )}
-                                <a
-                                  href={ticker.trade_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className={`text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[40px]' : 'max-w-[60px]'}`}
-                                  title={ticker.market.name}
-                                >
-                                  {ticker.market.name}
-                                </a>
-                              </div>
-                            </td>
-                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[40px]' : 'min-w-[60px]'}`}>
-                              {ticker.base}/{ticker.target}
-                            </td>
-                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>
-                              ${ticker.converted_last.usd?.toLocaleString('en-US', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              }) || 'N/A'}
-                            </td>
-                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                              ${ticker.converted_volume.usd?.toLocaleString('en-US', {
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0,
-                              }) || 'N/A'}
-                            </td>
-                            <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                              {ticker.last_traded_at
-                                ? new Date(ticker.last_traded_at).toLocaleTimeString('en-US', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })
-                                : 'N/A'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <div className={`flex items-center gap-2 p-3 backdrop-blur-md border-b border-gray-500/30 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setActiveMarketTab('cex');
+                        setShowTrades(false); // Reset trades view when switching tabs
+                      }}
+                      className={`px-3 py-1.5 rounded-lg font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeMarketTab === 'cex' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
+                    >
+                      CEX
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveMarketTab('dex');
+                        setShowTrades(false); // Reset trades view when switching tabs
+                      }}
+                      className={`px-3 py-1.5 rounded-lg font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeMarketTab === 'dex' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
+                    >
+                      DEX
+                    </button>
                   </div>
+                </div>
+
+                {activeMarketTab === 'cex' ? (
+                  <>
+                    {tickerError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-xs'}`}>{tickerError}</p>}
+                    {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
+                      <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
+                        <table className={`w-full border border-gray-500 table-auto ${isMobile ? 'text-[9px]' : 'text-xs'}`}>
+                          <thead>
+                            <tr>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Market</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[40px]' : 'min-w-[60px]'}`}>Pair</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>Price</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Volume</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Last Traded</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tickerData.slice(0, 10).map((ticker, index) => (
+                              <tr key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}>
+                                <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                  <div className="flex items-center justify-center gap-0.5">
+                                    {ticker.market.logo && (
+                                      <img
+                                        src={ticker.market.logo}
+                                        alt={`${ticker.market.name} logo`}
+                                        className={` ${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
+                                        onError={(e) => (e.target.src = '/fallback-image.png')}
+                                      />
+                                    )}
+                                    <a
+                                      href={ticker.trade_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className={`text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[40px]' : 'max-w-[60px]'}`}
+                                      title={ticker.market.name}
+                                    >
+                                      {ticker.market.name}
+                                    </a>
+                                  </div>
+                                </td>
+                                <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[40px]' : 'min-w-[60px]'}`}>
+                                  {ticker.base}/{ticker.target}
+                                </td>
+                                <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>
+                                  ${ticker.converted_last.usd?.toLocaleString('en-US', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }) || 'N/A'}
+                                </td>
+                                <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                  ${ticker.converted_volume.usd?.toLocaleString('en-US', {
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0,
+                                  }) || 'N/A'}
+                                </td>
+                                <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                  {ticker.last_traded_at
+                                    ? new Date(ticker.last_traded_at).toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })
+                                    : 'N/A'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      !isLoadingTickers && (
+                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                          No CEX data available for {selectedToken.symbol?.toUpperCase()}.
+                        </p>
+                      )
+                    )}
+                  </>
                 ) : (
-                  !isLoadingTickers && (
-                    <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
-                      No ticker data available for {selectedToken.symbol?.toUpperCase()}.
-                    </p>
-                  )
+                  <>
+                    {isLoadingDex && <LoadingOverlay message="Loading DEX data..." />}
+                    {dexError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-xs'}`}>{dexError}</p>}
+                    {!isLoadingDex && !dexError && dexData.pools.length > 0 && !showTrades ? (
+                      <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
+                        <table className={`w-full border border-gray-500 table-auto ${isMobile ? 'text-[9px]' : 'text-xs'}`}>
+                          <thead>
+                            <tr>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Pool</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Volume (24h)</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Liquidity</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Trades ( $1K)</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dexData.pools.map((pool, index) => {
+                              const poolTrades = dexData.trades.filter((trade) => trade.pool_address === pool.attributes.address);
+                              return (
+                                <tr key={`${pool.attributes.address}-${index}`}>
+                                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                    <a
+                                      href={`https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${pool.attributes.address}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className={`text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[40px]' : 'max-w-[60px]'}`}
+                                      title={pool.attributes.name}
+                                    >
+                                      {pool.attributes.name}
+                                    </a>
+                                  </td>
+                                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                    ${parseFloat(pool.attributes.volume_usd.h24).toLocaleString('en-US', {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 0,
+                                    })}
+                                  </td>
+                                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                    ${parseFloat(pool.attributes.reserve_in_usd).toLocaleString('en-US', {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 0,
+                                    })}
+                                  </td>
+                                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                    {poolTrades.length}
+                                  </td>
+                                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                    <button
+                                      onClick={() => setShowTrades(pool.attributes.address)}
+                                      className="px-2 py-1 rounded-lg text-[9px] font-medium transition-all duration-300 border border-blue-500 text-blue-500 hover:bg-blue-500/15"
+                                    >
+                                      Buy/Sell
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : showTrades ? (
+                      <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className={`text-xs font-bold text-white uppercase`}>Trades ( $1K) for Pool</h4>
+                          <button
+                            onClick={() => setShowTrades(false)}
+                            className="px-2 py-1 rounded-lg text-[9px] font-medium transition-all duration-300 border border-white/20 text-white hover:bg-white/15"
+                          >
+                            Back to Pools
+                          </button>
+                        </div>
+                        <table className={`w-full border border-gray-500 table-auto ${isMobile ? 'text-[9px]' : 'text-xs'}`}>
+                          <thead>
+                            <tr>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Tx Hash</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Type</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Volume (USD)</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>From Amount</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>To Amount</th>
+                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Timestamp</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {dexData.trades
+                              .filter((trade) => trade.pool_address === showTrades)
+                              .slice(0, 10)
+                              .map((trade, index) => {
+                                const { txUrl } = getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address);
+                                return (
+                                  <tr key={`${trade.tx_hash}-${index}`}>
+                                    <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                      <a
+                                        href={txUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className={`text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[40px]' : 'max-w-[60px]'}`}
+                                        title={trade.tx_hash}
+                                      >
+                                        {trade.tx_hash.slice(0, 6)}...{trade.tx_hash.slice(-4)}
+                                      </a>
+                                    </td>
+                                    <td className={`border border-gray-500 px-1 py-0.5 text-center whitespace-nowrap ${trade.kind === 'buy' ? 'text-green-500' : 'text-red-500'} ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                      {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
+                                    </td>
+                                    <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                      ${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
+                                        minimumFractionDigits: 0,
+                                        maximumFractionDigits: 0,
+                                      })}
+                                    </td>
+                                    <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                      {parseFloat(trade.from_token_amount).toLocaleString('en-US', {
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </td>
+                                    <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                      {parseFloat(trade.to_token_amount).toLocaleString('en-US', {
+                                        maximumFractionDigits: 2,
+                                      })}
+                                    </td>
+                                    <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                      {new Date(trade.block_timestamp).toLocaleString('en-US', {
+                                        dateStyle: 'short',
+                                        timeStyle: 'short',
+                                      })}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      !isLoadingDex && (
+                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                          No DEX data available for {selectedToken.symbol?.toUpperCase()} on {chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.
+                        </p>
+                      )
+                    )}
+                  </>
                 )}
               </>
             ) : (
-              <p className={`text-gray-400 text-center flex-1 p-3 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Please select a token to view market activity.</p>
+              <p className={`text-gray-400 text-center flex-1 p-3 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Please select a token to view CEX/DEX data.</p>
             )}
           </div>
 
