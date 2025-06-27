@@ -347,7 +347,7 @@ export default function AITab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`font-courier w-full max-w-screen-md md:max-w-full ${isMobile ? 'h-[calc(100vh-4rem)]' : 'h-[calc(100vh-2rem)]'} mx-auto p-1 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar flex flex-col`}
+      className={`font-jetbrains  w-full max-w-screen-md md:max-w-full ${isMobile ? 'h-[calc(100vh-4rem)]' : 'h-[calc(100vh-2rem)]'} mx-auto p-1 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar flex flex-col`}
     >
       {/* Header */}
       <div className="p-2 bg-tech border-b border-white/10 flex justify-between items-center shrink-0">

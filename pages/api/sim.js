@@ -2,7 +2,6 @@ import axios from 'axios';
 import winston from 'winston';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
 import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
 import Cors from 'cors';
@@ -13,7 +12,7 @@ const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [
-    new winston.transports.Console(), // Log to console for Vercel
+    new winston.transports.Console(),
     ...(process.env.NODE_ENV !== 'production'
       ? [
           new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
@@ -78,7 +77,6 @@ const validate = [
     .isString()
     .isIn(['top-holders', 'wallet-balances', 'transactions'])
     .withMessage('Invalid action'),
-  body('recaptchaToken').isString().notEmpty().withMessage('reCAPTCHA token required'),
   body('chain')
     .if(body('action').equals('top-holders'))
     .isString()
@@ -169,15 +167,12 @@ export default async function handler(req, res) {
   logger.info(`Request to ${req.url} from IP ${ip}, body: ${JSON.stringify(req.body)}`);
 
   try {
-    // Initialize CORS
     await new Promise((resolve, reject) => {
       cors(req, res, (err) => (err ? reject(err) : resolve()));
     });
 
-    // Apply Helmet for security headers
     helmet()(req, res, () => {});
 
-    // Apply rate limiting
     await Promise.all([
       new Promise((resolve, reject) => limiter(req, res, (err) => (err ? reject(err) : resolve()))),
       new Promise((resolve, reject) => addressLimiter(req, res, (err) => (err ? reject(err) : resolve()))),
@@ -192,7 +187,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ detail: 'Method not allowed' });
   }
 
-  // Validate request body
   await Promise.all(validate.map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -200,9 +194,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
   }
 
-  const { chain, tokenAddress, action, recaptchaToken, decimalPlace = 18, address } = req.body;
+  const { chain, tokenAddress, action, decimalPlace = 18, address } = req.body;
 
-  // Validate environment variables
   if (!process.env.SIM_API_KEY) {
     logger.error('SIM_API_KEY is not configured');
     return res.status(500).json({ detail: 'Server configuration error: Missing SIM_API_KEY' });
@@ -211,7 +204,6 @@ export default async function handler(req, res) {
     logger.warn('NEXT_PUBLIC_APP_URL is not configured, falling back to default');
   }
 
-  // Authenticate for wallet-related actions
   if (['wallet-balances', 'transactions'].includes(action)) {
     try {
       await new Promise((resolve, reject) => {
@@ -223,33 +215,9 @@ export default async function handler(req, res) {
     }
   }
 
-  // Additional EVM address validation
   if (['wallet-balances', 'transactions'].includes(action) && address && !isAddress(address)) {
     logger.warn(`Invalid EVM address: ${address}`, { ip });
     return res.status(400).json({ detail: 'Invalid EVM address' });
-  }
-
-  // Verify reCAPTCHA with retry
-  let recaptchaResult;
-  const recaptchaAction = action === 'top-holders' ? 'onchainData' : action;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      logger.info(`Verifying reCAPTCHA for action: ${recaptchaAction}, attempt: ${attempt}`, { ip });
-      recaptchaResult = await verifyRecaptcha(recaptchaToken, recaptchaAction, ip);
-      logger.info(`reCAPTCHA score for ${recaptchaAction}: ${recaptchaResult.score}`, { ip });
-      if (['wallet-balances', 'transactions'].includes(action) && recaptchaResult.score < 0.7) {
-        logger.warn(`reCAPTCHA score too low: ${recaptchaResult.score}`, { ip });
-        return res.status(403).json({ detail: 'reCAPTCHA verification failed: score too low' });
-      }
-      break;
-    } catch (error) {
-      logger.warn(`reCAPTCHA verification attempt ${attempt} failed: ${error.message}`, { ip });
-      if (attempt === 3) {
-        logger.error(`reCAPTCHA verification failed after 3 attempts: ${error.message}`, { ip });
-        return res.status(403).json({ detail: `reCAPTCHA error: ${error.message}` });
-      }
-      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-    }
   }
 
   try {

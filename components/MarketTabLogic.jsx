@@ -1,4 +1,3 @@
-// components/MarketTabLogic.jsx
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
@@ -26,34 +25,6 @@ const coingeckoAxios = rateLimit(axios.create(), {
   maxRequests: 10,
   perMilliseconds: 60000,
 });
-
-// Map CoinGecko platform keys to SUPPORTED_CHAINS values
-const COINGECKO_TO_DUNE_CHAIN_MAP = {
-  'ethereum': 'native',
-  'arbitrum-one': 'arbitrum',
-  'avalanche': 'avalanche_c',
-  'binance-smart-chain': 'bnb',
-  'polygon-pos': 'polygon',
-  'optimistic-ethereum': 'optimism',
-  'gnosis': 'gnosis',
-  'base': 'base',
-  'fantom': 'fantom',
-  'zksync': 'zksync',
-  'zora': 'zora',
-  'linea': 'linea',
-  'mantle': 'mantle',
-  'scroll': 'scroll',
-  'celo': 'celo',
-  'opbnb': 'opbnb',
-  'boba': 'boba',
-  'metis-andromeda': 'metis',
-  'blast': 'blast',
-  'sei-network': 'sei',
-  'kaia': 'kaia',
-  'world-chain': 'world',
-  'unichain': 'unichain',
-  'sonic': 'sonic',
-};
 
 // Supported chains from Dune
 const SUPPORTED_CHAINS = [
@@ -112,18 +83,45 @@ const SUPPORTED_CHAINS = [
   { value: 'zkevm', chainId: '1101', label: 'Polygon zkEVM' },
   { value: 'zksync', chainId: '324', label: 'zkSync' },
   { value: 'zora', chainId: '7777777', label: 'Zora' },
+  { value: 'monad_testnet', chainId: null, label: 'Monad Testnet', testnet: true },
 ];
 
-// Platform to chain_id mapping
-const PLATFORM_TO_CHAIN_ID = SUPPORTED_CHAINS.reduce((acc, chain) => {
-  acc[chain.value] = chain.chainId;
-  return acc;
-}, {});
+// Mapping of CoinGecko chain IDs to Sim by Dune chain values and chain IDs
+const CHAIN_MAPPING = {
+  'ethereum': { simChain: 'ethereum', chainId: '1' },
+  'arbitrum-one': { simChain: 'arbitrum', chainId: '42161' },
+  'avalanche': { simChain: 'avalanche_c', chainId: '43114' },
+  'binance-smart-chain': { simChain: 'bnb', chainId: '56' },
+  'polygon-pos': { simChain: 'polygon', chainId: '137' },
+  'optimistic-ethereum': { simChain: 'optimism', chainId: '10' },
+  'gnosis': { simChain: 'gnosis', chainId: '100' },
+  'base': { simChain: 'base', chainId: '8453' },
+  'fantom': { simChain: 'fantom', chainId: '250' },
+  'zksync': { simChain: 'zksync', chainId: '324' },
+  'zora': { simChain: 'zora', chainId: '7777777' },
+  'linea': { simChain: 'linea', chainId: '59144' },
+  'mantle': { simChain: 'mantle', chainId: '5000' },
+  'scroll': { simChain: 'scroll', chainId: '534352' },
+  'celo': { simChain: 'celo', chainId: '42220' },
+  'opbnb': { simChain: 'opbnb', chainId: '204' },
+  'boba': { simChain: 'boba', chainId: '288' },
+  'metis-andromeda': { simChain: 'metis', chainId: '1088' },
+  'blast': { simChain: 'blast', chainId: '81457' },
+  'sei-network': { simChain: 'sei', chainId: '1329' },
+  'kaia': { simChain: 'kaia', chainId: '8217' },
+  'world-chain': { simChain: 'world', chainId: '480' },
+  'unichain': { simChain: 'unichain', chainId: '130' },
+  'sonic': { simChain: 'sonic', chainId: '146' },
+  'berachain': { simChain: 'berachain', chainId: '80094' },
+  'ink': { simChain: 'ink', chainId: '57073' },
+  'mode': { simChain: 'mode', chainId: '34443' },
+  'soneium': { simChain: 'soneium', chainId: '1868' },
+  'monad': { simChain: 'monad_testnet', chainId: null },
+};
 
 const COINGECKO_API_KEY = process.env.NEXT_PUBLIC_COINGECKO_API_KEY || '';
 const CACHE_DURATION = 5 * 60 * 1000;
 const NAME_TAG_CACHE_DURATION = 24 * 60 * 60 * 1000;
-const ASSET_PLATFORMS_CACHE_DURATION = 60 * 60 * 1000;
 const WALLET_SEARCH_LIMIT = 3;
 const WALLET_SEARCH_WINDOW = 60 * 1000;
 const tokensPerPage = 20;
@@ -153,7 +151,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const [selectedNetwork, setSelectedNetwork] = useState('ethereum');
   const [isLoadingOnChain, setIsLoadingOnChain] = useState(false);
   const [onChainError, setOnChainError] = useState(null);
-  const [assetPlatforms, setAssetPlatforms] = useState([]);
   const [selectedWallet, setSelectedWallet] = useState(null);
   const [walletBalances, setWalletBalances] = useState([]);
   const [isLoadingWalletBalances, setIsLoadingWalletBalances] = useState(false);
@@ -169,12 +166,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const [dailyMarketInteractions, setDailyMarketInteractions] = useState(0);
   const [tickerCache, setTickerCache] = useState({});
   const [nameTags, setNameTags] = useState({});
-  const [isLoadingNameTags, setIsLoadingNameTags] = useState(false); // Added state
+  const [isLoadingNameTags, setIsLoadingNameTags] = useState(false);
   const nameTagsRef = useRef({});
-  const assetPlatformsCache = useRef(null);
   const lastFetchedTokenRef = useRef(null);
   const prevTopHoldersRef = useRef([]);
   const prevAvailableChainsRef = useRef([]);
+  const [chains, setChains] = useState([]);
 
   const executeRecaptcha = useCallback(
     async (action, retryCount = 0) => {
@@ -206,170 +203,255 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
     [recaptchaRef]
   );
 
+  const fetchSupportedChains = useCallback(async () => {
+  try {
+    const response = await axios.get('/api/coingecko/chains', {
+      timeout: 15000,
+    });
+
+    if (!response.data.success) {
+      logger.error('Failed to fetch CoinGecko chains:', { detail: response.data.detail });
+      setChains(
+        SUPPORTED_CHAINS.map((chain) => ({
+          coingeckoId: Object.keys(CHAIN_MAPPING).find(
+            (key) => CHAIN_MAPPING[key].simChain === chain.value
+          ) || null,
+          value: chain.value,
+          label: chain.label,
+          shortName: chain.label.split(' ')[0],
+          chainId: chain.chainId,
+          testnet: chain.testnet || false,
+          image: '/fallback-image.png', // Fallback image for unsupported chains
+        }))
+      );
+      logger.info('Using SUPPORTED_CHAINS as fallback', {
+        count: SUPPORTED_CHAINS.length,
+      });
+      return;
+    }
+
+    const coingeckoChains = response.data.data;
+    const mappedChains = SUPPORTED_CHAINS.map((simChain) => {
+      const coingeckoChain = coingeckoChains.find(
+        (cg) => CHAIN_MAPPING[cg.id]?.simChain === simChain.value
+      );
+      const imageUrl = coingeckoChain?.image?.thumb || '/fallback-image.png';
+      logger.log('Chain image mapping:', {
+        chain: simChain.value,
+        coingeckoId: coingeckoChain?.id,
+        image: imageUrl,
+      });
+      return {
+        coingeckoId: coingeckoChain?.id || null,
+        value: simChain.value,
+        label: simChain.label,
+        shortName: coingeckoChain?.shortname || simChain.label.split(' ')[0],
+        chainId: simChain.chainId,
+        testnet: simChain.testnet || false,
+        image: imageUrl,
+      };
+    });
+
+    setChains(mappedChains);
+    logger.info(`Merged ${mappedChains.length} chains`, {
+      sample: mappedChains.slice(0, 5).map((c) => ({
+        value: c.value,
+        label: c.label,
+        image: c.image,
+      })),
+    });
+  } catch (error) {
+    logger.error('Error fetching CoinGecko chains:', {
+      message: error.message,
+      status: error.response?.status,
+    });
+    setChains(
+      SUPPORTED_CHAINS.map((chain) => ({
+        coingeckoId: Object.keys(CHAIN_MAPPING).find(
+          (key) => CHAIN_MAPPING[key].simChain === chain.value
+        ) || null,
+        value: chain.value,
+        label: chain.label,
+        shortName: chain.label.split(' ')[0],
+        chainId: chain.chainId,
+        testnet: chain.testnet || false,
+        image: '/fallback-image.png', // Fallback image for error case
+      }))
+    );
+    logger.info('Using SUPPORTED_CHAINS as fallback due to error', {
+      count: SUPPORTED_CHAINS.length,
+    });
+    toast.error('Failed to load supported chains', { position: 'top-center', autoClose: 5000 });
+  }
+}, [toast]);
+
   const fetchNameTag = useCallback(
-  async (address) => {
-    if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
-      logger.log('Invalid address for Name Tag fetch:', { address });
-      return null;
-    }
-
-    const normalizedAddress = address.toLowerCase();
-    const cached = nameTagsRef.current[normalizedAddress];
-    if (cached && Date.now() - cached.timestamp < NAME_TAG_CACHE_DURATION) {
-      logger.log('Name Tag loaded from cache:', { address: normalizedAddress, nameTag: cached.nameTag });
-      return cached.nameTag;
-    }
-
-    try {
-      // Kiểm tra session để đảm bảo người dùng đã đăng nhập
-      if (status !== 'authenticated') {
-        logger.warn('User not authenticated for Name Tag fetch:', { address: normalizedAddress });
-        throw new Error('Unauthorized: Please log in to fetch Name Tag.');
+    async (address) => {
+      if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+        logger.log('Invalid address for Name Tag fetch:', { address });
+        return null;
       }
 
-      // Thực hiện reCAPTCHA
-      const recaptchaToken = await executeRecaptcha('fetch_nametag');
-      logger.log('reCAPTCHA token generated for fetchNameTag:', { action: 'fetch_nametag', token: recaptchaToken.slice(0, 8) + '...' });
+      const normalizedAddress = address.toLowerCase();
+      const cached = nameTagsRef.current[normalizedAddress];
+      if (cached && Date.now() - cached.timestamp < NAME_TAG_CACHE_DURATION) {
+        logger.log('Name Tag loaded from cache:', { address: normalizedAddress, nameTag: cached.nameTag });
+        return cached.nameTag;
+      }
 
-      // Gọi API /api/nametags
-      const response = await axios.get('/api/nametags', {
-        params: { address: normalizedAddress },
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-          'x-recaptcha-token': recaptchaToken,
-        },
-        timeout: 5000,
-      });
+      try {
+        if (status !== 'authenticated') {
+          logger.warn('User not authenticated for Name Tag fetch:', { address: normalizedAddress });
+          throw new Error('Unauthorized: Please log in to fetch Name Tag.');
+        }
 
-      // Kiểm tra dữ liệu phản hồi
-      if (!response.data.success || !response.data.data[normalizedAddress]) {
-        logger.log('Name Tag not found for address:', { address: normalizedAddress });
+        const response = await axios.get('/api/nametags', {
+          params: { address: normalizedAddress },
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+          timeout: 5000,
+        });
+
+        if (!response.data.success || !response.data.data[normalizedAddress]) {
+          logger.log('Name Tag not found for address:', { address: normalizedAddress });
+          const cacheEntry = { nameTag: null, timestamp: Date.now() };
+          nameTagsRef.current[normalizedAddress] = cacheEntry;
+          setNameTags((prev) => ({
+            ...prev,
+            [normalizedAddress]: cacheEntry,
+          }));
+          return null;
+        }
+
+        const data = response.data.data[normalizedAddress];
+        const nameTag = data.Labels ? Object.values(data.Labels)[0]?.['Name Tag'] || null : null;
+        const cacheEntry = { nameTag, timestamp: Date.now() };
+        nameTagsRef.current[normalizedAddress] = cacheEntry;
+        setNameTags((prev) => ({
+          ...prev,
+          [normalizedAddress]: cacheEntry,
+        }));
+        logger.log('Name Tag fetched successfully:', { address: normalizedAddress, nameTag });
+        return nameTag;
+      } catch (error) {
+        let errorMessage;
+        let showToast = true;
+        if (error.response?.status === 401) {
+          errorMessage = 'Unauthorized: Please log in again.';
+        } else if (error.response?.status === 429) {
+          errorMessage = 'Too many requests. Please try again later.';
+        } else if (error.response?.status === 404) {
+          errorMessage = `Name Tag not found for address ${normalizedAddress}`;
+          showToast = false;
+        } else {
+          errorMessage = error.response?.data?.detail || `Failed to fetch Name Tag: ${error.message}`;
+        }
+
+        logger.error('Error fetching Name Tag:', {
+          address: normalizedAddress,
+          message: errorMessage,
+          status: error.response?.status,
+        });
+
         const cacheEntry = { nameTag: null, timestamp: Date.now() };
         nameTagsRef.current[normalizedAddress] = cacheEntry;
         setNameTags((prev) => ({
           ...prev,
           [normalizedAddress]: cacheEntry,
         }));
+
+        if (showToast) {
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        }
         return null;
       }
-
-      // Lấy Name Tag từ dữ liệu
-      const data = response.data.data[normalizedAddress];
-      const nameTag = data.Labels ? Object.values(data.Labels)[0]?.['Name Tag'] || null : null;
-      const cacheEntry = { nameTag, timestamp: Date.now() };
-      nameTagsRef.current[normalizedAddress] = cacheEntry;
-      setNameTags((prev) => ({
-        ...prev,
-        [normalizedAddress]: cacheEntry,
-      }));
-      logger.log('Name Tag fetched successfully:', { address: normalizedAddress, nameTag });
-      return nameTag;
-    } catch (error) {
-      // Xử lý lỗi chi tiết
-      let errorMessage;
-      if (error.response?.status === 401) {
-        errorMessage = 'Unauthorized: Please log in again.';
-      } else if (error.response?.status === 403) {
-        errorMessage = 'reCAPTCHA verification failed. Please try again.';
-      } else if (error.response?.status === 429) {
-        errorMessage = 'Too many requests. Please try again later.';
-      } else if (error.response?.status === 404) {
-        errorMessage = `Name Tag not found for address ${normalizedAddress}`;
-      } else {
-        errorMessage = error.response?.data?.detail || `Failed to fetch Name Tag: ${error.message}`;
-      }
-
-      logger.error('Error fetching Name Tag:', {
-        address: normalizedAddress,
-        message: errorMessage,
-        status: error.response?.status,
-      });
-
-      // Lưu vào cache ngay cả khi lỗi để tránh gọi lại API liên tục
-      const cacheEntry = { nameTag: null, timestamp: Date.now() };
-      nameTagsRef.current[normalizedAddress] = cacheEntry;
-      setNameTags((prev) => ({
-        ...prev,
-        [normalizedAddress]: cacheEntry,
-      }));
-
-      // Hiển thị thông báo lỗi cho người dùng
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      return null;
-    } finally {
-      // Reset reCAPTCHA
-      if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
-        logger.log('reCAPTCHA reset for fetchNameTag');
-      }
-    }
-  },
-  [executeRecaptcha, session, status, toast]
-);
+    },
+    [session, status, toast]
+  );
 
   const fetchNameTagsForAddresses = useCallback(
-  async (addresses) => {
-    const uniqueAddresses = [...new Set(addresses.filter((addr) => addr?.match(/^0x[a-fA-F0-9]{40}$/)))];
-    if (uniqueAddresses.length === 0) {
-      logger.log('No valid addresses to fetch Name Tags');
-      setIsLoadingNameTags(false);
-      return;
-    }
-
-    setIsLoadingNameTags(true);
-    logger.log('Fetching Name Tags for addresses:', { count: uniqueAddresses.length });
-
-    try {
-      const recaptchaToken = await executeRecaptcha('fetch_nametags');
-      const response = await axios.post(
-        '/api/nametags',
-        { addresses: uniqueAddresses },
-        {
-          headers: {
-            Authorization: `Bearer ${session?.accessToken}`,
-            'x-recaptcha-token': recaptchaToken,
-          },
-          timeout: 10000,
-        }
-      );
-
-      const newNameTags = uniqueAddresses.reduce((acc, address) => {
-        const normalizedAddress = address.toLowerCase();
-        const data = response.data.data[normalizedAddress];
-        const nameTag = data?.Labels ? Object.values(data.Labels)[0]?.['Name Tag'] || null : null;
-        acc[normalizedAddress] = { nameTag, timestamp: Date.now() };
-        logger.log('Name Tag processed:', { address: normalizedAddress, nameTag });
-        return acc;
-      }, {});
-
-      setNameTags((prev) => {
-        const updated = { ...prev, ...newNameTags };
-        logger.log('Name Tags updated in state:', {
-          count: Object.keys(updated).length,
-          sample: Object.entries(updated).slice(0, 5),
-        });
-        return updated;
-      });
-      logger.log('Name Tags fetched:', { count: Object.keys(newNameTags).length });
-    } catch (error) {
-      logger.error('Error in fetchNameTagsForAddresses:', { message: error.message });
-      uniqueAddresses.forEach((address) => {
-        const normalizedAddress = address.toLowerCase();
-        nameTagsRef.current[normalizedAddress] = { nameTag: null, timestamp: Date.now() };
-        setNameTags((prev) => ({
-          ...prev,
-          [normalizedAddress]: { nameTag: null, timestamp: Date.now() },
-        }));
-      });
-    } finally {
-      setIsLoadingNameTags(false);
-      if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
+    async (addresses) => {
+      const uniqueAddresses = [...new Set(addresses.filter((addr) => addr?.match(/^0x[a-fA-F0-9]{40}$/)))];
+      if (uniqueAddresses.length === 0) {
+        logger.log('No valid addresses to fetch Name Tags');
+        setIsLoadingNameTags(false);
+        return;
       }
-    }
-  },
-  [fetchNameTag, executeRecaptcha, session]
-);
+
+      setIsLoadingNameTags(true);
+      logger.log('Fetching Name Tags for addresses:', { count: uniqueAddresses.length });
+
+      try {
+        const response = await axios.post(
+          '/api/nametags',
+          { addresses: uniqueAddresses },
+          {
+            headers: {
+              Authorization: `Bearer ${session?.accessToken}`,
+            },
+            timeout: 10000,
+          }
+        );
+
+        const newNameTags = uniqueAddresses.reduce((acc, address) => {
+          const normalizedAddress = address.toLowerCase();
+          const data = response.data.data[normalizedAddress];
+          const nameTag = data?.Labels ? Object.values(data.Labels)[0]?.['Name Tag'] || null : null;
+          acc[normalizedAddress] = { nameTag, timestamp: Date.now() };
+          if (!nameTag) {
+            logger.log('Name Tag not found for address:', { address: normalizedAddress });
+          } else {
+            logger.log('Name Tag processed:', { address: normalizedAddress, nameTag });
+          }
+          return acc;
+        }, {});
+
+        setNameTags((prev) => {
+          const updated = { ...prev, ...newNameTags };
+          logger.log('Name Tags updated in state:', {
+            count: Object.keys(updated).length,
+            sample: Object.entries(updated).slice(0, 5),
+          });
+          return updated;
+        });
+        logger.log('Name Tags fetched:', { count: Object.keys(newNameTags).length });
+      } catch (error) {
+        let errorMessage;
+        let showToast = true;
+        if (error.response?.status === 401) {
+          errorMessage = 'Unauthorized: Please log in again.';
+        } else if (error.response?.status === 429) {
+          errorMessage = 'Too many requests. Please try again later.';
+        } else if (error.response?.status === 400) {
+          errorMessage = 'Invalid addresses provided.';
+        } else {
+          errorMessage = error.response?.data?.detail || `Failed to fetch Name Tags: ${error.message}`;
+        }
+
+        logger.error('Error in fetchNameTagsForAddresses:', {
+          message: errorMessage,
+          status: error.response?.status,
+        });
+
+        uniqueAddresses.forEach((address) => {
+          const normalizedAddress = address.toLowerCase();
+          nameTagsRef.current[normalizedAddress] = { nameTag: null, timestamp: Date.now() };
+          setNameTags((prev) => ({
+            ...prev,
+            [normalizedAddress]: { nameTag: null, timestamp: Date.now() },
+          }));
+        });
+
+        if (showToast) {
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        }
+      } finally {
+        setIsLoadingNameTags(false);
+      }
+    },
+    [session, toast]
+  );
 
   const fetchPriceHistory = useCallback(
     debounce(
@@ -378,6 +460,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           callback(null);
           return;
         }
+        const [coingeckoChainId, tokenAddress] = tokenId.split('/');
+        const chain = chains.find((c) => c.coingeckoId === coingeckoChainId);
         const cacheKey = `${tokenId}-${days}`;
         const cached = priceHistoryCache[cacheKey];
         if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
@@ -386,30 +470,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           return;
         }
         return new Promise(async (resolve, reject) => {
-          let recaptchaToken = null;
           try {
-            for (let attempt = 1; attempt <= 3; attempt++) {
-              try {
-                logger.log(`Executing reCAPTCHA for fetch_price_history, attempt ${attempt}`);
-                recaptchaToken = await Promise.race([
-                  executeRecaptcha('fetch_price_history'),
-                  new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 10000)),
-                ]);
-                if (recaptchaToken) {
-                  logger.log('reCAPTCHA token generated:', { action: 'fetch_price_history', token: recaptchaToken.slice(0, 20) + '...' });
-                  break;
-                }
-                throw new Error('Empty reCAPTCHA token');
-              } catch (recaptchaError) {
-                logger.warn(`reCAPTCHA attempt ${attempt} failed`, { message: recaptchaError.message });
-                if (attempt === 3) throw recaptchaError;
-                await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-              }
-            }
-
-            logger.log('Fetching price history from API:', { tokenId, days });
+            logger.log('Fetching price history from API:', { tokenId, days, chain: chain?.value });
             const response = await axios.get('/api/coingecko/history', {
-              params: { id: tokenId, vs_currency: 'usd', days, recaptchaToken },
+              params: { id: tokenId, vs_currency: 'usd', days },
               timeout: 30000,
             }).catch(async (error) => {
               if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
@@ -452,25 +516,562 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             const errorMessage =
               err.response?.status === 429
                 ? 'API rate limit reached. Please wait a minute and try again.'
-                : err.response?.status === 403 && err.response?.data?.detail?.includes('reCAPTCHA')
-                  ? 'reCAPTCHA verification failed. Please try again.'
-                  : err.response?.data?.detail || `Failed to load price history: ${err.message}`;
+                : err.response?.data?.detail || `Failed to load price history: ${err.message}`;
             setError(errorMessage);
             toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
             reject(err);
             callback(err);
-          } finally {
-            if (recaptchaRef.current) {
-              recaptchaRef.current.reset();
-            }
           }
         });
       },
       500,
       { leading: false, trailing: true }
     ),
-    [priceHistoryCache, setPriceHistory, setPriceHistoryCache, executeRecaptcha, setError, toast]
+    [chains, priceHistoryCache, setPriceHistory, setPriceHistoryCache, setError, toast]
   );
+
+  const fetchPublicTreasuryData = useCallback(
+    debounce(async (tokenSymbol) => {
+      if (!['bitcoin', 'ethereum'].includes(tokenSymbol.toLowerCase())) {
+        return;
+      }
+      const treasuryType = tokenSymbol.toLowerCase() === 'bitcoin' ? 'bitcoin' : 'ethereum';
+      setIsLoadingOnChain(true);
+      try {
+        const response = await axios.get(
+          `https://api.coingecko.com/api/v3/companies/public_treasury/${treasuryType}`,
+          {
+            headers: {
+              accept: 'application/json',
+              ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
+            },
+            timeout: 10000,
+          }
+        );
+        const treasuryData = response.data.companies.map((company) => ({
+          address: company.name || 'Unknown Company',
+          balance: parseFloat(company.total_holdings || 0),
+        }));
+        logger.log(`Public treasury data fetched for ${treasuryType}`, {
+          count: treasuryData.length,
+          firstFew: treasuryData.slice(0, 3),
+        });
+        setOnChainData((prev) => ({
+          ...prev,
+          topHolders: treasuryData,
+        }));
+        setOnChainError(null);
+      } catch (error) {
+        logger.error(`Error fetching public treasury data for ${treasuryType}`, {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        });
+        setOnChainError(
+          error.response?.status === 429
+            ? 'CoinGecko API rate limit exceeded. Please try again later.'
+            : error.response?.data?.detail || `Failed to load ${treasuryType} treasury data.`
+        );
+      } finally {
+        setIsLoadingOnChain(false);
+      }
+    }, 500),
+    [COINGECKO_API_KEY]
+  );
+
+  const fetchTickerData = useCallback(
+    debounce(async (tokenId, retryCount = 0) => {
+      if (!tokenId || document.visibilityState !== 'visible') return;
+      const cacheKey = tokenId;
+      if (tickerCache[cacheKey] && Date.now() - tickerCache[cacheKey].timestamp < CACHE_DURATION) {
+        setTickerData(tickerCache[cacheKey].data);
+        logger.log('Ticker data loaded from cache:', { tokenId });
+        return;
+      }
+
+      setIsLoadingTickers(true);
+      setTickerError(null);
+      try {
+        let response;
+        const params = { include_exchange_logo: true };
+        if (process.env.NODE_ENV === 'development') {
+          logger.log(`Fetching tickers for ${tokenId} directly from CoinGecko in development mode`);
+          response = await coingeckoAxios.get(`https://api.coingecko.com/api/v3/coins/${tokenId}/tickers`, {
+            params,
+            headers: {
+              accept: 'application/json',
+              ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
+            },
+            timeout: 15000,
+          });
+        } else {
+          logger.log(`Fetching tickers for ${tokenId} via proxy API`);
+          response = await axios.get('/api/coingecko', {
+            params: {
+              action: 'tickers',
+              id: tokenId,
+              include_exchange_logo: true,
+            },
+            timeout: 15000,
+          });
+        }
+
+        const tickers = response.data.tickers || [];
+        setTickerCache((prev) => ({
+          ...prev,
+          [cacheKey]: { data: tickers, timestamp: Date.now() },
+        }));
+        setTickerData(tickers);
+        logger.log(`Ticker data fetched for ${tokenId}`, {
+          count: tickers.length,
+          sampleLogos: tickers.slice(0, 3).map((t) => ({
+            market: t.market.name,
+            logo: t.market.logo,
+            identifier: t.market.identifier,
+          })),
+        });
+      } catch (error) {
+        logger.error(`Error fetching ticker data for ${tokenId}:`, {
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+        const errorMessage =
+          error.response?.status === 429
+            ? 'CoinGecko API rate limit exceeded. Please try again later.'
+            : error.response?.status === 404
+              ? `Ticker data not found for ${tokenId}.`
+              : error.response?.data?.detail || `Failed to load ticker data for ${tokenId}.`;
+        setTickerError(errorMessage);
+      } finally {
+        setIsLoadingTickers(false);
+      }
+    }, 500),
+    [COINGECKO_API_KEY]
+  );
+
+  const fetchOnChainData = useCallback(
+    debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount = 0) => {
+      logger.info('fetchOnChainData called', { action, chain, address, tokenAddress, retryCount });
+      console.log('fetchOnChainData called:', { action, chain, address, tokenAddress, decimalPlace, retryCount });
+
+      if (
+        (action === 'top-holders' && (!chain || !tokenAddress)) ||
+        ((action === 'wallet-balances' || action === 'transactions') && !address) ||
+        (typeof document !== 'undefined' && document.visibilityState !== 'visible')
+      ) {
+        const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address}`;
+        logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
+        console.error('Invalid parameters:', { action, chain, tokenAddress, address });
+        customLogger.log('Error: Invalid parameters', { action, chain, tokenAddress, address });
+        setOnChainError(errorMessage);
+        setIsLoadingOnChain(false);
+        setIsLoadingWalletBalances(false);
+        setIsLoadingTransactions(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
+
+      const simChain = chains.find((c) => c.value === chain)?.value;
+      if (!simChain && action === 'top-holders') {
+        const errorMessage = `Invalid chain: ${chain}`;
+        logger.error('Invalid chain for fetchOnChainData', { chain });
+        console.error('Invalid chain:', { chain });
+        customLogger.log('Error: Invalid chain', { chain });
+        setOnChainError(errorMessage);
+        setIsLoadingOnChain(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
+
+      if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
+        const errorMessage = 'Please log in to access wallet data.';
+        logger.warn('User not authenticated for wallet data', { action, status });
+        console.warn('User not authenticated:', { action, status });
+        customLogger.log('Warning: User not authenticated', { action, status });
+        setOnChainError(errorMessage);
+        setIsLoadingOnChain(false);
+        setIsLoadingWalletBalances(false);
+        setIsLoadingTransactions(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
+
+      if ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+        const errorMessage = 'Wallet address must be a valid EVM address.';
+        logger.error(errorMessage, { action, address });
+        console.error(errorMessage, { action, address });
+        customLogger.log('Error: Invalid EVM address', { action, address });
+        if (action === 'wallet-balances') {
+          setWalletBalancesError(errorMessage);
+        } else {
+          setTransactionsError(errorMessage);
+        }
+        setIsLoadingOnChain(false);
+        setIsLoadingWalletBalances(false);
+        setIsLoadingTransactions(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
+
+      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+      const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}${apiBaseUrl}/sim`;
+      logger.info('API URL configuration', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
+      console.log('API URL configuration:', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
+
+      setIsLoadingOnChain(true);
+      if (action === 'wallet-balances') {
+        setIsLoadingWalletBalances(true);
+      } else if (action === 'transactions') {
+        setIsLoadingTransactions(true);
+      }
+
+      try {
+        const payload = {
+          action,
+          recaptchaToken,
+        };
+        if (action === 'top-holders') {
+          payload.chain = simChain;
+          payload.tokenAddress = tokenAddress;
+          if (decimalPlace != null) payload.decimalPlace = Number(decimalPlace);
+        } else if (action === 'wallet-balances' || action === 'transactions') {
+          payload.address = address;
+        }
+        logger.info('Sending on-chain data request', { payload, apiUrl });
+        console.log('Sending on-chain data request:', { payload, apiUrl });
+        customLogger.log('Sending on-chain data request', { payload, apiUrl });
+
+        const response = await axios.post(apiUrl, payload, {
+          headers: {
+            Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+        }).catch(async (error) => {
+          if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
+            const delay = Math.pow(2, retryCount) * 1000;
+            logger.info(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
+            console.log(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount + 1);
+          }
+          throw error;
+        });
+
+        logger.info(`On-chain data response for ${action}`, {
+          success: response.data.success,
+          count: response.data.data?.length || 0,
+          dataSample: response.data.data?.slice(0, 5),
+        });
+        console.log(`On-chain data response for ${action}:`, {
+          status: response.status,
+          success: response.data.success,
+          count: response.data.data?.length || 0,
+        });
+        customLogger.log(`On-chain data response for ${action}`, {
+          success: response.data.success,
+          count: response.data.data?.length || 0,
+        });
+
+        if (!response.data.success) {
+          throw new Error(response.data.detail || `Failed to fetch ${action} data`);
+        }
+
+        if (action === 'top-holders') {
+          setOnChainData((prev) => ({
+            ...prev,
+            topHolders: response.data.data || [],
+          }));
+        } else if (action === 'wallet-balances') {
+          setWalletBalances(response.data.data || []);
+        } else if (action === 'transactions') {
+          setTransactions(response.data.data || []);
+          if (session?.user?.id) {
+            try {
+              await axios.post(
+                '/api/wallet-history',
+                {
+                  uid: session.user.id,
+                  walletAddress: address,
+                  action: 'transactions',
+                  data: response.data.data || [],
+                },
+                {
+                  headers: {
+                    Authorization: `Bearer ${session.accessToken}`,
+                  },
+                  timeout: 15000,
+                }
+              );
+              logger.info('Transactions history saved', { address });
+              console.log('Transactions history saved:', { address });
+              customLogger.log('Transactions history saved', { address });
+            } catch (historyError) {
+              logger.error('Error saving transactions history', {
+                message: historyError.message,
+                response: historyError.response?.data,
+              });
+              console.error('Error saving transactions history:', {
+                message: historyError.message,
+                response: historyError.response?.data,
+              });
+              customLogger.log('Error saving transactions history', {
+                message: historyError.message,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        logger.error(`Error fetching ${action} data`, {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+          stack: error.stack,
+          url: apiUrl,
+        });
+        console.error(`Error fetching ${action} data:`, {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+          stack: error.stack,
+        });
+        customLogger.log(`Error fetching ${action} data`, {
+          status: error.response?.status,
+          message: error.message,
+        });
+        const errorMessage =
+          error.response?.status === 401
+            ? 'Unauthorized: Please log in again.'
+            : error.response?.status === 429
+              ? 'Dune Sim API rate limit exceeded. Please try again later.'
+              : error.response?.status === 503
+                ? 'Service temporarily unavailable. Please try again later.'
+                : error.response?.data?.errors
+                  ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
+                  : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
+        if (action === 'wallet-balances') {
+          setWalletBalancesError(errorMessage);
+        } else if (action === 'transactions') {
+          setTransactionsError(errorMessage);
+        } else {
+          setOnChainError(errorMessage);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        }
+      } finally {
+        setIsLoadingOnChain(false);
+        if (action === 'wallet-balances') {
+          setIsLoadingWalletBalances(false);
+        } else if (action === 'transactions') {
+          setIsLoadingTransactions(false);
+        }
+      }
+    }, 500),
+    [chains, status, session?.accessToken, toast]
+  );
+
+  const handleAddressClick = useCallback(
+    (address) => {
+      if (address === 'Unknown') {
+        setWalletBalancesError('Cannot fetch balances for unknown address.');
+        return;
+      }
+      logger.log('Address clicked', {
+        address,
+        selectedToken: selectedToken ? selectedToken.id : null,
+        onChainData: {
+          topHoldersCount: onChainData.topHolders.length,
+          whaleActivityCount: onChainData.whaleActivity.length,
+        },
+      });
+      setSelectedWallet(address);
+      setWalletBalances([]);
+      setTransactions(null);
+      setWalletBalancesError(null);
+      setTransactionsError(null);
+      setIsLoadingWalletBalances(true);
+      fetchOnChainData(null, null, 'wallet-balances', null, address);
+    },
+    [fetchOnChainData, selectedToken, onChainData]
+  );
+
+  const handleWalletSearch = useCallback(
+    debounce(async () => {
+      if (!walletAddress || walletAddress.length !== 42 || !walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        setWalletBalancesError('Invalid wallet address format.');
+        return;
+      }
+      if (status !== 'authenticated') {
+        setWalletBalancesError('Please log in to search wallet.');
+        return;
+      }
+      const now = Date.now();
+      if (now - lastWalletSearchTime < WALLET_SEARCH_WINDOW && walletSearchCount >= WALLET_SEARCH_LIMIT) {
+        setWalletBalancesError('Too many wallet searches. Please wait a minute and try again.');
+        return;
+      }
+      try {
+        const recaptchaToken = await executeRecaptcha('wallet_search');
+        if (now - lastWalletSearchTime >= WALLET_SEARCH_WINDOW) {
+          setWalletSearchCount(1);
+          setLastWalletSearchTime(now);
+        } else {
+          setWalletSearchCount((prev) => prev + 1);
+        }
+        logger.log('Wallet search initiated', {
+          walletAddress,
+          selectedToken: selectedToken ? selectedToken.id : null,
+          onChainData: {
+            topHoldersCount: onChainData.topHolders.length,
+            whaleActivityCount: onChainData.whaleActivity.length,
+          },
+        });
+        setSelectedWallet(walletAddress);
+        setWalletBalances([]);
+        setTransactions(null);
+        setWalletBalancesError(null);
+        setTransactionsError(null);
+        setIsLoadingWalletBalances(true);
+        fetchOnChainData(null, null, 'wallet-balances', null, walletAddress, recaptchaToken);
+      } catch (error) {
+        logger.error('Error in wallet search:', error.response?.data || error.message);
+        setWalletBalancesError(
+          error.response?.status === 401
+            ? 'Unauthorized: Please log in again.'
+            : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
+              ? 'reCAPTCHA verification failed. Please try again.'
+              : error.response?.status === 429
+                ? 'Too many requests. Please try again later.'
+                : error.response?.data?.detail || 'Failed to search wallet.'
+        );
+        setIsLoadingWalletBalances(false);
+      } finally {
+        if (recaptchaRef.current) {
+          recaptchaRef.current.reset();
+        }
+      }
+    }, 500),
+    [walletAddress, fetchOnChainData, executeRecaptcha, status, walletSearchCount, lastWalletSearchTime, selectedToken, onChainData]
+  );
+
+  const fetchTransactions = useCallback(
+    async (address) => {
+      const recaptchaToken = await executeRecaptcha('transactions');
+      fetchOnChainData(null, null, 'transactions', null, address, recaptchaToken);
+    },
+    [fetchOnChainData, executeRecaptcha]
+  );
+
+  const getDefaultChainAndAddress = useCallback(
+    (token, selectedChain = 'ethereum') => {
+      if (!token) {
+        return { chain: null, tokenAddress: null, decimalPlace: null };
+      }
+
+      const normalizedPlatforms = Object.keys(token.detail_platforms || {}).reduce((acc, cgId) => {
+        const chain = chains.find((c) => c.coingeckoId === cgId);
+        if (chain && token.detail_platforms[cgId].contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+          const decimalPlace = Number(token.detail_platforms[cgId].decimal_place) || 18;
+          if (decimalPlace < 0 || decimalPlace > 36) {
+            logger.warn(`Invalid decimalPlace for ${cgId}: ${decimalPlace}, defaulting to 18`);
+          }
+          acc[chain.value] = {
+            address: token.detail_platforms[cgId].contract_address,
+            decimal_place: decimalPlace,
+          };
+        }
+        return acc;
+      }, {});
+
+      const availableChains = chains.filter(
+        (chain) =>
+          normalizedPlatforms[chain.value] &&
+          (process.env.NODE_ENV === 'development' || !chain.testnet)
+      );
+
+      if (
+        normalizedPlatforms[selectedChain] &&
+        chains.some((net) => net.value === selectedChain) &&
+        normalizedPlatforms[selectedChain].address.match(/^0x[a-fA-F0-9]{40}$/)
+      ) {
+        const result = {
+          chain: selectedChain,
+          tokenAddress: normalizedPlatforms[selectedChain].address,
+          decimalPlace: normalizedPlatforms[selectedChain].decimal_place,
+        };
+        logger.log('Default chain and address:', result);
+        return result;
+      }
+
+      if (availableChains.length > 0) {
+        const defaultChain = availableChains[0].value;
+        const tokenAddress = normalizedPlatforms[defaultChain].address;
+        const decimalPlace = normalizedPlatforms[defaultChain].decimal_place;
+        const result = { chain: defaultChain, tokenAddress, decimalPlace };
+        logger.log('Default chain and address:', result);
+        return result;
+      }
+
+      const fallbackTokens = {
+        usdc: {
+          chain: 'ethereum',
+          tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          decimalPlace: 6,
+        },
+        dai: {
+          chain: 'ethereum',
+          tokenAddress: '0x6b175474e89094c44da98b954eedeac495271d0f',
+          decimalPlace: 18,
+        },
+      };
+
+      const tokenSymbol = token.symbol?.toLowerCase();
+      if (fallbackTokens[tokenSymbol]) {
+        logger.log(`Using fallback for ${tokenSymbol.toUpperCase()}:`, fallbackTokens[tokenSymbol]);
+        return fallbackTokens[tokenSymbol];
+      }
+
+      setOnChainError('This token does not have on-chain data available on supported chains. Try selecting a different token.');
+      return { chain: null, tokenAddress: null, decimalPlace: null };
+    },
+    [chains, setOnChainError]
+  );
+
+  const getAvailableChains = useCallback(() => {
+    if (!selectedToken?.detail_platforms) return [];
+
+    const normalizedPlatforms = Object.keys(selectedToken.detail_platforms).reduce((acc, cgId) => {
+      const chain = chains.find((c) => c.coingeckoId === cgId);
+      if (chain && selectedToken.detail_platforms[cgId].contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+        const decimalPlace = Number(selectedToken.detail_platforms[cgId].decimal_place) || 18;
+        acc[chain.value] = {
+          address: selectedToken.detail_platforms[cgId].contract_address,
+          decimal_place: decimalPlace,
+        };
+      }
+      return acc;
+    }, {});
+
+    const availableChains = chains.filter(
+      (chain) =>
+        normalizedPlatforms[chain.value] &&
+        (process.env.NODE_ENV === 'development' || !chain.testnet)
+    );
+
+    if (JSON.stringify(availableChains) !== JSON.stringify(prevAvailableChainsRef.current)) {
+      logger.log(
+        'Available chains:',
+        availableChains.map((c) => ({
+          value: c.value,
+          label: c.label,
+          decimalPlace: normalizedPlatforms[c.value]?.decimal_place,
+        }))
+      );
+      prevAvailableChainsRef.current = availableChains;
+    }
+
+    return availableChains;
+  }, [selectedToken, chains]);
 
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token) => {
@@ -518,7 +1119,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         logger.log('Setting selectedToken:', { id: fullToken.id, symbol: fullToken.symbol, roi: fullToken.roi });
         setSelectedToken(fullToken);
         setSelectedPair(`${fullToken.symbol?.toUpperCase()}/USD`);
-        setSelectedChain('ethereum');
+        const { chain } = getDefaultChainAndAddress(fullToken, 'ethereum');
+        setSelectedChain(chain || 'ethereum');
         setAnalysis(null);
         setPrediction(null);
         setAnalysisLinks([]);
@@ -526,10 +1128,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         setOnChainData({ topHolders: [], whaleActivity: [] });
         setOnChainError(null);
 
-        // Trigger fetchPriceHistory
         const days = timeRange || '1';
-        logger.log('Triggering fetchPriceHistory from token select:', { tokenId: fullToken.id, days });
-        fetchPriceHistory(fullToken.id, days, (err, data) => {
+        const tokenId = fullToken.id;
+        fetchPriceHistory(tokenId, days, (err, data) => {
           if (err) {
             logger.error('Price history fetch failed on token select:', { error: err.message });
             setError(
@@ -538,7 +1139,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
                 : err.response?.data?.detail || 'Failed to load price history.'
             );
           } else {
-            logger.log('Price history fetched on token select:', { tokenId: fullToken.id, count: data?.length || 0 });
+            logger.log('Price history fetched on token select:', { tokenId, count: data?.length || 0 });
           }
         });
       } catch (error) {
@@ -550,95 +1151,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         );
       }
     }, 500),
-    [timeRange, fetchPriceHistory, setSelectedToken, setSelectedPair, setSelectedChain, setAnalysis, setPrediction, setAnalysisLinks, setIsDropdownOpen, setOnChainData, setOnChainError, setError, executeRecaptcha]
-  );
-
-  const fetchAssetPlatforms = useCallback(
-    debounce(async (retryCount = 0) => {
-      if (
-        assetPlatformsCache.current &&
-        Date.now() - assetPlatformsCache.current.timestamp < ASSET_PLATFORMS_CACHE_DURATION
-      ) {
-        setAssetPlatforms(assetPlatformsCache.current.data);
-        logger.log('Asset platforms loaded from cache:', { count: assetPlatformsCache.current.data.length });
-        return;
-      }
-
-      try {
-        const response = await coingeckoAxios.get('/api/coingecko-platforms', {
-          headers: {
-            accept: 'application/json',
-          },
-        });
-        const data = response.data;
-        assetPlatformsCache.current = {
-          data,
-          timestamp: Date.now(),
-        };
-        setAssetPlatforms(data);
-        logger.log('Asset platforms fetched:', { count: data.length });
-      } catch (error) {
-        logger.error('Error fetching asset platforms:', error.response?.data || error.message);
-        if (error.response?.status === 429 && retryCount < 3) {
-          const delay = Math.pow(2, retryCount) * 1000;
-          logger.log(`Retrying fetchAssetPlatforms after ${delay}ms due to 429 error`);
-          setTimeout(() => fetchAssetPlatforms(retryCount + 1), delay);
-          return;
-        }
-        setError(
-          error.response?.status === 429
-            ? 'CoinGecko rate limit reached. Please wait a minute and try again.'
-            : 'Failed to load asset platforms.'
-        );
-      }
-    }, 1000),
-    []
-  );
-
-  const fetchMarketData = useCallback(
-    debounce(async (retryCount = 0) => {
-      if (document.visibilityState !== 'visible') return;
-      try {
-        const recaptchaToken = await executeRecaptcha('fetch_market_data');
-        const marketResponse = await coingeckoAxios.get('/api/coingecko', {
-          params: { start: 1, limit: tokensPerPage, convert: 'usd', recaptchaToken },
-        });
-        const tokensWithRoi = marketResponse.data.map((token) => ({
-          ...token,
-          roi: token.roi || null,
-        }));
-        setTokens(tokensWithRoi);
-        if (!selectedToken && !lastFetchedTokenRef.current) {
-          const btc = tokensWithRoi.find((token) => token.id === 'bitcoin');
-          if (btc) {
-            logger.log('Selecting default token:', { id: btc.id });
-            debouncedHandleTokenSelect(btc);
-          }
-        }
-        setLoading(false);
-      } catch (error) {
-        logger.error('Error fetching market data:', error.response?.data || error.message);
-        if (error.response?.status === 429 && retryCount < 3) {
-          const delay = Math.pow(2, retryCount) * 1000;
-          logger.log(`Retrying fetchMarketData after ${delay}ms due to 429 error`);
-          setTimeout(() => fetchMarketData(retryCount + 1), delay);
-          return;
-        }
-        setError(
-          error.response?.status === 429
-            ? 'API rate limit reached. Please wait a minute and try again.'
-            : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
-              ? 'reCAPTCHA verification failed. Please try again.'
-              : error.response?.data?.error || 'Failed to load market data.'
-        );
-        setLoading(false);
-      } finally {
-        if (recaptchaRef.current) {
-          recaptchaRef.current.reset();
-        }
-      }
-    }, 3000),
-    [selectedToken, debouncedHandleTokenSelect, executeRecaptcha]
+    [timeRange, fetchPriceHistory, setSelectedToken, setSelectedPair, setSelectedChain, setAnalysis, setPrediction, setAnalysisLinks, setIsDropdownOpen, setOnChainData, setOnChainError, setError, executeRecaptcha, getDefaultChainAndAddress, chains]
   );
 
   const debouncedHandleAnalysis = useCallback(
@@ -782,7 +1295,7 @@ Use natural, professional tone with recent data.
         }
       }
     }, 500),
-    [selectedToken, status, session, executeRecaptcha]
+    [selectedToken, status, session, executeRecaptcha, toast]
   );
 
   const debouncedHandlePrediction = useCallback(
@@ -898,7 +1411,7 @@ Use natural, professional tone with recent data.
         }
       }
     }, 500),
-    [selectedToken, priceHistory, analysis, executeRecaptcha, status, session]
+    [selectedToken, priceHistory, analysis, executeRecaptcha, status, session, toast]
   );
 
   const debouncedSearch = useCallback(
@@ -938,602 +1451,44 @@ Use natural, professional tone with recent data.
     []
   );
 
-  const fetchPublicTreasuryData = useCallback(
-    debounce(async (tokenSymbol) => {
-      if (!['bitcoin', 'ethereum'].includes(tokenSymbol.toLowerCase())) {
-        return;
-      }
-      const treasuryType = tokenSymbol.toLowerCase() === 'bitcoin' ? 'bitcoin' : 'ethereum';
-      setIsLoadingOnChain(true);
+  const fetchMarketData = useCallback(
+    debounce(async (retryCount = 0) => {
+      if (document.visibilityState !== 'visible') return;
       try {
-        const response = await axios.get(
-          `https://api.coingecko.com/api/v3/companies/public_treasury/${treasuryType}`,
-          {
-            headers: {
-              accept: 'application/json',
-              ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
-            },
-            timeout: 10000,
+        const marketResponse = await coingeckoAxios.get('/api/coingecko', {
+          params: { start: 1, limit: tokensPerPage, convert: 'usd' },
+        });
+        const tokensWithRoi = marketResponse.data.map((token) => ({
+          ...token,
+          roi: token.roi || null,
+        }));
+        setTokens(tokensWithRoi);
+        if (!selectedToken && !lastFetchedTokenRef.current) {
+          const btc = tokensWithRoi.find((token) => token.id === 'bitcoin');
+          if (btc) {
+            logger.log('Selecting default token:', { id: btc.id });
+            debouncedHandleTokenSelect(btc);
           }
-        );
-        const treasuryData = response.data.companies.map((company) => ({
-          address: company.name || 'Unknown Company',
-          balance: parseFloat(company.total_holdings || 0),
-        }));
-        logger.log(`Public treasury data fetched for ${treasuryType}`, {
-          count: treasuryData.length,
-          firstFew: treasuryData.slice(0, 3),
-        });
-        setOnChainData((prev) => ({
-          ...prev,
-          topHolders: treasuryData,
-        }));
-        setOnChainError(null);
+        }
+        setLoading(false);
       } catch (error) {
-        logger.error(`Error fetching public treasury data for ${treasuryType}`, {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-        });
-        setOnChainError(
+        logger.error('Error fetching market data:', error.response?.data || error.message);
+        if (error.response?.status === 429 && retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 1000;
+          logger.log(`Retrying fetchMarketData after ${delay}ms due to 429 error`);
+          setTimeout(() => fetchMarketData(retryCount + 1), delay);
+          return;
+        }
+        setError(
           error.response?.status === 429
-            ? 'CoinGecko API rate limit exceeded. Please try again later.'
-            : error.response?.data?.detail || `Failed to load ${treasuryType} treasury data.`
+            ? 'API rate limit reached. Please wait a minute and try again.'
+            : error.response?.data?.error || 'Failed to load market data.'
         );
-      } finally {
-        setIsLoadingOnChain(false);
+        setLoading(false);
       }
-    }, 500),
-    [COINGECKO_API_KEY]
+    }, 3000),
+    [selectedToken, debouncedHandleTokenSelect]
   );
-
-  const fetchTickerData = useCallback(
-    debounce(async (tokenId, retryCount = 0) => {
-      if (!tokenId || document.visibilityState !== 'visible') return;
-      const cacheKey = tokenId;
-      if (tickerCache[cacheKey] && Date.now() - tickerCache[cacheKey].timestamp < CACHE_DURATION) {
-        setTickerData(tickerCache[cacheKey].data);
-        logger.log('Ticker data loaded from cache:', { tokenId });
-        return;
-      }
-
-      setIsLoadingTickers(true);
-      setTickerError(null);
-      try {
-        let response;
-        const params = { include_exchange_logo: true };
-        if (process.env.NODE_ENV === 'development') {
-          logger.log(`Fetching tickers for ${tokenId} directly from CoinGecko in development mode`);
-          response = await coingeckoAxios.get(`https://api.coingecko.com/api/v3/coins/${tokenId}/tickers`, {
-            params,
-            headers: {
-              accept: 'application/json',
-              ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
-            },
-            timeout: 15000,
-          });
-        } else {
-          const recaptchaToken = await executeRecaptcha('fetch_tickers');
-          logger.log(`Fetching tickers for ${tokenId} via proxy API`);
-          response = await axios.get('/api/coingecko', {
-            params: {
-              action: 'tickers',
-              id: tokenId,
-              recaptchaToken,
-              include_exchange_logo: true,
-            },
-            timeout: 15000,
-          });
-        }
-
-        const tickers = response.data.tickers || [];
-        setTickerCache((prev) => ({
-          ...prev,
-          [cacheKey]: { data: tickers, timestamp: Date.now() },
-        }));
-        setTickerData(tickers);
-        logger.log(`Ticker data fetched for ${tokenId}`, {
-          count: tickers.length,
-          sampleLogos: tickers.slice(0, 3).map((t) => ({
-            market: t.market.name,
-            logo: t.market.logo,
-            identifier: t.market.identifier,
-          })),
-        });
-      } catch (error) {
-        logger.error(`Error fetching ticker data for ${tokenId}:`, {
-          message: error.message,
-          status: error.response?.status,
-          data: error.response?.data,
-        });
-        const errorMessage =
-          error.response?.status === 429
-            ? 'CoinGecko API rate limit exceeded. Please try again later.'
-            : error.response?.status === 404
-              ? `Ticker data not found for ${tokenId}.`
-              : error.response?.data?.detail || `Failed to load ticker data for ${tokenId}.`;
-        setTickerError(errorMessage);
-      } finally {
-        setIsLoadingTickers(false);
-        if (recaptchaRef.current) {
-          recaptchaRef.current.reset();
-        }
-      }
-    }, 500),
-    [executeRecaptcha, COINGECKO_API_KEY]
-  );
-
-  const fetchOnChainData = useCallback(
-    debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride = null, retryCount = 0) => {
-      logger.info('fetchOnChainData called', { action, chain, address, tokenAddress, retryCount });
-      console.log('fetchOnChainData called:', { action, chain, address, tokenAddress, decimalPlace, retryCount });
-
-      const recaptchaAction = action === 'top-holders' ? 'onchainData' : action;
-
-      if (
-        (action === 'top-holders' && (!chain || !tokenAddress)) ||
-        ((action === 'wallet-balances' || action === 'transactions') && !address) ||
-        (typeof document !== 'undefined' && document.visibilityState !== 'visible')
-      ) {
-        const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address}`;
-        logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
-        console.error('Invalid parameters:', { action, chain, tokenAddress, address });
-        customLogger.log('Error: Invalid parameters', { action, chain, tokenAddress, address });
-        setOnChainError(errorMessage);
-        setIsLoadingOnChain(false);
-        setIsLoadingWalletBalances(false);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
-
-      if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
-        const errorMessage = 'Please log in to access wallet data.';
-        logger.warn('User not authenticated for wallet data', { action, status });
-        console.warn('User not authenticated:', { action, status });
-        customLogger.log('Warning: User not authenticated', { action, status });
-        setOnChainError(errorMessage);
-        setIsLoadingOnChain(false);
-        setIsLoadingWalletBalances(false);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
-
-      if ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) {
-        const errorMessage = 'Wallet address must be a valid EVM address.';
-        logger.error(errorMessage, { action, address });
-        console.error(errorMessage, { action, address });
-        customLogger.log('Error: Invalid EVM address', { action, address });
-        if (action === 'wallet-balances') {
-          setWalletBalancesError(errorMessage);
-        } else {
-          setTransactionsError(errorMessage);
-        }
-        setIsLoadingOnChain(false);
-        setIsLoadingWalletBalances(false);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
-
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-      const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}${apiBaseUrl}/sim`;
-      logger.info('API URL configuration', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
-      console.log('API URL configuration:', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
-
-      setIsLoadingOnChain(true);
-      if (action === 'wallet-balances') {
-        setIsLoadingWalletBalances(true);
-      } else if (action === 'transactions') {
-        setIsLoadingTransactions(true);
-      }
-
-      try {
-        const timeout = (ms, promise) => {
-          return new Promise((resolve, reject) => {
-            const timer = setTimeout(() => {
-              reject(new Error(`reCAPTCHA timeout after ${ms}ms`));
-            }, ms);
-            promise.then(
-              (value) => {
-                clearTimeout(timer);
-                resolve(value);
-              },
-              (error) => {
-                clearTimeout(timer);
-                reject(error);
-              }
-            );
-          });
-        };
-
-        let recaptchaToken = recaptchaTokenOverride;
-        if (!recaptchaToken) {
-          for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-              console.log(`Executing reCAPTCHA for action: ${recaptchaAction}, attempt: ${attempt}`);
-              recaptchaToken = await timeout(10000, executeRecaptcha(recaptchaAction));
-              if (recaptchaToken) {
-                console.log('reCAPTCHA token generated:', { action: recaptchaAction, token: recaptchaToken.slice(0, 20) + '...' });
-                break;
-              } else {
-                throw new Error('Empty reCAPTCHA token');
-              }
-            } catch (recaptchaError) {
-              logger.warn(`reCAPTCHA attempt ${attempt} failed`, { action: recaptchaAction, message: recaptchaError.message });
-              console.warn(`reCAPTCHA attempt ${attempt} failed:`, { action: recaptchaAction, message: recaptchaError.message });
-              if (attempt === 3) {
-                throw recaptchaError;
-              }
-              await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-            }
-          }
-        }
-
-        const payload = {
-          action,
-          recaptchaToken,
-        };
-        if (action === 'top-holders') {
-          payload.chain = chain;
-          payload.tokenAddress = tokenAddress;
-          if (decimalPlace != null) payload.decimalPlace = Number(decimalPlace);
-        } else if (action === 'wallet-balances' || action === 'transactions') {
-          payload.address = address;
-        }
-        logger.info('Sending on-chain data request', { payload, apiUrl });
-        console.log('Sending on-chain data request:', { payload, apiUrl });
-        customLogger.log('Sending on-chain data request', { payload, apiUrl });
-
-        const response = await axios.post(apiUrl, payload, {
-          headers: {
-            Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000,
-        }).catch(async (error) => {
-          if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
-            const delay = Math.pow(2, retryCount) * 1000;
-            logger.info(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
-            console.log(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            return fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaTokenOverride, retryCount + 1);
-          }
-          throw error;
-        });
-
-        logger.info(`On-chain data response for ${action}`, {
-          success: response.data.success,
-          count: response.data.data?.length || 0,
-          dataSample: response.data.data?.slice(0, 5),
-        });
-        console.log(`On-chain data response for ${action}:`, {
-          status: response.status,
-          success: response.data.success,
-          count: response.data.data?.length || 0,
-        });
-        customLogger.log(`On-chain data response for ${action}`, {
-          success: response.data.success,
-          count: response.data.data?.length || 0,
-        });
-
-        if (!response.data.success) {
-          throw new Error(response.data.detail || `Failed to fetch ${action} data`);
-        }
-
-        if (action === 'top-holders') {
-          setOnChainData((prev) => ({
-            ...prev,
-            topHolders: response.data.data || [],
-          }));
-        } else if (action === 'wallet-balances') {
-          setWalletBalances(response.data.data || []);
-        } else if (action === 'transactions') {
-          setTransactions(response.data.data || []);
-          if (session?.user?.id) {
-            try {
-              const historyRecaptchaToken = await timeout(10000, executeRecaptcha('wallet_history'));
-              await axios.post(
-                '/api/wallet-history',
-                {
-                  uid: session.user.id,
-                  walletAddress: address,
-                  action: 'transactions',
-                  data: response.data.data || [],
-                  recaptchaToken: historyRecaptchaToken,
-                },
-                {
-                  headers: {
-                    Authorization: `Bearer ${session.accessToken}`,
-                  },
-                  timeout: 15000,
-                }
-              );
-              logger.info('Transactions history saved', { address });
-              console.log('Transactions history saved:', { address });
-              customLogger.log('Transactions history saved', { address });
-            } catch (historyError) {
-              logger.error('Error saving transactions history', {
-                message: historyError.message,
-                response: historyError.response?.data,
-              });
-              console.error('Error saving transactions history:', {
-                message: historyError.message,
-                response: historyError.response?.data,
-              });
-              customLogger.log('Error saving transactions history', {
-                message: historyError.message,
-              });
-            }
-          }
-        }
-      } catch (error) {
-        logger.error(`Error fetching ${action} data`, {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-          stack: error.stack,
-          url: apiUrl,
-        });
-        console.error(`Error fetching ${action} data:`, {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-          stack: error.stack,
-        });
-        customLogger.log(`Error fetching ${action} data`, {
-          status: error.response?.status,
-          message: error.message,
-        });
-        const errorMessage =
-          error.response?.status === 401
-            ? 'Unauthorized: Please log in again.'
-            : error.response?.status === 403
-              ? 'reCAPTCHA verification failed or invalid API key.'
-              : error.response?.status === 429
-                ? 'Dune Sim API rate limit exceeded. Please try again later.'
-                : error.response?.status === 503
-                  ? 'Service temporarily unavailable. Please try again later.'
-                  : error.message.includes('reCAPTCHA timeout')
-                    ? 'reCAPTCHA request timed out. Please try again.'
-                    : error.response?.data?.errors
-                      ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
-                      : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
-        if (action === 'wallet-balances') {
-          setWalletBalancesError(errorMessage);
-        } else if (action === 'transactions') {
-          setTransactionsError(errorMessage);
-        } else {
-          setOnChainError(errorMessage);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        }
-      } finally {
-        setIsLoadingOnChain(false);
-        if (action === 'wallet-balances') {
-          setIsLoadingWalletBalances(false);
-        } else if (action === 'transactions') {
-          setIsLoadingTransactions(false);
-        }
-        if (recaptchaRef.current) {
-          recaptchaRef.current.reset();
-        }
-      }
-    }, 500),
-    [executeRecaptcha, status, session?.accessToken]
-  );
-
-  const handleAddressClick = useCallback(
-    (address) => {
-      if (address === 'Unknown') {
-        setWalletBalancesError('Cannot fetch balances for unknown address.');
-        return;
-      }
-      logger.log('Address clicked', {
-        address,
-        selectedToken: selectedToken ? selectedToken.id : null,
-        onChainData: {
-          topHoldersCount: onChainData.topHolders.length,
-          whaleActivityCount: onChainData.whaleActivity.length,
-        },
-      });
-      setSelectedWallet(address);
-      setWalletBalances([]);
-      setTransactions(null);
-      setWalletBalancesError(null);
-      setTransactionsError(null);
-      setIsLoadingWalletBalances(true);
-      fetchOnChainData(null, null, 'wallet-balances', null, address);
-    },
-    [fetchOnChainData, selectedToken, onChainData]
-  );
-
-  const handleWalletSearch = useCallback(
-    debounce(async () => {
-      if (!walletAddress || walletAddress.length !== 42 || !walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
-        setWalletBalancesError('Invalid wallet address format.');
-        return;
-      }
-      if (status !== 'authenticated') {
-        setWalletBalancesError('Please log in to search wallet.');
-        return;
-      }
-      const now = Date.now();
-      if (now - lastWalletSearchTime < WALLET_SEARCH_WINDOW && walletSearchCount >= WALLET_SEARCH_LIMIT) {
-        setWalletBalancesError('Too many wallet searches. Please wait a minute and try again.');
-        return;
-      }
-      try {
-        const recaptchaToken = await executeRecaptcha('wallet_search');
-        if (now - lastWalletSearchTime >= WALLET_SEARCH_WINDOW) {
-          setWalletSearchCount(1);
-          setLastWalletSearchTime(now);
-        } else {
-          setWalletSearchCount((prev) => prev + 1);
-        }
-        logger.log('Wallet search initiated', {
-          walletAddress,
-          selectedToken: selectedToken ? selectedToken.id : null,
-          onChainData: {
-            topHoldersCount: onChainData.topHolders.length,
-            whaleActivityCount: onChainData.whaleActivity.length,
-          },
-        });
-        setSelectedWallet(walletAddress);
-        setWalletBalances([]);
-        setTransactions(null);
-        setWalletBalancesError(null);
-        setTransactionsError(null);
-        setIsLoadingWalletBalances(true);
-        fetchOnChainData(null, null, 'wallet-balances', null, walletAddress, recaptchaToken);
-      } catch (error) {
-        logger.error('Error in wallet search:', error.response?.data || error.message);
-        setWalletBalancesError(
-          error.response?.status === 401
-            ? 'Unauthorized: Please log in again.'
-            : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
-              ? 'reCAPTCHA verification failed. Please try again.'
-              : error.response?.status === 429
-                ? 'Too many requests. Please try again later.'
-                : error.response?.data?.detail || 'Failed to search wallet.'
-        );
-        setIsLoadingWalletBalances(false);
-      } finally {
-        if (recaptchaRef.current) {
-          recaptchaRef.current.reset();
-        }
-      }
-    }, 500),
-    [walletAddress, fetchOnChainData, executeRecaptcha, status, walletSearchCount, lastWalletSearchTime, selectedToken, onChainData]
-  );
-
-  const fetchTransactions = useCallback(
-    (address) => {
-      fetchOnChainData(null, null, 'transactions', null, address);
-    },
-    [fetchOnChainData]
-  );
-
-  const getDefaultChainAndAddress = useCallback(
-    (token, selectedChain = 'ethereum') => {
-      if (!token) {
-        return { chain: null, tokenAddress: null, decimalPlace: null };
-      }
-
-      const normalizedPlatforms = Object.keys(token.detail_platforms).reduce((acc, key) => {
-        const duneChain = COINGECKO_TO_DUNE_CHAIN_MAP[key] || key;
-        if (
-          token.detail_platforms[key].contract_address &&
-          token.detail_platforms[key].contract_address.match(/^0x[a-fA-F0-9]{40}$/)
-        ) {
-          const decimalPlace = Number(token.detail_platforms[key].decimal_place) || 18;
-          if (decimalPlace < 0 || decimalPlace > 36) {
-            logger.warn(`Invalid decimalPlace for ${key}: ${decimalPlace}, defaulting to 18`);
-          }
-          acc[duneChain] = {
-            address: token.detail_platforms[key].contract_address,
-            decimal_place: decimalPlace,
-          };
-        }
-        return acc;
-      }, {});
-
-      const availableChains = SUPPORTED_CHAINS.filter(
-        (chain) =>
-          normalizedPlatforms[chain.value] &&
-          (process.env.NODE_ENV === 'development' || !chain.testnet)
-      );
-
-      if (
-        normalizedPlatforms[selectedChain] &&
-        SUPPORTED_CHAINS.some((net) => net.value === selectedChain) &&
-        normalizedPlatforms[selectedChain].address.match(/^0x[a-fA-F0-9]{40}$/)
-      ) {
-        const result = {
-          chain: selectedChain,
-          tokenAddress: normalizedPlatforms[selectedChain].address,
-          decimalPlace: normalizedPlatforms[selectedChain].decimal_place,
-        };
-        logger.log('Default chain and address:', result);
-        return result;
-      }
-
-      if (availableChains.length > 0) {
-        const defaultChain = availableChains[0].value;
-        const tokenAddress = normalizedPlatforms[defaultChain].address;
-        const decimalPlace = normalizedPlatforms[defaultChain].decimal_place;
-        const result = { chain: defaultChain, tokenAddress, decimalPlace };
-        logger.log('Default chain and address:', result);
-        return result;
-      }
-
-      const fallbackTokens = {
-        usdc: {
-          chain: 'ethereum',
-          tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-          decimalPlace: 6,
-        },
-        dai: {
-          chain: 'ethereum',
-          tokenAddress: '0x6b175474e89094c44da98b954eedeac495271d0f',
-          decimalPlace: 18,
-        },
-      };
-
-      const tokenSymbol = token.symbol?.toLowerCase();
-      if (fallbackTokens[tokenSymbol]) {
-        logger.log(`Using fallback for ${tokenSymbol.toUpperCase()}:`, fallbackTokens[tokenSymbol]);
-        return fallbackTokens[tokenSymbol];
-      }
-
-      setOnChainError('This token does not have on-chain data available on supported chains. Try selecting a different token.');
-      return { chain: null, tokenAddress: null, decimalPlace: null };
-    },
-    []
-  );
-
-  const getAvailableChains = useCallback(() => {
-    if (!selectedToken?.detail_platforms) return [];
-
-    const normalizedPlatforms = Object.keys(selectedToken.detail_platforms).reduce((acc, key) => {
-      const duneChain = COINGECKO_TO_DUNE_CHAIN_MAP[key] || key;
-      if (
-        selectedToken.detail_platforms[key].contract_address &&
-        selectedToken.detail_platforms[key].contract_address.match(/^0x[a-fA-F0-9]{40}$/)
-      ) {
-        const decimalPlace = Number(selectedToken.detail_platforms[key].decimal_place) || 18;
-        acc[duneChain] = {
-          address: selectedToken.detail_platforms[key].contract_address,
-          decimal_place: decimalPlace,
-        };
-      }
-      return acc;
-    }, {});
-
-    const availableChains = SUPPORTED_CHAINS.filter(
-      (chain) =>
-        normalizedPlatforms[chain.value] &&
-        (process.env.NODE_ENV === 'development' || !chain.testnet)
-    );
-
-    if (JSON.stringify(availableChains) !== JSON.stringify(prevAvailableChainsRef.current)) {
-      logger.log(
-        'Available chains:',
-        availableChains.map((c) => ({
-          value: c.value,
-          label: c.label,
-          decimalPlace: normalizedPlatforms[c.value]?.decimal_place,
-        }))
-      );
-      prevAvailableChainsRef.current = availableChains;
-    }
-
-    return availableChains;
-  }, [selectedToken]);
-
-  useEffect(() => {
-    fetchAssetPlatforms();
-  }, [fetchAssetPlatforms]);
 
   useEffect(() => {
     fetchMarketData();
@@ -1545,31 +1500,42 @@ Use natural, professional tone with recent data.
   }, [fetchMarketData]);
 
   useEffect(() => {
+    fetchSupportedChains();
+  }, [fetchSupportedChains]);
+
+  useEffect(() => {
+  if (selectedToken && timeRange) {
+    const tokenId = selectedToken.id;
+    fetchPriceHistory(tokenId, timeRange, (err, data) => {
+      if (err) {
+        logger.error('Price history fetch failed:', { error: err.message });
+        setError(
+          err.response?.status === 429
+            ? 'API rate limit reached. Please wait a minute and try again.'
+            : err.response?.data?.detail || 'Failed to load price history.'
+        );
+      } else {
+        logger.log('Price history fetched:', { tokenId, count: data?.length || 0 });
+      }
+    });
+  }
+  const interval = setInterval(() => {
     if (selectedToken && timeRange) {
-      fetchPriceHistory(selectedToken.id, timeRange, (err, data) => {
+      const tokenId = selectedToken.id;
+      fetchPriceHistory(tokenId, timeRange, (err, data) => {
         if (err) {
-          logger.error('Price history callback error:', { error: err.message });
+          logger.error('Price history interval fetch failed:', { error: err.message });
         } else {
-          logger.log('Price history callback success:', { tokenId: selectedToken.id, count: data?.length || 0 });
+          logger.log('Price history interval callback success:', { tokenId: selectedToken.id, count: data?.length || 0 });
         }
       });
     }
-    const interval = setInterval(() => {
-      if (selectedToken && timeRange) {
-        fetchPriceHistory(selectedToken.id, timeRange, (err, data) => {
-          if (err) {
-            logger.error('Price history interval callback error:', { error: err.message });
-          } else {
-            logger.log('Price history interval callback success:', { tokenId: selectedToken.id, count: data?.length || 0 });
-          }
-        });
-      }
-    }, 60000);
-    return () => {
-      clearInterval(interval);
-      fetchPriceHistory.cancel && fetchPriceHistory.cancel();
-    };
-  }, [selectedToken, timeRange, fetchPriceHistory]);
+  }, 60000);
+  return () => {
+    clearInterval(interval);
+    fetchPriceHistory.cancel && fetchPriceHistory.cancel();
+  };
+}, [selectedToken, timeRange, fetchPriceHistory]);
 
   useEffect(() => {
     debouncedSearch(searchQuery);
@@ -1704,7 +1670,6 @@ Use natural, professional tone with recent data.
     selectedNetwork,
     isLoadingOnChain,
     onChainError,
-    assetPlatforms,
     selectedWallet,
     setSelectedWallet,
     walletBalances,
@@ -1716,8 +1681,6 @@ Use natural, professional tone with recent data.
     transactions,
     setTransactions,
     isLoadingTransactions,
-    setIsLoadingTransactions,
-    transactionsError,
     setTransactionsError,
     walletSearchCount,
     setWalletSearchCount,
@@ -1731,7 +1694,7 @@ Use natural, professional tone with recent data.
     tickerError,
     tickerCache,
     nameTags,
-    isLoadingNameTags, // Added to return
+    isLoadingNameTags,
     fetchNameTag,
     fetchNameTagsForAddresses,
     setSearchQuery,
@@ -1749,11 +1712,11 @@ Use natural, professional tone with recent data.
     getDefaultChainAndAddress,
     fetchPublicTreasuryData,
     fetchTickerData,
+    chains,
+    fetchSupportedChains,
 
     // Constants
     SUPPORTED_CHAINS,
-    COINGECKO_TO_DUNE_CHAIN_MAP,
-    PLATFORM_TO_CHAIN_ID,
     WALLET_SEARCH_LIMIT,
     WALLET_SEARCH_WINDOW,
 
@@ -1761,6 +1724,5 @@ Use natural, professional tone with recent data.
     lastFetchedTokenRef,
     prevTopHoldersRef,
     prevAvailableChainsRef,
-    tickerCache: tickerCache.current,
   };
 };

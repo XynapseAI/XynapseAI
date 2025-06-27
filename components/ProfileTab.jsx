@@ -223,7 +223,7 @@ export default function ProfileTab({ recaptchaRef }) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="font-plexmono w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 bg-gray-900/95 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+        className="font-jetbrains  w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 bg-gray-900/95 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
       >
         <p className="text-sm md:text-base text-gray-600 text-center">Loading...</p>
       </motion.div>
@@ -235,7 +235,7 @@ export default function ProfileTab({ recaptchaRef }) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="font-plexmono w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 bg-gray-900/95 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+        className="font-jetbrains  w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 bg-gray-900/95 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
       >
         <p className="text-sm md:text-base text-gray-600 text-center">Please sign in to view your profile.</p>
       </motion.div>
@@ -246,7 +246,7 @@ export default function ProfileTab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-courier w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+      className="font-jetbrains  w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
     >
       <div className="w-full rounded-xl shadow-card backdrop-blur-md p-4 md:p-6">
         {error && <p className="text-red-500 text-sm md:text-base mb-4">Error: {error}</p>}

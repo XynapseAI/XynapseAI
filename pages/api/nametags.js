@@ -3,36 +3,35 @@ import fs from 'fs';
 import path from 'path';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
-import axios from 'axios';
 import { RateLimiter } from 'limiter';
 import { logger } from '../../utils/logger';
+import { query, body, validationResult } from 'express-validator';
 
 const ADDRESS_PAGE_SIZE = 1000;
-const limiter = new RateLimiter({ tokensPerInterval: 100, interval: 'minute' }); // Giới hạn 100 yêu cầu/phút
+const limiter = new RateLimiter({ tokensPerInterval: 100, interval: 'minute' }); // Limit 100 requests/minute
 
-// Hàm xác minh reCAPTCHA
-const verifyRecaptcha = async (token) => {
-  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
-  try {
-    const response = await axios.post(
-      `https://www.google.com/recaptcha/api/siteverify`,
-      null,
-      {
-        params: {
-          secret: secretKey,
-          response: token,
-        },
-      }
-    );
-    return response.data.success && response.data.score >= 0.5;
-  } catch (error) {
-    logger.error('Error verifying reCAPTCHA:', { message: error.message });
-    return false;
-  }
-};
+const validateGet = [
+  query('address')
+    .optional()
+    .matches(/^0x[a-fA-F0-9]{40}$/)
+    .withMessage('Invalid EVM address'),
+  query('page')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Invalid page number'),
+];
+
+const validatePost = [
+  body('addresses')
+    .isArray({ min: 1 })
+    .withMessage('Addresses must be a non-empty array'),
+  body('addresses.*')
+    .matches(/^0x[a-fA-F0-9]{40}$/)
+    .withMessage('Each address must be a valid EVM address'),
+];
 
 export default async function handler(req, res) {
-  // Kiểm tra rate limit
+  // Check rate limit
   const remainingRequests = await limiter.removeTokens(1);
   if (remainingRequests < 0) {
     return res.status(429).json({
@@ -41,21 +40,12 @@ export default async function handler(req, res) {
     });
   }
 
-  // Kiểm tra xác thực người dùng
+  // Check user authentication
   const session = await getServerSession(req, res, authOptions);
   if (!session) {
     return res.status(401).json({
       success: false,
       detail: 'Unauthorized: Please log in.',
-    });
-  }
-
-  // Kiểm tra reCAPTCHA
-  const recaptchaToken = req.headers['x-recaptcha-token'];
-  if (!recaptchaToken || !(await verifyRecaptcha(recaptchaToken))) {
-    return res.status(403).json({
-      success: false,
-      detail: 'reCAPTCHA verification failed.',
     });
   }
 
@@ -78,6 +68,13 @@ export default async function handler(req, res) {
   };
 
   if (req.method === 'GET') {
+    await Promise.all(validateGet.map((validation) => validation.run(req)));
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`);
+      return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
+    }
+
     const { address, page = 1 } = req.query;
 
     if (address) {
@@ -134,14 +131,14 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { addresses } = req.body;
-
-    if (!Array.isArray(addresses) || addresses.length === 0) {
-      return res.status(400).json({
-        success: false,
-        detail: 'Addresses must be a non-empty array',
-      });
+    await Promise.all(validatePost.map((validation) => validation.run(req)));
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`);
+      return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
     }
+
+    const { addresses } = req.body;
 
     const normalizedAddresses = addresses.map((addr) => addr.toLowerCase());
     const allData = loadAllAddresses();

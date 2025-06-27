@@ -79,7 +79,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         href={`https://x.com/${user.twitterHandle}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="grid grid-cols-12 gap-2 p-1 font-courier hover:bg-white/15 rounded-lg transition-all duration-300 border border-white/10 backdrop-blur-md"
+        className="grid grid-cols-12 gap-2 p-1 font-jetbrains  hover:bg-white/15 rounded-lg transition-all duration-300 border border-white/10 backdrop-blur-md"
       >
         <div className="col-span-2 text-sm md:text-base text-white">{rank}</div>
         <div className="col-span-6 flex items-center">
@@ -88,7 +88,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
             alt={user.twitterHandle}
             className="w-5 h-5 md:w-6 h-6 rounded-full mr-1 md:mr-2"
           />
-          <span className="font-courier text-xs md:text-sm text-white flex items-center">
+          <span className="font-jetbrains text-xs md:text-sm text-white flex items-center">
             {user.twitterHandle || 'Anonymous'}
             {isCurrentUser && (
               <span className="ml-1 text-xs md:text-xs font-medium text-white bg-blue-500 px-1 rounded">
@@ -116,7 +116,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-courier w-full max-w-screen-md md:max-w-full h-[calc(100vh-2rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+      className="font-jetbrains  w-full max-w-screen-md md:max-w-full h-[calc(100vh-2rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
     >
       <div className="w-full flex flex-col md:flex-row gap-4 mb-4 p-4 md:p-6">
         <div className="w-full md:w-1/2 rounded-xl p-3 md:p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">

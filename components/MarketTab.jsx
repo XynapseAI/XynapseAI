@@ -1,4 +1,3 @@
-// components/MarketTab.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
@@ -58,6 +57,7 @@ const CHAIN_EXPLORER_MAP = {
   metis: { baseUrl: 'https://andromeda-explorer.metis.io', supportsTx: true, supportsAddress: true },
   mint: { baseUrl: 'https://explorer.mintchain.io', supportsTx: true, supportsAddress: true },
   mode: { baseUrl: 'https://modescan.io', supportsTx: true, supportsAddress: true },
+  monad_testnet: { baseUrl: 'https://explorer.monad.xyz', supportsTx: true, supportsAddress: true },
   omni: { baseUrl: 'https://explorer.omni.network', supportsTx: true, supportsAddress: true },
   opbnb: { baseUrl: 'https://opbnbscan.com', supportsTx: true, supportsAddress: true },
   optimism: { baseUrl: 'https://optimistic.etherscan.io', supportsTx: true, supportsAddress: true },
@@ -83,12 +83,12 @@ const CHAIN_EXPLORER_MAP = {
   zora: { baseUrl: 'https://zora.superscan.network', supportsTx: true, supportsAddress: true },
 };
 
-// Modal component
+// Modal component (unchanged)
 const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
   if (!isOpen) return null;
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-50 font-courier"
+      className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains"
       onClick={onClose}
     >
       <div
@@ -156,9 +156,9 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
   );
 };
 
-// LoadingOverlay component
+// LoadingOverlay component (unchanged)
 const LoadingOverlay = ({ message }) => (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 font-plexmono">
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 font-jetbrains">
     <div className="bg-gray-800/95 backdrop-blur-md p-3 rounded-lg border border-white/10 flex flex-col items-center gap-2">
       <p className="text-sm text-white">{message}</p>
       <div className="flex space-x-1.5">
@@ -170,7 +170,7 @@ const LoadingOverlay = ({ message }) => (
   </div>
 );
 
-// Wallet Balances component
+// Wallet Balances component (updated)
 const WalletBalances = ({
   balances,
   walletAddress,
@@ -181,16 +181,14 @@ const WalletBalances = ({
   isLoadingTransactions,
   transactionsError,
   fetchTransactions,
-  assetPlatforms,
-  coingeckoToDuneChainMap,
-  platformToChainId,
+  chains,
   setSelectedWallet,
   setWalletBalances,
   setTransactions,
   setWalletBalancesError,
   setTransactionsError,
   setWalletAddress,
-  nameTags, // Thêm prop nameTags
+  nameTags,
 }) => {
   const walletBalancesRef = useRef(null);
   const [activeTab, setActiveTab] = useState('portfolio');
@@ -217,7 +215,7 @@ const WalletBalances = ({
       fetchTransactions(walletAddress);
     }
     return () => {
-      fetchTransactions.cancel && fetchTransactions.cancel(); // Cancel debounced calls
+      fetchTransactions.cancel && fetchTransactions.cancel();
     };
   }, [activeTab, transactions, isLoadingTransactions, transactionsError, fetchTransactions, walletAddress]);
 
@@ -236,13 +234,10 @@ const WalletBalances = ({
   };
 
   const getPlatformImage = (chainValue) => {
-    const platformKey = Object.keys(coingeckoToDuneChainMap).find(
-      (key) => coingeckoToDuneChainMap[key] === chainValue
-    );
-    const platform = assetPlatforms.find(
-      (p) => p.id === platformKey || p.chain_identifier === parseInt(platformToChainId[chainValue])
-    );
-    return platform?.image?.thumb || '/fallback-image.png';
+    const chain = chains.find((c) => c.value === chainValue);
+    const imageUrl = chain?.image || '/fallback-image.png';
+    logger.log('getPlatformImage:', { chainValue, imageUrl, found: !!chain });
+    return imageUrl;
   };
 
   const getExplorerUrls = (chain, hash, address) => {
@@ -253,241 +248,229 @@ const WalletBalances = ({
   };
 
   const overlayContent = (
-  <div className="fixed inset-0 flex items-center justify-center z-50 font-courier min-h-screen">
-    <div
-      ref={walletBalancesRef}
-      className="backdrop-blur-md p-2 sm:p-4 max-w-6xl w-[90%] border border-gray-500 rounded-md relative max-h-[80vh] min-h-[80vh] overflow-y-auto custom-scrollbar"
-    >
-      {/* Header section remains unchanged */}
-      <div className="flex justify-between items-center mb-4 uppercase">
-        <h4 className="text-xs sm:text-sm font-bold text-white">
-          Wallet Details: {truncateAddress(walletAddress)}
-        </h4>
-        <button
-          onClick={onClose}
-          className="text-white text-lg font-bold bg-white/10 border border-white/20 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/15 transition-all duration-300"
-          aria-label="Close balances"
-        >
-          ✕
-        </button>
-      </div>
-      {/* Tab buttons remain unchanged */}
-      <div className="flex space-x-2 mb-4">
-        <button
-          onClick={() => setActiveTab('portfolio')}
-          className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
-            activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
-          }`}
-        >
-          Portfolio
-        </button>
-        <button
-          onClick={() => setActiveTab('transactions')}
-          className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
-            activeTab === 'transactions' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
-          }`}
-        >
-          Transactions
-        </button>
-      </div>
+    <div className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains min-h-screen">
+      <div
+        ref={walletBalancesRef}
+        className="backdrop-blur-md p-2 sm:p-4 max-w-6xl w-[90%] border border-gray-500 rounded-md relative max-h-[80vh] min-h-[80vh] overflow-y-auto custom-scrollbar"
+      >
+        <div className="flex justify-between items-center mb-4 uppercase">
+          <h4 className="text-xs sm:text-sm font-bold text-white">
+            Wallet Details: {truncateAddress(walletAddress)}
+          </h4>
+          <button
+            onClick={onClose}
+            className="text-white text-lg font-bold bg-white/10 border border-white/20 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/15 transition-all duration-300"
+            aria-label="Close balances"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="flex space-x-2 mb-4">
+          <button
+            onClick={() => setActiveTab('portfolio')}
+            className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
+          >
+            Portfolio
+          </button>
+          <button
+            onClick={() => setActiveTab('transactions')}
+            className={`px-2 py-1 rounded-sm text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'transactions' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
+          >
+            Transactions
+          </button>
+        </div>
 
-      {/* Portfolio Tab (remains unchanged) */}
-      {activeTab === 'portfolio' && (
-        <>
-          {isLoading && <p className="text-xs sm:text-sm text-gray-400 text-center">Loading portfolio...</p>}
-          {error && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {error}</p>}
-          {!isLoading && !error && balances.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full border border-gray-500 table-auto">
-                <thead>
-                  <tr>
-                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
-                      Token
-                    </th>
-                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
-                      Balance
-                    </th>
-                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
-                      Price
-                    </th>
-                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
-                      Value
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {balances.map((balance, index) => (
-                    <tr key={`${balance.chain}-${balance.address}-${index}`}>
-                      <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                        <div className="relative flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-2">
-                          {/* Chain info in top-left corner */}
-                          <div className="absolute top-0 left-0 flex items-center space-x-1 sm:space-x-1">
-                            <img
-                              src={getPlatformImage(balance.chain)}
-                              alt={`${balance.chain} logo`}
-                              className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"
-                              onError={(e) => (e.target.src = '/fallback-image.png')}
-                            />
-                            <span className="text-[8px] sm:text-[10px] text-gray-400 flex-shrink-0">
-                              {balance.chain.charAt(0).toUpperCase() + balance.chain.slice(1)}
-                            </span>
-                          </div>
-                          {/* Token info */}
-                          <div className="flex flex-col items-center sm:flex-row sm:space-x-2 pt-5 sm:pt-0">
-                            {balance.logo && (
-                              <img
-                                src={balance.logo}
-                                alt={`${balance.symbol} logo`}
-                                className="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-0"
-                                onError={(e) => (e.target.src = '/fallback-image.png')}
-                              />
-                            )}
-                            <span>
-                              {balance.symbol} {balance.address === 'native' ? '(Native)' : ''}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                        {balance.amount?.toLocaleString('en-US', { maximumFractionDigits: 2 }) || 'N/A'}
-                      </td>
-                      <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                        {balance.price_usd
-                          ? `$${balance.price_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-                          : 'N/A'}
-                      </td>
-                      <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                        {balance.value_usd
-                          ? `$${balance.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-                          : 'N/A'}
-                      </td>
+        {activeTab === 'portfolio' && (
+          <>
+            {isLoading && <p className="text-xs sm:text-sm text-gray-400 text-center">Loading portfolio...</p>}
+            {error && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {error}</p>}
+            {!isLoading && !error && balances.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full border border-gray-500 table-auto">
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 sm:w-1/3 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                        Token
+                      </th>
+                      <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                        Balance
+                      </th>
+                      <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                        Price
+                      </th>
+                      <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                        Value
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            !isLoading && <p className="text-xs sm:text-sm text-gray-400 text-center">No balances found for this wallet.</p>
-          )}
-        </>
-      )}
-
-      {/* Transactions Tab (updated to move chain info to Hash column) */}
-      {activeTab === 'transactions' && (
-        <>
-          {isLoadingTransactions && (
-            <p className="text-xs sm:text-sm text-gray-400 text-center">Loading transactions...</p>
-          )}
-          {transactionsError && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {transactionsError}</p>}
-          {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full border border-gray-500 table-auto">
-                <thead>
-                  <tr>
-                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
-                      Hash
-                    </th>
-                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
-                      Transfer
-                    </th>
-                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
-                      Value
-                    </th>
-                    <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
-                      Time
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((tx, index) => {
-                    const { txUrl, addressUrl: fromUrl } = getExplorerUrls(tx.chain, tx.hash, tx.from);
-                    const { addressUrl: toUrl } = getExplorerUrls(tx.chain, tx.hash, tx.to);
-                    const fromNameTag = nameTags[tx.from.toLowerCase()]?.nameTag;
-                    const toNameTag = nameTags[tx.to.toLowerCase()]?.nameTag;
-                    return (
-                      <tr key={`${tx.chain}-${tx.hash}-${index}`}>
-                        <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                          <div className="relative flex flex-col items-center sm:flex-row sm:justify-center">
-                            {/* Chain info in top-left corner */}
+                  </thead>
+                  <tbody>
+                    {balances.map((balance, index) => (
+                      <tr key={`${balance.chain}-${balance.address}-${index}`}>
+                        <td className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                          <div className="relative flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-2">
                             <div className="absolute top-0 left-0 flex items-center space-x-1 sm:space-x-1">
                               <img
-                                src={getPlatformImage(tx.chain)}
-                                alt={`${tx.chain} logo`}
+                                src={getPlatformImage(balance.chain)}
+                                alt={`${balance.chain} logo`}
                                 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"
                                 onError={(e) => (e.target.src = '/fallback-image.png')}
                               />
                               <span className="text-[8px] sm:text-[10px] text-gray-400 flex-shrink-0">
-                                {tx.chain.charAt(0).toUpperCase() + tx.chain.slice(1)}
+                                {chains.find((c) => c.value === balance.chain)?.label || balance.chain}
                               </span>
                             </div>
-                            {/* Hash info */}
-                            <div className="pt-5 sm:pt-0">
+                            <div className="flex flex-col items-center sm:flex-row sm:space-x-2 pt-5 sm:pt-0">
+                              {balance.logo && (
+                                <img
+                                  src={balance.logo}
+                                  alt={`${balance.symbol} logo`}
+                                  className="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-0"
+                                  onError={(e) => (e.target.src = '/fallback-image.png')}
+                                />
+                              )}
+                              <span>
+                                {balance.symbol} {balance.address === 'native' ? '(Native)' : ''}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                          {balance.amount?.toLocaleString('en-US', { maximumFractionDigits: 2 }) || 'N/A'}
+                        </td>
+                        <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                          {balance.price_usd
+                            ? `$${balance.price_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+                            : 'N/A'}
+                        </td>
+                        <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                          {balance.value_usd
+                            ? `$${balance.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+                            : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              !isLoading && <p className="text-xs sm:text-sm text-gray-400 text-center">No balances found for this wallet.</p>
+            )}
+          </>
+        )}
+
+        {activeTab === 'transactions' && (
+          <>
+            {isLoadingTransactions && (
+              <p className="text-xs sm:text-sm text-gray-400 text-center">Loading transactions...</p>
+            )}
+            {transactionsError && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {transactionsError}</p>}
+            {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full border border-gray-500 table-auto">
+                  <thead>
+                    <tr>
+                      <th className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 sm:w-1/3 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                        Hash
+                      </th>
+                      <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/4 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                        Transfer
+                      </th>
+                      <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                        Value
+                      </th>
+                      <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 bg-gray-700 text-white text-center text-[10px] sm:text-xs">
+                        Time
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions.map((tx, index) => {
+                      const { txUrl, addressUrl: fromUrl } = getExplorerUrls(tx.chain, tx.hash, tx.from);
+                      const { addressUrl: toUrl } = getExplorerUrls(tx.chain, tx.hash, tx.to);
+                      const fromNameTag = nameTags[tx.from.toLowerCase()]?.nameTag;
+                      const toNameTag = nameTags[tx.to.toLowerCase()]?.nameTag;
+                      return (
+                        <tr key={`${tx.chain}-${tx.hash}-${index}`}>
+                          <td className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                            <div className="relative flex flex-col items-center sm:flex-row sm:justify-center">
+                              <div className="absolute top-0 left-0 flex items-center space-x-1 sm:space-x-1">
+                                <img
+                                  src={getPlatformImage(tx.chain)}
+                                  alt={`${tx.chain} logo`}
+                                  className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"
+                                  onError={(e) => (e.target.src = '/fallback-image.png')}
+                                />
+                                <span className="text-[8px] sm:text-[10px] text-gray-400 flex-shrink-0">
+                                  {chains.find((c) => c.value === tx.chain)?.label || tx.chain}
+                                </span>
+                              </div>
+                              <div className="pt-5 sm:pt-0">
+                                <a
+                                  href={txUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-blue-400 hover:underline"
+                                  title={tx.hash}
+                                >
+                                  {truncateAddress(tx.hash)}
+                                </a>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                            <div className="flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-1">
                               <a
-                                href={txUrl}
+                                href={fromUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-blue-400 hover:underline"
-                                title={tx.hash}
+                                title={tx.from}
                               >
-                                {truncateAddress(tx.hash)}
+                                {fromNameTag || truncateAddress(tx.from)}
+                              </a>
+                              <span className="sm:mx-1">→</span>
+                              <a
+                                href={toUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-blue-400 hover:underline"
+                                title={tx.to}
+                              >
+                                {toNameTag || truncateAddress(tx.to)}
                               </a>
                             </div>
-                          </div>
-                        </td>
-                        <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                          <div className="flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-1">
-                            <a
-                              href={fromUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-400 hover:underline"
-                              title={tx.from}
-                            >
-                              {fromNameTag || truncateAddress(tx.from)}
-                            </a>
-                            <span className="sm:mx-1">→</span>
-                            <a
-                              href={toUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-400 hover:underline"
-                              title={tx.to}
-                            >
-                              {toNameTag || truncateAddress(tx.to)}
-                            </a>
-                          </div>
-                        </td>
-                        <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                          {weiToEth(tx.value)}
-                        </td>
-                        <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                          {new Date(tx.block_time).toLocaleString('en-US')}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            !isLoadingTransactions && (
-              <p className="text-xs sm:text-sm text-gray-400 text-center">No transactions found for this address.</p>
-            )
-          )}
-        </>
-      )}
+                          </td>
+                          <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                            {weiToEth(tx.value)}
+                          </td>
+                          <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                            {new Date(tx.block_time).toLocaleString('en-US')}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              !isLoadingTransactions && (
+                <p className="text-xs sm:text-sm text-gray-400 text-center">No transactions found for this address.</p>
+              )
+            )}
+          </>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
 
   return createPortal(overlayContent, document.body);
 };
 
-// CustomTooltip component
+// CustomTooltip component (unchanged)
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-gray-900/80 p-2 rounded border border-white/20 text-white text-sm backdrop-blur-md font-satoshi">
+      <div className="bg-gray-900/80 p-2 rounded border border-white/20 text-white text-sm backdrop-blur-md font-jetbrains">
         <p>{label}</p>
         <p>
           Price: <span className="font-bold">${payload[0].value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -523,7 +506,6 @@ const MarketTab = ({ recaptchaRef }) => {
     walletAddress,
     isLoadingOnChain,
     onChainError,
-    assetPlatforms,
     selectedWallet,
     walletBalances,
     isLoadingWalletBalances,
@@ -548,9 +530,7 @@ const MarketTab = ({ recaptchaRef }) => {
     fetchTransactions,
     handleAddressClick,
     getAvailableChains,
-    SUPPORTED_CHAINS,
-    COINGECKO_TO_DUNE_CHAIN_MAP,
-    PLATFORM_TO_CHAIN_ID,
+    chains,
     setSelectedWallet,
     setWalletBalances,
     setTransactions,
@@ -559,7 +539,7 @@ const MarketTab = ({ recaptchaRef }) => {
     fetchPublicTreasuryData,
     fetchTickerData,
     fetchPriceHistory,
-    nameTags, // Thêm nameTags từ useMarketTabLogic
+    nameTags,
     isLoadingNameTags,
   } = useMarketTabLogic({ recaptchaRef, toast });
 
@@ -571,13 +551,10 @@ const MarketTab = ({ recaptchaRef }) => {
   const [isChartLoading, setIsChartLoading] = useState(false);
 
   const getPlatformImage = (chainValue) => {
-    const platformKey = Object.keys(COINGECKO_TO_DUNE_CHAIN_MAP).find(
-      (key) => COINGECKO_TO_DUNE_CHAIN_MAP[key] === chainValue
-    );
-    const platform = assetPlatforms.find(
-      (p) => p.id === platformKey || p.chain_identifier === parseInt(PLATFORM_TO_CHAIN_ID[chainValue])
-    );
-    return platform?.image?.thumb || '/fallback-image.png';
+    const chain = chains.find((c) => c.value === chainValue);
+    const imageUrl = chain?.image || '/fallback-image.png';
+    logger.log('getPlatformImage:', { chainValue, imageUrl, found: !!chain });
+    return imageUrl;
   };
 
   const [isMobile, setIsMobile] = useState(false);
@@ -606,13 +583,15 @@ const MarketTab = ({ recaptchaRef }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [setIsDropdownOpen]);
 
-  // Fetch price history when token or time range changes
   useEffect(() => {
-    console.log('useEffect triggered:', { selectedToken: selectedToken?.id, timeRange });
     if (selectedToken && timeRange) {
       logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange });
       setIsChartLoading(true);
-      fetchPriceHistory(selectedToken.id, timeRange, (err, data) => {
+      const { chain } = getAvailableChains().find((c) => c.value === selectedChain) || {};
+      const tokenId = chain && selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId]?.contract_address
+        ? `${chains.find((c) => c.value === chain)?.coingeckoId}/${selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId].contract_address}`
+        : selectedToken.id;
+      fetchPriceHistory(tokenId, timeRange, (err, data) => {
         if (err) {
           logger.error('Price history fetch failed:', { error: err.message });
         } else {
@@ -620,18 +599,15 @@ const MarketTab = ({ recaptchaRef }) => {
         }
         setIsChartLoading(false);
       });
-    } else {
-      console.log('useEffect skipped:', { selectedToken: selectedToken?.id, timeRange });
     }
-  }, [selectedToken, timeRange, fetchPriceHistory]);
+  }, [selectedToken, timeRange, selectedChain, fetchPriceHistory, getAvailableChains, chains]);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-plexmono w-[100%] max-w-10xl mx-auto bg-tech p-4 md:p-2 rounded-xl shadow-lg h-[calc(100vh-4rem)]"
+      className="font-jetbrains w-[100%] max-w-10xl mx-auto bg-tech p-4 md:p-2 rounded-xl shadow-lg h-[calc(100vh-4rem)]"
     >
-      {/* Stock button next to Crypto */}
       <div className="flex items-center gap-2 mb-2">
         <h2 className="text-sm font-bold text-white uppercase">Crypto</h2>
         <span>|</span>
@@ -650,7 +626,7 @@ const MarketTab = ({ recaptchaRef }) => {
           {/* Top Left: Token Info */}
           <div className="rounded-lg p-4 backdrop-blur-md border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-5rem)] sm:min-h-[300px] relative">
             {selectedToken ? (
-              <div> {/* Thay <> bằng <div> hoặc bỏ luôn nếu không cần wrapper */}
+              <div>
                 <div className="absolute top-2 right-2 w-32 sm:w-56 z-20" ref={dropdownRef}>
                   <button
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -706,7 +682,6 @@ const MarketTab = ({ recaptchaRef }) => {
                   )}
                 </div>
 
-                {/* Thông tin token */}
                 <div className="mb-3 pt-2 sm:pt-0">
                   <div className="flex items-center">
                     {selectedToken.image && (
@@ -728,9 +703,7 @@ const MarketTab = ({ recaptchaRef }) => {
                   </div>
                 </div>
 
-                {/* Token Info Content */}
                 <div className="flex-1 md:overflow-y-auto sm:overflow-hidden">
-                  {/* Price Section */}
                   <div className="mb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
@@ -891,7 +864,6 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          {/* Top Right: Price Chart */}
           <div className="rounded-xl shadow-lg p-3 backdrop-blur-md border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-4rem)]">
             <div className="flex flex-col sm:flex-row sm:justify-center mb-2 gap-1.5">
               <div className="flex space-x-1.5 justify-center">
@@ -985,13 +957,11 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          {/* Bottom Left: Top 100 Holders */}
           <div className="rounded-xl border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)]">
             {isLoadingOnChain && <LoadingOverlay message="Loading on-chain data..." />}
             {selectedToken ? (
               <div className="flex-1 overflow-y-auto hide-scrollbar rounded-xl">
                 <div className="flex justify-between items-center sticky top-0 bg-tech p-1.5">
-                  {/* Left: Chain Dropdown */}
                   <div className="relative" ref={chainDropdownRef}>
                     <button
                       onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
@@ -1004,12 +974,18 @@ const MarketTab = ({ recaptchaRef }) => {
                           <>
                             <img
                               src={getPlatformImage(selectedChain)}
-                              alt={`${getAvailableChains().find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
+                              alt={`${chains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
                               className="w-4 h-4 mr-2"
-                              onError={(e) => (e.target.src = '/fallback-image.png')}
+                              onError={(e) => {
+                                logger.error('Chain logo failed to load:', {
+                                  chain: selectedChain,
+                                  src: getPlatformImage(selectedChain),
+                                });
+                                e.target.src = '/fallback-image.png';
+                              }}
                             />
                             <span className="text-xs">
-                              {getAvailableChains().find((c) => c.value === selectedChain)?.label || ''}
+                              {chains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
                             </span>
                           </>
                         ) : (
@@ -1023,37 +999,44 @@ const MarketTab = ({ recaptchaRef }) => {
                         {getAvailableChains().length === 0 ? (
                           <div className="px-3 py-1.5 text-gray-400 text-xs">No supported chains available</div>
                         ) : (
-                          getAvailableChains().map((chain) => (
-                            <button
-                              key={chain.value}
-                              onClick={() => {
-                                setSelectedChain(chain.value);
-                                setIsChainDropdownOpen(false);
-                              }}
-                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/15 rounded-md text-white font-medium text-xs"
-                            >
-                              <img
-                                src={getPlatformImage(chain.value)}
-                                alt={`${chain.label} logo`}
-                                className="w-4 h-4 mr-4"
-                                onError={(e) => (e.target.src = '/fallback-image.png')}
-                              />
-                              {chain.label}
-                            </button>
-                          ))
+                          getAvailableChains()
+                            .filter((chain) => process.env.NODE_ENV === 'development' || !chain.testnet)
+                            .map((chain) => (
+                              <button
+                                key={chain.value}
+                                onClick={() => {
+                                  logger.log('Selected chain:', { value: chain.value, label: chain.label, image: chain.image });
+                                  setSelectedChain(chain.value);
+                                  setIsChainDropdownOpen(false);
+                                }}
+                                className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/15 rounded-md text-white font-medium text-xs"
+                              >
+                                <img
+                                  src={chain.image}
+                                  alt={`${chain.label} logo`}
+                                  className="w-4 h-4 mr-4"
+                                  onError={(e) => {
+                                    logger.error('Dropdown chain logo failed to load:', {
+                                      chain: chain.value,
+                                      src: chain.image,
+                                    });
+                                    e.target.src = '/fallback-image.png';
+                                  }}
+                                />
+                                {chain.label}
+                              </button>
+                            ))
                         )}
                       </div>
                     )}
                   </div>
 
-                  {/* Center: Title */}
                   <div className={`flex-grow flex justify-center items-center absolute left-1/2 transform -translate-x-1/2 ${isMobile ? 'top-[1rem]' : ''}`}>
                     <h4 className="text-xs font-bold text-white text-center uppercase">
                       Top 100 {selectedToken.symbol?.toUpperCase()} Holders
                     </h4>
                   </div>
 
-                  {/* Right: Search Button and Input */}
                   <div className="flex items-center gap-1.5">
                     {isWalletSearchOpen && (
                       <input
@@ -1105,7 +1088,7 @@ const MarketTab = ({ recaptchaRef }) => {
                           return (
                             <tr key={index}>
                               <td
-                                className={`border border-gray-500 px-2 py-1 text-gray-200 font-plexmono text-center break-all ${isPublicTreasury ? 'cursor-default' : 'cursor-pointer hover:text-blue-400'}`}
+                                className={`border border-gray-500 px-2 py-1 text-gray-200 font-jetbrains text-center break-all ${isPublicTreasury ? 'cursor-default' : 'cursor-pointer hover:text-blue-400'}`}
                                 {...(!isPublicTreasury && {
                                   onClick: () => handleAddressClick(holder.address),
                                   title: nameTag ? `${holder.address} (${nameTag})` : isLoadingNameTags ? 'Loading Name Tag...' : holder.address,
@@ -1131,7 +1114,7 @@ const MarketTab = ({ recaptchaRef }) => {
                       ? 'Loading top holders data...'
                       : ['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase())
                         ? `No public treasury data available for ${selectedToken.symbol?.toUpperCase()}.`
-                        : `No top holders data available for ${selectedToken.symbol?.toUpperCase()} on ${selectedChain || 'selected chain'}.`}
+                        : `No top holders data available for ${selectedToken.symbol?.toUpperCase()} on ${chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.`}
                   </p>
                 )}
               </div>
@@ -1140,7 +1123,6 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          {/* Bottom Right: Activity */}
           <div className="rounded-xl border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)] sm:min-h-[300px] min-h-[300px] overflow-auto hide-scrollbar">
             {selectedToken ? (
               <>
@@ -1223,7 +1205,6 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          {/* Wallet Balances Modal */}
           <WalletBalances
             balances={walletBalances}
             walletAddress={selectedWallet}
@@ -1233,16 +1214,14 @@ const MarketTab = ({ recaptchaRef }) => {
             isLoadingTransactions={isLoadingTransactions}
             transactionsError={transactionsError}
             fetchTransactions={fetchTransactions}
-            assetPlatforms={assetPlatforms}
-            coingeckoToDuneChainMap={COINGECKO_TO_DUNE_CHAIN_MAP}
-            platformToChainId={PLATFORM_TO_CHAIN_ID}
+            chains={chains}
             setSelectedWallet={setSelectedWallet}
             setWalletBalances={setWalletBalances}
             setTransactions={setTransactions}
             setWalletBalancesError={setWalletBalancesError}
             setTransactionsError={setTransactionsError}
             setWalletAddress={setWalletAddress}
-            nameTags={nameTags} // Truyền nameTags vào WalletBalances
+            nameTags={nameTags}
             onClose={() => {
               setSelectedWallet(null);
               setWalletBalances([]);
@@ -1253,7 +1232,6 @@ const MarketTab = ({ recaptchaRef }) => {
             }}
           />
 
-          {/* Modals for Analysis and Prediction */}
           <Modal
             isOpen={!!analysis}
             onClose={() => {

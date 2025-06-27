@@ -115,7 +115,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
   };
 
   return (
-  <header className="h-[5vh] sm:h-[7vh] bg-gray-900/90 border-b-2 rounded-xl p-3 flex justify-between items-center sticky top-0 z-20 font-courier">
+  <header className="h-[5vh] sm:h-[7vh] bg-gray-900/90 border-b-2 rounded-xl p-3 flex justify-between items-center sticky top-0 z-20 font-jetbrains ">
     <div className="block sm:hidden">
       <button
         onClick={() => setIsMenuOpen(!isMenuOpen)}

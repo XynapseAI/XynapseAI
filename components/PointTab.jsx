@@ -151,7 +151,7 @@ export default function PointTab({ userData, error: propError, loading, handleAn
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
-    className="font-plexmono w-full h-[calc(100vh-4rem)] max-w-screen-md md:max-w-full mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+    className="font-jetbrains w-full h-[calc(100vh-4rem)] max-w-screen-md md:max-w-full mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
   >
     <div className="w-full flex flex-col">
       <div className="rounded-xl border border-gray-400 shadow-card p-4 mb-4 backdrop-blur-md">

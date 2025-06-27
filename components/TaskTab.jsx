@@ -113,7 +113,7 @@ export default function TaskTab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-courier w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+      className="font-jetbrains w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
     >
       <div className="w-full rounded-xl shadow-card p-3 md:p-6 backdrop-blur-md border border-gray-400">
         <h2 className="text-base md:text-lg font-bold text-white uppercase mb-3 md:mb-4">Tasks</h2>

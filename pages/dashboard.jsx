@@ -243,7 +243,7 @@ export default function Dashboard() {
 
   if (status === 'unauthenticated') {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-black text-white overflow-hidden font-courier">
+      <div className="h-screen w-screen flex items-center justify-center bg-black text-white overflow-hidden font-jetbrains">
         <Head>
           <title>Dashboard - Sign In</title>
           <meta name="description" content="Sign in with Twitter to access the dashboard" />

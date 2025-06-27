@@ -35,6 +35,7 @@ module.exports = {
         satoshi: ['Satoshi', 'Inter', 'Roboto', 'sans-serif'],
         mono: ['Courier New', 'monospace'],
         plexmono: ['IBM Plex Mono', 'monospace'],
+        jetbrains: ['JetBrains Mono', 'monospace'], // ✅ Thêm dòng này
       },
       fontSize: {
         xs: '0.75rem',
@@ -93,15 +94,15 @@ module.exports = {
         },
         shufflePosition: {
           '0%': { transform: 'translateX(0)' },
-          '20%': { transform: 'translateX(var(--shuffle-offset-1))' }, // Lần xáo trộn 1
-          '40%': { transform: 'translateX(var(--shuffle-offset-2))' }, // Lần xáo trộn 2
-          '60%': { transform: 'translateX(var(--shuffle-offset-3))' }, // Lần xáo trộn 3
-          '80%': { transform: 'translateX(var(--shuffle-offset-1))' }, // Quay lại lần 1
-          '100%': { transform: 'translateX(0)' }, // Về vị trí gốc
+          '20%': { transform: 'translateX(var(--shuffle-offset-1))' },
+          '40%': { transform: 'translateX(var(--shuffle-offset-2))' },
+          '60%': { transform: 'translateX(var(--shuffle-offset-3))' },
+          '80%': { transform: 'translateX(var(--shuffle-offset-1))' },
+          '100%': { transform: 'translateX(0)' },
         },
       },
       animation: {
-        'matrix-flip': 'matrixFlip 0.4s ease-in-out', 
+        'matrix-flip': 'matrixFlip 0.4s ease-in-out',
         flicker: 'flicker 0.3s linear 3',
         'shuffle-position': 'shufflePosition 0.4s ease-in-out',
       },

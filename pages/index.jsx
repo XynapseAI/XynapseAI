@@ -236,11 +236,6 @@ export default function Home() {
   const row3Logos = partnerLogos.slice(28, 41);
 
   const trustedByLogos = [
-    // Add your new logos here when available, e.g.:
-    // '/trusted/logo1.png',
-    // '/trusted/logo2.png',
-    // ... etc.
-    // For now, using a subset of partnerLogos as placeholders
     '/icons/logo1.png',
     '/icons/logo2.png',
     '/icons/logo3.png',
@@ -270,14 +265,14 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-black text-white overflow-x-hidden font-courier">
+    <div className="min-h-screen flex flex-col bg-black text-white overflow-x-hidden font-jetbrains">
       <Head>
         <title>
           {modalContent === 'privacy'
             ? 'Xynapse Privacy Policy'
             : modalContent === 'terms'
               ? 'Xynapse Terms of Service'
-              : 'Xynapse Analytics - Home'}
+              : 'Xynapse'}
         </title>
         <meta
           name="description"
@@ -298,23 +293,10 @@ export default function Home() {
       {/* Header */}
       <header className="w-full py-1 px-6 flex justify-between items-center bg-tech backdrop-blur-md border-b border-white/10 z-50 sticky top-0">
         <img src="/icons/logo-landscape.png" alt="Xynapse Logo" className="h-16" />
-        {/* <div className="flex items-center gap-6">
-          <nav className="flex gap-4">
-            {['Home', 'Features', 'Blog'].map((item) => (
-              <Link
-                key={item}
-                href={`#${item.toLowerCase()}`}
-                className="text-xs text-white transition-all duration-300 uppercase"
-              >
-                <MatrixHoverEffect text={item} hoverColor="#00BFFF" />
-              </Link>
-            ))}
-          </nav>
-        </div> */}
         <div className="flex items-center gap-2">
           <Link href="https://x.com" className="transition-all duration-300 mr-1 sm:mr-4">
             <img
-              src="/icons/x.png" // Placeholder for Twitter logo
+              src="/icons/x.png"
               alt="Twitter Logo"
               className="h-4 sm:h-6"
             />
@@ -322,13 +304,6 @@ export default function Home() {
           <span>
             <img src="/icons/discord.png" alt="Discord Logo" className="h-5 sm:h-6 opacity-50 mr-1 sm:mr-4" />
           </span>
-          {/* <Link href="https://discord.com" className="transition-all duration-300 mr-4">
-            <img
-              src="/icons/discord.png" // Placeholder for Twitter logo
-              alt="Twitter Logo"
-              className="h-6"
-            />
-          </Link> */}
           <Link
             href="/dashboard"
             className="px-2 py-1 sm:px-4 sm:py-2 text-white text-xs sm:text-sm border border-2 rounded-lg font-medium transition-all duration-300"
@@ -560,20 +535,32 @@ export default function Home() {
       {isModalOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
-          onClick={closeModal} // NEW: Close modal on overlay click
+          onClick={closeModal}
         >
           <div
-            className="bg-tech backdrop-blur-md border border-white/10 rounded-xl p-8 w-full max-w-7xl h-[90vh] overflow-y-auto custom-scrollbar relative"
-            onClick={(e) => e.stopPropagation()} // NEW: Prevent closing when clicking content
+            className="bg-tech backdrop-blur-md border border-white/10 rounded-xl w-full max-w-7xl h-[90vh] relative flex flex-col"
+            onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={closeModal}
-              aria-label="Close modal"
-              className="absolute top-4 right-4 text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
-            >
-              ✕
-            </button>
-            <div className="prose prose-invert max-w-none">
+            {/* Fixed Header and Close Button */}
+            <div className="sticky top-0 z-10 backdrop-blur-md border-b border-white/10 p-6 flex justify-between items-center">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white uppercase">
+                {modalContent === 'privacy'
+                  ? 'Xynapse Privacy Policy'
+                  : 'Xynapse Terms of Service'}
+                <span className="block text-sm sm:text-base text-gray-400 mt-1">
+                  Effective Date: June 21, 2025
+                </span>
+              </h1>
+              <button
+                onClick={closeModal}
+                aria-label="Close modal"
+                className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
+              >
+                ✕
+              </button>
+            </div>
+            {/* Scrollable Content */}
+            <div className="text-xs flex-1 overflow-y-auto custom-scrollbar p-6 prose prose-invert max-w-none">
               {modalContent === 'privacy' ? <PrivacyPolicyContent /> : <TermsOfServiceContent />}
             </div>
           </div>
@@ -621,12 +608,6 @@ export default function Home() {
             <span>
               <img src="/icons/discord.png" alt="Discord Logo" className="h-7 opacity-50" />
             </span>
-            {/* <Link href="https://discord.com">
-              <img src="/discord.png" alt="Discord" className="h-6" />
-            </Link> */}
-            {/* <Link href="https://docs.com">
-              <img src="/docs.png" alt="Blog" className="h-6" />
-            </Link> */}
           </div>
           <div className="flex gap-4 mt-4">
             <button
