@@ -606,7 +606,7 @@ const MarketTab = ({ recaptchaRef }) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-jetbrains w-[100%] max-w-10xl mx-auto bg-tech p-4 md:p-2 rounded-xl shadow-lg h-[calc(100vh-4rem)]"
+      className="font-jetbrains w-[100%] max-w-10xl mx-auto bg-tech mt-8 md:mt-14 p-4 md:p-2 rounded-xl shadow-lg h-[calc(100vh)]"
     >
       <div className="flex items-center gap-2 mb-2">
         <h2 className="text-sm font-bold text-white uppercase">Crypto</h2>
@@ -624,7 +624,7 @@ const MarketTab = ({ recaptchaRef }) => {
       {!loading && !error && tokens.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 grid-rows-[1fr_1fr] gap-3 h-[calc(100%-2.5rem)] md:overflow-hidden overflow-y-auto hide-scrollbar">
           {/* Top Left: Token Info */}
-          <div className="rounded-lg p-4 backdrop-blur-md border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-5rem)] sm:min-h-[300px] relative">
+          <div className="rounded-lg p-4 backdrop-blur-md border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-4rem)] min-h-[550px] sm:min-h-[300px] relative">
             {selectedToken ? (
               <div>
                 <div className="absolute top-2 right-2 w-32 sm:w-56 z-20" ref={dropdownRef}>
@@ -864,7 +864,7 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          <div className="rounded-xl shadow-lg p-3 backdrop-blur-md border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-4rem)]">
+          <div className="rounded-lg shadow-lg p-3 backdrop-blur-md border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-4rem)]">
             <div className="flex flex-col sm:flex-row sm:justify-center mb-2 gap-1.5">
               <div className="flex space-x-1.5 justify-center">
                 <button
@@ -957,15 +957,15 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          <div className="rounded-xl border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)]">
+          <div className="rounded-lg border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(70vh)] mb-2 md:mb-14">
             {isLoadingOnChain && <LoadingOverlay message="Loading on-chain data..." />}
             {selectedToken ? (
               <div className="flex-1 overflow-y-auto hide-scrollbar rounded-xl">
-                <div className="flex justify-between items-center sticky top-0 bg-tech p-1.5">
+                <div className="h-[10vh] md:h-[6vh] flex justify-between items-center sticky top-0 p-1.5 backdrop-blur-md">
                   <div className="relative" ref={chainDropdownRef}>
                     <button
                       onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-                      className={`bg-white/10 text-white p-1.5 rounded-lg border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300 flex items-center justify-center ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`bg-white/10 text-white p-1.5 mt-6 md:mt-0 rounded-lg border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300 flex items-center justify-center ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
                       disabled={['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) || !selectedToken}
                       aria-label="Select chain"
                     >
@@ -1031,20 +1031,20 @@ const MarketTab = ({ recaptchaRef }) => {
                     )}
                   </div>
 
-                  <div className={`flex-grow flex justify-center items-center absolute left-1/2 transform -translate-x-1/2 ${isMobile ? 'top-[1rem]' : ''}`}>
+                  <div className={`flex-grow flex justify-center items-center absolute left-1/2 transform -translate-x-1/2 ${isMobile ? 'top-[0.5rem]' : ''}`}>
                     <h4 className="text-xs font-bold text-white text-center uppercase">
                       Top 100 {selectedToken.symbol?.toUpperCase()} Holders
                     </h4>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 mt-6 md:mt-0">
                     {isWalletSearchOpen && (
                       <input
                         type="text"
                         placeholder="0x..."
                         value={walletAddress}
                         onChange={(e) => setWalletAddress(e.target.value)}
-                        className="bg-gray-700/80 text-white px-2 py-1 rounded-lg text-xs w-32 sm:w-36 border border-white/20 backdrop-blur-md focus:outline-none order-1"
+                        className="text-white px-2 py-1 rounded-lg text-xs w-32 sm:w-36 border border-white/20 backdrop-blur-md focus:outline-none order-1"
                         aria-label="Wallet address"
                         onKeyPress={(e) => {
                           if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -1068,7 +1068,7 @@ const MarketTab = ({ recaptchaRef }) => {
 
                 {onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                   <div className="overflow-x-auto md:max-h-[calc(100%-3rem)] overflow-y-auto hide-scrollbar">
-                    <table className="w-full border border-gray-500 table-auto text-xs">
+                    <table className="w-full border border-gray-500 table-auto text-[10px] md:text-xs">
                       <thead>
                         <tr>
                           <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center">
@@ -1123,10 +1123,10 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          <div className="rounded-xl border border-gray-500 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-4rem)] sm:min-h-[300px] min-h-[300px] overflow-auto hide-scrollbar">
+          <div className="rounded-lg border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-3rem)] sm:min-h-[300px] min-h-[300px] overflow-auto hide-scrollbar mb-12">
             {selectedToken ? (
               <>
-                <h3 className={`font-bold text-white text-center bg-tech uppercase p-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Market Activity</h3>
+                <h3 className={`font-bold text-white text-center backdrop-blur-md uppercase p-3 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Market Activity</h3>
                 {tickerError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-xs'}`}>{tickerError}</p>}
                 {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
                   <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">

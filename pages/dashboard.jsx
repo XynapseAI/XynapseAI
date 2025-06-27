@@ -1,4 +1,3 @@
-// pages/dashboard.jsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -247,6 +246,7 @@ export default function Dashboard() {
         <Head>
           <title>Dashboard - Sign In</title>
           <meta name="description" content="Sign in with Twitter to access the dashboard" />
+          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
           <link
             href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap"
             rel="stylesheet"
@@ -266,13 +266,15 @@ export default function Dashboard() {
             <MatrixHoverEffect text="Sign In with Twitter" hoverColor="#00BFFF" />
           </button>
         </div>
-
         <style jsx>{`
           .shadow-card {
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
           }
           .bg-tech {
             background: linear-gradient(135deg, rgba(17, 24, 39, 0.8), rgba(0, 0, 0, 0.9));
+          }
+          .grecaptcha-badge {
+            visibility: hidden !important;
           }
         `}</style>
       </div>
@@ -284,6 +286,7 @@ export default function Dashboard() {
       <Head>
         <title>Dashboard</title>
         <meta name="description" content="Manage wallet, points, and interactions" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
       </Head>
       <Header activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} />
       <main className="flex-1 flex items-center justify-center overflow-hidden">
@@ -327,6 +330,21 @@ export default function Dashboard() {
         size="invisible"
         badge="bottomright"
       />
+      <p className="text-[9px] text-gray-600 ml-2">
+        Protected by reCAPTCHA. See Google’s{' '}
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
+          Privacy
+        </a>{' '}
+        &{' '}
+        <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
+          Terms
+        </a>.
+      </p>
+      <style jsx>{`
+        .grecaptcha-badge {
+          visibility: hidden !important;
+        }
+      `}</style>
     </div>
   );
 }

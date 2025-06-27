@@ -30,8 +30,6 @@ export default function AITab({ recaptchaRef }) {
   const menuRef = useRef(null);
   const [isMobile, setIsMobile] = useState(false);
 
-
-
   const models = ['Grok 3', 'GPT 4o', 'Gemini-2.5'];
   const maxDailyInteractions = 5;
   const maxTotalDailyChats = 50;
@@ -289,7 +287,7 @@ export default function AITab({ recaptchaRef }) {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => document.addEventListener('mousedown', handleClickOutside);
   }, [isModelMenuOpen]);
 
   const markdownComponents = {
@@ -347,11 +345,11 @@ export default function AITab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`font-jetbrains  w-full max-w-screen-md md:max-w-full ${isMobile ? 'h-[calc(100vh-4rem)]' : 'h-[calc(100vh-2rem)]'} mx-auto p-1 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar flex flex-col`}
+      className={`font-jetbrains w-full max-w-screen-md md:max-w-full ${isMobile ? 'h-[calc(100vh-4rem)]' : 'h-[calc(100vh-2rem)]'} mx-auto p-1 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar flex flex-col`}
     >
       {/* Header */}
       <div className="p-2 bg-tech border-b border-white/10 flex justify-between items-center shrink-0">
-        <span className="text-xs md:text-xs text-gray-400">
+        <span className="text-[10px] md:text-xs text-gray-400">
           Daily Points: {dailyInteractions}/{maxDailyInteractions}
           {totalDailyChats >= maxTotalDailyChats && ' (Limit)'}
         </span>
@@ -359,7 +357,7 @@ export default function AITab({ recaptchaRef }) {
           <button
             ref={toggleButtonRef}
             onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
-            className="px-2 py-1 md:px-2 md:py-1 rounded-lg text-xs md:text-xs font-medium transition-all duration-300 border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/15 hover:shadow-glow-neon"
+            className="px-2 py-1 md:px-2 md:py-1 rounded-lg text-[10px] md:text-[10px] font-medium transition-all duration-300 border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/15 hover:shadow-glow-neon"
           >
             {selectedModel}
           </button>
@@ -370,7 +368,7 @@ export default function AITab({ recaptchaRef }) {
               animate={{ opacity: 1, y: 0 }}
               className="absolute top-[calc(100%+0.25rem)] bg-gray-800/95 rounded-lg shadow-lg p-2 z-20 backdrop-blur-md border border-white/20 w-32"
               style={{
-                left: '-40%',
+                left: '-60%',
                 transform: 'translateX(-50%)',
               }}
             >
@@ -381,9 +379,9 @@ export default function AITab({ recaptchaRef }) {
                     setSelectedModel(model);
                     setIsModelMenuOpen(false);
                   }}
-                  className={`w-full text-center px-1 py-1/2 rounded-md text-xs md:text-xs transition-all duration-300 backdrop-blur-md ${selectedModel === model
-                      ? 'bg-white text-black'
-                      : 'text-white hover:bg-white/15 hover:shadow-glow-neon'
+                  className={`w-full text-center px-1 py-1/2 rounded-xs text-[10px] md:text-xs transition-all duration-300 backdrop-blur-md ${selectedModel === model
+                    ? 'bg-white text-black'
+                    : 'text-white hover:bg-white/15 hover:shadow-glow-neon'
                     }`}
                 >
                   {model}
@@ -394,9 +392,9 @@ export default function AITab({ recaptchaRef }) {
         </div>
         <button
           onClick={() => setUseDeepSearch(!useDeepSearch)}
-          className={`px-2 py-1 md:px-1 md:py-1/2 rounded-lg text-xs md:text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${useDeepSearch
-              ? 'bg-white text-black'
-              : ' text-white hover:shadow-glow-neon'
+          className={`px-2 py-1 md:px-1 md:py-1/2 rounded-lg text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${useDeepSearch
+            ? 'bg-white text-black'
+            : ' text-white hover:shadow-glow-neon'
             } flex items-center`}
           title="Toggle real-time web search"
         >
@@ -417,7 +415,7 @@ export default function AITab({ recaptchaRef }) {
           </div>
         )}
         {chatHistory.length === 0 && !isLoading && (
-          <div className="text-xs md:text-xs text-gray-600 text-center">
+          <div className="text-[10px] md:text-xs text-gray-600 text-center">
             Start a conversation by entering a prompt below.
           </div>
         )}
@@ -427,7 +425,7 @@ export default function AITab({ recaptchaRef }) {
             className={`mb-2 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[85%] md:max-w-[70%] p-2 md:p-3 rounded-lg text-xs md:text-xs overflow-y-auto custom-scrollbar ${message.role === 'user'
+              className={`max-w-[85%] md:max-w-[70%] px-3 md:px-3 rounded-lg text-[10px] md:text-xs overflow-y-auto custom-scrollbar ${message.role === 'user'
                 ? 'bg-blue-500/20 text-white'
                 : 'text-white backdrop-blur-md'
                 } relative group`}
@@ -505,20 +503,26 @@ export default function AITab({ recaptchaRef }) {
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Enter your prompt..."
-            className="flex-1 px-2 py-2 md:px-4 md:py-3 bg-gray-900/95 text-white rounded-lg text-xs md:text-xs placeholder-gray-600 focus:outline-none focus:ring-1 backdrop-blur-md border border-gray-400 resize-none whitespace-pre-wrap overflow-y-auto custom-scrollbar"
+            className="flex-1 px-2 py-1 md:px-3 md:py-2 bg-gray-900/95 text-white rounded-lg text-xs placeholder:text-xs placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-neon-blue/50 backdrop-blur-md border border-gray-400 resize-none whitespace-pre-wrap overflow-y-auto custom-scrollbar"
             rows={1}
             disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
             ref={textareaRef}
-            style={{ minHeight: '32px', maxHeight: '120px', lineHeight: '1.4' , touchAction: 'manipulation'}}
+            style={{
+              minHeight: '24px',
+              maxHeight: '120px',
+              lineHeight: '1.4',
+              touchAction: 'manipulation',
+              WebkitTextSizeAdjust: '100%', // Prevent text size adjustment on mobile
+            }}
           />
           <button
             type="submit"
-            className={`px-3 py-2 md:px-4 md:py-3 rounded-lg text-xs md:text-xs font-medium transition-all duration-300 border border-gray-400 backdrop-blur-md flex items-center justify-center ${isLoading || totalDailyChats >= maxTotalDailyChats
-              ? 'bg-gray-600 text-gray-200 cursor-not-allowed'
-              : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
+            className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-[10px] md:text-xs font-medium transition-all duration-300 border border-gray-400 backdrop-blur-md flex items-center justify-center ${isLoading || totalDailyChats >= maxTotalDailyChats
+                ? 'bg-gray-600 text-gray-200 cursor-not-allowed'
+                : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
               }`}
             disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
-            style={{ minHeight: '22px', md: { minHeight: '38px' } }}
+            style={{ minHeight: '20px' }}
           >
             {isLoading ? '...' : 'Send'}
           </button>
@@ -528,44 +532,44 @@ export default function AITab({ recaptchaRef }) {
 
       {/* Wave Loading Effect */}
       <style jsx>{`
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .wave-loading {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+        }
+        .dot {
+          display: inline-block;
+          width: 5px;
+          height: 5px;
+          background-color: #00bfff;
+          border-radius: 50%;
+          animation: wave 1s ease-in-out infinite;
+        }
+        .dot:nth-child(2) {
+          animation-delay: 0.2s;
+        }
+        .dot:nth-child(3) {
+          animation-delay: 0.4s;
+        }
+        @keyframes wave {
+          0%, 100% {
+            transform: translateY(0);
           }
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 2px;
+          50% {
+            transform: translateY(-5px);
           }
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-          }
-          .wave-loading {
-            display: flex;
-            align-items: center;
-            gap: 3px;
-          }
-          .dot {
-            display: inline-block;
-            width: 5px;
-            height: 5px;
-            background-color: #00bfff;
-            border-radius: 50%;
-            animation: wave 1s ease-in-out infinite;
-          }
-          .dot:nth-child(2) {
-            animation-delay: 0.2s;
-          }
-          .dot:nth-child(3) {
-            animation-delay: 0.4s;
-          }
-          @keyframes wave {
-            0%, 100% {
-              transform: translateY(0);
-            }
-            50% {
-              transform: translateY(-5px);
-            }
-          }
-        `}</style>
+        }
+      `}</style>
     </motion.div>
   );
 }

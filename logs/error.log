@@ -3640,3 +3640,5 @@
 {"data":{"error":"Incorrect path. Please check https://docs.coingecko.com/"},"level":"error","message":"Error fetching historical data: Request failed with status code 404","status":404,"timestamp":"2025-06-27T03:03:41.206Z"}
 {"data":{"error":"Incorrect path. Please check https://docs.coingecko.com/"},"level":"error","message":"Error fetching historical data: Request failed with status code 404","status":404,"timestamp":"2025-06-27T03:25:17.606Z"}
 {"data":{"error":"Incorrect path. Please check https://docs.coingecko.com/"},"level":"error","message":"Error fetching historical data: Request failed with status code 404","status":404,"timestamp":"2025-06-27T03:31:47.392Z"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-27T07:19:48.316Z"}
+{"detail":"Not signed in","level":"error","message":"Lỗi lấy tương tác AI:"}
