@@ -228,6 +228,14 @@ th, td {
   min-width: 100px; /* Adjust as needed */
 }
 
+@keyframes flash {
+  0% { background-color: rgba(255, 255, 255, 0.2); }
+  100% { background-color: transparent; }
+}
+.animate-flash {
+  animation: flash 1s ease-out;
+}
+
 @media (max-width: 640px) {
   html,
   body,

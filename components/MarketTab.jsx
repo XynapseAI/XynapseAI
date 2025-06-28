@@ -24,6 +24,13 @@ const logger = {
   },
 };
 
+const truncateAddress = (address, nameTags = {}) => {
+  if (!address || address === 'None' || typeof address !== 'string') return 'N/A';
+  const normalizedAddress = address.toLowerCase();
+  const nameTag = nameTags[normalizedAddress]?.nameTag;
+  return nameTag || `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
 // Chain explorer mapping
 const CHAIN_EXPLORER_MAP = {
   abstract: { baseUrl: 'https://explorer.abstractscan.io', supportsTx: true, supportsAddress: true },
@@ -263,19 +270,14 @@ const WalletBalances = ({
     return (value / 1e18).toFixed(6);
   };
 
-  const truncateAddress = (address) => {
-    if (!address || address === 'None') return address;
-    const normalizedAddress = address.toLowerCase();
-    const nameTag = nameTags[normalizedAddress]?.nameTag;
-    return nameTag || `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
   const getPlatformImage = (chainValue) => {
     const chain = chains.find((c) => c.value === chainValue);
     const imageUrl = chain?.image || '/fallback-image.png';
     logger.log('getPlatformImage:', { chainValue, imageUrl, found: !!chain });
     return imageUrl;
   };
+
+
 
   const overlayContent = (
     <div className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains min-h-screen">
@@ -285,7 +287,7 @@ const WalletBalances = ({
       >
         <div className="flex justify-between items-center mb-4 uppercase">
           <h4 className="text-xs sm:text-sm font-bold text-white">
-            Wallet Details: {truncateAddress(walletAddress)}
+            Wallet Details: {truncateAddress(walletAddress, nameTags)}
           </h4>
           <button
             onClick={onClose}
@@ -442,7 +444,7 @@ const WalletBalances = ({
                                   className="text-blue-400 hover:underline"
                                   title={tx.hash}
                                 >
-                                  {truncateAddress(tx.hash)}
+                                  {truncateAddress(tx.hash, nameTags)}
                                 </a>
                               </div>
                             </div>
@@ -456,7 +458,7 @@ const WalletBalances = ({
                                 className="text-blue-400 hover:underline"
                                 title={tx.from}
                               >
-                                {fromNameTag || truncateAddress(tx.from)}
+                                {fromNameTag || truncateAddress(tx.from, nameTags)}
                               </a>
                               <span className="sm:mx-1">→</span>
                               <a
@@ -466,7 +468,7 @@ const WalletBalances = ({
                                 className="text-blue-400 hover:underline"
                                 title={tx.to}
                               >
-                                {toNameTag || truncateAddress(tx.to)}
+                                {toNameTag || truncateAddress(tx.to, nameTags)}
                               </a>
                             </div>
                           </td>
@@ -575,15 +577,22 @@ const MarketTab = ({ recaptchaRef }) => {
     isLoadingDex,
     dexError,
     fetchDexData,
+    dexRequestCount,
+    lastDexRequestTime,
+    getDefaultChainAndAddress,
+    lastDexFetchTime,
   } = useMarketTabLogic({ recaptchaRef, toast });
 
   const dropdownRef = useRef(null);
   const chainDropdownRef = useRef(null);
   const searchInputRef = useRef(null);
+  const prevTradesRef = useRef([]);
   const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
   const [isChartLoading, setIsChartLoading] = useState(false);
   const [activeMarketTab, setActiveMarketTab] = useState('cex');
   const [showTrades, setShowTrades] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [selectedPool, setSelectedPool] = useState(null);
 
   const getPlatformImage = (chainValue) => {
     const chain = chains.find((c) => c.value === chainValue);
@@ -592,7 +601,80 @@ const MarketTab = ({ recaptchaRef }) => {
     return imageUrl;
   };
 
-  const [isMobile, setIsMobile] = useState(false);
+
+
+  const handleDexTabClick = () => {
+    if (dexRequestCount >= 5 && Date.now() - lastDexRequestTime < 60 * 1000) {
+      toast.error('Too many DEX requests. Please wait a minute and try again.', {
+        position: 'top-center',
+        autoClose: 5000,
+      });
+      return;
+    }
+    setActiveMarketTab('dex');
+    setShowTrades(false);
+    if (selectedToken) {
+      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+      if (chain && tokenAddress) {
+        fetchDexData(chain, tokenAddress);
+      }
+    }
+  };
+
+  // Define handlePoolClick
+  const handlePoolClick = (poolAddress) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('handlePoolClick called with poolAddress:', poolAddress);
+      console.log('dexData.pools:', dexData.pools);
+      console.log('dexData.poolTokens:', dexData.poolTokens);
+    }
+    const pool = dexData.pools.find((p) => p.attributes.address === poolAddress);
+    if (pool) {
+      setSelectedPool({
+        address: poolAddress,
+        tokens: dexData.poolTokens[poolAddress] || {},
+        name: pool.attributes.name,
+      });
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Pool not found for address:', poolAddress);
+      }
+      toast.error('Pool data not available.', { position: 'top-center', autoClose: 3000 });
+    }
+  };
+
+  // Modal content for pool details
+  const renderPoolModalContent = () => {
+    if (!selectedPool || !selectedPool.tokens) return 'No pool data available.';
+
+    const tokens = Object.values(selectedPool.tokens);
+    if (tokens.length < 2) return 'Insufficient token data for this pool.';
+
+    const [token1, token2] = tokens;
+    return `
+## Pool Details: ${token1.symbol}/${token2.symbol}
+
+### ${token1.symbol}
+- **Transaction Score**: ${token1.transaction_score || 'N/A'}
+- **Holders**:
+  - **Total Count**: ${token1.holders?.count?.toLocaleString() || 'N/A'}
+  - **Top 10 Holders**: ${token1.holders?.distribution_percentage?.top_10 || 'N/A'}%
+  - **11-30 Holders**: ${token1.holders?.distribution_percentage?.['11_30'] || 'N/A'}%
+  - **31-50 Holders**: ${token1.holders?.distribution_percentage?.['31_50'] || 'N/A'}%
+  - **Rest**: ${token1.holders?.distribution_percentage?.rest || 'N/A'}%
+  - **Last Updated**: ${token1.holders?.last_updated ? new Date(token1.holders.last_updated).toLocaleString('en-US') : 'N/A'}
+
+### ${token2.symbol}
+- **Transaction Score**: ${token2.transaction_score || 'N/A'}
+- **Holders**:
+  - **Total Count**: ${token2.holders?.count?.toLocaleString() || 'N/A'}
+  - **Top 10 Holders**: ${token2.holders?.distribution_percentage?.top_10 || 'N/A'}%
+  - **11-30 Holders**: ${token2.holders?.distribution_percentage?.['11_30'] || 'N/A'}%
+  - **31-50 Holders**: ${token2.holders?.distribution_percentage?.['31_50'] || 'N/A'}%
+  - **Rest**: ${token2.holders?.distribution_percentage?.rest || 'N/A'}%
+  - **Last Updated**: ${token2.holders?.last_updated ? new Date(token2.holders.last_updated).toLocaleString('en-US') : 'N/A'}
+    `;
+  };
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 640);
@@ -600,6 +682,10 @@ const MarketTab = ({ recaptchaRef }) => {
     window.addEventListener('resize', checkMobile);
     return () => window.addEventListener('resize', checkMobile);
   }, []);
+
+  useEffect(() => {
+    prevTradesRef.current = dexData.trades;
+  }, [dexData.trades]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -729,7 +815,7 @@ const MarketTab = ({ recaptchaRef }) => {
             placeholder="0x..."
             value={walletAddress}
             onChange={(e) => setWalletAddress(e.target.value)}
-            className="bg-gray-400 text-white px-2 py-1 rounded-lg text-xs w-32 sm:w-36 border border-white/20 backdrop-blur-md focus:outline-none pr-8"
+            className="bg-gray-800/50 text-white px-2 py-1 rounded-lg text-xs w-32 sm:w-36 border border-white/10 backdrop-blur-md focus:outline-none pr-8"
             aria-label="Wallet address"
             onKeyPress={(e) => {
               if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -743,7 +829,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 handleWalletSearch();
               }
             }}
-            className="absolute right-1 text-white p-1.5 transition-all duration-300"
+            className="absolute right-1 text-white p-1.5 transition-all duration-300 bg-gray-800/50 backdrop-blur-md rounded-r-lg"
             aria-label="Search wallet"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1128,13 +1214,13 @@ const MarketTab = ({ recaptchaRef }) => {
 
                 {onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                   <div className="overflow-x-auto md:max-h-[calc(100%-3rem)] overflow-y-auto hide-scrollbar">
-                    <table className="w-full border border-gray-500 table-auto text-[10px] md:text-xs">
+                    <table className={`w-full table-fixed ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
                       <thead>
-                        <tr>
-                          <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center">
+                        <tr className="bg-gray-700/50 backdrop-blur-sm">
+                          <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[160px] min-w-[160px] max-w-[160px]' : 'w-[250px] min-w-[250px] max-w-[250px]'}`}>
                             {['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'Company' : 'Address'}
                           </th>
-                          <th className="border border-gray-500 px-2 py-1 bg-gray-700 text-white text-center">Balance</th>
+                          <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>Balance</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1144,23 +1230,28 @@ const MarketTab = ({ recaptchaRef }) => {
                           const nameTag = nameTags[address]?.nameTag;
                           const displayAddress = isPublicTreasury
                             ? holder.address
-                            : `${holder.address.slice(0, 6)}...${holder.address.slice(-4)}${nameTag ? ` (${nameTag})` : isLoadingNameTags ? ' (Loading...)' : ''}`;
+                            : `${truncateAddress(holder.address)}${nameTag ? ` (${nameTag})` : isLoadingNameTags ? ' (Loading...)' : ''}`;
                           return (
-                            <tr key={index}>
+                            <tr
+                              key={index}
+                              className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
+                            >
                               <td
-                                className={`border border-gray-500 px-2 py-1 text-gray-200 font-jetbrains text-center break-all ${isPublicTreasury ? 'cursor-default' : 'cursor-pointer hover:text-blue-400'}`}
+                                className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[160px] min-w-[160px] max-w-[160px]' : 'w-[250px] min-w-[250px] max-w-[250px]'}`}
                                 {...(!isPublicTreasury && {
                                   onClick: () => handleAddressClick(holder.address),
                                   title: nameTag ? `${holder.address} (${nameTag})` : isLoadingNameTags ? 'Loading Name Tag...' : holder.address,
                                 })}
                               >
-                                {displayAddress}
+                                <span className="truncate">{displayAddress}</span>
                               </td>
-                              <td className="border border-gray-500 px-2 py-1 text-gray-200 text-center">
-                                {holder.balance.toLocaleString('en-US', {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
+                              <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
+                                <span className="truncate">
+                                  {holder.balance.toLocaleString('en-US', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </span>
                               </td>
                             </tr>
                           );
@@ -1183,30 +1274,35 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          <div className="rounded-lg border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-3rem)] sm:min-h-[300px] min-h-[300px] overflow-auto hide-scrollbar mb-12">
+          <div className="rounded-lg border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(70vh-3rem)] sm:min-h-[300px] min-h-[500px] overflow-auto hide-scrollbar mb-12">
             {selectedToken ? (
               <>
-                <div className={`flex items-center gap-2 p-3 backdrop-blur-md border-b border-gray-500/30 ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>
-                  <div className="flex gap-2">
+                <div className={`flex justify-between items-center p-1.5 text-[9px] text-gray-500 ${isMobile ? 'text-[8px]' : ''}`}>
+                  <div className="relative flex items-center bg-gray-800/50 backdrop-blur-md rounded-lg overflow-hidden border border-white/10 m-2">
                     <button
                       onClick={() => {
                         setActiveMarketTab('cex');
-                        setShowTrades(false); // Reset trades view when switching tabs
+                        setShowTrades(false);
                       }}
-                      className={`px-2 py-1 rounded-lg font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeMarketTab === 'cex' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
+                      className={`relative px-2 py-1 text-[10px] font-medium transition-all duration-300 ${activeMarketTab === 'cex' ? 'bg-white text-black' : 'text-white hover:bg-white/15'} z-10`}
+                      style={{ clipPath: 'polygon(0 0, 80% 0, 100% 100%, 0% 100%)' }}
                     >
                       CEX
                     </button>
                     <button
-                      onClick={() => {
-                        setActiveMarketTab('dex');
-                        setShowTrades(false); // Reset trades view when switching tabs
-                      }}
-                      className={`px-2 py-1 rounded-lg font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeMarketTab === 'dex' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
+                      onClick={handleDexTabClick}
+                      className={`relative px-2 py-1 text-[10px] font-medium transition-all duration-300 ${activeMarketTab === 'dex' ? 'bg-white text-black' : 'text-white hover:bg-white/15'} z-10`}
+                      style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 20% 100%)' }}
                     >
                       DEX
                     </button>
                   </div>
+                  <span>
+                    Last Updated:{' '}
+                    {lastDexFetchTime
+                      ? new Date(lastDexFetchTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                      : 'N/A'}
+                  </span>
                 </div>
 
                 {activeMarketTab === 'cex' ? (
@@ -1214,26 +1310,29 @@ const MarketTab = ({ recaptchaRef }) => {
                     {tickerError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-xs'}`}>{tickerError}</p>}
                     {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
                       <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
-                        <table className={`w-full border border-gray-500 table-auto ${isMobile ? 'text-[9px]' : 'text-xs'}`}>
+                        <table className={`w-full table-fixed ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
                           <thead>
-                            <tr>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Market</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[40px]' : 'min-w-[60px]'}`}>Pair</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>Price</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Volume</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Last Traded</th>
+                            <tr className="bg-gray-700/50 backdrop-blur-sm">
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Market</th>
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[40px] min-w-[40px] max-w-[40px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>Pair</th>
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[50px] min-w-[50px] max-w-[50px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>Price</th>
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Volume</th>
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Last Traded</th>
                             </tr>
                           </thead>
                           <tbody>
                             {tickerData.slice(0, 20).map((ticker, index) => (
-                              <tr key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}>
-                                <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                  <div className="flex items-center justify-center gap-0.5">
+                              <tr
+                                key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}
+                                className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
+                              >
+                                <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                  <div className="flex items-center gap-0.5">
                                     {ticker.market.logo && (
                                       <img
                                         src={ticker.market.logo}
                                         alt={`${ticker.market.name} logo`}
-                                        className={` ${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
+                                        className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} flex-shrink-0`}
                                         onError={(e) => (e.target.src = '/fallback-image.png')}
                                       />
                                     )}
@@ -1248,28 +1347,34 @@ const MarketTab = ({ recaptchaRef }) => {
                                     </a>
                                   </div>
                                 </td>
-                                <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[40px]' : 'min-w-[60px]'}`}>
-                                  {ticker.base}/{ticker.target}
+                                <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[40px] min-w-[40px] max-w-[40px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
+                                  <span className="truncate">{ticker.base}/{ticker.target}</span>
                                 </td>
-                                <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[50px]' : 'min-w-[80px]'}`}>
-                                  ${ticker.converted_last.usd?.toLocaleString('en-US', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  }) || 'N/A'}
+                                <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[50px] min-w-[50px] max-w-[50px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
+                                  <span className="truncate">
+                                    ${ticker.converted_last.usd?.toLocaleString('en-US', {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    }) || 'N/A'}
+                                  </span>
                                 </td>
-                                <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                  ${ticker.converted_volume.usd?.toLocaleString('en-US', {
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0,
-                                  }) || 'N/A'}
+                                <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                  <span className="truncate">
+                                    ${ticker.converted_volume.usd?.toLocaleString('en-US', {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 0,
+                                    }) || 'N/A'}
+                                  </span>
                                 </td>
-                                <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                  {ticker.last_traded_at
-                                    ? new Date(ticker.last_traded_at).toLocaleTimeString('en-US', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    })
-                                    : 'N/A'}
+                                <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                  <span className="truncate">
+                                    {ticker.last_traded_at
+                                      ? new Date(ticker.last_traded_at).toLocaleTimeString('en-US', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })
+                                      : 'N/A'}
+                                  </span>
                                 </td>
                               </tr>
                             ))}
@@ -1290,10 +1395,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     {dexError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>{dexError}</p>}
                     {!isLoadingDex && !dexError && dexData.trades.length > 0 ? (
                       <div className="flex-1 overflow-y-auto hide-scrollbar">
-                        <div className={`flex justify-between items-center p-1.5 text-[9px] text-gray-400 ${isMobile ? 'text-[8px]' : ''}`}>
-                          <span>Last Updated: {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                        </div>
-                        <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
+                        <div className="overflow-x-auto md:max-h-[calc(100%)] md:overflow-y-auto hide-scrollbar">
                           <table className={`w-full table-fixed ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
                             <thead>
                               <tr className="bg-gray-700/50 backdrop-blur-sm">
@@ -1302,14 +1404,24 @@ const MarketTab = ({ recaptchaRef }) => {
                                 <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>To Address</th>
                                 <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[90px] min-w-[90px] max-w-[90px]' : 'w-[90px] min-w-[90px] max-w-[90px]'}`}>Volume (USD)</th>
                                 <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Value</th>
-                                <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Tx/Time</th>
+                                <th className={`px-1.5 py-1 text-white text-center font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Tx/Time</th>
                                 <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[90px] min-w-[90px] max-w-[90px]' : 'w-[90px] min-w-[90px] max-w-[90px]'}`}>Pool</th>
                               </tr>
                             </thead>
                             <tbody>
                               {dexData.trades.slice(0, 50).map((trade, index) => {
+                                if (process.env.NODE_ENV === 'development') {
+                                  console.log('Trade pool_address:', trade.pool_address);
+                                  console.log('dexData.poolTokens keys:', Object.keys(dexData.poolTokens));
+                                }
+
                                 const { txUrl } = getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address);
                                 const pool = dexData.pools.find((p) => p.attributes.address === trade.pool_address);
+                                const poolTokens = trade.pool_address && typeof trade.pool_address === 'string' ? dexData.poolTokens[trade.pool_address] || {} : {};
+                                const tokenAddresses = Object.keys(poolTokens);
+                                const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null;
+                                const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null;
+
                                 const truncateAddress = (address) => {
                                   if (!address || typeof address !== 'string') return 'N/A';
                                   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -1319,6 +1431,15 @@ const MarketTab = ({ recaptchaRef }) => {
                                   navigator.clipboard.writeText(text);
                                   toast.success('Address copied!', { autoClose: 2000 });
                                 };
+
+                                const isSell = trade.kind === 'sell';
+                                const tokenAmount = isSell ? trade.from_token_amount : trade.to_token_amount;
+                                const tokenAddress = isSell ? trade.from_token_address : trade.to_token_address;
+                                const tokenSymbol =
+                                  tokenAddress.toLowerCase() === selectedToken?.detail_platforms?.[chains.find((c) => c.value === selectedChain)?.coingeckoId]?.contract_address?.toLowerCase()
+                                    ? selectedToken?.symbol?.toUpperCase()
+                                    : 'Token';
+
                                 return (
                                   <tr
                                     key={`${trade.tx_hash}-${index}`}
@@ -1334,7 +1455,7 @@ const MarketTab = ({ recaptchaRef }) => {
                                             onError={(e) => (e.target.src = '/fallback-image.png')}
                                           />
                                         )}
-                                        <span className="truncate">{selectedToken?.symbol?.toUpperCase() || 'N/A'}</span>
+                                        <span className="truncate">{tokenSymbol || 'N/A'}</span>
                                       </div>
                                     </td>
                                     <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
@@ -1409,10 +1530,11 @@ const MarketTab = ({ recaptchaRef }) => {
                                     <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
                                       <div className="flex flex-col gap-0.5">
                                         <span className="truncate">
-                                          {parseFloat(trade.to_token_amount).toLocaleString('en-US', {
+                                          {parseFloat(tokenAmount || 0).toLocaleString('en-US', {
                                             maximumFractionDigits: 2,
-                                          })}{' '}
-                                          {selectedToken?.symbol?.toUpperCase() || 'Token'}
+                                          })}
+                                          {' '}
+                                          {tokenSymbol || 'Token'}
                                         </span>
                                         <span className="truncate text-gray-500">
                                           (${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
@@ -1422,7 +1544,7 @@ const MarketTab = ({ recaptchaRef }) => {
                                       </div>
                                     </td>
                                     <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
-                                      <div className="flex flex-col gap-0.5 items-start">
+                                      <div className="flex flex-col gap-0.5 items-center">
                                         <a href={txUrl} target="_blank" rel="noreferrer" title={trade.tx_hash} className="flex-shrink-0">
                                           <img
                                             src="/icons/etherscan-logo.png"
@@ -1431,19 +1553,36 @@ const MarketTab = ({ recaptchaRef }) => {
                                             onError={(e) => (e.target.src = '/fallback-image.png')}
                                           />
                                         </a>
-                                        <span className="truncate text-[9px]">{formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}</span>
+                                        <span className="truncate text-[9px] text-center">{formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}</span>
                                       </div>
                                     </td>
-                                    <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
-                                      <a
-                                        href={`https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${trade.pool_address}`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className={`text-[9px] text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[30px]' : 'max-w-[50px]'}`}
-                                        title={pool?.attributes.name}
+                                    <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
+                                      <button
+                                        onClick={() => trade.pool_address && handlePoolClick(trade.pool_address)}
+                                        className={`flex items-center gap-1 text-[9px] text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[50px]' : 'max-w-[50px]'}`}
+                                        title={pool?.attributes.name || 'View Pool Details'}
+                                        disabled={!trade.pool_address || !token1 || !token2}
                                       >
-                                        {pool?.attributes.name || 'N/A'}
-                                      </a>
+                                        {token1 && token2 ? (
+                                          <>
+                                            <img
+                                              src={token1.image_url}
+                                              alt={`${token1.symbol} logo`}
+                                              className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} rounded-full flex-shrink-0`}
+                                              onError={(e) => (e.target.src = '/fallback-image.png')}
+                                            />
+                                            <span>/</span>
+                                            <img
+                                              src={token2.image_url}
+                                              alt={`${token2.symbol} logo`}
+                                              className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} rounded-full flex-shrink-0`}
+                                              onError={(e) => (e.target.src = '/fallback-image.png')}
+                                            />
+                                          </>
+                                        ) : (
+                                          'N/A'
+                                        )}
+                                      </button>
                                     </td>
                                   </tr>
                                 );
@@ -1509,6 +1648,13 @@ const MarketTab = ({ recaptchaRef }) => {
             onClose={() => setPrediction(null)}
             title="Prediction"
             content={prediction}
+          />
+          <Modal
+            isOpen={!!selectedPool}
+            onClose={() => setSelectedPool(null)}
+            title={`Pool Details`}
+            content={renderPoolModalContent()}
+            links={[`https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${selectedPool?.address}`]}
           />
           {isAnalyzing && <LoadingOverlay message="Analyzing token..." />}
           {isPredicting && <LoadingOverlay message="Predicting price trend..." />}
