@@ -923,61 +923,80 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         return;
       }
 
+      // Check cache first
+      const cacheKey = `${geckoChain}-${tokenAddress}`;
+      const cached = tickerCache[cacheKey];
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        setDexData(cached.data);
+        logger.log('DEX data loaded from cache:', { cacheKey });
+        setIsLoadingDex(false);
+        return;
+      }
+
       setIsLoadingDex(true);
       setDexError(null);
 
       try {
-        // Fetch top pools
-        let pools = [];
-        let page = 1;
-        const poolPromises = [];
-        do {
-          poolPromises.push(
-            coingeckoAxios.get(`https://api.geckoterminal.com/api/v2/networks/${geckoChain}/tokens/${tokenAddress}/pools?page=${page}`, {
-              headers: { accept: 'application/json' },
-              timeout: 15000,
-            })
-          );
-          page++;
-        } while (page <= 2); // Limit to 2 pages to avoid rate limit
-
-        const poolResponses = await Promise.all(poolPromises);
-        poolResponses.forEach((response) => {
-          if (response.data?.data) {
-            pools = pools.concat(response.data.data);
+        // Fetch only the first page of pools to reduce API calls
+        const poolResponse = await coingeckoAxios.get(
+          `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/tokens/${tokenAddress}/pools?page=1`,
+          {
+            headers: { accept: 'application/json' },
+            timeout: 10000, // Reduced timeout for faster failure
           }
-        });
+        );
 
-        // Sort pools by 24h volume
+        let pools = poolResponse.data?.data || [];
+        // Sort pools by 24h volume and take top 5
         pools.sort((a, b) => parseFloat(b.attributes.volume_usd.h24) - parseFloat(a.attributes.volume_usd.h24));
-        const topPools = pools.slice(0, 10); // Limit to top 5 pools
+        const topPools = pools.slice(0, 5);
 
-        // Fetch trades for top pools
+        // Fetch trades for top pools using Promise.allSettled for robustness
         const tradePromises = topPools.map((pool) =>
           coingeckoAxios.get(
             `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/pools/${pool.attributes.address}/trades?trade_volume_in_usd_greater_than=100`,
             {
               headers: { accept: 'application/json' },
-              timeout: 15000,
+              timeout: 10000,
             }
-          )
+          ).then((response) => ({
+            status: 'fulfilled',
+            poolAddress: pool.attributes.address,
+            poolName: pool.attributes.name,
+            data: response.data?.data || [],
+          })).catch((error) => ({
+            status: 'rejected',
+            poolAddress: pool.attributes.address,
+            poolName: pool.attributes.name,
+            error,
+          }))
         );
 
-        const tradeResponses = await Promise.all(tradePromises);
-        const trades = tradeResponses.reduce((acc, response, index) => {
-          if (response.data?.data) {
+        const tradeResults = await Promise.allSettled(tradePromises);
+        const trades = tradeResults.reduce((acc, result, index) => {
+          if (result.status === 'fulfilled') {
             return acc.concat(
-              response.data.data.map((trade) => ({
+              result.value.data.map((trade) => ({
                 ...trade.attributes,
-                pool_name: topPools[index].attributes.name,
-                pool_address: topPools[index].attributes.address,
+                pool_name: result.value.poolName,
+                pool_address: result.value.poolAddress,
               }))
             );
+          } else {
+            logger.warn('Trade fetch failed for pool:', {
+              poolAddress: result.value.poolAddress,
+              error: result.value.error.message,
+            });
+            return acc;
           }
-          return acc;
         }, []);
 
-        setDexData({ pools: topPools, trades });
+        const dexData = { pools: topPools, trades };
+        setTickerCache((prev) => ({
+          ...prev,
+          [cacheKey]: { data: dexData, timestamp: Date.now() },
+        }));
+        setDexData(dexData);
         logger.info('DEX data fetched successfully', {
           chain: geckoChain,
           tokenAddress,
@@ -1002,7 +1021,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         setIsLoadingDex(false);
       }
     }, 500),
-    [toast]
+    [toast, tickerCache]
   );
 
   const handleAddressClick = useCallback(
@@ -1771,24 +1790,36 @@ Use natural, professional tone with recent data.
 
   useEffect(() => {
     if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase())) {
-      setDexData({ pools: [], trades: [] });
-      setDexError(null);
       return;
     }
 
     const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-    if (chain && tokenAddress) {
-      logger.log('Triggering fetchDexData for:', { chain, tokenAddress });
-      fetchDexData(chain, tokenAddress);
-    } else {
-      setDexError('No valid chain or token address for DEX data.');
-      setIsLoadingDex(false);
+    if (!chain || !tokenAddress) {
+      return;
     }
 
+    // Initial fetch
+    fetchDexData(chain, tokenAddress);
+
+    // Set up interval for background refresh every 30 seconds
+    const interval = setInterval(() => {
+      const cacheKey = `${GECKOTERMINAL_CHAIN_MAPPING[chain]}-${tokenAddress}`;
+      const cached = tickerCache[cacheKey];
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        logger.log('Skipping DEX data refresh: data still fresh', { cacheKey });
+        return;
+      }
+      if (document.visibilityState === 'visible') {
+        logger.log('Background DEX data refresh triggered', { chain, tokenAddress });
+        fetchDexData(chain, tokenAddress);
+      }
+    }, 30000); // 30 seconds
+
     return () => {
+      clearInterval(interval);
       fetchDexData.cancel();
     };
-  }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData]);
+  }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData, tickerCache]);
 
   useEffect(() => {
     if (selectedWallet && selectedWallet.match(/^0x[a-fA-F0-9]{40}$/)) {

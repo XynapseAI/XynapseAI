@@ -3642,3 +3642,32 @@
 {"data":{"error":"Incorrect path. Please check https://docs.coingecko.com/"},"level":"error","message":"Error fetching historical data: Request failed with status code 404","status":404,"timestamp":"2025-06-27T03:31:47.392Z"}
 {"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-27T07:19:48.316Z"}
 {"detail":"Not signed in","level":"error","message":"Lỗi lấy tương tác AI:"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:17:51.030Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:21:29.291Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:21:29.930Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:21:34.358Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:21:35.232Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:21:36.068Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:26:26.691Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:26:55.683Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:26:59.486Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:27:00.975Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:27:02.527Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:27:03.779Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:27:05.055Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:27:06.303Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:27:07.604Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:27:08.885Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:27:10.137Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:32:35.276Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:32:40.722Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:32:41.948Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:32:43.283Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:32:44.611Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:32:45.896Z"}
+{"level":"error","message":"Unauthorized access to /api/dex-data","session":false,"timestamp":"2025-06-28T07:32:47.902Z"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-28T07:47:50.847Z"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-28T07:51:05.810Z"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-28T07:52:14.165Z"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-28T07:52:37.842Z"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-28T07:53:19.859Z"}

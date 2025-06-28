@@ -1186,14 +1186,14 @@ const MarketTab = ({ recaptchaRef }) => {
           <div className="rounded-lg border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(50vh-3rem)] sm:min-h-[300px] min-h-[300px] overflow-auto hide-scrollbar mb-12">
             {selectedToken ? (
               <>
-                <div className={`flex items-center gap-2 p-3 backdrop-blur-md border-b border-gray-500/30 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                <div className={`flex items-center gap-2 p-3 backdrop-blur-md border-b border-gray-500/30 ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
                         setActiveMarketTab('cex');
                         setShowTrades(false); // Reset trades view when switching tabs
                       }}
-                      className={`px-3 py-1.5 rounded-lg font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeMarketTab === 'cex' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
+                      className={`px-2 py-1 rounded-lg font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeMarketTab === 'cex' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
                     >
                       CEX
                     </button>
@@ -1202,7 +1202,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         setActiveMarketTab('dex');
                         setShowTrades(false); // Reset trades view when switching tabs
                       }}
-                      className={`px-3 py-1.5 rounded-lg font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeMarketTab === 'dex' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
+                      className={`px-2 py-1 rounded-lg font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeMarketTab === 'dex' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'}`}
                     >
                       DEX
                     </button>
@@ -1225,7 +1225,7 @@ const MarketTab = ({ recaptchaRef }) => {
                             </tr>
                           </thead>
                           <tbody>
-                            {tickerData.slice(0, 10).map((ticker, index) => (
+                            {tickerData.slice(0, 20).map((ticker, index) => (
                               <tr key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}>
                                 <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
                                   <div className="flex items-center justify-center gap-0.5">
@@ -1289,164 +1289,168 @@ const MarketTab = ({ recaptchaRef }) => {
                     {isLoadingDex && <LoadingOverlay message="Loading DEX data..." />}
                     {dexError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>{dexError}</p>}
                     {!isLoadingDex && !dexError && dexData.trades.length > 0 ? (
-                      <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
-                        <table className={`w-full table-fixed ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
-                          <thead>
-                            <tr className="bg-gray-700/50 backdrop-blur-sm">
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>Token</th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>From Address</th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>To Address</th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[70px] min-w-[70px] max-w-[70px]' : 'w-[90px] min-w-[90px] max-w-[90px]'}`}>Volume (USD)</th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Value</th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Tx/Time</th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>Pool</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {dexData.trades.slice(0, 10).map((trade, index) => {
-                              const { txUrl } = getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address);
-                              const pool = dexData.pools.find((p) => p.attributes.address === trade.pool_address);
-                              const truncateAddress = (address) => {
-                                if (!address || typeof address !== 'string') return 'N/A';
-                                return `${address.slice(0, 6)}...${address.slice(-4)}`;
-                              };
-                              const copyToClipboard = (text) => {
-                                if (!text || typeof text !== 'string') return;
-                                navigator.clipboard.writeText(text);
-                                toast.success('Address copied!', { autoClose: 2000 });
-                              };
-                              return (
-                                <tr
-                                  key={`${trade.tx_hash}-${index}`}
-                                  className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
-                                >
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[40px] min-w-[40px] max-w-[40px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
-                                    <div className="flex items-center gap-1">
-                                      {selectedToken?.image && (
-                                        <img
-                                          src={selectedToken.image}
-                                          alt={`${selectedToken.symbol} logo`}
-                                          className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} rounded-full flex-shrink-0`}
-                                          onError={(e) => (e.target.src = '/fallback-image.png')}
-                                        />
-                                      )}
-                                      <span className="truncate">{selectedToken?.symbol?.toUpperCase() || 'N/A'}</span>
-                                    </div>
-                                  </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
-                                    <div className="flex items-center gap-1">
-                                      <span className="truncate">{truncateAddress(trade.tx_from_address)}</span>
-                                      {trade.tx_from_address && typeof trade.tx_from_address === 'string' && (
-                                        <button
-                                          onClick={() => copyToClipboard(trade.tx_from_address)}
-                                          className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
-                                          title="Copy address"
-                                        >
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            strokeWidth={2}
+                      <div className="flex-1 overflow-y-auto hide-scrollbar">
+                        <div className={`flex justify-between items-center p-1.5 text-[9px] text-gray-400 ${isMobile ? 'text-[8px]' : ''}`}>
+                          <span>Last Updated: {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                        </div>
+                        <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
+                          <table className={`w-full table-fixed ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
+                            <thead>
+                              <tr className="bg-gray-700/50 backdrop-blur-sm">
+                                <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>Token</th>
+                                <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>From Address</th>
+                                <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>To Address</th>
+                                <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[90px] min-w-[90px] max-w-[90px]' : 'w-[90px] min-w-[90px] max-w-[90px]'}`}>Volume (USD)</th>
+                                <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Value</th>
+                                <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Tx/Time</th>
+                                <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[90px] min-w-[90px] max-w-[90px]' : 'w-[90px] min-w-[90px] max-w-[90px]'}`}>Pool</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {dexData.trades.slice(0, 50).map((trade, index) => {
+                                const { txUrl } = getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address);
+                                const pool = dexData.pools.find((p) => p.attributes.address === trade.pool_address);
+                                const truncateAddress = (address) => {
+                                  if (!address || typeof address !== 'string') return 'N/A';
+                                  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+                                };
+                                const copyToClipboard = (text) => {
+                                  if (!text || typeof text !== 'string') return;
+                                  navigator.clipboard.writeText(text);
+                                  toast.success('Address copied!', { autoClose: 2000 });
+                                };
+                                return (
+                                  <tr
+                                    key={`${trade.tx_hash}-${index}`}
+                                    className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
+                                  >
+                                    <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[40px] min-w-[40px] max-w-[40px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
+                                      <div className="flex items-center gap-1">
+                                        {selectedToken?.image && (
+                                          <img
+                                            src={selectedToken.image}
+                                            alt={`${selectedToken.symbol} logo`}
+                                            className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} rounded-full flex-shrink-0`}
+                                            onError={(e) => (e.target.src = '/fallback-image.png')}
+                                          />
+                                        )}
+                                        <span className="truncate">{selectedToken?.symbol?.toUpperCase() || 'N/A'}</span>
+                                      </div>
+                                    </td>
+                                    <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
+                                      <div className="flex items-center gap-1">
+                                        <span className="truncate">{truncateAddress(trade.tx_from_address)}</span>
+                                        {trade.tx_from_address && typeof trade.tx_from_address === 'string' && (
+                                          <button
+                                            onClick={() => copyToClipboard(trade.tx_from_address)}
+                                            className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                                            title="Copy address"
                                           >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                            />
-                                          </svg>
-                                        </button>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
-                                    <div className="flex items-center gap-1">
-                                      <span className="truncate">{truncateAddress(trade.to_token_address)}</span>
-                                      {trade.to_token_address && typeof trade.to_token_address === 'string' && (
-                                        <button
-                                          onClick={() => copyToClipboard(trade.to_token_address)}
-                                          className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
-                                          title="Copy address"
-                                        >
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            strokeWidth={2}
+                                            <svg
+                                              xmlns="http://www.w3.org/2000/svg"
+                                              className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
+                                              fill="none"
+                                              viewBox="0 0 24 24"
+                                              stroke="currentColor"
+                                              strokeWidth={2}
+                                            >
+                                              <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                              />
+                                            </svg>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
+                                      <div className="flex items-center gap-1">
+                                        <span className="truncate">{truncateAddress(trade.to_token_address)}</span>
+                                        {trade.to_token_address && typeof trade.to_token_address === 'string' && (
+                                          <button
+                                            onClick={() => copyToClipboard(trade.to_token_address)}
+                                            className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                                            title="Copy address"
                                           >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                            />
-                                          </svg>
-                                        </button>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
-                                    <div className="flex items-center gap-1">
-                                      <span className="truncate">
-                                        ${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
-                                          minimumFractionDigits: 0,
-                                          maximumFractionDigits: 0,
-                                        })}
-                                      </span>
-                                      <span
-                                        className={`inline-block px-1.5 py-0.5 rounded-full text-[7px] font-medium flex-shrink-0 ${trade.kind === 'buy' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
-                                          }`}
+                                            <svg
+                                              xmlns="http://www.w3.org/2000/svg"
+                                              className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
+                                              fill="none"
+                                              viewBox="0 0 24 24"
+                                              stroke="currentColor"
+                                              strokeWidth={2}
+                                            >
+                                              <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                              />
+                                            </svg>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                      <div className="flex items-center gap-1">
+                                        <span className="truncate">
+                                          ${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
+                                            minimumFractionDigits: 0,
+                                            maximumFractionDigits: 0,
+                                          })}
+                                        </span>
+                                        <span
+                                          className={`inline-block px-1.5 py-0.5 rounded-full text-[7px] font-medium flex-shrink-0 ${trade.kind === 'buy' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}
+                                        >
+                                          {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                      <div className="flex flex-col gap-0.5">
+                                        <span className="truncate">
+                                          {parseFloat(trade.to_token_amount).toLocaleString('en-US', {
+                                            maximumFractionDigits: 2,
+                                          })}{' '}
+                                          {selectedToken?.symbol?.toUpperCase() || 'Token'}
+                                        </span>
+                                        <span className="truncate text-gray-500">
+                                          (${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
+                                            maximumFractionDigits: 0,
+                                          })})
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                      <div className="flex flex-col gap-0.5 items-start">
+                                        <a href={txUrl} target="_blank" rel="noreferrer" title={trade.tx_hash} className="flex-shrink-0">
+                                          <img
+                                            src="/icons/etherscan-logo.png"
+                                            alt="Etherscan"
+                                            className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
+                                            onError={(e) => (e.target.src = '/fallback-image.png')}
+                                          />
+                                        </a>
+                                        <span className="truncate text-[9px]">{formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}</span>
+                                      </div>
+                                    </td>
+                                    <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
+                                      <a
+                                        href={`https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${trade.pool_address}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className={`text-[9px] text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[30px]' : 'max-w-[50px]'}`}
+                                        title={pool?.attributes.name}
                                       >
-                                        {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
-                                    <div className="flex flex-col gap-0.5">
-                                      <span className="truncate">
-                                        {parseFloat(trade.to_token_amount).toLocaleString('en-US', {
-                                          maximumFractionDigits: 2,
-                                        })}{' '}
-                                        {selectedToken?.symbol?.toUpperCase() || 'Token'}
-                                      </span>
-                                      <span className="truncate text-gray-500">
-                                        (${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
-                                          maximumFractionDigits: 0,
-                                        })})
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
-                                    <div className="flex flex-col gap-0.5 items-start">
-                                      <a href={txUrl} target="_blank" rel="noreferrer" title={trade.tx_hash} className="flex-shrink-0">
-                                        <img
-                                          src="/icons/etherscan-logo.png"
-                                          alt="Etherscan"
-                                          className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
-                                          onError={(e) => (e.target.src = '/fallback-image.png')}
-                                        />
+                                        {pool?.attributes.name || 'N/A'}
                                       </a>
-                                      <span className="truncate text-[9px]">{formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}</span>
-                                    </div>
-                                  </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
-                                    <a
-                                      href={`https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${trade.pool_address}`}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className={`text-[9px] text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[30px]' : 'max-w-[50px]'}`}
-                                      title={pool?.attributes.name}
-                                    >
-                                      {pool?.attributes.name || 'N/A'}
-                                    </a>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     ) : (
                       !isLoadingDex && (
