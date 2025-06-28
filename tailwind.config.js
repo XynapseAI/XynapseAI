@@ -21,7 +21,9 @@ module.exports = {
           200: '#E5E7EB',
         },
         green: '#22C55E',
+        'green-500': '#22C55E', // Added to match green
         red: '#EF4444',
+        'red-500': '#EF4444', // Added to match red
         neon: {
           blue: '#00BFFF',
           green: '#00ff99',
@@ -35,7 +37,7 @@ module.exports = {
         satoshi: ['Satoshi', 'Inter', 'Roboto', 'sans-serif'],
         mono: ['Courier New', 'monospace'],
         plexmono: ['IBM Plex Mono', 'monospace'],
-        jetbrains: ['JetBrains Mono', 'monospace'], // ✅ Thêm dòng này
+        jetbrains: ['JetBrains Mono', 'monospace'],
       },
       fontSize: {
         xs: '0.75rem',
@@ -103,7 +105,7 @@ module.exports = {
       },
       animation: {
         'matrix-flip': 'matrixFlip 0.4s ease-in-out',
-        flicker: 'flicker 0.3s linear 3',
+        flicker: 'ficker 0.3s linear 3',
         'shuffle-position': 'shufflePosition 0.4s ease-in-out',
       },
       animationDelay: {

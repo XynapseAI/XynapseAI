@@ -10,6 +10,7 @@ import 'highlight.js/styles/github-dark.css';
 import { useMarketTabLogic } from './MarketTabLogic';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { formatDistanceToNow } from 'date-fns';
 
 // Custom logger
 const logger = {
@@ -29,7 +30,7 @@ const CHAIN_EXPLORER_MAP = {
   ancient8: { baseUrl: 'https://scan.ancient8.gg', supportsTx: true, supportsAddress: true },
   ape_chain: { baseUrl: 'https://explorer.apescan.io', supportsTx: true, supportsAddress: true },
   arbitrum: { baseUrl: 'https://arbiscan.io', supportsTx: true, supportsAddress: true },
-  arbitrum_nova: { baseUrl: 'https://nova.arbscan.io', supportsTx: true, supportsAddress: true },
+  arbitrum_nova: { baseUrl: 'https://nova.arbiscan.io', supportsTx: true, supportsAddress: true },
   avalanche_c: { baseUrl: 'https://snowtrace.io', supportsTx: true, supportsAddress: true },
   avalanche_fuji: { baseUrl: 'https://testnet.snowtrace.io', supportsTx: true, supportsAddress: true },
   base: { baseUrl: 'https://basescan.org', supportsTx: true, supportsAddress: true },
@@ -206,7 +207,7 @@ const LoadingOverlay = ({ message }) => (
   </div>
 );
 
-// Wallet Balances component (updated)
+// Wallet Balances component (unchanged)
 const WalletBalances = ({
   balances,
   walletAddress,
@@ -580,7 +581,6 @@ const MarketTab = ({ recaptchaRef }) => {
   const chainDropdownRef = useRef(null);
   const searchInputRef = useRef(null);
   const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
-  const [isWalletSearchOpen, setIsWalletSearchOpen] = useState(false);
   const [isChartLoading, setIsChartLoading] = useState(false);
   const [activeMarketTab, setActiveMarketTab] = useState('cex');
   const [showTrades, setShowTrades] = useState(false);
@@ -598,7 +598,7 @@ const MarketTab = ({ recaptchaRef }) => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 640);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => window.addEventListener('resize', checkMobile);
   }, []);
 
   useEffect(() => {
@@ -643,16 +643,114 @@ const MarketTab = ({ recaptchaRef }) => {
       animate={{ opacity: 1, y: 0 }}
       className="font-jetbrains w-[100%] max-w-10xl mx-auto bg-tech mt-8 md:mt-14 p-4 md:p-2 rounded-xl shadow-lg h-[calc(100vh)]"
     >
-      <div className="flex items-center gap-2 mb-2">
-        <h2 className="text-sm font-bold text-white uppercase">Crypto</h2>
-        <span>|</span>
-        <button
-          className="text-sm font-bold text-white/50 uppercase cursor-default flex items-center gap-1"
-          disabled
-          aria-label="Stock tab (coming soon)"
-        >
-          Stock <span className="text-[8px] text-white/50">(Soon)</span>
-        </button>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-bold text-white uppercase">Crypto</h2>
+          <span>|</span>
+          <button
+            className="text-sm font-bold text-white/50 uppercase cursor-default flex items-center gap-1"
+            disabled
+            aria-label="Stock tab (coming soon)"
+          >
+            Stock <span className="text-[8px] text-white/50">(Soon)</span>
+          </button>
+        </div>
+        <div className="relative" ref={chainDropdownRef}>
+          <button
+            onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
+            className={`bg-white/10 text-white p-1.5 rounded-lg border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300 flex items-center justify-center ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) || !selectedToken}
+            aria-label="Select chain"
+          >
+            <span className="flex items-center">
+              {selectedChain ? (
+                <>
+                  <img
+                    src={getPlatformImage(selectedChain)}
+                    alt={`${chains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
+                    className="w-4 h-4 mr-2"
+                    onError={(e) => {
+                      logger.error('Chain logo failed to load:', {
+                        chain: selectedChain,
+                        src: getPlatformImage(selectedChain),
+                      });
+                      e.target.src = '/fallback-image.png';
+                    }}
+                  />
+                  <span className="text-xs">
+                    {chains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
+                  </span>
+                </>
+              ) : (
+                <div className="w-4 h-4 bg-gray-600 rounded-full mr-4"></div>
+              )}
+            </span>
+            <span className="text-xs ml-1.5">{isChainDropdownOpen ? '▲' : '▼'}</span>
+          </button>
+          {isChainDropdownOpen && (
+            <div className="absolute z-20 bg-gray-800/95 rounded-lg mt-1 w-56 max-h-64 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
+              {getAvailableChains().length === 0 ? (
+                <div className="px-3 py-1.5 text-gray-400 text-xs">No supported chains available</div>
+              ) : (
+                getAvailableChains()
+                  .filter((chain) => process.env.NODE_ENV === 'development' || !chain.testnet)
+                  .map((chain) => (
+                    <button
+                      key={chain.value}
+                      onClick={() => {
+                        logger.log('Selected chain:', { value: chain.value, label: chain.label, image: chain.image });
+                        setSelectedChain(chain.value);
+                        setIsChainDropdownOpen(false);
+                      }}
+                      className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/15 rounded-md text-white font-medium text-xs"
+                    >
+                      <img
+                        src={chain.image}
+                        alt={`${chain.label} logo`}
+                        className="w-4 h-4 mr-4"
+                        onError={(e) => {
+                          logger.error('Dropdown chain logo failed to load:', {
+                            chain: chain.value,
+                            src: chain.image,
+                          });
+                          e.target.src = '/fallback-image.png';
+                        }}
+                      />
+                      {chain.label}
+                    </button>
+                  ))
+              )}
+            </div>
+          )}
+        </div>
+        <div className="relative flex items-center">
+          <input
+            type="text"
+            placeholder="0x..."
+            value={walletAddress}
+            onChange={(e) => setWalletAddress(e.target.value)}
+            className="bg-gray-400 text-white px-2 py-1 rounded-lg text-xs w-32 sm:w-36 border border-white/20 backdrop-blur-md focus:outline-none pr-8"
+            aria-label="Wallet address"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+                handleWalletSearch();
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              if (walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+                handleWalletSearch();
+              }
+            }}
+            className="absolute right-1 text-white p-1.5 transition-all duration-300"
+            aria-label="Search wallet"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
+        </div>
       </div>
       {loading && <p className="text-sm text-gray-400 text-center">Loading market data...</p>}
       {error && <p className="text-sm text-red-500 text-center">Error: {error}</p>}
@@ -996,109 +1094,36 @@ const MarketTab = ({ recaptchaRef }) => {
             {isLoadingOnChain && <LoadingOverlay message="Loading on-chain data..." />}
             {selectedToken ? (
               <div className="flex-1 overflow-y-auto hide-scrollbar rounded-xl">
-                <div className="h-[10vh] md:h-[6vh] flex justify-between items-center sticky top-0 p-1.5 backdrop-blur-md">
-                  <div className="relative" ref={chainDropdownRef}>
-                    <button
-                      onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-                      className={`bg-white/10 text-white p-1.5 mt-6 md:mt-0 rounded-lg border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300 flex items-center justify-center ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      disabled={['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) || !selectedToken}
-                      aria-label="Select chain"
-                    >
-                      <span className="flex items-center">
-                        {selectedChain ? (
-                          <>
-                            <img
-                              src={getPlatformImage(selectedChain)}
-                              alt={`${chains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
-                              className="w-4 h-4 mr-2"
-                              onError={(e) => {
-                                logger.error('Chain logo failed to load:', {
-                                  chain: selectedChain,
-                                  src: getPlatformImage(selectedChain),
-                                });
-                                e.target.src = '/fallback-image.png';
-                              }}
-                            />
-                            <span className="text-xs">
-                              {chains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
-                            </span>
-                          </>
-                        ) : (
-                          <div className="w-4 h-4 bg-gray-600 rounded-full mr-4"></div>
-                        )}
-                      </span>
-                      <span className="text-xs ml-1.5">{isChainDropdownOpen ? '▲' : '▼'}</span>
-                    </button>
-                    {isChainDropdownOpen && (
-                      <div className="absolute z-20 bg-gray-800/95 rounded-lg mt-1 w-56 max-h-64 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
-                        {getAvailableChains().length === 0 ? (
-                          <div className="px-3 py-1.5 text-gray-400 text-xs">No supported chains available</div>
-                        ) : (
-                          getAvailableChains()
-                            .filter((chain) => process.env.NODE_ENV === 'development' || !chain.testnet)
-                            .map((chain) => (
-                              <button
-                                key={chain.value}
-                                onClick={() => {
-                                  logger.log('Selected chain:', { value: chain.value, label: chain.label, image: chain.image });
-                                  setSelectedChain(chain.value);
-                                  setIsChainDropdownOpen(false);
-                                }}
-                                className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/15 rounded-md text-white font-medium text-xs"
-                              >
-                                <img
-                                  src={chain.image}
-                                  alt={`${chain.label} logo`}
-                                  className="w-4 h-4 mr-4"
-                                  onError={(e) => {
-                                    logger.error('Dropdown chain logo failed to load:', {
-                                      chain: chain.value,
-                                      src: chain.image,
-                                    });
-                                    e.target.src = '/fallback-image.png';
-                                  }}
-                                />
-                                {chain.label}
-                              </button>
-                            ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={`flex-grow flex justify-center items-center absolute left-1/2 transform -translate-x-1/2 ${isMobile ? 'top-[0.5rem]' : ''}`}>
-                    <h4 className="text-xs font-bold text-white text-center uppercase">
-                      Top 100 {selectedToken.symbol?.toUpperCase()} Holders
-                    </h4>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 mt-6 md:mt-0">
-                    {isWalletSearchOpen && (
-                      <input
-                        type="text"
-                        placeholder="0x..."
-                        value={walletAddress}
-                        onChange={(e) => setWalletAddress(e.target.value)}
-                        className="text-white px-2 py-1 rounded-lg text-xs w-32 sm:w-36 border border-white/20 backdrop-blur-md focus:outline-none order-1"
-                        aria-label="Wallet address"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
-                            handleWalletSearch();
-                            setIsWalletSearchOpen(false);
-                          }
-                        }}
+                <div className="h-[10vh] md:h-[6vh] flex justify-center items-center sticky top-0 p-1.5 backdrop-blur-md">
+                  <h4 className="text-xs font-bold text-white text-center uppercase flex items-center gap-1">
+                    Top 100
+                    {selectedToken.image && (
+                      <img
+                        src={selectedToken.image}
+                        alt={`${selectedToken.symbol} logo`}
+                        className="w-4 h-4 rounded-full"
+                        onError={(e) => (e.target.src = '/fallback-image.png')}
                       />
                     )}
-                    <button
-                      onClick={() => setIsWalletSearchOpen(!isWalletSearchOpen)}
-                      className="text-white p-1.5 rounded-lg transition-all duration-300 border border-white/20 backdrop-blur-md order-2"
-                      aria-label="Toggle wallet search"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </button>
-                  </div>
+                    {selectedToken.symbol?.toUpperCase()} Holders on
+                    {selectedChain && (
+                      <>
+                        <img
+                          src={getPlatformImage(selectedChain)}
+                          alt={`${chains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
+                          className="w-4 h-4 rounded-full ml-1"
+                          onError={(e) => {
+                            logger.error('Chain logo failed to load:', {
+                              chain: selectedChain,
+                              src: getPlatformImage(selectedChain),
+                            });
+                            e.target.src = '/fallback-image.png';
+                          }}
+                        />
+                        <span className="ml-1">{chains.find((c) => c.value === selectedChain)?.label || 'Selected Chain'}</span>
+                      </>
+                    )}
+                  </h4>
                 </div>
 
                 {onChainData.topHolders && onChainData.topHolders.length > 0 ? (
@@ -1262,57 +1287,160 @@ const MarketTab = ({ recaptchaRef }) => {
                 ) : (
                   <>
                     {isLoadingDex && <LoadingOverlay message="Loading DEX data..." />}
-                    {dexError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-xs'}`}>{dexError}</p>}
-                    {!isLoadingDex && !dexError && dexData.pools.length > 0 && !showTrades ? (
+                    {dexError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>{dexError}</p>}
+                    {!isLoadingDex && !dexError && dexData.trades.length > 0 ? (
                       <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
-                        <table className={`w-full border border-gray-500 table-auto ${isMobile ? 'text-[9px]' : 'text-xs'}`}>
+                        <table className={`w-full table-fixed ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
                           <thead>
-                            <tr>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Pool</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Volume (24h)</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Liquidity</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Trades ( $1K)</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Action</th>
+                            <tr className="bg-gray-700/50 backdrop-blur-sm">
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>Token</th>
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>From Address</th>
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>To Address</th>
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[70px] min-w-[70px] max-w-[70px]' : 'w-[90px] min-w-[90px] max-w-[90px]'}`}>Volume (USD)</th>
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Value</th>
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>Tx/Time</th>
+                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>Pool</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {dexData.pools.map((pool, index) => {
-                              const poolTrades = dexData.trades.filter((trade) => trade.pool_address === pool.attributes.address);
+                            {dexData.trades.slice(0, 10).map((trade, index) => {
+                              const { txUrl } = getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address);
+                              const pool = dexData.pools.find((p) => p.attributes.address === trade.pool_address);
+                              const truncateAddress = (address) => {
+                                if (!address || typeof address !== 'string') return 'N/A';
+                                return `${address.slice(0, 6)}...${address.slice(-4)}`;
+                              };
+                              const copyToClipboard = (text) => {
+                                if (!text || typeof text !== 'string') return;
+                                navigator.clipboard.writeText(text);
+                                toast.success('Address copied!', { autoClose: 2000 });
+                              };
                               return (
-                                <tr key={`${pool.attributes.address}-${index}`}>
-                                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
+                                <tr
+                                  key={`${trade.tx_hash}-${index}`}
+                                  className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
+                                >
+                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[40px] min-w-[40px] max-w-[40px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
+                                    <div className="flex items-center gap-1">
+                                      {selectedToken?.image && (
+                                        <img
+                                          src={selectedToken.image}
+                                          alt={`${selectedToken.symbol} logo`}
+                                          className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} rounded-full flex-shrink-0`}
+                                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                                        />
+                                      )}
+                                      <span className="truncate">{selectedToken?.symbol?.toUpperCase() || 'N/A'}</span>
+                                    </div>
+                                  </td>
+                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
+                                    <div className="flex items-center gap-1">
+                                      <span className="truncate">{truncateAddress(trade.tx_from_address)}</span>
+                                      {trade.tx_from_address && typeof trade.tx_from_address === 'string' && (
+                                        <button
+                                          onClick={() => copyToClipboard(trade.tx_from_address)}
+                                          className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                                          title="Copy address"
+                                        >
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            strokeWidth={2}
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                            />
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
+                                    <div className="flex items-center gap-1">
+                                      <span className="truncate">{truncateAddress(trade.to_token_address)}</span>
+                                      {trade.to_token_address && typeof trade.to_token_address === 'string' && (
+                                        <button
+                                          onClick={() => copyToClipboard(trade.to_token_address)}
+                                          className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                                          title="Copy address"
+                                        >
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            strokeWidth={2}
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                            />
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                    <div className="flex items-center gap-1">
+                                      <span className="truncate">
+                                        ${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
+                                          minimumFractionDigits: 0,
+                                          maximumFractionDigits: 0,
+                                        })}
+                                      </span>
+                                      <span
+                                        className={`inline-block px-1.5 py-0.5 rounded-full text-[7px] font-medium flex-shrink-0 ${trade.kind === 'buy' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
+                                          }`}
+                                      >
+                                        {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="truncate">
+                                        {parseFloat(trade.to_token_amount).toLocaleString('en-US', {
+                                          maximumFractionDigits: 2,
+                                        })}{' '}
+                                        {selectedToken?.symbol?.toUpperCase() || 'Token'}
+                                      </span>
+                                      <span className="truncate text-gray-500">
+                                        (${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
+                                          maximumFractionDigits: 0,
+                                        })})
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                    <div className="flex flex-col gap-0.5 items-start">
+                                      <a href={txUrl} target="_blank" rel="noreferrer" title={trade.tx_hash} className="flex-shrink-0">
+                                        <img
+                                          src="/icons/etherscan-logo.png"
+                                          alt="Etherscan"
+                                          className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
+                                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                                        />
+                                      </a>
+                                      <span className="truncate text-[9px]">{formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}</span>
+                                    </div>
+                                  </td>
+                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
                                     <a
-                                      href={`https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${pool.attributes.address}`}
+                                      href={`https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${trade.pool_address}`}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className={`text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[40px]' : 'max-w-[60px]'}`}
-                                      title={pool.attributes.name}
+                                      className={`text-[9px] text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[30px]' : 'max-w-[50px]'}`}
+                                      title={pool?.attributes.name}
                                     >
-                                      {pool.attributes.name}
+                                      {pool?.attributes.name || 'N/A'}
                                     </a>
-                                  </td>
-                                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                    ${parseFloat(pool.attributes.volume_usd.h24).toLocaleString('en-US', {
-                                      minimumFractionDigits: 0,
-                                      maximumFractionDigits: 0,
-                                    })}
-                                  </td>
-                                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                    ${parseFloat(pool.attributes.reserve_in_usd).toLocaleString('en-US', {
-                                      minimumFractionDigits: 0,
-                                      maximumFractionDigits: 0,
-                                    })}
-                                  </td>
-                                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                    {poolTrades.length}
-                                  </td>
-                                  <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                    <button
-                                      onClick={() => setShowTrades(pool.attributes.address)}
-                                      className="px-2 py-1 rounded-lg text-[9px] font-medium transition-all duration-300 border border-blue-500 text-blue-500 hover:bg-blue-500/15"
-                                    >
-                                      Buy/Sell
-                                    </button>
                                   </td>
                                 </tr>
                               );
@@ -1320,81 +1448,9 @@ const MarketTab = ({ recaptchaRef }) => {
                           </tbody>
                         </table>
                       </div>
-                    ) : showTrades ? (
-                      <div className="overflow-x-auto md:max-h-[calc(100%-2rem)] md:overflow-y-auto hide-scrollbar">
-                        <div className="flex justify-between items-center mb-2">
-                          <h4 className={`text-xs font-bold text-white uppercase`}>Trades ( $1K) for Pool</h4>
-                          <button
-                            onClick={() => setShowTrades(false)}
-                            className="px-2 py-1 rounded-lg text-[9px] font-medium transition-all duration-300 border border-white/20 text-white hover:bg-white/15"
-                          >
-                            Back to Pools
-                          </button>
-                        </div>
-                        <table className={`w-full border border-gray-500 table-auto ${isMobile ? 'text-[9px]' : 'text-xs'}`}>
-                          <thead>
-                            <tr>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Tx Hash</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Type</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Volume (USD)</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>From Amount</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>To Amount</th>
-                              <th className={`border border-gray-500 px-1 py-0.5 bg-gray-700 text-white text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>Timestamp</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {dexData.trades
-                              .filter((trade) => trade.pool_address === showTrades)
-                              .slice(0, 10)
-                              .map((trade, index) => {
-                                const { txUrl } = getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address);
-                                return (
-                                  <tr key={`${trade.tx_hash}-${index}`}>
-                                    <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                      <a
-                                        href={txUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className={`text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[40px]' : 'max-w-[60px]'}`}
-                                        title={trade.tx_hash}
-                                      >
-                                        {trade.tx_hash.slice(0, 6)}...{trade.tx_hash.slice(-4)}
-                                      </a>
-                                    </td>
-                                    <td className={`border border-gray-500 px-1 py-0.5 text-center whitespace-nowrap ${trade.kind === 'buy' ? 'text-green-500' : 'text-red-500'} ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                      {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
-                                    </td>
-                                    <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                      ${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
-                                        minimumFractionDigits: 0,
-                                        maximumFractionDigits: 0,
-                                      })}
-                                    </td>
-                                    <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                      {parseFloat(trade.from_token_amount).toLocaleString('en-US', {
-                                        maximumFractionDigits: 2,
-                                      })}
-                                    </td>
-                                    <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                      {parseFloat(trade.to_token_amount).toLocaleString('en-US', {
-                                        maximumFractionDigits: 2,
-                                      })}
-                                    </td>
-                                    <td className={`border border-gray-500 px-1 py-0.5 text-gray-200 text-center whitespace-nowrap ${isMobile ? 'min-w-[60px]' : 'min-w-[100px]'}`}>
-                                      {new Date(trade.block_timestamp).toLocaleString('en-US', {
-                                        dateStyle: 'short',
-                                        timeStyle: 'short',
-                                      })}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                          </tbody>
-                        </table>
-                      </div>
                     ) : (
                       !isLoadingDex && (
-                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
                           No DEX data available for {selectedToken.symbol?.toUpperCase()} on {chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.
                         </p>
                       )
