@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { check, validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import pLimit from 'p-limit';
-import { GECKOTERMINAL_CHAIN_MAPPING } from '../../components/MarketTabLogic';
+import { GECKOTERMINAL_CHAIN_MAPPING } from '../../utils/constants';
 
 // Initialize p-limit for request throttling
 const limit = pLimit(10);

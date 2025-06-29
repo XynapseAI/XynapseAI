@@ -11,6 +11,7 @@ import { useMarketTabLogic } from './MarketTabLogic';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { formatDistanceToNow } from 'date-fns';
+import { GECKOTERMINAL_CHAIN_MAPPING } from '../utils/constants';
 
 // Custom logger
 const logger = {
@@ -98,36 +99,6 @@ const getExplorerUrls = (chain, hash, address) => {
   return { txUrl, addressUrl };
 };
 
-const GECKOTERMINAL_CHAIN_MAPPING = {
-  'ethereum': 'eth',
-  'arbitrum': 'arbitrum',
-  'avalanche_c': 'avalanche',
-  'bnb': 'bsc',
-  'polygon': 'polygon',
-  'optimism': 'optimism',
-  'base': 'base',
-  'zksync': 'zksync',
-  'zora': 'zora',
-  'linea': 'linea',
-  'mantle': 'mantle',
-  'scroll': 'scroll',
-  'celo': 'celo',
-  'opbnb': 'op_bnb',
-  'boba': 'boba',
-  'metis': 'metis',
-  'blast': 'blast',
-  'sei': 'sei',
-  'kaia': 'kaia',
-  'world': 'worldchain',
-  'unichain': 'unichain',
-  'sonic': 'sonic',
-  'berachain': 'berachain',
-  'ink': 'ink',
-  'mode': 'mode',
-  'soneium': 'soneium',
-};
-
-// Modal component (unchanged)
 // Modal component
 const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
   if (!isOpen) return null;

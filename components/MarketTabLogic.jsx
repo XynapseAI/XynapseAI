@@ -6,6 +6,7 @@ import rateLimit from 'axios-rate-limit';
 import { logger } from '../utils/logger';
 import pLimit from 'p-limit';
 import { btcManualNameTags } from '../utils/btcManualNameTags';
+import { GECKOTERMINAL_CHAIN_MAPPING } from '../utils/constants';
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
   console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
@@ -126,35 +127,6 @@ const CHAIN_MAPPING = {
   'mode': { simChain: 'mode', chainId: '34443' },
   'soneium': { simChain: 'soneium', chainId: '1868' },
   'monad': { simChain: 'monad_testnet', chainId: null },
-};
-
-const GECKOTERMINAL_CHAIN_MAPPING = {
-  'ethereum': 'eth',
-  'arbitrum': 'arbitrum',
-  'avalanche_c': 'avalanche',
-  'bnb': 'bsc',
-  'polygon': 'polygon',
-  'optimism': 'optimism',
-  'base': 'base',
-  'zksync': 'zksync',
-  'zora': 'zora',
-  'linea': 'linea',
-  'mantle': 'mantle',
-  'scroll': 'scroll',
-  'celo': 'celo',
-  'opbnb': 'op_bnb',
-  'boba': 'boba',
-  'metis': 'metis',
-  'blast': 'blast',
-  'sei': 'sei',
-  'kaia': 'kaia',
-  'world': 'worldchain',
-  'unichain': 'unichain',
-  'sonic': 'sonic',
-  'berachain': 'berachain',
-  'ink': 'ink',
-  'mode': 'mode',
-  'soneium': 'soneium',
 };
 
 const COINGECKO_API_KEY = process.env.NEXT_PUBLIC_COINGECKO_API_KEY || '';
