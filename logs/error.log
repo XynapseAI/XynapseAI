@@ -3671,3 +3671,14 @@
 {"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-28T07:52:14.165Z"}
 {"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-28T07:52:37.842Z"}
 {"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-28T07:53:19.859Z"}
+{"level":"error","message":"Error fetching target user nextAI_labs: Request failed with code 401","stack":"Error: Request failed with code 401\n    at RequestHandlerHelper.createResponseError (C:\\Users\\nnn\\Desktop\\Next\\node_modules\\twitter-api-v2\\dist\\cjs\\client-mixins\\request-handler.helper.js:104:16)\n    at RequestHandlerHelper.onResponseEndHandler (C:\\Users\\nnn\\Desktop\\Next\\node_modules\\twitter-api-v2\\dist\\cjs\\client-mixins\\request-handler.helper.js:262:25)\n    at IncomingMessage.emit (node:events:530:35)\n    at endReadableNT (node:internal/streams/readable:1698:12)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)"}
+{"level":"error","message":"XAI API error for btc: Request failed with status code 429"}
+{"level":"error","message":"Token analysis error: Request failed with status code 401","timestamp":"2025-06-29T06:47:14.408Z"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-29T06:47:14.730Z"}
+{"level":"error","message":"Twitter search error: Request failed with status code 413","timestamp":"2025-06-29T06:47:15.877Z"}
+{"level":"error","message":"Token analysis error: Request failed with status code 401","timestamp":"2025-06-29T06:48:08.651Z"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-29T06:48:08.681Z"}
+{"level":"error","message":"Twitter search error: Request failed with status code 413","timestamp":"2025-06-29T06:48:09.336Z"}
+{"detail":"Not signed in","level":"error","message":"Lỗi lấy tương tác AI:"}
+{"detail":"Not signed in","level":"error","message":"Lỗi lấy tương tác AI:"}
+{"level":"error","message":"AI interactions error: Request failed with status code 401","timestamp":"2025-06-29T07:44:23.467Z"}

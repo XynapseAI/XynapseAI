@@ -8,11 +8,11 @@ import pLimit from 'p-limit';
 import { GECKOTERMINAL_CHAIN_MAPPING } from '../../components/MarketTabLogic';
 
 // Initialize p-limit for request throttling
-const limit = pLimit(5);
+const limit = pLimit(10);
 
 // In-memory cache
 const cache = new Map();
-const CACHE_DURATION = 60 * 1000; // 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // CORS configuration with strict origin validation
 const allowedOrigins = [
@@ -39,7 +39,7 @@ const corsOptions = {
 // User-based rate limiting
 const userRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 5, // 5 requests per minute per user
+  max: 10, // 5 requests per minute per user
   keyGenerator: (req) => {
     try {
       const token = req.headers.authorization?.split(' ')[1];

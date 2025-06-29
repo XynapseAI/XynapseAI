@@ -245,22 +245,22 @@ export default function AITab({ recaptchaRef }) {
   }, [chatHistory, isLoading]);
 
   useEffect(() => {
-  if (chatContainerRef.current) {
-    chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-  }
-}, [chatHistory, typingText, isLoading]);
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatHistory, typingText, isLoading]);
 
   useEffect(() => {
-  if (textareaRef.current) {
-    textareaRef.current.style.height = 'auto'; // Reset chiều cao
-    const scrollHeight = textareaRef.current.scrollHeight;
-    const minHeight = window.innerWidth < 768 ? 24 : 38; // 24px trên mobile, 38px trên PC
-    const newHeight = Math.min(Math.max(scrollHeight, minHeight), 120); // Max height 120px
-    textareaRef.current.style.height = `${newHeight}px`;
-    // Đảm bảo textarea có thể cuộn nếu nội dung vượt quá maxHeight
-    textareaRef.current.style.overflowY = newHeight >= 120 ? 'auto' : 'hidden';
-  }
-}, [prompt]);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'; // Reset chiều cao
+      const scrollHeight = textareaRef.current.scrollHeight;
+      const minHeight = window.innerWidth < 768 ? 24 : 38; // 24px trên mobile, 38px trên PC
+      const newHeight = Math.min(Math.max(scrollHeight, minHeight), 120); // Max height 120px
+      textareaRef.current.style.height = `${newHeight}px`;
+      // Đảm bảo textarea có thể cuộn nếu nội dung vượt quá maxHeight
+      textareaRef.current.style.overflowY = newHeight >= 120 ? 'auto' : 'hidden';
+    }
+  }, [prompt]);
 
   const [toggleButtonWidth, setToggleButtonWidth] = useState(0);
 
@@ -347,7 +347,7 @@ export default function AITab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`font-jetbrains w-full max-w-screen-md md:max-w-full ${isMobile ? 'h-[calc(100vh-4rem)]' : 'h-[calc(100vh-2rem)]'} mx-auto p-1 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar flex flex-col`}
+      className={`font-jetbrains w-full max-w-screen-md md:max-w-full ${isMobile ? 'h-[calc(100vh-4rem)]' : 'h-[calc(100vh-2rem)]'} mx-auto p-1 md:p-4 rounded-xl shadow-card flex flex-col`}
     >
       {/* Header */}
       <div className="p-2 bg-tech border-b border-white/10 flex justify-between items-center shrink-0">
@@ -407,121 +407,121 @@ export default function AITab({ recaptchaRef }) {
 
       {/* Chat Content */}
       <div
-  className="flex-1 p-1 md:p-4 overflow-y-auto custom-scrollbar" // Thay overflow-hidden thành overflow-y-auto
-  ref={chatContainerRef}
-  style={{ maxHeight: isMobile ? 'calc(100vh - 14rem)' : 'calc(100vh - 2rem)' }}
->
-  {error && !error.includes('maximum of 50 daily chats') && (
-    <div className="text-xs md:text-xs text-red-500 mb-2 p-2 bg-red-900/20 rounded-md border border-red-500/50">
-      {error}
-    </div>
-  )}
-  {chatHistory.length === 0 && !isLoading && (
-    <div className="text-[10px] md:text-xs text-gray-600 text-center">
-      Start a conversation by entering a prompt below.
-    </div>
-  )}
-  {chatHistory.map((message, index) => (
-    <div
-      key={index}
-      className={`mb-2 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-    >
-      <div
-        className={`max-w-[85%] md:max-w-[70%] px-3 md:px-3 rounded-lg text-[10px] md:text-xs overflow-y-auto custom-scrollbar ${message.role === 'user'
-          ? 'bg-blue-500/20 text-white'
-          : 'text-white backdrop-blur-md'
-          } relative group`}
+        className="flex-1 p-1 md:p-4 overflow-y-auto custom-scrollbar" // Thay overflow-hidden thành overflow-y-auto
+        ref={chatContainerRef}
+        style={{ maxHeight: isMobile ? 'calc(100vh - 14rem)' : 'calc(100vh - 2rem)' }}
       >
-        {message.role === 'assistant' && index === chatHistory.length - 1 && typingText ? (
-          <div className="max-h-[200px] md:max-h-[400px] overflow-y-auto custom-scrollbar">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
-              components={markdownComponents}
-            >
-              {typingText}
-            </ReactMarkdown>
-          </div>
-        ) : (
-          <div className="max-h-[200px] md:max-h-[400px] overflow-y-auto custom-scrollbar">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
-              components={markdownComponents}
-            >
-              {message.content}
-            </ReactMarkdown>
+        {error && !error.includes('maximum of 50 daily chats') && (
+          <div className="text-xs md:text-xs text-red-500 mb-2 p-2 bg-red-900/20 rounded-md border border-red-500/50">
+            {error}
           </div>
         )}
-        {message.role === 'assistant' && (message.links?.length > 0 || message.content) && (
-          <div className="mt-1 flex items-center justify-between flex-wrap">
-            <div className="flex items-center">
-              {message.links?.length > 0 && (
-                <>
-                  <h5 className="text-xs md:text-sm font-bold text-white mr-1">Refs:</h5>
-                  {message.links.map((link, idx) => (
-                    <a
-                      key={idx}
-                      href={link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={link}
-                      className="inline-block mx-0.5"
-                    >
-                      <img
-                        src={getFaviconUrl(link)}
-                        alt="Website favicon"
-                        className="w-4 h-4 md:w-5 h-5 rounded-sm"
-                        onError={(e) => (e.target.src = '/favicon.ico')}
-                      />
-                    </a>
-                  ))}
-                </>
+        {chatHistory.length === 0 && !isLoading && (
+          <div className="text-[10px] md:text-xs text-gray-600 text-center">
+            Start a conversation by entering a prompt below.
+          </div>
+        )}
+        {chatHistory.map((message, index) => (
+          <div
+            key={index}
+            className={`mb-2 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[85%] md:max-w-[70%] px-3 md:px-3 rounded-lg text-[10px] md:text-xs overflow-y-auto custom-scrollbar ${message.role === 'user'
+                ? 'bg-blue-500/20 text-white'
+                : 'text-white backdrop-blur-md'
+                } relative group`}
+            >
+              {message.role === 'assistant' && index === chatHistory.length - 1 && typingText ? (
+                <div className="max-h-[200px] md:max-h-[400px] overflow-y-auto custom-scrollbar">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeHighlight]}
+                    components={markdownComponents}
+                  >
+                    {typingText}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <div className="max-h-[200px] md:max-h-[400px] overflow-y-auto custom-scrollbar">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeHighlight]}
+                    components={markdownComponents}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
               )}
+              {message.role === 'assistant' && (message.links?.length > 0 || message.content) && (
+                <div className="mt-1 flex items-center justify-between overflow-y-auto custom-scrollbar flex-wrap">
+                  <div className="flex items-center overflow-y-auto custom-scrollbar">
+                    {message.links?.length > 0 && (
+                      <>
+                        <h5 className="text-xs md:text-sm font-bold text-white mr-1"></h5>
+                        {message.links.map((link, idx) => (
+                          <a
+                            key={idx}
+                            href={link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={link}
+                            className="inline-block mx-0.5"
+                          >
+                            <img
+                              src={getFaviconUrl(link)}
+                              alt="Website favicon"
+                              className="w-2 h-2 md:w-4 h-4 rounded-xs md:rounded-lg"
+                              onError={(e) => (e.target.src = '/favicon.ico')}
+                            />
+                          </a>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div className="mb-2 flex justify-start">
+            <div className="max-w-[85%] p-2 md:p-4 bg-gray-800/95 text-white text-xs md:text-sm rounded-lg flex items-center backdrop-blur-md">
+              <div className="wave-loading mt-2">
+                <span className="dot"></span>
+                <span className="dot"></span>
+                <span className="dot"></span>
+              </div>
             </div>
           </div>
         )}
       </div>
-    </div>
-  ))}
-  {isLoading && (
-    <div className="mb-2 flex justify-start">
-      <div className="max-w-[85%] p-2 md:p-4 bg-gray-800/95 text-white text-xs md:text-sm rounded-lg flex items-center backdrop-blur-md">
-        <div className="wave-loading mt-2">
-          <span className="dot"></span>
-          <span className="dot"></span>
-          <span className="dot"></span>
-        </div>
-      </div>
-    </div>
-  )}
-</div>
 
       {/* Input Prompt */}
       <div className="p-2 md:p-4 border-t border-white/10 shrink-0 overflow-y-auto custom-scrollbar">
         <form onSubmit={handleSendPrompt} className="flex items-center gap-2 overflow-y-auto custom-scrollbar">
           <textarea
-  value={prompt}
-  onChange={(e) => setPrompt(e.target.value)}
-  onKeyDown={handleKeyDown}
-  placeholder="Enter your prompt..."
-  className="flex-1 px-2 py-1 md:px-3 md:py-2 bg-gray-900/95 text-white rounded-lg text-xs placeholder:text-xs placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-neon-blue/50 backdrop-blur-md border border-gray-400 resize-none overflow-y-auto custom-scrollbar" // Đảm bảo overflow-y-auto
-  rows={1}
-  disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
-  ref={textareaRef}
-  style={{
-    minHeight: '24px',
-    maxHeight: '120px', // Giữ maxHeight
-    lineHeight: '1.4',
-    touchAction: 'manipulation',
-    WebkitTextSizeAdjust: '100%',
-  }}
-/>
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Enter your prompt..."
+            className="flex-1 px-2 py-1 md:px-3 md:py-2 bg-gray-900/95 text-white rounded-lg text-xs placeholder:text-xs placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-neon-blue/50 backdrop-blur-md border border-gray-400 resize-none overflow-y-auto custom-scrollbar" // Đảm bảo overflow-y-auto
+            rows={1}
+            disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
+            ref={textareaRef}
+            style={{
+              minHeight: '24px',
+              maxHeight: '120px', // Giữ maxHeight
+              lineHeight: '1.4',
+              touchAction: 'manipulation',
+              WebkitTextSizeAdjust: '100%',
+            }}
+          />
           <button
             type="submit"
             className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-[10px] md:text-xs font-medium transition-all duration-300 border border-gray-400 backdrop-blur-md flex items-center justify-center ${isLoading || totalDailyChats >= maxTotalDailyChats
-                ? 'bg-gray-600 text-gray-200 cursor-not-allowed'
-                : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
+              ? 'bg-gray-600 text-gray-200 cursor-not-allowed'
+              : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
               }`}
             disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
             style={{ minHeight: '20px' }}

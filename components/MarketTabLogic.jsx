@@ -11,9 +11,9 @@ if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
 }
 
 const DEX_REQUEST_LIMIT = 30; // Max 5 requests per minute
-const DEX_REQUEST_WINDOW = 2 * 60 * 1000; // 1 minute
+const DEX_REQUEST_WINDOW = 5 * 60 * 1000; // 1 minute
 const dexRequestTracker = new Map();
-const limit = pLimit(15);
+const limit = pLimit(20);
 
 // Custom logger
 const customLogger = {
@@ -25,7 +25,7 @@ const customLogger = {
 };
 
 const coingeckoAxios = rateLimit(axios.create(), {
-  maxRequests: 10,
+  maxRequests: 15,
   perMilliseconds: 60000,
 });
 
@@ -152,9 +152,9 @@ const GECKOTERMINAL_CHAIN_MAPPING = {
 };
 
 const COINGECKO_API_KEY = process.env.NEXT_PUBLIC_COINGECKO_API_KEY || '';
-const CACHE_DURATION = 2 * 60 * 1000;
+const CACHE_DURATION = 5 * 60 * 1000;
 const NAME_TAG_CACHE_DURATION = 24 * 60 * 60 * 1000;
-const WALLET_SEARCH_LIMIT = 3;
+const WALLET_SEARCH_LIMIT = 5;
 const WALLET_SEARCH_WINDOW = 60 * 1000;
 const tokensPerPage = 20;
 
