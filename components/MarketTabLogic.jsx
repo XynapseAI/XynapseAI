@@ -5,11 +5,17 @@ import debounce from 'lodash.debounce';
 import rateLimit from 'axios-rate-limit';
 import { logger } from '../utils/logger';
 import pLimit from 'p-limit';
+import { btcManualNameTags } from '../utils/btcManualNameTags';
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
   console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
 }
 
+
+const NON_EVM_CHAINS = ['bitcoin', 'ethereum', 'dogecoin'];
+const BLOCKCHAIR_REQUEST_LIMIT = 30; // Giới hạn 30 yêu cầu/phút
+const BLOCKCHAIR_REQUEST_WINDOW = 60 * 1000; // 1 phút
+const blockchairRequestTracker = new Map();
 const DEX_REQUEST_LIMIT = 30; // Max 5 requests per minute
 const DEX_REQUEST_WINDOW = 5 * 60 * 1000; // 1 minute
 const dexRequestTracker = new Map();
@@ -210,6 +216,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const [dexRequestCount, setDexRequestCount] = useState(0);
   const [lastDexRequestTime, setLastDexRequestTime] = useState(0);
   const [lastDexFetchTime, setLastDexFetchTime] = useState(null);
+  const [blockchairRequestCount, setBlockchairRequestCount] = useState(0);
+  const [lastBlockchairRequestTime, setLastBlockchairRequestTime] = useState(0);
+  const blockchairCache = useRef({});
 
   const executeRecaptcha = useCallback(
     async (action, retryCount = 0) => {
@@ -455,85 +464,94 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
 
   const fetchNameTagsForAddresses = useCallback(
     async (addresses) => {
-      const uniqueAddresses = [...new Set(addresses.filter((addr) => addr?.match(/^0x[a-fA-F0-9]{40}$/)))];
-      if (uniqueAddresses.length === 0) {
-        logger.log('No valid addresses to fetch Name Tags');
+      if (!addresses || addresses.length === 0) {
+        logger.log('No addresses provided for fetchNameTagsForAddresses');
         setIsLoadingNameTags(false);
         return;
       }
 
       setIsLoadingNameTags(true);
-      logger.log('Fetching Name Tags for addresses:', { count: uniqueAddresses.length });
+      const newNameTags = {};
 
-      try {
-        const response = await axios.post(
-          '/api/nametags',
-          { addresses: uniqueAddresses },
-          {
-            headers: {
-              Authorization: `Bearer ${session?.accessToken}`,
-            },
-            timeout: 10000,
-          }
-        );
-
-        const newNameTags = uniqueAddresses.reduce((acc, address) => {
-          const normalizedAddress = address.toLowerCase();
-          const data = response.data.data[normalizedAddress];
-          const nameTag = data?.Labels ? Object.values(data.Labels)[0]?.['Name Tag'] || null : null;
-          acc[normalizedAddress] = { nameTag, timestamp: Date.now() };
-          if (!nameTag) {
-            logger.log('Name Tag not found for address:', { address: normalizedAddress });
-          } else {
-            logger.log('Name Tag processed:', { address: normalizedAddress, nameTag });
-          }
-          return acc;
-        }, {});
-
-        setNameTags((prev) => {
-          const updated = { ...prev, ...newNameTags };
-          logger.log('Name Tags updated in state:', {
-            count: Object.keys(updated).length,
-            sample: Object.entries(updated).slice(0, 5),
-          });
-          return updated;
-        });
-        logger.log('Name Tags fetched:', { count: Object.keys(newNameTags).length });
-      } catch (error) {
-        let errorMessage;
-        let showToast = true;
-        if (error.response?.status === 401) {
-          errorMessage = 'Unauthorized: Please log in again.';
-        } else if (error.response?.status === 429) {
-          errorMessage = 'Too many requests. Please try again later.';
-        } else if (error.response?.status === 400) {
-          errorMessage = 'Invalid addresses provided.';
-        } else {
-          errorMessage = error.response?.data?.detail || `Failed to fetch Name Tags: ${error.message}`;
+      // Xử lý địa chỉ BTC
+      const btcAddresses = addresses.filter((addr) => !addr.match(/^0x[a-fA-F0-9]{40}$/));
+      btcAddresses.forEach((addr) => {
+        const normalizedAddress = addr.toLowerCase();
+        const nameTag = btcManualNameTags[normalizedAddress] || null;
+        newNameTags[normalizedAddress] = { nameTag, timestamp: Date.now() };
+        if (nameTag) {
+          logger.log('BTC Name Tag from manual list:', { address: normalizedAddress, nameTag });
         }
+      });
 
-        logger.error('Error in fetchNameTagsForAddresses:', {
-          message: errorMessage,
-          status: error.response?.status,
-        });
+      // Xử lý địa chỉ EVM
+      const evmAddresses = addresses.filter((addr) => addr.match(/^0x[a-fA-F0-9]{40}$/));
+      if (evmAddresses.length > 0 && status === 'authenticated') {
+        try {
+          const response = await axios.post(
+            '/api/nametags',
+            { addresses: evmAddresses },
+            {
+              headers: {
+                Authorization: `Bearer ${session?.accessToken}`,
+              },
+              timeout: 10000,
+            }
+          );
 
-        uniqueAddresses.forEach((address) => {
-          const normalizedAddress = address.toLowerCase();
-          nameTagsRef.current[normalizedAddress] = { nameTag: null, timestamp: Date.now() };
-          setNameTags((prev) => ({
-            ...prev,
-            [normalizedAddress]: { nameTag: null, timestamp: Date.now() },
-          }));
-        });
+          evmAddresses.forEach((address) => {
+            const normalizedAddress = address.toLowerCase();
+            const data = response.data.data[normalizedAddress];
+            const nameTag = data?.Labels ? Object.values(data.Labels)[0]?.['Name Tag'] || null : null;
+            newNameTags[normalizedAddress] = { nameTag, timestamp: Date.now() };
+            if (!nameTag) {
+              logger.log('EVM Name Tag not found:', { address: normalizedAddress });
+            } else {
+              logger.log('EVM Name Tag fetched:', { address: normalizedAddress, nameTag });
+            }
+          });
+        } catch (error) {
+          const errorMessage =
+            error.response?.status === 401
+              ? 'Unauthorized: Please log in again.'
+              : error.response?.status === 429
+                ? 'Too many requests. Please try again later.'
+                : error.response?.status === 400
+                  ? 'Invalid addresses provided.'
+                  : error.response?.data?.detail || `Failed to fetch Name Tags: ${error.message}`;
 
-        if (showToast) {
+          logger.error('Error in fetchNameTagsForAddresses for EVM:', {
+            message: errorMessage,
+            status: error.response?.status,
+          });
+
+          evmAddresses.forEach((address) => {
+            const normalizedAddress = address.toLowerCase();
+            newNameTags[normalizedAddress] = { nameTag: null, timestamp: Date.now() };
+          });
+
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         }
-      } finally {
-        setIsLoadingNameTags(false);
+      } else if (evmAddresses.length > 0) {
+        logger.warn('User not authenticated for EVM Name Tag fetch', { count: evmAddresses.length });
+        evmAddresses.forEach((address) => {
+          const normalizedAddress = address.toLowerCase();
+          newNameTags[normalizedAddress] = { nameTag: null, timestamp: Date.now() };
+        });
       }
+
+      setNameTags((prev) => {
+        const updated = { ...prev, ...newNameTags };
+        nameTagsRef.current = updated;
+        logger.log('Name Tags updated:', {
+          count: Object.keys(updated).length,
+          sample: Object.entries(updated).slice(0, 5),
+        });
+        return updated;
+      });
+      setIsLoadingNameTags(false);
     },
-    [session, toast]
+    [session, status, toast]
   );
 
   const fetchPriceHistory = useCallback(
@@ -614,52 +632,194 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   );
 
   const fetchPublicTreasuryData = useCallback(
-    debounce(async (tokenSymbol) => {
-      if (!['bitcoin', 'ethereum'].includes(tokenSymbol.toLowerCase())) {
-        return;
-      }
-      const treasuryType = tokenSymbol.toLowerCase() === 'bitcoin' ? 'bitcoin' : 'ethereum';
-      setIsLoadingOnChain(true);
-      try {
-        const response = await axios.get(
-          `https://api.coingecko.com/api/v3/companies/public_treasury/${treasuryType}`,
-          {
-            headers: {
-              accept: 'application/json',
-              ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
-            },
-            timeout: 10000,
-          }
-        );
-        const treasuryData = response.data.companies.map((company) => ({
-          address: company.name || 'Unknown Company',
-          balance: parseFloat(company.total_holdings || 0),
-        }));
-        logger.log(`Public treasury data fetched for ${treasuryType}`, {
-          count: treasuryData.length,
-          firstFew: treasuryData.slice(0, 3),
-        });
-        setOnChainData((prev) => ({
-          ...prev,
-          topHolders: treasuryData,
-        }));
+    debounce(
+      async (tokenSymbol, retryCount = 0) => {
+        const normalizedTokenSymbol = tokenSymbol?.toLowerCase();
+        if (!NON_EVM_CHAINS.includes(normalizedTokenSymbol)) {
+          logger.warn(`fetchPublicTreasuryData called for unsupported chain: ${normalizedTokenSymbol}`);
+          setOnChainError(`Unsupported chain: ${normalizedTokenSymbol}`);
+          setIsLoadingOnChain(false);
+          return;
+        }
+
+        const chain = normalizedTokenSymbol;
+        const cacheKey = `blockchair-${chain}-top-holders`;
+        setIsLoadingOnChain(true);
         setOnChainError(null);
-      } catch (error) {
-        logger.error(`Error fetching public treasury data for ${treasuryType}`, {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
+
+        // Check cache
+        if (
+          blockchairCache.current[cacheKey] &&
+          Date.now() - blockchairCache.current[cacheKey].timestamp < CACHE_DURATION
+        ) {
+          logger.info('Serving top holders from client cache', { cacheKey, chain });
+          setOnChainData((prev) => ({
+            ...prev,
+            topHolders: blockchairCache.current[cacheKey].data,
+          }));
+          setIsLoadingOnChain(false);
+          return;
+        }
+
+        // Client-side rate limiting
+        const userId = session?.user?.id || 'anonymous';
+        const now = Date.now();
+        let userRequests = blockchairRequestTracker.get(userId) || { count: 0, lastReset: now };
+
+        if (now - userRequests.lastReset >= BLOCKCHAIR_REQUEST_WINDOW) {
+          userRequests = { count: 0, lastReset: now };
+          blockchairRequestTracker.set(userId, userRequests);
+          setBlockchairRequestCount(0);
+          setLastBlockchairRequestTime(now);
+        }
+
+        if (userRequests.count >= BLOCKCHAIR_REQUEST_LIMIT) {
+          const errorMessage = 'Too many Blockchair requests. Please wait a minute and try again.';
+          logger.error(errorMessage, { userId, count: userRequests.count });
+          setOnChainError(errorMessage);
+          setIsLoadingOnChain(false);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          return;
+        }
+
+        blockchairRequestTracker.set(userId, {
+          count: userRequests.count + 1,
+          lastReset: userRequests.lastReset,
         });
-        setOnChainError(
-          error.response?.status === 429
-            ? 'CoinGecko API rate limit exceeded. Please try again later.'
-            : error.response?.data?.detail || `Failed to load ${treasuryType} treasury data.`
-        );
-      } finally {
-        setIsLoadingOnChain(false);
-      }
-    }, 500),
-    [COINGECKO_API_KEY]
+        setBlockchairRequestCount((prev) => prev + 1);
+
+        try {
+          const recaptchaToken = await executeRecaptcha('blockchair_top_holders');
+          let topHolders = [];
+
+          // Fetch Blockchair data for all non-EVM chains
+          const blockchairResponse = await axios.post(
+            '/api/blockchair',
+            { chain, limit: 100 },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+                'x-recaptcha-token': recaptchaToken,
+              },
+              timeout: 15000,
+            }
+          );
+
+          if (!blockchairResponse.data.success || !Array.isArray(blockchairResponse.data.data)) {
+            throw new Error(
+              blockchairResponse.data.detail || `Failed to fetch top holders for ${chain} from Blockchair`
+            );
+          }
+
+          topHolders = blockchairResponse.data.data.map((holder) => ({
+            address: holder.address,
+            balance: parseFloat(holder.balance),
+            share: parseFloat(holder.share) || 0,
+            nameTag: btcManualNameTags[holder.address] || null, // Áp dụng name tag thủ công cho BTC
+          }));
+
+          // Fetch CoinGecko public treasury data for BTC only
+          if (chain === 'bitcoin') {
+            try {
+              const coingeckoResponse = await coingeckoAxios.get(
+                'https://api.coingecko.com/api/v3/companies/public_treasury/bitcoin',
+                {
+                  headers: {
+                    accept: 'application/json',
+                    ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
+                  },
+                  timeout: 10000,
+                }
+              );
+
+              const treasuryData = coingeckoResponse.data.companies.map((company) => ({
+                address: company.name || 'Unknown Company',
+                balance: parseFloat(company.total_holdings || 0),
+                share: 0, // CoinGecko không cung cấp share, để mặc định là 0
+                nameTag: company.name || null, // Dùng tên công ty làm nameTag
+              }));
+
+              // Kết hợp dữ liệu, ưu tiên Blockchair nhưng thêm các công ty từ CoinGecko nếu không trùng địa chỉ
+              const uniqueAddresses = new Set(topHolders.map((holder) => holder.address.toLowerCase()));
+              const mergedHolders = [
+                ...topHolders,
+                ...treasuryData.filter((company) => !uniqueAddresses.has(company.address.toLowerCase())),
+              ];
+
+              // Sắp xếp theo balance giảm dần
+              topHolders = mergedHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
+            } catch (coingeckoError) {
+              logger.warn('Failed to fetch CoinGecko public treasury for BTC', {
+                status: coingeckoError.response?.status,
+                message: coingeckoError.message,
+              });
+              // Tiếp tục với dữ liệu Blockchair nếu CoinGecko thất bại
+            }
+          }
+
+          // Cache dữ liệu
+          blockchairCache.current[cacheKey] = { data: topHolders, timestamp: Date.now() };
+          setOnChainData((prev) => ({
+            ...prev,
+            topHolders,
+          }));
+          logger.info(`Top holders fetched for ${chain}`, {
+            count: topHolders.length,
+            sample: topHolders.slice(0, 3).map((h) => ({
+              address: h.address,
+              balance: h.balance,
+              share: h.share,
+              nameTag: h.nameTag,
+            })),
+          });
+        } catch (error) {
+          if (
+            retryCount < 3 &&
+            (error.response?.status === 429 ||
+              error.response?.status === 503 ||
+              error.code === 'ECONNABORTED')
+          ) {
+            const delay = Math.pow(2, retryCount) * 1000;
+            logger.warn(`Retrying fetchPublicTreasuryData after ${delay}ms`, {
+              retryCount,
+              status: error.response?.status,
+              code: error.code,
+              chain,
+            });
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return fetchPublicTreasuryData(tokenSymbol, retryCount + 1);
+          }
+
+          const errorMessage =
+            error.response?.status === 429
+              ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
+              : error.response?.status === 401
+                ? 'Unauthorized: Please log in again.'
+                : error.response?.status === 403 &&
+                  error.response?.data?.detail?.includes('reCAPTCHA')
+                  ? 'reCAPTCHA verification failed. Please try again.'
+                  : error.response?.data?.detail ||
+                  `Failed to fetch top holders for ${chain}.`;
+
+          logger.error(`Error fetching top holders for ${chain}`, {
+            status: error.response?.status,
+            message: error.message,
+            data: error.response?.data,
+          });
+          setOnChainError(errorMessage);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        } finally {
+          setIsLoadingOnChain(false);
+          if (recaptchaRef.current) {
+            recaptchaRef.current.reset();
+          }
+        }
+      },
+      500,
+      { leading: false, trailing: true }
+    ),
+    [toast, executeRecaptcha, session, COINGECKO_API_KEY]
   );
 
   const fetchTickerData = useCallback(
@@ -733,225 +893,247 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
     [COINGECKO_API_KEY]
   );
 
-  const fetchOnChainData = useCallback(
-    debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount = 0) => {
-      logger.info('fetchOnChainData called', { action, chain, address, tokenAddress, retryCount });
-      console.log('fetchOnChainData called:', { action, chain, address, tokenAddress, decimalPlace, retryCount });
+  // In MarketTabLogic.jsx, update fetchOnChainData to add more logging
+const fetchOnChainData = useCallback(
+  debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount = 0) => {
+    logger.info('fetchOnChainData called', { action, chain, address, tokenAddress, retryCount });
+    console.log('fetchOnChainData called:', { action, chain, address, tokenAddress, decimalPlace, retryCount });
 
-      if (
-        (action === 'top-holders' && (!chain || !tokenAddress)) ||
-        ((action === 'wallet-balances' || action === 'transactions') && !address) ||
-        (typeof document !== 'undefined' && document.visibilityState !== 'visible')
-      ) {
-        const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address}`;
-        logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
-        console.error('Invalid parameters:', { action, chain, tokenAddress, address });
-        customLogger.log('Error: Invalid parameters', { action, chain, tokenAddress, address });
-        setOnChainError(errorMessage);
-        setIsLoadingOnChain(false);
-        setIsLoadingWalletBalances(false);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
+    if (
+      (action === 'top-holders' && (!chain || !tokenAddress)) ||
+      ((action === 'wallet-balances' || action === 'transactions') && !address) ||
+      (typeof document !== 'undefined' && document.visibilityState !== 'visible')
+    ) {
+      const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address}`;
+      logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
+      console.error('Invalid parameters:', { action, chain, tokenAddress, address });
+      customLogger.log('Error: Invalid parameters', { action, chain, tokenAddress, address });
+      setOnChainError(errorMessage);
+      setIsLoadingOnChain(false);
+      setIsLoadingWalletBalances(false);
+      setIsLoadingTransactions(false);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      return;
+    }
 
-      const simChain = chains.find((c) => c.value === chain)?.value;
-      if (!simChain && action === 'top-holders') {
-        const errorMessage = `Invalid chain: ${chain}`;
-        logger.error('Invalid chain for fetchOnChainData', { chain });
-        console.error('Invalid chain:', { chain });
-        customLogger.log('Error: Invalid chain', { chain });
-        setOnChainError(errorMessage);
-        setIsLoadingOnChain(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
+    const simChain = chains.find((c) => c.value === chain)?.value;
+    if (!simChain && action === 'top-holders') {
+      const errorMessage = `Invalid chain: ${chain}`;
+      logger.error('Invalid chain for fetchOnChainData', { chain });
+      console.error('Invalid chain:', { chain });
+      customLogger.log('Error: Invalid chain', { chain });
+      setOnChainError(errorMessage);
+      setIsLoadingOnChain(false);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      return;
+    }
 
-      if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
-        const errorMessage = 'Please log in to access wallet data.';
-        logger.warn('User not authenticated for wallet data', { action, status });
-        console.warn('User not authenticated:', { action, status });
-        customLogger.log('Warning: User not authenticated', { action, status });
-        setOnChainError(errorMessage);
-        setIsLoadingOnChain(false);
-        setIsLoadingWalletBalances(false);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
+    if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
+      const errorMessage = 'Please log in to access wallet data.';
+      logger.warn('User not authenticated for wallet data', { action, status });
+      console.warn('User not authenticated:', { action, status });
+      customLogger.log('Warning: User not authenticated', { action, status });
+      setOnChainError(errorMessage);
+      setIsLoadingOnChain(false);
+      setIsLoadingWalletBalances(false);
+      setIsLoadingTransactions(false);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      return;
+    }
 
-      if ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) {
-        const errorMessage = 'Wallet address must be a valid EVM address.';
-        logger.error(errorMessage, { action, address });
-        console.error(errorMessage, { action, address });
-        customLogger.log('Error: Invalid EVM address', { action, address });
-        if (action === 'wallet-balances') {
-          setWalletBalancesError(errorMessage);
-        } else {
-          setTransactionsError(errorMessage);
-        }
-        setIsLoadingOnChain(false);
-        setIsLoadingWalletBalances(false);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
-
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-      const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}${apiBaseUrl}/sim`;
-      logger.info('API URL configuration', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
-      console.log('API URL configuration:', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
-
-      setIsLoadingOnChain(true);
+    if ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+      const errorMessage = 'Wallet address must be a valid EVM address.';
+      logger.error(errorMessage, { action, address });
+      console.error(errorMessage, { action, address });
+      customLogger.log('Error: Invalid EVM address', { action, address });
       if (action === 'wallet-balances') {
-        setIsLoadingWalletBalances(true);
+        setWalletBalancesError(errorMessage);
+      } else {
+        setTransactionsError(errorMessage);
+      }
+      setIsLoadingOnChain(false);
+      setIsLoadingWalletBalances(false);
+      setIsLoadingTransactions(false);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      return;
+    }
+
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+    const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}${apiBaseUrl}/sim`;
+    logger.info('API URL configuration', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
+    console.log('API URL configuration:', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
+
+    setIsLoadingOnChain(true);
+    if (action === 'wallet-balances') {
+      setIsLoadingWalletBalances(true);
+    } else if (action === 'transactions') {
+      setIsLoadingTransactions(true);
+    }
+
+    try {
+      const payload = {
+        action,
+        recaptchaToken,
+      };
+      if (action === 'top-holders') {
+        payload.chain = simChain;
+        payload.tokenAddress = tokenAddress;
+        if (decimalPlace != null) payload.decimalPlace = Number(decimalPlace);
+      } else if (action === 'wallet-balances' || action === 'transactions') {
+        payload.address = address;
+      }
+      logger.info('Sending on-chain data request', { payload, apiUrl });
+      console.log('Sending on-chain data request:', { payload, apiUrl });
+      customLogger.log('Sending on-chain data request', { payload, apiUrl });
+
+      const response = await axios.post(apiUrl, payload, {
+        headers: {
+          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+      }).catch(async (error) => {
+        if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
+          const delay = Math.pow(2, retryCount) * 1000;
+          logger.info(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
+          console.log(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          return fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount + 1);
+        }
+        throw error;
+      });
+
+      logger.info(`On-chain data response for ${action}`, {
+        success: response.data.success,
+        count: response.data.data?.length || 0,
+        dataSample: response.data.data?.slice(0, 5),
+      });
+      console.log(`On-chain data response for ${action}:`, {
+        status: response.status,
+        success: response.data.success,
+        count: response.data.data?.length || 0,
+        dataSample: response.data.data?.slice(0, 5), // Log sample data for debugging
+      });
+      customLogger.log(`On-chain data response for ${action}`, {
+        success: response.data.success,
+        count: response.data.data?.length || 0,
+      });
+
+      if (!response.data.success) {
+        throw new Error(response.data.detail || `Failed to fetch ${action} data`);
+      }
+
+      if (action === 'top-holders') {
+        setOnChainData((prev) => ({
+          ...prev,
+          topHolders: response.data.data || [],
+        }));
+      } else if (action === 'wallet-balances') {
+        const balances = response.data.data || [];
+        logger.info('Setting wallet balances:', {
+          count: balances.length,
+          sample: balances.slice(0, 5),
+        });
+        console.log('Setting wallet balances:', {
+          count: balances.length,
+          sample: balances.slice(0, 5),
+        });
+        setWalletBalances(balances);
       } else if (action === 'transactions') {
-        setIsLoadingTransactions(true);
-      }
-
-      try {
-        const payload = {
-          action,
-          recaptchaToken,
-        };
-        if (action === 'top-holders') {
-          payload.chain = simChain;
-          payload.tokenAddress = tokenAddress;
-          if (decimalPlace != null) payload.decimalPlace = Number(decimalPlace);
-        } else if (action === 'wallet-balances' || action === 'transactions') {
-          payload.address = address;
-        }
-        logger.info('Sending on-chain data request', { payload, apiUrl });
-        console.log('Sending on-chain data request:', { payload, apiUrl });
-        customLogger.log('Sending on-chain data request', { payload, apiUrl });
-
-        const response = await axios.post(apiUrl, payload, {
-          headers: {
-            Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000,
-        }).catch(async (error) => {
-          if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
-            const delay = Math.pow(2, retryCount) * 1000;
-            logger.info(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
-            console.log(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            return fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount + 1);
-          }
-          throw error;
+        const transactions = response.data.data || [];
+        logger.info('Setting transactions:', {
+          count: transactions.length,
+          sample: transactions.slice(0, 5),
         });
-
-        logger.info(`On-chain data response for ${action}`, {
-          success: response.data.success,
-          count: response.data.data?.length || 0,
-          dataSample: response.data.data?.slice(0, 5),
+        console.log('Setting transactions:', {
+          count: transactions.length,
+          sample: transactions.slice(0, 5),
         });
-        console.log(`On-chain data response for ${action}:`, {
-          status: response.status,
-          success: response.data.success,
-          count: response.data.data?.length || 0,
-        });
-        customLogger.log(`On-chain data response for ${action}`, {
-          success: response.data.success,
-          count: response.data.data?.length || 0,
-        });
-
-        if (!response.data.success) {
-          throw new Error(response.data.detail || `Failed to fetch ${action} data`);
-        }
-
-        if (action === 'top-holders') {
-          setOnChainData((prev) => ({
-            ...prev,
-            topHolders: response.data.data || [],
-          }));
-        } else if (action === 'wallet-balances') {
-          setWalletBalances(response.data.data || []);
-        } else if (action === 'transactions') {
-          setTransactions(response.data.data || []);
-          if (session?.user?.id) {
-            try {
-              await axios.post(
-                '/api/wallet-history',
-                {
-                  uid: session.user.id,
-                  walletAddress: address,
-                  action: 'transactions',
-                  data: response.data.data || [],
+        setTransactions(transactions);
+        if (session?.user?.id) {
+          try {
+            await axios.post(
+              '/api/wallet-history',
+              {
+                uid: session.user.id,
+                walletAddress: address,
+                action: 'transactions',
+                data: transactions,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${session.accessToken}`,
                 },
-                {
-                  headers: {
-                    Authorization: `Bearer ${session.accessToken}`,
-                  },
-                  timeout: 15000,
-                }
-              );
-              logger.info('Transactions history saved', { address });
-              console.log('Transactions history saved:', { address });
-              customLogger.log('Transactions history saved', { address });
-            } catch (historyError) {
-              logger.error('Error saving transactions history', {
-                message: historyError.message,
-                response: historyError.response?.data,
-              });
-              console.error('Error saving transactions history:', {
-                message: historyError.message,
-                response: historyError.response?.data,
-              });
-              customLogger.log('Error saving transactions history', {
-                message: historyError.message,
-              });
-            }
+                timeout: 15000,
+              }
+            );
+            logger.info('Transactions history saved', { address });
+            console.log('Transactions history saved:', { address });
+            customLogger.log('Transactions history saved', { address });
+          } catch (historyError) {
+            logger.error('Error saving transactions history', {
+              message: historyError.message,
+              response: historyError.response?.data,
+            });
+            console.error('Error saving transactions history:', {
+              message: historyError.message,
+              response: historyError.response?.data,
+            });
+            customLogger.log('Error saving transactions history', {
+              message: historyError.message,
+            });
           }
         }
-      } catch (error) {
-        logger.error(`Error fetching ${action} data`, {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-          stack: error.stack,
-          url: apiUrl,
-        });
-        console.error(`Error fetching ${action} data:`, {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-          stack: error.stack,
-        });
-        customLogger.log(`Error fetching ${action} data`, {
-          status: error.response?.status,
-          message: error.message,
-        });
-        const errorMessage =
-          error.response?.status === 401
-            ? 'Unauthorized: Please log in again.'
-            : error.response?.status === 429
-              ? 'Dune Sim API rate limit exceeded. Please try again later.'
-              : error.response?.status === 503
-                ? 'Service temporarily unavailable. Please try again later.'
-                : error.response?.data?.errors
-                  ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
-                  : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
-        if (action === 'wallet-balances') {
-          setWalletBalancesError(errorMessage);
-        } else if (action === 'transactions') {
-          setTransactionsError(errorMessage);
-        } else {
-          setOnChainError(errorMessage);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        }
-      } finally {
-        setIsLoadingOnChain(false);
-        if (action === 'wallet-balances') {
-          setIsLoadingWalletBalances(false);
-        } else if (action === 'transactions') {
-          setIsLoadingTransactions(false);
-        }
       }
-    }, 500),
-    [chains, status, session?.accessToken, toast]
-  );
+    } catch (error) {
+      logger.error(`Error fetching ${action} data`, {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        stack: error.stack,
+        url: apiUrl,
+      });
+      console.error(`Error fetching ${action} data:`, {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        stack: error.stack,
+      });
+      customLogger.log(`Error fetching ${action} data`, {
+        status: error.response?.status,
+        message: error.message,
+      });
+      const errorMessage =
+        error.response?.status === 401
+          ? 'Unauthorized: Please log in again.'
+          : error.response?.status === 429
+            ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
+            : error.response?.status === 503
+              ? 'Service temporarily unavailable. Please try again later.'
+              : error.response?.data?.errors
+                ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
+                : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
+      if (action === 'wallet-balances') {
+        setWalletBalancesError(errorMessage);
+        setWalletBalances([]); // Clear balances on error
+      } else if (action === 'transactions') {
+        setTransactionsError(errorMessage);
+        setTransactions([]); // Clear transactions on error
+      } else {
+        setOnChainError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      }
+    } finally {
+      setIsLoadingOnChain(false);
+      if (action === 'wallet-balances') {
+        setIsLoadingWalletBalances(false);
+      } else if (action === 'transactions') {
+        setIsLoadingTransactions(false);
+      }
+    }
+  }, 500),
+  [chains, status, session?.accessToken, toast]
+);
 
   const fetchDexData = useCallback(
     debounce(async (chain, tokenAddress, retryCount = 0) => {
@@ -1131,7 +1313,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       } catch (error) {
         const safeErrorMessage =
           error.response?.status === 429
-            ? 'GeckoTerminal API rate limit exceeded. Please try again later.'
+            ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
             : error.response?.status === 404
               ? `No DEX data found for token ${tokenAddress} on ${chain}.`
               : 'Failed to load DEX data.';
@@ -1148,30 +1330,40 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
     [toast, tickerCache, setTickerCache, status, session]
   );
 
-  const handleAddressClick = useCallback(
-    (address) => {
-      if (address === 'Unknown') {
-        setWalletBalancesError('Cannot fetch balances for unknown address.');
-        return;
-      }
-      logger.log('Address clicked', {
-        address,
-        selectedToken: selectedToken ? selectedToken.id : null,
-        onChainData: {
-          topHoldersCount: onChainData.topHolders.length,
-          whaleActivityCount: onChainData.whaleActivity.length,
-        },
-      });
-      setSelectedWallet(address);
-      setWalletBalances([]);
-      setTransactions(null);
-      setWalletBalancesError(null);
-      setTransactionsError(null);
-      setIsLoadingWalletBalances(true);
-      fetchOnChainData(null, null, 'wallet-balances', null, address);
-    },
-    [fetchOnChainData, selectedToken, onChainData]
-  );
+  // In MarketTabLogic.jsx, update the handleAddressClick function
+const handleAddressClick = useCallback(
+  (address) => {
+    if (address === 'Unknown') {
+      setWalletBalancesError('Cannot fetch balances for unknown address.');
+      return;
+    }
+
+    // Check if the selected token is Bitcoin
+    if (selectedToken?.id.toLowerCase() === 'bitcoin') {
+      const blockchairUrl = `https://blockchair.com/bitcoin/address/${address}`;
+      logger.log('Redirecting to Blockchair for BTC address:', { address });
+      window.open(blockchairUrl, '_blank', 'noreferrer');
+      return;
+    }
+
+    logger.log('Address clicked', {
+      address,
+      selectedToken: selectedToken ? selectedToken.id : null,
+      onChainData: {
+        topHoldersCount: onChainData.topHolders.length,
+        whaleActivityCount: onChainData.whaleActivity.length,
+      },
+    });
+    setSelectedWallet(address);
+    setWalletBalances([]);
+    setTransactions(null);
+    setWalletBalancesError(null);
+    setTransactionsError(null);
+    setIsLoadingWalletBalances(true);
+    fetchOnChainData(null, null, 'wallet-balances', null, address);
+  },
+  [fetchOnChainData, selectedToken, onChainData]
+);
 
   const handleWalletSearch = useCallback(
     debounce(async () => {
@@ -1246,6 +1438,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         return { chain: null, tokenAddress: null, decimalPlace: null };
       }
 
+      const tokenSymbol = token.symbol?.toLowerCase();
+      if (NON_EVM_CHAINS.includes(tokenSymbol)) {
+        logger.log(`Non-EVM chain detected: ${tokenSymbol}`);
+        return { chain: tokenSymbol, tokenAddress: null, decimalPlace: null };
+      }
+
       const normalizedPlatforms = Object.keys(token.detail_platforms || {}).reduce((acc, cgId) => {
         const chain = chains.find((c) => c.coingeckoId === cgId);
         if (chain && token.detail_platforms[cgId].contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -1303,7 +1501,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         },
       };
 
-      const tokenSymbol = token.symbol?.toLowerCase();
       if (fallbackTokens[tokenSymbol]) {
         logger.log(`Using fallback for ${tokenSymbol.toUpperCase()}:`, fallbackTokens[tokenSymbol]);
         return fallbackTokens[tokenSymbol];
@@ -1413,7 +1610,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             logger.error('Price history fetch failed on token select:', { error: err.message });
             setError(
               err.response?.status === 429
-                ? 'API rate limit reached. Please wait a minute and try again.'
+                ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
                 : err.response?.data?.detail || 'Failed to load price history.'
             );
           } else {
@@ -1824,10 +2021,10 @@ Use natural, professional tone with recent data.
     if (!selectedToken?.id) return;
 
     const tokenSymbol = selectedToken.id.toLowerCase();
-    const isTreasuryToken = ['bitcoin', 'ethereum'].includes(tokenSymbol);
+    const isNonEvmChain = NON_EVM_CHAINS.includes(tokenSymbol);
     const { chain, tokenAddress, decimalPlace } = getDefaultChainAndAddress(selectedToken, selectedChain);
-    const tokenKey = isTreasuryToken
-      ? `${selectedToken.id}-treasury`
+    const tokenKey = isNonEvmChain
+      ? `${selectedToken.id}-blockchair`
       : `${selectedToken.id}-${chain}-${tokenAddress}-${decimalPlace}`;
 
     if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
@@ -1836,10 +2033,10 @@ Use natural, professional tone with recent data.
     }
 
     setIsLoadingOnChain(true);
-    setOnChainData((prev) => ({ ...prev, topHolders: [] }));
+    setOnChainData((prevAscent) => ({ ...prevAscent, topHolders: [] })); // Fixed typo: prev -> prevAscent
 
-    if (isTreasuryToken) {
-      logger.log(`Fetching public treasury data for ${tokenSymbol}`);
+    if (isNonEvmChain) {
+      logger.log(`Fetching top holders for non-EVM chain ${tokenSymbol} via Blockchair`);
       lastFetchedTokenRef.current = tokenKey;
       fetchPublicTreasuryData(tokenSymbol);
     } else {
@@ -1899,7 +2096,7 @@ Use natural, professional tone with recent data.
     if (onChainData.topHolders.length > 0) {
       const addresses = onChainData.topHolders
         .map((holder) => holder.address)
-        .filter((addr) => addr && addr.match(/^0x[a-fA-F0-9]{40}$/) && !nameTags[addr.toLowerCase()]);
+        .filter((addr) => addr && !nameTags[addr.toLowerCase()]);
       if (addresses.length > 0) {
         logger.log('Triggering fetchNameTagsForAddresses:', { count: addresses.length, addresses });
         fetchNameTagsForAddresses(addresses);
@@ -2033,11 +2230,29 @@ Use natural, professional tone with recent data.
     isLoadingDex,
     lastDexFetchTime,
     setLastDexFetchTime,
+    blockchairRequestCount,
+    setBlockchairRequestCount,
+    lastBlockchairRequestTime,
+    setLastBlockchairRequestTime,
+    // Constants
+    SUPPORTED_CHAINS,
+    WALLET_SEARCH_LIMIT,
+    WALLET_SEARCH_WINDOW,
+    BLOCKCHAIR_REQUEST_LIMIT,
+    BLOCKCHAIR_REQUEST_WINDOW,
+    // Refs
+    lastFetchedTokenRef,
+    prevTopHoldersRef,
+    prevAvailableChainsRef,
+    blockchairCache,
 
     // Constants
     SUPPORTED_CHAINS,
     WALLET_SEARCH_LIMIT,
     WALLET_SEARCH_WINDOW,
+    BLOCKCHAIR_REQUEST_LIMIT,
+    BLOCKCHAIR_REQUEST_WINDOW,
+    NON_EVM_CHAINS,
 
     // Refs
     lastFetchedTokenRef,

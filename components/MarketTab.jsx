@@ -220,6 +220,7 @@ const LoadingOverlay = ({ message }) => (
 );
 
 // Wallet Balances component (unchanged)
+// In MarketTab.jsx, update the WalletBalances component
 const WalletBalances = ({
   balances,
   walletAddress,
@@ -271,6 +272,7 @@ const WalletBalances = ({
   if (!walletAddress) return null;
 
   const weiToEth = (wei) => {
+    if (!wei) return '0.000000';
     const value = parseInt(wei, 16) || 0;
     return (value / 1e18).toFixed(6);
   };
@@ -282,7 +284,14 @@ const WalletBalances = ({
     return imageUrl;
   };
 
-
+  logger.log('WalletBalances rendering:', {
+    walletAddress,
+    balances: balances.slice(0, 5), // Log sample balances
+    isLoading,
+    error,
+    transactionsCount: transactions?.length || 0,
+    activeTab,
+  });
 
   const overlayContent = (
     <div className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains min-h-screen">
@@ -321,7 +330,7 @@ const WalletBalances = ({
           <>
             {isLoading && <p className="text-xs sm:text-sm text-gray-400 text-center">Loading portfolio...</p>}
             {error && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {error}</p>}
-            {!isLoading && !error && balances.length > 0 ? (
+            {!isLoading && !error && balances?.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full border border-gray-500 table-auto">
                   <thead>
@@ -350,7 +359,13 @@ const WalletBalances = ({
                                 src={getPlatformImage(balance.chain)}
                                 alt={`${balance.chain} logo`}
                                 className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"
-                                onError={(e) => (e.target.src = '/fallback-image.png')}
+                                onError={(e) => {
+                                  logger.error('Platform logo failed to load:', {
+                                    chain: balance.chain,
+                                    src: getPlatformImage(balance.chain),
+                                  });
+                                  e.target.src = '/fallback-image.png';
+                                }}
                               />
                               <span className="text-[8px] sm:text-[10px] text-gray-400 flex-shrink-0">
                                 {chains.find((c) => c.value === balance.chain)?.label || balance.chain}
@@ -362,25 +377,33 @@ const WalletBalances = ({
                                   src={balance.logo}
                                   alt={`${balance.symbol} logo`}
                                   className="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-0"
-                                  onError={(e) => (e.target.src = '/fallback-image.png')}
+                                  onError={(e) => {
+                                    logger.error('Token logo failed to load:', {
+                                      symbol: balance.symbol,
+                                      src: balance.logo,
+                                    });
+                                    e.target.src = '/fallback-image.png';
+                                  }}
                                 />
                               )}
                               <span>
-                                {balance.symbol} {balance.address === 'native' ? '(Native)' : ''}
+                                {balance.symbol || 'Unknown'} {balance.address === 'native' ? '(Native)' : ''}
                               </span>
                             </div>
                           </div>
                         </td>
                         <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                          {balance.amount?.toLocaleString('en-US', { maximumFractionDigits: 2 }) || 'N/A'}
+                          {balance.amount != null
+                            ? balance.amount.toLocaleString('en-US', { maximumFractionDigits: 2 })
+                            : 'N/A'}
                         </td>
                         <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                          {balance.price_usd
+                          {balance.price_usd != null
                             ? `$${balance.price_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
                             : 'N/A'}
                         </td>
                         <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                          {balance.value_usd
+                          {balance.value_usd != null
                             ? `$${balance.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
                             : 'N/A'}
                         </td>
@@ -435,7 +458,13 @@ const WalletBalances = ({
                                   src={getPlatformImage(tx.chain)}
                                   alt={`${tx.chain} logo`}
                                   className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"
-                                  onError={(e) => (e.target.src = '/fallback-image.png')}
+                                  onError={(e) => {
+                                    logger.error('Transaction chain logo failed to load:', {
+                                      chain: tx.chain,
+                                      src: getPlatformImage(tx.chain),
+                                    });
+                                    e.target.src = '/fallback-image.png';
+                                  }}
                                 />
                                 <span className="text-[8px] sm:text-[10px] text-gray-400 flex-shrink-0">
                                   {chains.find((c) => c.value === tx.chain)?.label || tx.chain}
@@ -586,6 +615,7 @@ const MarketTab = ({ recaptchaRef }) => {
     lastDexRequestTime,
     getDefaultChainAndAddress,
     lastDexFetchTime,
+    NON_EVM_CHAINS,
   } = useMarketTabLogic({ recaptchaRef, toast });
 
   const dropdownRef = useRef(null);
@@ -649,96 +679,96 @@ const MarketTab = ({ recaptchaRef }) => {
   };
 
   // Modal content for pool details
-const renderPoolModalContent = () => {
-  if (!selectedPool || !selectedPool.tokens) {
+  const renderPoolModalContent = () => {
+    if (!selectedPool || !selectedPool.tokens) {
+      return (
+        <p className="text-xs text-gray-200 text-center">No pool data available.</p>
+      );
+    }
+
+    const tokens = Object.values(selectedPool.tokens);
+    if (tokens.length < 2) {
+      return (
+        <p className="text-xs text-gray-200 text-center">Insufficient token data for this pool.</p>
+      );
+    }
+
+    const [token1, token2] = tokens;
+
     return (
-      <p className="text-xs text-gray-200 text-center">No pool data available.</p>
-    );
-  }
-
-  const tokens = Object.values(selectedPool.tokens);
-  if (tokens.length < 2) {
-    return (
-      <p className="text-xs text-gray-200 text-center">Insufficient token data for this pool.</p>
-    );
-  }
-
-  const [token1, token2] = tokens;
-
-  return (
-    <div className="text-xs text-gray-200">
-      <h4 className="text-xl font-bold text-white mb-4 text-center">
-        {token1.symbol}/{token2.symbol}
-      </h4>
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h5 className="text-lg font-bold text-white mb-2 flex items-center justify-center gap-2">
-            <img
-              src={token1.image_url}
-              alt={`${token1.symbol} logo`}
-              className="w-6 h-6 rounded-full"
-              onError={(e) => (e.target.src = '/fallback-image.png')}
-            />
-            {token1.symbol}
-          </h5>
-          <ul className="list-none text-center">
-            <li className="p-4">
-              <strong>Transaction Score</strong>: <span className="text-green-500">{token1.transaction_score || 'N/A'}</span>
-            </li>
-            <li>
-              <strong className="font-bold uppercase">Holders</strong>
-              <ul className="list-none">
-                <li>Total Count: {token1.holders?.count?.toLocaleString() || 'N/A'}</li>
-                <li>Top 10 Holders: {token1.holders?.distribution_percentage?.top_10 || 'N/A'}%</li>
-                <li>11-30 Holders: {token1.holders?.distribution_percentage?.['11_30'] || 'N/A'}%</li>
-                <li>31-50 Holders: {token1.holders?.distribution_percentage?.['31_50'] || 'N/A'}%</li>
-                <li>Rest: {token1.holders?.distribution_percentage?.rest || 'N/A'}%</li>
-                <li className="text-gray-500 text-[10px] p-2">
-                  Last Updated:{' '}
-                  {token1.holders?.last_updated
-                    ? new Date(token1.holders.last_updated).toLocaleString('en-US')
-                    : 'N/A'}
-                </li>
-              </ul>
-            </li>
-          </ul>
-        </div>
-        <div className="flex-1 min-w-0">
-          <h5 className="text-lg font-bold text-white mb-2 flex items-center justify-center gap-2">
-            <img
-              src={token2.image_url}
-              alt={`${token2.symbol} logo`}
-              className="w-6 h-6 rounded-full"
-              onError={(e) => (e.target.src = '/fallback-image.png')}
-            />
-            {token2.symbol}
-          </h5>
-          <ul className="list-none text-center">
-            <li className="p-4">
-              <strong>Transaction Score</strong>: <span className="text-green-500">{token2.transaction_score || 'N/A'}</span>
-            </li>
-            <li>
-              <strong className="font-bold uppercase m-2">Holders</strong>
-              <ul className="list-none">
-                <li>Total Count: {token2.holders?.count?.toLocaleString() || 'N/A'}</li>
-                <li>Top 10 Holders: {token2.holders?.distribution_percentage?.top_10 || 'N/A'}%</li>
-                <li>11-30 Holders: {token2.holders?.distribution_percentage?.['11_30'] || 'N/A'}%</li>
-                <li>31-50 Holders: {token2.holders?.distribution_percentage?.['31_50'] || 'N/A'}%</li>
-                <li>Rest: {token2.holders?.distribution_percentage?.rest || 'N/A'}%</li>
-                <li className="text-gray-500 text-[10px] p-2">
-                  Last Updated:{' '}
-                  {token2.holders?.last_updated
-                    ? new Date(token2.holders.last_updated).toLocaleString('en-US')
-                    : 'N/A'}
-                </li>
-              </ul>
-            </li>
-          </ul>
+      <div className="text-xs text-gray-200">
+        <h4 className="text-xl font-bold text-white mb-4 text-center">
+          {token1.symbol}/{token2.symbol}
+        </h4>
+        <div className="flex flex-col sm:flex-row justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h5 className="text-lg font-bold text-white mb-2 flex items-center justify-center gap-2">
+              <img
+                src={token1.image_url}
+                alt={`${token1.symbol} logo`}
+                className="w-6 h-6 rounded-full"
+                onError={(e) => (e.target.src = '/fallback-image.png')}
+              />
+              {token1.symbol}
+            </h5>
+            <ul className="list-none text-center">
+              <li className="p-4">
+                <strong>Transaction Score</strong>: <span className="text-green-500">{token1.transaction_score || 'N/A'}</span>
+              </li>
+              <li>
+                <strong className="font-bold uppercase">Holders</strong>
+                <ul className="list-none">
+                  <li>Total Count: {token1.holders?.count?.toLocaleString() || 'N/A'}</li>
+                  <li>Top 10 Holders: {token1.holders?.distribution_percentage?.top_10 || 'N/A'}%</li>
+                  <li>11-30 Holders: {token1.holders?.distribution_percentage?.['11_30'] || 'N/A'}%</li>
+                  <li>31-50 Holders: {token1.holders?.distribution_percentage?.['31_50'] || 'N/A'}%</li>
+                  <li>Rest: {token1.holders?.distribution_percentage?.rest || 'N/A'}%</li>
+                  <li className="text-gray-500 text-[10px] p-2">
+                    Last Updated:{' '}
+                    {token1.holders?.last_updated
+                      ? new Date(token1.holders.last_updated).toLocaleString('en-US')
+                      : 'N/A'}
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h5 className="text-lg font-bold text-white mb-2 flex items-center justify-center gap-2">
+              <img
+                src={token2.image_url}
+                alt={`${token2.symbol} logo`}
+                className="w-6 h-6 rounded-full"
+                onError={(e) => (e.target.src = '/fallback-image.png')}
+              />
+              {token2.symbol}
+            </h5>
+            <ul className="list-none text-center">
+              <li className="p-4">
+                <strong>Transaction Score</strong>: <span className="text-green-500">{token2.transaction_score || 'N/A'}</span>
+              </li>
+              <li>
+                <strong className="font-bold uppercase m-2">Holders</strong>
+                <ul className="list-none">
+                  <li>Total Count: {token2.holders?.count?.toLocaleString() || 'N/A'}</li>
+                  <li>Top 10 Holders: {token2.holders?.distribution_percentage?.top_10 || 'N/A'}%</li>
+                  <li>11-30 Holders: {token2.holders?.distribution_percentage?.['11_30'] || 'N/A'}%</li>
+                  <li>31-50 Holders: {token2.holders?.distribution_percentage?.['31_50'] || 'N/A'}%</li>
+                  <li>Rest: {token2.holders?.distribution_percentage?.rest || 'N/A'}%</li>
+                  <li className="text-gray-500 text-[10px] p-2">
+                    Last Updated:{' '}
+                    {token2.holders?.last_updated
+                      ? new Date(token2.holders.last_updated).toLocaleString('en-US')
+                      : 'N/A'}
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 640);
@@ -1244,12 +1274,12 @@ const renderPoolModalContent = () => {
                       <img
                         src={selectedToken.image}
                         alt={`${selectedToken.symbol} logo`}
-                        className="w-4 h-4 rounded-full"
+                        className="w-4 h-4 rounded-full ml-1"
                         onError={(e) => (e.target.src = '/fallback-image.png')}
                       />
                     )}
-                    {selectedToken.symbol?.toUpperCase()} Holders on
-                    {selectedChain && (
+                    {selectedToken.symbol?.toUpperCase()} Holders
+                    {/* {selectedChain && (
                       <>
                         <img
                           src={getPlatformImage(selectedChain)}
@@ -1265,7 +1295,7 @@ const renderPoolModalContent = () => {
                         />
                         <span className="ml-1">{chains.find((c) => c.value === selectedChain)?.label || 'Selected Chain'}</span>
                       </>
-                    )}
+                    )} */}
                   </h4>
                 </div>
 
@@ -1274,51 +1304,63 @@ const renderPoolModalContent = () => {
                     <table className={`w-full table-fixed ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
                       <thead className="sticky top-0 bg-gray-700/50 backdrop-blur-sm z-10">
                         <tr>
-                          <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[160px] min-w-[160px] max-w-[160px]' : 'w-[250px] min-w-[250px] max-w-[250px]'}`}>
-                            {['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'Company' : 'Address'}
+                          <th
+                            className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[160px] min-w-[160px] max-w-[160px]' : 'w-[250px] min-w-[250px] max-w-[250px]'}`}
+                          >
+                            Address/Name
                           </th>
-                          <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>Balance</th>
+                          <th
+                            className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}
+                          >
+                            Balance
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {onChainData.topHolders.slice(0, 100).map((holder, index) => {
-                          const isPublicTreasury = ['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase());
+                          const isNonEvmChain = NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase());
                           const address = holder.address.toLowerCase();
-                          const nameTag = nameTags[address]?.nameTag;
-                          const displayAddress = isPublicTreasury
-                            ? holder.address
-                            : `${truncateAddress(holder.address)}${nameTag ? ` (${nameTag})` : isLoadingNameTags ? ' (Loading...)' : ''}`;
+                          const nameTag = nameTags[address]?.nameTag || holder.nameTag;
+                          const displayText = nameTag || (isNonEvmChain ? holder.address : truncateAddress(holder.address));
                           const { addressUrl } = getExplorerUrls(selectedChain, null, holder.address);
+                          const isValidEvmAddress = holder.address.match(/^0x[a-fA-F0-9]{40}$/);
+
                           return (
                             <tr
                               key={index}
                               className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
                             >
                               <td
-                                className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[160px] min-w-[160px] max-w-[160px]' : 'w-[250px] min-w-[250px] max-w-[250px]'} ${!isPublicTreasury ? 'cursor-pointer' : ''}`}
-                                {...(!isPublicTreasury && {
-                                  onClick: () => handleAddressClick(holder.address),
-                                  title: nameTag ? `${holder.address} (${nameTag})` : isLoadingNameTags ? 'Loading Name Tag...' : holder.address,
-                                })}
+                                className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[160px] min-w-[160px] max-w-[160px]' : 'w-[250px] min-w-[250px] max-w-[250px]'}`}
                               >
-                                {!isPublicTreasury ? (
+                                {isNonEvmChain ? (
                                   <a
-                                    href={addressUrl}
+                                    href={isNonEvmChain ? `https://blockchair.com/${selectedToken?.id.toLowerCase()}/address/${holder.address}` : addressUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-gray-200 hover:underline truncate cursor-pointer"
+                                    className="text-blue-400 hover:underline truncate"
+                                    title={nameTag ? `${holder.address} (${nameTag})` : holder.address}
                                   >
-                                    {displayAddress}
+                                    {displayText}
                                   </a>
                                 ) : (
-                                  <span className="truncate">{displayAddress}</span>
+                                  <button
+                                    onClick={() => isValidEvmAddress && handleAddressClick(holder.address)}
+                                    className={`text-gray-200 hover:underline truncate ${isValidEvmAddress ? 'cursor-pointer' : 'cursor-default'}`}
+                                    title={nameTag ? `${holder.address} (${nameTag})` : isLoadingNameTags ? 'Loading Name Tag...' : holder.address}
+                                    disabled={!isValidEvmAddress}
+                                  >
+                                    {displayText}
+                                  </button>
                                 )}
                               </td>
-                              <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
+                              <td
+                                className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}
+                              >
                                 <span className="truncate">
                                   {holder.balance.toLocaleString('en-US', {
                                     minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
+                                    maximumFractionDigits: 8,
                                   })}
                                 </span>
                               </td>
@@ -1332,7 +1374,7 @@ const renderPoolModalContent = () => {
                   <p className="text-xs text-gray-400 text-center">
                     {isLoadingOnChain
                       ? 'Loading top holders data...'
-                      : ['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase())
+                      : NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
                         ? `No public treasury data available for ${selectedToken.symbol?.toUpperCase()}.`
                         : `No top holders data available for ${selectedToken.symbol?.toUpperCase()} on ${chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.`}
                   </p>
