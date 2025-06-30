@@ -1192,16 +1192,16 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          <div className="rounded-lg shadow-lg p-3 backdrop-blur-md border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-4rem)] min-h-[calc(50vh-4rem)] relative">
+          <div className="rounded-lg shadow-lg p-3 backdrop-blur-md border border-white/10 flex flex-col h-full max-h-[calc(50vh)] md:max-h-[calc(50vh-4rem)] min-h-[calc(50vh)] md:min-h-[calc(50vh-4rem)] relative">
             {/* Logo and Text Container */}
-            <div className="absolute top-2 right-2 flex items-center group">
+            <div className="absolute top-2 right-2 flex items-center group m-1 md:m-2">
               <img
                 src="/icons/CG.png" // Path to CG.png
                 alt="CG Logo"
-                className="w-5 h-5 object-contain"
+                className="w-4 h-4 md:w-5 md:h-5 object-contain"
               />
               <span
-                className="absolute right-11 text-[9.5px] text-gray-200 opacity-0 translate-x-10 group-hover:opacity-100 group-hover:-translate-x-10 transition-all duration-300 ease-in-out whitespace-nowrap flex items-center"
+                className="absolute right-24 text-[9.5px] text-gray-200 opacity-0 translate-x-10 group-hover:opacity-100 group-hover:-translate-x-[-2] transition-all duration-300 ease-in-out whitespace-nowrap flex items-center"
               >
                 Data powered by
                 <img
@@ -1213,7 +1213,7 @@ const MarketTab = ({ recaptchaRef }) => {
             </div>
 
             <div className="flex flex-col sm:flex-row sm:justify-center mb-2 gap-1.5">
-              <div className="flex space-x-1.5 justify-center">
+              <div className="flex space-x-1.5 justify-center mt-12 md:mt-0">
                 <button
                   onClick={debouncedHandleAnalysis}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 border border-white ${selectedToken && dailyMarketInteractions < 5
