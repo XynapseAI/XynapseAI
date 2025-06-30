@@ -5,7 +5,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GHID",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -23,7 +24,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: fish 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -33,7 +35,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KSA 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -43,7 +46,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YRBA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -69,7 +73,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PHANTASM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -79,7 +84,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MUSO",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -96,7 +102,8 @@
     "Labels": {
       "arcx": {
         "Name Tag": "ARCx: WhitelistSale-Phase1",
-        "Description": "ARCx is a decentralized scoring protocol that powers on-chain identity through the issuance of a DeFi Passport."
+        "Description": "ARCx is a decentralized scoring protocol that powers on-chain identity through the issuance of a DeFi Passport.",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -106,7 +113,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MAO 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -116,7 +124,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHINE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -126,7 +135,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KEIJI 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -178,7 +188,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: cUSDT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -196,7 +207,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: D2T 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -206,7 +218,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BABYBIDEN 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -216,7 +229,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PTY",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -242,7 +256,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SPA 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -252,7 +267,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TABS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -270,7 +286,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: THEBANK",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -280,7 +297,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Tyraxes",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -290,7 +308,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Online",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -308,7 +327,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DUBER",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -318,7 +338,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CONTROL 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -344,7 +365,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: OGRE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -370,7 +392,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: POCUS🧹",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -380,7 +403,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: QORE 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -398,7 +422,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Guanyin 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -416,7 +441,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NCSHIB",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -427,7 +453,8 @@
         "Name Tag": "Bancor Network: bnbDIGG Token",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "Token Name": "Bancor bDIGG Pool Token (bnbDIGG)"
+        "Token Name": "Bancor bDIGG Pool Token (bnbDIGG)",
+        "image": "/icons/default.png"
       },
       "defi": {
         "Token Name": "Bancor bDIGG Pool Token (bnbDIGG)",
@@ -442,7 +469,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $MI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -468,7 +496,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DAI-ROOK",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -478,7 +507,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DSHIB 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -488,7 +518,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CURDS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -506,7 +537,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: RAD 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -532,7 +564,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: RIVIA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -542,7 +575,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KANAZAWA-USDC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -552,7 +586,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 12345",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -562,7 +597,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 404 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -572,7 +608,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WOM 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -614,7 +651,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ORB 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -624,7 +662,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: RKTDG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -642,7 +681,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 🐂 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -660,7 +700,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BFM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -695,7 +736,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ODYSSEY",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -705,7 +747,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: tv 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -715,7 +758,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BABYKURAMA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -725,7 +769,8 @@
       "take-action": {
         "Name Tag": "Multichain Hack Alert 2512",
         "Description": "The owners of these address are urged to take action immediately.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -743,7 +788,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ORB 8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -753,7 +799,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FreeTate 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -762,13 +809,15 @@
     "Labels": {
       "proxy-contract": {
         "Name Tag": "Synthetix: Proxy iLINK Token",
-        "Description": "A proxy contract acts as an eternal storage and will DELEGATECALL to the logic contract, which processes the data."
+        "Description": "A proxy contract acts as an eternal storage and will DELEGATECALL to the logic contract, which processes the data.",
+        "image": "/icons/default.png"
       },
       "synthetix": {
         "Name Tag": "Synthetix: Proxy iLINK Token",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
-        "Token Name": "Synth iLINK (iLINK)"
+        "Token Name": "Synth iLINK (iLINK)",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -778,7 +827,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: LCX-USDT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -788,7 +838,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: HYPOME",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -805,12 +856,14 @@
     "Labels": {
       "proxy-contract": {
         "Name Tag": "Ren: Darknode Registry Proxy",
-        "Description": "A proxy contract acts as an eternal storage and will DELEGATECALL to the logic contract, which processes the data."
+        "Description": "A proxy contract acts as an eternal storage and will DELEGATECALL to the logic contract, which processes the data.",
+        "image": "/icons/default.png"
       },
       "ren": {
         "Name Tag": "Ren: Darknode Registry Proxy",
         "Description": "Ren: Providing access to inter-blockchain liquidity for all decentralized applications. Bringing BTC, BCH and ZEC to your Ethereum dApp.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -820,7 +873,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TEST 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -830,7 +884,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: BPRO 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -840,7 +895,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MoZ?",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -850,7 +906,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: HOBY",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -860,7 +917,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WOOF 26",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -870,7 +928,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: UNKAI-USDC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -880,7 +939,8 @@
       "uniswap": {
         "Name Tag": "Uniswap: PARETO",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -890,7 +950,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHAPES",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -908,7 +969,8 @@
       "balancer": {
         "Name Tag": "Balancer: cDAI/cUSDC 50/50 #3",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -926,7 +988,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MEME",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -944,7 +1007,8 @@
       "0x-protocol": {
         "Name Tag": "0x: Deployer 2",
         "Description": "0x Protocol is an open protocol that enables the peer-to-peer exchange of assets on the Ethereum blockchain.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -954,7 +1018,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FIL 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -964,7 +1029,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CTERRA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -990,7 +1056,8 @@
       "take-action": {
         "Name Tag": "Multichain Hack Alert 1094",
         "Description": "The owners of these address are urged to take action immediately.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -1016,7 +1083,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: LAOZI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1057,7 +1125,8 @@
     "Labels": {
       "donate": {
         "Name Tag": "The Giving Block: CARE Donation",
-        "Description": "The act of giving to help and support someone in need."
+        "Description": "The act of giving to help and support someone in need.",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -1075,7 +1144,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BABYTYRANT 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1113,7 +1183,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YDF 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1131,7 +1202,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: STINGY",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1149,7 +1221,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $SCATS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1159,7 +1232,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PREY 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1177,7 +1251,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PARA 22",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1203,7 +1278,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DRAGONS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1213,7 +1289,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GRO 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1231,7 +1308,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YFI.N",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1241,7 +1319,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: C8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1251,7 +1330,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: ANT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1277,7 +1357,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BION 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1287,7 +1368,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $XENDOOR",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1305,7 +1387,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 6.9 ETH",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1315,7 +1398,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: POLK 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1325,7 +1409,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CULTCAKE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1335,7 +1420,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SAFEEARTH",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1345,7 +1431,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: HAMSTER 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1355,7 +1442,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PON 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1381,7 +1469,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ZZ 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1407,7 +1496,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Samurai Kong",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1426,7 +1516,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: HWI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1436,7 +1527,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WINRY",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1446,7 +1538,8 @@
       "uniswap": {
         "Name Tag": "Uniswap: AJM 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1456,7 +1549,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: OROB",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1474,7 +1568,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Ryoshiba",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1484,7 +1579,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WZZ",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1494,7 +1590,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: EXPOSED 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1520,7 +1617,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Floketh",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1530,7 +1628,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NFT 15",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1540,7 +1639,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DNBUY 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1566,7 +1666,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MINU 97",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1576,7 +1677,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KILLERDOGE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1618,7 +1720,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: TEST 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1628,7 +1731,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CYFM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1638,7 +1742,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MOMO 15",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1680,7 +1785,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $CZ 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1690,7 +1796,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ACI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1700,7 +1807,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: SCAM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1710,7 +1818,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BDAO 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1728,7 +1837,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ClassicW",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1738,7 +1848,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SEND 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1748,7 +1859,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: KP3R-sil",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -1766,7 +1878,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHIK 10",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1776,7 +1889,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MC 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1836,7 +1950,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: OSAKA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1846,7 +1961,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Kamoshika",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1856,7 +1972,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: JESS 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1866,7 +1983,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ALPHONSE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1884,7 +2002,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KTON",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1894,7 +2013,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: STSUKA 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1904,7 +2024,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Hades",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1938,7 +2059,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: PROS-USDC",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -1957,7 +2079,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TengenUzui",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1967,7 +2090,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: VRX 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1985,7 +2109,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MFT 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -1995,7 +2120,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: HEM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2005,7 +2131,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SUZUME 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2015,7 +2142,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TORONTO-SEOUL",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2033,7 +2161,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ECO 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2043,7 +2172,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TsukaW 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2053,7 +2183,8 @@
       "take-action": {
         "Name Tag": "Multichain Hack Alert 1100",
         "Description": "The owners of these address are urged to take action immediately.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2096,7 +2227,8 @@
         "Name Tag": "Bancor Network: bnRLC Token",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "Token Name": "Bancor RLC Pool Token (bnRLC)"
+        "Token Name": "Bancor RLC Pool Token (bnRLC)",
+        "image": "/icons/default.png"
       },
       "defi": {
         "Token Name": "Bancor RLC Pool Token (bnRLC)",
@@ -2111,7 +2243,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KATA 8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2121,7 +2254,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ETHc 11",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2131,7 +2265,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BARC-GLDN",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2165,7 +2300,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: RBN 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2183,7 +2319,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FLC 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2193,7 +2330,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: LABS 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2211,7 +2349,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KOO 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2221,7 +2360,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DFIM-USDT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2230,7 +2370,8 @@
     "Labels": {
       "axie-infinity": {
         "Name Tag": "Axie Infinity: Ronin Multisig",
-        "Description": "Axie Infinity is a Pokémon-inspired universe where anyone can earn tokens through skilled gameplay and contributions to the ecosystem. Players can battle, collect, raise, and build a land-based kingdom for their pets."
+        "Description": "Axie Infinity is a Pokémon-inspired universe where anyone can earn tokens through skilled gameplay and contributions to the ecosystem. Players can battle, collect, raise, and build a land-based kingdom for their pets.",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2240,7 +2381,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Skills",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2250,7 +2392,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: uSD-USDC 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2260,7 +2403,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BOWSET️",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2270,7 +2414,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: EBE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2280,7 +2425,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DRAGNEEL",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2290,7 +2436,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CATE 16",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2301,7 +2448,8 @@
         "Name Tag": "Jincor: Old Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "Token Name": "Jincor Token (JCR)"
+        "Token Name": "Jincor Token (JCR)",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2319,7 +2467,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PGT 8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2329,7 +2478,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KCPI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2339,7 +2489,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: eKiddo",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2349,7 +2500,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: RUGPULL 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2359,7 +2511,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 3AC 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2369,7 +2522,8 @@
       "balancer": {
         "Name Tag": "Balancer: Shareholder 48",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2387,7 +2541,8 @@
       "chainlink": {
         "Name Tag": "Chainlink: ZRX/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2397,7 +2552,8 @@
       "take-action": {
         "Name Tag": "Multichain Hack Alert 2405",
         "Description": "The owners of these address are urged to take action immediately.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2415,7 +2571,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CANDLE 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2425,7 +2582,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GTM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2435,7 +2593,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GAME 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2445,7 +2604,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GPMP",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2472,7 +2632,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AAG 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2482,7 +2643,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ESP 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2500,7 +2662,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SBRI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2510,7 +2673,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ELONKEANU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2528,7 +2692,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BIAFRA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2538,7 +2703,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Degenbox",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2564,7 +2730,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: P A I N",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2598,7 +2765,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CAFE 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2608,7 +2776,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YUP 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2618,7 +2787,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SuperCore",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2627,7 +2797,8 @@
     "Labels": {
       "mining": {
         "Name Tag": "Poolin 2",
-        "Description": "Cryptocurrency mining is the validation of transactions on the blockchain. Once validated, these transactions are added to the blockchain's public ledger of past transactions.\nFor this effort, successful miners receive new cryptocurrency as a reward."
+        "Description": "Cryptocurrency mining is the validation of transactions on the blockchain. Once validated, these transactions are added to the blockchain's public ledger of past transactions.\nFor this effort, successful miners receive new cryptocurrency as a reward.",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2637,7 +2808,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YTF 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2655,7 +2827,8 @@
       "balancer": {
         "Name Tag": "Balancer: ETH/ETHMNY 80/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2673,7 +2846,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: IBK 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2683,7 +2857,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BITOSHI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2693,7 +2868,8 @@
       "bancor": {
         "Name Tag": "Bancor: Converter #190",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2703,7 +2879,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MDM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2713,7 +2890,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TWITTER2.0 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2723,7 +2901,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YST",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2734,7 +2913,8 @@
         "Name Tag": "Furucombo: rCOMBO Token",
         "Description": "Furucombo: Save time, save steps, infinite DeFi combinations. Build your own DeFi legos into one transaction without knowing how to code.",
         "Subcategory": "Others",
-        "Token Name": "Furucombo IOU COMBO Token (rCOMBO)"
+        "Token Name": "Furucombo IOU COMBO Token (rCOMBO)",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2744,7 +2924,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $Zuka 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2778,7 +2959,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: P",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2788,7 +2970,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KINGESAR",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2830,7 +3013,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: IShowSpeedInu",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2848,7 +3032,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: YFI-USDC 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2858,7 +3043,8 @@
       "curve-fi": {
         "Name Tag": "Curve.fi: HUSD Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2868,7 +3054,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: pBTC35A-USDT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2886,7 +3073,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: COCK 8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2896,7 +3084,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GENSLER 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2922,7 +3111,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: USDT-A",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2932,7 +3122,8 @@
       "take-action": {
         "Name Tag": "Multichain Hack Alert 3209",
         "Description": "The owners of these address are urged to take action immediately.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -2950,7 +3141,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YAKITAMA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2960,7 +3152,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ELONSFAA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2970,7 +3163,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TOB 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2980,7 +3174,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: TSGO",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -2990,7 +3185,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: LUIGI 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3000,7 +3196,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: COOL3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3010,7 +3207,8 @@
       "balancer": {
         "Name Tag": "Balancer: cUSDC/cZRX 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -3028,7 +3226,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CHG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3038,7 +3237,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: elonAPE 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3048,7 +3248,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SOWL",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3058,7 +3259,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: UMF 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3068,7 +3270,8 @@
       "cream-finance": {
         "Name Tag": "Cream.Finance: crAMP Token",
         "Description": "C.R.E.A.M: Crypto Rules Everything Around Me.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -3078,7 +3281,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: 4YE5",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -3096,7 +3300,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHAR-PEI INU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3114,7 +3319,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KOMBAT 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3144,12 +3350,14 @@
       "reservelending": {
         "Name Tag": "unFederalReserve: unDAI Token",
         "Description": "ReserveLending: Lending protocol",
-        "Token Name": "unFederal DAI (unDAI)"
+        "Token Name": "unFederal DAI (unDAI)",
+        "image": "/icons/default.png"
       },
       "unfederalreserve": {
         "Name Tag": "unFederalReserve: unDAI Token",
         "Description": "unFederalReserve is a banking Saas company built on the blockchain with products designed for smaller U.S. Treasury chartered banks and non-bank lenders.",
-        "Token Name": "unFederal DAI (unDAI)"
+        "Token Name": "unFederal DAI (unDAI)",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -3159,7 +3367,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: COCOS 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3169,7 +3378,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GN 8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3211,7 +3421,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AAVE-LEND",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3229,7 +3440,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: FROG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3239,7 +3451,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: LDOGE 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3249,7 +3462,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TUAN",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3259,7 +3473,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YOP",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3285,7 +3500,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: WBTC-TBTC",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -3295,7 +3511,8 @@
       "balancer": {
         "Name Tag": "Balancer: Pool 119",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -3329,7 +3546,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CFX 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3339,7 +3557,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NewEra",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3349,7 +3568,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Rabbie",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3359,7 +3579,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DIGITAL 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3369,7 +3590,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: INERT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3379,7 +3601,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PONGO,",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3397,7 +3620,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GROU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3415,7 +3639,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: ChargeV2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3425,7 +3650,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SUSHI-YFFS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3435,7 +3661,8 @@
       "uniswap": {
         "Name Tag": "Uniswap: GALA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3461,7 +3688,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NOAHSARK",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3471,7 +3699,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Bill Murray Inu 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3489,7 +3718,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NFTL 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3515,7 +3745,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: ART 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3541,7 +3772,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: JACK 19",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3551,7 +3783,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHINJOKI 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3569,7 +3802,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: EST 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3579,7 +3813,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NAS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3589,7 +3824,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: MAMBA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3599,7 +3835,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $GHOST",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3609,7 +3846,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MC 34",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3619,7 +3857,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: EFLOKI 8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3637,7 +3876,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: REEELON",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3647,7 +3887,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PETH 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3657,7 +3898,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: RFIIII",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3675,7 +3917,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TenderInu",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3693,7 +3936,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TLP 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3711,7 +3955,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FUZE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3721,7 +3966,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YFTE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3755,7 +4001,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: pETH18C-USDT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3765,7 +4012,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KOJI 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3807,7 +4055,8 @@
       "old-contract": {
         "Name Tag": "ANONYME: Old ANON Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -3817,7 +4066,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: RYUU 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3827,7 +4077,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MoonETH",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3837,7 +4088,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BAPE 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3847,7 +4099,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PINJA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3864,7 +4117,8 @@
     "Labels": {
       "bridge": {
         "Name Tag": "Harmony: ERC20 Bridge",
-        "Description": "A gateway connecting one network to another."
+        "Description": "A gateway connecting one network to another.",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -3874,7 +4128,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DTB 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3884,7 +4139,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 2G1C",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3903,7 +4159,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CUM-XYS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3933,7 +4190,8 @@
     "Labels": {
       "inverse-finance": {
         "Name Tag": "Inverse Finance: DAI to ETH Vault",
-        "Description": "Inverse Finance is a suite of permissionless decentralized finance tools governed by Inverse DAO, a decentralized autonomous organization running on the Ethereum blockchain."
+        "Description": "Inverse Finance is a suite of permissionless decentralized finance tools governed by Inverse DAO, a decentralized autonomous organization running on the Ethereum blockchain.",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -3943,7 +4201,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WTI 8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3953,7 +4212,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: OHM-FRAX",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3963,7 +4223,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YOT 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3981,7 +4242,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PILSNER",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -3991,7 +4253,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ECT 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4001,7 +4264,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CTX 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4019,7 +4283,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ALIS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4029,7 +4294,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YORI 19",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4039,7 +4305,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WBTC-VT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4065,7 +4332,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FEC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4075,7 +4343,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $KV",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4084,7 +4353,8 @@
     "Labels": {
       "token-sale": {
         "Name Tag": "GoNetwork: Dutch Auction",
-        "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether."
+        "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -4094,7 +4364,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CROC 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4104,7 +4375,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ZEB 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4114,7 +4386,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DRGN 8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4140,7 +4413,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: yB 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4174,7 +4448,8 @@
       "mantra": {
         "Name Tag": "MANTRA DAO: zenPAID Token",
         "Description": "MANTRA is a vertically-integrated and regulatory-compliant blockchain ecosystem. The MANTRA OMniverse encompasses the DAO; MANTRA Nodes: a blockchain infrastructure-as-a-service business that includes retail staking, institutional delegation, node management, and white-label validator operations.",
-        "Token Name": "ZENTEREST PAID Network (zenPAID)"
+        "Token Name": "ZENTEREST PAID Network (zenPAID)",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -4184,7 +4459,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DONK 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4211,7 +4487,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: INJ 17",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4221,7 +4498,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: GEL 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4231,7 +4509,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: SYN",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4266,7 +4545,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GIZA2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4276,7 +4556,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FSP 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4294,7 +4575,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PINU 65",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4304,7 +4586,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DEGENGOD",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4314,7 +4597,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: REN",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4324,7 +4608,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TAKO",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4334,7 +4619,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KAWAUSO",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4344,7 +4630,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 竜神",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4354,7 +4641,8 @@
       "take-action": {
         "Name Tag": "Multichain Hack Alert 940",
         "Description": "The owners of these address are urged to take action immediately.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -4364,7 +4652,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Mokane",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4374,7 +4663,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ApeBae",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4384,7 +4674,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: JDk 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4394,7 +4685,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ALN 8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4404,7 +4696,8 @@
       "uniswap": {
         "Name Tag": "Uniswap: CMT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4414,7 +4707,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PUMP 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4424,7 +4718,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DEFI 27",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4434,7 +4729,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ELON420",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4444,7 +4740,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: wOpenAi",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4454,7 +4751,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ANUBIS 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4464,7 +4762,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MR 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4482,7 +4781,8 @@
       "balancer": {
         "Name Tag": "Balancer: uUSDrBTC-DEC/USDC 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -4492,7 +4792,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Ninjaz 8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4502,7 +4803,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YAT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4512,7 +4814,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TIDAL-USDT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4546,7 +4849,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ANTF",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4564,7 +4868,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NEC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4574,7 +4879,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: EXEC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4584,7 +4890,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KILL 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4618,7 +4925,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ERZA 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4636,7 +4944,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KiDar",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4646,7 +4955,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NONKI 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4656,7 +4966,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Bells",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4666,7 +4977,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MCRS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4676,7 +4988,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FLOKIRU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4686,7 +4999,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CSWAP 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4704,7 +5018,8 @@
       "balancer": {
         "Name Tag": "Balancer: BAL/NFY 80/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -4722,7 +5037,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ELONCAT 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4748,7 +5064,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: X6m105",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4758,7 +5075,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NOWARD",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4776,7 +5094,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BOOM 15",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4786,7 +5105,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHIBD",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4796,7 +5116,8 @@
       "curve-fi": {
         "Name Tag": "Curve.fi: cyDAI/cyUSDT/cyUSDC Pool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -4814,7 +5135,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 💩🐶",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4824,7 +5146,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: RRIA 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4858,7 +5181,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MEKAMONS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4868,7 +5192,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 20X",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4890,7 +5215,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BAT-TAR",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4916,7 +5242,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KISHU-SANSHU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4954,12 +5281,14 @@
       "old-contract": {
         "Name Tag": "Synthetix: Old Synth iTRX 4",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       },
       "synthetix": {
         "Name Tag": "Synthetix: Old Synth iTRX 4",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
-        "Subcategory": "Legacy"
+        "Subcategory": "Legacy",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -4977,7 +5306,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DTO-USDC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -4995,7 +5325,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AWEB3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5005,7 +5336,8 @@
       "old-contract": {
         "Name Tag": "YFSX: Old YFSX Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -5015,7 +5347,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CIAO 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5025,7 +5358,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BFLY",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5035,7 +5369,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GREEN 25",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5053,7 +5388,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DAI-$DG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5063,7 +5399,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NORA 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5073,7 +5410,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SCAPE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5091,7 +5429,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CINU 15",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5101,7 +5440,8 @@
       "uniswap": {
         "Name Tag": "Uniswap: BUNR",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5111,7 +5451,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: LM 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5131,7 +5472,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: GPRO",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5141,7 +5483,8 @@
       "chainlink": {
         "Name Tag": "Chainlink: FTM/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -5159,7 +5502,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CAC 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5169,7 +5513,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WOLF 19",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5179,7 +5524,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BABEL",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5189,7 +5535,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: HEX-DECI 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5199,7 +5546,8 @@
       "take-action": {
         "Name Tag": "Sorbet Finance Hack Alert 31",
         "Description": "The owners of these address are urged to take action immediately.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -5217,7 +5565,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BTE 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5235,7 +5584,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ManitoS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5245,7 +5595,8 @@
       "uniswap": {
         "Name Tag": "Uniswap: BB 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5255,12 +5606,14 @@
       "old-contract": {
         "Name Tag": "Synthetix: Old Synth SNX 5",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       },
       "synthetix": {
         "Name Tag": "Synthetix: Old Synth SNX 5",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
-        "Subcategory": "Legacy"
+        "Subcategory": "Legacy",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -5270,7 +5623,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FATPIG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5288,7 +5642,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KP0R",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5298,7 +5653,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: UNDO 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5308,7 +5664,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Jindoo",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5318,7 +5675,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MUNCH",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5344,7 +5702,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Ice 13",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5362,7 +5721,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ☥ࠊᝯŕ๕",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5380,7 +5740,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KFSAM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5406,7 +5767,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KURO 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5416,7 +5778,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KUCOIN",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5434,7 +5797,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: VOLT-FPI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5444,7 +5808,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KS 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5454,7 +5819,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: USDC-TEMP 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5464,7 +5830,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TASHI 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5490,7 +5857,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CDINU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5516,7 +5884,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: URQA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5526,7 +5895,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: Jinn",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5536,7 +5906,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SCREECH 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5554,7 +5925,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHKG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5564,7 +5936,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: erc20 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5574,7 +5947,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MATG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5584,7 +5958,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHFT 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5594,7 +5969,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WARDOGS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5604,7 +5980,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CM 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5622,7 +5999,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ECO-USDT 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5632,7 +6010,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ALEA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5641,20 +6020,24 @@
     "Labels": {
       "arbitrum": {
         "Name Tag": "Arbitrum One: One Step Proof 2",
-        "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost."
+        "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
+        "image": "/icons/default.png"
       },
       "fraud-proof": {
         "Name Tag": "Arbitrum One: One Step Proof 2",
-        "Description": "Contracts that can be used to establish that an invalid state transition occured on a Layer 2 protocol. Families of L2 protocols that rely on fraud proofs include Channels, Plasma, and Optmistic Rollups."
+        "Description": "Contracts that can be used to establish that an invalid state transition occured on a Layer 2 protocol. Families of L2 protocols that rely on fraud proofs include Channels, Plasma, and Optmistic Rollups.",
+        "image": "/icons/default.png"
       },
       "layer-2": {
         "Name Tag": "Arbitrum One: One Step Proof 2",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       },
       "protocol": {
         "Name Tag": "Arbitrum One: One Step Proof 2",
-        "Description": "The underlying set of rules establishing how connected computers communicate with one another to exchange information."
+        "Description": "The underlying set of rules establishing how connected computers communicate with one another to exchange information.",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -5672,7 +6055,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: XYFI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5682,7 +6066,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PASTA-yyDAI+yUSDC+yUSDT+yTUSD",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5692,7 +6077,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ALPHA 75",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5710,7 +6096,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ☄️CELESTIAL💎",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5728,7 +6115,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: STFMG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5738,7 +6126,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Pay $8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5748,7 +6137,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CROWN-yDAI+yUSDC+yUSDT+yTUSD",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5766,7 +6156,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AGFA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5776,7 +6167,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MallF",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5803,7 +6195,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FXSWAP",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5813,7 +6206,8 @@
       "uniswap": {
         "Name Tag": "Uniswap: MTC 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5823,7 +6217,8 @@
       "bancor": {
         "Name Tag": "Bancor: Converter 397",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -5833,7 +6228,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: RAPHOT🚀",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5851,7 +6247,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Moni 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5861,7 +6258,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DIMSUM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5879,7 +6277,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Luna Dao",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5889,7 +6288,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: WBTC-Xi",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -5899,7 +6299,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WHITE 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5909,7 +6310,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: QBCD",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5919,7 +6321,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: BLOCKY",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5929,7 +6332,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ADOPTION 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5939,7 +6343,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: EVORTEX 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5965,7 +6370,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AVAX",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5975,7 +6381,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: J5IVE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -5993,7 +6400,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TRUMPYE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6011,7 +6419,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KILLUA 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6021,7 +6430,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Celty",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6031,7 +6441,8 @@
       "take-action": {
         "Name Tag": "Multichain Hack Alert 1900",
         "Description": "The owners of these address are urged to take action immediately.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -6050,7 +6461,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CRYPTOGF",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6068,7 +6480,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $KING",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6086,7 +6499,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AUPLUS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6096,7 +6510,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6106,7 +6521,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: LON-USDT 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6129,7 +6545,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: wstETH-WSTA",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -6155,7 +6572,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PRDZ",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6165,7 +6583,8 @@
       "uniswap": {
         "Name Tag": "Uniswap: oETH $400 Call 10/30/20",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6175,7 +6594,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: POLY 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6185,7 +6605,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: QTO",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -6227,7 +6648,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: JUP",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6237,7 +6659,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Kodachi 26",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6255,7 +6678,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: SAMOT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6265,7 +6689,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: I AM 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6275,7 +6700,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $DN",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6285,7 +6711,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CYBERINU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6303,7 +6730,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MKE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6313,7 +6741,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: arte-UniFi",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6323,7 +6752,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WAGIEP",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6333,7 +6763,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SYLD",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6351,7 +6782,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TOT 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6401,7 +6833,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: HCT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6427,7 +6860,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TEA 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6437,7 +6871,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WARP",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6455,7 +6890,8 @@
       "furucombo": {
         "Name Tag": "Furucombo: Gas Token Handlers",
         "Description": "Furucombo: Save time, save steps, infinite DeFi combinations. Build your own DeFi legos into one transaction without knowing how to code.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -6465,7 +6901,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ZEE 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6475,7 +6912,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHIBG 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6493,7 +6931,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: BEAM",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -6503,7 +6942,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: COWRIE-USDC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6513,7 +6953,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DEMON 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6523,7 +6964,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $X 20",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6541,7 +6983,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SEND 12",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6551,7 +6994,8 @@
       "balancer": {
         "Name Tag": "Balancer: Pool 549",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -6561,7 +7005,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KATANA 17",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6571,7 +7016,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MrMoon",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6581,7 +7027,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PPP-USDT 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6591,7 +7038,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Jujutsu 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6609,7 +7057,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PANDORA 8",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6619,7 +7068,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: EDM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6629,7 +7079,8 @@
       "etheroll": {
         "Name Tag": "Etheroll Token",
         "Description": "Etheroll is an Ethereum smart contract for placing bets on their provably-fair dice game using Ether with no deposits or sign-ups. Each dice roll is provably random and cryptographically secure thanks to the nature of the Ethereum blockchain.",
-        "Token Name": "DICE (ROL)"
+        "Token Name": "DICE (ROL)",
+        "image": "/icons/default.png"
       },
       "gambling": {
         "Token Name": "DICE (ROL)",
@@ -6643,7 +7094,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ENCORE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6661,7 +7113,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ThorInu⚡️",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6671,7 +7124,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: UNLEASHED 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6689,7 +7143,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DgShu🐵",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6698,7 +7153,8 @@
     "Labels": {
       "convex-finance": {
         "Name Tag": "Convex Finance: Airdrop",
-        "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort."
+        "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort.",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -6708,7 +7164,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BAE 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6718,7 +7175,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ETH3.0 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6728,7 +7186,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BitKeep",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6760,7 +7219,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: gmOHM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6770,7 +7230,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Coinbase 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/coinbase.png"
       }
     }
   },
@@ -6812,7 +7273,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NYAZ-USDC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6830,7 +7292,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KOMODO 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6840,7 +7303,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: OI 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6866,7 +7330,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: MPH-USDC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6884,7 +7349,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHIBOOSTER",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6894,7 +7360,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: eMyobu 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6904,7 +7371,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SUMU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6923,7 +7391,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ELINK 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6933,7 +7402,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BabyShiba 17",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6943,7 +7413,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: LYMC-USDT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6953,7 +7424,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TOSHIBA 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6963,7 +7435,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: APLP",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6981,7 +7454,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: QOM2.0",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -6991,7 +7465,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: VERT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7001,7 +7476,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: tett 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7011,7 +7487,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ZAP 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7049,7 +7526,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: USDC-TT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7059,7 +7537,8 @@
       "take-action": {
         "Name Tag": "Multichain Hack Alert 1052",
         "Description": "The owners of these address are urged to take action immediately.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -7069,7 +7548,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DYORNOW",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7079,7 +7559,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CDOG 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7089,7 +7570,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TWEET 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7099,7 +7581,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CFSHIBA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7117,7 +7600,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: LZP",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7127,7 +7611,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GPHX 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7137,7 +7622,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DODO 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7147,7 +7633,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: fUSDC-USDC 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7165,7 +7652,8 @@
       "authereum": {
         "Name Tag": "Authereum: Account v2020020200",
         "Description": "Authereum is a wallet provider and dapp login solution that uses contract-based accounts to provide a seamless web2.0 onboarding experience that users are familiar with.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -7175,7 +7663,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: MNK",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7185,7 +7674,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: OBSERVER 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7195,7 +7685,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MANOS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7213,7 +7704,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: BUSD-TRAT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7223,7 +7715,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KEK INU 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7249,7 +7742,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: USP 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7267,7 +7761,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 好吃柴",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7277,7 +7772,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $Kamoi",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7303,7 +7799,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YMIAH",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7321,7 +7818,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: eBunny 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7331,7 +7829,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: XEH 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7365,7 +7864,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: YUGIGT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7375,7 +7875,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: REAL 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7385,7 +7886,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AVENTADOR",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7403,7 +7905,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AKA 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7413,7 +7916,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AWARE 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7439,7 +7943,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $ASUKA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7457,7 +7962,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DNA 11",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7488,7 +7994,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ARZEO 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7522,7 +8029,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BBB 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7541,7 +8049,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ILLUSION 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7551,7 +8060,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: HANASAKA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7561,7 +8071,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ERIS 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7571,7 +8082,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WHAT 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7589,7 +8101,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TTT 14",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7607,7 +8120,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Team Finance",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7625,7 +8139,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Yakuza 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7635,7 +8150,8 @@
       "balancer": {
         "Name Tag": "Balancer: REPv2/ETH 70/30",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -7645,7 +8161,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FLOKI-USDT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7656,7 +8173,8 @@
         "Name Tag": "CONUN: Old Token 1",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "Token Name": "CONUN (CON)"
+        "Token Name": "CONUN (CON)",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -7666,7 +8184,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NERD",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7710,7 +8229,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FIRE 27",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7728,7 +8248,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Poor 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7754,7 +8275,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: U92",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7764,7 +8286,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: AIBIRDS",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -7790,7 +8313,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GASHU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7800,7 +8324,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: RNI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7810,7 +8335,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DDOS 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7828,7 +8354,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PRV 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7854,7 +8381,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHIBAKING 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7864,7 +8392,8 @@
       "balancer": {
         "Name Tag": "Balancer: sUSD/sCOIN 80/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -7890,7 +8419,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SHIBATAMA 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7916,7 +8446,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GammaRay",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7942,7 +8473,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: LOVEPAWS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7952,7 +8484,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PYRX",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7986,7 +8519,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $HEAVYWEIGHT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -7996,7 +8530,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: COLICE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8006,7 +8541,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NITRO 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8016,7 +8552,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MMAI 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8034,7 +8571,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DIANAINU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8060,7 +8598,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: NFLOKI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8070,7 +8609,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ZIZO 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8088,7 +8628,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: UNIF 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8098,7 +8639,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: EINU 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8108,7 +8650,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $ElonsRockets 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8118,7 +8661,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WC22ARG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8144,7 +8688,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SPACEX 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8162,7 +8707,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Bucks",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8172,7 +8718,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CTX",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8198,7 +8745,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: PSE 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8208,7 +8756,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: susober",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8218,7 +8767,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: GRIMES 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8228,7 +8778,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SEWA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8238,7 +8789,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: wsOHM-FDT",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -8264,7 +8816,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CVR 14",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8274,7 +8827,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: THEPRO 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8284,7 +8838,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: YUAN",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -8294,7 +8849,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: P.O.C 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8312,7 +8868,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BULL 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8330,7 +8887,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: HECKED",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8340,7 +8898,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BMT 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8358,7 +8917,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CTH 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8376,7 +8936,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Dildo (@greendildocoin)",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8386,7 +8947,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DONTBUY 10",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8412,7 +8974,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: POKEMOON",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8422,7 +8985,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BAO-MPH",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8440,7 +9004,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: COSAFU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8450,7 +9015,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: TYNU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8476,7 +9042,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MSUTA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8494,7 +9061,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: HAUS",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8512,7 +9080,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Yakovenko",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8522,7 +9091,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Wii 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8532,7 +9102,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ALPHA 42",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8553,7 +9124,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BADABING",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8563,7 +9135,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 复活",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8573,7 +9146,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AKT 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8583,7 +9157,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AIBIT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8593,7 +9168,8 @@
       "take-action": {
         "Name Tag": "Multichain Hack Alert 2383",
         "Description": "The owners of these address are urged to take action immediately.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -8619,7 +9195,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 🐈",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8629,7 +9206,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: aDAI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8639,7 +9217,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FPI",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8649,7 +9228,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: COCAINE 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8667,7 +9247,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AVEX",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8677,7 +9258,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: MESSARGENTINA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8687,7 +9269,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: JulD-USDT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8697,7 +9280,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $FATE 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8707,7 +9291,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Elixireum 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8717,7 +9302,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: USDC-CROWN",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -8727,7 +9313,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: VGTN-VGTG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8753,7 +9340,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: EDICKEREUM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8763,7 +9351,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: JAX RUPEE-USDT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8773,7 +9362,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: UVITA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8791,7 +9381,8 @@
       "balancer": {
         "Name Tag": "Balancer: BAL/DAI 50/50 #2",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -8801,7 +9392,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: FLIBA 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8811,7 +9403,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Dealer Inu",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8821,7 +9414,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: Unicredit",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8831,7 +9425,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: DGTG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8841,7 +9436,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: OBRB",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8851,7 +9447,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: EXNT 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8869,7 +9466,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 👼 Elon RIP 👼",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8895,7 +9493,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: SISC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8913,7 +9512,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: RUZE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8923,7 +9523,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $SUM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8933,7 +9534,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WOLF 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8950,7 +9552,8 @@
     "Labels": {
       "enzyme-finance": {
         "Name Tag": "Enzyme Finance: Aggregated Derivative Price Feed",
-        "Description": "Enzyme is a decentralised on-chain asset management infrastructure. It provides an easy and cost-effective way to build, scale & monetise investment strategies in crypto."
+        "Description": "Enzyme is a decentralised on-chain asset management infrastructure. It provides an easy and cost-effective way to build, scale & monetise investment strategies in crypto.",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -8960,7 +9563,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: USDC-RARI 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8970,7 +9574,8 @@
       "balancer": {
         "Name Tag": "Balancer: Pool 509",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -8988,7 +9593,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: EnTH",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9006,7 +9612,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: O-B",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9016,7 +9623,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V3: CVX",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9026,7 +9634,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: KRYPTOINU",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9044,7 +9653,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $GHOST 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9078,7 +9688,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SIMBA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9088,7 +9699,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: WOC 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9098,7 +9710,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ETHCAKE 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9124,7 +9737,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: JAPE 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9134,7 +9748,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BWD 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9144,7 +9759,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 2CRZ 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9170,7 +9786,8 @@
       "uniswap": {
         "Name Tag": "Uniswap: NVT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9188,7 +9805,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: IRS 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9198,7 +9816,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: AZUKI 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9208,7 +9827,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: USDC-XFEG",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9226,7 +9846,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CC 11",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9236,7 +9857,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: SDB",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9254,7 +9876,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: STACKT",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9264,7 +9887,8 @@
       "balancer": {
         "Name Tag": "Balancer: BAL/UNI/ETH 40/40/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -9274,7 +9898,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: CTK 7",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9284,7 +9909,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: $RAMEN 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9302,7 +9928,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: 404 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9320,7 +9947,8 @@
       "take-action": {
         "Name Tag": "Multichain Hack Alert 2192",
         "Description": "The owners of these address are urged to take action immediately.",
-        "Subcategory": "Main"
+        "Subcategory": "Main",
+        "image": "/icons/default.png"
       }
     }
   },
@@ -9330,7 +9958,8 @@
       "sushiswap": {
         "Name Tag": "SushiSwap: API3-APE",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/sushiswap.png"
       }
     }
   },
@@ -9356,7 +9985,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: ViagraXL",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -9366,7 +9996,8 @@
       "uniswap": {
         "Name Tag": "Uniswap V2: BLI 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-        "Subcategory": "Others"
+        "Subcategory": "Others",
+        "image": "/icons/uniswap.png"
       }
     }
   }

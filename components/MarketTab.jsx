@@ -39,11 +39,20 @@ const formatPrice = (price) => {
   })}`;
 };
 
-const truncateAddress = (address, nameTags = {}) => {
-  if (!address || address === 'None' || typeof address !== 'string') return 'N/A';
+const truncateAddress = (address, nameTags = {}, source) => {
+  if (!address || address === 'None' || typeof address !== 'string') return { text: 'N/A', image: null };
   const normalizedAddress = address.toLowerCase();
   const nameTag = nameTags[normalizedAddress]?.nameTag;
-  return nameTag || `${address.slice(0, 6)}...${address.slice(-4)}`;
+  const image = nameTags[normalizedAddress]?.image || null;
+  // For Blockchair, show name tag and shortened address; for CoinGecko, show full name
+  if (source === 'Blockchair') {
+    const shortAddress = `${address.slice(0, 6)}...${address.slice(-6)}`;
+    return {
+      text: nameTag ? `${nameTag} (${shortAddress})` : shortAddress,
+      image,
+    };
+  }
+  return { text: nameTag || address, image };
 };
 
 // Chain explorer mapping
@@ -191,18 +200,31 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
 };
 
 // LoadingOverlay component (unchanged)
-const LoadingOverlay = ({ message }) => (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 font-jetbrains">
-    <div className="bg-gray-800/95 backdrop-blur-md p-3 rounded-lg border border-white/10 flex flex-col items-center gap-2">
-      <p className="text-sm text-white">{message}</p>
-      <div className="flex space-x-1.5">
-        <div className="w-3 h-3 bg-gray-200 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-        <div className="w-3 h-3 bg-gray-200 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-        <div className="w-3 h-3 bg-gray-200 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+const LoadingOverlay = () => {
+  const [scanDirection, setScanDirection] = useState('horizontal');
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setScanDirection(prevDirection => 
+        prevDirection === 'horizontal' ? 'vertical' : 'horizontal'
+      );
+    }, 1500); 
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 bg-gray/10 backdrop-blur-sm flex items-center justify-center z-50">
+      <div 
+        className={`scanner-container ${scanDirection} w-12 h-12 sm:w-14 sm:h-14`}
+      >
+        <img
+          src="/icons/logo-scan.png" 
+          alt="Loading Logo"
+          className="w-full h-full object-contain"
+        />
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // Wallet Balances component (unchanged)
 // In MarketTab.jsx, update the WalletBalances component
@@ -269,6 +291,8 @@ const WalletBalances = ({
     return imageUrl;
   };
 
+  const { text: displayWalletAddress, image: walletImage } = truncateAddress(walletAddress, nameTags);
+
   logger.log('WalletBalances rendering:', {
     walletAddress,
     balances: balances.slice(0, 5), // Log sample balances
@@ -276,6 +300,7 @@ const WalletBalances = ({
     error,
     transactionsCount: transactions?.length || 0,
     activeTab,
+    walletImage,
   });
 
   const overlayContent = (
@@ -301,8 +326,22 @@ const WalletBalances = ({
                   d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
                 />
               </svg>
+              {walletImage && (
+                <img
+                  src={walletImage}
+                  alt={`${displayWalletAddress} logo`}
+                  className="w-5 h-5 rounded-full flex-shrink-0"
+                  onError={(e) => {
+                    logger.error('Wallet name tag image failed to load:', {
+                      address: walletAddress,
+                      src: walletImage,
+                    });
+                    e.target.src = '/icons/default.png';
+                  }}
+                />
+              )}
               <span className="text-xs sm:text-sm font-bold text-white">
-                {truncateAddress(walletAddress, nameTags)}
+                {displayWalletAddress}
               </span>
             </div>
             <button
@@ -480,8 +519,9 @@ const WalletBalances = ({
                       {transactions.map((tx, index) => {
                         const { txUrl, addressUrl: fromUrl } = getExplorerUrls(tx.chain, tx.hash, tx.from);
                         const { addressUrl: toUrl } = getExplorerUrls(tx.chain, tx.hash, tx.to);
-                        const fromNameTag = nameTags[tx.from.toLowerCase()]?.nameTag;
-                        const toNameTag = nameTags[tx.to.toLowerCase()]?.nameTag;
+                        const { text: fromText, image: fromImage } = truncateAddress(tx.from, nameTags);
+                        const { text: toText, image: toImage } = truncateAddress(tx.to, nameTags);
+
                         return (
                           <tr key={`${tx.chain}-${tx.hash}-${index}`}>
                             <td className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
@@ -511,32 +551,66 @@ const WalletBalances = ({
                                     className="text-blue-400 hover:underline"
                                     title={tx.hash}
                                   >
-                                    {truncateAddress(tx.hash, nameTags)}
+                                    {truncateAddress(tx.hash, nameTags).text}
                                   </a>
                                 </div>
                               </div>
                             </td>
                             <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
                               <div className="flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-1">
-                                <a
-                                  href={fromUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-blue-400 hover:underline"
-                                  title={tx.from}
-                                >
-                                  {fromNameTag || truncateAddress(tx.from, nameTags)}
-                                </a>
+                                <div className="flex items-center gap-1">
+                                  {fromImage && (
+                                    <img
+                                      src={fromImage}
+                                      alt={`${fromText} logo`}
+                                      className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
+                                      onError={(e) => {
+                                        logger.error('From address name tag image failed to load:', {
+                                          address: tx.from,
+                                          src: fromImage,
+                                        });
+                                        e.target.src = '/icons/default.png';
+                                      }}
+                                    />
+                                  )}
+                                  <a
+                                    href={fromUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-blue-400 hover:underline"
+                                    title={tx.from}
+                                    onClick={() => handleAddressClick(tx.from)}
+                                  >
+                                    {fromText}
+                                  </a>
+                                </div>
                                 <span className="sm:mx-1">→</span>
-                                <a
-                                  href={toUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-blue-400 hover:underline"
-                                  title={tx.to}
-                                >
-                                  {toNameTag || truncateAddress(tx.to, nameTags)}
-                                </a>
+                                <div className="flex items-center gap-1">
+                                  {toImage && (
+                                    <img
+                                      src={toImage}
+                                      alt={`${toText} logo`}
+                                      className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
+                                      onError={(e) => {
+                                        logger.error('To address name tag image failed to load:', {
+                                          address: tx.to,
+                                          src: toImage,
+                                        });
+                                        e.target.src = '/icons/default.png';
+                                      }}
+                                    />
+                                  )}
+                                  <a
+                                    href={toUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-blue-400 hover:underline"
+                                    title={tx.to}
+                                    onClick={() => handleAddressClick(tx.to)}
+                                  >
+                                    {toText}
+                                  </a>
+                                </div>
                               </div>
                             </td>
                             <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
@@ -1217,8 +1291,8 @@ const MarketTab = ({ recaptchaRef }) => {
                 <button
                   onClick={debouncedHandleAnalysis}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 border border-white ${selectedToken && dailyMarketInteractions < 5
-                      ? 'text-white hover:bg-white/15 hover:shadow-lg'
-                      : 'text-gray-400 cursor-not-allowed opacity-50'
+                    ? 'text-white hover:bg-white/15 hover:shadow-lg'
+                    : 'text-gray-400 cursor-not-allowed opacity-50'
                     }`}
                   disabled={!selectedToken || dailyMarketInteractions >= 5}
                   aria-label="Analyze token"
@@ -1228,8 +1302,8 @@ const MarketTab = ({ recaptchaRef }) => {
                 <button
                   onClick={debouncedHandlePrediction}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 border border-blue-500 ${selectedToken && dailyMarketInteractions < 5
-                      ? 'text-blue-500 hover:bg-white/15 hover:shadow-lg'
-                      : 'text-gray-400 cursor-not-allowed opacity-50'
+                    ? 'text-blue-500 hover:bg-white/15 hover:shadow-lg'
+                    : 'text-gray-400 cursor-not-allowed opacity-50'
                     }`}
                   disabled={!selectedToken || dailyMarketInteractions >= 5}
                   aria-label="Predict token price"
@@ -1244,8 +1318,8 @@ const MarketTab = ({ recaptchaRef }) => {
                   key={range}
                   onClick={() => setTimeRange(['0.5', '1', '7', '30', '90', '365'][idx])}
                   className={`px-1.5 py-1 rounded-md text-[8px] md:text-[10px] transition-all duration-300 border border-white/20 backdrop-blur-md ${timeRange === ['0.5', '1', '7', '30', '90', '365'][idx]
-                      ? 'bg-white text-black'
-                      : 'bg-white/10 text-white hover:bg-white/15'
+                    ? 'bg-white text-black'
+                    : 'bg-white/10 text-white hover:bg-white/15'
                     }`}
                   aria-label={`Select ${range} time range`}
                 >
@@ -1334,44 +1408,50 @@ const MarketTab = ({ recaptchaRef }) => {
                         src={selectedToken.image}
                         alt={`${selectedToken.symbol} logo`}
                         className="w-4 h-4 rounded-full ml-1"
-                        onError={(e) => (e.target.src = '/fallback-image.png')}
+                        onError={(e) => {
+                          logger.error('Token logo failed to load:', {
+                            symbol: selectedToken.symbol,
+                            src: selectedToken.image,
+                          });
+                          e.target.src = '/icons/default.png';
+                        }}
                       />
                     )}
                     {selectedToken.symbol?.toUpperCase()} Holders
-                    {/* {selectedChain && (
-                      <>
-                        <img
-                          src={getPlatformImage(selectedChain)}
-                          alt={`${chains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
-                          className="w-4 h-4 rounded-full ml-1"
-                          onError={(e) => {
-                            logger.error('Chain logo failed to load:', {
-                              chain: selectedChain,
-                              src: getPlatformImage(selectedChain),
-                            });
-                            e.target.src = '/fallback-image.png';
-                          }}
-                        />
-                        <span className="ml-1">{chains.find((c) => c.value === selectedChain)?.label || 'Selected Chain'}</span>
-                      </>
-                    )} */}
                   </h4>
                 </div>
 
                 {onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                   <div className="relative overflow-x-auto md:max-h-[calc(100%-3rem)] max-h-[calc(70vh-6rem)] overflow-y-auto hide-scrollbar">
-                    <table className={`w-full table-fixed ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
+                    <table className={`w-full ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
                       <thead className="sticky top-0 bg-gray-700/50 backdrop-blur-sm z-10">
                         <tr>
-                          <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[160px] min-w-[160px] max-w-[160px]' : 'w-[250px] min-w-[250px] max-w-[250px]'}`}>
+                          <th
+                            className={`px-1.5 py-1 text-white text-left font-medium ${
+                              isMobile ? 'min-w-[200px]' : 'min-w-[300px]'
+                            }`}
+                          >
                             <div className="flex items-center gap-1">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5 stroke-white fill-none"
+                                viewBox="0 0 24 24"
+                                strokeWidth="2"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                                />
                               </svg>
                               Address/Name
                             </div>
                           </th>
-                          <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
+                          <th
+                            className={`px-1.5 py-1 text-white text-left font-medium ${
+                              isMobile ? 'w-[80px] min-w-[80px]' : 'w-[100px] min-w-[100px]'
+                            }`}
+                          >
                             <div className="flex items-center gap-1">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1389,9 +1469,8 @@ const MarketTab = ({ recaptchaRef }) => {
                         {onChainData.topHolders.slice(0, 100).map((holder, index) => {
                           const isNonEvmChain = NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase());
                           const address = holder.address.toLowerCase();
-                          const nameTag = nameTags[address]?.nameTag || holder.nameTag;
-                          const displayText = nameTag || (isNonEvmChain ? holder.address : truncateAddress(holder.address));
-                          const { addressUrl } = getExplorerUrls(selectedChain, null, holder.address);
+                          const { text: displayText, image } = truncateAddress(holder.address, nameTags, holder.source);
+                          const isValidBtcAddress = holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/);
                           const isValidEvmAddress = holder.address.match(/^0x[a-fA-F0-9]{40}$/);
 
                           return (
@@ -1400,33 +1479,52 @@ const MarketTab = ({ recaptchaRef }) => {
                               className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
                             >
                               <td
-                                className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[160px] min-w-[160px] max-w-[160px]' : 'w-[250px] min-w-[250px] max-w-[250px]'}`}
+                                className={`px-1.5 py-1 text-white ${
+                                  isMobile ? 'min-w-[200px]' : 'min-w-[300px]'
+                                }`}
                               >
-                                {isNonEvmChain ? (
-                                  <a
-                                    href={isNonEvmChain ? `https://blockchair.com/${selectedToken?.id.toLowerCase()}/address/${holder.address}` : addressUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="hover:underline truncate"
-                                    title={nameTag ? `${holder.address} (${nameTag})` : holder.address}
-                                  >
-                                    {displayText}
-                                  </a>
-                                ) : (
-                                  <button
-                                    onClick={() => isValidEvmAddress && handleAddressClick(holder.address)}
-                                    className={`text-gray-200 hover:underline truncate ${isValidEvmAddress ? 'cursor-pointer' : 'cursor-default'}`}
-                                    title={nameTag ? `${holder.address} (${nameTag})` : isLoadingNameTags ? 'Loading Name Tag...' : holder.address}
-                                    disabled={!isValidEvmAddress}
-                                  >
-                                    {displayText}
-                                  </button>
-                                )}
+                                <div className="flex items-center gap-1">
+                                  {image && (
+                                    <img
+                                      src={image}
+                                      alt={`${displayText} logo`}
+                                      className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} rounded-full flex-shrink-0`}
+                                      onError={(e) => {
+                                        logger.error('Name tag image failed to load:', {
+                                          address,
+                                          src: image,
+                                        });
+                                        e.target.src = '/icons/default.png';
+                                      }}
+                                    />
+                                  )}
+                                  {isNonEvmChain && isValidBtcAddress ? (
+                                    <a
+                                      href={`https://blockchair.com/${selectedToken?.id.toLowerCase()}/address/${holder.address}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-white hover:underline"
+                                      title={holder.address}
+                                    >
+                                      {displayText}
+                                    </a>
+                                  ) : (
+                                    <span
+                                      className={`text-gray-200 ${isValidEvmAddress ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
+                                      onClick={() => isValidEvmAddress && handleAddressClick(holder.address)}
+                                      title={displayText}
+                                    >
+                                      {displayText}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td
-                                className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}
+                                className={`px-1.5 py-1 text-gray-200 ${
+                                  isMobile ? 'w-[80px] min-w-[80px]' : 'w-[100px] min-w-[100px]'
+                                }`}
                               >
-                                <span className="truncate">
+                                <span>
                                   {holder.balance.toLocaleString('en-US', {
                                     minimumFractionDigits: 2,
                                     maximumFractionDigits: 8,
@@ -1444,8 +1542,10 @@ const MarketTab = ({ recaptchaRef }) => {
                     {isLoadingOnChain
                       ? 'Loading top holders data...'
                       : NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
-                        ? `No public treasury data available for ${selectedToken.symbol?.toUpperCase()}.`
-                        : `No top holders data available for ${selectedToken.symbol?.toUpperCase()} on ${chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.`}
+                        ? `No public treasury data available for ${selectedToken?.symbol?.toUpperCase() || 'selected token'}.`
+                        : `No top holders data available for ${selectedToken?.symbol?.toUpperCase() || 'selected token'} on ${
+                            chains.find((c) => c.value === selectedChain)?.label || 'selected chain'
+                          }.`}
                   </p>
                 )}
               </div>
@@ -1724,77 +1824,75 @@ const MarketTab = ({ recaptchaRef }) => {
                                     </div>
                                   </td>
                                   <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
-                                    <div className="flex items-center gap-1">
-                                      <a
-                                        href={fromUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-blue-400 hover:underline truncate cursor-pointer"
-                                        title={trade.tx_from_address}
-                                        onClick={() => handleAddressClick(trade.tx_from_address)}
-                                      >
-                                        {truncateAddress(trade.tx_from_address)}
-                                      </a>
-                                      {trade.tx_from_address && typeof trade.tx_from_address === 'string' && (
-                                        <button
-                                          onClick={() => copyToClipboard(trade.tx_from_address)}
-                                          className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
-                                          title="Copy address"
-                                        >
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            strokeWidth={2}
-                                          >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                            />
-                                          </svg>
-                                        </button>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
-                                    <div className="flex items-center gap-1">
-                                      <a
-                                        href={toUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-blue-400 hover:underline truncate cursor-pointer"
-                                        title={trade.to_token_address}
-                                        onClick={() => handleAddressClick(trade.to_token_address)}
-                                      >
-                                        {truncateAddress(trade.to_token_address)}
-                                      </a>
-                                      {trade.to_token_address && typeof trade.to_token_address === 'string' && (
-                                        <button
-                                          onClick={() => copyToClipboard(trade.to_token_address)}
-                                          className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
-                                          title="Copy address"
-                                        >
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            strokeWidth={2}
-                                          >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                            />
-                                          </svg>
-                                        </button>
-                                      )}
-                                    </div>
-                                  </td>
+  <div className="flex items-center gap-1">
+    <a
+      href={fromUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="text-blue-400 hover:underline truncate cursor-pointer"
+      title={trade.tx_from_address}
+    >
+      {truncateAddress(trade.tx_from_address)}
+    </a>
+    {trade.tx_from_address && typeof trade.tx_from_address === 'string' && (
+      <button
+        onClick={() => copyToClipboard(trade.tx_from_address)}
+        className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
+        title="Copy address"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
+        </svg>
+      </button>
+    )}
+  </div>
+</td>
+<td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
+  <div className="flex items-center gap-1">
+    <a
+      href={toUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="text-blue-400 hover:underline truncate cursor-pointer"
+      title={trade.to_token_address}
+    >
+      {truncateAddress(trade.to_token_address)}
+    </a>
+    {trade.to_token_address && typeof trade.to_token_address === 'string' && (
+      <button
+        onClick={() => copyToClipboard(trade.to_token_address)}
+        className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
+        title="Copy address"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
+        </svg>
+      </button>
+    )}
+  </div>
+</td>
                                   <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
                                     <div className="flex items-center gap-1">
                                       <span className="truncate">

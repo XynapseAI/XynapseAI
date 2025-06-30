@@ -1,162 +1,178 @@
 {
-    "0xbc10f2e862ed4502144c7d632a3459f49dfcdb5e": {
-        "Address": "0xbc10f2e862ed4502144c7d632a3459f49dfcdb5e",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Chainlink: CommunityStakingPool",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0x5E8C8A7243651DB1384C0dDfDbE39761E8e7E51a": {
-        "Address": "0x5E8C8A7243651DB1384C0dDfDbE39761E8e7E51a",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Aave Ethereum LINK (aEthLINK)",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0x835678a611b28684005a5e2233695fb6cbbb0007": {
-        "Address": "0x835678a611b28684005a5e2233695fb6cbbb0007",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Binance: Cold Wallet",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0x23878914efe38d27c4d67ab83ed1b93a74d4086a": {
-        "Address": "0x23878914efe38d27c4d67ab83ed1b93a74d4086a",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Aave Ethereum USDT (aEthUSDT)",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0x6c96de32cea08842dcc4058c14d3aaad7fa41dee": {
-        "Address": "0x6c96de32cea08842dcc4058c14d3aaad7fa41dee",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "OAdapterUpgradeable (Proxy)",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0xb0a27099582833c0cb8c7a0565759ff145113d64": {
-        "Address": "0xb0a27099582833c0cb8c7a0565759ff145113d64",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "OKX Cool Wallet",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0x95fc37a27a2f68e3a647cdc081f0a89bb47c3012": {
-        "Address": "0x95fc37a27a2f68e3a647cdc081f0a89bb47c3012",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Mantle : L1StandardBridge",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0x3cc936b795a188f0e246cbb2d74c5bd190aecf18": {
-        "Address": "0x3cc936b795a188f0e246cbb2d74c5bd190aecf18",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "MEXC: Hot Wallet",
-                "Description": "",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0x59708733fbbf64378d9293ec56b977c011a08fd2": {
-        "Address": "0x59708733fbbf64378d9293ec56b977c011a08fd2",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Bitget Wallet Address",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0x2933782b5a8d72f2754103d1489614f29bfa4625": {
-        "Address": "0x2933782b5a8d72f2754103d1489614f29bfa4625",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Kucoin Cold Wallet",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0xee136c0389733849dd710ac7104e92c6bf497574": {
-        "Address": "0xee136c0389733849dd710ac7104e92c6bf497574",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Mexc - Gnosis Safe",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0xa7c0d36c4698981fab42a7d8c783674c6fe2592d": {
-        "Address": "0xa7c0d36c4698981fab42a7d8c783674c6fe2592d",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Binance Cold Wallet",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0x559432e18b281731c054cd703d4b49872be4ed53": {
-        "Address": "0x559432e18b281731c054cd703d4b49872be4ed53",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "OKX Hot Wallet",
-                "Description": "Token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0x4d216d2682f3997f6c19420beee4530d08d0ea5f": {
-        "Address": "0x4d216d2682f3997f6c19420beee4530d08d0ea5f",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Bitget Cold Wallet",
-                "Description": "Token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0xdbe46a02322e636b92296954637e1d7db9d5ed26": {
-        "Address": "0xdbe46a02322e636b92296954637e1d7db9d5ed26",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Bitget Cold Wallet",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
-    },
-    "0xf89d7b9c864f589bbf53a82105107622b35eaa40": {
-        "Address": "0xf89d7b9c864f589bbf53a82105107622b35eaa40",
-        "Labels": {
-            "uniswap": {
-                "Name Tag": "Bybit Hot Wallet",
-                "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
-                "Subcategory": "Others"
-            }
-        }
+  "0xbc10f2e862ed4502144c7d632a3459f49dfcdb5e": {
+    "Address": "0xbc10f2e862ed4502144c7d632a3459f49dfcdb5e",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Chainlink: CommunityStakingPool",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
+      }
     }
+  },
+  "0x5E8C8A7243651DB1384C0dDfDbE39761E8e7E51a": {
+    "Address": "0x5E8C8A7243651DB1384C0dDfDbE39761E8e7E51a",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Aave Ethereum LINK (aEthLINK)",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/aave.png"
+      }
+    }
+  },
+  "0x835678a611b28684005a5e2233695fb6cbbb0007": {
+    "Address": "0x835678a611b28684005a5e2233695fb6cbbb0007",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Binance: Cold Wallet",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/binance.png"
+      }
+    }
+  },
+  "0x23878914efe38d27c4d67ab83ed1b93a74d4086a": {
+    "Address": "0x23878914efe38d27c4d67ab83ed1b93a74d4086a",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Aave Ethereum USDT (aEthUSDT)",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/aave.png"
+      }
+    }
+  },
+  "0x6c96de32cea08842dcc4058c14d3aaad7fa41dee": {
+    "Address": "0x6c96de32cea08842dcc4058c14d3aaad7fa41dee",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "OAdapterUpgradeable (Proxy)",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
+      }
+    }
+  },
+  "0xb0a27099582833c0cb8c7a0565759ff145113d64": {
+    "Address": "0xb0a27099582833c0cb8c7a0565759ff145113d64",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "OKX Cool Wallet",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/okx.png"
+      }
+    }
+  },
+  "0x95fc37a27a2f68e3a647cdc081f0a89bb47c3012": {
+    "Address": "0x95fc37a27a2f68e3a647cdc081f0a89bb47c3012",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Mantle : L1StandardBridge",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/mantle.png"
+      }
+    }
+  },
+  "0x3cc936b795a188f0e246cbb2d74c5bd190aecf18": {
+    "Address": "0x3cc936b795a188f0e246cbb2d74c5bd190aecf18",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "MEXC: Hot Wallet",
+        "Description": "",
+        "Subcategory": "Others",
+        "image": "/icons/mexc.png"
+      }
+    }
+  },
+  "0x59708733fbbf64378d9293ec56b977c011a08fd2": {
+    "Address": "0x59708733fbbf64378d9293ec56b977c011a08fd2",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Bitget Wallet Address",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/bitget.png"
+      }
+    }
+  },
+  "0x2933782b5a8d72f2754103d1489614f29bfa4625": {
+    "Address": "0x2933782b5a8d72f2754103d1489614f29bfa4625",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Kucoin Cold Wallet",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/kucoin.png"
+      }
+    }
+  },
+  "0xee136c0389733849dd710ac7104e92c6bf497574": {
+    "Address": "0xee136c0389733849dd710ac7104e92c6bf497574",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Mexc - Gnosis Safe",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/mexc.png"
+      }
+    }
+  },
+  "0xa7c0d36c4698981fab42a7d8c783674c6fe2592d": {
+    "Address": "0xa7c0d36c4698981fab42a7d8c783674c6fe2592d",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Binance Cold Wallet",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/binance.png"
+      }
+    }
+  },
+  "0x559432e18b281731c054cd703d4b49872be4ed53": {
+    "Address": "0x559432e18b281731c054cd703d4b49872be4ed53",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "OKX Hot Wallet",
+        "Description": "Token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/okx.png"
+      }
+    }
+  },
+  "0x4d216d2682f3997f6c19420beee4530d08d0ea5f": {
+    "Address": "0x4d216d2682f3997f6c19420beee4530d08d0ea5f",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Bitget Cold Wallet",
+        "Description": "Token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/bitget.png"
+      }
+    }
+  },
+  "0xdbe46a02322e636b92296954637e1d7db9d5ed26": {
+    "Address": "0xdbe46a02322e636b92296954637e1d7db9d5ed26",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Bitget Cold Wallet",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/bitget.png"
+      }
+    }
+  },
+  "0xf89d7b9c864f589bbf53a82105107622b35eaa40": {
+    "Address": "0xf89d7b9c864f589bbf53a82105107622b35eaa40",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Bybit Hot Wallet",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/bybit.png"
+      }
+    }
+  }
 }

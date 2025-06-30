@@ -236,6 +236,69 @@ th, td {
   animation: flash 1s ease-out;
 }
 
+/* === CSS for Scan Loading Effect === */
+
+.scanner-container {
+  position: relative; 
+  overflow: hidden;  
+  border-radius: 50%; 
+}
+
+.scanner-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  background: linear-gradient(
+    to right, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.05) 45%,
+    rgba(255, 255, 255, 0.3) 50%,  
+    rgba(255, 255, 255, 0.05) 55%,
+    transparent 100%
+  );
+  
+  transform: translateX(-100%);
+}
+
+@keyframes scan-horizontal {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes scan-vertical {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+
+.scanner-container.horizontal::before {
+  animation: scan-horizontal 1.5s infinite linear;
+}
+
+.scanner-container.vertical::before {
+  background: linear-gradient(
+    to bottom, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.05) 45%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.05) 55%,
+    transparent 100%
+  );
+  animation: scan-vertical 1.5s infinite linear;
+}
+
 @media (max-width: 640px) {
   html,
   body,

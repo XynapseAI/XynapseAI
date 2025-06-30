@@ -1,0 +1,68 @@
+{
+  "1a1zp1ep5qgefi2dmptftl5slmv7divfna": {
+    "Address": "1a1zp1ep5qgefi2dmptftl5slmv7divfna",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Satoshi Nakamoto",
+        "Description": "The pseudonymous creator of Bitcoin.",
+        "Subcategory": "Historical",
+        "image": "/icons/bitcoin.png"
+      }
+    }
+  },
+  "3d8qaomkz8f1b42btttdl3xxy2nn7tj3fo": {
+    "Address": "3d8qaomkz8f1b42btttdl3xxy2nn7tj3fo",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Binance Cold Wallet",
+        "Description": "Cold wallet associated with Binance for storing Bitcoin.",
+        "Subcategory": "Exchange",
+        "image": "/icons/binance.png"
+      }
+    }
+  },
+  "34xp4vrocgjym3xr7ycvpfhocnxv4twseo": {
+    "Address": "34xp4vrocgjym3xr7ycvpfhocnxv4twseo",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Binance Hot Wallet",
+        "Description": "Hot wallet associated with Binance for Bitcoin transactions.",
+        "Subcategory": "Exchange",
+        "image": "/icons/binance.png"
+      }
+    }
+  },
+  "3m219kr5venenb47ewrpfwyb5jq2djxrp6": {
+    "Address": "3m219kr5venenb47ewrpfwyb5jq2djxrp6",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Unknown Wallet",
+        "Description": "An unidentified Bitcoin wallet.",
+        "Subcategory": "Others",
+        "image": "/icons/bitcoin.png"
+      }
+    }
+  },
+  "bc1qjasf9z3h7w3jspkhtgatgpyvvzgpa2wwd2lr0eh5tx44reyn2k7sfc27a4": {
+    "Address": "bc1qjasf9z3h7w3jspkhtgatgpyvvzgpa2wwd2lr0eh5tx44reyn2k7sfc27a4",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Unknown Bech32 Wallet",
+        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
+        "Subcategory": "Others",
+        "image": "/icons/binance.png"
+      }
+    }
+  },
+  "microstrategy inc.": {
+    "Address": "microstrategy inc.",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "MicroStrategy Inc.",
+        "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
+        "Subcategory": "Corporate",
+        "image": "/icons/binance.png"
+      }
+    }
+  }
+}
