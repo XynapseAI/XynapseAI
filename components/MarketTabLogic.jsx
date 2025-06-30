@@ -527,81 +527,98 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   );
 
   const fetchPriceHistory = useCallback(
-    debounce(
-      (tokenId, days, callback, retryCount = 0) => {
-        if (document.visibilityState !== 'visible') {
-          callback(null);
-          return;
-        }
-        const [coingeckoChainId, tokenAddress] = tokenId.split('/');
-        const chain = chains.find((c) => c.coingeckoId === coingeckoChainId);
-        const cacheKey = `${tokenId}-${days}`;
-        const cached = priceHistoryCache[cacheKey];
-        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-          setPriceHistory(cached.data);
-          callback(null, cached.data);
-          return;
-        }
-        return new Promise(async (resolve, reject) => {
-          try {
-            logger.log('Fetching price history from API:', { tokenId, days, chain: chain?.value });
-            const response = await axios.get('/api/coingecko/history', {
-              params: { id: tokenId, vs_currency: 'usd', days },
-              timeout: 30000,
-            }).catch(async (error) => {
-              if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
-                const delay = Math.pow(2, retryCount) * 1000;
-                logger.log(`Retrying fetchPriceHistory after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
-                await new Promise((resolve) => setTimeout(resolve, delay));
-                return fetchPriceHistory(tokenId, days, callback, retryCount + 1);
-              }
-              throw error;
-            });
-
-            if (!response.data?.prices) {
-              throw new Error('Invalid price history data');
+  debounce(
+    (tokenId, days, callback, retryCount = 0) => {
+      if (document.visibilityState !== 'visible') {
+        callback(null);
+        return;
+      }
+      const [coingeckoChainId, tokenAddress] = tokenId.split('/');
+      const chain = chains.find((c) => c.coingeckoId === coingeckoChainId);
+      const cacheKey = `${tokenId}-${days}`;
+      const cached = priceHistoryCache[cacheKey];
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        setPriceHistory(cached.data);
+        callback(null, cached.data);
+        return;
+      }
+      return new Promise(async (resolve, reject) => {
+        try {
+          logger.log('Fetching price history from API:', { tokenId, days, chain: chain?.value });
+          const response = await axios.get('/api/coingecko/history', {
+            params: { id: tokenId, vs_currency: 'usd', days },
+            timeout: 30000,
+          }).catch(async (error) => {
+            if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
+              const delay = Math.pow(2, retryCount) * 1000;
+              logger.log(`Retrying fetchPriceHistory after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              return fetchPriceHistory(tokenId, days, callback, retryCount + 1);
             }
-            const priceData = response.data.prices.map(([timestamp, price]) => ({
-              title: new Date(timestamp).toLocaleString('en-GB', {
-                day: '2-digit',
-                month: '2-digit',
-                year: '2-digit',
-                hour: days === '0.5' || days === '1' ? '2-digit' : undefined,
-                minute: days === '0.5' ? '2-digit' : undefined,
-                hour12: false,
-              }),
-              price: parseFloat(price.toFixed(2)),
-            }));
-            setPriceHistoryCache((prev) => ({
-              ...prev,
-              [cacheKey]: { data: priceData, timestamp: Date.now() },
-            }));
-            setPriceHistory(priceData);
-            logger.log('Price history fetched successfully:', { tokenId, count: priceData.length });
-            resolve(priceData);
-            callback(null, priceData);
-          } catch (err) {
-            logger.error('Error fetching price history:', {
-              message: err.message,
-              status: err.response?.status,
-              data: err.response?.data,
-            });
-            const errorMessage =
-              err.response?.status === 429
-                ? 'API rate limit reached. Please wait a minute and try again.'
-                : err.response?.data?.detail || `Failed to load price history: ${err.message}`;
-            setError(errorMessage);
-            toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-            reject(err);
-            callback(err);
+            throw error;
+          });
+
+          if (!response.data?.prices || !Array.isArray(response.data.prices) || response.data.prices.length === 0) {
+            throw new Error('Invalid or empty price history data');
           }
-        });
-      },
-      500,
-      { leading: false, trailing: true }
-    ),
-    [chains, priceHistoryCache, setPriceHistory, setPriceHistoryCache, setError, toast]
-  );
+
+          // Tìm giá trị nhỏ nhất để xác định số chữ số thập phân
+          const prices = response.data.prices.map(([, price]) => price).filter((p) => p > 0);
+          const minPrice = prices.length > 0 ? Math.min(...prices) : 0.01;
+          let fractionDigits = 2;
+          if (minPrice < 0.0001) {
+            fractionDigits = 6;
+          } else if (minPrice < 0.01) {
+            fractionDigits = 4;
+          }
+
+          const priceData = response.data.prices.map(([timestamp, price]) => ({
+            title: new Date(timestamp).toLocaleString('en-GB', {
+              day: '2-digit',
+              month: '2-digit',
+              year: '2-digit',
+              hour: days === '0.5' || days === '1' ? '2-digit' : undefined,
+              minute: days === '0.5' ? '2-digit' : undefined,
+              hour12: false,
+            }),
+            price: parseFloat(
+              price.toLocaleString('en-US', {
+                minimumFractionDigits: fractionDigits,
+                maximumFractionDigits: fractionDigits,
+              }).replace(/,/g, '')
+            ),
+          }));
+
+          setPriceHistoryCache((prev) => ({
+            ...prev,
+            [cacheKey]: { data: priceData, timestamp: Date.now() },
+          }));
+          setPriceHistory(priceData);
+          logger.log('Price history fetched successfully:', { tokenId, count: priceData.length, fractionDigits });
+          resolve(priceData);
+          callback(null, priceData);
+        } catch (err) {
+          logger.error('Error fetching price history:', {
+            message: err.message,
+            status: err.response?.status,
+            data: err.response?.data,
+          });
+          const errorMessage =
+            err.response?.status === 429
+              ? 'API rate limit reached. Please wait a minute and try again.'
+              : err.response?.data?.detail || `Failed to load price history: ${err.message}`;
+          setError(errorMessage);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          reject(err);
+          callback(err);
+        }
+      });
+    },
+    500,
+    { leading: false, trailing: true }
+  ),
+  [chains, priceHistoryCache, setPriceHistory, setPriceHistoryCache, setError, toast]
+);
 
   const fetchPublicTreasuryData = useCallback(
     debounce(
