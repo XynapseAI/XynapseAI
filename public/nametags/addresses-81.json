@@ -2062,7 +2062,7 @@
         "Name Tag": "Chainlink: BTC/height Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -2947,7 +2947,7 @@
       "cryptosaga": {
         "Name Tag": "CryptoSaga: Dungeon Ver1",
         "Description": "CryptoSaga is a decentralized RPG on the Ethereum blockchain with fully animated Heroes and Mobs.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -7669,7 +7669,7 @@
         "Name Tag": "Cryptobots.me/cbtb: CBTB Token",
         "Description": "CryptoBots is a multiplayer online game based on blockchain technology. Like any cryptocurrency assets, your bots are your property: you may buy, sell, or exchange them like any conventional collector’s items. The introduction of blockchain makes the process secure thanks to this technology's ability to reliably trace ownership.",
         "Token Name": "CryptoBotsBattle (CBTB)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -8360,23 +8360,23 @@
       "arbitrum-one": {
         "Name Tag": "Arbitrum: Delayed Inbox",
         "Description": "Arbitrum One is a permissionless Ethereum layer 2 rollup with full Ethereum smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "bridge": {
         "Name Tag": "Arbitrum: Delayed Inbox",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "layer-2": {
         "Name Tag": "Arbitrum: Delayed Inbox",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "nitro": {
         "Name Tag": "Arbitrum: Delayed Inbox",
         "Description": "Arbitrum Nitro is a second-generation Layer 2 blockchain protocol by Arbitrum which could be implemented on any blockchain system that support smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -8716,7 +8716,7 @@
         "Name Tag": "Curve.fi: RSV Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

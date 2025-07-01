@@ -5642,7 +5642,7 @@
         "Name Tag": "Curve.fi: USDP MetaPool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -7443,7 +7443,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: pmriviere",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -9090,7 +9090,7 @@
       "sudoswap": {
         "Name Tag": "sudoswap: Exponential Curve",
         "Description": "The sudoswap AMM is a minimal, gas-efficient AMM protocol for facilitating NFT (ERC721s) to token (ETH or ERC20) swaps using customizable bonding curves. Liquidity providers (LPs) can deposit into single-sided buy or sell pools, or provide both sides with a spread to capture fees.",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

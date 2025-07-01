@@ -1998,7 +1998,7 @@
         "Name Tag": "Chainlink: ZRX / ETH Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -2664,12 +2664,12 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: DAI L1 Escrow",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "bridge": {
         "Name Tag": "Arbitrum: DAI L1 Escrow",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -7061,7 +7061,7 @@
         "Name Tag": "Chainlink: Orchid Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

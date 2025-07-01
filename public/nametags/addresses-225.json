@@ -36,7 +36,7 @@
         "Name Tag": "Ren: renLUNA Gateway",
         "Description": "Ren: Providing access to inter-blockchain liquidity for all decentralized applications. Bringing BTC, BCH and ZEC to your Ethereum dApp.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -261,7 +261,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Gnosis Safe: Deployer",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.png"
+        "image": "/icons/gnosis.png"
       }
     }
   },
@@ -2975,7 +2975,7 @@
         "Name Tag": "Curve.fi: oBTC MetaPool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -4275,7 +4275,7 @@
         "Name Tag": "LifeCrypto: Staking Contract",
         "Description": "List of decentralized finance products.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

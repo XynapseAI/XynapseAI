@@ -3514,7 +3514,7 @@
         "Name Tag": "Augmented Finance: WETH Gateway",
         "Description": "Augmented Finance is a DeFi liquidity protocol that enables users to lend and borrow any asset on any chain.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -5385,7 +5385,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: WETH Gateway V2",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -5555,7 +5555,7 @@
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
         "Token Name": "Curve.fi yDAI/yUSDC/yUSDT/yBUSD (yDAI+yUSDC+yUSDT+yBUSD)",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "defi": {
         "Token Name": "Curve.fi yDAI/yUSDC/yUSDT/yBUSD (yDAI+yUSDC+yUSDT+yBUSD)",
@@ -5833,7 +5833,7 @@
         "Name Tag": "Chainlink: PERP/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -7704,7 +7704,7 @@
         "Name Tag": "Curve.fi: UST Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

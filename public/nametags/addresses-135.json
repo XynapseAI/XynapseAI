@@ -937,7 +937,7 @@
         "Name Tag": "Curve.fi: yCRV V2 Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -1007,7 +1007,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex 20",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },

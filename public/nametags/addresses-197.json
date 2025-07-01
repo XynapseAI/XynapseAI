@@ -256,7 +256,7 @@
         "Name Tag": "Chainlink: EURS RESERVES Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -1030,7 +1030,7 @@
         "Name Tag": "Chainlink: JPY/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -2289,7 +2289,7 @@
         "Name Tag": "Curve.fi: Voting Parameter",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -9180,7 +9180,7 @@
         "Name Tag": "CryptoAtoms: ATH Token",
         "Description": "CryptoAtoms: Create unique digital lifeforms and join the War of Atoms!",
         "Token Name": "Atom (ATH)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

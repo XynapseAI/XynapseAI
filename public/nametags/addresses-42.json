@@ -1155,18 +1155,18 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: Node Factory",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "layer-2": {
         "Name Tag": "Arbitrum: Node Factory",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "protocol": {
         "Name Tag": "Arbitrum: Node Factory",
         "Description": "The underlying set of rules establishing how connected computers communicate with one another to exchange information.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -6739,12 +6739,12 @@
       "bridge": {
         "Name Tag": "StarkNet: StarkGate WBTC Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       },
       "starknet": {
         "Name Tag": "StarkNet: StarkGate WBTC Bridge",
         "Description": "StarkNet is a permissionless decentralized ZK-Rollup. It operates as an L2 network over Ethereum, enabling any dApp to achieve unlimited scale for its computation – without compromising Ethereum's composability and security.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -7090,7 +7090,7 @@
         "Name Tag": "Chainlink: sCEX/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8883,7 +8883,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: jen0790",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -8991,13 +8991,13 @@
         "Name Tag": "GateNet: Old STACS Token",
         "Description": "Gibraltar Blockchain Exchange (GBX) is a world-leading institutional-grade token sale platform and digital asset exchange.",
         "Token Name": "STACS (STACS)",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       },
       "old-contract": {
         "Name Tag": "GateNet: Old STACS Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

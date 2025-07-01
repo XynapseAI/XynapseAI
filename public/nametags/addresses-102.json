@@ -222,7 +222,7 @@
         "Name Tag": "Chainlink: BUSD/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -4383,7 +4383,7 @@
         "Name Tag": "Polygon (Matic): Priority Queue",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -5527,7 +5527,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: HarvardLawBFI",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -6474,7 +6474,7 @@
         "Name Tag": "Curve.fi: Deposit DUSD",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -9381,13 +9381,13 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: L1 Gateway Router 2",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "layer-2": {
         "Name Tag": "Arbitrum: L1 Gateway Router 2",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -9676,12 +9676,12 @@
       "beacon-depositor": {
         "Name Tag": "Bitcoin Suisse: Eth2 Depositor",
         "Description": "An address that has deposited ETH into the Beacon Chain to become a validator.",
-        "image": "/icons/default.png"
+        "image": "/icons/sui.png"
       },
       "bitcoin-suisse": {
         "Name Tag": "Bitcoin Suisse: Eth2 Depositor",
         "Description": "Bitcoin Suisse is a Swiss cryptocurrency investment platform",
-        "image": "/icons/default.png"
+        "image": "/icons/sui.png"
       }
     }
   },

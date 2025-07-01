@@ -489,13 +489,13 @@
       "ico-wallets": {
         "Name Tag": "Gnosis: MultiSig",
         "Description": "Wallets where Token Sale proceeds are/were being stored.",
-        "image": "/icons/default.png"
+        "image": "/icons/gnosis.png"
       },
       "multisig": {
         "Name Tag": "Gnosis: MultiSig",
         "Description": "A contract that requires one or more signers to execute a transaction.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/gnosis.png"
       }
     }
   },
@@ -668,7 +668,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: blakeburrito",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -1241,7 +1241,7 @@
       "bridge": {
         "Name Tag": "Gnosis: GEN-xGEN Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/gnosis.png"
       }
     }
   },
@@ -2084,7 +2084,7 @@
         "Name Tag": "Chainlink: FXS/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8069,7 +8069,7 @@
         "Name Tag": "Chainlink: Deployer",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

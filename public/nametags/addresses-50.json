@@ -676,7 +676,7 @@
         "Name Tag": "Curve.fi: Gauge Controller",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -2933,7 +2933,7 @@
       "parity-bug": {
         "Name Tag": "AgadroCryptoWallet",
         "Description": "A vulnerability in the Parity Wallet library contract of the standard multi-sig contract that resulted in funds being frozen and Ethers rendered unusable. Postmortem report can be found here.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -3206,7 +3206,7 @@
         "Name Tag": "Curve.fi: sBTC Implementation Contract",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -6569,7 +6569,7 @@
         "Name Tag": "Curve.fi: oBTC/sbtcCRV Token",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

@@ -6391,7 +6391,7 @@
         "Name Tag": "Chainlink: LDO/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -7796,7 +7796,7 @@
         "Name Tag": "Chainlink: RAMP/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8181,7 +8181,7 @@
         "Name Tag": "Abracadabra.Money: cvxtricrypto2 Market",
         "Description": "A lending platform that uses interest-bearing tokens (ibTKNs) as collateral to borrow a USD pegged stablecoin (Magic Internet Money - MIM), that can be used as any other traditional stablecoin.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

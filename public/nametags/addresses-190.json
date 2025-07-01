@@ -3492,7 +3492,7 @@
         "Description": "Crypto.com: The best place to buy, sell and pay with Crypto.",
         "Subcategory": "Main",
         "Token Name": "MCO (MCO)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       },
       "wallet-app": {
         "Token Name": "MCO (MCO)",
@@ -8900,7 +8900,7 @@
         "Name Tag": "Curve.fi: BUSD Deposit",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

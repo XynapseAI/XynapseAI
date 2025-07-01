@@ -828,7 +828,7 @@
       "across-protocol": {
         "Name Tag": "Across Protocol: Polygon Adapter V2",
         "Description": "Across Protocol is a bridging method that combines an optimistic oracle, bonded relayers and single-sided liquidity pools to provide decentralized instant transactions from rollup chains to Ethereum mainnet.",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -1348,13 +1348,13 @@
         "Name Tag": "Optimism: OVM Chain Storage Container CTC Batches",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       },
       "optimism": {
         "Name Tag": "Optimism: OVM Chain Storage Container CTC Batches",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -4799,7 +4799,7 @@
         "Name Tag": "Curve.fi: HUSD Pool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -9840,7 +9840,7 @@
         "Name Tag": "Chainlink: N225 / JPY Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

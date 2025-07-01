@@ -1658,7 +1658,7 @@
         "Name Tag": "Zapper.Fi: Curve Zap in",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -3340,7 +3340,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: CalBlockchain",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -7726,18 +7726,18 @@
         "Name Tag": "Curve.fi: y Swap",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "defi": {
         "Name Tag": "Curve.fi: y Swap",
         "Description": "List of decentralized finance products.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "dex": {
         "Name Tag": "Curve.fi: y Swap",
         "Description": "A decentralized exchange (also known as a DEX) is an exchange market that does not rely on a 3rd party service to hold the client funds but instead trades occur directly between users (peer to peer) through an automated process.",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

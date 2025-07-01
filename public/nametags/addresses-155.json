@@ -2009,7 +2009,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: 10urcglyn 1",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -2441,7 +2441,7 @@
         "Name Tag": "Chainlink: PHP/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -5974,7 +5974,7 @@
         "Name Tag": "Curve.fi: ust3CRV Token",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -7256,7 +7256,7 @@
       "brave-frontier-heroes": {
         "Name Tag": "BFH: Unit Gateway",
         "Description": "Brave Frontier Heroes is the crossover of the extremely successful mobile game BRAVE FRONTIER and the no.1 blockchain game My Crypto Heroes*. It combines the proven gameplay of BRAVE FRONTIER with the proven game economy of My Crypto Heroes.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

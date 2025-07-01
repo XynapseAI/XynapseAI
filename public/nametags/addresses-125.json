@@ -721,7 +721,7 @@
         "Name Tag": "Crypto.com 4",
         "Description": "Crypto.com: The best place to buy, sell and pay with Crypto.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -3306,7 +3306,7 @@
       "gate-io": {
         "Name Tag": "Gate.io 2",
         "Description": "Gate.io is an exchange platform which supports BTC, LTC, Ethereum, Qtum and more blockchain assets trading.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -6998,13 +6998,13 @@
         "Name Tag": "Optimism: OVM Chain Storage Container SCC Batches",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       },
       "optimism": {
         "Name Tag": "Optimism: OVM Chain Storage Container SCC Batches",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -7065,7 +7065,7 @@
         "Name Tag": "Zapper.Fi: Curve Add",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -7535,7 +7535,7 @@
         "Name Tag": "Chainlink: AUD/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

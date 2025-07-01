@@ -89,7 +89,7 @@
         "Name Tag": "Chainlink: SNX/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -5155,7 +5155,7 @@
       "gambling": {
         "Name Tag": "CryptoChance.io: Lottery702",
         "Description": "The wagering of Ethers or something of value on an event with an uncertain outcome with the primary intent of winning more Ethers or material goods.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -5239,7 +5239,7 @@
         "Name Tag": "Curve.fi: BUSD Swap",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -9120,7 +9120,7 @@
         "Name Tag": "Zapper.Fi: Curve Zap In 2",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -9884,7 +9884,7 @@
       "coinone": {
         "Name Tag": "Coinone: Deposit Funder",
         "Description": "Coinone: Easy and fast trading with Bitcoin, Ripple, EOS, Atom and more.",
-        "image": "/icons/default.png"
+        "image": "/icons/coinone.png"
       }
     }
   },

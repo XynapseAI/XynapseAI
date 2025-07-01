@@ -3730,7 +3730,7 @@
         "Name Tag": "Curve.fi: Deposit RSV",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -6613,7 +6613,7 @@
         "Name Tag": "Optimism: State Commitment Chain",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -6683,7 +6683,7 @@
       "my-crypto-heroes": {
         "Name Tag": "MCH: Extension Gateway 2",
         "Description": "My Crypto Heroes (MCH) is a Blockchain PRG game. Collect and train historical Heroes of the world and fight with them. All the time and passion you invest into the game will turn into real assets here. Get special and legendary items into your to equip, compose the ultimate unbeatable team formations and challenge epic battles to conquer the crypto world!",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -7034,7 +7034,7 @@
         "Name Tag": "Chainlink: Team Wallet 3",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

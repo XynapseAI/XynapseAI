@@ -643,7 +643,7 @@
       "cryptospells": {
         "Name Tag": "CSPL: SPLGateway",
         "Description": "CryptoSpells is a blockchain trading card game.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -8065,7 +8065,7 @@
         "Name Tag": "Chainlink: ORN/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9426,7 +9426,7 @@
         "Name Tag": "Curve.fi: Deployer 2",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

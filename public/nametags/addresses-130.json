@@ -3131,7 +3131,7 @@
         "Name Tag": "Chainlink: YFI/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -6164,11 +6164,11 @@
         "Name Tag": "Curve.fi: cCRV Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "yield-farming": {
         "Name Tag": "Curve.fi: cCRV Liquidity Gauge",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

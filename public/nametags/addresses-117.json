@@ -2916,7 +2916,7 @@
       "beacon-depositor": {
         "Name Tag": "Sybil Delegate: MengboShen",
         "Description": "An address that has deposited ETH into the Beacon Chain to become a validator.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -4562,7 +4562,7 @@
         "Name Tag": "Curve.fi: Registry",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -6386,7 +6386,7 @@
         "Name Tag": "Gitcoin Grants: CryptoScamDB",
         "Description": "Gitcoin Grants: Get substantial sustainable funding for your projects.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -7835,11 +7835,11 @@
         "Name Tag": "Curve.fi: sBTC Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "yield-farming": {
         "Name Tag": "Curve.fi: sBTC Liquidity Gauge",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

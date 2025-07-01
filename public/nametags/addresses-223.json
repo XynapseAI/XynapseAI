@@ -1603,7 +1603,7 @@
         "Name Tag": "CryptoWars: Experimental NFT",
         "Description": "CryptoWars: An epic decentralized civilization is rising. Build and customize your village, form alliances, summon an army and go to war with your enemies to take control of all realms.",
         "Token Name": "ExperimentalNFT (e11nft)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       },
       "gaming": {
         "Token Name": "ExperimentalNFT (e11nft)",
@@ -6987,7 +6987,7 @@
         "Name Tag": "Curve Finance: Pool Migrator",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -7945,7 +7945,7 @@
         "Name Tag": "Chainlink: UNI/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9296,7 +9296,7 @@
         "Name Tag": "Chainlink: IWM/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

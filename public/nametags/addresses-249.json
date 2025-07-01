@@ -4202,7 +4202,7 @@
         "Name Tag": "Nifty Gateway: Hard To Explain",
         "Description": "Nifty Gateway is a marketplace for Nifties, which are digital items you can truly own.",
         "Token Name": "HARD TO EXPLAIN Open Editions by Yo... (HARDTOEXPLAINOPENEDITIONS...)",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -8064,7 +8064,7 @@
         "Name Tag": "Chainlink: CNY/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8936,12 +8936,12 @@
       "token-sale": {
         "Name Tag": "CryptoNote: Token Sale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       },
       "website-down": {
         "Name Tag": "CryptoNote: Token Sale",
         "Description": "The last checked status of a website.\nPlease contact us (1. General Inquiry) if the website is back online.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

@@ -25,6 +25,23 @@ const keywordToImage = {
   mantle: 'mantle.png',
   mexc: 'mexc.png',
   kucoin: 'kucoin.png',
+  arbitrum: 'arbitrum.png',
+  chainlink: 'chainlink.png',
+  coinone:'coinone.png',
+  gate: 'gate.png',
+  curve:'curve.png',
+  jump: 'jump.png',
+  optimism: 'optimism.png',
+  polygon: 'polygon.png',
+  government:'government.png',
+  bitfinex: 'bitfinex.png',
+  ceffu: 'ceffu.png',
+  bingx:'bingx.png',
+  gnosis:'gnosis.png',
+  fluid: 'fluid.png',
+  ethena: 'ethena.png',
+  sui: 'sui.png',
+  crypto: 'crypto.png'
 };
 
 const getImageFromNameTag = (nameTag = '') => {

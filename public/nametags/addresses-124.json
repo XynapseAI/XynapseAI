@@ -2088,7 +2088,7 @@
         "Description": "Crypto.com: The best place to buy, sell and pay with Crypto.",
         "Subcategory": "Others",
         "Token Name": "Crypto.com NFT Marketplace (CDCNFT)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -3065,7 +3065,7 @@
       "lido": {
         "Name Tag": "Lido: Optimism L1 ERC20 Token Bridge",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -7969,7 +7969,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex: Hot Wallet",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -8787,7 +8787,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex: Contract 1",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -9334,7 +9334,7 @@
         "Name Tag": "Chainlink: DAI/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

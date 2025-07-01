@@ -1844,7 +1844,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: ItTennisBowling",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -2516,7 +2516,7 @@
         "Name Tag": "Ren: renZEC Gateway",
         "Description": "Ren: Providing access to inter-blockchain liquidity for all decentralized applications. Bringing BTC, BCH and ZEC to your Ethereum dApp.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -7129,7 +7129,7 @@
         "Name Tag": "Crypto.com: Deployer",
         "Description": "Crypto.com: The best place to buy, sell and pay with Crypto.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -7856,22 +7856,22 @@
       "arbitrum": {
         "Name Tag": "Arbitrum Nova: Delayed Inbox",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "arbitrum-nova": {
         "Name Tag": "Arbitrum Nova: Delayed Inbox",
         "Description": "Nova is built using Arbitrum's AnyTrust Technology, sharing a codebase with Nitro, and providing industry-leading speed, security, and interop with Ethereum.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "nitro": {
         "Name Tag": "Arbitrum Nova: Delayed Inbox",
         "Description": "Arbitrum Nitro is a second-generation Layer 2 blockchain protocol by Arbitrum which could be implemented on any blockchain system that support smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "protocol": {
         "Name Tag": "Arbitrum Nova: Delayed Inbox",
         "Description": "The underlying set of rules establishing how connected computers communicate with one another to exchange information.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -8058,7 +8058,7 @@
         "Name Tag": "Curve.fi: Deployer",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -8850,7 +8850,7 @@
         "Name Tag": "Curve.fi: Deposit bBTC",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

@@ -1954,7 +1954,7 @@
         "Name Tag": "Curve.fi: Admin Fee Bridge (Ethereum)",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -3472,7 +3472,7 @@
         "Name Tag": "Chainlink: CHF/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9917,7 +9917,7 @@
         "Name Tag": "Cream.Finance: crYVCurve-IB Token",
         "Description": "C.R.E.A.M: Crypto Rules Everything Around Me.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

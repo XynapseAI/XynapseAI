@@ -218,7 +218,7 @@
         "Name Tag": "CryptoDozer: PLA Token",
         "Description": "CryptoDozer: Play the game and earn cute crypto dolls - Don't miss the chance to get your own unique doll for real.",
         "Token Name": "PLA Token (PLA)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -431,7 +431,7 @@
         "Name Tag": "Curve.fi: MUSD Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -1753,7 +1753,7 @@
       "token-sale": {
         "Name Tag": "Cryptorg: Token Sale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -1894,7 +1894,7 @@
         "Name Tag": "Curve.fi: 3Pool Implementation Contract",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

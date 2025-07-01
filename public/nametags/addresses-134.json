@@ -2574,7 +2574,7 @@
         "Name Tag": "Curve.fi: DUSD MetaPool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -2641,7 +2641,7 @@
         "Name Tag": "Curve.fi: Deposit MUSD",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -3198,7 +3198,7 @@
         "Name Tag": "Curve.fi: WETH/WBTC/USDT Pool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -5369,7 +5369,7 @@
         "Name Tag": "Chainlink: TUSD Supply Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -6415,7 +6415,7 @@
       "cryptosaga": {
         "Name Tag": "CryptoSaga: Arena Ver1",
         "Description": "CryptoSaga is a decentralized RPG on the Ethereum blockchain with fully animated Heroes and Mobs.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

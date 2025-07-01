@@ -3643,7 +3643,7 @@
       "shapeshift": {
         "Name Tag": "ShapeShift: Bitfinex Deposit",
         "Description": "ShapeShift is a revolutionary part of the cryptocurrency ecosystem. It is how a digital marketplace should work. The platform gives you the power to quickly swap between assets in a seamless, safe, and secure environment.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -4946,7 +4946,7 @@
         "Name Tag": "Chainlink: MKR / ETH Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

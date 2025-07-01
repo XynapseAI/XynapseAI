@@ -3341,7 +3341,7 @@
         "Name Tag": "Chainlink: Noncirculating Supply 1",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -6231,22 +6231,22 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: Rollup",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "arbitrum-one": {
         "Name Tag": "Arbitrum: Rollup",
         "Description": "Arbitrum One is a permissionless Ethereum layer 2 rollup with full Ethereum smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "nitro": {
         "Name Tag": "Arbitrum: Rollup",
         "Description": "Arbitrum Nitro is a second-generation Layer 2 blockchain protocol by Arbitrum which could be implemented on any blockchain system that support smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "protocol": {
         "Name Tag": "Arbitrum: Rollup",
         "Description": "The underlying set of rules establishing how connected computers communicate with one another to exchange information.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -9071,7 +9071,7 @@
         "Name Tag": "Curve.fi: Voting Escrow",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -9777,7 +9777,7 @@
         "Name Tag": "Chainlink: ETH/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

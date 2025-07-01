@@ -469,7 +469,7 @@
       "cryptowars": {
         "Name Tag": "CryptoWars: NFT Minter",
         "Description": "CryptoWars: An epic decentralized civilization is rising. Build and customize your village, form alliances, summon an army and go to war with your enemies to take control of all realms.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -518,7 +518,7 @@
         "Name Tag": "Chainlink: Team Wallet 4",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -1404,7 +1404,7 @@
         "Name Tag": "Chainlink: MLN/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -3787,7 +3787,7 @@
         "Name Tag": "Chainlink: APY TVL Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

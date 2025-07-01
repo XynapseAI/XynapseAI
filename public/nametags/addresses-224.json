@@ -926,7 +926,7 @@
         "Name Tag": "Polygon (Matic): Stake Manager",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -4918,7 +4918,7 @@
         "Name Tag": "Chainlink: OXT/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -5114,7 +5114,7 @@
         "Name Tag": "Polygon (Matic): RLP Reader",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -6996,7 +6996,7 @@
       "gate-io": {
         "Name Tag": "Gate.io: Contract",
         "Description": "Gate.io is an exchange platform which supports BTC, LTC, Ethereum, Qtum and more blockchain assets trading.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -9782,7 +9782,7 @@
         "Name Tag": "Curve.fi: pBTC Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

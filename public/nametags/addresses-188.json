@@ -5287,7 +5287,7 @@
         "Name Tag": "CryptoPunks: Ͼ Token",
         "Description": "CryptoPunks are 10,000 unique collectible characters with proof of ownership stored on the Ethereum blockchain. They are one of the earliest examples of a \"Non-Fungible Token\" on Ethereum, and were inspiration for the ERC-721 standard that powers most digital art and collectibles.",
         "Token Name": "CRYPTOPUNKS (Ͼ)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -5629,7 +5629,7 @@
       "unstoppable-domains": {
         "Name Tag": ".Crypto: Whitelisted Minter",
         "Description": "Unstoppable Domains is a San Francisco-based company building domains on blockchains. The company is backed by Draper Associates and Boost VC and has received grants from the Ethereum Foundation and the Zilliqa Foundation. Blockchain domains replace cryptocurrency addresses with human readable names and can be used to enable censorship resistant websites.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -6852,7 +6852,7 @@
         "Name Tag": "Chainlink: EUR/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

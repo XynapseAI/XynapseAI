@@ -641,7 +641,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex 12",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -1013,7 +1013,7 @@
       "gaming": {
         "Name Tag": "CryptoAtoms: Logic",
         "Description": "The category relating to the playing of electronic games.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -2116,22 +2116,22 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: Outbox 4",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "arbitrum-one": {
         "Name Tag": "Arbitrum: Outbox 4",
         "Description": "Arbitrum One is a permissionless Ethereum layer 2 rollup with full Ethereum smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "bridge": {
         "Name Tag": "Arbitrum: Outbox 4",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "nitro": {
         "Name Tag": "Arbitrum: Outbox 4",
         "Description": "Arbitrum Nitro is a second-generation Layer 2 blockchain protocol by Arbitrum which could be implemented on any blockchain system that support smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -3239,7 +3239,7 @@
         "Name Tag": "Optimism: Contract Deployer 2",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -4727,7 +4727,7 @@
         "Name Tag": "Chainlink: BAND/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -4951,7 +4951,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: HiturunkE",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

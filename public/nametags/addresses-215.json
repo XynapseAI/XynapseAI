@@ -170,7 +170,7 @@
         "Name Tag": "Chainlink: FB/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -2945,13 +2945,13 @@
       "ico-wallets": {
         "Name Tag": "Gnosis: MultiSig 3",
         "Description": "Wallets where Token Sale proceeds are/were being stored.",
-        "image": "/icons/default.png"
+        "image": "/icons/gnosis.png"
       },
       "multisig": {
         "Name Tag": "Gnosis: MultiSig 3",
         "Description": "A contract that requires one or more signers to execute a transaction.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/gnosis.png"
       }
     }
   },
@@ -4776,23 +4776,23 @@
       "arbitrum": {
         "Name Tag": "Arbitrum One: One Step Proof Hash",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "fraud-proof": {
         "Name Tag": "Arbitrum One: One Step Proof Hash",
         "Description": "Contracts that can be used to establish that an invalid state transition occured on a Layer 2 protocol. Families of L2 protocols that rely on fraud proofs include Channels, Plasma, and Optmistic Rollups.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "layer-2": {
         "Name Tag": "Arbitrum One: One Step Proof Hash",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "protocol": {
         "Name Tag": "Arbitrum One: One Step Proof Hash",
         "Description": "The underlying set of rules establishing how connected computers communicate with one another to exchange information.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -7055,7 +7055,7 @@
         "Name Tag": "Chainlink: WOM/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -7771,7 +7771,7 @@
         "Name Tag": "Chainlink: XRP/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8283,23 +8283,23 @@
       "arbitrum-one": {
         "Name Tag": "Arbitrum One: L1 Arb - Custom Gateway",
         "Description": "Arbitrum One is a permissionless Ethereum layer 2 rollup with full Ethereum smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "bridge": {
         "Name Tag": "Arbitrum One: L1 Arb - Custom Gateway",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "layer-2": {
         "Name Tag": "Arbitrum One: L1 Arb - Custom Gateway",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "nitro": {
         "Name Tag": "Arbitrum One: L1 Arb - Custom Gateway",
         "Description": "Arbitrum Nitro is a second-generation Layer 2 blockchain protocol by Arbitrum which could be implemented on any blockchain system that support smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -8410,7 +8410,7 @@
         "Name Tag": "Curve.fi: linkCRV Token",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

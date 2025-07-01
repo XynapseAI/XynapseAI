@@ -1465,7 +1465,7 @@
         "Name Tag": "Chainlink: SUSHI/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -2488,22 +2488,22 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: Challenge Manager",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "arbitrum-one": {
         "Name Tag": "Arbitrum: Challenge Manager",
         "Description": "Arbitrum One is a permissionless Ethereum layer 2 rollup with full Ethereum smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "bridge": {
         "Name Tag": "Arbitrum: Challenge Manager",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "nitro": {
         "Name Tag": "Arbitrum: Challenge Manager",
         "Description": "Arbitrum Nitro is a second-generation Layer 2 blockchain protocol by Arbitrum which could be implemented on any blockchain system that support smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -5922,7 +5922,7 @@
         "Name Tag": "Chainlink: WNXM/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8028,7 +8028,7 @@
         "Name Tag": "CryptoRome: Land NFT 2",
         "Description": "The setting is Ancient Rome. CryptoRome takes the best in resource-production games and combines them with the best in strategic conquest games to create a mega-world of economic, political, and military strategy. The main objective is to rise in power to the level of a Senator, and ultimately, become Caesar.",
         "Token Name": "CryptoRome-Land-NFT (CRLAND)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       },
       "gaming": {
         "Token Name": "CryptoRome-Land-NFT (CRLAND)",

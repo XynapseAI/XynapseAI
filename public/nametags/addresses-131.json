@@ -1007,7 +1007,7 @@
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Others",
         "Token Name": "Matic Token (MATIC)",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -2776,7 +2776,7 @@
         "Name Tag": "Chainlink: OMG/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9717,7 +9717,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: 10urcglyn 2",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

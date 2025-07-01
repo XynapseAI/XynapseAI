@@ -793,11 +793,11 @@
       "bitfinex": {
         "Name Tag": "Bitfinex 19",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       },
       "cold-wallet": {
         "Name Tag": "Bitfinex 19",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -2409,7 +2409,7 @@
       "beacon-depositor": {
         "Name Tag": "jsarcher.crypto",
         "Description": "An address that has deposited ETH into the Beacon Chain to become a validator.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -3510,13 +3510,13 @@
         "Name Tag": "Optimism: OVM State Commitment Chain",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       },
       "optimism": {
         "Name Tag": "Optimism: OVM State Commitment Chain",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -9933,7 +9933,7 @@
         "Name Tag": "Chainlink: RCN/BTC Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

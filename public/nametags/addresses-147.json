@@ -4054,7 +4054,7 @@
         "Name Tag": "Curve.fi: Factory Pool Owner",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -4858,7 +4858,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: MonetSupply",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -6763,7 +6763,7 @@
         "Name Tag": "Chainlink: Noncirculating Supply 22",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8125,13 +8125,13 @@
       "bitfinex": {
         "Name Tag": "Bitfinex: Old Contract 2",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       },
       "old-contract": {
         "Name Tag": "Bitfinex: Old Contract 2",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },

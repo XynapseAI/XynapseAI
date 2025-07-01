@@ -1314,7 +1314,7 @@
         "Name Tag": "Chainlink: WING/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -3656,7 +3656,7 @@
       "my-crypto-heroes": {
         "Name Tag": "MCH: Hero Gateway 1",
         "Description": "My Crypto Heroes (MCH) is a Blockchain PRG game. Collect and train historical Heroes of the world and fight with them. All the time and passion you invest into the game will turn into real assets here. Get special and legendary items into your to equip, compose the ultimate unbeatable team formations and challenge epic battles to conquer the crypto world!",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -4315,7 +4315,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: marchiano03",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -4430,7 +4430,7 @@
         "Name Tag": "Chainlink: AAPL/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -4872,7 +4872,7 @@
         "Name Tag": "Chainlink: LON/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -5429,13 +5429,13 @@
         "Name Tag": "Synthetix: Old Curvepool",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "synthetix": {
         "Name Tag": "Synthetix: Old Curvepool",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Legacy",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -5932,7 +5932,7 @@
         "Name Tag": "Synthetix: sBTC Curvepool Rewards",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -7622,7 +7622,7 @@
         "Name Tag": "Chainlink: Vesper Finance TVL Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -10023,7 +10023,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: mirrormirage0",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   }

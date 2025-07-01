@@ -703,7 +703,7 @@
         "Name Tag": "Chainlink: EPS/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -787,7 +787,7 @@
         "Name Tag": "Chainlink: MTA/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -1151,7 +1151,7 @@
         "Name Tag": "Zapper.Fi: Curve Zap Out",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -2763,13 +2763,13 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: L1 Custom Gateway 2",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "layer-2": {
         "Name Tag": "Arbitrum: L1 Custom Gateway 2",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -3040,7 +3040,7 @@
         "Name Tag": "Chainlink: USDC/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -7146,7 +7146,7 @@
         "Name Tag": "Chainlink: Node Operators",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

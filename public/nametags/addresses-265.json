@@ -9397,7 +9397,7 @@
         "Name Tag": "Gnosis: xDai Bridge Management Multisig",
         "Description": "A contract that requires one or more signers to execute a transaction.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/gnosis.png"
       }
     }
   },

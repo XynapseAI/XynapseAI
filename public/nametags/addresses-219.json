@@ -5627,7 +5627,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: SafeDAO and GnosisDAO Joint Treasury",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.png"
+        "image": "/icons/gnosis.png"
       }
     }
   },
@@ -6137,7 +6137,7 @@
         "Name Tag": "Curve.fi: gusd3CRV Token",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -6861,7 +6861,7 @@
         "Name Tag": "Chainlink: DPI/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

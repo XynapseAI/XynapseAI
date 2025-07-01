@@ -4314,7 +4314,7 @@
         "Name Tag": "Curve.fi: LinkUSD Pool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -6520,7 +6520,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: Amisong7",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -9010,7 +9010,7 @@
         "Name Tag": "Ren: Gateway Registry",
         "Description": "Ren: Providing access to inter-blockchain liquidity for all decentralized applications. Bringing BTC, BCH and ZEC to your Ethereum dApp.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

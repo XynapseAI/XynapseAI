@@ -2984,7 +2984,7 @@
     "Labels": {
       "yield-farming": {
         "Name Tag": "Based.Money: Curve sUSD Pool",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -6473,7 +6473,7 @@
         "Name Tag": "Chainlink: GBP/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8909,7 +8909,7 @@
         "Name Tag": "Chainlink: N225/JPY Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

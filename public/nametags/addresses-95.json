@@ -1329,7 +1329,7 @@
         "Name Tag": "Chainlink: Noncirculating Supply 18",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8020,7 +8020,7 @@
       "token-sale": {
         "Name Tag": "CryptoHive: Token Sale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -9117,7 +9117,7 @@
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
         "Token Name": "Curve.fi HUSD/3Crv (husd3CRV)",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "defi": {
         "Token Name": "Curve.fi HUSD/3Crv (husd3CRV)",
@@ -9655,7 +9655,7 @@
       "sudoswap": {
         "Name Tag": "sudoswap: Linear Curve",
         "Description": "The sudoswap AMM is a minimal, gas-efficient AMM protocol for facilitating NFT (ERC721s) to token (ETH or ERC20) swaps using customizable bonding curves. Liquidity providers (LPs) can deposit into single-sided buy or sell pools, or provide both sides with a spread to capture fees.",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

@@ -297,7 +297,7 @@
       "brave-frontier-heroes": {
         "Name Tag": "BFH: ZEL Gateway V1",
         "Description": "Brave Frontier Heroes is the crossover of the extremely successful mobile game BRAVE FRONTIER and the no.1 blockchain game My Crypto Heroes*. It combines the proven gameplay of BRAVE FRONTIER with the proven game economy of My Crypto Heroes.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -1789,7 +1789,7 @@
       "cryptoatoms": {
         "Name Tag": "CryptoAtoms: Arena",
         "Description": "CryptoAtoms: Create unique digital lifeforms and join the War of Atoms!",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -2105,13 +2105,13 @@
         "Name Tag": "yearn: yCurve Zap In",
         "Description": "List of decentralized finance products.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "yearn-finance": {
         "Name Tag": "yearn: yCurve Zap In",
         "Description": "Yearn.Finance: Yield aggregator for lending platforms that rebalances for highest yield whenever the contract is interacted with.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -5052,13 +5052,13 @@
         "Name Tag": "Synthetix: Old Delegate Approvals",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       },
       "synthetix": {
         "Name Tag": "Synthetix: Old Delegate Approvals",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Legacy",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -7210,7 +7210,7 @@
       "my-crypto-heroes": {
         "Name Tag": "MCH: EMONT Gateway",
         "Description": "My Crypto Heroes (MCH) is a Blockchain PRG game. Collect and train historical Heroes of the world and fight with them. All the time and passion you invest into the game will turn into real assets here. Get special and legendary items into your to equip, compose the ultimate unbeatable team formations and challenge epic battles to conquer the crypto world!",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -7475,7 +7475,7 @@
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
         "Token Name": "Curve.fi USDK/3Crv (usdk3CRV)",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "defi": {
         "Token Name": "Curve.fi USDK/3Crv (usdk3CRV)",
@@ -9615,7 +9615,7 @@
         "Name Tag": "Polygon (Matic): Governance",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },

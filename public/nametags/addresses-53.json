@@ -1665,7 +1665,7 @@
       "ico-wallets": {
         "Name Tag": "Gnosis: Vault",
         "Description": "Wallets where Token Sale proceeds are/were being stored.",
-        "image": "/icons/default.png"
+        "image": "/icons/gnosis.png"
       }
     }
   },
@@ -2239,7 +2239,7 @@
         "Name Tag": "Chainlink: Noncirculating Supply 12",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -7320,7 +7320,7 @@
         "Name Tag": "Chainlink: LINK / USD Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9694,7 +9694,7 @@
         "Name Tag": "Curve.fi: CryptoSwap Deposit Zap",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

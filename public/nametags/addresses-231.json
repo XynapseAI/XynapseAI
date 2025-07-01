@@ -4924,13 +4924,13 @@
         "Name Tag": "Optimism: Lib Address Manager",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       },
       "optimism": {
         "Name Tag": "Optimism: Lib Address Manager",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -7123,7 +7123,7 @@
         "Name Tag": "Curve.fi: pBTC/sbtcCRV Token",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -7153,7 +7153,7 @@
         "Name Tag": "Chainlink: USDC / ETH Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

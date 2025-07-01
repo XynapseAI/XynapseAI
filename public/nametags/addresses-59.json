@@ -3485,12 +3485,12 @@
       "beacon-depositor": {
         "Name Tag": "Bitcoin Suisse: Eth2 Depositor 3",
         "Description": "An address that has deposited ETH into the Beacon Chain to become a validator.",
-        "image": "/icons/default.png"
+        "image": "/icons/sui.png"
       },
       "bitcoin-suisse": {
         "Name Tag": "Bitcoin Suisse: Eth2 Depositor 3",
         "Description": "Bitcoin Suisse is a Swiss cryptocurrency investment platform",
-        "image": "/icons/default.png"
+        "image": "/icons/sui.png"
       }
     }
   },
@@ -6757,7 +6757,7 @@
         "Name Tag": "Chainlink: TUSD/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -7996,7 +7996,7 @@
         "Name Tag": "zkSync: Upgrade Gatekeeper",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -8103,13 +8103,13 @@
         "Name Tag": "Optimism: OVM State Transitioner Factory",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       },
       "optimism": {
         "Name Tag": "Optimism: OVM State Transitioner Factory",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -9445,7 +9445,7 @@
         "Name Tag": "Chainlink: HBAR/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

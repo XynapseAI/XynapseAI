@@ -791,7 +791,7 @@
         "Name Tag": "Chainlink: REN/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -3449,7 +3449,7 @@
         "Name Tag": "Polygon (Matic): Common",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -5061,7 +5061,7 @@
       "energy-sector": {
         "Name Tag": "Crypto Carbon Energy: Power Plants",
         "Description": "The sector that relates to the supply or production of energy.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -8310,7 +8310,7 @@
         "Name Tag": "Crypto.com: Deployer 3",
         "Description": "Crypto.com: The best place to buy, sell and pay with Crypto.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

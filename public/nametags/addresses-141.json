@@ -1274,7 +1274,7 @@
         "Name Tag": "CryptoRome: Land NFT 1",
         "Description": "The setting is Ancient Rome. CryptoRome takes the best in resource-production games and combines them with the best in strategic conquest games to create a mega-world of economic, political, and military strategy. The main objective is to rise in power to the level of a Senator, and ultimately, become Caesar.",
         "Token Name": "CryptoRome-Land-NFT (CRLAND)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       },
       "gaming": {
         "Token Name": "CryptoRome-Land-NFT (CRLAND)",
@@ -1289,7 +1289,7 @@
         "Name Tag": "Polygon (Matic): Root Chain Proxy",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -6039,7 +6039,7 @@
         "Name Tag": "Chainlink: RUNE/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -6723,7 +6723,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex 3",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -6816,7 +6816,7 @@
         "Name Tag": "Chainlink: LRC / ETH Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8367,7 +8367,7 @@
         "Name Tag": "Chainlink: AMP/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8450,7 +8450,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: cryptothinks1",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

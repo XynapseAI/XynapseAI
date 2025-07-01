@@ -1732,7 +1732,7 @@
       "cheese-wizard": {
         "Name Tag": "CW: Inaugural Gate Keeper",
         "Description": "Cheeze Wizards is the world's first blockchain battle royale with cheese.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -2469,7 +2469,7 @@
         "Name Tag": "Curve.fi: tBTC Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -6382,7 +6382,7 @@
         "Name Tag": "Optimism: Sequencer",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },

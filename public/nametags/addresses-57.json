@@ -135,7 +135,7 @@
         "Name Tag": "Furucombo: Curve Handlers",
         "Description": "Furucombo: Save time, save steps, infinite DeFi combinations. Build your own DeFi legos into one transaction without knowing how to code.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -1309,7 +1309,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: Real_El_Chingon",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -5373,7 +5373,7 @@
         "Name Tag": "Curve.fi: Crypto Pool Owner",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -5774,7 +5774,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex: Deployer 5",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -6286,7 +6286,7 @@
         "Name Tag": "Gitcoin Grants: Crypto Reward Courts",
         "Description": "Gitcoin Grants: Get substantial sustainable funding for your projects.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -6638,7 +6638,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex 10",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -7941,7 +7941,7 @@
         "Name Tag": "Zerion: Curve Token Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -8508,7 +8508,7 @@
         "Name Tag": "Chainlink: GOOGL/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

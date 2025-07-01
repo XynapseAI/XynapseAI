@@ -1860,7 +1860,7 @@
       "website-down": {
         "Name Tag": "cryptominerblock.online",
         "Description": "The last checked status of a website.\nPlease contact us (1. General Inquiry) if the website is back online.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -3350,7 +3350,7 @@
         "Name Tag": "Optimism: Bond Manager",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -3361,7 +3361,7 @@
         "Name Tag": "Chainlink: CRV/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -4060,13 +4060,13 @@
         "Name Tag": "Optimism: Mock OVM Bond Manager",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       },
       "optimism": {
         "Name Tag": "Optimism: Mock OVM Bond Manager",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -5820,7 +5820,7 @@
         "Name Tag": "Chainlink: ONT/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -7016,7 +7016,7 @@
         "Name Tag": "Rari Capital: Jump Rate Model Gov Seeds",
         "Description": "Rari Capital aims to deliver the best yield to all users with various risk tolerances. Easy, sustainable and built for the future.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/jump.png"
       }
     }
   },

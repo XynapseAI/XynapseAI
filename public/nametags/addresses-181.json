@@ -4836,7 +4836,7 @@
         "Name Tag": "Zapper.Fi: Curve Zap in ETH or ERC20",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -4846,7 +4846,7 @@
       "my-crypto-heroes": {
         "Name Tag": "MCH: Gum Gateway 4",
         "Description": "My Crypto Heroes (MCH) is a Blockchain PRG game. Collect and train historical Heroes of the world and fight with them. All the time and passion you invest into the game will turn into real assets here. Get special and legendary items into your to equip, compose the ultimate unbeatable team formations and challenge epic battles to conquer the crypto world!",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -7843,12 +7843,12 @@
       "bridge": {
         "Name Tag": "StarkNet: StarkGate ETH Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       },
       "starknet": {
         "Name Tag": "StarkNet: StarkGate ETH Bridge",
         "Description": "StarkNet is a permissionless decentralized ZK-Rollup. It operates as an L2 network over Ethereum, enabling any dApp to achieve unlimited scale for its computation – without compromising Ethereum's composability and security.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -8990,7 +8990,7 @@
         "Name Tag": "Chainlink: INJ/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9873,7 +9873,7 @@
         "Name Tag": "Crypto.com: Deposit Funder",
         "Description": "Crypto.com: The best place to buy, sell and pay with Crypto.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

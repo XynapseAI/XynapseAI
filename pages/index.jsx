@@ -188,47 +188,47 @@ export default function Home() {
   }, []);
 
   const partnerLogos = [
-    '/icons/logo1.png',
-    '/icons/logo2.png',
-    '/icons/logo3.png',
-    '/icons/logo4.png',
-    '/icons/logo5.png',
-    '/icons/logo6.png',
-    '/icons/logo7.png',
-    '/icons/logo8.png',
-    '/icons/logo9.png',
-    '/icons/logo10.png',
-    '/icons/logo11.png',
-    '/icons/logo12.png',
-    '/icons/logo13.png',
-    '/icons/logo14.png',
-    '/icons/logo15.png',
-    '/icons/logo16.png',
-    '/icons/logo17.png',
-    '/icons/logo18.png',
-    '/icons/logo19.png',
-    '/icons/logo20.png',
-    '/icons/logo21.png',
-    '/icons/logo22.png',
-    '/icons/logo23.png',
-    '/icons/logo24.png',
-    '/icons/logo25.png',
-    '/icons/logo26.png',
-    '/icons/logo27.png',
-    '/icons/logo28.png',
-    '/icons/logo29.png',
-    '/icons/logo30.png',
-    '/icons/logo31.png',
-    '/icons/logo32.png',
-    '/icons/logo33.png',
-    '/icons/logo34.png',
-    '/icons/logo35.png',
-    '/icons/logo36.png',
-    '/icons/logo37.png',
-    '/icons/logo38.png',
-    '/icons/logo39.png',
-    '/icons/logo40.png',
-    '/icons/logo41.png',
+    '/logos/logo1.png',
+    '/logos/logo2.png',
+    '/logos/logo3.png',
+    '/logos/logo4.png',
+    '/logos/logo5.png',
+    '/logos/logo6.png',
+    '/logos/logo7.png',
+    '/logos/logo8.png',
+    '/logos/logo9.png',
+    '/logos/logo10.png',
+    '/logos/logo11.png',
+    '/logos/logo12.png',
+    '/logos/logo13.png',
+    '/logos/logo14.png',
+    '/logos/logo15.png',
+    '/logos/logo16.png',
+    '/logos/logo17.png',
+    '/logos/logo18.png',
+    '/logos/logo19.png',
+    '/logos/logo20.png',
+    '/logos/logo21.png',
+    '/logos/logo22.png',
+    '/logos/logo23.png',
+    '/logos/logo24.png',
+    '/logos/logo25.png',
+    '/logos/logo26.png',
+    '/logos/logo27.png',
+    '/logos/logo28.png',
+    '/logos/logo29.png',
+    '/logos/logo30.png',
+    '/logos/logo31.png',
+    '/logos/logo32.png',
+    '/logos/logo33.png',
+    '/logos/logo34.png',
+    '/logos/logo35.png',
+    '/logos/logo36.png',
+    '/logos/logo37.png',
+    '/logos/logo38.png',
+    '/logos/logo39.png',
+    '/logos/logo40.png',
+    '/logos/logo41.png',
   ];
 
   const row1Logos = partnerLogos.slice(0, 14); // Logos 1-14
@@ -236,11 +236,11 @@ export default function Home() {
   const row3Logos = partnerLogos.slice(28, 41);
 
   const trustedByLogos = [
-    '/icons/logo1.png',
-    '/icons/logo2.png',
-    '/icons/logo3.png',
-    '/icons/logo4.png',
-    '/icons/logo5.png',
+    '/logos/logo1.png',
+    '/logos/logo2.png',
+    '/logos/logo3.png',
+    '/logos/logo4.png',
+    '/logos/logo5.png',
   ];
 
   const cardData = [
@@ -248,19 +248,19 @@ export default function Home() {
       title: 'Grok AI',
       description:
         'Harness the power of Grok, created by xAI, to deliver unparalleled market predictions and deep crypto analytics with real-time precision.',
-      image: '/icons/grok.png',
+      image: '/logos/grok.png',
     },
     {
       title: 'Gemini AI',
       description:
         'Leverage Gemini’s advanced reasoning capabilities to uncover hidden market trends and optimize your crypto investment strategies.',
-      image: '/icons/gemini.png',
+      image: '/logos/gemini.png',
     },
     {
       title: 'ChatGPT AI',
       description:
         'Utilize ChatGPT’s natural language processing to analyze social sentiment on X and generate actionable insights for market movements.',
-      image: '/icons/gpt.png',
+      image: '/logos/gpt.png',
     },
   ];
 
@@ -292,17 +292,17 @@ export default function Home() {
 
       {/* Header */}
       <header className="w-full py-1 px-6 flex justify-between items-center bg-tech backdrop-blur-md border-b border-white/10 z-50 sticky top-0">
-        <img src="/icons/logo-landscape.png" alt="Xynapse Logo" className="h-16" />
+        <img src="/logos/logo-landscape.png" alt="Xynapse Logo" className="h-16" />
         <div className="flex items-center gap-2">
           <Link href="https://x.com" className="transition-all duration-300 mr-1 sm:mr-4">
             <img
-              src="/icons/x.png"
+              src="/logos/x.png"
               alt="Twitter Logo"
               className="h-4 sm:h-6"
             />
           </Link>
           <span>
-            <img src="/icons/discord.png" alt="Discord Logo" className="h-5 sm:h-6 opacity-50 mr-1 sm:mr-4" />
+            <img src="/logos/discord.png" alt="Discord Logo" className="h-5 sm:h-6 opacity-50 mr-1 sm:mr-4" />
           </span>
           <Link
             href="/dashboard"
@@ -409,10 +409,10 @@ export default function Home() {
         </p>
         <div className="w-[90%] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { img: '/icons/icon1.png', text: 'Real-Time Token Tracking' },
-            { img: '/icons/icon2.png', text: 'AI-Powered Predictions' },
-            { img: '/icons/icon3.png', text: 'Social Sentiment Analysis' },
-            { img: '/icons/icon4.png', text: 'Top Holder Insights' },
+            { img: '/logos/icon1.png', text: 'Real-Time Token Tracking' },
+            { img: '/logos/icon2.png', text: 'AI-Powered Predictions' },
+            { img: '/logos/icon3.png', text: 'Social Sentiment Analysis' },
+            { img: '/logos/icon4.png', text: 'Top Holder Insights' },
           ].map((item, index) => (
             <div
               key={index}
@@ -570,7 +570,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="py-8 bg-tech backdrop-blur-md border-t border-white/10 relative">
         <img
-          src="/icons/logo-landscape.png"
+          src="/logos/logo-landscape.png"
           alt="Xynapse Logo"
           className="h-16 absolute top-8 left-6"
         />
@@ -603,10 +603,10 @@ export default function Home() {
           </div>
           <div className="flex gap-4 mt-6">
             <Link href="https://x.com">
-              <img src="/icons/x.png" alt="X" className="h-6" />
+              <img src="/logos/x.png" alt="X" className="h-6" />
             </Link>
             <span>
-              <img src="/icons/discord.png" alt="Discord Logo" className="h-7 opacity-50" />
+              <img src="/logos/discord.png" alt="Discord Logo" className="h-7 opacity-50" />
             </span>
           </div>
           <div className="flex gap-4 mt-4">

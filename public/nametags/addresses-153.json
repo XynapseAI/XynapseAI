@@ -623,7 +623,7 @@
         "Name Tag": "Chainlink: WOO/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -7021,7 +7021,7 @@
         "Name Tag": "Curve.fi: REN Swap",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -9945,7 +9945,7 @@
         "Name Tag": "Nifty Gateway: Insides",
         "Description": "Nifty Gateway is a marketplace for Nifties, which are digital items you can truly own.",
         "Token Name": "INSIDES Open Edition by Paul Jackso... (INSIDESOPENEDITIONBYPAULJ...)",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

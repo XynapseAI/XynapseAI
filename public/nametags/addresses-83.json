@@ -436,7 +436,7 @@
         "Name Tag": "Curve.fi: Parameter Agent",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -1483,7 +1483,7 @@
         "Name Tag": "Curve.fi: GUSD Pool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -3734,7 +3734,7 @@
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
         "Token Name": "Curve.fi USDN/3Crv (usdn3CRV)",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "defi": {
         "Token Name": "Curve.fi USDN/3Crv (usdn3CRV)",
@@ -7536,7 +7536,7 @@
         "Name Tag": "Gearbox Protocol: WETH Gateway",
         "Description": "Gearbox Protocol is a generalized leverage protocol that allows you to take leverage in one place and use it across various DeFi protocols and platforms in a composable way.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

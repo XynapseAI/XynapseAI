@@ -610,7 +610,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex 13",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -3513,7 +3513,7 @@
         "Name Tag": "Chainlink: RUNE/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -5291,7 +5291,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: olagdev",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -7966,7 +7966,7 @@
       "across-protocol": {
         "Name Tag": "Across Protocol: Polygon Token Bridger V2",
         "Description": "Across Protocol is a bridging method that combines an optimistic oracle, bonded relayers and single-sided liquidity pools to provide decentralized instant transactions from rollup chains to Ethereum mainnet.",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -9746,7 +9746,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: PhenomenalMark",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

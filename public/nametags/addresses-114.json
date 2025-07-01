@@ -3451,7 +3451,7 @@
       "hop-protocol": {
         "Name Tag": "Hop Protocol: USDT Arbitrum Wrapper",
         "Description": "Hop Protocol is a rollup-to-rollup general token bridge. It allows users to send tokens from one rollup to another almost immediately without having to wait for the rollup’s challenge period.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -4972,7 +4972,7 @@
         "Name Tag": "Curve.fi: ankrETH Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -5428,7 +5428,7 @@
         "Name Tag": "Cream.Finance: crYVCurve-sETH Token",
         "Description": "C.R.E.A.M: Crypto Rules Everything Around Me.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -8657,7 +8657,7 @@
         "Name Tag": "Chainlink: SUSD / ETH Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8759,7 +8759,7 @@
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
         "Token Name": "Curve.fi LinkUSD/3Crv (LinkUSD3CRV)",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "defi": {
         "Token Name": "Curve.fi LinkUSD/3Crv (LinkUSD3CRV)",

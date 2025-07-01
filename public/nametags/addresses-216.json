@@ -3546,7 +3546,7 @@
         "Name Tag": "Chainlink: BNT/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9137,7 +9137,7 @@
       "lido": {
         "Name Tag": "Lido: Chainlink stETH-USD Price Feed",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

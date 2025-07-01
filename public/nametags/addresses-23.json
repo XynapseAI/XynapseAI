@@ -46,7 +46,7 @@
       "hop-protocol": {
         "Name Tag": "Hop Protocol: USDC Arbitrum Wrapper",
         "Description": "Hop Protocol is a rollup-to-rollup general token bridge. It allows users to send tokens from one rollup to another almost immediately without having to wait for the rollup’s challenge period.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -3077,7 +3077,7 @@
         "Name Tag": "Chainlink: Noncirculating Supply 7",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -4303,7 +4303,7 @@
         "Name Tag": "Polygon (Matic): ERC20 Predicate",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -4750,7 +4750,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: RudyFreed",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -4914,7 +4914,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: WrappedFi",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -8541,7 +8541,7 @@
         "Name Tag": "Synthetix: Delegate Approvals",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -9048,7 +9048,7 @@
         "Name Tag": "Chainlink: LRC/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

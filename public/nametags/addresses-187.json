@@ -1102,7 +1102,7 @@
         "Name Tag": "Polygon (Matic): Foundation Contract",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -6794,7 +6794,7 @@
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
         "Token Name": "CryptoTittes (CT)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

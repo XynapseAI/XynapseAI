@@ -1448,7 +1448,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex: MultiSig 1",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -4489,7 +4489,7 @@
         "Name Tag": "CryptoSaga: Hero",
         "Description": "CryptoSaga is a decentralized RPG on the Ethereum blockchain with fully animated Heroes and Mobs.",
         "Token Name": "CryptoSaga Hero (HERO)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       },
       "gaming": {
         "Token Name": "CryptoSaga Hero (HERO)",

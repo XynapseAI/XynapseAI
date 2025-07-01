@@ -2273,7 +2273,7 @@
         "Name Tag": "Curve.fi: bBTC Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -3446,7 +3446,7 @@
         "Name Tag": "BEcryptoVIP: Old $BE Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -6751,7 +6751,7 @@
         "Name Tag": "Chainlink: Team Wallet 5",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -6954,7 +6954,7 @@
         "Name Tag": "Zapper.Fi: Curve Zap Out 2",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -8017,7 +8017,7 @@
       "nifty-gateway": {
         "Name Tag": "Nifty Gateway: Omnibus",
         "Description": "Nifty Gateway is a marketplace for Nifties, which are digital items you can truly own.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

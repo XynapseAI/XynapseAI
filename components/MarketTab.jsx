@@ -217,7 +217,7 @@ const LoadingOverlay = () => {
         className={`scanner-container ${scanDirection} w-12 h-12 sm:w-14 sm:h-14`}
       >
         <img
-          src="/icons/logo-scan.png" 
+          src="/logos/logo-scan.png" 
           alt="Loading Logo"
           className="w-full h-full object-contain"
         />
@@ -1270,7 +1270,7 @@ const MarketTab = ({ recaptchaRef }) => {
             {/* Logo and Text Container */}
             <div className="absolute top-2 right-2 flex items-center group m-1 md:m-2">
               <img
-                src="/icons/CG.png" // Path to CG.png
+                src="/logos/CG.png" // Path to CG.png
                 alt="CG Logo"
                 className="w-4 h-4 md:w-5 md:h-5 object-contain"
               />
@@ -1279,7 +1279,7 @@ const MarketTab = ({ recaptchaRef }) => {
               >
                 Data powered by
                 <img
-                  src="/icons/CG_1.png" // Path to CG_1.png
+                  src="/logos/CG_1.png" // Path to CG_1.png
                   alt="CG_1 Logo"
                   className="w-14 h-14 object-contain ml-1"
                 />
@@ -1423,7 +1423,7 @@ const MarketTab = ({ recaptchaRef }) => {
 
                 {onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                   <div className="relative overflow-x-auto md:max-h-[calc(100%-3rem)] max-h-[calc(70vh-6rem)] overflow-y-auto hide-scrollbar">
-                    <table className={`w-full ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
+                    <table className={`w-full ${isMobile ? 'text-[9px]' : 'text-[11px]'}`}>
                       <thead className="sticky top-0 bg-gray-700/50 backdrop-blur-sm z-10">
                         <tr>
                           <th
@@ -1488,7 +1488,7 @@ const MarketTab = ({ recaptchaRef }) => {
                                     <img
                                       src={image}
                                       alt={`${displayText} logo`}
-                                      className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} rounded-full flex-shrink-0`}
+                                      className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} rounded-full flex-shrink-0 m-1`}
                                       onError={(e) => {
                                         logger.error('Name tag image failed to load:', {
                                           address,
@@ -1923,7 +1923,7 @@ const MarketTab = ({ recaptchaRef }) => {
                                     <div className="flex flex-col gap-0.5 items-center">
                                       <a href={txUrl} target="_blank" rel="noreferrer" title={trade.tx_hash} className="flex-shrink-0">
                                         <img
-                                          src="/icons/etherscan-logo.png"
+                                          src="/logos/etherscan-logo.png"
                                           alt="Etherscan"
                                           className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
                                           onError={(e) => (e.target.src = '/fallback-image.png')}

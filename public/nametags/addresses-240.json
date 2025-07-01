@@ -451,7 +451,7 @@
         "Name Tag": "Curve.fi: Pool Info",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -6455,7 +6455,7 @@
         "Name Tag": "mStable: EARN Pool Curve mUSD/3Pool",
         "Description": "mStable unifies stablecoins, lending and swapping into one standard.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -7657,7 +7657,7 @@
         "Name Tag": "Chainlink: KP3R/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

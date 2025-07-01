@@ -946,7 +946,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: bitethbch",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -1777,7 +1777,7 @@
         "Name Tag": "Chainlink: LEND / ETH Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -2431,22 +2431,22 @@
       "arbitrum": {
         "Name Tag": "Arbitrum Nova: One Step Prover Math",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "arbitrum-nova": {
         "Name Tag": "Arbitrum Nova: One Step Prover Math",
         "Description": "Nova is built using Arbitrum's AnyTrust Technology, sharing a codebase with Nitro, and providing industry-leading speed, security, and interop with Ethereum.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "nitro": {
         "Name Tag": "Arbitrum Nova: One Step Prover Math",
         "Description": "Arbitrum Nitro is a second-generation Layer 2 blockchain protocol by Arbitrum which could be implemented on any blockchain system that support smart contract functionality.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "protocol": {
         "Name Tag": "Arbitrum Nova: One Step Prover Math",
         "Description": "The underlying set of rules establishing how connected computers communicate with one another to exchange information.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -3170,13 +3170,13 @@
       "deprecated": {
         "Name Tag": "Zapper.Fi: Deprecated Polygon Bridge",
         "Description": "A list of tokens, contracts or addresses which have been deprecated by their projects.",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       },
       "zapper-fi": {
         "Name Tag": "Zapper.Fi: Deprecated Polygon Bridge",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -3927,7 +3927,7 @@
         "Name Tag": "mStable: Polygon Balancer Pool Bridge Forwarder 2",
         "Description": "mStable unifies stablecoins, lending and swapping into one standard.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -8683,7 +8683,7 @@
         "Name Tag": "Cream.Finance: crYVCurve-stETH Token",
         "Description": "C.R.E.A.M: Crypto Rules Everything Around Me.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -8768,7 +8768,7 @@
         "Name Tag": "Chainlink: DNT/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8810,7 +8810,7 @@
         "Name Tag": "CryptoNote: Index Fund Token",
         "Description": "The last checked status of a website.\nPlease contact us (1. General Inquiry) if the website is back online.",
         "Token Name": "CryptoNote Index Fund Token (CNIF)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -9363,7 +9363,7 @@
       "enzyme-finance": {
         "Name Tag": "Enzyme Finance: Chainlink Price Feed",
         "Description": "Enzyme is a decentralised on-chain asset management infrastructure. It provides an easy and cost-effective way to build, scale & monetise investment strategies in crypto.",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

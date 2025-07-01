@@ -2743,7 +2743,7 @@
         "Name Tag": "Curve.fi: Curve Calculator",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -4804,7 +4804,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: feux07",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -5906,12 +5906,12 @@
       "beacon-depositor": {
         "Name Tag": "Bitcoin Suisse: Eth2 Depositor 5",
         "Description": "An address that has deposited ETH into the Beacon Chain to become a validator.",
-        "image": "/icons/default.png"
+        "image": "/icons/sui.png"
       },
       "bitcoin-suisse": {
         "Name Tag": "Bitcoin Suisse: Eth2 Depositor 5",
         "Description": "Bitcoin Suisse is a Swiss cryptocurrency investment platform",
-        "image": "/icons/default.png"
+        "image": "/icons/sui.png"
       }
     }
   },
@@ -6396,7 +6396,7 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: Multisig",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -7362,7 +7362,7 @@
         "Name Tag": "Curve.fi: tBTC MetaPool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -7773,7 +7773,7 @@
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
         "Token Name": "Curve.fi DAI/USDC/USDT/sUSD (crvPlain3andSUSD)",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "defi": {
         "Token Name": "Curve.fi DAI/USDC/USDT/sUSD (crvPlain3andSUSD)",

@@ -5799,7 +5799,7 @@
         "Name Tag": "Curve.fi: cy3CRV Token",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -8235,7 +8235,7 @@
         "Name Tag": "Curve.fi: Vesting Escrow",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -9871,7 +9871,7 @@
       "cryptokitties": {
         "Name Tag": "CryptoKitties: Offers",
         "Description": "CryptoKitties is a game centered around breedable, collectible, and oh-so-adorable creatures called CryptoKitties! Each cat is one-of-a-kind and 100% owned by you; it cannot be replicated, taken away, or destroyed.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

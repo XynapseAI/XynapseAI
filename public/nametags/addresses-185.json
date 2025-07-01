@@ -2871,12 +2871,12 @@
       "auction": {
         "Name Tag": "CryptoKitties: Sales Auction",
         "Description": "The process of buying and selling goods or services where the sale goes to the highest bidder.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       },
       "cryptokitties": {
         "Name Tag": "CryptoKitties: Sales Auction",
         "Description": "CryptoKitties is a game centered around breedable, collectible, and oh-so-adorable creatures called CryptoKitties! Each cat is one-of-a-kind and 100% owned by you; it cannot be replicated, taken away, or destroyed.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -4686,7 +4686,7 @@
         "Name Tag": "Curve.fi: hCRV Token",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -9154,11 +9154,11 @@
         "Name Tag": "Curve.fi: renBTC Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "yield-farming": {
         "Name Tag": "Curve.fi: renBTC Liquidity Gauge",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

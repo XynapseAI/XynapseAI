@@ -1289,7 +1289,7 @@
         "Name Tag": "Chainlink: NMR/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -1869,7 +1869,7 @@
         "Name Tag": "Ren: renBCH Gateway",
         "Description": "Ren: Providing access to inter-blockchain liquidity for all decentralized applications. Bringing BTC, BCH and ZEC to your Ethereum dApp.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -3397,7 +3397,7 @@
         "Name Tag": "Chainlink: SUSHI/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -4441,7 +4441,7 @@
       "cryptosaga": {
         "Name Tag": "CryptoSaga: Card Swap Ver2",
         "Description": "CryptoSaga is a decentralized RPG on the Ethereum blockchain with fully animated Heroes and Mobs.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -6098,7 +6098,7 @@
         "Name Tag": "Polygon (Matic): Marketing & Ecosystem",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -9319,7 +9319,7 @@
         "Name Tag": "Authereum: Delegate Key Module v2020070100",
         "Description": "Authereum is a wallet provider and dapp login solution that uses contract-based accounts to provide a seamless web2.0 onboarding experience that users are familiar with.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

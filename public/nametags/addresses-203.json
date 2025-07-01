@@ -1443,7 +1443,7 @@
         "Name Tag": "Curve.fi: USDK Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -3869,7 +3869,7 @@
         "Name Tag": "Curve.fi: rsv3CRV Token",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -8564,7 +8564,7 @@
         "Name Tag": "Rari Capital: Jump Rate Model UNI",
         "Description": "Rari Capital aims to deliver the best yield to all users with various risk tolerances. Easy, sustainable and built for the future.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/jump.png"
       }
     }
   },

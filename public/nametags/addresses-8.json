@@ -3124,7 +3124,7 @@
         "Name Tag": "Chainlink: KSM/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -5423,7 +5423,7 @@
         "Name Tag": "Curve.fi: bBTC Metapool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -5607,7 +5607,7 @@
       "airswap": {
         "Name Tag": "AirSwap: Delegate",
         "Description": "AirSwap is scalable, portable, and secure, designed for any token, on any website, on any device, and in any language. Today, market makers are trading dozens of tokens, we are live across the web, available on desktop, tablets, and mobile, supporting 8 of our top community languages.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -8053,7 +8053,7 @@
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
         "Token Name": "Curve.fi renBTC/wBTC/sBTC (crvRenWSBTC)",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "defi": {
         "Token Name": "Curve.fi renBTC/wBTC/sBTC (crvRenWSBTC)",

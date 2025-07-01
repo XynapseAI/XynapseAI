@@ -5600,7 +5600,7 @@
         "Name Tag": "Chainlink: DIA/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -7475,7 +7475,7 @@
       "enzyme-finance": {
         "Name Tag": "Enzyme Finance: Curve Liquidity Seth Adapter",
         "Description": "Enzyme is a decentralised on-chain asset management infrastructure. It provides an easy and cost-effective way to build, scale & monetise investment strategies in crypto.",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -8088,7 +8088,7 @@
         "Name Tag": "Chainlink: USDT/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

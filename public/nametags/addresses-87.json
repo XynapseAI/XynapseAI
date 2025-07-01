@@ -2257,18 +2257,18 @@
         "Name Tag": "Curve.fi: USDT Swap",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "defi": {
         "Name Tag": "Curve.fi: USDT Swap",
         "Description": "List of decentralized finance products.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "dex": {
         "Name Tag": "Curve.fi: USDT Swap",
         "Description": "A decentralized exchange (also known as a DEX) is an exchange market that does not rely on a 3rd party service to hold the client funds but instead trades occur directly between users (peer to peer) through an automated process.",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -2388,7 +2388,7 @@
         "Name Tag": "Optimism: Teleportr Deposit",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -2755,7 +2755,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: bitethbch-2",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -7704,7 +7704,7 @@
         "Name Tag": "Polygon (Matic): Root Chain",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },

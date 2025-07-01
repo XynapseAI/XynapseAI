@@ -495,7 +495,7 @@
         "Name Tag": "Polygon (Matic): POS Mintable ERC1155 Predicate",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -1782,7 +1782,7 @@
         "Name Tag": "Crypto.com",
         "Description": "Crypto.com: The best place to buy, sell and pay with Crypto.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

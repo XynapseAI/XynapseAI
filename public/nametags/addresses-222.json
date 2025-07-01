@@ -1355,7 +1355,7 @@
         "Name Tag": "Polygon (Matic): Deposit Manager",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -2148,7 +2148,7 @@
         "Name Tag": "Curve.fi: USDT/WBTC/WETH Pool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -3280,14 +3280,14 @@
       "blocked": {
         "Name Tag": "Curve.fi: CRV Token",
         "Description": "These addresses have been blocked by a custodial stablecoin provider (such as USDT and USDC).",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "curve-fi": {
         "Name Tag": "Curve.fi: CRV Token",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
         "Token Name": "Curve DAO Token (CRV)",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "defi": {
         "Token Name": "Curve DAO Token (CRV)",
@@ -4344,7 +4344,7 @@
         "Name Tag": "Chainlink: ZEC/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

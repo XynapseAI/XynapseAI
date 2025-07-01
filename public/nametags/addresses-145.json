@@ -1662,7 +1662,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: vintash121",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -6925,7 +6925,7 @@
       "mining": {
         "Name Tag": "SBI Crypto Pool",
         "Description": "Cryptocurrency mining is the validation of transactions on the blockchain. Once validated, these transactions are added to the blockchain's public ledger of past transactions.\nFor this effort, successful miners receive new cryptocurrency as a reward.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -9445,7 +9445,7 @@
         "Name Tag": "Polygon (Matic): Merkle",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },

@@ -4660,7 +4660,7 @@
         "Name Tag": "Zapper.Fi: sUSD Curve Pool",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -5155,7 +5155,7 @@
         "Name Tag": "Polygon (Matic): Validator Share Factory",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -6489,7 +6489,7 @@
         "Name Tag": "Synthetix: Optimism Bridge",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -7857,7 +7857,7 @@
         "Name Tag": "Curve.fi: ETH/sETH Pool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -8017,7 +8017,7 @@
         "Name Tag": "Chainlink: BNB/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9654,7 +9654,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex 11",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },

@@ -510,7 +510,7 @@
         "Name Tag": "Curve.fi: saCRV Token",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -623,7 +623,7 @@
         "Name Tag": "Chainlink: CHF / USD Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -1485,7 +1485,7 @@
       "my-crypto-heroes": {
         "Name Tag": "MCH: Gum Gateway 10",
         "Description": "My Crypto Heroes (MCH) is a Blockchain PRG game. Collect and train historical Heroes of the world and fight with them. All the time and passion you invest into the game will turn into real assets here. Get special and legendary items into your to equip, compose the ultimate unbeatable team formations and challenge epic battles to conquer the crypto world!",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -2524,7 +2524,7 @@
         "Name Tag": "Polygon (Matic): HEZ to MATIC",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -7017,7 +7017,7 @@
         "Name Tag": "Chainlink: DAI / ETH Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

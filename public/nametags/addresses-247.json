@@ -799,7 +799,7 @@
         "Name Tag": "Chainlink: LINK / ETH Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -1186,13 +1186,13 @@
         "Name Tag": "yearn: yCurve Zap Out",
         "Description": "List of decentralized finance products.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "yearn-finance": {
         "Name Tag": "yearn: yCurve Zap Out",
         "Description": "Yearn.Finance: Yield aggregator for lending platforms that rebalances for highest yield whenever the contract is interacted with.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -2757,7 +2757,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: voteWithTally",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -4052,7 +4052,7 @@
       "cryptoatoms": {
         "Name Tag": "CryptoAtoms: Deployer",
         "Description": "CryptoAtoms: Create unique digital lifeforms and join the War of Atoms!",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -6215,7 +6215,7 @@
         "Name Tag": "Ren: renFIL Gateway",
         "Description": "Ren: Providing access to inter-blockchain liquidity for all decentralized applications. Bringing BTC, BCH and ZEC to your Ethereum dApp.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -6672,7 +6672,7 @@
         "Name Tag": "Zerion: Curve Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

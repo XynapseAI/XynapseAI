@@ -600,7 +600,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex 4",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -3214,7 +3214,7 @@
         "Name Tag": "Curve.fi: CBurner",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -4059,7 +4059,7 @@
         "Name Tag": "Chainlink: BOND/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9198,12 +9198,12 @@
       "beacon-depositor": {
         "Name Tag": "Bitcoin Suisse: Eth2 Depositor 1",
         "Description": "An address that has deposited ETH into the Beacon Chain to become a validator.",
-        "image": "/icons/default.png"
+        "image": "/icons/sui.png"
       },
       "bitcoin-suisse": {
         "Name Tag": "Bitcoin Suisse: Eth2 Depositor 1",
         "Description": "Bitcoin Suisse is a Swiss cryptocurrency investment platform",
-        "image": "/icons/default.png"
+        "image": "/icons/sui.png"
       }
     }
   },
@@ -9785,7 +9785,7 @@
         "Name Tag": "Crypto.com: MultiSig 4",
         "Description": "Crypto.com: The best place to buy, sell and pay with Crypto.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

@@ -1019,7 +1019,7 @@
         "Name Tag": "Chainlink: BADGER/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -1703,7 +1703,7 @@
         "Name Tag": "Curve Finance: SynthSwap",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -2150,7 +2150,7 @@
         "Name Tag": "Polygon (Matic): POS Mintable ERC721 Predicate",
         "Description": "Polygon (previously Matic) is a protocol and a framework for building and connecting Ethereum-compatible blockchain networks.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -3060,7 +3060,7 @@
         "Name Tag": "Rari Capital: Jump Rate Model ALCX",
         "Description": "Rari Capital aims to deliver the best yield to all users with various risk tolerances. Easy, sustainable and built for the future.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/jump.png"
       }
     }
   },
@@ -8257,7 +8257,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex 9",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },

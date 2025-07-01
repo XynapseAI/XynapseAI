@@ -381,7 +381,7 @@
       "unstoppable-domains": {
         "Name Tag": ".Crypto: Resolver 2",
         "Description": "Unstoppable Domains is a San Francisco-based company building domains on blockchains. The company is backed by Draper Associates and Boost VC and has received grants from the Ethereum Foundation and the Zilliqa Foundation. Blockchain domains replace cryptocurrency addresses with human readable names and can be used to enable censorship resistant websites.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -2594,7 +2594,7 @@
         "Name Tag": "Chainlink: STAKE/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -2935,7 +2935,7 @@
         "Name Tag": "Chainlink: UST/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -4168,7 +4168,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: WETH Gateway",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },

@@ -4318,12 +4318,12 @@
       "bridge": {
         "Name Tag": "StarkNet: StarkGate USDT Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       },
       "starknet": {
         "Name Tag": "StarkNet: StarkGate USDT Bridge",
         "Description": "StarkNet is a permissionless decentralized ZK-Rollup. It operates as an L2 network over Ethereum, enabling any dApp to achieve unlimited scale for its computation – without compromising Ethereum's composability and security.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -9876,7 +9876,7 @@
         "Name Tag": "Curve.fi: y Deposit",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

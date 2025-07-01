@@ -699,13 +699,13 @@
         "Name Tag": "Curve.fi: Old Contract",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Legacy",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       },
       "old-contract": {
         "Name Tag": "Curve.fi: Old Contract",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -1642,7 +1642,7 @@
         "Name Tag": "CryptoRome: Centurion Token",
         "Description": "The setting is Ancient Rome. CryptoRome takes the best in resource-production games and combines them with the best in strategic conquest games to create a mega-world of economic, political, and military strategy. The main objective is to rise in power to the level of a Senator, and ultimately, become Caesar.",
         "Token Name": "CryptoRomeCenturion (CROMEC)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       },
       "gaming": {
         "Token Name": "CryptoRomeCenturion (CROMEC)",
@@ -2793,7 +2793,7 @@
       "hop-protocol": {
         "Name Tag": "Hop Protocol: Polygon DAI Wrapper",
         "Description": "Hop Protocol is a rollup-to-rollup general token bridge. It allows users to send tokens from one rollup to another almost immediately without having to wait for the rollup’s challenge period.",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -6403,7 +6403,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex: Deployer 2",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -7860,13 +7860,13 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: Bridge 2",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "layer-2": {
         "Name Tag": "Arbitrum: Bridge 2",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },

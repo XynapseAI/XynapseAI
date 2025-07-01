@@ -2228,7 +2228,7 @@
         "Name Tag": "Synthetix: Staking Rewards sEUR Curve",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -4233,7 +4233,7 @@
       "enzyme-finance": {
         "Name Tag": "Enzyme Finance: Curve Price Feed",
         "Description": "Enzyme is a decentralised on-chain asset management infrastructure. It provides an easy and cost-effective way to build, scale & monetise investment strategies in crypto.",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -5688,7 +5688,7 @@
         "Name Tag": "Chainlink: NEAR/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -5772,13 +5772,13 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: Old Rollup Core",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "old-contract": {
         "Name Tag": "Arbitrum: Old Rollup Core",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -6738,7 +6738,7 @@
         "Name Tag": "Chainlink: BAL/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8269,7 +8269,7 @@
         "Name Tag": "Chainlink: RGT/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9807,7 +9807,7 @@
         "Name Tag": "Curve.fi: RSV MetaPool",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -9881,7 +9881,7 @@
         "Name Tag": "Chainlink: VXX/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

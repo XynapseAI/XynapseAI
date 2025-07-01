@@ -642,7 +642,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex 5",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -1337,7 +1337,7 @@
       "wallet-app": {
         "Name Tag": "Cryptonator",
         "Description": "A mobile wallet application is a program that can be installed on mobile devices such as phone and tablets and is used as a storage wallet or payment gateway.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

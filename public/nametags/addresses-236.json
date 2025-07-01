@@ -4707,7 +4707,7 @@
         "Name Tag": "Zeal Crypto: Old ZEAL Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -8573,13 +8573,13 @@
       "bridge": {
         "Name Tag": "Zapper.Fi: Ethereum to Polygon Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       },
       "zapper-fi": {
         "Name Tag": "Zapper.Fi: Ethereum to Polygon Bridge",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/polygon.png"
       }
     }
   },

@@ -2191,7 +2191,7 @@
       "donate": {
         "Name Tag": "Ukraine Crypto Donation",
         "Description": "The act of giving to help and support someone in need.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -3189,7 +3189,7 @@
       "coinone": {
         "Name Tag": "Coinone",
         "Description": "Coinone: Easy and fast trading with Bitcoin, Ripple, EOS, Atom and more.",
-        "image": "/icons/default.png"
+        "image": "/icons/coinone.png"
       }
     }
   },
@@ -4154,7 +4154,7 @@
         "Name Tag": "Chainlink: FTSE / GBP Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -4621,7 +4621,7 @@
         "Name Tag": "Chainlink: Fast Gas/Gwei Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8295,7 +8295,7 @@
       "cryptopunks": {
         "Name Tag": "CryptoPunks: Data",
         "Description": "CryptoPunks are 10,000 unique collectible characters with proof of ownership stored on the Ethereum blockchain. They are one of the earliest examples of a \"Non-Fungible Token\" on Ethereum, and were inspiration for the ERC-721 standard that powers most digital art and collectibles.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -9771,13 +9771,13 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: Proxy Admin",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "layer-2": {
         "Name Tag": "Arbitrum: Proxy Admin",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },

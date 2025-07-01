@@ -1593,7 +1593,7 @@
       "cow-protocol": {
         "Name Tag": "CoW Protocol: GnosisDAO Vesting",
         "Description": "CoW Protocol finds the lowest price for your trade across all exchanges and aggregators, such as Uniswap and 1inch - and protects you from MEV, unlike the others.",
-        "image": "/icons/default.png"
+        "image": "/icons/gnosis.png"
       }
     }
   },
@@ -5319,7 +5319,7 @@
         "Name Tag": "Curve.fi: TriCrypto Liquidity Gauge",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

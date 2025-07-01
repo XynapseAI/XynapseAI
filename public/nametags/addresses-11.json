@@ -1059,7 +1059,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: heartlightalife",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -1216,7 +1216,7 @@
       "payments": {
         "Name Tag": "CryptoProWorld.com",
         "Description": "Cryptocurrency payment platforms that accept their own native tokens and/or other cryptocurrencies as a form of payment.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -8665,7 +8665,7 @@
         "Name Tag": "Curve.fi: HUSD Deposit",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

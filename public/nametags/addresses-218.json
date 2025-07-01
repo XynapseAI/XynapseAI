@@ -3434,7 +3434,7 @@
         "Name Tag": "Optimism: Chain Storage Container CTC Batches",
         "Description": "Optimism is a scalability stack for Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/optimism.png"
       }
     }
   },
@@ -3792,7 +3792,7 @@
         "Name Tag": "Curve.fi: Y Burner",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -8751,7 +8751,7 @@
       "cryptospells": {
         "Name Tag": "CSPL: CardGateway",
         "Description": "CryptoSpells is a blockchain trading card game.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -8840,7 +8840,7 @@
         "Name Tag": ".Crypto: Registry",
         "Description": "Unstoppable Domains is a San Francisco-based company building domains on blockchains. The company is backed by Draper Associates and Boost VC and has received grants from the Ethereum Foundation and the Zilliqa Foundation. Blockchain domains replace cryptocurrency addresses with human readable names and can be used to enable censorship resistant websites.",
         "Token Name": ".crypto (UD)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

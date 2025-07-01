@@ -2472,7 +2472,7 @@
         "Name Tag": "Curve.fi: eursCRV Token",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -5022,7 +5022,7 @@
       "enzyme-finance": {
         "Name Tag": "Enzyme Finance: Curve Exchange Adapter",
         "Description": "Enzyme is a decentralised on-chain asset management infrastructure. It provides an easy and cost-effective way to build, scale & monetise investment strategies in crypto.",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

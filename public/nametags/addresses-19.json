@@ -739,16 +739,16 @@
       "bitfinex": {
         "Name Tag": "Bitfinex 1",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       },
       "fiat-gateway": {
         "Name Tag": "Bitfinex 1",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       },
       "otc": {
         "Name Tag": "Bitfinex 1",
         "Description": "Related to over-the-counter (OTC) trading firms.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -4322,7 +4322,7 @@
         "Name Tag": "Nifty Gateway: First and Last",
         "Description": "Nifty Gateway is a marketplace for Nifties, which are digital items you can truly own.",
         "Token Name": "The First and The Last Open Edition... (THEFIRSTANDTHELASTOPENEDI...)",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -6849,7 +6849,7 @@
         "Name Tag": "Curve.fi: Deposit pBTC",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -7272,7 +7272,7 @@
       "token-sale": {
         "Name Tag": "CryptoGrip: Token Sale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -8882,7 +8882,7 @@
         "Name Tag": "Curve.fi: ABurner",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },

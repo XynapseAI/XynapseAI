@@ -3757,7 +3757,7 @@
       "cryptograph": {
         "Name Tag": "Cryptograph: Auction House",
         "Description": "Cryptograph provides one-of-a-kind digital collectibles from icons and artists that raise money for charity, secured by blockchain technology.",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -4584,7 +4584,7 @@
         "Name Tag": "Curve.fi: USDN Deposit",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -6324,7 +6324,7 @@
         "Name Tag": "Chainlink: Noncirculating Supply 13",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8357,7 +8357,7 @@
       "coinone": {
         "Name Tag": "Coinone: Old Address 1",
         "Description": "Coinone: Easy and fast trading with Bitcoin, Ripple, EOS, Atom and more.",
-        "image": "/icons/default.png"
+        "image": "/icons/coinone.png"
       }
     }
   },
@@ -8769,7 +8769,7 @@
         "Name Tag": "Chainlink: SAND/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9326,7 +9326,7 @@
         "Name Tag": "Crypto.com: MultiSig 5",
         "Description": "Crypto.com: The best place to buy, sell and pay with Crypto.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       }
     }
   },

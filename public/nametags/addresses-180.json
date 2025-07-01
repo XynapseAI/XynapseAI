@@ -1703,7 +1703,7 @@
         "Name Tag": "Curve.fi: USDT Deposit",
         "Description": "Curve is an exchange liquidity pool on Ethereum (like Uniswap) designed for (1) extremely efficient stablecoin trading (2) low risk, supplemental fee income for liquidity providers, without an opportunity cost.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/curve.png"
       }
     }
   },
@@ -4893,7 +4893,7 @@
         "Description": "1inch Network is a DEX aggregator solution that searches deals across multiple liquidity sources, offering users better rates than individual exchanges.",
         "Subcategory": "Others",
         "Token Name": "Delegated st1INCH (dst1INCH)",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       },
       "defi": {
         "Token Name": "Delegated st1INCH (dst1INCH)",
@@ -4942,7 +4942,7 @@
         "Name Tag": "Chainlink: TRX/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -8902,7 +8902,7 @@
         "Name Tag": "Chainlink: sUSD/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },

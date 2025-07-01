@@ -686,7 +686,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: AlyOAly",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -3348,18 +3348,18 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: Outbox Entry",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "bridge": {
         "Name Tag": "Arbitrum: Outbox Entry",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       },
       "layer-2": {
         "Name Tag": "Arbitrum: Outbox Entry",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -6310,7 +6310,7 @@
         "Name Tag": "CryptoServal: Game",
         "Description": "CryptoServal is a game based on smart contracts running on the Ethereum blockchain, centered around breedable, collectible, and fighting creatures we call CryptoServals! Each animal is unique and owned by you. It cannot be replicated, taken away, or destroyed.",
         "Token Name": "CryptoServalGame (CSG)",
-        "image": "/icons/default.png"
+        "image": "/icons/crypto.png"
       },
       "gaming": {
         "Token Name": "CryptoServalGame (CSG)",
@@ -6727,7 +6727,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: leifengcrypto",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.png"
+        "image": "/icons/gate.png"
       }
     }
   },
@@ -6813,7 +6813,7 @@
         "Name Tag": "Chainlink: FRAX/ETH Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -6823,7 +6823,7 @@
       "bitfinex": {
         "Name Tag": "Bitfinex: Deployer 6",
         "Description": "Bitfinex is a full-featured spot trading platform for major digital assets & cryptocurrencies, including Bitcoin, Ethereum, EOS, Litecoin, Ripple, NEO, Monero and many more.",
-        "image": "/icons/default.png"
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -7697,7 +7697,7 @@
         "Name Tag": "Chainlink: BNB/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
@@ -9490,7 +9490,7 @@
         "Name Tag": "Chainlink: GBP / USD Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/chainlink.png"
       }
     }
   },
