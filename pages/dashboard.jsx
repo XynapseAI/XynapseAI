@@ -11,6 +11,8 @@ import AITab from '../components/AITab';
 import TaskTab from '../components/TaskTab';
 import ProfileTab from '../components/ProfileTab';
 import MarketTab from '../components/MarketTab';
+import WalletTable from '../components/WalletTable';
+import TransactionTable from '../components/TransactionTable';
 import { motion } from 'framer-motion';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { logger } from '../utils/logger';
@@ -321,6 +323,12 @@ export default function Dashboard() {
               handleConnectWallet={handleConnectWallet}
               recaptchaRef={recaptchaRef}
             />
+          )}
+          {activeTab === 'wallet-analysis' && (
+            <div className="p-4 w-full max-w-4xl">
+              <WalletTable recaptchaRef={recaptchaRef} />
+              <TransactionTable recaptchaRef={recaptchaRef} walletAddress={userData?.walletAddress} />
+            </div>
           )}
         </motion.div>
       </main>

@@ -44,15 +44,40 @@ const truncateAddress = (address, nameTags = {}, source) => {
   const normalizedAddress = address.toLowerCase();
   const nameTag = nameTags[normalizedAddress]?.nameTag;
   const image = nameTags[normalizedAddress]?.image || null;
-  // For Blockchair, show name tag and shortened address; for CoinGecko, show full name
+
+  const isEvmAddress = address.match(/^0x[a-fA-F0-9]{40}$/);
+  
   if (source === 'Blockchair') {
-    const shortAddress = `${address.slice(0, 6)}...${address.slice(-6)}`;
+    const shortAddress = isEvmAddress 
+      ? `${address.slice(0, 6)}...${address.slice(-4)}`
+      : `${address.slice(0, 6)}...${address.slice(-6)}`;
     return {
       text: nameTag ? `${nameTag} (${shortAddress})` : shortAddress,
       image,
     };
   }
+  
+  if (isEvmAddress) {
+    return { text: nameTag || `${address.slice(0, 6)}...${address.slice(-4)}`, image };
+  }
+  
   return { text: nameTag || address, image };
+};
+
+const truncateHash = (hash, startLength = 6, endLength = 4) => {
+  // Handle invalid inputs
+  if (!hash || typeof hash !== 'string') {
+    return { text: 'N/A' };
+  }
+
+  // Truncate to 0x1234...abcd format
+  if (hash.length > 12) {
+    return {
+      text: `${hash.slice(0, startLength)}...${hash.slice(-endLength)}`,
+    };
+  }
+
+  return { text: hash };
 };
 
 // Chain explorer mapping
@@ -309,7 +334,7 @@ const WalletBalances = ({
         ref={walletBalancesRef}
         className="backdrop-blur-md p-4 sm:p-6 max-w-6xl w-[90%] border border-white/10 rounded-xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar"
       >
-        <div className="sticky top-0 z-10 backdrop-blur-md rounded-lg border border-white/10 p-2">
+        <div className="sticky top-0 z-10 backdrop-blur-md p-2">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-2">
               <svg
@@ -372,7 +397,7 @@ const WalletBalances = ({
         <div className="overflow-y-auto max-h-[calc(80vh-120px)] rounded-lg border border-white/10 backdrop-blur-md custom-scrollbar">
           {activeTab === 'portfolio' && (
             <>
-              {isLoading && <p className="text-xs sm:text-sm text-gray-400 text-center">Loading portfolio...</p>}
+              {isLoading && <p className="text-xs sm:text-sm text-gray-400 text-center"></p>}
               {error && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {error}</p>}
               {!isLoading && !error && balances?.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -491,147 +516,148 @@ const WalletBalances = ({
           )}
 
           {activeTab === 'transactions' && (
-            <>
-              {isLoadingTransactions && (
-                <p className="text-xs sm:text-sm text-gray-400 text-center">Loading transactions...</p>
-              )}
-              {transactionsError && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {transactionsError}</p>}
-              {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full border border-gray-500 table-auto">
-                    <thead className="sticky top-0 bg-gray-700 z-10">
-                      <tr>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 sm:w-1/3 text-white text-center text-[10px] sm:text-xs">
-                          Hash
-                        </th>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/4 text-white text-center text-[10px] sm:text-xs">
-                          Transfer
-                        </th>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 text-white text-center text-[10px] sm:text-xs">
-                          Value
-                        </th>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 text-white text-center text-[10px] sm:text-xs">
-                          Time
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {transactions.map((tx, index) => {
-                        const { txUrl, addressUrl: fromUrl } = getExplorerUrls(tx.chain, tx.hash, tx.from);
-                        const { addressUrl: toUrl } = getExplorerUrls(tx.chain, tx.hash, tx.to);
-                        const { text: fromText, image: fromImage } = truncateAddress(tx.from, nameTags);
-                        const { text: toText, image: toImage } = truncateAddress(tx.to, nameTags);
+  <>
+    {isLoadingTransactions && (
+      <p className="text-xs sm:text-sm text-gray-400 text-center">Loading transactions...</p>
+    )}
+    {transactionsError && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {transactionsError}</p>}
+    {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
+      <div className="overflow-x-auto">
+        <table className="w-full border border-gray-500 table-auto">
+          <thead className="sticky top-0 bg-gray-700 z-10">
+            <tr>
+              <th className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 sm:w-1/3 text-white text-center text-[10px] sm:text-xs">
+                Hash
+              </th>
+              <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/4 text-white text-center text-[10px] sm:text-xs">
+                Transfer
+              </th>
+              <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 text-white text-center text-[10px] sm:text-xs">
+                Value
+              </th>
+              <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 text-white text-center text-[10px] sm:text-xs">
+                Time
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map((tx, index) => {
+              const { txUrl, addressUrl: fromUrl } = getExplorerUrls(tx.chain, tx.hash, tx.from);
+              const { addressUrl: toUrl } = getExplorerUrls(tx.chain, tx.hash, tx.to);
+              const { text: fromText, image: fromImage } = truncateAddress(tx.from, nameTags);
+              const { text: toText, image: toImage } = truncateAddress(tx.to, nameTags);
+              const { text: hashText } = truncateHash(tx.hash); // Use truncateHash for the Hash column
 
-                        return (
-                          <tr key={`${tx.chain}-${tx.hash}-${index}`}>
-                            <td className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                              <div className="relative flex flex-col items-center sm:flex-row sm:justify-center">
-                                <div className="absolute top-0 left-0 flex items-center space-x-1 sm:space-x-1">
-                                  <img
-                                    src={getPlatformImage(tx.chain)}
-                                    alt={`${tx.chain} logo`}
-                                    className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"
-                                    onError={(e) => {
-                                      logger.error('Transaction chain logo failed to load:', {
-                                        chain: tx.chain,
-                                        src: getPlatformImage(tx.chain),
-                                      });
-                                      e.target.src = '/fallback-image.png';
-                                    }}
-                                  />
-                                  <span className="text-[8px] sm:text-[10px] text-gray-400 flex-shrink-0">
-                                    {chains.find((c) => c.value === tx.chain)?.label || tx.chain}
-                                  </span>
-                                </div>
-                                <div className="pt-5 sm:pt-0">
-                                  <a
-                                    href={txUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-blue-400 hover:underline"
-                                    title={tx.hash}
-                                  >
-                                    {truncateAddress(tx.hash, nameTags).text}
-                                  </a>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                              <div className="flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-1">
-                                <div className="flex items-center gap-1">
-                                  {fromImage && (
-                                    <img
-                                      src={fromImage}
-                                      alt={`${fromText} logo`}
-                                      className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
-                                      onError={(e) => {
-                                        logger.error('From address name tag image failed to load:', {
-                                          address: tx.from,
-                                          src: fromImage,
-                                        });
-                                        e.target.src = '/icons/default.png';
-                                      }}
-                                    />
-                                  )}
-                                  <a
-                                    href={fromUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-blue-400 hover:underline"
-                                    title={tx.from}
-                                    onClick={() => handleAddressClick(tx.from)}
-                                  >
-                                    {fromText}
-                                  </a>
-                                </div>
-                                <span className="sm:mx-1">→</span>
-                                <div className="flex items-center gap-1">
-                                  {toImage && (
-                                    <img
-                                      src={toImage}
-                                      alt={`${toText} logo`}
-                                      className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
-                                      onError={(e) => {
-                                        logger.error('To address name tag image failed to load:', {
-                                          address: tx.to,
-                                          src: toImage,
-                                        });
-                                        e.target.src = '/icons/default.png';
-                                      }}
-                                    />
-                                  )}
-                                  <a
-                                    href={toUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-blue-400 hover:underline"
-                                    title={tx.to}
-                                    onClick={() => handleAddressClick(tx.to)}
-                                  >
-                                    {toText}
-                                  </a>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                              {weiToEth(tx.value)}
-                            </td>
-                            <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                              {new Date(tx.block_time).toLocaleString('en-US')}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                !isLoadingTransactions && (
-                  <p className="text-xs sm:text-sm text-gray-400 text-center">No transactions found for this address.</p>
-                )
-              )}
-            </>
-          )}
+              return (
+                <tr key={`${tx.chain}-${tx.hash}-${index}`}>
+                  <td className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                    <div className="relative flex flex-col items-center sm:flex-row sm:justify-center">
+                      <div className="absolute top-0 left-0 flex items-center space-x-1 sm:space-x-1">
+                        <img
+                          src={getPlatformImage(tx.chain)}
+                          alt={`${tx.chain} logo`}
+                          className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"
+                          onError={(e) => {
+                            logger.error('Transaction chain logo failed to load:', {
+                              chain: tx.chain,
+                              src: getPlatformImage(tx.chain),
+                            });
+                            e.target.src = '/fallback-image.png';
+                          }}
+                        />
+                        <span className="text-[8px] sm:text-[10px] text-gray-400 flex-shrink-0">
+                          {chains.find((c) => c.value === tx.chain)?.label || tx.chain}
+                        </span>
+                      </div>
+                      <div className="pt-5 sm:pt-0">
+                        <a
+                          href={txUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-400 hover:underline"
+                          title={tx.hash} // Show full hash on hover
+                        >
+                          {hashText} {/* Use truncated hash */}
+                        </a>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                    <div className="flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-1">
+                      <div className="flex items-center gap-1">
+                        {fromImage && (
+                          <img
+                            src={fromImage}
+                            alt={`${fromText} logo`}
+                            className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
+                            onError={(e) => {
+                              logger.error('From address name tag image failed to load:', {
+                                address: tx.from,
+                                src: fromImage,
+                              });
+                              e.target.src = '/icons/default.png';
+                            }}
+                          />
+                        )}
+                        <a
+                          href={fromUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-400 hover:underline"
+                          title={tx.from}
+                          onClick={() => handleAddressClick(tx.from)}
+                        >
+                          {fromText}
+                        </a>
+                      </div>
+                      <span className="sm:mx-1">→</span>
+                      <div className="flex items-center gap-1">
+                        {toImage && (
+                          <img
+                            src={toImage}
+                            alt={`${toText} logo`}
+                            className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
+                            onError={(e) => {
+                              logger.error('To address name tag image failed to load:', {
+                                address: tx.to,
+                                src: toImage,
+                              });
+                              e.target.src = '/icons/default.png';
+                            }}
+                          />
+                        )}
+                        <a
+                          href={toUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-400 hover:underline"
+                          title={tx.to}
+                          onClick={() => handleAddressClick(tx.to)}
+                        >
+                          {toText}
+                        </a>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                    {weiToEth(tx.value)}
+                  </td>
+                  <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                    {new Date(tx.block_time).toLocaleString('en-US')}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      !isLoadingTransactions && (
+        <p className="text-xs sm:text-sm text-gray-400 text-center">No transactions found for this address.</p>
+      )
+    )}
+  </>
+)}
         </div>
       </div>
     </div>

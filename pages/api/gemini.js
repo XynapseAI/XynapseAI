@@ -36,7 +36,7 @@ const validate = [
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '15kb', // Increased to match grok.js
+      sizeLimit: '15kb',
     },
   },
 };
@@ -55,10 +55,16 @@ export default async function handler(req, res) {
     return res.status(429).json({ detail: 'Rate limit exceeded, please try again later.' });
   }
 
-  const session = await getServerSession(req, res, authOptions);
-  if (!session) {
-    logger.warn('Unauthorized request');
-    return res.status(401).json({ detail: 'Not authenticated' });
+  // Check authentication
+  const internalToken = req.headers['x-internal-token'];
+  if (process.env.NODE_ENV === 'development' && internalToken === process.env.INTERNAL_API_TOKEN) {
+    logger.info('Bypassing auth with internal token for Gemini API');
+  } else {
+    const session = await getServerSession(req, res, authOptions);
+    if (!session) {
+      logger.warn('Unauthorized request');
+      return res.status(401).json({ detail: 'Not authenticated' });
+    }
   }
 
   if (req.method !== 'POST') {
@@ -76,34 +82,35 @@ export default async function handler(req, res) {
   const { prompt, deepSearch = false, tokenSymbol, recaptchaToken } = req.body;
   logger.info(`Processing Gemini request: prompt="${prompt.substring(0, 50)}...", deepSearch=${deepSearch}, tokenSymbol="${tokenSymbol || 'none'}"`);
 
-  try {
-    // Determine reCAPTCHA action based on context
-    let action = 'chat'; // Default for general prompts
-    if (prompt.match(/\bPredict\b/i)) {
-      action = 'predict'; // For prediction prompts
-    } else if (prompt.match(/\b(Analyze|Analysis)\b/i) || tokenSymbol) {
-      action = 'analyze'; // For analysis prompts or MarketTab
+  // Bypass reCAPTCHA in development
+  if (process.env.NODE_ENV !== 'development') {
+    try {
+      let action = 'chat';
+      if (prompt.match(/\bPredict\b/i)) {
+        action = 'predict';
+      } else if (prompt.match(/\b(Analyze|Analysis)\b/i) || tokenSymbol) {
+        action = 'analyze';
+      }
+      logger.info(`Verifying reCAPTCHA with action: ${action}`);
+      await verifyRecaptcha(recaptchaToken, action, ip);
+    } catch (error) {
+      logger.error(`reCAPTCHA verification failed: ${error.message}`);
+      return res.status(403).json({ detail: error.message });
     }
-    logger.info(`Verifying reCAPTCHA with action: ${action}`);
-    await verifyRecaptcha(recaptchaToken, action, ip);
-  } catch (error) {
-    logger.error(`reCAPTCHA verification failed: ${error.message}`);
-    return res.status(403).json({ detail: error.message });
   }
 
   if (!process.env.GEMINI_API_KEY) {
     logger.error('GEMINI_API_KEY is not configured');
-    return res.status(500).json({ detail: 'Server configuration error' });
+    return res.status(500).json({ detail: 'Server configuration error: Missing GEMINI_API_KEY' });
   }
 
   try {
-    const isTokenRelated = tokenSymbol || prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i);
-    const effectiveTokenSymbol = tokenSymbol?.toUpperCase() || prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge)\b/i)?.[0]?.toUpperCase() || 'BTC';
-
+    // Skip token-related analysis for wallet analysis
     let tokenAnalysis = '';
     let links = [];
-    if (isTokenRelated && (prompt.match(/\b(Analyze|Analysis|Predict)\b/i) || tokenSymbol)) {
+    if (prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i) && (prompt.match(/\b(Analyze|Analysis|Predict)\b/i) || tokenSymbol)) {
       try {
+        const effectiveTokenSymbol = tokenSymbol?.toUpperCase() || prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge)\b/i)?.[0]?.toUpperCase() || 'BTC';
         const analysisResponse = await axios.post(`${process.env.NEXTAUTH_URL}/api/token-analysis`, {
           tokenSymbol: effectiveTokenSymbol,
           recaptchaToken,
@@ -138,12 +145,11 @@ ${stockMarketSearch.snippets || 'No recent stock market correlation data availab
 ### Political News Impact
 ${politicalSearch.snippets || 'No recent political news impacting the market.'}
           `;
-          links = [
-            ...links,
-            ...(economicSearch.links || []),
-            ...(stockMarketSearch.links || []),
-            ...(politicalSearch.links || []),
-          ];
+          links = links.concat(
+            (economicSearch.links || []),
+            (stockMarketSearch.links || []),
+            (politicalSearch.links || [])
+          );
         }
       } catch (analysisError) {
         logger.error(`Token analysis error: ${analysisError.message}`);
@@ -152,14 +158,17 @@ ${politicalSearch.snippets || 'No recent political news impacting the market.'}
     }
 
     let recentInteractions = '';
-    if (session?.user?.id) {
+    if (process.env.NODE_ENV !== 'development') {
       try {
-        const interactions = await axios.get(`${process.env.NEXTAUTH_URL}/api/ai-interaction`, {
-          params: { uid: session.user.id, limit: 5 },
-        });
-        recentInteractions = interactions.data.interactions
-          .map((i) => `Query: ${i.query}\nResponse: ${i.response}`)
-          .join('\n---\n');
+        const session = await getServerSession(req, res, authOptions);
+        if (session?.user?.id) {
+          const interactions = await axios.get(`${process.env.NEXTAUTH_URL}/api/ai-interaction`, {
+            params: { uid: session.user.id, limit: 5 },
+          });
+          recentInteractions = interactions.data.interactions
+            .map((i) => `Query: ${i.query}\nResponse: ${i.response}`)
+            .join('\n---\n');
+        }
       } catch (interactionError) {
         logger.error(`AI interactions error: ${interactionError.message}`);
         recentInteractions = 'Unable to fetch recent interactions.';
@@ -177,11 +186,11 @@ ${politicalSearch.snippets || 'No recent political news impacting the market.'}
         searchContext += '\n### Web Insights\nUnable to fetch insights from Brave Search.';
       }
 
-      if (isTokenRelated) {
+      if (prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i)) {
         try {
           const twitterResponse = await axios.post(`${process.env.NEXTAUTH_URL}/api/twitter-search`, {
             query: prompt,
-            tokenSymbol: effectiveTokenSymbol,
+            tokenSymbol: tokenSymbol?.toUpperCase() || 'BTC',
           });
           searchContext += `\n### Twitter/X Insights\n${twitterResponse.data.message}\n`;
           if (twitterResponse.data.success && twitterResponse.data.tweets?.length > 0) {
@@ -198,7 +207,7 @@ ${politicalSearch.snippets || 'No recent political news impacting the market.'}
     }
 
     const aiPrompt = `
-Answer in a natural, professional tone (250-300 words for analysis/prediction, concise for general queries) using Markdown with **bold**, *italics*, and tables. Include *not investment advice* for financial queries. Add links as [text](url).
+Answer in a natural, professional tone (150-200 words for analysis/prediction, concise for general queries) using Markdown with **bold**, *italics*, and tables. Include *not investment advice* for financial queries. Add links as [text](url).
 
 **Data**:
 - Token Analysis: ${tokenAnalysis}
@@ -206,42 +215,47 @@ Answer in a natural, professional tone (250-300 words for analysis/prediction, c
 - Search Context: ${searchContext}
 
 **Instructions**:
-- For financial queries (e.g., analyze, predict), use recent data (economic indicators, stock market trends, political news).
-- For general queries, provide a concise, conversational response without financial analysis unless requested.
-- Create tables for comparisons or structured data (e.g., likelihood, economic indicators).
+- For wallet analysis, focus on transaction behavior and likelihood of being a deposit wallet.
+- For general queries, provide a concise, conversational response.
+- Create tables for structured data if applicable.
 - If code is included, add **Explanation** (2-3 sentences) and library installation commands.
 
 **Question**: ${prompt.replace(/[<>{}]/g, '')}
     `.slice(0, 2000);
 
-    const response = await axios.post(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent', // Updated to use gemini-pro for consistency
-      {
-        contents: [
-          {
-            parts: [
-              {
-                text: aiPrompt,
-              },
-            ],
-          },
-        ],
-      },
-      {
-        params: { key: process.env.GEMINI_API_KEY },
-        headers: { 'Content-Type': 'application/json' },
+    try {
+      const response = await axios.post(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent',
+        {
+          contents: [
+            {
+              parts: [
+                {
+                  text: aiPrompt,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          params: { key: process.env.GEMINI_API_KEY },
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      const data = response.data;
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        logger.error(`Invalid Gemini response: ${JSON.stringify(data)}`);
+        throw new Error('No valid response from Gemini');
       }
-    );
 
-    const data = response.data;
-    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      logger.error(`Invalid Gemini response: ${JSON.stringify(data)}`);
-      throw new Error('No valid response from Gemini');
+      res.status(200).json({ answer: data.candidates[0].content.parts[0].text, links: deepSearch ? links.slice(0, 5) : [] });
+    } catch (error) {
+      logger.error(`Gemini API error: ${error.message}`, { stack: error.stack, response: error.response?.data });
+      throw error;
     }
-
-    res.status(200).json({ answer: data.candidates[0].content.parts[0].text, links: deepSearch ? links.slice(0, 5) : [] });
   } catch (error) {
-    logger.error(`Gemini error: ${error.message}`);
+    logger.error(`Gemini handler error: ${error.message}`, { stack: error.stack, ip });
     if (error.response?.status === 429) {
       return res.status(429).json({ detail: 'Gemini API rate limit exceeded, please try again later.' });
     }
@@ -250,5 +264,3 @@ Answer in a natural, professional tone (250-300 words for analysis/prediction, c
     });
   }
 }
-
-
