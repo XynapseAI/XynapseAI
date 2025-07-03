@@ -1,76 +1,192 @@
 // scripts/importNametags.js
-const fs = require('fs');
+const fs = require('fs/promises');
 const path = require('path');
-const admin = require('firebase-admin'); // Import Firebase Admin SDK
+const admin = require('firebase-admin');
 
-// ************************************************************
-// CHÚ Ý: Cấu hình Firebase Admin SDK
-// Bạn cần cung cấp thông tin đăng nhập tài khoản dịch vụ của mình
-// ************************************************************
-// Cách 1: Sử dụng biến môi trường (khuyên dùng cho triển khai)
-// Nếu bạn đã thiết lập GOOGLE_APPLICATION_CREDENTIALS trong môi trường,
-// Firebase Admin SDK sẽ tự động tìm thấy.
-// Nếu không, hãy đảm bảo các biến môi trường này được đặt (cho môi trường cục bộ)
-// process.env.GOOGLE_APPLICATION_CREDENTIALS = path.resolve(__dirname, '../path/to/your/serviceAccountKey.json');
+// Load environment variables
+require('dotenv').config();
 
-// Cách 2: Trực tiếp cung cấp service account key (chỉ để phát triển/thử nghiệm)
-// Thay thế 'path/to/your/serviceAccountKey.json' bằng đường dẫn thực tế của bạn
-const serviceAccount = require(path.resolve(__dirname, '../config/next-62115-firebase-adminsdk-fbsvc-831aef7d77.json'));
+const NAMETAGS_DIR = process.env.NAMETAGS_DIR || path.resolve(__dirname, '../public/nametags');
+const NAMETAGS_COLLECTION = 'nametags';
+const ERROR_LOG_FILE = path.resolve(__dirname, 'import_nametags_errors.log');
+const BATCH_SIZE = 500; // Firestore batch write limit
+
+// Initialize Firebase Admin SDK
+const firebaseConfig = {
+  type: 'service_account',
+  project_id: process.env.FIREBASE_PROJECT_ID,
+  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+  private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+  client_email: process.env.FIREBASE_CLIENT_EMAIL,
+  client_id: process.env.FIREBASE_CLIENT_ID,
+  auth_uri: process.env.FIREBASE_AUTH_URI,
+  token_uri: process.env.FIREBASE_TOKEN_URI,
+  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
+  client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
+};
 
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-    // databaseURL: 'https://your-project-id.firebaseio.com' // Tùy chọn, nếu bạn dùng Realtime Database
-  });
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(firebaseConfig),
+      databaseURL: process.env.FIREBASE_DATABASE_URL
+    });
+  } catch (error) {
+    console.error('Error initializing Firebase Admin SDK:', error.message);
+    process.exit(1);
+  }
 }
 
-const db = admin.firestore(); // Lấy instance Firestore
+const db = admin.firestore();
 
-const NAMETAGS_DIR = path.resolve(__dirname, '../public/nametags');
-const NAMETAGS_COLLECTION = 'nametags';
+async function logError(message) {
+  try {
+    await fs.appendFile(ERROR_LOG_FILE, `${new Date().toISOString()} - ${message}\n`, 'utf8');
+  } catch (error) {
+    console.error('Error writing to error log:', error.message);
+  }
+}
+
+async function checkExistingAddresses(addresses) {
+  const existingAddresses = new Set();
+  const chunks = [];
+  for (let i = 0; i < addresses.length; i += 30) { // Firestore 'in' query limit is 30
+    chunks.push(addresses.slice(i, i + 30));
+  }
+
+  for (const chunk of chunks) {
+    try {
+      const snapshot = await db.collection(NAMETAGS_COLLECTION)
+        .where(admin.firestore.FieldPath.documentId(), 'in', chunk)
+        .select() // Select no fields to optimize
+        .get();
+      snapshot.forEach(doc => existingAddresses.add(doc.id));
+    } catch (error) {
+      await logError(`Error checking existing addresses for chunk ${chunk.join(', ')}: ${error.message}`);
+    }
+  }
+  return existingAddresses;
+}
 
 async function importNametags() {
-  console.log(`Bắt đầu nhập nametags từ thư mục: ${NAMETAGS_DIR}`);
+  console.log(`Starting import of nametags from directory: ${NAMETAGS_DIR}`);
+  let totalImported = 0;
+  let totalSkipped = 0;
+  let totalErrors = 0;
 
   try {
-    const files = fs.readdirSync(NAMETAGS_DIR);
-    let totalImported = 0;
+    const files = await fs.readdir(NAMETAGS_DIR);
+    const jsonFiles = files.filter(file => file.startsWith('addresses-') && file.endsWith('.json'));
 
-    for (const file of files) {
-      if (file.endsWith('.json')) {
-        const filePath = path.join(NAMETAGS_DIR, file);
-        console.log(`Đọc file: ${filePath}`);
+    for (const file of jsonFiles) {
+      const filePath = path.join(NAMETAGS_DIR, file);
+      console.log(`Processing file: ${filePath}`);
+
+      let jsonData;
+      try {
+        const fileContent = await fs.readFile(filePath, 'utf8');
+        jsonData = JSON.parse(fileContent);
+      } catch (error) {
+        await logError(`Failed to read or parse file ${file}: ${error.message}`);
+        totalErrors++;
+        continue;
+      }
+
+      const addresses = Object.keys(jsonData).map(addr => addr.toLowerCase());
+      const existingAddresses = await checkExistingAddresses(addresses);
+      const newAddresses = addresses.filter(addr => !existingAddresses.has(addr));
+
+      if (newAddresses.length === 0) {
+        console.log(`  All addresses in ${file} already exist in Firestore. Skipping.`);
+        totalSkipped += addresses.length;
+        continue;
+      }
+
+      console.log(`  Found ${newAddresses.length} new addresses to import from ${file}`);
+
+      let batch = db.batch();
+      let batchCount = 0;
+
+      for (const address of newAddresses) {
+        const nametag = jsonData[address];
+        const normalizedAddress = address.toLowerCase();
+
+        // Validate nametag
+        if (!nametag || typeof nametag !== 'object') {
+          await logError(`Invalid nametag data for address ${normalizedAddress} in ${file}: nametag is ${nametag}`);
+          totalErrors++;
+          continue;
+        }
+
+        // Validate and normalize Labels
+        const labels = nametag.Labels || {
+          'deposit': {
+            'Name Tag': 'Unknown',
+            'Description': 'No specific label information.',
+            'Subcategory': 'Deposit',
+            'image': '/icons/default.png'
+          }
+        };
+        if (Object.keys(labels).length > 0) {
+          const firstLabelKey = Object.keys(labels)[0];
+          labels[firstLabelKey].image = labels[firstLabelKey].image || '/icons/default.png';
+        }
+
+        const firestoreDocument = {
+          Labels: labels,
+          Address: nametag.Address || normalizedAddress,
+          last_updated: new Date().toISOString()
+        };
 
         try {
-          const fileContent = fs.readFileSync(filePath, 'utf8');
-          const data = JSON.parse(fileContent);
+          const docRef = db.collection(NAMETAGS_COLLECTION).doc(normalizedAddress);
+          batch.set(docRef, firestoreDocument, { merge: true });
+          batchCount++;
+          totalImported++;
+        } catch (error) {
+          await logError(`Failed to add address ${normalizedAddress} from ${file} to batch: ${error.message}`);
+          totalErrors++;
+          continue;
+        }
 
-          for (const address in data) {
-            const nametag = data[address];
-            const normalizedAddress = address.toLowerCase();
-
-            // Cấu trúc document để lưu vào Firestore
-            const firestoreDocument = {
-              Labels: nametag.Labels, // Giữ nguyên cấu trúc Labels
-              // Address: nametag.Address || normalizedAddress, // Tùy chọn: giữ trường Address nếu cần
-              last_updated: new Date().toISOString(), // Thêm timestamp cập nhật
-            };
-
-            await db.collection(NAMETAGS_COLLECTION).doc(normalizedAddress).set(firestoreDocument, { merge: true });
-            console.log(`  Đã nhập: ${normalizedAddress}`);
-            totalImported++;
+        if (batchCount >= BATCH_SIZE) {
+          try {
+            await batch.commit();
+            console.log(`  Committed batch of ${batchCount} nametags from ${file}`);
+            batch = db.batch();
+            batchCount = 0;
+          } catch (error) {
+            await logError(`Failed to commit batch for ${file}: ${error.message}`);
+            totalErrors++;
           }
-        } catch (parseError) {
-          console.error(`Lỗi phân tích cú pháp hoặc xử lý file ${file}:`, parseError.message);
         }
       }
+
+      if (batchCount > 0) {
+        try {
+          await batch.commit();
+          console.log(`  Committed final batch of ${batchCount} nametags from ${file}`);
+        } catch (error) {
+          await logError(`Failed to commit final batch for ${file}: ${error.message}`);
+          totalErrors++;
+        }
+      }
+
+      totalSkipped += (addresses.length - newAddresses.length);
     }
-    console.log(`\nHoàn thành! Tổng số nametags đã nhập: ${totalImported}`);
-  } catch (dirError) {
-    console.error(`Lỗi đọc thư mục ${NAMETAGS_DIR}:`, dirError.message);
+
+    console.log(`\nImport completed!`);
+    console.log(`Total nametags imported: ${totalImported}`);
+    console.log(`Total nametags skipped (already exist): ${totalSkipped}`);
+    console.log(`Total errors: ${totalErrors}`);
+    if (totalErrors > 0) {
+      console.log(`Check error log at ${ERROR_LOG_FILE} for details`);
+    }
+  } catch (error) {
+    await logError(`Error processing directory ${NAMETAGS_DIR}: ${error.message}`);
+    console.error(`Error processing directory: ${error.message}`);
   } finally {
-    // Thoát tiến trình Node.js sau khi hoàn thành
-    process.exit(0);
+    process.exit(totalErrors === 0 ? 0 : 1);
   }
 }
 

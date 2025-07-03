@@ -1,30 +1,21 @@
 // pages/api/analyze-wallets.js
 import { fetchBlockchainData } from '../../lib/blockchainData';
-import { getNametag, addNametag } from '../../lib/nametags'; // loadAllNametags is not directly needed here
-import { saveWalletAnalysis, saveLargeFlow } from '../../lib/analysisStorage'; // getAnalyzedWallets, getHighVolumeWallets are not needed here
+import { getNametag, addNametag } from '../../lib/nametags';
+import { db } from '../../utils/firebaseAdmin';
 import axios from 'axios';
 import { isAddress } from 'ethers';
 import { detectLargeFlow } from '../../lib/detectLargeFlow';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
 import { logger } from '../../utils/logger';
-import { db } from '../../utils/firebaseAdmin'; // Only db is needed for admin check
 
-// --- CONFIGURATION CONSTANTS (or from environment variables) ---
 const GEMINI_API_BASE_URL = process.env.NEXTAUTH_URL + '/api/gemini';
 const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN;
 const RECAPTCHA_TOKEN_FOR_INTERNAL_CALLS = process.env.RECAPTCHA_TOKEN_FOR_INTERNAL_CALLS;
-const DEFAULT_GEMINI_TIMEOUT_MS = 60000; // 60 seconds for Gemini API calls
-const LARGE_VALUE_THRESHOLD_USD = 1000000; // Consistent threshold for large flows
-const DEPOSIT_WALLET_CONFIDENCE_THRESHOLD = 70; // Confidence score for deposit wallet identification
+const DEFAULT_GEMINI_TIMEOUT_MS = 60000;
+const LARGE_VALUE_THRESHOLD_USD = 1000000;
+const DEPOSIT_WALLET_CONFIDENCE_THRESHOLD = 60;
 
-// --- HELPER FUNCTIONS ---
-
-/**
- * Checks if the current user (by UID) has admin privileges in Firestore.
- * @param {string} uid - The user ID.
- * @returns {Promise<boolean>} True if the user is an admin, false otherwise.
- */
 async function checkAdminStatus(uid) {
     if (!uid) return false;
     try {
@@ -36,13 +27,47 @@ async function checkAdminStatus(uid) {
     }
 }
 
-/**
- * Calls the Gemini API to get a natural language analysis of a wallet's behavior.
- * @param {string} walletAddress - The wallet address being analyzed.
- * @param {Array} txData - Transaction data for the wallet.
- * @param {number} isDepositConfidence - Confidence score for deposit wallet identification.
- * @returns {Promise<string>} Gemini's analysis in Markdown, or an error message.
- */
+async function saveWalletAnalysis(result) {
+    try {
+        await db.collection('wallet_analysis').doc(result.wallet.toLowerCase()).set({
+            ...result,
+            lastAnalysis: new Date().toISOString()
+        }, { merge: true });
+        logger.info(`Saved wallet analysis for ${result.wallet} to Firestore.`);
+    } catch (error) {
+        logger.error(`Error saving wallet analysis for ${result.wallet}: ${error.message}`);
+        throw error;
+    }
+}
+
+async function saveLargeFlow(largeFlowData) {
+    try {
+        if (largeFlowData.large_flows && Array.isArray(largeFlowData.large_flows)) {
+            const batch = db.batch();
+            largeFlowData.large_flows.forEach(flow => {
+                const docRef = db.collection('large_flows').doc();
+                batch.set(docRef, {
+                    ...flow,
+                    source_wallet_scanned: largeFlowData.source_wallet_scanned,
+                    timestamp_recorded: new Date().toISOString()
+                });
+            });
+            await batch.commit();
+            logger.info(`Saved ${largeFlowData.large_flows.length} large flows for ${largeFlowData.source_wallet_scanned} to Firestore.`);
+        } else {
+            await db.collection('large_flows').add({
+                source_wallet_scanned: largeFlowData.source_wallet_scanned || 'N/A',
+                error_info: 'No large flows detected or unexpected format.',
+                timestamp_recorded: new Date().toISOString()
+            });
+            logger.info(`Saved no large flows record for ${largeFlowData.source_wallet_scanned} to Firestore.`);
+        }
+    } catch (error) {
+        logger.error(`Error saving large flow data for ${largeFlowData.source_wallet_scanned}: ${error.message}`);
+        throw error;
+    }
+}
+
 async function fetchGeminiAnalysis(walletAddress, txData, isDepositConfidence) {
     if (!txData || txData.length === 0) {
         return 'No transaction data available for Gemini analysis.';
@@ -51,7 +76,6 @@ async function fetchGeminiAnalysis(walletAddress, txData, isDepositConfidence) {
     const totalTransactions = txData.length;
     const incomingTransactions = txData.filter(tx => tx.to.toLowerCase() === walletAddress.toLowerCase()).length;
     const outgoingTransactions = txData.filter(tx => tx.from.toLowerCase() === walletAddress.toLowerCase()).length;
-    // Assuming 1 ETH = $2000 for estimation. Replace with actual price if available.
     const totalValueUsd = txData.reduce((sum, tx) => sum + (parseInt(tx.value, 16) / 1e18 * 2000), 0);
     const uniqueSenders = new Set(txData.filter(tx => tx.to.toLowerCase() === walletAddress.toLowerCase()).map(tx => tx.from)).size;
 
@@ -70,8 +94,8 @@ Please provide a brief analysis (150-200 words) in Markdown to confirm if this w
         logger.info(`Calling Gemini for analysis of ${walletAddress}...`);
         const response = await axios.post(GEMINI_API_BASE_URL, {
             prompt: prompt,
-            deepSearch: false, // Or true, depending on your Gemini API config
-            recaptchaToken: RECAPTCHA_TOKEN_FOR_INTERNAL_CALLS // For internal calls
+            deepSearch: false,
+            recaptchaToken: RECAPTCHA_TOKEN_FOR_INTERNAL_CALLS
         }, {
             headers: {
                 'Content-Type': 'application/json',
@@ -95,15 +119,7 @@ Please provide a brief analysis (150-200 words) in Markdown to confirm if this w
     }
 }
 
-/**
- * Identifies if a wallet is a deposit wallet based on transaction patterns.
- * @param {string} walletAddress - The blockchain address to analyze.
- * @param {string} primaryTargetWallet - A known "main" wallet (e.g., an exchange's hot wallet) to check outgoing transactions against.
- * @param {string} chain - The blockchain chain (e.g., 'ethereum').
- * @param {boolean} enableGemini - Whether to enable Gemini AI analysis.
- * @returns {Promise<object>} An object containing the analysis result.
- */
-export async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain = 'ethereum', enableGemini = true) {
+async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain = 'ethereum', enableGemini = true) {
     if (!isAddress(walletAddress) || !isAddress(primaryTargetWallet)) {
         logger.error("Invalid wallet address or primary target wallet provided for identifyDepositWallet.");
         return null;
@@ -114,11 +130,7 @@ export async function identifyDepositWallet(walletAddress, primaryTargetWallet, 
 
     logger.info(`Analyzing wallet ${lowerWalletAddress} on ${chain} for deposit characteristics (target: ${lowerPrimaryTargetWallet})...`);
 
-    // IMPORTANT: Set forceRefresh to `false` to utilize the cache.
-    // This is crucial for a fast user-facing API.
     const txData = await fetchBlockchainData(lowerWalletAddress, 'transactions', false, 500, chain);
-
-    // Nametag lookup will utilize in-memory cache first, then Firestore.
     const nametag = await getNametag(lowerWalletAddress);
 
     if (!txData || txData.length === 0) {
@@ -130,7 +142,7 @@ export async function identifyDepositWallet(walletAddress, primaryTargetWallet, 
             gemini_analysis: "No transactions found to analyze.",
             reason: "No transactions found",
             metrics: {},
-            lastAnalysis: new Date().toISOString() // Ensure this is present for `saveWalletAnalysis`
+            lastAnalysis: new Date().toISOString()
         };
         await saveWalletAnalysis(result);
         return result;
@@ -145,7 +157,6 @@ export async function identifyDepositWallet(walletAddress, primaryTargetWallet, 
     let confidenceScore = 0;
     let reasonParts = [];
 
-    // Rule 1: High incoming transaction volume in 24h
     const incomingTxs24h = recentTxs7d.filter(tx =>
         tx.to.toLowerCase() === lowerWalletAddress && new Date(tx.block_time) > last24Hours
     );
@@ -156,9 +167,8 @@ export async function identifyDepositWallet(walletAddress, primaryTargetWallet, 
         reasonParts.push(`Low incoming transaction volume in 24h (${incomingTxs24h.length} txs).`);
     }
 
-    // Rule 2: Few unique senders (suggests a limited set of sources, e.g., other exchange hot wallets)
     const uniqueSendersToWallet = new Set(incomingTxs24h.map(tx => tx.from.toLowerCase())).size;
-    if (uniqueSendersToWallet > 0 && uniqueSendersToWallet < 20) { // Adjusted threshold for 'few'
+    if (uniqueSendersToWallet > 0 && uniqueSendersToWallet < 10) {
         confidenceScore += 20;
         reasonParts.push(`Few unique senders (${uniqueSendersToWallet}) to this wallet in 24h.`);
     } else if (uniqueSendersToWallet === 0) {
@@ -167,13 +177,12 @@ export async function identifyDepositWallet(walletAddress, primaryTargetWallet, 
         reasonParts.push(`Many unique senders (${uniqueSendersToWallet}) to this wallet in 24h.`);
     }
 
-    // Rule 3: Significant portion of outgoing transactions sent back to the primary target wallet
     const outgoingToPrimaryTarget = recentTxs7d.filter(tx =>
         tx.from.toLowerCase() === lowerWalletAddress && tx.to.toLowerCase() === lowerPrimaryTargetWallet
     );
     const totalOutgoingTxs = recentTxs7d.filter(tx => tx.from.toLowerCase() === lowerWalletAddress).length;
 
-    if (totalOutgoingTxs > 0 && outgoingToPrimaryTarget.length / totalOutgoingTxs >= 0.5) {
+    if (totalOutgoingTxs > 0 && outgoingToPrimaryTarget.length / totalOutgoingTxs >= 0.3) {
         confidenceScore += 30;
         reasonParts.push(`Significant portion of outgoing transactions sent back to target wallet ${lowerPrimaryTargetWallet}.`);
     } else if (outgoingToPrimaryTarget.length > 0) {
@@ -183,7 +192,6 @@ export async function identifyDepositWallet(walletAddress, primaryTargetWallet, 
         reasonParts.push(`No outgoing transactions sent back to target wallet ${lowerPrimaryTargetWallet}.`);
     }
 
-    // Rule 4: Absence of complex incoming smart contract interactions (simple deposits)
     const hasComplexIncomingInteraction = recentTxs7d.some(tx =>
         tx.to.toLowerCase() === lowerWalletAddress && tx.input !== '0x' && tx.input.length > 2
     );
@@ -194,14 +202,13 @@ export async function identifyDepositWallet(walletAddress, primaryTargetWallet, 
         reasonParts.push("Has complex incoming smart contract interactions.");
     }
 
-    // Rule 5: Sends to very few unique outgoing destinations, typically just the primary target
     const nonContractOutgoingTxs7d = recentTxs7d.filter(tx => tx.from.toLowerCase() === lowerWalletAddress);
     const uniqueOutgoingDestinations = new Set(nonContractOutgoingTxs7d.map(tx => tx.to.toLowerCase())).size;
 
     if (uniqueOutgoingDestinations === 1 && nonContractOutgoingTxs7d[0]?.to.toLowerCase() === lowerPrimaryTargetWallet) {
         confidenceScore += 15;
         reasonParts.push("Sends exclusively to the primary target wallet.");
-    } else if (uniqueOutgoingDestinations >= 1 && uniqueOutgoingDestinations <= 3) {
+    } else if (uniqueOutgoingDestinations >= 1 && uniqueOutgoingDestinations <= 5) {
         confidenceScore += 5;
         reasonParts.push(`Sends to few unique destinations (${uniqueOutgoingDestinations}).`);
     } else {
@@ -209,12 +216,11 @@ export async function identifyDepositWallet(walletAddress, primaryTargetWallet, 
     }
 
     const finalReason = reasonParts.join(" ");
-    confidenceScore = Math.min(confidenceScore, 100); // Cap confidence at 100%
+    confidenceScore = Math.min(confidenceScore, 100);
     const isDeposit = confidenceScore >= DEPOSIT_WALLET_CONFIDENCE_THRESHOLD;
 
     let geminiAnalysis = "Gemini analysis skipped.";
-    // Only call Gemini if explicitly enabled AND it's a potential deposit wallet OR it's an unknown nametag.
-    if (enableGemini && (isDeposit || (nametag === 'Unknown'))) { // Change here: run Gemini for unknowns as well
+    if (enableGemini && (isDeposit || (nametag && nametag !== 'Unknown'))) {
         geminiAnalysis = await fetchGeminiAnalysis(lowerWalletAddress, txData, confidenceScore);
     }
 
@@ -235,59 +241,66 @@ export async function identifyDepositWallet(walletAddress, primaryTargetWallet, 
         reason: finalReason,
         metrics: metrics,
         gemini_analysis: geminiAnalysis,
-        lastAnalysis: new Date().toISOString() // Ensure this is saved
+        lastAnalysis: new Date().toISOString()
     };
     await saveWalletAnalysis(result);
 
-    // Auto-tagging logic
-    if (isDeposit && nametag === 'Unknown') { // Only tag if confidently a deposit wallet and currently unknown
+    if (isDeposit && nametag === 'Unknown') {
         const newNametagValue = `Auto-detected Deposit Wallet (Conf: ${confidenceScore.toFixed(0)}%)`;
         await addNametag(lowerWalletAddress, {
-            'auto_tag': { // Use a specific key for auto-tags
+            'auto_tag': {
                 'Name Tag': newNametagValue,
                 'Description': 'Automatically detected as a deposit wallet based on transaction patterns.',
                 'Subcategory': 'Exchange/Service',
                 'image': '/icons/default.png'
             }
         });
-        result.nametag = newNametagValue; // Update result with new nametag
+        result.nametag = newNametagValue;
     }
 
     return result;
 }
 
-// --- NEXT.JS API ROUTE HANDLER ---
 export default async function handler(req, res) {
-    // Always check session and admin privileges first
     const session = await getServerSession(req, res, authOptions);
-    if (!session) {
-        logger.warn('Unauthorized access attempt to analyze-wallets API (no session)');
-        return res.status(401).json({ detail: 'Unauthorized: Please log in.' });
+    let isAuthorized = false;
+
+    const internalToken = req.headers['x-internal-token'];
+    if (internalToken === INTERNAL_API_TOKEN) {
+        logger.info('Accessing analyze-wallets API with internal token.');
+        isAuthorized = true;
+    } else if (session) {
+        const isAdminUser = await checkAdminStatus(session.user.id);
+        if (isAdminUser) {
+            isAuthorized = true;
+        } else {
+            logger.warn(`Forbidden access attempt to analyze-wallets API by non-admin user: ${session.user.id}`);
+            return res.status(403).json({ detail: 'Forbidden: Admin access required.' });
+        }
+    } else {
+        logger.warn('Unauthorized access attempt to analyze-wallets API (no session or invalid internal token)');
+        return res.status(401).json({ detail: 'Unauthorized: Please log in or provide a valid internal token.' });
     }
 
-    const isAdminUser = await checkAdminStatus(session.user.id);
-    if (!isAdminUser) {
-        logger.warn(`Forbidden access attempt to analyze-wallets API by non-admin user: ${session.user.id}`);
-        return res.status(403).json({ detail: 'Forbidden: Admin access required.' });
+    if (!isAuthorized) {
+        return res.status(401).json({ detail: 'Unauthorized: Access denied.' });
     }
 
     if (req.method !== 'POST') {
         return res.status(405).json({ detail: 'Method not allowed. Only POST is supported.' });
     }
 
-    const { action, wallet_address, chain = 'ethereum' } = req.body; // Removed scan_source_address as fetch-periodic is removed
+    const { action, wallet_address, chain = 'ethereum' } = req.body;
 
     try {
         if (action === 'identify') {
             if (!wallet_address) {
                 return res.status(400).json({ error: "Wallet address is required for 'identify' action." });
             }
-            // For 'identify', if no primary target is provided, assume the wallet itself is the target
-            // This might happen if you are just analyzing an arbitrary wallet.
-            const primaryTarget = wallet_address; 
+            const primaryTarget = wallet_address;
             const result = await identifyDepositWallet(wallet_address, primaryTarget, chain, true);
             return res.status(200).json(result);
-        } else if (action === 'detect-large-flow') { // New action for direct large flow detection
+        } else if (action === 'detect-large-flow') {
             if (!wallet_address) {
                 return res.status(400).json({ error: "Wallet address is required for 'detect-large-flow' action." });
             }
@@ -295,7 +308,7 @@ export default async function handler(req, res) {
             const largeFlowResult = await detectLargeFlow(
                 wallet_address,
                 chain,
-                LARGE_VALUE_THRESHOLD_USD // Use the defined threshold
+                LARGE_VALUE_THRESHOLD_USD
             );
 
             if (largeFlowResult && largeFlowResult.large_flows && largeFlowResult.large_flows.length > 0) {
@@ -308,9 +321,7 @@ export default async function handler(req, res) {
                 logger.info(`No large flows detected for ${wallet_address}.`);
             }
             return res.status(200).json(largeFlowResult);
-
         } else {
-            // Remove 'fetch-periodic' action as it's too heavy for a direct API call.
             return res.status(400).json({ error: "Invalid action. Supported actions: 'identify', 'detect-large-flow'." });
         }
     } catch (error) {
