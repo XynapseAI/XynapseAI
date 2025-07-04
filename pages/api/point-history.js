@@ -1,7 +1,7 @@
-import { db } from '../../utils/firebaseAdmin.js';
+import { db } from '../../utils/firebaseAdmin';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from './auth/[...nextauth].js';
-import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
+import { authOptions } from './auth/[...nextauth]';
+import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
 import rateLimit from 'express-rate-limit';
 import { query, validationResult } from 'express-validator';
 import winston from 'winston';
@@ -9,7 +9,7 @@ import helmet from 'helmet';
 
 const logger = winston.createLogger({
   level: 'info',
-  format: winston.format.json(),
+  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [
     new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
     new winston.transports.File({ filename: 'logs/combined.log' }),
@@ -20,6 +20,9 @@ const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   message: { error: 'Too many requests, please try again later.' },
+  keyGenerator: (req) => {
+    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+  },
 });
 
 const validateGet = [
@@ -27,8 +30,17 @@ const validateGet = [
 ];
 
 export default async function handler(req, res) {
-  helmet()(req, res, () => {});
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com'],
+        connectSrc: ["'self'", 'https://api.geckoterminal.com'],
+      },
+    },
+  })(req, res, () => {});
+
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}, query: ${JSON.stringify(req.query)}`);
 
   if (req.method !== 'GET') {
@@ -45,9 +57,10 @@ export default async function handler(req, res) {
     return res.status(429).json({ detail: 'Too many requests, please try again later.' });
   }
 
-  const session = await getServerSession(req, res, authOptions);
+  const authOptionsInstance = await authOptions();
+  const session = await getServerSession(req, res, authOptionsInstance);
   if (!session || !session.user?.id) {
-    logger.warn('Session not authenticated or missing user ID', { session }); // Sửa lỗi cú pháp
+    logger.warn('Session not authenticated or missing user ID', { session });
     return res.status(401).json({ detail: 'Unauthorized: Please log in.' });
   }
 
@@ -118,9 +131,9 @@ export default async function handler(req, res) {
           }
           return {
             date: data.timestamp.toDate().toISOString().split('T')[0],
-            tweetPoints: 0, // Not used in schema
+            tweetPoints: 0,
             aiPoints: data.points || 0,
-            taskPoints: 0, // Not used in schema
+            taskPoints: 0,
             totalPoints: data.points || 0,
           };
         }).filter(item => item !== null);

@@ -7,7 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
-import { getSecrets } from '../../lib/vault'; // Thêm import
+import { getSecrets } from '../../lib/vault';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -22,6 +22,9 @@ const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
   message: { error: 'Too many requests, please try again later.' },
+  keyGenerator: (req) => {
+    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+  },
 });
 
 const validate = [
@@ -40,11 +43,20 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  helmet()(req, res, () => {});
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com'],
+        connectSrc: ["'self'", 'https://api.geckoterminal.com', 'https://api.openai.com'],
+      },
+    },
+  })(req, res, () => {});
+
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
 
-  const secrets = await getSecrets(); // Lấy bí mật từ Vault
+  const secrets = await getSecrets();
   const OPENAI_API_KEY = secrets.OPENAI_API_KEY;
 
   try {
@@ -56,7 +68,8 @@ export default async function handler(req, res) {
     return res.status(429).json({ detail: 'Rate limit exceeded, please try again later.' });
   }
 
-  const session = await getServerSession(req, res, authOptions);
+  const authOptionsInstance = await authOptions();
+  const session = await getServerSession(req, res, authOptionsInstance);
   if (!session) {
     logger.warn('Unauthorized request');
     return res.status(401).json({ detail: 'Not authenticated' });
@@ -104,7 +117,7 @@ export default async function handler(req, res) {
       try {
         const interactions = await axios.get(`${process.env.NEXTAUTH_URL}/api/ai-interaction`, {
           params: { uid: session.user.id, limit: 5 },
-          headers: { 'X-Recaptcha-Token': await req.recaptchaRef?.executeAsync?.() || recaptchaToken },
+          headers: { 'X-Recaptcha-Token': recaptchaToken },
         });
         recentInteractions = interactions.data.interactions
           .map((i) => `Query: ${i.query}\nResponse: ${i.response}`)

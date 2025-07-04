@@ -7,7 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
-import { getSecrets } from '../../lib/vault'; // Thêm import
+import { getSecrets } from '../../lib/vault';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -23,7 +23,9 @@ const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
   message: { error: 'Too many requests, please try again later.' },
-  keyGenerator: (req) => req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown-ip',
+  keyGenerator: (req) => {
+    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+  },
 });
 
 const validate = [
@@ -42,11 +44,20 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  helmet({ contentSecurityPolicy: false })(req, res, () => {});
-  const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com'],
+        connectSrc: ["'self'", 'https://api.geckoterminal.com', 'https://generativelanguage.googleapis.com'],
+      },
+    },
+  })(req, res, () => {});
+
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
 
-  const secrets = await getSecrets(); // Lấy bí mật từ Vault
+  const secrets = await getSecrets();
   const GEMINI_API_KEY = secrets.GEMINI_API_KEY;
   const INTERNAL_API_TOKEN = secrets.INTERNAL_API_TOKEN;
 
@@ -61,10 +72,12 @@ export default async function handler(req, res) {
 
   // Check authentication
   const internalToken = req.headers['x-internal-token'];
+  let session;
   if (process.env.NODE_ENV === 'development' && internalToken === INTERNAL_API_TOKEN) {
     logger.info('Bypassing auth with internal token for Gemini API');
   } else {
-    const session = await getServerSession(req, res, authOptions);
+    const authOptionsInstance = await authOptions();
+    session = await getServerSession(req, res, authOptionsInstance);
     if (!session) {
       logger.warn('Unauthorized request');
       return res.status(401).json({ detail: 'Not authenticated' });
@@ -163,7 +176,8 @@ ${politicalSearch.snippets || 'No recent political news impacting the market.'}
     let recentInteractions = '';
     if (process.env.NODE_ENV !== 'development') {
       try {
-        const session = await getServerSession(req, res, authOptions);
+        const authOptionsInstance = await authOptions();
+        const session = await getServerSession(req, res, authOptionsInstance);
         if (session?.user?.id) {
           const interactions = await axios.get(`${process.env.NEXTAUTH_URL}/api/ai-interaction`, {
             params: { uid: session.user.id, limit: 5 },

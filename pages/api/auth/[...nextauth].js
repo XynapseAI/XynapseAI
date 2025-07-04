@@ -4,13 +4,13 @@ import { db, admin } from '../../../utils/firebaseAdmin';
 import { logger } from '../../../utils/logger';
 import { getSecrets } from '../../../lib/vault';
 
-export default async function handler(req, res) {
+export const authOptions = async () => {
   const secrets = await getSecrets();
   const TWITTER_CLIENT_ID = secrets.TWITTER_CLIENT_ID;
   const TWITTER_CLIENT_SECRET = secrets.TWITTER_CLIENT_SECRET;
   const NEXTAUTH_SECRET = secrets.NEXTAUTH_SECRET;
 
-  const authOptions = {
+  return {
     providers: [
       TwitterProvider({
         clientId: TWITTER_CLIENT_ID,
@@ -108,6 +108,9 @@ export default async function handler(req, res) {
       updateAge: 24 * 60 * 60,
     },
   };
+};
 
-  return NextAuth(req, res, authOptions);
+export default async function handler(req, res) {
+  const options = await authOptions();
+  return NextAuth(req, res, options);
 }

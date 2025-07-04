@@ -1,17 +1,20 @@
-import { db } from '../../utils/firebaseAdmin.js';
+import { db } from '../../utils/firebaseAdmin';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from './auth/[...nextauth].js';
+import { authOptions } from './auth/[...nextauth]';
 import axios from 'axios';
-import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
+import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import { logger } from '../../utils/logger.js'; // Sử dụng logger từ utils/logger.js
-import { getSecrets } from '../../lib/vault.js';
+import { logger } from '../../utils/logger';
+import { getSecrets } from '../../lib/vault';
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10,
   message: { error: 'Too many requests, please try again later.' },
+  keyGenerator: (req) => {
+    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+  },
 });
 
 const validate = [
@@ -28,16 +31,24 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  // Apply security headers
+  res.set({
+  'Content-Security-Policy': "default-src 'self'; img-src 'self' https://ipfs.io https://pbs.twimg.com; connect-src 'self' https://api.geckoterminal.com;",
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+});
+
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
     });
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`, { ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress });
+    logger.error(`Rate limit error: ${err.message}`, { ip: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip });
     return res.status(429).json({ detail: 'Too many requests, please try again later.' });
   }
 
-  const session = await getServerSession(req, res, authOptions);
+  const authOptionsInstance = await authOptions();
+  const session = await getServerSession(req, res, authOptionsInstance);
   if (!session) {
     logger.warn('Unauthorized access attempt', { method: req.method });
     return res.status(401).json({ detail: 'Not signed in' });
@@ -62,7 +73,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
     await verifyRecaptcha(recaptchaToken, 'analyze_tweets', ip);
   } catch (error) {
     logger.error(`reCAPTCHA verification failed: ${error.message}`, { uid });

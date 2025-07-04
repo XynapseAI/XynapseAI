@@ -2,10 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['ipfs.io', 'pbs.twimg.com'], // Thêm domain cho ảnh Twitter
-  },
-  experimental: {
-    trustProxy: true, // Bật trustProxy để xử lý X-Forwarded-For
+    domains: ['ipfs.io', 'pbs.twimg.com'],
   },
   async rewrites() {
     return [

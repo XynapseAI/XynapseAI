@@ -1,20 +1,23 @@
-import { db } from '../../utils/firebaseAdmin.js';
+import { db } from '../../utils/firebaseAdmin';
 import { ethers } from 'ethers';
 import { getServerSession } from 'next-auth/next';
 import { getCsrfToken } from 'next-auth/react';
-import { authOptions } from './auth/[...nextauth].js';
-import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
+import { authOptions } from './auth/[...nextauth]';
+import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import { logger } from '../../utils/logger.js';
+import { logger } from '../../utils/logger';
 import helmet from 'helmet';
 import jwt from 'jsonwebtoken';
-import { getSecrets } from '../../lib/vault'; // Thêm import
+import { getSecrets } from '../../lib/vault';
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
   message: { error: 'Too many requests, please try again later.' },
+  keyGenerator: (req) => {
+    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+  },
 });
 
 const validatePost = [
@@ -31,14 +34,23 @@ const validatePost = [
 ];
 
 export default async function handler(req, res) {
-  helmet()(req, res, () => {});
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com'],
+        connectSrc: ["'self'", 'https://api.geckoterminal.com'],
+      },
+    },
+  })(req, res, () => {});
+
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`, {
     method: req.method,
     body: req.body,
   });
 
-  const secrets = await getSecrets(); // Lấy bí mật từ Vault
+  const secrets = await getSecrets();
   const JWT_SECRET = secrets.JWT_SECRET;
 
   try {
@@ -55,7 +67,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ detail: 'Method not allowed' });
   }
 
-  const session = await getServerSession(req, res, authOptions);
+  const authOptionsInstance = await authOptions();
+  const session = await getServerSession(req, res, authOptionsInstance);
   if (!session || !session.user?.id) {
     logger.warn('Session not authenticated or missing user ID');
     return res.status(401).json({ detail: 'Not signed in' });
@@ -67,7 +80,7 @@ export default async function handler(req, res) {
   });
 
   const csrfToken = req.headers['x-csrf-token'];
-  const expectedCsrfToken = await getCsrfToken({ req });
+  const expectedCsrfToken = await getCsrfToken({ req: { headers: req.headers } });
   logger.info('CSRF token validation:', {
     provided: csrfToken ? csrfToken.substring(0, 8) + '...' : 'none',
     expected: expectedCsrfToken ? expectedCsrfToken.substring(0, 8) + '...' : 'none',
