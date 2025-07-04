@@ -11,24 +11,36 @@ export async function middleware(req) {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com', 'https://coin-images.coingecko.com'],
+          imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com', 'https://coin-images.coingecko.com', 'data:'], // Thêm 'data:' và coin-images nếu cần
           connectSrc: [
             "'self'",
             'https://api.geckoterminal.com',
-            'https://api.coingecko.com',
-            'https://api.sim.dune.com',
-            'https://www.google.com',
-            'https://www.recaptcha.net',
+            'https://api.coingecko.com', // Thêm nếu cần, từ cấu hình Nginx
+            'https://api.sim.dune.com', // Thêm nếu cần, từ cấu hình Nginx
+            'https://www.google.com', // Cho reCAPTCHA
+            'https://www.recaptcha.net', // Cho reCAPTCHA
+            'https://*.firebaseio.com', // Cho Firebase
+            'wss://*.firebaseio.com', // Cho Firebase websockets
+            'https://api.etherscan.io' // Cho Etherscan
           ],
           scriptSrc: [
             "'self'",
-            "'unsafe-inline'", // Chỉ nên dùng nếu không thể tránh được
-            "'unsafe-eval'",   // Chỉ nên dùng nếu không thể tránh được
-            'https://www.google.com',
-            'https://www.gstatic.com', // Rất quan trọng cho reCAPTCHA!
-            'https://www.recaptcha.net',
+            "'unsafe-inline'", // Cân nhắc loại bỏ 'unsafe-inline' nếu có thể
+            "'unsafe-eval'",   // Cân nhắc loại bỏ 'unsafe-eval' nếu có thể
+            'https://www.google.com', // Cho reCAPTCHA
+            'https://www.gstatic.com', // Cho reCAPTCHA (rất quan trọng!)
+            'https://www.recaptcha.net', // Cho reCAPTCHA
           ],
-          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+          styleSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            'https://fonts.googleapis.com' // Cho Google Fonts
+          ],
+          fontSrc: [
+            "'self'",
+            'https://fonts.gstatic.com' // Cho Google Fonts
+          ],
+          frameSrc: ["'none'"], // Nếu bạn không nhúng iframe, giữ 'none'. Nếu có, cần thêm nguồn.
         },
       },
       xFrameOptions: { action: 'deny' },
