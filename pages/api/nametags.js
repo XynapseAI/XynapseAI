@@ -181,16 +181,16 @@ export default async function handler(req, res) {
   const INTERNAL_API_TOKEN = secrets.INTERNAL_API_TOKEN;
 
   try {
-    await new Promise((resolve, reject) => {
-      limiter(req, res, (err) => (err ? reject(err) : resolve()));
-    });
-  } catch (err) {
-    logger.warn('Rate limit exceeded for nametags API');
-    return res.status(429).json({
-      success: false,
-      detail: 'Too many requests. Please try again later.',
-    });
-  }
+  await new Promise((resolve, reject) => {
+    limiter(req, res, (err) => (err ? reject(err) : resolve()));
+  });
+} catch (err) {
+  logger.error(`Rate limit error: ${err.message}`, { stack: err.stack });
+  return res.status(429).json({
+    success: false,
+    detail: 'Too many requests. Please try again later.',
+  });
+}
 
   let session = null;
   let isAdminUser = false;
