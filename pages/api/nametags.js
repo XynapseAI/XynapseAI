@@ -7,7 +7,6 @@ import { query, body, validationResult } from 'express-validator';
 import { logger } from '../../utils/logger';
 import { db } from '../../utils/firebaseAdmin';
 import { getSecrets } from '../../lib/vault';
-import helmet from 'helmet';
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
@@ -171,19 +170,6 @@ async function addNametag(address, labels) {
 }
 
 export default async function handler(req, res) {
-  // Apply security headers
-  helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com'],
-      connectSrc: ["'self'", 'https://api.geckoterminal.com'],
-    },
-  },
-  xFrameOptions: { action: 'deny' },
-  xContentTypeOptions: true,
-})(req, res, () => {});
-
   const secrets = await getSecrets();
   const INTERNAL_API_TOKEN = secrets.INTERNAL_API_TOKEN;
 

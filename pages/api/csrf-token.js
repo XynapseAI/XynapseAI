@@ -2,20 +2,8 @@ import { getCsrfToken } from 'next-auth/react';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
 import { logger } from '../../utils/logger';
-import helmet from 'helmet';
 
 export default async function handler(req, res) {
-  // Apply security headers
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com'],
-        connectSrc: ["'self'", 'https://api.geckoterminal.com'],
-      },
-    },
-  })(req, res, () => {});
-
   if (req.method !== 'GET') {
     logger.warn(`Method not allowed: ${req.method}`);
     return res.status(405).json({ detail: 'Method not allowed' });

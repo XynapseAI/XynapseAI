@@ -107,11 +107,6 @@ const retryRequest = async (url, options, retries = 3) => {
 
 export default async function handler(req, res) {
   // Apply security headers
-  res.set({
-    'Content-Security-Policy': "default-src 'self'; img-src 'self' https://ipfs.io https://pbs.twimg.com; connect-src 'self' https://api.geckoterminal.com;",
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-  });
 
   // Apply CORS
   cors(corsOptions)(req, res, async () => {

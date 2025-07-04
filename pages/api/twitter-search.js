@@ -2,7 +2,6 @@ import { db } from '../../utils/firebaseAdmin.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
-import helmet from 'helmet';
 import { getSecrets } from '../../lib/vault'; // Thêm import
 
 const logger = winston.createLogger({
@@ -35,8 +34,6 @@ export const config = { api: { bodyParser: { sizeLimit: '1kb' } } };
 
 export default async function handler(req, res) {
   req.app?.set('trust proxy', true);
-  helmet({ contentSecurityPolicy: false })(req, res, () => {});
-
   const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
 

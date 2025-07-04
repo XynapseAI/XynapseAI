@@ -6,7 +6,6 @@ import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
 import rateLimit from 'express-rate-limit';
 import { body, query, validationResult } from 'express-validator';
 import winston from 'winston';
-import helmet from 'helmet';
 import { exec } from 'child_process';
 import util from 'util';
 
@@ -64,7 +63,6 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
 
   try {

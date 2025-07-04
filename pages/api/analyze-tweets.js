@@ -7,7 +7,6 @@ import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import { logger } from '../../utils/logger';
 import { getSecrets } from '../../lib/vault';
-import helmet from 'helmet';
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -32,19 +31,6 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  // Apply security headers
-  helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com'],
-      connectSrc: ["'self'", 'https://api.geckoterminal.com'],
-    },
-  },
-  xFrameOptions: { action: 'deny' },
-  xContentTypeOptions: true,
-})(req, res, () => {});
-
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));

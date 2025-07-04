@@ -5,7 +5,6 @@ import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
 import rateLimit from 'express-rate-limit';
 import { query, validationResult } from 'express-validator';
 import winston from 'winston';
-import helmet from 'helmet';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -30,16 +29,6 @@ const validateGet = [
 ];
 
 export default async function handler(req, res) {
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com'],
-        connectSrc: ["'self'", 'https://api.geckoterminal.com'],
-      },
-    },
-  })(req, res, () => {});
-
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}, query: ${JSON.stringify(req.query)}`);
 

@@ -4,7 +4,6 @@ import { authOptions } from './auth/[...nextauth]';
 import rateLimit from 'express-rate-limit';
 import { query, validationResult } from 'express-validator';
 import winston from 'winston';
-import helmet from 'helmet';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -30,17 +29,6 @@ const validateGet = [
 ];
 
 export default async function handler(req, res) {
-  // Apply security headers
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com'],
-        connectSrc: ["'self'", 'https://api.geckoterminal.com'],
-      },
-    },
-  })(req, res, () => {});
-
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
   logger.info(`Yêu cầu tới ${req.url} từ IP ${ip}, query: ${JSON.stringify(req.query)}`);
 

@@ -2,7 +2,6 @@ import axios from 'axios';
 import winston from 'winston';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
 import Cors from 'cors';
 import { isAddress } from 'ethers';
@@ -174,19 +173,6 @@ export default async function handler(req, res) {
     await new Promise((resolve, reject) => {
       cors(req, res, (err) => (err ? reject(err) : resolve()));
     });
-
-    helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com', 'https://coin-images.coingecko.com'],
-      connectSrc: ["'self'", 'https://api.geckoterminal.com', 'https://api.sim.dune.com'],
-    },
-  },
-  xFrameOptions: { action: 'deny' },
-  xContentTypeOptions: true,
-})(req, res, () => {});
-
     await Promise.all([
       new Promise((resolve, reject) => limiter(req, res, (err) => (err ? reject(err) : resolve()))),
       new Promise((resolve, reject) => addressLimiter(req, res, (err) => (err ? reject(err) : resolve()))),

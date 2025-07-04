@@ -5,7 +5,6 @@ import { requireAuth } from './middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
-import helmet from 'helmet';
 import axios from 'axios';
 import { getSecrets } from '../../lib/vault'; // Thêm import
 
@@ -50,7 +49,6 @@ const retryRequest = async (fn, retries = 3, delay = 1000) => {
 };
 
 export default async function handler(req, res) {
-  helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}`);
 

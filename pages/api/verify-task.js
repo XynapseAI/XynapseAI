@@ -5,7 +5,6 @@ import TwitterApi from 'twitter-api-v2';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
-import helmet from 'helmet';
 import fetch from 'node-fetch';
 
 const logger = winston.createLogger({
@@ -40,7 +39,6 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
 

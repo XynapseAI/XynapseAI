@@ -5,7 +5,6 @@ import axios from 'axios';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
-import helmet from 'helmet';
 import { getSecrets } from '../../lib/vault'; // Thêm import
 
 const logger = winston.createLogger({
@@ -35,7 +34,6 @@ const validate = [
 export const config = { api: { bodyParser: { sizeLimit: '10kb' } } };
 
 export default async function handler(req, res) {
-  helmet({ contentSecurityPolicy: false })(req, res, () => {});
   const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
 

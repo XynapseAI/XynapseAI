@@ -6,7 +6,6 @@ import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
-import helmet from 'helmet';
 import { getSecrets } from '../../lib/vault';
 
 const logger = winston.createLogger({
@@ -43,16 +42,6 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com'],
-        connectSrc: ["'self'", 'https://api.geckoterminal.com', 'https://api.openai.com'],
-      },
-    },
-  })(req, res, () => {});
-
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
 
