@@ -2,15 +2,15 @@ import NextAuth from 'next-auth';
 import TwitterProvider from 'next-auth/providers/twitter';
 import { db, admin } from '../../../utils/firebaseAdmin';
 import { logger } from '../../../utils/logger';
-import { getSecrets } from '../../../lib/vault'; // Thêm import
+import { getSecrets } from '../../../lib/vault';
 
-export const authOptions = async () => {
-  const secrets = await getSecrets(); // Lấy bí mật từ Vault
+export default async function handler(req, res) {
+  const secrets = await getSecrets();
   const TWITTER_CLIENT_ID = secrets.TWITTER_CLIENT_ID;
   const TWITTER_CLIENT_SECRET = secrets.TWITTER_CLIENT_SECRET;
   const NEXTAUTH_SECRET = secrets.NEXTAUTH_SECRET;
 
-  return {
+  const authOptions = {
     providers: [
       TwitterProvider({
         clientId: TWITTER_CLIENT_ID,
@@ -29,10 +29,10 @@ export const authOptions = async () => {
           logger.info('Twitter signIn profile:', { profile, user, account });
           const userRef = db.collection('users').doc(user.id);
           const userDoc = await userRef.get();
-          const twitterHandle = profile?.data?.username 
+          const twitterHandle = profile?.data?.username
             ? `@${profile.data.username}`
-            : profile?.username 
-              ? `@${profile.username}` 
+            : profile?.username
+              ? `@${profile.username}`
               : user.name || '';
           if (!twitterHandle) {
             logger.error('No valid Twitter username found', { userId: user.id, profile });
@@ -81,10 +81,10 @@ export const authOptions = async () => {
         if (account) {
           token.id = account.providerAccountId;
           token.twitterAccessToken = account.access_token;
-          token.twitterHandle = profile?.data?.username 
-            ? `@${profile.data.username}` 
-            : profile?.username 
-              ? `@${profile.username}` 
+          token.twitterHandle = profile?.data?.username
+            ? `@${profile.data.username}`
+            : profile?.username
+              ? `@${profile.username}`
               : '';
         }
         logger.info('JWT callback:', {
@@ -108,9 +108,6 @@ export const authOptions = async () => {
       updateAge: 24 * 60 * 60,
     },
   };
-};
 
-export default async function handler(req, res) {
-  const options = await authOptions();
-  return NextAuth(req, res, options);
+  return NextAuth(req, res, authOptions);
 }
