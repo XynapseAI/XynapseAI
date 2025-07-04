@@ -1,4 +1,3 @@
-// /pages/api/dex.js
 import axios from 'axios';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -6,6 +5,7 @@ import { check, validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import pLimit from 'p-limit';
 import { GECKOTERMINAL_CHAIN_MAPPING } from '../../utils/constants';
+import { getSecrets } from '../../lib/vault'; // Thêm import
 
 // Initialize p-limit for request throttling
 const limit = pLimit(10);
@@ -40,10 +40,12 @@ const corsOptions = {
 const userRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 10, // 5 requests per minute per user
-  keyGenerator: (req) => {
+  keyGenerator: async (req) => {
     try {
+      const secrets = await getSecrets(); // Lấy bí mật từ Vault
+      const JWT_SECRET = secrets.JWT_SECRET;
       const token = req.headers.authorization?.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET);
       return decoded.userId || 'anonymous'; // Assumes userId in JWT payload
     } catch {
       return 'invalid_token';
@@ -67,16 +69,18 @@ const validateInput = [
 ];
 
 // JWT authentication middleware
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) {
     return res.status(401).json({ detail: 'Unauthorized: No token provided' });
   }
   try {
-    if (!process.env.JWT_SECRET) {
+    const secrets = await getSecrets(); // Lấy bí mật từ Vault
+    const JWT_SECRET = secrets.JWT_SECRET;
+    if (!JWT_SECRET) {
       throw new Error('JWT_SECRET is not set');
     }
-    jwt.verify(token, process.env.JWT_SECRET);
+    jwt.verify(token, JWT_SECRET);
     next();
   } catch (error) {
     console.error('JWT verification failed:', { message: error.message, timestamp: new Date().toISOString() });

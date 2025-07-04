@@ -1,4 +1,3 @@
-// pages/api/analyze-wallets.js
 import { fetchBlockchainData } from '../../lib/blockchainData';
 import { getNametag, addNametag } from '../../lib/nametags';
 import { db } from '../../utils/firebaseAdmin';
@@ -8,10 +7,9 @@ import { detectLargeFlow } from '../../lib/detectLargeFlow';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
 import { logger } from '../../utils/logger';
+import { getSecrets } from '../../lib/vault'; // Thêm import
 
 const GEMINI_API_BASE_URL = process.env.NEXTAUTH_URL + '/api/gemini';
-const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN;
-const RECAPTCHA_TOKEN_FOR_INTERNAL_CALLS = process.env.RECAPTCHA_TOKEN_FOR_INTERNAL_CALLS;
 const DEFAULT_GEMINI_TIMEOUT_MS = 60000;
 const LARGE_VALUE_THRESHOLD_USD = 1000000;
 const DEPOSIT_WALLET_CONFIDENCE_THRESHOLD = 60;
@@ -72,6 +70,10 @@ async function fetchGeminiAnalysis(walletAddress, txData, isDepositConfidence) {
     if (!txData || txData.length === 0) {
         return 'No transaction data available for Gemini analysis.';
     }
+
+    const secrets = await getSecrets(); // Lấy bí mật từ Vault
+    const INTERNAL_API_TOKEN = secrets.INTERNAL_API_TOKEN;
+    const RECAPTCHA_TOKEN_FOR_INTERNAL_CALLS = secrets.RECAPTCHA_TOKEN_FOR_INTERNAL_CALLS;
 
     const totalTransactions = txData.length;
     const incomingTransactions = txData.filter(tx => tx.to.toLowerCase() === walletAddress.toLowerCase()).length;
@@ -262,6 +264,9 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
 }
 
 export default async function handler(req, res) {
+    const secrets = await getSecrets(); // Lấy bí mật từ Vault
+    const INTERNAL_API_TOKEN = secrets.INTERNAL_API_TOKEN; // Gán từ Vault
+
     const session = await getServerSession(req, res, authOptions);
     let isAuthorized = false;
 

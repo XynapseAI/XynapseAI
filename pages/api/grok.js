@@ -1,4 +1,3 @@
-// pages/api/grok.js
 import { braveSearch } from '../../utils/braveSearch';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
 import { requireAuth } from './middleware/auth';
@@ -7,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
+import { getSecrets } from '../../lib/vault'; // Thêm import
 
 const logger = winston.createLogger({
   level: 'info',
@@ -39,6 +39,9 @@ export default async function handler(req, res) {
   const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
 
+  const secrets = await getSecrets(); // Lấy bí mật từ Vault
+  const XAI_API_KEY = secrets.XAI_API_KEY;
+
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
@@ -68,12 +71,11 @@ export default async function handler(req, res) {
   logger.info(`Processing Grok request: prompt="${prompt.substring(0, 50)}...", deepSearch=${deepSearch}, tokenSymbol="${tokenSymbol || 'none'}"`);
 
   try {
-    // Determine reCAPTCHA action based on context
-    let action = 'chat'; // Default for AITab general prompts
+    let action = 'chat';
     if (prompt.match(/\bPredict\b/i)) {
-      action = 'predict'; // For prediction prompts
+      action = 'predict';
     } else if (prompt.match(/\b(Analyze|Analysis)\b/i) || tokenSymbol) {
-      action = 'analyze'; // For analysis prompts or MarketTab
+      action = 'analyze';
     }
     logger.info(`Verifying reCAPTCHA with action: ${action}`);
     await verifyRecaptcha(recaptchaToken, action, ip);
@@ -82,7 +84,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ detail: error.message });
   }
 
-  if (!process.env.XAI_API_KEY) {
+  if (!XAI_API_KEY) {
     logger.error('XAI_API_KEY is not configured');
     return res.status(500).json({ detail: 'Server configuration error' });
   }
@@ -208,7 +210,7 @@ Answer in a natural, professional tone (250-300 words for analysis/prediction, c
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.XAI_API_KEY}`,
+        Authorization: `Bearer ${XAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

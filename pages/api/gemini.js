@@ -1,4 +1,3 @@
-// pages/api/gemini.js
 import axios from 'axios';
 import { braveSearch } from '../../utils/braveSearch';
 import { getServerSession } from 'next-auth/next';
@@ -8,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
+import { getSecrets } from '../../lib/vault'; // Thêm import
 
 const logger = winston.createLogger({
   level: 'info',
@@ -20,8 +20,8 @@ const logger = winston.createLogger({
 });
 
 const limiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 5, // 5 requests per minute
+  windowMs: 60 * 1000,
+  max: 5,
   message: { error: 'Too many requests, please try again later.' },
   keyGenerator: (req) => req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown-ip',
 });
@@ -46,6 +46,10 @@ export default async function handler(req, res) {
   const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
 
+  const secrets = await getSecrets(); // Lấy bí mật từ Vault
+  const GEMINI_API_KEY = secrets.GEMINI_API_KEY;
+  const INTERNAL_API_TOKEN = secrets.INTERNAL_API_TOKEN;
+
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
@@ -57,7 +61,7 @@ export default async function handler(req, res) {
 
   // Check authentication
   const internalToken = req.headers['x-internal-token'];
-  if (process.env.NODE_ENV === 'development' && internalToken === process.env.INTERNAL_API_TOKEN) {
+  if (process.env.NODE_ENV === 'development' && internalToken === INTERNAL_API_TOKEN) {
     logger.info('Bypassing auth with internal token for Gemini API');
   } else {
     const session = await getServerSession(req, res, authOptions);
@@ -99,13 +103,12 @@ export default async function handler(req, res) {
     }
   }
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!GEMINI_API_KEY) {
     logger.error('GEMINI_API_KEY is not configured');
     return res.status(500).json({ detail: 'Server configuration error: Missing GEMINI_API_KEY' });
   }
 
   try {
-    // Skip token-related analysis for wallet analysis
     let tokenAnalysis = '';
     let links = [];
     if (prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i) && (prompt.match(/\b(Analyze|Analysis|Predict)\b/i) || tokenSymbol)) {
@@ -238,7 +241,7 @@ Answer in a natural, professional tone (150-200 words for analysis/prediction, c
           ],
         },
         {
-          params: { key: process.env.GEMINI_API_KEY },
+          params: { key: GEMINI_API_KEY },
           headers: { 'Content-Type': 'application/json' },
         }
       );

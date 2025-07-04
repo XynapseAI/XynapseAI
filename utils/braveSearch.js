@@ -1,8 +1,11 @@
-// utils/braveSearch.js
 import axios from 'axios';
+import { getSecrets } from '../lib/vault'; // Thêm import
 
 export async function braveSearch({ query, count = 5, freshness = 'pm' }) {
-  if (!process.env.BRAVE_API_KEY) {
+  const secrets = await getSecrets(); // Lấy bí mật từ Vault
+  const BRAVE_API_KEY = secrets.BRAVE_API_KEY;
+
+  if (!BRAVE_API_KEY) {
     return { snippets: '', links: [] };
   }
 
@@ -16,7 +19,7 @@ export async function braveSearch({ query, count = 5, freshness = 'pm' }) {
       headers: {
         'Accept': 'application/json',
         'Accept-Encoding': 'gzip',
-        'X-Subscription-Token': process.env.BRAVE_API_KEY,
+        'X-Subscription-Token': BRAVE_API_KEY,
       },
     });
 

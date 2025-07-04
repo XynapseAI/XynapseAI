@@ -1,12 +1,9 @@
-// pages/api/twitter-search.js
-import { config as dotenvConfig } from 'dotenv';
 import { db } from '../../utils/firebaseAdmin.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
-
-dotenvConfig({ path: '.env' });
+import { getSecrets } from '../../lib/vault'; // Thêm import
 
 const logger = winston.createLogger({
   level: 'info',
@@ -43,6 +40,9 @@ export default async function handler(req, res) {
   const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
 
+  const secrets = await getSecrets(); // Lấy bí mật từ Vault
+  const TWITTER_BEARER_TOKEN = secrets.TWITTER_BEARER_TOKEN;
+
   if (req.method !== 'POST') {
     logger.warn(`Invalid method ${req.method} for ${req.url}`);
     return res.status(405).json({ detail: 'Method not allowed' });
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
   const { query, tokenSymbol } = req.body;
   logger.info(`Processing Twitter search: query="${query}", tokenSymbol="${tokenSymbol || 'none'}"`);
 
-  if (!process.env.TWITTER_BEARER_TOKEN) {
+  if (!TWITTER_BEARER_TOKEN) {
     logger.error('TWITTER_BEARER_TOKEN is not configured');
     return res.status(500).json({
       success: false,
@@ -100,7 +100,7 @@ export default async function handler(req, res) {
         sort_order: 'relevancy',
       });
       const response = await fetch(`https://api.twitter.com/2/tweets/search/recent?${params}`, {
-        headers: { Authorization: `Bearer ${process.env.TWITTER_BEARER_TOKEN}` },
+        headers: { Authorization: `Bearer ${TWITTER_BEARER_TOKEN}` },
       });
 
       const rateLimit = {

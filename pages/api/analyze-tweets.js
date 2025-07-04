@@ -1,4 +1,3 @@
-import { config as dotenvConfig } from 'dotenv';
 import { db } from '../../utils/firebaseAdmin.js';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
@@ -8,8 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
-
-dotenvConfig({ path: '.env' });
+import { getSecrets } from '../../lib/vault';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -83,6 +81,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    const secrets = await getSecrets(); // Lấy bí mật từ Vault
+    const accessToken = secrets.TWITTER_BEARER_TOKEN; // Lấy TWITTER_BEARER_TOKEN từ Vault
+    if (!accessToken) {
+      logger.error('Twitter Bearer Token not configured');
+      return res.status(400).json({ detail: 'Bearer Token not configured' });
+    }
+
     const userRef = db.collection('users').doc(uid);
     const userDoc = await userRef.get();
     if (!userDoc.exists || !userDoc.data().twitterConnected) {
@@ -97,12 +102,6 @@ export default async function handler(req, res) {
     if (!twitterHandle.match(/^[A-Za-z0-9_]{1,15}$/)) {
       logger.error(`Invalid Twitter handle: ${twitterHandle}`);
       return res.status(400).json({ detail: 'Invalid Twitter handle' });
-    }
-
-    const accessToken = process.env.TWITTER_BEARER_TOKEN;
-    if (!accessToken) {
-      logger.error('Twitter Bearer Token not configured');
-      return res.status(400).json({ detail: 'Bearer Token not configured' });
     }
 
     const userResponse = await axios.get(

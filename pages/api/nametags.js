@@ -1,5 +1,4 @@
-// pages/api/nametags.js
-import fs from 'fs/promises'; // Use promises for async file operations
+import fs from 'fs/promises';
 import path from 'path';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
@@ -7,6 +6,7 @@ import { RateLimiter } from 'limiter';
 import { logger } from '../../utils/logger';
 import { query, body, validationResult } from 'express-validator';
 import { db } from '../../utils/firebaseAdmin';
+import { getSecrets } from '../../lib/vault'; // Thêm import
 
 const limiter = new RateLimiter({ tokensPerInterval: 100, interval: 'minute' });
 
@@ -133,12 +133,10 @@ async function getNametagForAddress(address) {
 async function addNametag(address, labels) {
     const normalizedAddress = address.toLowerCase();
     try {
-        // Save to Firestore
         await db.collection('nametags').doc(normalizedAddress).set({
             Labels: labels
         }, { merge: true });
 
-        // Update local JSON file
         const nametagsDir = path.join(process.cwd(), 'public', 'nametags');
         const filePath = path.join(nametagsDir, `addresses-${normalizedAddress.slice(2, 8)}.json`);
         let fileData = {};
@@ -154,7 +152,6 @@ async function addNametag(address, labels) {
         await fs.writeFile(filePath, JSON.stringify(fileData, null, 2), 'utf8');
         logger.info(`Updated JSON file ${filePath} with nametag for ${normalizedAddress}`);
 
-        // Update cache
         if (NAMETAG_CACHE) {
             NAMETAG_CACHE[normalizedAddress] = { Address: address, Labels: labels };
         }
@@ -166,6 +163,9 @@ async function addNametag(address, labels) {
 }
 
 export default async function handler(req, res) {
+    const secrets = await getSecrets(); // Lấy bí mật từ Vault
+    const INTERNAL_API_TOKEN = secrets.INTERNAL_API_TOKEN;
+
     const remainingRequests = await limiter.removeTokens(1);
     if (remainingRequests < 0) {
         logger.warn('Rate limit exceeded for nametags API');
@@ -179,7 +179,7 @@ export default async function handler(req, res) {
     let isAdminUser = false;
 
     const internalToken = req.headers['x-internal-token'];
-    if (process.env.NODE_ENV === 'development' && internalToken === process.env.INTERNAL_API_TOKEN) {
+    if (process.env.NODE_ENV === 'development' && internalToken === INTERNAL_API_TOKEN) {
         logger.info('Bypassing auth with internal token for nametags API (development mode).');
         isAdminUser = true;
     } else if (req.method === 'PUT' || req.method === 'PATCH') {

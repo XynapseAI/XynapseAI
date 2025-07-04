@@ -6,7 +6,8 @@ import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
 import Cors from 'cors';
 import { isAddress } from 'ethers';
-import { requireAuth } from './middleware/auth'; // Assuming this middleware is for user authentication
+import { requireAuth } from './middleware/auth';
+import { getSecrets } from '../../lib/vault'; // Thêm import
 
 // --- Logger Configuration ---
 const logger = winston.createLogger({
@@ -80,12 +81,12 @@ const cors = Cors({
 const validate = [
     body('action')
         .isString()
-        .isIn(['wallet-balances', 'transactions', 'token-supply', 'token-info']) // Added token-supply and token-info for Etherscan specific functionality
+        .isIn(['wallet-balances', 'transactions', 'token-supply', 'token-info'])
         .withMessage('Invalid action'),
     body('chain')
         .isString()
         .notEmpty()
-        .withMessage('Chain is required'), // Etherscan API base URL depends on the chain
+        .withMessage('Chain is required'),
     body('address')
         .if(body('action').isIn(['wallet-balances', 'transactions']))
         .notEmpty()
@@ -93,7 +94,7 @@ const validate = [
         .matches(/^0x[a-fA-F0-9]{40}$/)
         .withMessage('Wallet address must be a valid EVM address'),
     body('tokenAddress')
-        .if(body('action').isIn(['token-supply', 'token-info'])) // Only require tokenAddress for token-specific actions
+        .if(body('action').isIn(['token-supply', 'token-info']))
         .isString()
         .matches(/^0x[a-fA-F0-9]{40}$/)
         .withMessage('Token address must be a valid EVM address'),
@@ -103,13 +104,10 @@ const validate = [
 const ETHERSCAN_API_URLS = {
     ethereum: 'https://api.etherscan.io/api',
     sepolia: 'https://api-sepolia.etherscan.io/api',
-    bnb: 'https://api.bscscan.com/api', // Binance Smart Chain
+    bnb: 'https://api.bscscan.com/api',
     polygon: 'https://api.polygonscan.com/api',
     arbitrum: 'https://api.arbiscan.io/api',
     optimism: 'https://api-optimistic.etherscan.io/api',
-    // Add more chains as needed, e.g., fantom, avalanche_c
-    // fantom: 'https://api.ftmscan.com/api',
-    // avalanche_c: 'https://api.snowtrace.io/api',
 };
 
 export const config = { api: { bodyParser: { sizeLimit: '10kb' } } };
@@ -118,6 +116,10 @@ export default async function handler(req, res) {
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
     const startTime = Date.now();
     logger.info(`Request to ${req.url} from IP ${ip}, body: ${JSON.stringify(req.body)}`);
+
+    const secrets = await getSecrets(); // Lấy bí mật từ Vault
+    const ETHERSCAN_API_KEY = secrets.ETHERSCAN_API_KEY;
+    const INTERNAL_API_TOKEN = secrets.INTERNAL_API_TOKEN;
 
     try {
         await new Promise((resolve, reject) => {
@@ -149,7 +151,7 @@ export default async function handler(req, res) {
 
     const { chain, action, address, tokenAddress } = req.body;
 
-    if (!process.env.ETHERSCAN_API_KEY) {
+    if (!ETHERSCAN_API_KEY) {
         logger.error('ETHERSCAN_API_KEY is not configured');
         return res.status(500).json({ detail: 'Server configuration error: Missing ETHERSCAN_API_KEY' });
     }
@@ -160,10 +162,10 @@ export default async function handler(req, res) {
         return res.status(400).json({ detail: `Unsupported chain for Etherscan: ${chain}` });
     }
 
-    // Authentication for specific actions (similar to sim.js)
+    // Authentication for specific actions
     if (['wallet-balances', 'transactions'].includes(action)) {
         const internalToken = req.headers['x-internal-token'];
-        if (process.env.NODE_ENV === 'development' && internalToken === process.env.INTERNAL_API_TOKEN) {
+        if (process.env.NODE_ENV === 'development' && internalToken === INTERNAL_API_TOKEN) {
             logger.info(`Bypassing auth with internal token for ${action}`, { ip });
         } else {
             try {
@@ -188,8 +190,7 @@ export default async function handler(req, res) {
         let data = [];
 
         if (action === 'transactions' && address) {
-            // Etherscan: Get a list of 'Normal' Transactions By Address
-            apiUrl = `${etherscanBaseUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            apiUrl = `${etherscanBaseUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${ETHERSCAN_API_KEY}`;
             logger.info(`Calling Etherscan API for transactions: ${apiUrl}`, { ip });
             const response = await axios.get(apiUrl, { timeout: 15000 });
 
@@ -199,8 +200,8 @@ export default async function handler(req, res) {
                     hash: tx.hash,
                     from: tx.from,
                     to: tx.to,
-                    value: '0x' + (parseInt(tx.value) || 0).toString(16), // Convert wei to hex string
-                    block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(), // Convert Unix timestamp to ISO string
+                    value: '0x' + (parseInt(tx.value) || 0).toString(16),
+                    block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
                     gasUsed: tx.gasUsed,
                     gasPrice: tx.gasPrice,
                     input: tx.input,
@@ -213,28 +214,21 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, data });
 
         } else if (action === 'wallet-balances' && address) {
-            // Etherscan: Get Ether Balance for a Single Address
-            apiUrl = `${etherscanBaseUrl}?module=account&action=balance&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            apiUrl = `${etherscanBaseUrl}?module=account&action=balance&address=${address}&tag=latest&apikey=${ETHERSCAN_API_KEY}`;
             logger.info(`Calling Etherscan API for balance: ${apiUrl}`, { ip });
             const response = await axios.get(apiUrl, { timeout: 15000 });
 
             if (response.data.status === '1' && typeof response.data.result === 'string') {
                 const ethBalanceWei = parseInt(response.data.result);
-                // For ERC-20 token balances, Etherscan requires a separate call per token.
-                // Fetching all ERC-20 balances for a wallet is not as straightforward as Dune's API.
-                // A common approach is to list popular tokens and check balance for each.
-                // For simplicity, this example only fetches native coin balance.
-                // To get ERC-20 balances, you'd need to use 'tokenbalance' action for each token.
-
                 data = [{
                     chain: chain,
-                    chain_id: null, // Etherscan doesn't return chain_id directly for balance
+                    chain_id: null,
                     address: address,
                     symbol: chain === 'ethereum' ? 'ETH' : (chain === 'bnb' ? 'BNB' : 'Native'),
-                    decimals: 18, // Native coin usually 18 decimals
+                    decimals: 18,
                     amount: ethBalanceWei / Math.pow(10, 18),
-                    price_usd: 0, // Etherscan balance API doesn't return price_usd directly
-                    value_usd: 0, // Requires external price lookup
+                    price_usd: 0,
+                    value_usd: 0,
                     logo: null,
                 }];
             } else {
@@ -244,8 +238,7 @@ export default async function handler(req, res) {
             return res.status(200).json({ success: true, data });
 
         } else if (action === 'token-supply' && tokenAddress) {
-            // Etherscan: Get Token TotalSupply
-            apiUrl = `${etherscanBaseUrl}?module=stats&action=tokensupply&contractaddress=${tokenAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            apiUrl = `${etherscanBaseUrl}?module=stats&action=tokensupply&contractaddress=${tokenAddress}&apikey=${ETHERSCAN_API_KEY}`;
             logger.info(`Calling Etherscan API for token supply: ${apiUrl}`, { ip });
             const response = await axios.get(apiUrl, { timeout: 15000 });
 
@@ -258,13 +251,6 @@ export default async function handler(req, res) {
             }
 
         } else if (action === 'token-info' && tokenAddress) {
-            // Etherscan: Get ERC20 Token Account Balance for TokenContractAddress
-            // This API gives the balance of a specific wallet for a specific token.
-            // Etherscan doesn't have a direct 'get token info by address' like Dune.
-            // The best way to get general token info (name, symbol, decimals) is via a smart contract call
-            // or by querying transaction data where the token is involved.
-            // For now, we'll return a placeholder. For actual usage, you'd integrate a web3 library
-            // like ethers.js to call contract methods (name(), symbol(), decimals()).
             logger.warn(`'token-info' action not fully supported by Etherscan directly. Requires contract interaction for full details.`, { ip, tokenAddress });
             return res.status(200).json({ success: true, data: { tokenAddress, name: 'Unknown', symbol: 'Unknown', decimals: 0, note: 'Requires contract interaction for full details' } });
 

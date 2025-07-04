@@ -1,4 +1,3 @@
-// pages/api/verify-wallet.js
 import { db } from '../../utils/firebaseAdmin.js';
 import { ethers } from 'ethers';
 import { getServerSession } from 'next-auth/next';
@@ -10,6 +9,7 @@ import { body, validationResult } from 'express-validator';
 import { logger } from '../../utils/logger.js';
 import helmet from 'helmet';
 import jwt from 'jsonwebtoken';
+import { getSecrets } from '../../lib/vault'; // Thêm import
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -37,6 +37,9 @@ export default async function handler(req, res) {
     method: req.method,
     body: req.body,
   });
+
+  const secrets = await getSecrets(); // Lấy bí mật từ Vault
+  const JWT_SECRET = secrets.JWT_SECRET;
 
   try {
     await new Promise((resolve, reject) => {
@@ -79,11 +82,11 @@ export default async function handler(req, res) {
 
   const token = authHeader.split(' ')[1];
   try {
-    if (!process.env.JWT_SECRET) {
+    if (!JWT_SECRET) {
       logger.error('JWT_SECRET is not configured');
       throw new Error('Server configuration error: Missing JWT_SECRET');
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     logger.info('JWT decoded payload:', { decoded });
     if (decoded.userId !== session.user.id) {
       logger.warn(`JWT userId mismatch:`, { jwtUserId: decoded.userId, sessionUserId: session.user.id });
