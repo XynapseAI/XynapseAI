@@ -20,7 +20,14 @@ export async function middleware(req) {
             'https://www.google.com',
             'https://www.recaptcha.net',
           ],
-          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://www.google.com', 'https://www.recaptcha.net'],
+          scriptSrc: [
+            "'self'",
+            "'unsafe-inline'", // Chỉ nên dùng nếu không thể tránh được
+            "'unsafe-eval'",   // Chỉ nên dùng nếu không thể tránh được
+            'https://www.google.com',
+            'https://www.gstatic.com', // Rất quan trọng cho reCAPTCHA!
+            'https://www.recaptcha.net',
+          ],
           styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         },
       },
