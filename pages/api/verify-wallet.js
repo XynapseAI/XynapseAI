@@ -1,22 +1,20 @@
-import { db } from '../../utils/firebaseAdmin';
+// pages/api/verify-wallet.js
+import { db } from '../../utils/firebaseAdmin.js';
 import { ethers } from 'ethers';
 import { getServerSession } from 'next-auth/next';
 import { getCsrfToken } from 'next-auth/react';
-import { authOptions } from './auth/[...nextauth]';
-import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
+import { authOptions } from './auth/[...nextauth].js';
+import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import { logger } from '../../utils/logger';
+import { logger } from '../../utils/logger.js';
+import helmet from 'helmet';
 import jwt from 'jsonwebtoken';
-import { getSecrets } from '../../lib/vault';
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
   message: { error: 'Too many requests, please try again later.' },
-  keyGenerator: (req) => {
-    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
-  },
 });
 
 const validatePost = [
@@ -33,14 +31,12 @@ const validatePost = [
 ];
 
 export default async function handler(req, res) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+  helmet()(req, res, () => {});
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`, {
     method: req.method,
     body: req.body,
   });
-
-  const secrets = await getSecrets();
-  const JWT_SECRET = secrets.JWT_SECRET;
 
   try {
     await new Promise((resolve, reject) => {
@@ -56,8 +52,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ detail: 'Method not allowed' });
   }
 
-  const authOptionsInstance = await authOptions();
-  const session = await getServerSession(req, res, authOptionsInstance);
+  const session = await getServerSession(req, res, authOptions);
   if (!session || !session.user?.id) {
     logger.warn('Session not authenticated or missing user ID');
     return res.status(401).json({ detail: 'Not signed in' });
@@ -69,7 +64,7 @@ export default async function handler(req, res) {
   });
 
   const csrfToken = req.headers['x-csrf-token'];
-  const expectedCsrfToken = await getCsrfToken({ req: { headers: req.headers } });
+  const expectedCsrfToken = await getCsrfToken({ req });
   logger.info('CSRF token validation:', {
     provided: csrfToken ? csrfToken.substring(0, 8) + '...' : 'none',
     expected: expectedCsrfToken ? expectedCsrfToken.substring(0, 8) + '...' : 'none',
@@ -84,11 +79,11 @@ export default async function handler(req, res) {
 
   const token = authHeader.split(' ')[1];
   try {
-    if (!JWT_SECRET) {
+    if (!process.env.JWT_SECRET) {
       logger.error('JWT_SECRET is not configured');
       throw new Error('Server configuration error: Missing JWT_SECRET');
     }
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     logger.info('JWT decoded payload:', { decoded });
     if (decoded.userId !== session.user.id) {
       logger.warn(`JWT userId mismatch:`, { jwtUserId: decoded.userId, sessionUserId: session.user.id });

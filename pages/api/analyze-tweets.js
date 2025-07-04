@@ -1,25 +1,34 @@
-import { db } from '../../utils/firebaseAdmin';
+import { config as dotenvConfig } from 'dotenv';
+import { db } from '../../utils/firebaseAdmin.js';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from './auth/[...nextauth]';
+import { authOptions } from './auth/[...nextauth].js';
 import axios from 'axios';
-import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
+import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import { logger } from '../../utils/logger';
-import { getSecrets } from '../../lib/vault';
+import winston from 'winston';
+import helmet from 'helmet';
+
+dotenvConfig({ path: '.env' });
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'logs/combined.log' }),
+  ],
+});
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: 'Too many requests, please try again later.' },
-  keyGenerator: (req) => {
-    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
-  },
 });
 
 const validate = [
-  body('uid').isString().isLength({ max: 100 }).withMessage('Invalid UID'),
-  body('recaptchaToken').isString().withMessage('Invalid reCAPTCHA token'),
+  body('uid').isString().isLength({ max: 100 }),
+  body('recaptchaToken').isString(),
 ];
 
 export const config = {
@@ -31,26 +40,26 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  helmet()(req, res, () => {});
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
     });
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`, { ip: req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip });
+    logger.error(`Rate limit error: ${err.message}`);
     return res.status(429).json({ detail: 'Too many requests, please try again later.' });
   }
 
-  const authOptionsInstance = await authOptions();
-  const session = await getServerSession(req, res, authOptionsInstance);
+  const session = await getServerSession(req, res, authOptions);
   if (!session) {
-    logger.warn('Unauthorized access attempt', { method: req.method });
+    logger.warn('Not authenticated');
     return res.status(401).json({ detail: 'Not signed in' });
   }
 
   await Promise.all(validate.map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`, { uid: req.body.uid });
+    logger.warn(`Validation error: ${JSON.stringify(errors.array())}`);
     return res.status(400).json({ errors: errors.array() });
   }
 
@@ -66,59 +75,54 @@ export default async function handler(req, res) {
   }
 
   try {
-    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
     await verifyRecaptcha(recaptchaToken, 'analyze_tweets', ip);
   } catch (error) {
-    logger.error(`reCAPTCHA verification failed: ${error.message}`, { uid });
+    logger.error(`reCAPTCHA verification failed: ${error.message}`);
     return res.status(403).json({ detail: 'reCAPTCHA verification failed. Please try again.' });
   }
 
   try {
-    const secrets = await getSecrets();
-    const accessToken = secrets.TWITTER_BEARER_TOKEN;
-    if (!accessToken) {
-      logger.error('Twitter Bearer Token not configured', { uid });
-      return res.status(500).json({ detail: 'Server configuration error: Missing Twitter Bearer Token' });
-    }
-
     const userRef = db.collection('users').doc(uid);
     const userDoc = await userRef.get();
     if (!userDoc.exists || !userDoc.data().twitterConnected) {
-      logger.warn(`Twitter account not connected for user: ${uid}`);
+      logger.warn(`Twitter account not connected: ${uid}`);
       return res.status(403).json({ detail: 'Twitter account not connected' });
     }
     const user = userDoc.data();
 
-    let twitterHandle = user.twitterHandle?.replace(/^@/, '').replace(/[^A-Za-z0-9_]/g, '');
-    if (!twitterHandle || !twitterHandle.match(/^[A-Za-z0-9_]{1,15}$/)) {
-      logger.error(`Invalid Twitter handle: ${twitterHandle}`, { uid });
+    let twitterHandle = user.twitterHandle
+      .replace(/^@/, '')
+      .replace(/[^A-Za-z0-9_]/g, '');
+    if (!twitterHandle.match(/^[A-Za-z0-9_]{1,15}$/)) {
+      logger.error(`Invalid Twitter handle: ${twitterHandle}`);
       return res.status(400).json({ detail: 'Invalid Twitter handle' });
+    }
+
+    const accessToken = process.env.TWITTER_BEARER_TOKEN;
+    if (!accessToken) {
+      logger.error('Twitter Bearer Token not configured');
+      return res.status(400).json({ detail: 'Bearer Token not configured' });
     }
 
     const userResponse = await axios.get(
       `https://api.twitter.com/2/users/by/username/${encodeURIComponent(twitterHandle)}?user.fields=id`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 10000,
-      }
+      { headers: { Authorization: `Bearer ${accessToken}` } }
     );
 
-    if (!userResponse.data?.data?.id) {
-      logger.error(`Twitter user not found: ${twitterHandle}`, { uid });
+    if (!userResponse.data.data) {
+      logger.error(`Twitter user not found: ${twitterHandle}`);
       return res.status(400).json({ detail: 'Twitter user not found' });
     }
 
     const twitterUserId = userResponse.data.data.id;
     const tweetsResponse = await axios.get(
       `https://api.twitter.com/2/users/${twitterUserId}/tweets?tweet.fields=created_at,text&max_results=10`,
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        timeout: 10000,
-      }
+      { headers: { Authorization: `Bearer ${accessToken}` } }
     );
 
-    if (!tweetsResponse.data?.data?.length) {
-      logger.warn(`No tweets found for user: ${twitterUserId}`, { uid });
+    if (!tweetsResponse.data.data) {
+      logger.warn(`No tweets found: ${twitterUserId}`);
       return res.status(400).json({ detail: 'No tweets found' });
     }
 
@@ -152,14 +156,7 @@ export default async function handler(req, res) {
         points,
         createdAt: new Date(tweet.created_at),
       });
-      tweetAnalyses.push({
-        id: tweet.id,
-        userId: uid,
-        tweetId: tweet.id,
-        text: tweet.text,
-        points,
-        createdAt: new Date(tweet.created_at),
-      });
+      tweetAnalyses.push({ id: tweet.id, userId: uid, tweetId: tweet.id, text: tweet.text, points, createdAt: new Date(tweet.created_at) });
     });
 
     const totalPoints = totalTweetPoints + (user.aiPoints || 0) + (user.taskPoints || 0);
@@ -169,7 +166,6 @@ export default async function handler(req, res) {
     });
 
     await batch.commit();
-    logger.info(`Tweets analyzed successfully for user: ${uid}`, { totalPoints, tweetPoints: totalTweetPoints });
     return res.status(200).json({
       success: true,
       points: totalPoints,
@@ -177,11 +173,7 @@ export default async function handler(req, res) {
       message: 'Tweets analyzed and points awarded!',
     });
   } catch (error) {
-    logger.error(`Error analyzing tweets: ${error.message}`, {
-      uid,
-      twitterError: error.response?.data,
-      status: error.response?.status,
-    });
+    logger.error(`Error analyzing tweets: ${error.response?.data || error.message}`);
     if (error.response?.status === 429) {
       return res.status(429).json({
         detail: 'Twitter API rate limit exceeded. Please try again later.',

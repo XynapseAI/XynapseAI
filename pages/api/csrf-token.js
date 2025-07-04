@@ -10,14 +10,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const authOptionsInstance = await authOptions();
-    const session = await getServerSession(req, res, authOptionsInstance);
+    const session = await getServerSession(req, res, authOptions);
     if (!session) {
       logger.warn('Session not authenticated');
       return res.status(401).json({ detail: 'Not signed in' });
     }
 
-    const csrfToken = await getCsrfToken({ req: { headers: req.headers } });
+    const csrfToken = await getCsrfToken({ req });
     if (!csrfToken) {
       logger.error('Failed to generate CSRF token');
       return res.status(500).json({ detail: 'Failed to generate CSRF token' });

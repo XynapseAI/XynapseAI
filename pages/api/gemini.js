@@ -1,3 +1,4 @@
+// pages/api/gemini.js
 import axios from 'axios';
 import { braveSearch } from '../../utils/braveSearch';
 import { getServerSession } from 'next-auth/next';
@@ -6,7 +7,7 @@ import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
-import { getSecrets } from '../../lib/vault';
+import helmet from 'helmet';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -19,12 +20,10 @@ const logger = winston.createLogger({
 });
 
 const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // 5 requests per minute
   message: { error: 'Too many requests, please try again later.' },
-  keyGenerator: (req) => {
-    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
-  },
+  keyGenerator: (req) => req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown-ip',
 });
 
 const validate = [
@@ -43,12 +42,9 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+  helmet({ contentSecurityPolicy: false })(req, res, () => {});
+  const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}`);
-
-  const secrets = await getSecrets();
-  const GEMINI_API_KEY = secrets.GEMINI_API_KEY;
-  const INTERNAL_API_TOKEN = secrets.INTERNAL_API_TOKEN;
 
   try {
     await new Promise((resolve, reject) => {
@@ -61,12 +57,10 @@ export default async function handler(req, res) {
 
   // Check authentication
   const internalToken = req.headers['x-internal-token'];
-  let session;
-  if (process.env.NODE_ENV === 'development' && internalToken === INTERNAL_API_TOKEN) {
+  if (process.env.NODE_ENV === 'development' && internalToken === process.env.INTERNAL_API_TOKEN) {
     logger.info('Bypassing auth with internal token for Gemini API');
   } else {
-    const authOptionsInstance = await authOptions();
-    session = await getServerSession(req, res, authOptionsInstance);
+    const session = await getServerSession(req, res, authOptions);
     if (!session) {
       logger.warn('Unauthorized request');
       return res.status(401).json({ detail: 'Not authenticated' });
@@ -105,12 +99,13 @@ export default async function handler(req, res) {
     }
   }
 
-  if (!GEMINI_API_KEY) {
+  if (!process.env.GEMINI_API_KEY) {
     logger.error('GEMINI_API_KEY is not configured');
     return res.status(500).json({ detail: 'Server configuration error: Missing GEMINI_API_KEY' });
   }
 
   try {
+    // Skip token-related analysis for wallet analysis
     let tokenAnalysis = '';
     let links = [];
     if (prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i) && (prompt.match(/\b(Analyze|Analysis|Predict)\b/i) || tokenSymbol)) {
@@ -165,8 +160,7 @@ ${politicalSearch.snippets || 'No recent political news impacting the market.'}
     let recentInteractions = '';
     if (process.env.NODE_ENV !== 'development') {
       try {
-        const authOptionsInstance = await authOptions();
-        const session = await getServerSession(req, res, authOptionsInstance);
+        const session = await getServerSession(req, res, authOptions);
         if (session?.user?.id) {
           const interactions = await axios.get(`${process.env.NEXTAUTH_URL}/api/ai-interaction`, {
             params: { uid: session.user.id, limit: 5 },
@@ -244,7 +238,7 @@ Answer in a natural, professional tone (150-200 words for analysis/prediction, c
           ],
         },
         {
-          params: { key: GEMINI_API_KEY },
+          params: { key: process.env.GEMINI_API_KEY },
           headers: { 'Content-Type': 'application/json' },
         }
       );

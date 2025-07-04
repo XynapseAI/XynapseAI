@@ -2,11 +2,11 @@ import axios from 'axios';
 import winston from 'winston';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
+import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
 import Cors from 'cors';
 import { isAddress } from 'ethers';
 import { requireAuth } from './middleware/auth';
-import { getSecrets } from '../../lib/vault'; // Thêm import
 
 const logger = winston.createLogger({
   level: 'info',
@@ -166,13 +166,13 @@ export default async function handler(req, res) {
   const startTime = Date.now();
   logger.info(`Request to ${req.url} from IP ${ip}, body: ${JSON.stringify(req.body)}`);
 
-  const secrets = await getSecrets(); // Lấy bí mật từ Vault
-  const SIM_API_KEY = secrets.SIM_API_KEY;
-
   try {
     await new Promise((resolve, reject) => {
       cors(req, res, (err) => (err ? reject(err) : resolve()));
     });
+
+    helmet()(req, res, () => {});
+
     await Promise.all([
       new Promise((resolve, reject) => limiter(req, res, (err) => (err ? reject(err) : resolve()))),
       new Promise((resolve, reject) => addressLimiter(req, res, (err) => (err ? reject(err) : resolve()))),
@@ -196,7 +196,7 @@ export default async function handler(req, res) {
 
   const { chain, tokenAddress, action, decimalPlace = 18, address } = req.body;
 
-  if (!SIM_API_KEY) {
+  if (!process.env.SIM_API_KEY) {
     logger.error('SIM_API_KEY is not configured');
     return res.status(500).json({ detail: 'Server configuration error: Missing SIM_API_KEY' });
   }
@@ -231,7 +231,7 @@ export default async function handler(req, res) {
       const url = `https://api.sim.dune.com/v1/evm/token-holders/${chainId}/${tokenAddress}?limit=100`;
       logger.info(`Calling Dune Sim API: ${url}`, { ip });
       const response = await axios.get(url, {
-        headers: { 'X-Sim-Api-Key': SIM_API_KEY },
+        headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
         timeout: 15000,
       });
 
@@ -272,7 +272,7 @@ export default async function handler(req, res) {
       logger.info(`Processing wallet-balances for address: ${address}`, { ip });
       const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${SUPPORTED_CHAIN_IDS}&metadata=logo&limit=100`;
       const response = await axios.get(url, {
-        headers: { 'X-Sim-Api-Key': SIM_API_KEY },
+        headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
         timeout: 15000,
       });
 
@@ -302,7 +302,7 @@ export default async function handler(req, res) {
       logger.info(`Processing transactions for address: ${address}`, { ip });
       const url = `https://api.sim.dune.com/v1/evm/transactions/${address}?chain_ids=${SUPPORTED_CHAIN_IDS}&limit=100`;
       const response = await axios.get(url, {
-        headers: { 'X-Sim-Api-Key': SIM_API_KEY },
+        headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
         timeout: 15000,
       });
 

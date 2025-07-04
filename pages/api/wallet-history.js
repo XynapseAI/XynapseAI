@@ -5,6 +5,7 @@ import { requireAuth } from './middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
+import helmet from 'helmet';
 
 dotenvConfig({ path: '.env' });
 
@@ -39,6 +40,7 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   logger.info(`Request to ${req.url} from IP ${ip}`);
 

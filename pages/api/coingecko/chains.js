@@ -4,7 +4,6 @@ import winston from 'winston';
 import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
 import NodeCache from 'node-cache';
-import { getSecrets } from '../../../lib/vault'; // Thêm import
 
 const logger = winston.createLogger({
   level: 'info',
@@ -39,9 +38,6 @@ export default async function handler(req, res) {
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
   logger.info(`Request to /api/coingecko/chains from IP ${ip}`);
 
-  const secrets = await getSecrets(); // Lấy bí mật từ Vault
-  const COINGECKO_API_KEY = secrets.COINGECKO_API_KEY;
-
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
@@ -66,6 +62,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, data: cachedData });
   }
 
+  const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
   if (!COINGECKO_API_KEY) {
     logger.error('COINGECKO_API_KEY is not configured');
     return res.status(500).json({ detail: 'Server configuration error: Missing COINGECKO_API_KEY' });
@@ -81,7 +78,7 @@ export default async function handler(req, res) {
       id: chain.id,
       name: chain.name,
       chainId: chain.chain_identifier,
-      shortname: chain.shortname || chain.name,
+      shortname: chain.shortname || chain.name, // Use lowercase 'shortname' to match API
       image: chain.image || { thumb: '/fallback-image.png', small: '/fallback-image.png', large: '/fallback-image.png' },
     }));
 

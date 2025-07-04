@@ -1,9 +1,9 @@
-import { db } from '../../utils/firebaseAdmin';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from './auth/[...nextauth]';
+import { db } from '../../utils/firebaseAdmin.js';
+import { requireAuth } from './middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 import { query, validationResult } from 'express-validator';
 import winston from 'winston';
+import helmet from 'helmet';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -19,8 +19,10 @@ const limiter = rateLimit({
   max: 10,
   message: { error: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' },
   keyGenerator: (req) => {
-    return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
+    return ip;
   },
+  trustProxy: true,
 });
 
 const validateGet = [
@@ -29,7 +31,8 @@ const validateGet = [
 ];
 
 export default async function handler(req, res) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+  helmet()(req, res, () => {});
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
   logger.info(`Yêu cầu tới ${req.url} từ IP ${ip}, query: ${JSON.stringify(req.query)}`);
 
   try {
@@ -41,11 +44,12 @@ export default async function handler(req, res) {
     return res.status(429).json({ detail: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' });
   }
 
-  // Check authentication
-  const authOptionsInstance = await authOptions();
-  const session = await getServerSession(req, res, authOptionsInstance);
-  if (!session || !session.user?.id) {
-    logger.error(`Lỗi xác thực: Chưa đăng nhập hoặc thiếu ID người dùng`);
+  try {
+    await new Promise((resolve, reject) => {
+      requireAuth(req, res, (err) => (err ? reject(err) : resolve()));
+    });
+  } catch (err) {
+    logger.error(`Lỗi xác thực: ${err.message}`);
     return res.status(401).json({ detail: 'Chưa đăng nhập: Vui lòng đăng nhập.' });
   }
 
@@ -63,8 +67,8 @@ export default async function handler(req, res) {
 
   try {
     const { uid, interactionType = 'chat' } = req.query;
-    if (!uid || uid !== session.user.id) {
-      logger.error(`Tham số không hợp lệ: uid=${uid}, sessionUserId=${session.user.id}`);
+    if (!uid || uid !== req.session?.user?.id) {
+      logger.error(`Tham số không hợp lệ: uid=${uid}, sessionUserId=${req.session?.user?.id}`);
       return res.status(400).json({ detail: 'Thiếu hoặc ID người dùng không hợp lệ' });
     }
 

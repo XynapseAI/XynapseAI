@@ -2,8 +2,8 @@ import axios from 'axios';
 import rateLimit from 'express-rate-limit';
 import { query, validationResult } from 'express-validator';
 import winston from 'winston';
+import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
-import { getSecrets } from '../../lib/vault'; // Thêm import
 
 const logger = winston.createLogger({
   level: 'info',
@@ -55,6 +55,8 @@ const validate = [
 ];
 
 export default async function handler(req, res) {
+  helmet()(req, res, () => {});
+
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
   logger.info(`Request to /api/coingecko from IP ${ip}, query: ${JSON.stringify(req.query)}`);
 
@@ -79,14 +81,13 @@ export default async function handler(req, res) {
     return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
   }
 
-  const secrets = await getSecrets(); // Lấy bí mật từ Vault
-  const COINGECKO_API_KEY = secrets.COINGECKO_API_KEY;
+  const { action, ids, convert, limit, start, query, id } = req.query;
+
+  const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
   if (!COINGECKO_API_KEY) {
     logger.error('COINGECKO_API_KEY is not configured');
     return res.status(500).json({ detail: 'Server configuration error: Missing COINGECKO_API_KEY' });
   }
-
-  const { action, ids, convert, limit, start, query, id } = req.query;
 
   if (!axios || typeof axios.get !== 'function') {
     logger.error('Axios is not properly initialized');

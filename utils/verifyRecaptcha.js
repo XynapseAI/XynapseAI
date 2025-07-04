@@ -1,11 +1,8 @@
+// utils/verifyRecaptcha.js
 const axios = require('axios');
 const { logger } = require('./logger');
-const { getSecrets } = require('../lib/vault'); // Thêm import
 
 async function verifyRecaptcha(token, action, ip) {
-  const secrets = await getSecrets(); // Lấy bí mật từ Vault
-  const RECAPTCHA_SECRET_KEY = secrets.RECAPTCHA_SECRET_KEY;
-
   // Validate inputs
   if (!token || typeof token !== 'string' || token.length < 10) {
     throw new Error('Invalid reCAPTCHA token');
@@ -18,35 +15,35 @@ async function verifyRecaptcha(token, action, ip) {
   }
 
   // Check environment variable
-  if (!RECAPTCHA_SECRET_KEY) {
+  if (!process.env.RECAPTCHA_SECRET_KEY) {
     throw new Error('Server configuration error: Missing RECAPTCHA_SECRET_KEY');
   }
 
   try {
-    const response = await axios.post(
-      'https://www.google.com/recaptcha/api/siteverify',
-      new URLSearchParams({
-        secret: RECAPTCHA_SECRET_KEY,
-        response: token,
-        ...(ip && { remoteip: ip }),
-      }),
-      {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        timeout: 10000,
-      }
-    );
-
-    const { success, score, action: recaptchaAction, 'error-codes': errorCodes, hostname } = response.data;
-    logger.info(`reCAPTCHA verification: success=${success}, score=${score}, action=${recaptchaAction}, hostname=${hostname}, error-codes=${errorCodes?.join(', ') || 'none'}`);
-
-    if (!success) {
-      const errorMessage = errorCodes?.includes('timeout-or-duplicate')
-        ? 'reCAPTCHA token timed out or was reused'
-        : errorCodes?.includes('invalid-input-secret')
-        ? 'Invalid reCAPTCHA secret key'
-        : `reCAPTCHA verification failed: ${errorCodes?.join(', ') || 'Unknown error'}`;
-      throw new Error(errorMessage);
+  const response = await axios.post(
+    'https://www.google.com/recaptcha/api/siteverify',
+    new URLSearchParams({
+      secret: process.env.RECAPTCHA_SECRET_KEY,
+      response: token,
+      ...(ip && { remoteip: ip }),
+    }),
+    {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: 10000,
     }
+  );
+
+  const { success, score, action: recaptchaAction, 'error-codes': errorCodes, hostname } = response.data;
+  logger.info(`reCAPTCHA verification: success=${success}, score=${score}, action=${recaptchaAction}, hostname=${hostname}, error-codes=${errorCodes?.join(', ') || 'none'}`);
+
+  if (!success) {
+    const errorMessage = errorCodes?.includes('timeout-or-duplicate')
+      ? 'reCAPTCHA token timed out or was reused'
+      : errorCodes?.includes('invalid-input-secret')
+      ? 'Invalid reCAPTCHA secret key'
+      : `reCAPTCHA verification failed: ${errorCodes?.join(', ') || 'Unknown error'}`;
+    throw new Error(errorMessage);
+  }
 
     if (score < 0.5) {
       throw new Error('reCAPTCHA score too low');
@@ -54,18 +51,19 @@ async function verifyRecaptcha(token, action, ip) {
 
     if (recaptchaAction && recaptchaAction.toLowerCase() !== action.toLowerCase()) {
       throw new Error('Invalid reCAPTCHA action');
+    } else if (!recaptchaAction) {
     }
 
     return { success: true, score };
   } catch (error) {
-    logger.error(`reCAPTCHA verification failed: ${error.message}`, {
-      tokenLength: token?.length,
-      action,
-      ip,
-      error: error.response?.data,
-    });
-    throw new Error(`reCAPTCHA verification failed: ${error.message}`);
-  }
+  logger.error(`reCAPTCHA verification failed: ${error.message}`, {
+    tokenLength: token?.length,
+    action,
+    ip,
+    error: error.response?.data,
+  });
+  throw new Error(`reCAPTCHA verification failed: ${error.message}`);
+}
 }
 
 module.exports = { verifyRecaptcha };

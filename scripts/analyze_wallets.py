@@ -40,7 +40,6 @@ CACHE_DIR = 'cache'
 
 # Deposit wallet analysis thresholds
 DEPOSIT_MIN_INCOMING_TXS_24H = 50
-DEPOSIT_MAX_INCOMING_TXS_24H = 10
 DEPOSIT_MAX_UNIQUE_SENDERS_24H = 10
 DEPOSIT_MIN_OUTGOING_TO_TARGET_RATIO = 0.3
 DEPOSIT_MAX_OUTGOING_DESTINATIONS = 5
@@ -124,7 +123,7 @@ load_all_nametags()
     retry=retry_if_exception_type(requests.exceptions.HTTPError),
     before_sleep=lambda retry_state: print(f"Retrying API call (attempt {retry_state.attempt_number})...")
 )
-def fetch_blockchain_data(wallet_address, action='transactions', force_refresh=False, limit=200, chain='ethereum'):
+def fetch_blockchain_data(wallet_address, action='transactions', force_refresh=False, limit=500, chain='ethereum'):
     """
     Fetches blockchain data (transactions or token transfers) for a wallet from the local proxy.
     Caches results to disk to reduce API calls.
@@ -369,7 +368,7 @@ def identify_deposit_wallet(wallet_address, primary_target_wallet, chain='ethere
     within the last 7 days, checking if it sends funds back to a primary target wallet.
     """
     print(f"Analyzing wallet {wallet_address} on {chain} for deposit characteristics (target: {primary_target_wallet})...")
-    tx_data = fetch_blockchain_data(wallet_address, action='transactions', force_refresh=True, limit=200, chain=chain)
+    tx_data = fetch_blockchain_data(wallet_address, action='transactions', force_refresh=True, limit=500, chain=chain)
     
     nametag = get_nametag_local_or_api(wallet_address)
     if not tx_data:
@@ -402,7 +401,7 @@ def identify_deposit_wallet(wallet_address, primary_target_wallet, chain='ethere
     last_24_hours = now - timedelta(hours=24)
     incoming_txs_24h = recent_txs_7d[(recent_txs_7d['to'].str.lower() == wallet_address.lower()) & 
                                      (recent_txs_7d['block_time_dt'] > last_24_hours)]
-    if len(incoming_txs_24h) <= DEPOSIT_MAX_INCOMING_TXS_24H:
+    if len(incoming_txs_24h) > DEPOSIT_MIN_INCOMING_TXS_24H:
         confidence_score += 20
         reason_parts.append(f"High incoming transaction volume in 24h ({len(incoming_txs_24h)} txs).")
     else:
@@ -539,7 +538,7 @@ def fetch_periodic(chain='ethereum', scan_source_address=None):
     related_wallets = set()
     for source_wallet in source_wallets:
         print(f"Fetching transactions from source wallet {source_wallet} to discover related wallets...")
-        tx_data = fetch_blockchain_data(source_wallet, action='transactions', force_refresh=True, limit=200, chain=chain)
+        tx_data = fetch_blockchain_data(source_wallet, action='transactions', force_refresh=True, limit=500, chain=chain)
         
         if not tx_data:
             print(f"No transactions fetched for {source_wallet}.")

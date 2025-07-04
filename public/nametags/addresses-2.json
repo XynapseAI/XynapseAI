@@ -269,7 +269,7 @@
         "Name Tag": "SushiSwap: SLP 41",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/sushiswap.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -3364,13 +3364,13 @@
       "arbitrum": {
         "Name Tag": "Arbitrum: Old Bridge",
         "Description": "Arbitrum is a next generation Layer 2 for Ethereum dApps, allowing you to use your favorite tools and scale your dApp at the lowest cost.",
-        "image": "/icons/arbitrum.png"
+        "image": "/icons/default.png"
       },
       "old-contract": {
         "Name Tag": "Arbitrum: Old Bridge",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/arbitrum.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -4258,7 +4258,7 @@
         "Name Tag": "SushiSwap: wSIENNA",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/sushiswap.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -4304,7 +4304,7 @@
         "Name Tag": "Chainlink: BTC / ETH Aggregator",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/chainlink.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -4858,7 +4858,7 @@
         "Description": "Crypto.com: The best place to buy, sell and pay with Crypto.",
         "Subcategory": "Others",
         "Token Name": "Crypto.com NFT Marketplace (CDCNFT)",
-        "image": "/icons/crypto.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -4971,7 +4971,7 @@
         "Name Tag": "Chainlink: KRW/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/chainlink.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -5498,7 +5498,7 @@
         "Name Tag": "SushiSwap: WATR",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/sushiswap.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -6037,7 +6037,7 @@
         "Name Tag": "SushiSwap: BZRX-USDC",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/sushiswap.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -7312,7 +7312,7 @@
       "sybil-delegate": {
         "Name Tag": "Sybil Delegate: nathsman",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/gate.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -7370,7 +7370,7 @@
         "Name Tag": "Uniswap V2: Binance2.0",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/uniswap.png"
       }
     }
   },
@@ -8976,7 +8976,7 @@
         "Name Tag": "SushiSwap: BASKBond",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/sushiswap.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -9213,7 +9213,7 @@
         "Name Tag": "SushiSwap: DGCL-ACXT",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/sushiswap.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -9844,13 +9844,13 @@
         "Name Tag": "Aave: TUSD Variable Debt V2",
         "Description": "Aave is an Open Source and Non-Custodial protocol to earn interest on deposits & borrow assets.",
         "Subcategory": "Main",
-        "image": "/icons/aave.png"
+        "image": "/icons/default.png"
       },
       "v2": {
         "Name Tag": "Aave: TUSD Variable Debt V2",
         "Description": "Contracts associated with Version 2 of a project.",
         "Subcategory": "Main",
-        "image": "/icons/aave.png"
+        "image": "/icons/default.png"
       }
     }
   },

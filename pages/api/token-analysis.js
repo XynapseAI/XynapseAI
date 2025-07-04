@@ -1,3 +1,4 @@
+import { config as dotenvConfig } from 'dotenv';
 import { db } from '../../utils/firebaseAdmin.js';
 import { braveSearch } from '../../utils/braveSearch.js';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
@@ -5,8 +6,10 @@ import { requireAuth } from './middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
+import helmet from 'helmet';
 import axios from 'axios';
-import { getSecrets } from '../../lib/vault'; // Thêm import
+
+dotenvConfig({ path: '.env' });
 
 const logger = winston.createLogger({
   level: 'info',
@@ -49,11 +52,9 @@ const retryRequest = async (fn, retries = 3, delay = 1000) => {
 };
 
 export default async function handler(req, res) {
+  helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}`);
-
-  const secrets = await getSecrets(); // Lấy bí mật từ Vault
-  const XAI_API_KEY = secrets.XAI_API_KEY;
 
   try {
     await new Promise((resolve, reject) => {
@@ -172,7 +173,7 @@ export default async function handler(req, res) {
       aiAnalysis += `Unable to fetch web articles. `;
     }
 
-    if (XAI_API_KEY) {
+    if (process.env.XAI_API_KEY) {
       logger.info(`Calling XAI API for token: ${tokenSymbol}`);
       try {
         const aiResponse = await retryRequest(() =>
@@ -185,7 +186,7 @@ export default async function handler(req, res) {
             },
             {
               headers: {
-                Authorization: `Bearer ${XAI_API_KEY}`,
+                Authorization: `Bearer ${process.env.XAI_API_KEY}`,
                 'Content-Type': 'application/json',
               },
             }

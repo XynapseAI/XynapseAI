@@ -1,3 +1,4 @@
+// /pages/api/dex.js
 import axios from 'axios';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -5,7 +6,6 @@ import { check, validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import pLimit from 'p-limit';
 import { GECKOTERMINAL_CHAIN_MAPPING } from '../../utils/constants';
-import { getSecrets } from '../../lib/vault';
 
 // Initialize p-limit for request throttling
 const limit = pLimit(10);
@@ -14,10 +14,10 @@ const limit = pLimit(10);
 const cache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// CORS configuration
+// CORS configuration with strict origin validation
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
-  'https://xynapseai.vercel.app',
+  'https://xynapse-ai.vercel.app',
 ].filter(Boolean);
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
@@ -39,18 +39,14 @@ const corsOptions = {
 // User-based rate limiting
 const userRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 10, // 10 requests per minute per user
-  keyGenerator: async (req) => {
+  max: 10, // 5 requests per minute per user
+  keyGenerator: (req) => {
     try {
-      const secrets = await getSecrets();
-      const JWT_SECRET = secrets.JWT_SECRET;
       const token = req.headers.authorization?.split(' ')[1];
-      const decoded = jwt.verify(token, JWT_SECRET);
-      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'anonymous';
-      return decoded.userId ? `${decoded.userId}-${ip}` : `anonymous-${ip}`;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      return decoded.userId || 'anonymous'; // Assumes userId in JWT payload
     } catch {
-      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'invalid_token';
-      return `invalid_token-${ip}`;
+      return 'invalid_token';
     }
   },
   message: { detail: 'Too many DEX requests for this user. Please try again later.' },
@@ -71,18 +67,16 @@ const validateInput = [
 ];
 
 // JWT authentication middleware
-const authenticate = async (req, res, next) => {
+const authenticate = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) {
     return res.status(401).json({ detail: 'Unauthorized: No token provided' });
   }
   try {
-    const secrets = await getSecrets();
-    const JWT_SECRET = secrets.JWT_SECRET;
-    if (!JWT_SECRET) {
+    if (!process.env.JWT_SECRET) {
       throw new Error('JWT_SECRET is not set');
     }
-    jwt.verify(token, JWT_SECRET);
+    jwt.verify(token, process.env.JWT_SECRET);
     next();
   } catch (error) {
     console.error('JWT verification failed:', { message: error.message, timestamp: new Date().toISOString() });
@@ -107,6 +101,11 @@ const retryRequest = async (url, options, retries = 3) => {
 
 export default async function handler(req, res) {
   // Apply security headers
+  res.set({
+    'Content-Security-Policy': "default-src 'self'",
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+  });
 
   // Apply CORS
   cors(corsOptions)(req, res, async () => {
@@ -140,7 +139,7 @@ export default async function handler(req, res) {
             const url = `https://api.geckoterminal.com/api/v2/networks/${GECKOTERMINAL_CHAIN_MAPPING[chain]}/tokens/${tokenAddress}/pools?page=1`;
             const response = await retryRequest(url, {
               headers: { accept: 'application/json' },
-              timeout: 10000,
+              timeout: 10000, // Increased timeout
             });
 
             // Cache the response
@@ -172,7 +171,7 @@ export default async function handler(req, res) {
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '2kb',
+      sizeLimit: '2kb', // Limit POST body size
     },
   },
 };
