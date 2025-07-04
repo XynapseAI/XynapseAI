@@ -56,7 +56,17 @@ const validate = [
 ];
 
 export default async function handler(req, res) {
-  helmet()(req, res, () => {});
+  helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com', 'https://coin-images.coingecko.com'],
+      connectSrc: ["'self'", 'https://api.geckoterminal.com', 'https://api.coingecko.com'],
+    },
+  },
+  xFrameOptions: { action: 'deny' },
+  xContentTypeOptions: true,
+})(req, res, () => {});
 
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
   logger.info(`Request to /api/coingecko from IP ${ip}, query: ${JSON.stringify(req.query)}`);

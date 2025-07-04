@@ -175,7 +175,17 @@ export default async function handler(req, res) {
       cors(req, res, (err) => (err ? reject(err) : resolve()));
     });
 
-    helmet()(req, res, () => {});
+    helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", 'https://ipfs.io', 'https://pbs.twimg.com', 'https://coin-images.coingecko.com'],
+      connectSrc: ["'self'", 'https://api.geckoterminal.com', 'https://api.sim.dune.com'],
+    },
+  },
+  xFrameOptions: { action: 'deny' },
+  xContentTypeOptions: true,
+})(req, res, () => {});
 
     await Promise.all([
       new Promise((resolve, reject) => limiter(req, res, (err) => (err ? reject(err) : resolve()))),

@@ -75,16 +75,16 @@ export default function Dashboard() {
         let recaptchaToken = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-            recaptchaToken = await recaptchaRef.current.executeAsync();
-            logger.info(`Generate reCAPTCHA token (attempt ${attempt}): ${recaptchaToken ? 'success' : 'failed'}`);
+            logger.info(`Executing reCAPTCHA for action: user_data, attempt ${attempt}`);
+            recaptchaToken = await Promise.race([
+              recaptchaRef.current.executeAsync(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 10000))
+            ]);
             if (recaptchaToken) break;
           } catch (err) {
-            logger.warn(`Error generating reCAPTCHA token (attempt ${attempt}):`, {
-              message: err.message,
-              stack: err.stack,
-            });
-            if (attempt === 3) throw new Error('Unable to generate reCAPTCHA token after 3 attempts');
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            logger.warn(`reCAPTCHA attempt ${attempt} failed: ${err.message}`);
+            if (attempt === 3) throw new Error('reCAPTCHA timeout after 3 attempts');
+            await new Promise(resolve => setTimeout(resolve, 2000));
           }
         }
         if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
@@ -350,8 +350,8 @@ export default function Dashboard() {
       </p>
       <style jsx>{`
         .grecaptcha-badge {
-          visibility: hidden !important;
-        }
+  z-index: 1000;
+}
       `}</style>
     </div>
   );
