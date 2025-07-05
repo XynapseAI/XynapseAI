@@ -25,11 +25,11 @@ async function runHighVolumeWalletAnalysis() {
 
         const highVolumeWallets = await getHighVolumeWallets(
             'ethereum', // chain
-            200,          // sampleLimit
+            800,          // sampleLimit
             100,          // activityCheckTxLimit
             50,           // recentActivityThreshold
             500,          // apiDelayMs
-            10            // cronRunLimit - process a limited number per run
+            400            // cronRunLimit - process a limited number per run
         );
 
         logger.info(`Triggering analysis for ${highVolumeWallets.length} high-volume wallets.`);
