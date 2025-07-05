@@ -1,3 +1,4 @@
+// utils/logger.cjs
 const winston = require('winston');
 const path = require('path');
 const fs = require('fs');
@@ -25,13 +26,17 @@ if (typeof window === 'undefined') {
       new winston.transports.File({
         filename: path.join(logsDir, 'combined.log'),
       }),
+      new winston.transports.Console({
+        format: winston.format.combine(
+          winston.format.colorize(),
+          winston.format.simple() 
+        )
+      }),
     ],
   });
 
-  if (process.env.NODE_ENV !== 'production') {
-    logger.add(new winston.transports.Console({ format: winston.format.simple() }));
-  }
 } else {
+  // Giữ nguyên logic cho browser
   logger = {
     info: (...args) => console.log('[INFO]', ...args),
     warn: (...args) => console.warn('[WARN]', ...args),
@@ -40,4 +45,4 @@ if (typeof window === 'undefined') {
   };
 }
 
-module.exports = { logger }; // ✅ Các
+module.exports = { logger };
