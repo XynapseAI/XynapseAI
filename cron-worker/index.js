@@ -1,8 +1,7 @@
 // cron-worker/index.js
-import { getHighVolumeWallets } from '../lib/analysisStorage';
-import { logger } from '../utils/logger';
-// Import other necessary modules like axios, firebase-admin (if directly accessing Firestore)
-import { db } from '../utils/firebaseAdmin'; // If cron worker directly interacts with Firestore
+import { getHighVolumeWallets } from '../lib/analysisStorage.js';
+import { logger } from '../utils/logger.js';
+import { db } from '../utils/firebaseAdmin.js'; 
 import axios from 'axios';
 
 // This token needs to be secret and shared with Railway as an env var
