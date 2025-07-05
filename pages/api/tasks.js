@@ -1,5 +1,5 @@
 // pages/api/tasks.js
-import { db } from '../../utils/firebaseAdmin';
+import { db } from '../../utils/firebaseAdmin.js';
 import winston from 'winston';
 
 const logger = winston.createLogger({

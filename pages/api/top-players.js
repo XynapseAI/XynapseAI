@@ -1,5 +1,5 @@
 // pages/api/top-players.js
-import { db } from '../../utils/firebaseAdmin';
+import { db } from '../../utils/firebaseAdmin.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

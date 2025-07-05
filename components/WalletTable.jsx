@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { logger } from '../utils/logger';
 
 export default function WalletTable({ recaptchaRef }) {
   const [wallets, setWallets] = useState([]);
@@ -33,7 +32,6 @@ export default function WalletTable({ recaptchaRef }) {
           throw new Error(response.data.detail || 'Failed to fetch wallets');
         }
       } catch (err) {
-        logger.error('Error fetching wallets:', { message: err.message });
         setError(`Failed to load wallets: ${err.message}`);
       } finally {
         setLoading(false);

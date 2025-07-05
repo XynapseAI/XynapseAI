@@ -1,6 +1,6 @@
 // next.config.ts
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+export default {
   reactStrictMode: true,
   images: {
     domains: ['ipfs.io'],
@@ -18,5 +18,3 @@ const nextConfig = {
     ];
   },
 };
-
-export default nextConfig;

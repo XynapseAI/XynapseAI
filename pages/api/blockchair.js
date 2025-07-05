@@ -1,6 +1,6 @@
 // pages/api/blockchair.js
 import axios from 'axios';
-import { logger } from '../../utils/logger';
+import { logger } from '../../utils/logger.cjs';
 import rateLimit from 'axios-rate-limit';
 
 const BLOCKCHAIR_API_URL = 'https://api.blockchair.com';

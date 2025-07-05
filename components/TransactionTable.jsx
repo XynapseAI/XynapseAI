@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { logger } from '../utils/logger';
 
 export default function TransactionTable({ recaptchaRef, walletAddress }) {
   const [transactions, setTransactions] = useState([]);

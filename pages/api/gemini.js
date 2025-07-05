@@ -1,9 +1,9 @@
 // pages/api/gemini.js
 import axios from 'axios';
-import { braveSearch } from '../../utils/braveSearch';
+import { braveSearch } from '../../utils/braveSearch.js';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from './auth/[...nextauth]';
-import { verifyRecaptcha } from '../../utils/verifyRecaptcha';
+import { authOptions } from './auth/[...nextauth].js';
+import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';

@@ -2,11 +2,11 @@
 import fs from 'fs/promises'; // Use promises for async file operations
 import path from 'path';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from './auth/[...nextauth]';
+import { authOptions } from './auth/[...nextauth].js';
 import { RateLimiter } from 'limiter';
-import { logger } from '../../utils/logger';
+import { logger } from '../../utils/logger.cjs';
 import { query, body, validationResult } from 'express-validator';
-import { db } from '../../utils/firebaseAdmin';
+import { db } from '../../utils/firebaseAdmin.js';
 
 const limiter = new RateLimiter({ tokensPerInterval: 100, interval: 'minute' });
 

@@ -1,9 +1,11 @@
 // cron-worker/index.js
+import 'dotenv/config';
 import { getHighVolumeWallets } from '../lib/analysisStorage.js';
-import { logger } from '../utils/logger.js';
+import pkg from '../utils/logger.cjs';
 import { db } from '../utils/firebaseAdmin.js'; 
 import axios from 'axios';
 
+const { logger } = pkg;
 // This token needs to be secret and shared with Railway as an env var
 const INTERNAL_CRON_TOKEN = process.env.INTERNAL_CRON_TOKEN; 
 const ANALYZE_WALLETS_API_URL = process.env.NEXTAUTH_URL + '/api/analyze-wallets'; // Use Vercel app URL

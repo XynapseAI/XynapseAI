@@ -1,7 +1,7 @@
 import { getCsrfToken } from 'next-auth/react';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from './auth/[...nextauth]';
-import { logger } from '../../utils/logger';
+import { authOptions } from './auth/[...nextauth].js';
+import { logger } from '../../utils/logger.cjs';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

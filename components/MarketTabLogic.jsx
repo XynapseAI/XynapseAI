@@ -3,7 +3,6 @@ import axios from 'axios';
 import { useSession } from 'next-auth/react';
 import debounce from 'lodash.debounce';
 import rateLimit from 'axios-rate-limit';
-import { logger } from '../utils/logger';
 import pLimit from 'p-limit';
 import { GECKOTERMINAL_CHAIN_MAPPING } from '../utils/constants';
 import btcNameTags from '../public//nametags/btc-top-holders.json';
@@ -12,31 +11,20 @@ if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
   console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
 }
 
-
 const NON_EVM_CHAINS = ['bitcoin', 'ethereum', 'dogecoin'];
-const BLOCKCHAIR_REQUEST_LIMIT = 30; // Giới hạn 30 yêu cầu/phút
-const BLOCKCHAIR_REQUEST_WINDOW = 60 * 1000; // 1 phút
+const BLOCKCHAIR_REQUEST_LIMIT = 30; // Limit of 30 requests per minute
+const BLOCKCHAIR_REQUEST_WINDOW = 60 * 1000; // 1 minute
 const blockchairRequestTracker = new Map();
 const DEX_REQUEST_LIMIT = 30; // Max 5 requests per minute
 const DEX_REQUEST_WINDOW = 5 * 60 * 1000; // 1 minute
 const dexRequestTracker = new Map();
 const limit = pLimit(20);
 
-// Custom logger
-const customLogger = {
-  log: (message, data) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[${new Date().toISOString()}] ${message}`, data);
-    }
-  },
-};
-
 const coingeckoAxios = rateLimit(axios.create(), {
   maxRequests: 15,
   perMilliseconds: 60000,
 });
 
-// Supported chains from Dune
 const SUPPORTED_CHAINS = [
   { value: 'abstract', chainId: '2741', label: 'Abstract' },
   { value: 'ancient8', chainId: '888888888', label: 'Ancient8' },
@@ -84,7 +72,7 @@ const SUPPORTED_CHAINS = [
   { value: 'soneium', chainId: '1868', label: 'Soneium' },
   { value: 'sonic', chainId: '146', label: 'Sonic' },
   { value: 'superseed', chainId: '5330', label: 'Superseed' },
-  { value: 'swellchain', chainId: '1923', label: 'Swell Chain' },
+  { value: 'swellchainhome', chainId: '1923', label: 'Swell Chain' },
   { value: 'unichain', chainId: '130', label: 'Unichain' },
   { value: 'wemix', chainId: '1111', label: 'Wemix' },
   { value: 'world', chainId: '480', label: 'World' },
@@ -96,7 +84,6 @@ const SUPPORTED_CHAINS = [
   { value: 'monad_testnet', chainId: null, label: 'Monad Testnet', testnet: true },
 ];
 
-// Mapping of CoinGecko chain IDs to Sim by Dune chain values and chain IDs
 const CHAIN_MAPPING = {
   'ethereum': { simChain: 'ethereum', chainId: '1' },
   'arbitrum-one': { simChain: 'arbitrum', chainId: '42161' },
@@ -113,7 +100,7 @@ const CHAIN_MAPPING = {
   'mantle': { simChain: 'mantle', chainId: '5000' },
   'scroll': { simChain: 'scroll', chainId: '534352' },
   'celo': { simChain: 'celo', chainId: '42220' },
-  'opbnb': { simChain: 'opbnb', chainId: '204' },
+  'opbnb': { simChain: 'opbnb', chain饰Id: '204' },
   'boba': { simChain: 'boba', chainId: '288' },
   'metis-andromeda': { simChain: 'metis', chainId: '1088' },
   'blast': { simChain: 'blast', chainId: '81457' },
@@ -195,11 +182,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const executeRecaptcha = useCallback(
     async (action, retryCount = 0) => {
       if (!recaptchaRef.current) {
-        logger.error('reCAPTCHA is not initialized.');
         throw new Error('reCAPTCHA is not initialized.');
       }
       try {
-        logger.log(`Executing reCAPTCHA for action: ${action}, attempt ${retryCount + 1}`);
         const token = await Promise.race([
           recaptchaRef.current.executeAsync({ action }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 10000)),
@@ -207,12 +192,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         if (!token) {
           throw new Error('Empty reCAPTCHA token.');
         }
-        logger.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
         return token;
       } catch (error) {
-        logger.error('Error executing reCAPTCHA:', { action, error: error.message });
         if (retryCount < 2) {
-          logger.log(`Retrying reCAPTCHA for action ${action}, attempt ${retryCount + 2}`);
           await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)));
           return executeRecaptcha(action, retryCount + 1);
         }
@@ -229,7 +211,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       });
 
       if (!response.data.success) {
-        logger.error('Failed to fetch CoinGecko chains:', { detail: response.data.detail });
         setChains(
           SUPPORTED_CHAINS.map((chain) => ({
             coingeckoId: Object.keys(CHAIN_MAPPING).find(
@@ -240,12 +221,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             shortName: chain.label.split(' ')[0],
             chainId: chain.chainId,
             testnet: chain.testnet || false,
-            image: '/fallback-image.png', // Fallback image for unsupported chains
+            image: '/fallback-image.png',
           }))
         );
-        logger.info('Using SUPPORTED_CHAINS as fallback', {
-          count: SUPPORTED_CHAINS.length,
-        });
         return;
       }
 
@@ -255,11 +233,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           (cg) => CHAIN_MAPPING[cg.id]?.simChain === simChain.value
         );
         const imageUrl = coingeckoChain?.image?.thumb || '/fallback-image.png';
-        logger.log('Chain image mapping:', {
-          chain: simChain.value,
-          coingeckoId: coingeckoChain?.id,
-          image: imageUrl,
-        });
         return {
           coingeckoId: coingeckoChain?.id || null,
           value: simChain.value,
@@ -272,18 +245,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       });
 
       setChains(mappedChains);
-      logger.info(`Merged ${mappedChains.length} chains`, {
-        sample: mappedChains.slice(0, 5).map((c) => ({
-          value: c.value,
-          label: c.label,
-          image: c.image,
-        })),
-      });
     } catch (error) {
-      logger.error('Error fetching CoinGecko chains:', {
-        message: error.message,
-        status: error.response?.status,
-      });
       setChains(
         SUPPORTED_CHAINS.map((chain) => ({
           coingeckoId: Object.keys(CHAIN_MAPPING).find(
@@ -294,12 +256,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           shortName: chain.label.split(' ')[0],
           chainId: chain.chainId,
           testnet: chain.testnet || false,
-          image: '/fallback-image.png', // Fallback image for error case
+          image: '/fallback-image.png',
         }))
       );
-      logger.info('Using SUPPORTED_CHAINS as fallback due to error', {
-        count: SUPPORTED_CHAINS.length,
-      });
       toast.error('Failed to load supported chains', { position: 'top-center', autoClose: 5000 });
     }
   }, [toast]);
@@ -307,7 +266,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const fetchPoolTokenMetadata = useCallback(async (chain, poolAddress, retryCount = 0) => {
     const cacheKey = `pool-${GECKOTERMINAL_CHAIN_MAPPING[chain]}-${poolAddress}`;
     if (tickerCache[cacheKey] && Date.now() - tickerCache[cacheKey].timestamp < CACHE_DURATION) {
-      logger.log('Serving pool token metadata from cache:', { cacheKey });
       return tickerCache[cacheKey].data;
     }
 
@@ -335,16 +293,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         ...prev,
         [cacheKey]: { data: poolTokens, timestamp: Date.now() },
       }));
-      logger.log('Fetched pool token metadata:', { cacheKey, tokenData: poolTokens });
       return poolTokens;
     } catch (error) {
       if (retryCount < 3 && error.response?.status === 429) {
         const delay = Math.pow(2, retryCount) * 1000;
-        logger.warn(`Retrying pool token metadata fetch after ${delay}ms due to 429`, { retryCount });
         await new Promise((resolve) => setTimeout(resolve, delay));
         return fetchPoolTokenMetadata(chain, poolAddress, retryCount + 1);
       }
-      logger.error('Error fetching pool token metadata:', { chain, poolAddress, error: error.message });
       return {};
     }
   }, [tickerCache, setTickerCache]);
@@ -352,24 +307,17 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const fetchNameTag = useCallback(
     async (address) => {
       if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
-        logger.log('Invalid address for Name Tag fetch:', { address });
         return { nameTag: null, image: null };
       }
 
       const normalizedAddress = address.toLowerCase();
       const cached = nameTagsRef.current[normalizedAddress];
       if (cached && Date.now() - cached.timestamp < NAME_TAG_CACHE_DURATION) {
-        logger.log('Name Tag loaded from cache:', {
-          address: normalizedAddress,
-          nameTag: cached.nameTag,
-          image: cached.image,
-        });
         return { nameTag: cached.nameTag, image: cached.image };
       }
 
       try {
         if (status !== 'authenticated') {
-          logger.warn('User not authenticated for Name Tag fetch:', { address: normalizedAddress });
           throw new Error('Unauthorized: Please log in to fetch Name Tag.');
         }
 
@@ -382,7 +330,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         });
 
         if (!response.data.success || !response.data.data[normalizedAddress]) {
-          logger.log('Name Tag not found for address:', { address: normalizedAddress });
           const cacheEntry = { nameTag: null, image: null, timestamp: Date.now() };
           nameTagsRef.current[normalizedAddress] = cacheEntry;
           setNameTags((prev) => ({
@@ -402,7 +349,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           ...prev,
           [normalizedAddress]: cacheEntry,
         }));
-        logger.log('Name Tag fetched successfully:', { address: normalizedAddress, nameTag, image });
         return { nameTag, image };
       } catch (error) {
         let errorMessage;
@@ -417,12 +363,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         } else {
           errorMessage = error.response?.data?.detail || `Failed to fetch Name Tag: ${error.message}`;
         }
-
-        logger.error('Error fetching Name Tag:', {
-          address: normalizedAddress,
-          message: errorMessage,
-          status: error.response?.status,
-        });
 
         const cacheEntry = { nameTag: null, image: null, timestamp: Date.now() };
         nameTagsRef.current[normalizedAddress] = cacheEntry;
@@ -443,7 +383,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const fetchNameTagsForAddresses = useCallback(
     async (addresses) => {
       if (!addresses || addresses.length === 0) {
-        logger.log('No addresses provided for fetchNameTagsForAddresses');
         setIsLoadingNameTags(false);
         return;
       }
@@ -461,12 +400,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           image: nameTagData.image || null,
           timestamp: Date.now(),
         };
-        logger.log('BTC Name Tag lookup:', {
-          originalAddress: addr,
-          normalizedAddress: normalizedAddress,
-          nameTag: nameTagData['Name Tag'] || 'Not found',
-          image: nameTagData.image || 'Not found',
-        });
       });
 
       // Handle EVM addresses
@@ -490,7 +423,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             const nameTag = data?.Labels ? Object.values(data.Labels)[0]?.['Name Tag'] || null : null;
             const image = data?.Labels ? Object.values(data.Labels)[0]?.image || '/icons/default.png' : '/icons/default.png';
             newNameTags[normalizedAddress] = { nameTag, image, timestamp: Date.now() };
-            logger.log('EVM Name Tag fetched:', { address: normalizedAddress, nameTag, image });
           });
         } catch (error) {
           const errorMessage =
@@ -502,11 +434,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
                   ? 'Invalid addresses provided.'
                   : error.response?.data?.detail || `Failed to fetch Name Tags: ${error.message}`;
 
-          logger.error('Error in fetchNameTagsForAddresses for EVM:', {
-            message: errorMessage,
-            status: error.response?.status,
-          });
-
           evmAddresses.forEach((address) => {
             const normalizedAddress = address.toLowerCase();
             newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
@@ -515,7 +442,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         }
       } else if (evmAddresses.length > 0) {
-        logger.warn('User not authenticated for EVM Name Tag fetch', { count: evmAddresses.length });
         evmAddresses.forEach((address) => {
           const normalizedAddress = address.toLowerCase();
           newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
@@ -525,14 +451,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       setNameTags((prev) => {
         const updated = { ...prev, ...newNameTags };
         nameTagsRef.current = updated;
-        logger.log('Name Tags updated:', {
-          count: Object.keys(updated).length,
-          sample: Object.entries(updated).slice(0, 5).map(([addr, data]) => ({
-            address: addr,
-            nameTag: data.nameTag,
-            image: data.image,
-          })),
-        });
         return updated;
       });
       setIsLoadingNameTags(false);
@@ -558,14 +476,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         }
         return new Promise(async (resolve, reject) => {
           try {
-            logger.log('Fetching price history from API:', { tokenId, days, chain: chain?.value });
             const response = await axios.get('/api/coingecko/history', {
               params: { id: tokenId, vs_currency: 'usd', days },
               timeout: 30000,
             }).catch(async (error) => {
               if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
                 const delay = Math.pow(2, retryCount) * 1000;
-                logger.log(`Retrying fetchPriceHistory after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
                 await new Promise((resolve) => setTimeout(resolve, delay));
                 return fetchPriceHistory(tokenId, days, callback, retryCount + 1);
               }
@@ -576,7 +492,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
               throw new Error('Invalid or empty price history data');
             }
 
-            // Tìm giá trị nhỏ nhất để xác định số chữ số thập phân
             const prices = response.data.prices.map(([, price]) => price).filter((p) => p > 0);
             const minPrice = prices.length > 0 ? Math.min(...prices) : 0.01;
             let fractionDigits = 2;
@@ -608,15 +523,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
               [cacheKey]: { data: priceData, timestamp: Date.now() },
             }));
             setPriceHistory(priceData);
-            logger.log('Price history fetched successfully:', { tokenId, count: priceData.length, fractionDigits });
             resolve(priceData);
             callback(null, priceData);
           } catch (err) {
-            logger.error('Error fetching price history:', {
-              message: err.message,
-              status: err.response?.status,
-              data: err.response?.data,
-            });
             const errorMessage =
               err.response?.status === 429
                 ? 'API rate limit reached. Please wait a minute and try again.'
@@ -639,7 +548,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       async (tokenSymbol, retryCount = 0) => {
         const normalizedTokenSymbol = tokenSymbol?.toLowerCase();
         if (!NON_EVM_CHAINS.includes(normalizedTokenSymbol)) {
-          logger.warn(`fetchPublicTreasuryData called for unsupported chain: ${normalizedTokenSymbol}`);
           setOnChainError(`Unsupported chain: ${normalizedTokenSymbol}`);
           setIsLoadingOnChain(false);
           return;
@@ -654,7 +562,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           blockchairCache.current[cacheKey] &&
           Date.now() - blockchairCache.current[cacheKey].timestamp < CACHE_DURATION
         ) {
-          logger.info('Serving top holders from client cache', { cacheKey, chain });
           setOnChainData((prev) => ({
             ...prev,
             topHolders: blockchairCache.current[cacheKey].data,
@@ -676,7 +583,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
 
         if (userRequests.count >= BLOCKCHAIR_REQUEST_LIMIT) {
           const errorMessage = 'Too many Blockchair requests. Please wait a minute and try again.';
-          logger.error(errorMessage, { userId, count: userRequests.count });
           setOnChainError(errorMessage);
           setIsLoadingOnChain(false);
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
@@ -693,7 +599,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           const recaptchaToken = await executeRecaptcha('blockchair_top_holders');
           let topHolders = [];
 
-          // Fetch Blockchair data
           const blockchairResponse = await axios.post(
             '/api/blockchair',
             { chain, limit: 100 },
@@ -713,14 +618,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             );
           }
 
-          // Log raw Blockchair addresses
-          logger.log('Blockchair API response addresses:', {
-            sample: blockchairResponse.data.data.slice(0, 10).map((holder) => ({
-              address: holder.address,
-              normalized: holder.address.toLowerCase(),
-            })),
-          });
-
           topHolders = blockchairResponse.data.data.map((holder) => {
             const normalizedAddress = holder.address.toLowerCase();
             const nameTagData = btcNameTags[normalizedAddress]?.Labels?.bitcoin || {};
@@ -734,7 +631,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             };
           });
 
-          // Fetch CoinGecko public treasury data for Bitcoin
           if (chain === 'bitcoin') {
             try {
               const coingeckoResponse = await coingeckoAxios.get(
@@ -749,84 +645,39 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
               );
 
               const treasuryData = coingeckoResponse.data.companies.map((company) => {
-                const address = company.address || company.name; // Use address if available, else company name
+                const address = company.address || company.name;
                 const normalizedAddress = address.toLowerCase();
                 const nameTagData = btcNameTags[normalizedAddress]?.Labels?.bitcoin || {};
                 return {
                   address,
                   balance: parseFloat(company.total_holdings || 0),
-                  share: 0, // CoinGecko doesn't provide share
+                  share: 0,
                   nameTag: nameTagData['Name Tag'] || company.name || null,
                   image: nameTagData.image || '/icons/default.png',
                   source: 'CoinGecko',
                 };
               });
 
-              // Merge data, avoiding duplicates
               const uniqueAddresses = new Set(topHolders.map((holder) => holder.address.toLowerCase()));
               const mergedHolders = [
                 ...topHolders,
                 ...treasuryData.filter((company) => !uniqueAddresses.has(company.address.toLowerCase())),
               ];
 
-              // Sort by balance and limit to 100
               topHolders = mergedHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
-
-              logger.log('Merged top holders:', {
-                count: topHolders.length,
-                sample: topHolders.slice(0, 5).map((h) => ({
-                  address: h.address,
-                  balance: h.balance,
-                  nameTag: h.nameTag,
-                  image: h.image,
-                  source: h.source,
-                })),
-              });
             } catch (coingeckoError) {
-              logger.warn('Failed to fetch CoinGecko public treasury for BTC', {
-                status: coingeckoError.response?.status,
-                message: coingeckoError.message,
-              });
               // Continue with Blockchair data if CoinGecko fails
             }
           }
-
-          // Log processed holders
-          topHolders.forEach((holder) => {
-            logger.log('Processing holder:', {
-              originalAddress: holder.address,
-              normalizedAddress: holder.address.toLowerCase(),
-              nameTag: holder.nameTag || 'Not found',
-              image: holder.image || 'Not found',
-              source: holder.source,
-            });
-          });
 
           blockchairCache.current[cacheKey] = { data: topHolders, timestamp: Date.now() };
           setOnChainData((prev) => ({
             ...prev,
             topHolders,
           }));
-          logger.info(`Top holders fetched for ${chain}`, {
-            count: topHolders.length,
-            sample: topHolders.slice(0, 3).map((h) => ({
-              address: h.address,
-              balance: h.balance,
-              share: h.share,
-              nameTag: h.nameTag,
-              image: h.image,
-              source: h.source,
-            })),
-          });
         } catch (error) {
-          logger.error('Error in fetchPublicTreasuryData:', {
-            message: error.message,
-            status: error.response?.status,
-            data: error.response?.data,
-          });
           setOnChainError(error.response?.data?.detail || `Failed to fetch top holders for ${chain}`);
           if (retryCount < 2) {
-            logger.info('Retrying fetchPublicTreasuryData', { retryCount: retryCount + 1 });
             fetchPublicTreasuryData(tokenSymbol, retryCount + 1);
           } else {
             toast.error(`Failed to fetch top holders for ${chain}`, {
@@ -853,7 +704,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       const cacheKey = tokenId;
       if (tickerCache[cacheKey] && Date.now() - tickerCache[cacheKey].timestamp < CACHE_DURATION) {
         setTickerData(tickerCache[cacheKey].data);
-        logger.log('Ticker data loaded from cache:', { tokenId });
         return;
       }
 
@@ -863,7 +713,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         let response;
         const params = { include_exchange_logo: true };
         if (process.env.NODE_ENV === 'development') {
-          logger.log(`Fetching tickers for ${tokenId} directly from CoinGecko in development mode`);
           response = await coingeckoAxios.get(`https://api.coingecko.com/api/v3/coins/${tokenId}/tickers`, {
             params,
             headers: {
@@ -873,7 +722,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             timeout: 15000,
           });
         } else {
-          logger.log(`Fetching tickers for ${tokenId} via proxy API`);
           response = await axios.get('/api/coingecko', {
             params: {
               action: 'tickers',
@@ -890,20 +738,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           [cacheKey]: { data: tickers, timestamp: Date.now() },
         }));
         setTickerData(tickers);
-        logger.log(`Ticker data fetched for ${tokenId}`, {
-          count: tickers.length,
-          sampleLogos: tickers.slice(0, 3).map((t) => ({
-            market: t.market.name,
-            logo: t.market.logo,
-            identifier: t.market.identifier,
-          })),
-        });
       } catch (error) {
-        logger.error(`Error fetching ticker data for ${tokenId}:`, {
-          message: error.message,
-          status: error.response?.status,
-          data: error.response?.data,
-        });
         const errorMessage =
           error.response?.status === 429
             ? 'CoinGecko API rate limit exceeded. Please try again later.'
@@ -918,21 +753,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
     [COINGECKO_API_KEY]
   );
 
-  // In MarketTabLogic.jsx, update fetchOnChainData to add more logging
   const fetchOnChainData = useCallback(
     debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount = 0) => {
-      logger.info('fetchOnChainData called', { action, chain, address, tokenAddress, retryCount });
-      console.log('fetchOnChainData called:', { action, chain, address, tokenAddress, decimalPlace, retryCount });
-
       if (
         (action === 'top-holders' && (!chain || !tokenAddress)) ||
         ((action === 'wallet-balances' || action === 'transactions') && !address) ||
         (typeof document !== 'undefined' && document.visibilityState !== 'visible')
       ) {
         const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address}`;
-        logger.error('Invalid parameters for fetchOnChainData', { action, chain, tokenAddress, address });
-        console.error('Invalid parameters:', { action, chain, tokenAddress, address });
-        customLogger.log('Error: Invalid parameters', { action, chain, tokenAddress, address });
         setOnChainError(errorMessage);
         setIsLoadingOnChain(false);
         setIsLoadingWalletBalances(false);
@@ -944,9 +772,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       const simChain = chains.find((c) => c.value === chain)?.value;
       if (!simChain && action === 'top-holders') {
         const errorMessage = `Invalid chain: ${chain}`;
-        logger.error('Invalid chain for fetchOnChainData', { chain });
-        console.error('Invalid chain:', { chain });
-        customLogger.log('Error: Invalid chain', { chain });
         setOnChainError(errorMessage);
         setIsLoadingOnChain(false);
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
@@ -955,9 +780,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
 
       if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
         const errorMessage = 'Please log in to access wallet data.';
-        logger.warn('User not authenticated for wallet data', { action, status });
-        console.warn('User not authenticated:', { action, status });
-        customLogger.log('Warning: User not authenticated', { action, status });
         setOnChainError(errorMessage);
         setIsLoadingOnChain(false);
         setIsLoadingWalletBalances(false);
@@ -968,9 +790,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
 
       if ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) {
         const errorMessage = 'Wallet address must be a valid EVM address.';
-        logger.error(errorMessage, { action, address });
-        console.error(errorMessage, { action, address });
-        customLogger.log('Error: Invalid EVM address', { action, address });
         if (action === 'wallet-balances') {
           setWalletBalancesError(errorMessage);
         } else {
@@ -985,8 +804,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
 
       const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
       const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}${apiBaseUrl}/sim`;
-      logger.info('API URL configuration', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
-      console.log('API URL configuration:', { apiUrl, NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL });
 
       setIsLoadingOnChain(true);
       if (action === 'wallet-balances') {
@@ -1007,9 +824,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         } else if (action === 'wallet-balances' || action === 'transactions') {
           payload.address = address;
         }
-        logger.info('Sending on-chain data request', { payload, apiUrl });
-        console.log('Sending on-chain data request:', { payload, apiUrl });
-        customLogger.log('Sending on-chain data request', { payload, apiUrl });
 
         const response = await axios.post(apiUrl, payload, {
           headers: {
@@ -1020,28 +834,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         }).catch(async (error) => {
           if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
             const delay = Math.pow(2, retryCount) * 1000;
-            logger.info(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
-            console.log(`Retrying fetchOnChainData after ${delay}ms due to error`, { retryCount, status: error.response?.status, code: error.code });
             await new Promise((resolve) => setTimeout(resolve, delay));
             return fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount + 1);
           }
           throw error;
-        });
-
-        logger.info(`On-chain data response for ${action}`, {
-          success: response.data.success,
-          count: response.data.data?.length || 0,
-          dataSample: response.data.data?.slice(0, 5),
-        });
-        console.log(`On-chain data response for ${action}:`, {
-          status: response.status,
-          success: response.data.success,
-          count: response.data.data?.length || 0,
-          dataSample: response.data.data?.slice(0, 5), // Log sample data for debugging
-        });
-        customLogger.log(`On-chain data response for ${action}`, {
-          success: response.data.success,
-          count: response.data.data?.length || 0,
         });
 
         if (!response.data.success) {
@@ -1055,25 +851,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           }));
         } else if (action === 'wallet-balances') {
           const balances = response.data.data || [];
-          logger.info('Setting wallet balances:', {
-            count: balances.length,
-            sample: balances.slice(0, 5),
-          });
-          console.log('Setting wallet balances:', {
-            count: balances.length,
-            sample: balances.slice(0, 5),
-          });
           setWalletBalances(balances);
         } else if (action === 'transactions') {
           const transactions = response.data.data || [];
-          logger.info('Setting transactions:', {
-            count: transactions.length,
-            sample: transactions.slice(0, 5),
-          });
-          console.log('Setting transactions:', {
-            count: transactions.length,
-            sample: transactions.slice(0, 5),
-          });
           setTransactions(transactions);
           if (session?.user?.id) {
             try {
@@ -1092,42 +872,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
                   timeout: 15000,
                 }
               );
-              logger.info('Transactions history saved', { address });
-              console.log('Transactions history saved:', { address });
-              customLogger.log('Transactions history saved', { address });
             } catch (historyError) {
-              logger.error('Error saving transactions history', {
-                message: historyError.message,
-                response: historyError.response?.data,
-              });
-              console.error('Error saving transactions history:', {
-                message: historyError.message,
-                response: historyError.response?.data,
-              });
-              customLogger.log('Error saving transactions history', {
-                message: historyError.message,
-              });
+              // Handle error silently
             }
           }
         }
       } catch (error) {
-        logger.error(`Error fetching ${action} data`, {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-          stack: error.stack,
-          url: apiUrl,
-        });
-        console.error(`Error fetching ${action} data:`, {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-          stack: error.stack,
-        });
-        customLogger.log(`Error fetching ${action} data`, {
-          status: error.response?.status,
-          message: error.message,
-        });
         const errorMessage =
           error.response?.status === 401
             ? 'Unauthorized: Please log in again.'
@@ -1140,10 +890,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
                   : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
         if (action === 'wallet-balances') {
           setWalletBalancesError(errorMessage);
-          setWalletBalances([]); // Clear balances on error
+          setWalletBalances([]);
         } else if (action === 'transactions') {
           setTransactionsError(errorMessage);
-          setTransactions([]); // Clear transactions on error
+          setTransactions([]);
         } else {
           setOnChainError(errorMessage);
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
@@ -1162,20 +912,16 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
 
   const fetchDexData = useCallback(
     debounce(async (chain, tokenAddress, retryCount = 0) => {
-      // Authentication check
       if (status !== 'authenticated') {
         const errorMessage = 'Please log in to access DEX data.';
-        logger.error(errorMessage, { chain, tokenAddress });
         setDexError(errorMessage);
         setIsLoadingDex(false);
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         return;
       }
 
-      // Input validation
       if (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
         const errorMessage = 'Invalid chain or token address for DEX data';
-        logger.error(errorMessage, { chain, tokenAddress });
         setDexError(errorMessage);
         setIsLoadingDex(false);
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
@@ -1185,14 +931,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       const geckoChain = GECKOTERMINAL_CHAIN_MAPPING[chain];
       if (!geckoChain) {
         const errorMessage = `Unsupported chain for DEX data: ${chain}`;
-        logger.error(errorMessage, { chain });
         setDexError(errorMessage);
         setIsLoadingDex(false);
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         return;
       }
 
-      // Client-side rate limiting
       const userId = session?.user?.id || 'anonymous';
       const now = Date.now();
       const userRequests = dexRequestTracker.get(userId) || { count: 0, lastReset: now };
@@ -1203,7 +947,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         setLastDexRequestTime(now);
       } else if (userRequests.count >= DEX_REQUEST_LIMIT) {
         const errorMessage = 'Too many DEX requests. Please wait a minute and try again.';
-        logger.error(errorMessage, { userId, count: userRequests.count });
         setDexError(errorMessage);
         setIsLoadingDex(false);
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
@@ -1213,13 +956,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         setDexRequestCount((prev) => prev + 1);
       }
 
-      // Check cache
       const cacheKey = `${geckoChain}-${tokenAddress}`;
       const cached = tickerCache[cacheKey];
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
         setDexData(cached.data);
         setLastDexFetchTime(cached.timestamp);
-        logger.log('DEX data loaded from cache:', { cacheKey });
         setIsLoadingDex(false);
         return;
       }
@@ -1228,7 +969,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       setDexError(null);
 
       try {
-        // Fetch pools
         const poolResponse = await coingeckoAxios.get(
           `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/tokens/${tokenAddress}/pools?page=1&bypassCache=true`,
           {
@@ -1238,7 +978,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         ).catch(async (error) => {
           if (retryCount < 3 && error.response?.status === 429) {
             const delay = Math.pow(2, retryCount) * 1000;
-            logger.warn(`Retrying DEX fetch after ${delay}ms due to 429`, { retryCount });
             await new Promise((resolve) => setTimeout(resolve, delay));
             return fetchDexData(chain, tokenAddress, retryCount + 1);
           }
@@ -1249,7 +988,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         pools.sort((a, b) => parseFloat(b.attributes.volume_usd.h24) - parseFloat(a.attributes.volume_usd.h24));
         const topPools = pools.slice(0, 5);
 
-        // Fetch trades for top pools
         const tradePromises = topPools.map((pool) =>
           limit(() =>
             coingeckoAxios.get(
@@ -1286,25 +1024,15 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
                 pool_address: result.value.poolAddress,
               }))
             );
-          } else {
-            logger.warn('Trade fetch failed for pool:', {
-              poolAddress: result.value.poolAddress,
-              error: result.value.error.safeMessage,
-            });
-            return acc;
           }
+          return acc;
         }, []);
 
-        // Filter out trades with invalid pool_address
         const validTrades = trades.filter((trade) => {
           const isValid = trade.pool_address && typeof trade.pool_address === 'string' && trade.pool_address.match(/^0x[a-fA-F0-9]{40}$/);
-          if (!isValid) {
-            logger.warn('Invalid trade pool_address:', { trade });
-          }
           return isValid;
         });
 
-        // Fetch token metadata for each pool
         const poolTokenPromises = topPools.map((pool) =>
           limit(() => fetchPoolTokenMetadata(chain, pool.attributes.address))
         );
@@ -1312,11 +1040,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         const poolTokens = poolTokenResults.reduce((acc, result, index) => {
           if (result.status === 'fulfilled' && Object.keys(result.value).length > 0) {
             acc[topPools[index].attributes.address] = result.value;
-          } else {
-            logger.warn('Failed to fetch token metadata for pool:', {
-              poolAddress: topPools[index].attributes.address,
-              reason: result.status === 'rejected' ? result.reason : 'Empty response',
-            });
           }
           return acc;
         }, {});
@@ -1328,13 +1051,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         }));
         setDexData(dexData);
         setLastDexFetchTime(Date.now());
-        logger.info('DEX data fetched successfully', {
-          chain: geckoChain,
-          tokenAddress,
-          poolCount: topPools.length,
-          tradeCount: validTrades.length,
-          poolTokensCount: Object.keys(poolTokens).length,
-        });
       } catch (error) {
         const safeErrorMessage =
           error.response?.status === 429
@@ -1342,10 +1058,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             : error.response?.status === 404
               ? `No DEX data found for token ${tokenAddress} on ${chain}.`
               : 'Failed to load DEX data.';
-        logger.error('Error fetching DEX data:', {
-          message: safeErrorMessage,
-          status: error.response?.status,
-        });
         setDexError(safeErrorMessage);
         toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
       } finally {
@@ -1355,7 +1067,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
     [toast, tickerCache, setTickerCache, status, session]
   );
 
-  // In MarketTabLogic.jsx, update the handleAddressClick function
   const handleAddressClick = useCallback(
     (address) => {
       if (address === 'Unknown') {
@@ -1363,22 +1074,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         return;
       }
 
-      // Check if the selected token is Bitcoin
       if (selectedToken?.id.toLowerCase() === 'bitcoin') {
         const blockchairUrl = `https://blockchair.com/bitcoin/address/${address}`;
-        logger.log('Redirecting to Blockchair for BTC address:', { address });
         window.open(blockchairUrl, '_blank', 'noreferrer');
         return;
       }
 
-      logger.log('Address clicked', {
-        address,
-        selectedToken: selectedToken ? selectedToken.id : null,
-        onChainData: {
-          topHoldersCount: onChainData.topHolders.length,
-          whaleActivityCount: onChainData.whaleActivity.length,
-        },
-      });
       setSelectedWallet(address);
       setWalletBalances([]);
       setTransactions(null);
@@ -1413,14 +1114,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         } else {
           setWalletSearchCount((prev) => prev + 1);
         }
-        logger.log('Wallet search initiated', {
-          walletAddress,
-          selectedToken: selectedToken ? selectedToken.id : null,
-          onChainData: {
-            topHoldersCount: onChainData.topHolders.length,
-            whaleActivityCount: onChainData.whaleActivity.length,
-          },
-        });
         setSelectedWallet(walletAddress);
         setWalletBalances([]);
         setTransactions(null);
@@ -1429,7 +1122,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         setIsLoadingWalletBalances(true);
         fetchOnChainData(null, null, 'wallet-balances', null, walletAddress, recaptchaToken);
       } catch (error) {
-        logger.error('Error in wallet search:', error.response?.data || error.message);
         setWalletBalancesError(
           error.response?.status === 401
             ? 'Unauthorized: Please log in again.'
@@ -1465,7 +1157,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
 
       const tokenSymbol = token.symbol?.toLowerCase();
       if (NON_EVM_CHAINS.includes(tokenSymbol)) {
-        logger.log(`Non-EVM chain detected: ${tokenSymbol}`);
         return { chain: tokenSymbol, tokenAddress: null, decimalPlace: null };
       }
 
@@ -1473,9 +1164,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         const chain = chains.find((c) => c.coingeckoId === cgId);
         if (chain && token.detail_platforms[cgId].contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
           const decimalPlace = Number(token.detail_platforms[cgId].decimal_place) || 18;
-          if (decimalPlace < 0 || decimalPlace > 36) {
-            logger.warn(`Invalid decimalPlace for ${cgId}: ${decimalPlace}, defaulting to 18`);
-          }
           acc[chain.value] = {
             address: token.detail_platforms[cgId].contract_address,
             decimal_place: decimalPlace,
@@ -1495,22 +1183,18 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         chains.some((net) => net.value === selectedChain) &&
         normalizedPlatforms[selectedChain].address.match(/^0x[a-fA-F0-9]{40}$/)
       ) {
-        const result = {
+        return {
           chain: selectedChain,
           tokenAddress: normalizedPlatforms[selectedChain].address,
           decimalPlace: normalizedPlatforms[selectedChain].decimal_place,
         };
-        logger.log('Default chain and address:', result);
-        return result;
       }
 
       if (availableChains.length > 0) {
         const defaultChain = availableChains[0].value;
         const tokenAddress = normalizedPlatforms[defaultChain].address;
         const decimalPlace = normalizedPlatforms[defaultChain].decimal_place;
-        const result = { chain: defaultChain, tokenAddress, decimalPlace };
-        logger.log('Default chain and address:', result);
-        return result;
+        return { chain: defaultChain, tokenAddress, decimalPlace };
       }
 
       const fallbackTokens = {
@@ -1527,7 +1211,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       };
 
       if (fallbackTokens[tokenSymbol]) {
-        logger.log(`Using fallback for ${tokenSymbol.toUpperCase()}:`, fallbackTokens[tokenSymbol]);
         return fallbackTokens[tokenSymbol];
       }
 
@@ -1558,24 +1241,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         (process.env.NODE_ENV === 'development' || !chain.testnet)
     );
 
-    if (JSON.stringify(availableChains) !== JSON.stringify(prevAvailableChainsRef.current)) {
-      logger.log(
-        'Available chains:',
-        availableChains.map((c) => ({
-          value: c.value,
-          label: c.label,
-          decimalPlace: normalizedPlatforms[c.value]?.decimal_place,
-        }))
-      );
-      prevAvailableChainsRef.current = availableChains;
-    }
-
+    prevAvailableChainsRef.current = availableChains;
     return availableChains;
   }, [selectedToken, chains]);
 
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token) => {
-      logger.log('debouncedHandleTokenSelect called for token:', { id: token.id, symbol: token.symbol });
       try {
         const recaptchaToken = await executeRecaptcha('coin_details');
         const response = await axios.get('/api/coingecko', {
@@ -1585,7 +1256,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             recaptchaToken,
           },
         });
-        logger.log('CoinGecko /coins/{id} response:', { id: response.data.id });
         const fullToken = {
           id: response.data.id,
           symbol: response.data.symbol,
@@ -1616,7 +1286,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           platforms: response.data.platforms || {},
           detail_platforms: response.data.detail_platforms || {},
         };
-        logger.log('Setting selectedToken:', { id: fullToken.id, symbol: fullToken.symbol, roi: fullToken.roi });
         setSelectedToken(fullToken);
         setSelectedPair(`${fullToken.symbol?.toUpperCase()}/USD`);
         const { chain } = getDefaultChainAndAddress(fullToken, 'ethereum');
@@ -1632,18 +1301,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         const tokenId = fullToken.id;
         fetchPriceHistory(tokenId, days, (err, data) => {
           if (err) {
-            logger.error('Price history fetch failed on token select:', { error: err.message });
             setError(
               err.response?.status === 429
                 ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
                 : err.response?.data?.detail || 'Failed to load price history.'
             );
-          } else {
-            logger.log('Price history fetched on token select:', { tokenId, count: data?.length || 0 });
           }
         });
       } catch (error) {
-        logger.error('Error fetching token details:', error.response?.data || error.message);
         setError(
           error.response?.status === 429
             ? 'CoinGecko rate limit reached. Please wait a minute and try again.'
@@ -1750,12 +1415,10 @@ Use natural, professional tone with recent data.
                 },
               }
             );
-            logger.log('Analysis saved successfully:', { token: selectedToken.symbol });
             if (interactionRes.data.pointsAwarded > 0 || dailyMarketInteractions < 5) {
               setDailyMarketInteractions((prev) => Math.min(prev + 1, 5));
             }
           } catch (interactionError) {
-            logger.error('Error saving analysis:', interactionError.response?.data || interactionError.message);
             if (interactionError.response?.data?.detail?.includes('maximum of 5 daily market interactions')) {
               setDailyMarketInteractions(5);
               toast.error('You have reached the maximum of 5 daily market interactions. Try again tomorrow.', {
@@ -1768,7 +1431,6 @@ Use natural, professional tone with recent data.
           }
         }
       } catch (error) {
-        logger.error('Error during analysis:', error.response?.data || error.message);
         let errorMessage;
         if (error.response?.status === 401) {
           errorMessage = 'Unauthorized: Please log in again.';
@@ -1874,12 +1536,10 @@ Use natural, professional tone with recent data.
                 },
               }
             );
-            logger.log('Prediction saved successfully:', { token: selectedToken.symbol });
             if (interactionRes.data.pointsAwarded > 0 || dailyMarketInteractions < 5) {
               setDailyMarketInteractions((prev) => Math.min(prev + 1, 5));
             }
           } catch (interactionError) {
-            logger.error('Error saving prediction:', interactionError.response?.data || interactionError.message);
             if (interactionError.response?.data?.detail?.includes('maximum of 5 daily market interactions')) {
               setDailyMarketInteractions(5);
               toast.error('You have reached the maximum of 5 daily market interactions. Try again tomorrow.', {
@@ -1892,7 +1552,6 @@ Use natural, professional tone with recent data.
           }
         }
       } catch (error) {
-        logger.error('Error during prediction:', error.response?.data || error.message);
         setError(
           error.response?.status === 401
             ? 'Unauthorized: Please log in again.'
@@ -1921,7 +1580,6 @@ Use natural, professional tone with recent data.
         return;
       }
       try {
-        logger.log('Searching coins with query:', query);
         const response = await axios.get('/api/coingecko', {
           params: { action: 'search', query },
         });
@@ -1932,14 +1590,8 @@ Use natural, professional tone with recent data.
           image: coin.thumb,
           market_cap_rank: coin.market_cap_rank,
         }));
-        logger.log('Search results fetched:', { count: results.length });
         setSearchResults(results.slice(0, 10));
       } catch (error) {
-        logger.error('Error searching coins:', {
-          message: error.message,
-          status: error.response?.status,
-          data: error.response?.data,
-        });
         setError(
           error.response?.status === 429
             ? 'API rate limit reached. Please wait a minute and try again.'
@@ -1966,16 +1618,13 @@ Use natural, professional tone with recent data.
         if (!selectedToken && !lastFetchedTokenRef.current) {
           const btc = tokensWithRoi.find((token) => token.id === 'bitcoin');
           if (btc) {
-            logger.log('Selecting default token:', { id: btc.id });
             debouncedHandleTokenSelect(btc);
           }
         }
         setLoading(false);
       } catch (error) {
-        logger.error('Error fetching market data:', error.response?.data || error.message);
         if (error.response?.status === 429 && retryCount < 3) {
           const delay = Math.pow(2, retryCount) * 1000;
-          logger.log(`Retrying fetchMarketData after ${delay}ms due to 429 error`);
           setTimeout(() => fetchMarketData(retryCount + 1), delay);
           return;
         }
@@ -2008,14 +1657,11 @@ Use natural, professional tone with recent data.
       const tokenId = selectedToken.id;
       fetchPriceHistory(tokenId, timeRange, (err, data) => {
         if (err) {
-          logger.error('Price history fetch failed:', { error: err.message });
           setError(
             err.response?.status === 429
               ? 'API rate limit reached. Please wait a minute and try again.'
               : err.response?.data?.detail || 'Failed to load price history.'
           );
-        } else {
-          logger.log('Price history fetched:', { tokenId, count: data?.length || 0 });
         }
       });
     }
@@ -2024,9 +1670,7 @@ Use natural, professional tone with recent data.
         const tokenId = selectedToken.id;
         fetchPriceHistory(tokenId, timeRange, (err, data) => {
           if (err) {
-            logger.error('Price history interval fetch failed:', { error: err.message });
-          } else {
-            logger.log('Price history interval callback success:', { tokenId: selectedToken.id, count: data?.length || 0 });
+            // Handle error silently
           }
         });
       }
@@ -2053,26 +1697,22 @@ Use natural, professional tone with recent data.
       : `${selectedToken.id}-${chain}-${tokenAddress}-${decimalPlace}`;
 
     if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
-      logger.log('Skipping redundant fetch for:', { tokenKey });
       return;
     }
 
     setIsLoadingOnChain(true);
-    setOnChainData((prevAscent) => ({ ...prevAscent, topHolders: [] })); // Fixed typo: prev -> prevAscent
+    setOnChainData((prevAscent) => ({ ...prevAscent, topHolders: [] }));
 
     if (isNonEvmChain) {
-      logger.log(`Fetching top holders for non-EVM chain ${tokenSymbol} via Blockchair`);
       lastFetchedTokenRef.current = tokenKey;
       fetchPublicTreasuryData(tokenSymbol);
     } else {
       if (!chain || !tokenAddress) {
-        logger.log('Skipping on-chain data fetch: no valid chain or token address');
         setIsLoadingOnChain(false);
         setOnChainError('No valid chain or token address available for this token.');
         return;
       }
 
-      logger.log('Triggering fetchOnChainData for:', { chain, tokenAddress, decimalPlace });
       lastFetchedTokenRef.current = tokenKey;
       fetchOnChainData(chain, tokenAddress, 'top-holders', decimalPlace);
     }
@@ -2083,7 +1723,7 @@ Use natural, professional tone with recent data.
     };
   }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData, onChainData.topHolders.length]);
 
-  useEffect(() => {
+    useEffect(() => {
     prevTopHoldersRef.current = onChainData.topHolders;
   }, [onChainData.topHolders]);
 
@@ -2110,7 +1750,7 @@ Use natural, professional tone with recent data.
             setDailyMarketInteractions(response.data.pointsCount);
           }
         } catch (err) {
-          logger.error('Error fetching daily market interactions:', err);
+          // Handle error silently
         }
       }
     }
@@ -2123,11 +1763,9 @@ Use natural, professional tone with recent data.
         .map((holder) => holder.address)
         .filter((addr) => addr && !nameTags[addr.toLowerCase()]);
       if (addresses.length > 0) {
-        logger.log('Triggering fetchNameTagsForAddresses:', { count: addresses.length, addresses });
         fetchNameTagsForAddresses(addresses);
       } else {
         setIsLoadingNameTags(false);
-        logger.log('No new valid addresses in topHolders for Name Tag fetch');
       }
     } else {
       setIsLoadingNameTags(false);
@@ -2152,11 +1790,9 @@ Use natural, professional tone with recent data.
       const cacheKey = `${GECKOTERMINAL_CHAIN_MAPPING[chain]}-${tokenAddress}`;
       const cached = tickerCache[cacheKey];
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-        logger.log('Skipping DEX data refresh: data still fresh', { cacheKey });
         return;
       }
       if (document.visibilityState === 'visible') {
-        logger.log('Background DEX data refresh triggered', { chain, tokenAddress });
         fetchDexData(chain, tokenAddress);
       }
     }, 30000); // 30 seconds
@@ -2265,23 +1901,11 @@ Use natural, professional tone with recent data.
     WALLET_SEARCH_WINDOW,
     BLOCKCHAIR_REQUEST_LIMIT,
     BLOCKCHAIR_REQUEST_WINDOW,
+    NON_EVM_CHAINS,
     // Refs
     lastFetchedTokenRef,
     prevTopHoldersRef,
     prevAvailableChainsRef,
     blockchairCache,
-
-    // Constants
-    SUPPORTED_CHAINS,
-    WALLET_SEARCH_LIMIT,
-    WALLET_SEARCH_WINDOW,
-    BLOCKCHAIR_REQUEST_LIMIT,
-    BLOCKCHAIR_REQUEST_WINDOW,
-    NON_EVM_CHAINS,
-
-    // Refs
-    lastFetchedTokenRef,
-    prevTopHoldersRef,
-    prevAvailableChainsRef,
   };
 };

@@ -1,6 +1,6 @@
 // utils/verifyRecaptcha.js
-const axios = require('axios');
-const { logger } = require('./logger');
+import axios from 'axios';
+import { logger } from './logger.cjs';
 
 async function verifyRecaptcha(token, action, ip) {
   // Validate inputs
@@ -66,4 +66,4 @@ async function verifyRecaptcha(token, action, ip) {
 }
 }
 
-module.exports = { verifyRecaptcha };
+export { verifyRecaptcha };

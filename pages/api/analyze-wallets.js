@@ -1,13 +1,13 @@
 // pages/api/analyze-wallets.js
-import { fetchBlockchainData } from '../../lib/blockchainData';
-import { getNametag, addNametag } from '../../lib/nametags';
-import { db } from '../../utils/firebaseAdmin';
+import { fetchBlockchainData } from '../../lib/blockchainData.js';
+import { getNametag, addNametag } from '../../lib/nametags.js';
+import { db } from '../../utils/firebaseAdmin.js';
 import axios from 'axios';
 import { isAddress } from 'ethers';
-import { detectLargeFlow } from '../../lib/detectLargeFlow';
+import { detectLargeFlow } from '../../lib/detectLargeFlow.js';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from './auth/[...nextauth]';
-import { logger } from '../../utils/logger';
+import { authOptions } from './auth/[...nextauth].js';
+import { logger } from '../../utils/logger.cjs';
 import { saveWalletAnalysis as saveAnalysisToFirestore, saveLargeFlow as saveLargeFlowToFirestore } from '../../lib/analysisStorage'; // Import from analysisStorage
 
 const GEMINI_API_BASE_URL = process.env.NEXTAUTH_URL + '/api/gemini';

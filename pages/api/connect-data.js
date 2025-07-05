@@ -1,6 +1,6 @@
 // pages/api/connect-data.js
-import { db } from '../../utils/firebaseAdmin';
-import { logger } from '../../utils/logger';
+import { db } from '../../utils/firebaseAdmin.js';
+import { logger } from '../../utils/logger.cjs';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

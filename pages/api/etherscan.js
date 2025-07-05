@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
 import Cors from 'cors';
 import { isAddress } from 'ethers';
-import { requireAuth } from './middleware/auth'; // Assuming this middleware is for user authentication
+import { requireAuth } from './middleware/auth.js'; // Assuming this middleware is for user authentication
 
 // --- Logger Configuration ---
 const logger = winston.createLogger({

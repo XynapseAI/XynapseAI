@@ -7,7 +7,7 @@ import { authOptions } from './auth/[...nextauth].js';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import { logger } from '../../utils/logger.js';
+import { logger } from '../../utils/logger.cjs';
 import helmet from 'helmet';
 import jwt from 'jsonwebtoken';
 

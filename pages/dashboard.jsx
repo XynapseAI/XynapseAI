@@ -15,7 +15,6 @@ import WalletTable from '../components/WalletTable';
 import TransactionTable from '../components/TransactionTable';
 import { motion } from 'framer-motion';
 import ReCAPTCHA from 'react-google-recaptcha';
-import { logger } from '../utils/logger';
 import Link from 'next/link';
 import MatrixHoverEffect from '../components/MatrixHoverEffect';
 
@@ -51,13 +50,8 @@ export default function Dashboard() {
         clearTimeout(timeoutId);
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || 'Failed to load player list');
-        logger.info('Fetched top players:', result);
         setTopPlayers(result || {});
       } catch (err) {
-        logger.error('Error fetching player list:', {
-          message: err.message,
-          stack: err.stack,
-        });
         setError(`Unable to load player list: ${err.message}`);
       } finally {
         setLoading(false);
@@ -75,14 +69,12 @@ export default function Dashboard() {
         let recaptchaToken = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-            logger.info(`Executing reCAPTCHA for action: user_data, attempt ${attempt}`);
             recaptchaToken = await Promise.race([
               recaptchaRef.current.executeAsync(),
               new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 10000))
             ]);
             if (recaptchaToken) break;
           } catch (err) {
-            logger.warn(`reCAPTCHA attempt ${attempt} failed: ${err.message}`);
             if (attempt === 3) throw new Error('reCAPTCHA timeout after 3 attempts');
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
@@ -107,14 +99,8 @@ export default function Dashboard() {
           const errorMessages = result.errors?.map((e) => e.msg).join(', ') || '';
           throw new Error(`${errorDetail}${errorMessages ? `: ${errorMessages}` : ''} (HTTP ${response.status})`);
         }
-        logger.info('Initialized user data:', { user: result.user });
         setUserData(result.user);
       } catch (err) {
-        logger.error('Error initializing user data:', {
-          message: err.message,
-          status: err.response?.status,
-          data: err.response?.data,
-        });
         if (err.message.includes('HTTP 404')) {
           setError('User not found. Signing out and redirecting to login page...');
           await signOut({ redirect: false });
@@ -136,11 +122,8 @@ export default function Dashboard() {
       if (!isConnected || !address) throw new Error('Wallet not connected');
       if (!recaptchaRef.current) throw new Error('reCAPTCHA not ready');
       const recaptchaToken = await recaptchaRef.current.executeAsync();
-      logger.info('Generated reCAPTCHA token for wallet verification:', { token: recaptchaToken ? 'success' : 'failed' });
       const message = `Sign this message to authenticate: ${address}`;
-      logger.info('Signing message:', { message });
       const signature = await signMessageAsync({ message });
-      logger.info('Signature:', { signature });
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       const response = await fetch(`${API_BASE_URL}/verify-wallet`, {
@@ -158,17 +141,12 @@ export default function Dashboard() {
       clearTimeout(timeoutId);
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail || 'Wallet verification failed');
-      logger.info('Wallet verification result:', { result });
       setError(null);
       setUserData((prev) => ({
         ...prev,
         walletAddress: address,
       }));
     } catch (err) {
-      logger.error('Wallet verification error:', {
-        message: err.message,
-        stack: err.stack,
-      });
       setError(`Wallet verification error: ${err.message}`);
     } finally {
       if (recaptchaRef.current) recaptchaRef.current.reset();
@@ -177,13 +155,8 @@ export default function Dashboard() {
 
   const handleSignInTwitter = async () => {
     try {
-      logger.info('Starting Twitter login');
       await signIn('twitter', { callbackUrl: '/dashboard' });
     } catch (error) {
-      logger.error('Twitter login error:', {
-        message: error.message,
-        stack: error.stack,
-      });
       setError(`Unable to login with Twitter: ${error.message || 'System error'}`);
     }
   };
@@ -194,12 +167,7 @@ export default function Dashboard() {
       if (isConnected) disconnect();
       setUserData(null);
       setError(null);
-      logger.info('Logged out successfully');
     } catch (error) {
-      logger.error('Logout error:', {
-        message: error.message,
-        stack: error.stack,
-      });
       setError('Unable to log out.');
     }
   };
@@ -211,7 +179,6 @@ export default function Dashboard() {
       if (!session?.user) throw new Error('Not logged in');
       if (!recaptchaRef.current) throw new Error('reCAPTCHA not ready');
       const recaptchaToken = await recaptchaRef.current.executeAsync();
-      logger.info('Generated reCAPTCHA token for analyzing tweets:', { token: recaptchaToken ? 'success' : 'failed' });
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       const response = await fetch(`${API_BASE_URL}/analyze-tweets`, {
@@ -224,15 +191,10 @@ export default function Dashboard() {
       clearTimeout(timeoutId);
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail || 'Tweet analysis failed');
-      logger.info('Tweet analysis result:', { result });
       setUserData((prev) => (prev ? { ...prev, points: result.points } : null));
       setError(null);
       setLastAnalysisSuccess(true);
     } catch (error) {
-      logger.error('Tweet analysis error:', {
-        message: error.message,
-        stack: error.stack,
-      });
       setError(`Tweet analysis error: ${error.message}`);
     } finally {
       setIsAnalyzing(false);

@@ -1,18 +1,18 @@
 // pages/api/auth/[...nextauth].js
 import NextAuth from 'next-auth';
 import TwitterProvider from 'next-auth/providers/twitter';
-import { db, admin } from '../../../utils/firebaseAdmin';
-import { logger } from '../../../utils/logger';
+import { db, admin } from '../../../utils/firebaseAdmin.js';
+import { logger } from '../../../utils/logger.cjs';
 
 export const authOptions = {
   providers: [
-    TwitterProvider({
+    TwitterProvider.default({ 
       clientId: process.env.TWITTER_CLIENT_ID,
       clientSecret: process.env.TWITTER_CLIENT_SECRET,
       version: '2.0',
       authorization: {
         params: {
-          scope: 'tweet.read users.read offline.access', // Giảm scope để thử nghiệm
+          scope: 'tweet.read users.read offline.access',
         },
       },
     }),
@@ -104,4 +104,4 @@ export const authOptions = {
   },
 };
 
-export default NextAuth(authOptions);
+export default NextAuth.default(authOptions);

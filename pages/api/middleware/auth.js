@@ -1,7 +1,7 @@
 // pages/api/middleware/auth.js
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
-import { logger } from '../../../utils/logger';
+import { authOptions } from '../auth/[...nextauth].js';
+import { logger } from '../../../utils/logger.cjs';
 
 const requireAuth = async (req, res, next) => {
   const session = await getServerSession(req, res, authOptions);
@@ -13,4 +13,4 @@ const requireAuth = async (req, res, next) => {
   next();
 };
 
-module.exports = { requireAuth };
+export { requireAuth };

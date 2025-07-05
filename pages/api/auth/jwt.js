@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from './[...nextauth]';
-import { logger } from '../../../utils/logger';
+import { authOptions } from './[...nextauth].js';
+import { logger } from '../../../utils/logger.cjs';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
