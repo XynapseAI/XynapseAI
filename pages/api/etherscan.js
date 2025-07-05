@@ -160,10 +160,9 @@ export default async function handler(req, res) {
         return res.status(400).json({ detail: `Unsupported chain for Etherscan: ${chain}` });
     }
 
-    // Authentication for specific actions (similar to sim.js)
     if (['wallet-balances', 'transactions'].includes(action)) {
         const internalToken = req.headers['x-internal-token'];
-        if (process.env.NODE_ENV === 'development' && internalToken === process.env.INTERNAL_API_TOKEN) {
+        if (internalToken && internalToken === process.env.INTERNAL_API_TOKEN) {
             logger.info(`Bypassing auth with internal token for ${action}`, { ip });
         } else {
             try {
@@ -233,8 +232,8 @@ export default async function handler(req, res) {
                     symbol: chain === 'ethereum' ? 'ETH' : (chain === 'bnb' ? 'BNB' : 'Native'),
                     decimals: 18, // Native coin usually 18 decimals
                     amount: ethBalanceWei / Math.pow(10, 18),
-                    price_usd: 0, // Etherscan balance API doesn't return price_usd directly
-                    value_usd: 0, // Requires external price lookup
+                    price_usd: 0, 
+                    value_usd: 0, 
                     logo: null,
                 }];
             } else {
@@ -258,13 +257,6 @@ export default async function handler(req, res) {
             }
 
         } else if (action === 'token-info' && tokenAddress) {
-            // Etherscan: Get ERC20 Token Account Balance for TokenContractAddress
-            // This API gives the balance of a specific wallet for a specific token.
-            // Etherscan doesn't have a direct 'get token info by address' like Dune.
-            // The best way to get general token info (name, symbol, decimals) is via a smart contract call
-            // or by querying transaction data where the token is involved.
-            // For now, we'll return a placeholder. For actual usage, you'd integrate a web3 library
-            // like ethers.js to call contract methods (name(), symbol(), decimals()).
             logger.warn(`'token-info' action not fully supported by Etherscan directly. Requires contract interaction for full details.`, { ip, tokenAddress });
             return res.status(200).json({ success: true, data: { tokenAddress, name: 'Unknown', symbol: 'Unknown', decimals: 0, note: 'Requires contract interaction for full details' } });
 

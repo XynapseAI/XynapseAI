@@ -33,7 +33,7 @@ async function runHighVolumeWalletAnalysis() {
     // Bước 2: Lấy ví high-volume
     logger.info('Fetching high-volume wallets...');
     const highVolumeWallets = await getHighVolumeWallets(
-      'ethereum', 800, 100, 50, 500, 400
+      'ethereum', 600, 100, 50, 1000, 300
     );
     logger.info(`Found ${highVolumeWallets.length} high-volume wallets`);
 
