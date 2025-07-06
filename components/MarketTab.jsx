@@ -251,8 +251,7 @@ const LoadingOverlay = () => {
   );
 };
 
-// Wallet Balances component (unchanged)
-// In MarketTab.jsx, update the WalletBalances component
+// WalletBalances component
 const WalletBalances = ({
   balances,
   walletAddress,
@@ -320,7 +319,7 @@ const WalletBalances = ({
 
   logger.log('WalletBalances rendering:', {
     walletAddress,
-    balances: balances.slice(0, 5), // Log sample balances
+    balances: balances.slice(0, 5),
     isLoading,
     error,
     transactionsCount: transactions?.length || 0,
@@ -332,14 +331,14 @@ const WalletBalances = ({
     <div className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains min-h-screen">
       <div
         ref={walletBalancesRef}
-        className="backdrop-blur-md p-4 sm:p-6 max-w-6xl w-[90%] border border-white/10 rounded-xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar"
+        className="backdrop-blur-md p-3 sm:p-4 max-w-6xl w-[90%] rounded-xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar"
       >
         <div className="sticky top-0 z-10 backdrop-blur-md p-2">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2">
+          <div className="flex justify-between items-center mb-3">
+            <div className="flex items-center gap-1.5">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-white"
+                className="h-4 w-4 text-white"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -355,7 +354,7 @@ const WalletBalances = ({
                 <img
                   src={walletImage}
                   alt={`${displayWalletAddress} logo`}
-                  className="w-5 h-5 rounded-full flex-shrink-0"
+                  className="w-4 h-4 rounded-full flex-shrink-0"
                   onError={(e) => {
                     logger.error('Wallet name tag image failed to load:', {
                       address: walletAddress,
@@ -365,50 +364,67 @@ const WalletBalances = ({
                   }}
                 />
               )}
-              <span className="text-xs sm:text-sm font-bold text-white">
+              <span className="text-[10px] sm:text-xs font-bold text-white">
                 {displayWalletAddress}
               </span>
             </div>
             <button
               onClick={onClose}
-              className="text-white text-lg font-bold bg-white/10 border border-white/20 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/15 transition-all duration-300"
+              className="text-white text-sm font-bold bg-white/10 border border-white/20 backdrop-blur-md rounded-full w-6 h-6 flex items-center justify-center hover:bg-white/15 transition-all duration-300"
               aria-label="Close balances"
             >
               ✕
             </button>
           </div>
-          <div className="flex space-x-2 mb-4">
+          <div className="flex space-x-1.5 mb-3">
             <button
               onClick={() => setActiveTab('portfolio')}
-              className={`px-2 py-1 rounded-lg text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
                 }`}
             >
               Portfolio
             </button>
             <button
               onClick={() => setActiveTab('transactions')}
-              className={`px-2 py-1 rounded-lg text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'transactions' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'transactions' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
                 }`}
             >
               Transactions
             </button>
           </div>
         </div>
-        <div className="overflow-y-auto max-h-[calc(80vh-120px)] rounded-lg border border-white/10 backdrop-blur-md custom-scrollbar">
+        <div className="overflow-y-auto max-h-[calc(80vh-100px)] rounded-lg custom-scrollbar">
           {activeTab === 'portfolio' && (
             <>
-              {isLoading && <p className="text-xs sm:text-sm text-gray-400 text-center"></p>}
-              {error && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {error}</p>}
+              {isLoading && <p className="text-[10px] sm:text-xs text-gray-400 text-center"></p>}
+              {error && <p className="text-[10px] sm:text-xs text-red-500 text-center">Error: {error}</p>}
               {!isLoading && !error && balances?.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full border border-gray-500 table-auto">
+                  <table className="w-full table-fixed">
                     <thead className="sticky top-0 bg-black/30 z-10 uppercase">
                       <tr>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 sm:w-1/3 text-white text-center text-[10px] sm:text-xs">
+                        <th className="px-2 py-1 text-white text-center text-[9px] sm:text-[12px] w-[12%] sm:w-[10%]">
                           <div className="flex items-center justify-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4 fill-white"
+                              className="w-3 h-3 fill-white flex-shrink-0"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                              />
+                            </svg>
+                            Chain
+                          </div>
+                        </th>
+                        <th className="px-2 py-1 text-white text-left text-[9px] sm:text-[12px] w-[25%] sm:w-[60%]">
+                          <div className="flex items-center gap-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3 w-3 fill-white"
                               viewBox="0 0 24 24"
                             >
                               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
@@ -416,11 +432,11 @@ const WalletBalances = ({
                             Token
                           </div>
                         </th>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 text-white text-center text-[10px] sm:text-xs">
-                          <div className="flex items-center justify-center gap-1">
+                        <th className="px-2 py-1 text-white text-left text-[9px] sm:text-[12px] w-[23%] sm:w-[15%]">
+                          <div className="flex items-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4 fill-white"
+                              className="h-3 w-3 fill-white"
                               viewBox="0 0 24 24"
                             >
                               <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
@@ -428,18 +444,19 @@ const WalletBalances = ({
                             Balance
                           </div>
                         </th>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-2 sm: py-1.5 sm:w-1/6 text-white text-center text-[10px] sm:text-xs">
-                          <div className="flex items-center justify-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5" />
-                            </svg>
-                            Price
-                          </div>
-                        </th>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 text-white text-center text-[10px] sm:text-xs">
-                          <div className="flex items-center justify-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z" />
+                        <th className="px-2 py-1 text-white text-left text-[9px] sm:text-[12px] w-[25%] sm:w-[15%]">
+                          <div className="flex items-center gap-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3 w-3 stroke-white fill-none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
+                              />
                             </svg>
                             Value
                           </div>
@@ -448,58 +465,63 @@ const WalletBalances = ({
                     </thead>
                     <tbody>
                       {balances.map((balance, index) => (
-                        <tr key={`${balance.chain}-${balance.address}-${index}`}>
-                          <td className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                            <div className="relative flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-2">
-                              <div className="absolute top-0 left-0 flex items-center space-x-1 sm:space-x-1">
+                        <tr
+                          key={`${balance.chain}-${balance.address}-${index}`}
+                          className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
+                        >
+                          <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
+                            <div className="flex flex-col items-center">
+                              <img
+                                src={getPlatformImage(balance.chain)}
+                                alt={`${balance.chain} logo`}
+                                className="w-3 h-3 flex-shrink-0"
+                                onError={(e) => {
+                                  logger.error('Platform logo failed to load:', {
+                                    chain: balance.chain,
+                                    src: getPlatformImage(balance.chain),
+                                  });
+                                  e.target.src = '/fallback-image.png';
+                                }}
+                              />
+                              <span className="text-[7px] sm:text-[9px] text-gray-400 flex-shrink-0">
+                                {chains.find((c) => c.value === balance.chain)?.label || balance.chain}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
+                            <div className="flex items-center sm:items-center sm:space-x-2">
+                              {balance.logo && (
                                 <img
-                                  src={getPlatformImage(balance.chain)}
-                                  alt={`${balance.chain} logo`}
-                                  className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"
+                                  src={balance.logo}
+                                  alt={`${balance.symbol} logo`}
+                                  className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 mr-1"
                                   onError={(e) => {
-                                    logger.error('Platform logo failed to load:', {
-                                      chain: balance.chain,
-                                      src: getPlatformImage(balance.chain),
+                                    logger.error('Token logo failed to load:', {
+                                      symbol: balance.symbol,
+                                      src: balance.logo,
                                     });
                                     e.target.src = '/fallback-image.png';
                                   }}
                                 />
-                                <span className="text-[8px] sm:text-[10px] text-gray-400 flex-shrink-0">
-                                  {chains.find((c) => c.value === balance.chain)?.label || balance.chain}
-                                </span>
-                              </div>
-                              <div className="flex flex-col items-center sm:flex-row sm:space-x-2 pt-5 sm:pt-0">
-                                {balance.logo && (
-                                  <img
-                                    src={balance.logo}
-                                    alt={`${balance.symbol} logo`}
-                                    className="w-4 h-4 sm:w-5 sm:h-5 mb-1 sm:mb-0"
-                                    onError={(e) => {
-                                      logger.error('Token logo failed to load:', {
-                                        symbol: balance.symbol,
-                                        src: balance.logo,
-                                      });
-                                      e.target.src = '/fallback-image.png';
-                                    }}
-                                  />
-                                )}
+                              )}
+                              <div className="flex flex-col items-start sm:flex-row sm:items-center sm:space-x-1">
                                 <span>
                                   {balance.symbol || 'Unknown'} {balance.address === 'native' ? '(Native)' : ''}
                                 </span>
+                                {balance.price_usd != null && (
+                                  <span className="text-[7px] sm:text-[8px] text-gray-400">
+                                    ({formatPrice(balance.price_usd)})
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
-                          <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                          <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
                             {balance.amount != null
                               ? balance.amount.toLocaleString('en-US', { maximumFractionDigits: 2 })
                               : 'N/A'}
                           </td>
-                          <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                            {balance.price_usd != null
-                              ? `$${balance.price_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-                              : 'N/A'}
-                          </td>
-                          <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                          <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
                             {balance.value_usd != null
                               ? `$${balance.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
                               : 'N/A'}
@@ -510,7 +532,7 @@ const WalletBalances = ({
                   </table>
                 </div>
               ) : (
-                !isLoading && <p className="text-xs sm:text-sm text-gray-400 text-center">No balances found for this wallet.</p>
+                !isLoading && <p className="text-[10px] sm:text-xs text-gray-400 text-center">No balances found for this wallet.</p>
               )}
             </>
           )}
@@ -518,25 +540,64 @@ const WalletBalances = ({
           {activeTab === 'transactions' && (
             <>
               {isLoadingTransactions && (
-                <p className="text-xs sm:text-sm text-gray-400 text-center">Loading transactions...</p>
+                <p className="text-[11px] sm:text-xs text-gray-400 text-center">Loading transactions...</p>
               )}
-              {transactionsError && <p className="text-xs sm:text-sm text-red-500 text-center">Error: {transactionsError}</p>}
+              {transactionsError && <p className="text-[11px] sm:text-xs text-red-500 text-center">Error: {transactionsError}</p>}
               {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full border border-gray-500 table-auto">
-                    <thead className="sticky top-0 bg-gray-700 z-10">
+                  <table className="w-full table-fixed">
+                    <thead className="sticky top-0 bg-gray-700/50 backdrop-blur-sm z-10">
                       <tr>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 sm:w-1/3 text-white text-center text-[10px] sm:text-xs">
-                          Hash
+                        <th className="px-2 py-1 text-white text-left text-[9px] sm:text-[12px] w-[60%] sm:w-[70%] uppercase">
+                          <div className="flex items-center gap-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-3 h-3 fill-white stroke-white flex-shrink-0"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M14 5l7 7m0 0l-7 7m7-7H3"
+                              />
+                            </svg>
+                            Transfer
+                          </div>
                         </th>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/4 text-white text-center text-[10px] sm:text-xs">
-                          Transfer
+                        <th className="px-2 py-1 text-white text-left text-[9px] sm:text-[12px] w-[20%] sm:w-[15%] uppercase">
+                          <div className="flex items-center gap-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3 w-3 stroke-white fill-none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
+                              />
+                            </svg>
+                            Value
+                          </div>
                         </th>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 text-white text-center text-[10px] sm:text-xs">
-                          Value
-                        </th>
-                        <th className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 sm:w-1/6 text-white text-center text-[10px] sm:text-xs">
-                          Time
+                        <th className="px-2 py-1 text-white text-center text-[9px] sm:text-[12px] w-[20%] sm:w-[15%] uppercase">
+                          <div className="flex items-center justify-center gap-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-3 w-3 stroke-white fill-none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            Time
+                          </div>
                         </th>
                       </tr>
                     </thead>
@@ -546,50 +607,20 @@ const WalletBalances = ({
                         const { addressUrl: toUrl } = getExplorerUrls(tx.chain, tx.hash, tx.to);
                         const { text: fromText, image: fromImage } = truncateAddress(tx.from, nameTags);
                         const { text: toText, image: toImage } = truncateAddress(tx.to, nameTags);
-                        const { text: hashText } = truncateHash(tx.hash); // Use truncateHash for the Hash column
 
                         return (
-                          <tr key={`${tx.chain}-${tx.hash}-${index}`}>
-                            <td className="border border-gray-500 px-1 py-1 sm:px-4 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                              <div className="relative flex flex-col items-center sm:flex-row sm:justify-center">
-                                <div className="absolute top-0 left-0 flex items-center space-x-1 sm:space-x-1">
-                                  <img
-                                    src={getPlatformImage(tx.chain)}
-                                    alt={`${tx.chain} logo`}
-                                    className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0"
-                                    onError={(e) => {
-                                      logger.error('Transaction chain logo failed to load:', {
-                                        chain: tx.chain,
-                                        src: getPlatformImage(tx.chain),
-                                      });
-                                      e.target.src = '/fallback-image.png';
-                                    }}
-                                  />
-                                  <span className="text-[8px] sm:text-[10px] text-gray-400 flex-shrink-0">
-                                    {chains.find((c) => c.value === tx.chain)?.label || tx.chain}
-                                  </span>
-                                </div>
-                                <div className="pt-5 sm:pt-0">
-                                  <a
-                                    href={txUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-blue-400 hover:underline"
-                                    title={tx.hash} // Show full hash on hover
-                                  >
-                                    {hashText} {/* Use truncated hash */}
-                                  </a>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                              <div className="flex flex-col items-center sm:flex-row sm:justify-center sm:space-x-1">
-                                <div className="flex items-center gap-1">
+                          <tr
+                            key={`${tx.chain}-${tx.hash}-${index}`}
+                            className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
+                          >
+                            <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
+                              <div className="flex items-center space-x-1">
+                                <div className="flex items-center gap-1 mr-0 md:mr-2">
                                   {fromImage && (
                                     <img
                                       src={fromImage}
                                       alt={`${fromText} logo`}
-                                      className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
+                                      className="w-3 h-3 rounded-full flex-shrink-0"
                                       onError={(e) => {
                                         logger.error('From address name tag image failed to load:', {
                                           address: tx.from,
@@ -610,13 +641,18 @@ const WalletBalances = ({
                                     {fromText}
                                   </a>
                                 </div>
-                                <span className="sm:mx-1">→</span>
+
                                 <div className="flex items-center gap-1">
+                                  <span className="mx-1">→</span>
+                                </div>
+
+                                
+                                <div className="flex items-center gap-1 ml-2">
                                   {toImage && (
                                     <img
                                       src={toImage}
                                       alt={`${toText} logo`}
-                                      className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
+                                      className="w-3 h-3 rounded-full flex-shrink-0"
                                       onError={(e) => {
                                         logger.error('To address name tag image failed to load:', {
                                           address: tx.to,
@@ -639,11 +675,42 @@ const WalletBalances = ({
                                 </div>
                               </div>
                             </td>
-                            <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
+                            <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
                               {weiToEth(tx.value)}
                             </td>
-                            <td className="border border-gray-500 px-1 py-1 sm:px-2 sm:py-1.5 text-gray-200 text-[10px] sm:text-xs text-center">
-                              {new Date(tx.block_time).toLocaleString('en-US')}
+                            <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
+                              <div className="flex flex-col items-center gap-0.5">
+                                <div className="flex items-center justify-center gap-1">
+                                  <img
+                                    src={getPlatformImage(tx.chain)}
+                                    alt={`${tx.chain} logo`}
+                                    className="w-3 h-3 flex-shrink-0"
+                                    onError={(e) => {
+                                      logger.error('Transaction chain logo failed to load:', {
+                                        chain: tx.chain,
+                                        src: getPlatformImage(tx.chain),
+                                      });
+                                      e.target.src = '/fallback-image.png';
+                                    }}
+                                  />
+                                  <a
+                                    href={txUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex-shrink-0"
+                                  >
+                                    <img
+                                      src="/logos/etherscan-logo.png"
+                                      alt="Etherscan"
+                                      className="w-3 h-3"
+                                      onError={(e) => (e.target.src = '/fallback-image.png')}
+                                    />
+                                  </a>
+                                </div>
+                                <span className="text-[7px] sm:text-[8px] text-gray-400 text-center">
+                                  {new Date(tx.block_time).toLocaleString('en-US')}
+                                </span>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -653,7 +720,7 @@ const WalletBalances = ({
                 </div>
               ) : (
                 !isLoadingTransactions && (
-                  <p className="text-xs sm:text-sm text-gray-400 text-center">No transactions found for this address.</p>
+                  <p className="text-[10px] sm:text-xs text-gray-400 text-center">No transactions found for this address.</p>
                 )
               )}
             </>
