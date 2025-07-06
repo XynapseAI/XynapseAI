@@ -13,7 +13,6 @@ import fs from 'fs/promises';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 
-const ALLOWED_IPS = []; // Thay YOUR_SERVER_IP bằng IP của server
 const ALLOWED_USER_AGENT = 'CronWorker/1.0';
 const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
 const API_KEYS_COLLECTION = 'api_keys';
