@@ -16,7 +16,9 @@ const __dirname = path.dirname(__filename);
 
 const { logger } = pkg;
 const ANALYZE_WALLETS_API_URL = process.env.NEXTAUTH_URL + '/api/analyze-wallets';
-const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH || path.join(__dirname, 'wallets.json');
+const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH
+  ? path.resolve(process.env.WALLET_FILE_PATH)
+  : path.resolve(process.cwd(), 'cron-worker/wallets.json');
 const PENDING_WALLETS_COLLECTION = 'pending_wallets_to_analyze';
 const ETH_PRICE_COLLECTION = 'eth_price';
 const API_KEYS_COLLECTION = 'api_keys';

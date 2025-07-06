@@ -24,7 +24,11 @@ const DEFAULT_GEMINI_TIMEOUT_MS = 60000;
 const LARGE_VALUE_THRESHOLD_USD = 500000;
 const DEPOSIT_WALLET_CONFIDENCE_THRESHOLD = 60;
 const DEFAULT_ETH_PRICE_USD = 2000;
-const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH || path.join(process.cwd(), 'cron-worker', 'wallets.json');
+const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH
+  ? path.resolve(process.env.WALLET_FILE_PATH)
+  : path.resolve(process.cwd(), 'cron-worker/wallets.json');
+
+
 
 // Rate limiting middleware
 const limiter = rateLimit({
