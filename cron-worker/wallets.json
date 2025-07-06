@@ -1,0 +1,38 @@
+[
+  {
+    "address": "0x28C6c06298d514Db089934071355E5743bf21d60",
+    "name": "Binance Hot Wallet"
+  },
+  {
+    "address": "0xf89d7b9c864f589bbF53a82105107622B35EaA40",
+    "name": "ByBit Hot Wallet"
+  },
+  {
+    "address": "0x3CC936b795A188F0e246cBB2D74C5Bd190aeCF18",
+    "name": "Mexc Hot Wallet"
+  },
+  {
+    "address": "0x59708733fBbf64378d9293ec56b977c011a08Fd2",
+    "name": "Bitget Hot Wallet"
+  },
+  {
+    "address": "0xCFFAd3200574698b78f32232aa9D63eABD290703",
+    "name": "Crypto.com Hot Wallet"
+  },
+  {
+    "address": "0x0D0707963952f2fBA59dD06f2b425ace40b492Fe",
+    "name": "Gate Hot Wallet"
+  },
+  {
+    "address": "0xeF317e433B0836F294866d43f67D6871b609B351",
+    "name": "BingX Hot Wallet"
+  },
+  {
+    "address": "0xfB8131c260749c7835a08ccBdb64728De432858E",
+    "name": "BitMEX Hot Wallet"
+  },
+  {
+    "address": "0xA9D1e08C7793af67e9d92fe308d5697FB81d3E43",
+    "name": "Coinbase Hot Wallet"
+  }
+]
