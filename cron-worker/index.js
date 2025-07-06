@@ -74,12 +74,20 @@ function generateHmacSignature(payload, secret) {
 
 async function readWalletFile() {
   try {
-    logger.info(`Attempting to read wallet file at: ${WALLET_FILE_PATH}`);
-    const fileContent = await fs.readFile(WALLET_FILE_PATH, 'utf-8');
+    const absolutePath = path.resolve(process.env.WALLET_FILE_PATH);
+    logger.info(`Attempting to read wallet file at resolved path: ${absolutePath}`);
+    
+    // Kiểm tra file tồn tại
+    await fs.access(absolutePath, fs.constants.F_OK);
+    logger.info(`File exists at: ${absolutePath}`);
+    
+    const fileContent = await fs.readFile(absolutePath, 'utf-8');
+    logger.debug(`Raw wallet file content: ${fileContent}`);
+    
     let wallets = [];
-    if (WALLET_FILE_PATH.endsWith('.json')) {
+    if (process.env.WALLET_FILE_PATH.endsWith('.json')) {
       wallets = JSON.parse(fileContent);
-    } else if (WALLET_FILE_PATH.endsWith('.csv')) {
+    } else if (process.env.WALLET_FILE_PATH.endsWith('.csv')) {
       const lines = fileContent.trim().split('\n');
       const headers = lines[0].split(',');
       wallets = lines.slice(1).map(line => {
@@ -89,20 +97,23 @@ async function readWalletFile() {
     } else {
       throw new Error('Unsupported file format. Use JSON or CSV.');
     }
+    
     const validWallets = wallets
       .filter(wallet => isAddress(wallet.address))
       .map(wallet => ({
         address: wallet.address.toLowerCase(),
         name: wallet.name || 'Unknown'
       }));
+    
     if (validWallets.length === 0) {
       logger.warn('No valid wallet addresses found in the file.');
     } else {
-      logger.info(`Loaded ${validWallets.length} valid wallet addresses from ${WALLET_FILE_PATH}: ${validWallets.map(w => w.address).join(', ')}`);
+      logger.info(`Loaded ${validWallets.length} valid wallet addresses from ${absolutePath}: ${validWallets.map(w => w.address).join(', ')}`);
     }
+    
     return validWallets;
   } catch (error) {
-    logger.error(`Error reading wallet file ${WALLET_FILE_PATH}: ${error.message}`, { stack: error.stack });
+    logger.error(`Error reading wallet file ${process.env.WALLET_FILE_PATH} (resolved: ${path.resolve(process.env.WALLET_FILE_PATH)}): ${error.message}`, { stack: error.stack });
     return [];
   }
 }

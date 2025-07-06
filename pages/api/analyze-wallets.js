@@ -62,24 +62,46 @@ async function verifyApiKey(apiKey) {
 
 async function readWalletFile() {
   try {
-    logger.info(`Attempting to read wallet file at: ${WALLET_FILE_PATH}`);
-    const absolutePath = path.resolve(WALLET_FILE_PATH);
-    logger.info(`Resolved absolute path: ${absolutePath}`);
+    const absolutePath = path.resolve(process.env.WALLET_FILE_PATH);
+    logger.info(`Attempting to read wallet file at resolved path: ${absolutePath}`);
+    
+    // Kiểm tra file tồn tại
     await fs.access(absolutePath, fs.constants.F_OK);
     logger.info(`File exists at: ${absolutePath}`);
+    
     const fileContent = await fs.readFile(absolutePath, 'utf-8');
-    logger.info(`Raw wallet file content: ${fileContent}`);
-    const wallets = JSON.parse(fileContent);
+    logger.debug(`Raw wallet file content: ${fileContent}`);
+    
+    let wallets = [];
+    if (process.env.WALLET_FILE_PATH.endsWith('.json')) {
+      wallets = JSON.parse(fileContent);
+    } else if (process.env.WALLET_FILE_PATH.endsWith('.csv')) {
+      const lines = fileContent.trim().split('\n');
+      const headers = lines[0].split(',');
+      wallets = lines.slice(1).map(line => {
+        const [address, name] = line.split(',');
+        return { address, name };
+      });
+    } else {
+      throw new Error('Unsupported file format. Use JSON or CSV.');
+    }
+    
     const validWallets = wallets
       .filter(wallet => isAddress(wallet.address))
       .map(wallet => ({
         address: wallet.address.toLowerCase(),
         name: wallet.name || 'Unknown'
       }));
-    logger.info(`Loaded ${validWallets.length} valid wallets: ${JSON.stringify(validWallets)}`);
+    
+    if (validWallets.length === 0) {
+      logger.warn('No valid wallet addresses found in the file.');
+    } else {
+      logger.info(`Loaded ${validWallets.length} valid wallet addresses from ${absolutePath}: ${validWallets.map(w => w.address).join(', ')}`);
+    }
+    
     return validWallets;
   } catch (error) {
-    logger.error(`Error reading wallet file ${WALLET_FILE_PATH}: ${error.message}`, { stack: error.stack });
+    logger.error(`Error reading wallet file ${process.env.WALLET_FILE_PATH} (resolved: ${path.resolve(process.env.WALLET_FILE_PATH)}): ${error.message}`, { stack: error.stack });
     return [];
   }
 }
@@ -439,5 +461,19 @@ export default async function handler(req, res) {
       logger.error(`Error in analyze-wallets API for action '${action}': ${error.message}`, { stack: error.stack });
       return res.status(500).json({ error: `An error occurred: ${error.message}` });
     }
+
+    if (action === 'debug-wallet-file') {
+  try {
+    const absolutePath = path.resolve(process.env.WALLET_FILE_PATH);
+    await fs.access(absolutePath, fs.constants.F_OK);
+    const fileContent = await fs.readFile(absolutePath, 'utf-8');
+    logger.info(`Debug: Successfully read wallet file at ${absolutePath}. Content length: ${fileContent.length}`);
+    const wallets = await readWalletFile();
+    return res.status(200).json({ path: absolutePath, wallets });
+  } catch (error) {
+    logger.error(`Debug: Failed to read wallet file at ${process.env.WALLET_FILE_PATH}: ${error.message}`, { stack: error.stack });
+    return res.status(500).json({ error: `Failed to read wallet file: ${error.message}` });
+  }
+}
   });
 }
