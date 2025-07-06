@@ -13,7 +13,7 @@ import fs from 'fs/promises';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 
-const ALLOWED_IPS = ['127.0.0.1', '::1', 'YOUR_SERVER_IP']; // Thay YOUR_SERVER_IP bằng IP của server
+const ALLOWED_IPS = []; // Thay YOUR_SERVER_IP bằng IP của server
 const ALLOWED_USER_AGENT = 'CronWorker/1.0';
 const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
 const API_KEYS_COLLECTION = 'api_keys';
@@ -299,14 +299,12 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
 }
 
 export default async function handler(req, res) {
-    // Áp dụng rate limiting
     limiter(req, res, async () => {
-        // Kiểm tra IP nguồn
-        const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-        if (!ALLOWED_IPS.includes(clientIp)) {
-            logger.warn(`Unauthorized IP: ${clientIp}`);
-            return res.status(403).json({ detail: 'Unauthorized: Invalid IP address.' });
-        }
+        // const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        // if (!ALLOWED_IPS.includes(clientIp)) {
+        //     logger.warn(`Unauthorized IP: ${clientIp}`);
+        //     return res.status(403).json({ detail: 'Unauthorized: Invalid IP address.' });
+        // }
 
         // Kiểm tra User-Agent
         const userAgent = req.headers['user-agent'];
