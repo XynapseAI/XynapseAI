@@ -17,6 +17,11 @@ div {
   letter-spacing: 0.05em;
 }
 
+header.sticky {
+  position: sticky;
+  top: -8px !important;
+}
+
 button:hover {
   filter: brightness(0.95) !important;
 }

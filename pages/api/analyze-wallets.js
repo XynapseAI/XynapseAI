@@ -18,8 +18,8 @@ const { logger } = pkg;
 const ALLOWED_USER_AGENT = 'CronWorker/1.0';
 const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
 const API_KEYS_COLLECTION = 'api_keys';
-const RATE_LIMIT_REQUESTS = 100; // 100 yêu cầu mỗi phút
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 phút
+const RATE_LIMIT_REQUESTS = 100; // 100 requests per minute
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute in milliseconds
 const DEFAULT_GEMINI_TIMEOUT_MS = 60000;
 const LARGE_VALUE_THRESHOLD_USD = 500000;
 const DEPOSIT_WALLET_CONFIDENCE_THRESHOLD = 60;
@@ -222,7 +222,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   );
   const totalOutgoingTxs = recentTxs30d.filter(tx => tx.from.toLowerCase() === lowerWalletAddress).length;
 
-  // Kiểm tra điều kiện bắt buộc: Phải có giao dịch gửi đến primary_target_wallet trong 30 ngày
+  
   if (outgoingToPrimaryTarget.length === 0) {
     logger.info(`No outgoing transactions to primary wallet ${lowerPrimaryTargetWallet} for wallet ${lowerWalletAddress} in last 30 days. Skipping nametag assignment and Firestore save.`);
     return {
@@ -304,7 +304,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     lastAnalysis: new Date().toISOString()
   };
 
-  // Chỉ gắn nhãn và lưu vào Firestore nếu ví đủ điều kiện
+  // Check if the wallet is a deposit wallet and has outgoing transactions to the primary target wallet
   if (isDeposit && outgoingToPrimaryTarget.length > 0) {
     const primaryWallets = await readWalletFile();
     logger.info(`Looking for primary wallet ${lowerPrimaryTargetWallet} in ${JSON.stringify(primaryWallets.map(w => ({ address: w.address, name: w.name })))}`);
@@ -323,7 +323,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
       result.nametag = newNametagValue;
     } else {
       const shortName = primaryWallet.name.split(' ')[0];
-      const newNametagValue = `${shortName} Deposit Wallet (Conf: ${confidenceScore.toFixed(0)}%)`;
+      const newNametagValue = `${shortName} Deposit Wallet`;
       logger.info(`Assigning nametag ${newNametagValue} to ${lowerWalletAddress}`);
       await addNametag(lowerWalletAddress, {
         auto_tag: {
@@ -344,7 +344,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
 }
 
 export default async function handler(req, res) {
-  // Áp dụng rate limiting
+  // apply rate limiting
   limiter(req, res, async () => {
     const userAgent = req.headers['user-agent'];
     if (userAgent !== ALLOWED_USER_AGENT) {
@@ -352,21 +352,21 @@ export default async function handler(req, res) {
       return res.status(403).json({ detail: 'Unauthorized: Invalid User-Agent.' });
     }
 
-    // Kiểm tra API Key
+    // Check API key in headers
     const apiKey = req.headers['x-api-key'];
     if (!apiKey || !(await verifyApiKey(apiKey))) {
       logger.warn('Unauthorized: Invalid or missing API key.');
       return res.status(401).json({ detail: 'Unauthorized: Invalid or missing API key.' });
     }
 
-    // Kiểm tra HMAC signature
+    // Check HMAC signature
     const signature = req.headers['x-hmac-signature'];
     if (!signature || !(await verifyHmacSignature(req.body, signature, HMAC_SECRET))) {
       logger.warn('Unauthorized: Invalid HMAC signature.');
       return res.status(401).json({ detail: 'Unauthorized: Invalid HMAC signature.' });
     }
 
-    // Kiểm tra đăng nhập cho người dùng (nếu không dùng API key)
+    // Check session for admin access
     const session = await getServerSession(req, res, authOptions);
     let isAuthorized = false;
 
@@ -379,7 +379,7 @@ export default async function handler(req, res) {
         return res.status(403).json({ detail: 'Forbidden: Admin access required.' });
       }
     } else if (apiKey) {
-      isAuthorized = true; // API key đã được xác thực ở trên
+      isAuthorized = true; // API key users are authorized
     } else {
       logger.warn('Unauthorized access attempt to analyze-wallets API (no session or API key)');
       return res.status(401).json({ detail: 'Unauthorized: Please log in or provide a valid API key.' });

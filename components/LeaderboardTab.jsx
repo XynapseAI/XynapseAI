@@ -1,3 +1,4 @@
+// components/LeaderboardTab.jsx
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -9,19 +10,13 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
   const { data: session, status } = useSession();
   const [userInfo, setUserInfo] = useState(null);
   const [tabError, setTabError] = useState(null);
-  const [creators, setCreators] = useState([]);
-  const [aiRank, setAiRank] = useState([]);
   const [rankings, setRankings] = useState([]);
 
   useEffect(() => {
     if (topPlayers) {
       if (Array.isArray(topPlayers)) {
         setRankings(topPlayers);
-        setCreators([]);
-        setAiRank([]);
       } else {
-        setCreators(topPlayers.creators?.slice(0, 10) || []);
-        setAiRank(topPlayers.aiRank?.slice(0, 10) || []);
         setRankings(topPlayers.rankings || []);
       }
     }
@@ -79,35 +74,25 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         href={`https://x.com/${user.twitterHandle}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="grid grid-cols-12 gap-2 p-1 font-jetbrains  hover:bg-white/15 rounded-lg transition-all duration-300 border border-white/10 backdrop-blur-md"
+        className="grid grid-cols-12 gap-2 p-1 font-jetbrains hover:bg-white/15 rounded-lg transition-all duration-300 border border-white/10 backdrop-blur-md"
       >
-        <div className="col-span-2 text-sm md:text-base text-white">{rank}</div>
+        <div className="col-span-2 text-[10px] md:text-xs text-white">{rank}</div>
         <div className="col-span-6 flex items-center">
           <img
             src={user.twitterPFP || '/default-avatar.png'}
             alt={user.twitterHandle}
-            className="w-5 h-5 md:w-6 h-6 rounded-full mr-1 md:mr-2"
+            className="w-5 h-5 md:w-6 h-6 rounded-full mr-1 md:mr-2 object-fit: cover"
           />
-          <span className="font-jetbrains text-xs md:text-sm text-white flex items-center">
+          <span className="font-jetbrains text-[10px] md:text-xs text-white flex items-center">
             {user.twitterHandle || 'Anonymous'}
             {isCurrentUser && (
-              <span className="ml-1 text-xs md:text-xs font-medium text-white bg-blue-500 px-1 rounded">
+              <span className="ml-1 text-[8px] md:text-[10px] font-medium text-white bg-blue-500 px-1 rounded">
                 You
-              </span>
-            )}
-            {user.isCreator && !isCurrentUser && (
-              <span className="ml-1 text-xs md:text-xs font-medium bg-red text-white px-1 rounded">
-                Creator+
-              </span>
-            )}
-            {user.isAiRank && !isCurrentUser && (
-              <span className="ml-1 text-xs md:text-xs font-medium text-white bg-yellow-500 px-1 rounded">
-                AI Hunter
               </span>
             )}
           </span>
         </div>
-        <div className="col-span-4 text-right text-sm md:text-base text-white">{user.points || 0}</div>
+        <div className="col-span-4 text-right text-[10px] md:text-xs text-white">{user.points || 0}</div>
       </a>
     );
   };
@@ -116,44 +101,8 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-jetbrains  w-full max-w-screen-md md:max-w-full h-[calc(100vh-2rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+      className="font-jetbrains w-full max-w-screen-md md:max-w-full h-[calc(100vh-2rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
     >
-      <div className="w-full flex flex-col md:flex-row gap-4 mb-4 p-4 md:p-6">
-        <div className="w-full md:w-1/2 rounded-xl p-3 md:p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
-          <h3 className="text-lg md:text-sm font-bold text-white mb-2 md:mb-3 uppercase">Creator Rank</h3>
-          {loading && <p className="text-xs md:text-sm text-gray-600">Loading...</p>}
-          {(tabError || propError) && (
-            <p className="text-xs md:text-sm text-red-500">Error: {tabError || propError}</p>
-          )}
-          {!loading && !(tabError || propError) && creators.length === 0 && (
-            <p className="text-xs md:text-sm text-gray-600">No top creators.</p>
-          )}
-          <div className="grid grid-cols-12 gap-2 text-sm md:text-sm text-gray-600">
-            <div className="col-span-2">Rank</div>
-            <div className="col-span-6">User</div>
-            <div className="col-span-4 text-right">Points</div>
-          </div>
-          {userInfo && userInfo.isCreator && renderUserRow(userInfo, -1, true, creators)}
-          {creators.map((user, index) => renderUserRow(user, index, false, creators))}
-        </div>
-        <div className="w-full md:w-1/2 rounded-xl p-3 md:p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
-          <h3 className="text-lg md:text-sm font-bold text-white mb-2 md:mb-3 uppercase">AI Rank</h3>
-          {loading && <p className="text-xs md:text-sm text-gray-600">Loading...</p>}
-          {(tabError || propError) && (
-            <p className="text-xs md:text-sm text-red-500">Error: {tabError || propError}</p>
-          )}
-          {!loading && !(tabError || propError) && aiRank.length === 0 && (
-            <p className="text-xs md:text-sm text-gray-600">No AI rank users.</p>
-          )}
-          <div className="grid grid-cols-12 gap-2 text-sm md:text-sm text-gray-600">
-            <div className="col-span-2">Rank</div>
-            <div className="col-span-6">User</div>
-            <div className="col-span-4 text-right">Points</div>
-          </div>
-          {userInfo && userInfo.isAiRank && renderUserRow(userInfo, -1, true, aiRank)}
-          {aiRank.map((user, index) => renderUserRow(user, index, false, aiRank))}
-        </div>
-      </div>
       <div className="w-full rounded-xl p-3 md:p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
         <h3 className="text-lg md:text-sm font-bold text-white mb-2 md:mb-3 text-center uppercase">Top 100 Rankings</h3>
         {loading && <p className="text-xs md:text-sm text-gray-600">Loading...</p>}

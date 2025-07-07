@@ -33,7 +33,6 @@ export default function TransactionTable({ recaptchaRef, walletAddress }) {
           throw new Error(response.data.detail || 'Failed to fetch transactions');
         }
       } catch (err) {
-        logger.error('Error fetching large transactions:', { message: err.message });
         setError(`Failed to load transactions: ${err.message}`);
       } finally {
         setLoading(false);

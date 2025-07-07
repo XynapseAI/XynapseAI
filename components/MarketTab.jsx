@@ -224,28 +224,56 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
   );
 };
 
-// LoadingOverlay component (unchanged)
-const LoadingOverlay = () => {
+// LoadingOverlay component
+const LoadingOverlay = ({ loadingStates = {} }) => {
   const [scanDirection, setScanDirection] = useState('horizontal');
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+
+  // Define loading messages based on active loading states
+  const messages = [
+    ...(loadingStates.loading ? ['Loading market data...'] : []),
+    ...(loadingStates.isChartLoading ? ['Loading chart data...'] : []),
+    ...(loadingStates.isLoadingOnChain ? ['Loading on-chain data...'] : []),
+    ...(loadingStates.isAnalyzing ? ['Analyzing token...'] : []),
+    ...(loadingStates.isPredicting ? ['Predicting price trend...'] : []),
+  ].filter(Boolean);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+
+    const interval = setInterval(() => {
+      setCurrentMessageIndex((prevIndex) => (prevIndex + 1) % messages.length);
+    }, 2000); // Change message every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [messages.length]);
+
   useEffect(() => {
     const interval = setInterval(() => {
-      setScanDirection(prevDirection =>
+      setScanDirection((prevDirection) =>
         prevDirection === 'horizontal' ? 'vertical' : 'horizontal'
       );
     }, 1500);
     return () => clearInterval(interval);
   }, []);
 
+  if (messages.length === 0) return null;
+
   return (
     <div className="fixed inset-0 bg-gray/10 backdrop-blur-sm flex items-center justify-center z-50">
-      <div
-        className={`scanner-container ${scanDirection} w-12 h-12 sm:w-14 sm:h-14`}
-      >
-        <img
-          src="/logos/logo-scan.png"
-          alt="Loading Logo"
-          className="w-full h-full object-contain"
-        />
+      <div className="flex flex-col items-center gap-4">
+        <div
+          className={`scanner-container ${scanDirection} w-12 h-12 sm:w-14 sm:h-14`}
+        >
+          <img
+            src="/logos/logo-scan.png"
+            alt="Loading Logo"
+            className="w-full h-full object-contain"
+          />
+        </div>
+        <p className="text-xs sm:text-sm text-gray-200 font-medium animate-pulse">
+          {messages[currentMessageIndex] || 'Processing...'}
+        </p>
       </div>
     </div>
   );
@@ -403,7 +431,7 @@ const WalletBalances = ({
                   <table className="w-full table-fixed">
                     <thead className="sticky top-0 bg-black/30 z-10 uppercase">
                       <tr>
-                        <th className="px-2 py-1 text-white text-center text-[9px] sm:text-[12px] w-[12%] sm:w-[10%]">
+                        <th className="px-2 py-1 text-white text-center text-[8px] sm:text-[12px] w-[8%] sm:w-[10%]">
                           <div className="flex items-center justify-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -420,7 +448,7 @@ const WalletBalances = ({
                             Chain
                           </div>
                         </th>
-                        <th className="px-2 py-1 text-white text-left text-[9px] sm:text-[12px] w-[25%] sm:w-[60%]">
+                        <th className="px-2 py-1 text-white text-left text-[8px] sm:text-[12px] w-[20%] sm:w-[60%]">
                           <div className="flex items-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -432,7 +460,7 @@ const WalletBalances = ({
                             Token
                           </div>
                         </th>
-                        <th className="px-2 py-1 text-white text-left text-[9px] sm:text-[12px] w-[23%] sm:w-[15%]">
+                        <th className="px-2 py-1 text-white text-left text-[8px] sm:text-[12px] w-[18%] sm:w-[15%]">
                           <div className="flex items-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -444,7 +472,7 @@ const WalletBalances = ({
                             Balance
                           </div>
                         </th>
-                        <th className="px-2 py-1 text-white text-left text-[9px] sm:text-[12px] w-[25%] sm:w-[15%]">
+                        <th className="px-2 py-1 text-white text-left text-[8px] sm:text-[12px] w-[22%] sm:w-[15%]">
                           <div className="flex items-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -483,7 +511,7 @@ const WalletBalances = ({
                                   e.target.src = '/fallback-image.png';
                                 }}
                               />
-                              <span className="text-[7px] sm:text-[9px] text-gray-400 flex-shrink-0">
+                              <span className="text-[6px] sm:text-[8px] text-gray-500 flex-shrink-0">
                                 {chains.find((c) => c.value === balance.chain)?.label || balance.chain}
                               </span>
                             </div>
@@ -509,7 +537,7 @@ const WalletBalances = ({
                                   {balance.symbol || 'Unknown'} {balance.address === 'native' ? '(Native)' : ''}
                                 </span>
                                 {balance.price_usd != null && (
-                                  <span className="text-[7px] sm:text-[8px] text-gray-400">
+                                  <span className="text-[7px] sm:text-[8px] text-gray-500">
                                     ({formatPrice(balance.price_usd)})
                                   </span>
                                 )}
@@ -634,7 +662,7 @@ const WalletBalances = ({
                                     href={fromUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-blue-400 hover:underline"
+                                    className="text-blue-500 hover:underline"
                                     title={tx.from}
                                     onClick={() => handleAddressClick(tx.from)}
                                   >
@@ -646,7 +674,7 @@ const WalletBalances = ({
                                   <span className="mx-1">→</span>
                                 </div>
 
-                                
+
                                 <div className="flex items-center gap-1 ml-2">
                                   {toImage && (
                                     <img
@@ -666,7 +694,7 @@ const WalletBalances = ({
                                     href={toUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-blue-400 hover:underline"
+                                    className="text-blue-500 hover:underline"
                                     title={tx.to}
                                     onClick={() => handleAddressClick(tx.to)}
                                   >
@@ -707,7 +735,7 @@ const WalletBalances = ({
                                     />
                                   </a>
                                 </div>
-                                <span className="text-[7px] sm:text-[8px] text-gray-400 text-center">
+                                <span className="text-[7px] sm:text-[8px] text-gray-500 text-center">
                                   {new Date(tx.block_time).toLocaleString('en-US')}
                                 </span>
                               </div>
@@ -1082,7 +1110,6 @@ const MarketTab = ({ recaptchaRef }) => {
                     <button
                       key={chain.value}
                       onClick={() => {
-                        logger.log('Selected chain:', { value: chain.value, label: chain.label, image: chain.image });
                         setSelectedChain(chain.value);
                         setIsChainDropdownOpen(false);
                       }}
@@ -1136,8 +1163,21 @@ const MarketTab = ({ recaptchaRef }) => {
           </button>
         </div>
       </div>
-      {loading && <p className="text-sm text-gray-400 text-center">Loading market data...</p>}
-      {error && <p className="text-sm text-red-500 text-center">Error: {error}</p>}
+      <LoadingOverlay
+        loadingStates={{
+          loading,
+          isLoadingDex,
+          isChartLoading,
+          isLoadingOnChain,
+          isAnalyzing,
+          isPredicting,
+        }}
+      />
+      {error && (
+        <p className="text-sm text-red-500 text-center p-4 bg-red-500/10 rounded-lg border border-red-500/30">
+          Error: {error}
+        </p>
+      )}
       {!loading && !error && tokens.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 grid-rows-[1fr_1fr] gap-3 h-[calc(100%-2.5rem)] md:overflow-hidden overflow-y-auto hide-scrollbar">
           {/* Top Left: Token Info */}
@@ -1795,7 +1835,6 @@ const MarketTab = ({ recaptchaRef }) => {
                   </>
                 ) : (
                   <>
-                    {isLoadingDex && <LoadingOverlay message="Loading DEX data..." />}
                     {dexError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>{dexError}</p>}
                     {!isLoadingDex && !dexError && dexData.trades.length > 0 ? (
                       <div className="relative overflow-x-auto md:max-h-[calc(100%-2rem)] max-h-[calc(70vh-6rem)] overflow-y-auto hide-scrollbar">
@@ -2124,7 +2163,28 @@ const MarketTab = ({ recaptchaRef }) => {
         </div>
       )}
       <ToastContainer position="top-center" autoClose={5000} />
+      <style jsx>{`
+  .scanner-container {
+    /* Existing styles */
+  }
+  .scanner-container.horizontal::after,
+  .scanner-container.vertical::after {
+    /* Existing animation styles */
+  }
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+`}</style>
     </motion.div>
+    
   );
 };
 
