@@ -226,7 +226,6 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
 
 // LoadingOverlay component
 const LoadingOverlay = ({ loadingStates = {} }) => {
-  const [scanDirection, setScanDirection] = useState('horizontal');
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
   // Define loading messages based on active loading states
@@ -248,35 +247,25 @@ const LoadingOverlay = ({ loadingStates = {} }) => {
     return () => clearInterval(interval);
   }, [messages.length]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setScanDirection((prevDirection) =>
-        prevDirection === 'horizontal' ? 'vertical' : 'horizontal'
-      );
-    }, 1500);
-    return () => clearInterval(interval);
-  }, []);
-
   if (messages.length === 0) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray/10 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="flex flex-col items-center gap-4">
-        <div
-          className={`scanner-container ${scanDirection} w-12 h-12 sm:w-14 sm:h-14`}
-        >
-          <img
-            src="/logos/logo-scan.png"
-            alt="Loading Logo"
-            className="w-full h-full object-contain"
-          />
-        </div>
-        <p className="text-xs sm:text-sm text-gray-200 font-medium animate-pulse">
-          {messages[currentMessageIndex] || 'Processing...'}
-        </p>
+  <div className="fixed inset-0 bg-gray/10 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="flex flex-col items-center gap-4">
+      <div className="relative w-12 h-12 sm:w-14 sm:h-14">
+        <div className="absolute inset-0 border-4 border-gray-600/50 border-t-white rounded-full animate-spin"></div>
+        <img
+          src="/logos/logo-scan.png"
+          alt="Loading Logo"
+          className="absolute inset-0 w-8 h-8 sm:w-10 sm:h-10 m-2 sm:m-2 object-contain"
+        />
       </div>
+      <p className="text-xs sm:text-sm text-gray-200 font-medium animate-pulse">
+        {messages[currentMessageIndex] || 'Processing...'}
+      </p>
     </div>
-  );
+  </div>
+);
 };
 
 // WalletBalances component

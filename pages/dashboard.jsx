@@ -11,8 +11,7 @@ import AITab from '../components/AITab';
 import TaskTab from '../components/TaskTab';
 import ProfileTab from '../components/ProfileTab';
 import MarketTab from '../components/MarketTab';
-import WalletTable from '../components/WalletTable';
-import TransactionTable from '../components/TransactionTable';
+import TreemapTab from '../components/TreemapTab';
 import { motion } from 'framer-motion';
 import ReCAPTCHA from 'react-google-recaptcha';
 import Link from 'next/link';
@@ -286,12 +285,9 @@ export default function Dashboard() {
               recaptchaRef={recaptchaRef}
             />
           )}
-          {activeTab === 'wallet-analysis' && (
-            <div className="p-4 w-full max-w-4xl">
-              <WalletTable recaptchaRef={recaptchaRef} />
-              <TransactionTable recaptchaRef={recaptchaRef} walletAddress={userData?.walletAddress} />
-            </div>
-          )}
+          {activeTab === 'treemap' && (
+          <TreemapTab recaptchaRef={recaptchaRef} />
+        )}
         </motion.div>
       </main>
       <ReCAPTCHA

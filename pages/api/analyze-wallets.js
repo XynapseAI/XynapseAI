@@ -18,8 +18,8 @@ const { logger } = pkg;
 const ALLOWED_USER_AGENT = 'CronWorker/1.0';
 const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
 const API_KEYS_COLLECTION = 'api_keys';
-const RATE_LIMIT_REQUESTS = 100; // 100 requests per minute
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute in milliseconds
+const RATE_LIMIT_REQUESTS = 100;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const DEFAULT_GEMINI_TIMEOUT_MS = 60000;
 const LARGE_VALUE_THRESHOLD_USD = 500000;
 const DEPOSIT_WALLET_CONFIDENCE_THRESHOLD = 60;
@@ -27,8 +27,6 @@ const DEFAULT_ETH_PRICE_USD = 2000;
 const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH
   ? path.resolve(process.env.WALLET_FILE_PATH)
   : path.resolve(process.cwd(), 'cron-worker/wallets.json');
-
-
 
 // Rate limiting middleware
 const limiter = rateLimit({
@@ -173,6 +171,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
       is_deposit: false,
       deposit_confidence_percentage: 0,
       nametag: nametag,
+      image: '/icons/default.png',
       gemini_analysis: 'No transactions found to analyze.',
       reason: 'No transactions found',
       metrics: {},
@@ -222,7 +221,6 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   );
   const totalOutgoingTxs = recentTxs30d.filter(tx => tx.from.toLowerCase() === lowerWalletAddress).length;
 
-  
   if (outgoingToPrimaryTarget.length === 0) {
     logger.info(`No outgoing transactions to primary wallet ${lowerPrimaryTargetWallet} for wallet ${lowerWalletAddress} in last 30 days. Skipping nametag assignment and Firestore save.`);
     return {
@@ -230,6 +228,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
       is_deposit: false,
       deposit_confidence_percentage: confidenceScore,
       nametag: nametag,
+      image: '/icons/default.png',
       reason: `No outgoing transactions sent back to target wallet ${lowerPrimaryTargetWallet} in last 30 days.`,
       metrics: {
         incoming_txs_24h: incomingTxs24h.length,
@@ -298,6 +297,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     is_deposit: isDeposit,
     deposit_confidence_percentage: confidenceScore,
     nametag: nametag,
+    image: '/icons/default.png',
     reason: finalReason,
     metrics: metrics,
     gemini_analysis: geminiAnalysis,
@@ -312,28 +312,32 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     if (!primaryWallet) {
       logger.error(`No primary wallet found for ${lowerPrimaryTargetWallet} in wallets.json`);
       const newNametagValue = `Unknown Deposit Wallet (Conf: ${confidenceScore.toFixed(0)}%)`;
+      const newImage = '/icons/default.png';
       await addNametag(lowerWalletAddress, {
         auto_tag: {
           'Name Tag': newNametagValue,
           Description: `Automatically detected as a deposit wallet, but primary wallet ${lowerPrimaryTargetWallet} not found in wallets.json.`,
           Subcategory: 'Exchange/Service',
-          image: '/icons/default.png'
+          image: newImage
         }
       });
       result.nametag = newNametagValue;
+      result.image = newImage;
     } else {
       const shortName = primaryWallet.name.split(' ')[0];
-      const newNametagValue = `${shortName} Deposit Wallet`;
-      logger.info(`Assigning nametag ${newNametagValue} to ${lowerWalletAddress}`);
+      const newNametagValue = `${shortName} Deposit Wallet (Conf: ${confidenceScore.toFixed(0)}%)`;
+      const newImage = `/icons/${shortName.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
+      logger.info(`Assigning nametag ${newNametagValue} and image ${newImage} to ${lowerWalletAddress}`);
       await addNametag(lowerWalletAddress, {
         auto_tag: {
           'Name Tag': newNametagValue,
           Description: `Automatically detected as a deposit wallet sending to ${primaryWallet.name} wallet.`,
           Subcategory: 'Exchange/Service',
-          image: '/icons/default.png'
+          image: newImage
         }
       });
       result.nametag = newNametagValue;
+      result.image = newImage;
     }
     await saveAnalysisToFirestore(result);
   } else {
@@ -344,7 +348,6 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
 }
 
 export default async function handler(req, res) {
-  // apply rate limiting
   limiter(req, res, async () => {
     const userAgent = req.headers['user-agent'];
     if (userAgent !== ALLOWED_USER_AGENT) {
@@ -352,21 +355,18 @@ export default async function handler(req, res) {
       return res.status(403).json({ detail: 'Unauthorized: Invalid User-Agent.' });
     }
 
-    // Check API key in headers
     const apiKey = req.headers['x-api-key'];
     if (!apiKey || !(await verifyApiKey(apiKey))) {
       logger.warn('Unauthorized: Invalid or missing API key.');
       return res.status(401).json({ detail: 'Unauthorized: Invalid or missing API key.' });
     }
 
-    // Check HMAC signature
     const signature = req.headers['x-hmac-signature'];
     if (!signature || !(await verifyHmacSignature(req.body, signature, HMAC_SECRET))) {
       logger.warn('Unauthorized: Invalid HMAC signature.');
       return res.status(401).json({ detail: 'Unauthorized: Invalid HMAC signature.' });
     }
 
-    // Check session for admin access
     const session = await getServerSession(req, res, authOptions);
     let isAuthorized = false;
 
@@ -379,7 +379,7 @@ export default async function handler(req, res) {
         return res.status(403).json({ detail: 'Forbidden: Admin access required.' });
       }
     } else if (apiKey) {
-      isAuthorized = true; // API key users are authorized
+      isAuthorized = true;
     } else {
       logger.warn('Unauthorized access attempt to analyze-wallets API (no session or API key)');
       return res.status(401).json({ detail: 'Unauthorized: Please log in or provide a valid API key.' });
@@ -433,6 +433,38 @@ export default async function handler(req, res) {
           logger.info(`No large flows detected for ${wallet_address}.`);
         }
         return res.status(200).json(largeFlowResult);
+      } else if (action === 'get-transactions') {
+        if (!wallet_address) {
+          return res.status(400).json({ error: "Wallet address is required for 'get-transactions' action." });
+        }
+        logger.info(`Fetching transactions for ${wallet_address} via API.`);
+        const txData = await fetchBlockchainData(wallet_address, 'transactions', false, 100, chain);
+
+        const incomingTxs = txData
+          .filter(tx => tx.to.toLowerCase() === wallet_address.toLowerCase())
+          .slice(0, 50)
+          .map(tx => ({
+            hash: tx.hash,
+            from: tx.from,
+            to: tx.to,
+            value: (parseInt(String(tx.value), 16) / 1e18).toFixed(6),
+            block_time: tx.block_time,
+            type: 'incoming'
+          }));
+
+        const outgoingTxs = txData
+          .filter(tx => tx.from.toLowerCase() === wallet_address.toLowerCase())
+          .slice(0, 50)
+          .map(tx => ({
+            hash: tx.hash,
+            from: tx.from,
+            to: tx.to,
+            value: (parseInt(String(tx.value), 16) / 1e18).toFixed(6),
+            block_time: tx.block_time,
+            type: 'outgoing'
+          }));
+
+        return res.status(200).json({ incoming: incomingTxs, outgoing: outgoingTxs });
       } else if (action === 'debug-wallets') {
         const wallets = await readWalletFile();
         return res.status(200).json({ wallets });
@@ -445,17 +477,17 @@ export default async function handler(req, res) {
     }
 
     if (action === 'debug-wallet-file') {
-  try {
-    const absolutePath = path.resolve(process.env.WALLET_FILE_PATH);
-    await fs.access(absolutePath, fs.constants.F_OK);
-    const fileContent = await fs.readFile(absolutePath, 'utf-8');
-    logger.info(`Debug: Successfully read wallet file at ${absolutePath}. Content length: ${fileContent.length}`);
-    const wallets = await readWalletFile();
-    return res.status(200).json({ path: absolutePath, wallets });
-  } catch (error) {
-    logger.error(`Debug: Failed to read wallet file at ${process.env.WALLET_FILE_PATH}: ${error.message}`, { stack: error.stack });
-    return res.status(500).json({ error: `Failed to read wallet file: ${error.message}` });
-  }
-}
+      try {
+        const absolutePath = path.resolve(process.env.WALLET_FILE_PATH);
+        await fs.access(absolutePath, fs.constants.F_OK);
+        const fileContent = await fs.readFile(absolutePath, 'utf-8');
+        logger.info(`Debug: Successfully read wallet file at ${absolutePath}. Content length: ${fileContent.length}`);
+        const wallets = await readWalletFile();
+        return res.status(200).json({ path: absolutePath, wallets });
+      } catch (error) {
+        logger.error(`Debug: Failed to read wallet file at ${process.env.WALLET_FILE_PATH}: ${error.message}`, { stack: error.stack });
+        return res.status(500).json({ error: `Failed to read wallet file: ${error.message}` });
+      }
+    }
   });
 }
