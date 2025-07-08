@@ -4,59 +4,38 @@ import path from 'path';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
 import { RateLimiter } from 'limiter';
-import { logger } from '../../utils/logger.cjs';
+import pkg from '../../utils/logger.cjs';
 import { query, body, validationResult } from 'express-validator';
 import { isAddress } from 'ethers';
+import { getNametagsBatch } from '../../lib/nametags.js';
+
+const { logger } = pkg;
 
 const limiter = new RateLimiter({ tokensPerInterval: 100, interval: 'minute' });
 
-const validateGet = [
-  query('address')
-    .optional()
-    .matches(/^0x[a-fA-F0-9]{40}$/)
-    .withMessage('Invalid EVM address'),
-];
-
-const validatePost = [
-  body('addresses')
-    .isArray({ min: 1 })
-    .withMessage('Addresses must be a non-empty array'),
-  body('addresses.*')
-    .matches(/^0x[a-fA-F0-9]{40}$/)
-    .withMessage('Each address must be a valid EVM address'),
-];
-
-const validatePut = [
-  body('address')
-    .notEmpty()
-    .matches(/^0x[a-fA-F0-9]{40}$/)
-    .withMessage('Address must be a valid EVM address'),
-  body('labels')
-    .isObject()
-    .notEmpty()
-    .withMessage('Labels must be a non-empty object.'),
-];
-
-async function checkAdminStatus(uid) {
-  if (!uid) return false;
-  try {
-    const adminResult = await query(
-      `SELECT is_admin FROM admins WHERE uid = $1`,
-      [uid]
-    );
-    return adminResult.rows.length > 0 && adminResult.rows[0].is_admin === true;
-  } catch (error) {
-    logger.error(`Error checking admin status for ${uid}:`, error);
-    return false;
-  }
-}
-
 let NAMETAG_CACHE = null;
 
+// Kiểm tra CSRF
+const checkCSRF = (req) => {
+  const allowedOrigins = [
+    process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'https://xynapseai.net',
+    'https://www.xynapseai.net',
+  ];
+  const origin = req.headers['origin'] || req.headers['referer']?.split('/').slice(0, 3).join('/');
+  if (!origin || !allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
+    logger.warn(`Invalid or missing Origin/Referer header: ${origin}`);
+    return false;
+  }
+  return true;
+};
+
+// Tải nametags từ file JSON vào cache
 async function loadNametagCache() {
   if (!NAMETAG_CACHE) {
     NAMETAG_CACHE = {};
-    const nametagsDir = path.join(process.cwd(), 'public', 'nametags');
+    const nametagsDir = process.env.NAMETAGS_DIR_PATH || path.join(process.cwd(), 'public', 'nametags');
     try {
       const files = await fs.readdir(nametagsDir);
       const jsonFiles = files.filter(file => file.startsWith('addresses-') && file.endsWith('.json'));
@@ -95,6 +74,7 @@ async function loadNametagCache() {
   return NAMETAG_CACHE;
 }
 
+// Lấy nametag cho một địa chỉ
 async function getNametagForAddress(address) {
   const normalizedAddress = address.toLowerCase();
   const cache = await loadNametagCache();
@@ -103,7 +83,7 @@ async function getNametagForAddress(address) {
   }
 
   const fileSuffix = normalizedAddress.slice(2, 8);
-  const filePath = path.join(process.cwd(), 'public', 'nametags', `addresses-${fileSuffix}.json`);
+  const filePath = path.join(process.env.NAMETAGS_DIR_PATH || path.join(process.cwd(), 'public', 'nametags'), `addresses-${fileSuffix}.json`);
   try {
     const fileContent = await fs.readFile(filePath, 'utf8');
     const jsonData = JSON.parse(fileContent);
@@ -130,9 +110,29 @@ async function getNametagForAddress(address) {
       logger.error(`Error reading JSON file ${filePath}:`, { message: error.message });
     }
   }
+
+  // Fallback to PostgreSQL
+  const pgData = await getNametagsBatch([normalizedAddress]);
+  const pgNametag = pgData[normalizedAddress];
+  if (pgNametag && pgNametag.name !== 'Unknown') {
+    const data = {
+      Address: normalizedAddress,
+      Labels: {
+        'deposit': {
+          'Name Tag': pgNametag.name,
+          'Description': pgNametag.description || 'Not found in JSON.',
+          'Subcategory': pgNametag.subcategory || 'Deposit',
+          'image': pgNametag.image || '/icons/default.png'
+        }
+      }
+    };
+    cache[normalizedAddress] = data;
+    return data;
+  }
   return null;
 }
 
+// Thêm hoặc cập nhật nametag
 async function addNametag(address, labels) {
   if (!isAddress(address)) {
     logger.error(`Invalid wallet address for addNametag: ${address}`);
@@ -141,10 +141,10 @@ async function addNametag(address, labels) {
   const normalizedAddress = address.toLowerCase();
   try {
     // Update PostgreSQL
-    const nameTag = labels[Object.keys(labels)[0]]['Name Tag'] || 'Unknown';
+    const nameTag = labels[Object.keys(labels)[0]]['Name Tag'] || labels[Object.keys(labels)[0]].name || 'Unknown';
     const image = labels[Object.keys(labels)[0]].image || '/icons/default.png';
-    const description = labels[Object.keys(labels)[0]].Description || '';
-    const subcategory = labels[Object.keys(labels)[0]].Subcategory || 'Others';
+    const description = labels[Object.keys(labels)[0]].Description || labels[Object.keys(labels)[0]].description || '';
+    const subcategory = labels[Object.keys(labels)[0]].Subcategory || labels[Object.keys(labels)[0]].subcategory || 'Others';
 
     await query(
       `INSERT INTO nametags (address, nametag, image, description, subcategory)
@@ -158,7 +158,7 @@ async function addNametag(address, labels) {
     );
 
     // Update local JSON file
-    const nametagsDir = path.join(process.cwd(), 'public', 'nametags');
+    const nametagsDir = process.env.NAMETAGS_DIR_PATH || path.join(process.cwd(), 'public', 'nametags');
     const filePath = path.join(nametagsDir, `addresses-${normalizedAddress.slice(2, 8)}.json`);
     let fileData = {};
     try {
@@ -184,157 +184,205 @@ async function addNametag(address, labels) {
   }
 }
 
+// Kiểm tra quyền admin
+async function checkAdminStatus(uid) {
+  if (!uid) return false;
+  try {
+    const adminResult = await query(
+      `SELECT is_admin FROM admins WHERE uid = $1`,
+      [uid]
+    );
+    return adminResult.rows.length > 0 && adminResult.rows[0].is_admin === true;
+  } catch (error) {
+    logger.error(`Error checking admin status for ${uid}: ${error.message}`);
+    return false;
+  }
+}
+
+const validateGet = [
+  body('address')
+    .optional()
+    .matches(/^0x[a-fA-F0-9]{40}$/)
+    .withMessage('Invalid EVM address'),
+];
+
+const validatePost = [
+  body('addresses')
+    .isArray({ min: 1, max: 100 })
+    .withMessage('Addresses must be a non-empty array, maximum 100 addresses'),
+  body('addresses.*')
+    .matches(/^0x[a-fA-F0-9]{40}$/)
+    .withMessage('Each address must be a valid EVM address'),
+];
+
+const validatePut = [
+  body('address')
+    .notEmpty()
+    .matches(/^0x[a-fA-F0-9]{40}$/)
+    .withMessage('Address must be a valid EVM address'),
+  body('labels')
+    .isObject()
+    .notEmpty()
+    .withMessage('Labels must be a non-empty object.'),
+];
+
 export default async function handler(req, res) {
-  const remainingRequests = await limiter.removeTokens(1);
-  if (remainingRequests < 0) {
-    logger.warn('Rate limit exceeded for nametags API');
-    return res.status(429).json({
-      success: false,
-      detail: 'Too many requests. Please try again later.',
-    });
-  }
-
-  let session = null;
-  let isAdminUser = false;
-
-  const internalToken = req.headers['x-internal-token'];
-  if (process.env.NODE_ENV === 'development' && internalToken === process.env.INTERNAL_API_TOKEN) {
-    logger.info('Bypassing auth with internal token for nametags API (development mode).');
-    isAdminUser = true;
-  } else if (req.method === 'PUT' || req.method === 'PATCH') {
-    session = await getServerSession(req, res, authOptions);
-    if (!session) {
-      logger.warn('Unauthorized access attempt to nametags API (no session for PUT/PATCH)');
-      return res.status(401).json({
+  try {
+    const remainingRequests = await limiter.removeTokens(1);
+    if (remainingRequests < 0) {
+      logger.warn('Rate limit exceeded for nametags API');
+      return res.status(429).json({
         success: false,
-        detail: 'Unauthorized: Please log in.',
-      });
-    }
-    isAdminUser = await checkAdminStatus(session.user.id);
-    if (!isAdminUser) {
-      logger.warn(`Forbidden access attempt to nametags API by non-admin user: ${session?.user?.id || 'N/A'}`);
-      return res.status(403).json({
-        success: false,
-        detail: 'Forbidden: Admin access required.',
-      });
-    }
-  }
-
-  if (req.method === 'GET') {
-    await Promise.all(validateGet.map(validation => validation.run(req)));
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      logger.warn(`Validation errors in GET request: ${JSON.stringify(errors.array())}`);
-      return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
-    }
-
-    const { address } = req.query;
-    if (!address) {
-      logger.warn('GET request without address is not supported for Market page');
-      return res.status(400).json({
-        success: false,
-        detail: 'Address is required for GET request',
+        detail: 'Too many requests. Please try again later.',
       });
     }
 
-    const normalizedAddress = address.toLowerCase();
-    const data = await getNametagForAddress(normalizedAddress);
-    if (data) {
-      logger.info('Name Tag found for address:', {
-        address: normalizedAddress,
-        nameTag: data.Labels[Object.keys(data.Labels)[0]]['Name Tag'],
-      });
-      return res.status(200).json({
-        success: true,
-        data: { [normalizedAddress]: data },
-      });
-    } else {
-      logger.info(`Name Tag not found for address: ${normalizedAddress}`);
-      return res.status(404).json({
-        success: false,
-        detail: `Name Tag not found for address ${normalizedAddress}`,
-      });
-    }
-  }
-
-  if (req.method === 'POST') {
-    await Promise.all(validatePost.map(validation => validation.run(req)));
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      logger.warn(`Validation errors in POST request: ${JSON.stringify(errors.array())}`);
-      return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
+    if (!checkCSRF(req)) {
+      return res.status(403).json({ error: 'Invalid or missing Origin/Referer header.' });
     }
 
-    const { addresses } = req.body;
-    const normalizedAddresses = addresses.map(addr => addr.toLowerCase());
-    const result = {};
-    for (const addr of normalizedAddresses) {
-      const data = await getNametagForAddress(addr);
-      if (data) {
-        result[addr] = data;
-        logger.info('Name Tag found for address in POST:', {
-          address: addr,
-          nameTag: data.Labels[Object.keys(data.Labels)[0]]['Name Tag'],
+    let session = null;
+    let isAdminUser = false;
+
+    const internalToken = req.headers['x-internal-token'];
+    if (process.env.NODE_ENV === 'development' && internalToken === process.env.INTERNAL_API_TOKEN) {
+      logger.info('Bypassing auth with internal token for nametags API (development mode).');
+      isAdminUser = true;
+    } else if (req.method === 'PUT' || req.method === 'PATCH') {
+      session = await getServerSession(req, res, authOptions);
+      if (!session) {
+        logger.warn('Unauthorized access attempt to nametags API (no session for PUT/PATCH)');
+        return res.status(401).json({
+          success: false,
+          detail: 'Unauthorized: Please log in.',
         });
-      } else {
-        result[addr] = {
-          Address: addr,
-          Labels: {
-            'deposit': {
-              'Name Tag': 'Unknown',
-              'Description': 'Not found in JSON.',
-              'Subcategory': 'Deposit',
-              'image': '/icons/default.png'
-            }
-          }
-        };
+      }
+      isAdminUser = await checkAdminStatus(session.user.id);
+      if (!isAdminUser) {
+        logger.warn(`Forbidden access attempt to nametags API by non-admin user: ${session?.user?.id || 'N/A'}`);
+        return res.status(403).json({
+          success: false,
+          detail: 'Forbidden: Admin access required.',
+        });
       }
     }
 
-    logger.info('POST request processed:', {
-      requested: normalizedAddresses.length,
-      found: Object.keys(result).length,
-    });
+    if (req.method === 'GET') {
+      await Promise.all(validateGet.map(validation => validation.run(req)));
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        logger.warn(`Validation errors in GET request: ${JSON.stringify(errors.array())}`);
+        return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
+      }
 
-    return res.status(200).json({
-      success: true,
-      data: result,
-      metadata: {
-        requested: normalizedAddresses.length,
-        found: Object.keys(result).length,
-      },
-    });
-  }
+      const { address } = req.query;
+      if (!address) {
+        logger.warn('GET request without address is not supported');
+        return res.status(400).json({
+          success: false,
+          detail: 'Address is required for GET request',
+        });
+      }
 
-  if (req.method === 'PUT' || req.method === 'PATCH') {
-    await Promise.all(validatePut.map(validation => validation.run(req)));
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      logger.warn(`Validation errors in PUT/PATCH request: ${JSON.stringify(errors.array())}`);
-      return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
+      const normalizedAddress = address.toLowerCase();
+      try {
+        const data = await getNametagForAddress(normalizedAddress);
+        if (data) {
+          logger.info(`Nametag found for address ${normalizedAddress}: ${data.Labels[Object.keys(data.Labels)[0]]['Name Tag']}`);
+          return res.status(200).json({
+            success: true,
+            data: { [normalizedAddress]: data },
+          });
+        }
+        logger.info(`Nametag not found for address: ${normalizedAddress}`);
+        return res.status(404).json({
+          success: false,
+          detail: `Nametag not found for address ${normalizedAddress}`,
+        });
+      } catch (error) {
+        logger.error(`Error fetching nametag for ${normalizedAddress}: ${error.message}`);
+        return res.status(500).json({
+          success: false,
+          detail: `Failed to fetch nametag: ${error.message}`,
+        });
+      }
     }
 
-    const { address, labels } = req.body;
-    try {
-      await addNametag(address, labels);
+    if (req.method === 'POST') {
+      await Promise.all(validatePost.map(validation => validation.run(req)));
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        logger.warn(`Validation errors in POST request: ${JSON.stringify(errors.array())}`);
+        return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
+      }
+
+      const { addresses } = req.body;
+      const normalizedAddresses = addresses.map(addr => addr.toLowerCase());
+      const result = {};
+      for (const addr of normalizedAddresses) {
+        const data = await getNametagForAddress(addr);
+        if (data) {
+          result[addr] = data;
+          logger.info(`Nametag found for address in POST: ${addr}, ${data.Labels[Object.keys(data.Labels)[0]]['Name Tag']}`);
+        } else {
+          result[addr] = {
+            Address: addr,
+            Labels: {
+              'deposit': {
+                'Name Tag': 'Unknown',
+                'Description': 'Not found in JSON.',
+                'Subcategory': 'Deposit',
+                'image': '/icons/default.png'
+              }
+            }
+          };
+        }
+      }
+
+      logger.info(`POST request processed: requested ${normalizedAddresses.length}, found ${Object.keys(result).length}`);
       return res.status(200).json({
         success: true,
-        detail: `Name tag for ${address} successfully added/updated.`,
-        data: { address, labels }
-      });
-    } catch (error) {
-      logger.error(`Failed to add/update nametag for ${address}: ${error.message}`);
-      return res.status(500).json({
-        success: false,
-        detail: 'Failed to add/update nametag.',
-        error: error.message
+        data: result,
+        metadata: {
+          requested: normalizedAddresses.length,
+          found: Object.keys(result).length,
+        },
       });
     }
-  }
 
-  logger.warn(`Method not allowed: ${req.method}`);
-  return res.status(405).json({
-    success: false,
-    detail: 'Method not allowed',
-  });
+    if (req.method === 'PUT' || req.method === 'PATCH') {
+      await Promise.all(validatePut.map(validation => validation.run(req)));
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        logger.warn(`Validation errors in PUT/PATCH request: ${JSON.stringify(errors.array())}`);
+        return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
+      }
+
+      const { address, labels } = req.body;
+      try {
+        await addNametag(address, labels);
+        return res.status(200).json({
+          success: true,
+          detail: `Nametag for ${address} successfully added/updated.`,
+          data: { address, labels }
+        });
+      } catch (error) {
+        logger.error(`Failed to add/update nametag for ${address}: ${error.message}`);
+        return res.status(500).json({
+          success: false,
+          detail: 'Failed to add/update nametag.',
+          error: error.message
+        });
+      }
+    }
+
+    logger.warn(`Method not allowed: ${req.method}`);
+    return res.status(405).json({
+      success: false,
+      detail: 'Method not allowed',
+    });
+  } catch (err) {
+    logger.error(`Unexpected error in nametags: ${err.message}`, { stack: err.stack });
+    return res.status(500).json({ error: `Unexpected server error: ${err.message}` });
+  }
 }

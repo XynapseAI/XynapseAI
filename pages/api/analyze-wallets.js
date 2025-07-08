@@ -18,9 +18,10 @@ const ALLOWED_USER_AGENT = 'CronWorker/1.0';
 const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
 const RATE_LIMIT_REQUESTS = 100;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const DEFAULT_GEMINI_TIMEOUT_MS = 60000;
+const DEFAULT_GEMINI_TIMEOUT_MS = 120000; // Tăng timeout lên 120 giây để an toàn
 const LARGE_VALUE_THRESHOLD_USD = 500000;
 const DEPOSIT_WALLET_CONFIDENCE_THRESHOLD = 60;
+const GEMINI_CONFIDENCE_THRESHOLD = 70; // Ngưỡng mới cho Gemini
 const DEFAULT_ETH_PRICE_USD = 2000;
 const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH
   ? path.resolve(process.env.WALLET_FILE_PATH)
@@ -340,8 +341,12 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   const isDeposit = confidenceScore >= DEPOSIT_WALLET_CONFIDENCE_THRESHOLD;
 
   let geminiAnalysis = 'Gemini analysis skipped.';
-  if (enableGemini && isDeposit) {
+  if (enableGemini && isDeposit && confidenceScore < GEMINI_CONFIDENCE_THRESHOLD) {
+    logger.info(`Wallet ${lowerWalletAddress} is a deposit wallet with confidence ${confidenceScore}% (< ${GEMINI_CONFIDENCE_THRESHOLD}%). Calling Gemini for analysis.`);
     geminiAnalysis = await fetchGeminiAnalysis(lowerWalletAddress, txData, confidenceScore, currentEthPriceUsd);
+  } else if (isDeposit && confidenceScore >= GEMINI_CONFIDENCE_THRESHOLD) {
+    geminiAnalysis = 'Gemini analysis skipped due to high confidence.';
+    logger.info(`Wallet ${lowerWalletAddress} is a deposit wallet with confidence ${confidenceScore}% (>= ${GEMINI_CONFIDENCE_THRESHOLD}%). Skipping Gemini analysis.`);
   }
 
   const metrics = {

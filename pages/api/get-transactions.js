@@ -1,33 +1,11 @@
 // pages/api/get-transactions.js
 import { query } from '../../utils/postgres.js';
 import { fetchBlockchainData } from '../../lib/blockchainData.js';
-import pkg from '../../utils/logger.cjs';
+import { getNametagsBatch } from '../../lib/nametags.js'; // Import từ lib/nametags.js
 import { isAddress } from 'ethers';
-import crypto from 'crypto';
-import rateLimit from 'express-rate-limit';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from './auth/[...nextauth].js';
+import pkg from '../../utils/logger.cjs';
 
 const { logger } = pkg;
-const ALLOWED_USER_AGENT = 'CronWorker/1.0';
-const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
-const RATE_LIMIT_REQUESTS = 100;
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-
-// Rate limiting middleware
-const limiter = rateLimit({
-  windowMs: RATE_LIMIT_WINDOW_MS,
-  max: RATE_LIMIT_REQUESTS,
-  keyGenerator: (req) => req.headers['x-api-key'] || req.ip,
-  message: 'Too many requests, please try again later.'
-});
-
-async function verifyHmacSignature(payload, signature, secret) {
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(JSON.stringify(payload));
-  const expectedSignature = hmac.digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
-}
 
 async function verifyApiKey(apiKey) {
   try {
@@ -51,146 +29,165 @@ async function verifyApiKey(apiKey) {
   }
 }
 
-async function checkAdminStatus(uid) {
-  if (!uid) return false;
-  try {
-    const result = await query(
-      `SELECT is_admin FROM admins WHERE uid = $1`,
-      [uid]
-    );
-    return result.rows.length > 0 && result.rows[0].is_admin === true;
-  } catch (error) {
-    logger.error(`Error checking admin status for user ${uid}: ${error.message}`);
-    return false;
+async function getNametagsBatchWithAnalysis(addresses) {
+  const uniqueAddresses = [...new Set(addresses.map(addr => addr.toLowerCase()).filter(isAddress))];
+  const nametags = {};
+
+  if (uniqueAddresses.length === 0) {
+    logger.info('No valid addresses provided for batch nametag fetch.');
+    return nametags;
   }
-}
 
-async function getNametag(address) {
   try {
-    // Ưu tiên lấy nametag từ bảng wallet_analysis
-    const walletAnalysisResult = await query(
-      `SELECT nametag FROM wallet_analysis WHERE wallet = $1`,
-      [address.toLowerCase()]
-    );
-    if (walletAnalysisResult.rows.length > 0 && walletAnalysisResult.rows[0].nametag) {
-      return walletAnalysisResult.rows[0].nametag;
+    // Lấy nametags từ bảng nametags
+    const nametagsResult = await getNametagsBatch(uniqueAddresses);
+    Object.assign(nametags, nametagsResult);
+
+    // Lấy nametags từ bảng wallet_analysis cho các địa chỉ chưa có nametag hợp lệ
+    const remainingAddresses = uniqueAddresses.filter(addr => !nametags[addr] || nametags[addr].name === 'Unknown');
+    if (remainingAddresses.length > 0) {
+      logger.info(`Fetching from wallet_analysis for ${remainingAddresses.length} remaining addresses: ${remainingAddresses.join(', ')}`);
+      const batchSize = 100;
+      for (let i = 0; i < remainingAddresses.length; i += batchSize) {
+        const batchAddresses = remainingAddresses.slice(i, i + batchSize);
+        const analysisResult = await query(
+          `SELECT wallet, nametag, image FROM wallet_analysis WHERE wallet = ANY($1)`,
+          [batchAddresses]
+        );
+        analysisResult.rows.forEach(row => {
+          const nametag = row.nametag || 'Unknown';
+          let image = row.image || '/icons/default.png';
+          if (nametag !== 'Unknown' && !image) {
+            const shortName = nametag.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+            image = `/icons/${shortName}.png`;
+          }
+          nametags[row.wallet.toLowerCase()] = {
+            address: row.wallet.toLowerCase(),
+            name: nametag,
+            image: image,
+            description: '',
+            subcategory: 'Others'
+          };
+        });
+      }
     }
 
-    // Nếu không tìm thấy trong wallet_analysis, lấy từ bảng nametags
-    const nametagsResult = await query(
-      `SELECT name AS nametag FROM nametags WHERE address = $1`,
-      [address.toLowerCase()]
-    );
-    if (nametagsResult.rows.length > 0 && nametagsResult.rows[0].nametag) {
-      return nametagsResult.rows[0].nametag;
-    }
+    // Gán mặc định cho các địa chỉ không tìm thấy
+    uniqueAddresses.forEach(addr => {
+      if (!nametags[addr]) {
+        nametags[addr] = {
+          address: addr,
+          name: 'Unknown',
+          image: '/icons/default.png',
+          description: '',
+          subcategory: 'Others'
+        };
+      }
+    });
 
-    return 'Unknown';
+    logger.info(`Total nametags fetched: ${Object.keys(nametags).length}, Unknown: ${Object.values(nametags).filter(tag => tag.name === 'Unknown').length}`);
+    return nametags;
   } catch (error) {
-    logger.error(`Error fetching nametag for address ${address}: ${error.message}`, { stack: error.stack });
-    return 'Unknown';
+    logger.error(`Error fetching nametags batch: ${error.message}`, { stack: error.stack });
+    return uniqueAddresses.reduce((acc, addr) => ({
+      ...acc,
+      [addr]: {
+        address: addr,
+        name: 'Unknown',
+        image: '/icons/default.png',
+        description: '',
+        subcategory: 'Others'
+      }
+    }), {});
   }
 }
 
 export default async function handler(req, res) {
-  limiter(req, res, async () => {
-    const userAgent = req.headers['user-agent'];
-    if (userAgent !== ALLOWED_USER_AGENT) {
-      logger.warn(`Invalid User-Agent: ${userAgent}`);
-      return res.status(403).json({ detail: 'Unauthorized: Invalid User-Agent.' });
+  if (req.method !== 'POST') {
+    logger.error(`Method not allowed: ${req.method}`);
+    return res.status(405).json({ error: 'Method not allowed. Only POST is supported.' });
+  }
+
+  const { wallet_address, chain = 'ethereum' } = req.body;
+
+  if (!isAddress(wallet_address)) {
+    logger.error(`Invalid wallet address: ${wallet_address}`);
+    return res.status(400).json({ error: 'Wallet address is required and must be valid.' });
+  }
+
+  const lowerWalletAddress = wallet_address.toLowerCase();
+
+  try {
+    const apiKey = process.env.INTERNAL_API_TOKEN;
+    if (!apiKey) {
+      logger.error('Missing INTERNAL_API_TOKEN in environment variables');
+      return res.status(401).json({ error: 'Unauthorized: Missing API key.' });
+    }
+    if (!(await verifyApiKey(apiKey))) {
+      logger.error(`Invalid API key: ${apiKey}`);
+      return res.status(401).json({ error: 'Unauthorized: Invalid API key.' });
     }
 
-    const apiKey = req.headers['x-api-key'];
-    const internalApiToken = process.env.INTERNAL_API_TOKEN;
+    logger.info(`Fetching transactions for ${lowerWalletAddress} on ${chain}...`);
+    const txData = await fetchBlockchainData(lowerWalletAddress, 'transactions', false, 100, chain);
 
-    // Xác thực API key
-    if (!apiKey || (apiKey !== internalApiToken && !(await verifyApiKey(apiKey)))) {
-      logger.warn(`Unauthorized: Invalid or missing API key: ${apiKey}`);
-      return res.status(401).json({ detail: 'Unauthorized: Invalid or missing API key.' });
-    }
+    const uniqueTxData = Array.from(new Map(txData.map((tx) => [tx.hash, tx])).values());
 
-    const signature = req.headers['x-hmac-signature'];
-    if (!signature || !(await verifyHmacSignature(req.body, signature, HMAC_SECRET))) {
-      logger.warn('Unauthorized: Invalid HMAC signature.');
-      return res.status(401).json({ detail: 'Unauthorized: Invalid HMAC signature.' });
-    }
+    const incomingTxs = uniqueTxData
+      .filter((tx) => tx.to.toLowerCase() === lowerWalletAddress)
+      .slice(0, 50);
+    const outgoingTxs = uniqueTxData
+      .filter((tx) => tx.from.toLowerCase() === lowerWalletAddress)
+      .slice(0, 50);
 
-    const session = await getServerSession(req, res, authOptions);
-    let isAuthorized = false;
+    logger.info(`Fetching nametags for ${lowerWalletAddress} and related addresses...`);
+    const allAddresses = [
+      lowerWalletAddress,
+      ...incomingTxs.map((tx) => tx.from.toLowerCase()),
+      ...outgoingTxs.map((tx) => tx.to.toLowerCase()),
+    ];
+    const nametags = await getNametagsBatchWithAnalysis(allAddresses);
 
-    if (session) {
-      const isAdminUser = await checkAdminStatus(session.user.id);
-      if (isAdminUser) {
-        isAuthorized = true;
-      } else {
-        logger.warn(`Forbidden access attempt to get-transactions API by non-admin user: ${session.user.id}`);
-        return res.status(403).json({ detail: 'Forbidden: Admin access required.' });
-      }
-    } else if (apiKey) {
-      isAuthorized = true;
-    } else {
-      logger.warn('Unauthorized access attempt to get-transactions API (no session or API key)');
-      return res.status(401).json({ detail: 'Unauthorized: Please log in or provide a valid API key.' });
-    }
+    const incomingTxsWithNametags = incomingTxs.map((tx) => ({
+      hash: tx.hash,
+      from: tx.from.toLowerCase(),
+      to: tx.to.toLowerCase(),
+      value: (parseInt(String(tx.value), 16) / 1e18).toFixed(6),
+      block_time: tx.block_time,
+      type: 'incoming',
+      from_nametag: nametags[tx.from.toLowerCase()]?.name || 'Unknown',
+      from_image: nametags[tx.from.toLowerCase()]?.image || '/icons/default.png',
+      to_nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
+      to_image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.png',
+    }));
 
-    if (!isAuthorized) {
-      return res.status(401).json({ detail: 'Unauthorized: Access denied.' });
-    }
+    const outgoingTxsWithNametags = outgoingTxs.map((tx) => ({
+      hash: tx.hash,
+      from: tx.from.toLowerCase(),
+      to: tx.to.toLowerCase(),
+      value: (parseInt(String(tx.value), 16) / 1e18).toFixed(6),
+      block_time: tx.block_time,
+      type: 'outgoing',
+      from_nametag: nametags[tx.from.toLowerCase()]?.name || 'Unknown',
+      from_image: nametags[tx.from.toLowerCase()]?.image || '/icons/default.png',
+      to_nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
+      to_image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.png',
+    }));
 
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed. Only POST is supported.' });
-    }
+    const walletInfo = {
+      address: lowerWalletAddress,
+      nametag: nametags[lowerWalletAddress]?.name || 'Unknown',
+      image: nametags[lowerWalletAddress]?.image || '/icons/default.png',
+    };
 
-    const { wallet_address, chain = 'ethereum' } = req.body;
-
-    if (!wallet_address || !isAddress(wallet_address)) {
-      logger.error(`Invalid wallet address: ${wallet_address}`);
-      return res.status(400).json({ error: 'Invalid wallet address.' });
-    }
-
-    try {
-      logger.info(`Fetching transactions for ${wallet_address} on ${chain} via API.`);
-      const txData = await fetchBlockchainData(wallet_address, 'transactions', false, 100, chain);
-
-      const incomingTxs = txData
-        .filter(tx => tx.to.toLowerCase() === wallet_address.toLowerCase())
-        .slice(0, 50)
-        .map(async (tx) => ({
-          hash: tx.hash,
-          from: tx.from,
-          to: tx.to,
-          value: (parseInt(String(tx.value), 16) / 1e18).toFixed(6),
-          block_time: tx.block_time,
-          type: 'incoming',
-          from_nametag: await getNametag(tx.from),
-          to_nametag: await getNametag(tx.to)
-        }));
-
-      const outgoingTxs = txData
-        .filter(tx => tx.from.toLowerCase() === wallet_address.toLowerCase())
-        .slice(0, 50)
-        .map(async (tx) => ({
-          hash: tx.hash,
-          from: tx.from,
-          to: tx.to,
-          value: (parseInt(String(tx.value), 16) / 1e18).toFixed(6),
-          block_time: tx.block_time,
-          type: 'outgoing',
-          from_nametag: await getNametag(tx.from),
-          to_nametag: await getNametag(tx.to)
-        }));
-
-      // Resolve async mappings
-      const resolvedIncomingTxs = await Promise.all(incomingTxs);
-      const resolvedOutgoingTxs = await Promise.all(outgoingTxs);
-
-      return res.status(200).json({
-        incoming: resolvedIncomingTxs,
-        outgoing: resolvedOutgoingTxs
-      });
-    } catch (error) {
-      logger.error(`Error fetching transactions for ${wallet_address}: ${error.message}`, { stack: error.stack });
-      return res.status(500).json({ error: `Failed to fetch transactions: ${error.message}` });
-    }
-  });
+    logger.info(`Fetched ${incomingTxsWithNametags.length} incoming and ${outgoingTxsWithNametags.length} outgoing transactions for ${lowerWalletAddress}`);
+    return res.status(200).json({
+      incoming: incomingTxsWithNametags,
+      outgoing: outgoingTxsWithNametags,
+      wallet: walletInfo,
+    });
+  } catch (err) {
+    logger.error(`Error fetching transactions for ${lowerWalletAddress}: ${err.message}`, { stack: err.stack });
+    return res.status(500).json({ error: `Failed to fetch transactions: ${err.message}` });
+  }
 }

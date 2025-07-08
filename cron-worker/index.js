@@ -1,7 +1,7 @@
 // cron-worker/index.js
 import 'dotenv/config';
 import { getHighVolumeWallets } from '../lib/analysisStorage.js';
-import { loadAllNametags } from '../lib/nametags.js';
+import { loadAllNametags } from '../lib/nametags.js'; // Still imported but not called with force reload
 import pkg from '../utils/logger.cjs';
 import { query } from '../utils/postgres.js';
 import axios from 'axios';
@@ -18,8 +18,8 @@ const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH
   : path.resolve(process.cwd(), 'cron-worker/wallets.json');
 const MAX_WALLETS_PER_RUN = 200;
 const DEFAULT_ETH_PRICE_USD = 2000;
-const PRICE_CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 giờ
-const API_KEY_DURATION_MS = 24 * 60 * 60 * 1000; // 24 giờ
+const PRICE_CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+const API_KEY_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 const CRON_USER_AGENT = 'CronWorker/1.0';
 const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
 const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN;
@@ -113,7 +113,7 @@ async function findDepositWallets(primaryWallets, chain = 'ethereum', txLimit = 
 
   for (const primaryWallet of primaryWallets) {
     logger.info(`Fetching transactions for primary wallet ${primaryWallet.address} (${primaryWallet.name}) to find deposit wallets...`);
-    const txData = await fetchBlockchainData(primaryWallet.address, 'transactions', false, txLimit, chain);
+    const txData = await fetchBlockchainData(primaryWallet.address, 'transactions', true, txLimit, chain);
     if (!txData || txData.length === 0) {
       logger.info(`No transactions found for primary wallet ${primaryWallet.address}.`);
       continue;
@@ -253,11 +253,10 @@ async function runHighVolumeWalletAnalysis() {
   }
 
   try {
-    // Bước 1: Tải tất cả nametags từ file JSON
-    logger.info('Loading nametags into PostgreSQL...');
-    await loadAllNametags(true); // Force reload để đảm bảo nametags được cập nhật
+    // Step 1: Removed automatic nametag loading
+    logger.info('Skipping automatic nametag loading. Using existing nametags in PostgreSQL.');
 
-    // Bước 2: Lấy hoặc tạo API key
+    // Step 2: Get or create API key
     const apiKey = await getValidApiKey();
     if (!apiKey) {
       logger.error('Failed to get or generate API key. Aborting cron job.');
@@ -265,34 +264,34 @@ async function runHighVolumeWalletAnalysis() {
     }
     logger.info(`Using API key: ${apiKey}`);
 
-    // Bước 3: Lấy giá ETH
+    // Step 3: Get ETH price
     const currentEthPriceUsd = await getEthPrice();
     logger.info(`Using ETH price $${currentEthPriceUsd} for all analyses.`);
 
-    // Bước 4: Đọc ví từ file (Ví 1)
+    // Step 4: Read wallets from file (Primary Wallets)
     logger.info('Reading primary wallets from file...');
     const primaryWallets = await readWalletFile();
     if (primaryWallets.length === 0) {
       logger.warn('No primary wallets to analyze. Skipping to high-volume wallets.');
     }
 
-    // Bước 5: Tìm và phân tích Ví 2 (có giao dịch đến Ví 1 trong 24h)
+    // Step 5: Find and analyze Secondary Wallets (deposit wallets sending to primary wallets in last 24h)
     let walletsToAnalyze = [];
     if (primaryWallets.length > 0) {
-      logger.info('Finding deposit wallets (Ví 2) sending to primary wallets...');
+      logger.info('Finding deposit wallets (Secondary Wallets) sending to primary wallets...');
       const depositWallets = await findDepositWallets(primaryWallets);
       const pendingWallets = await getPendingWallets();
 
-      // Kết hợp danh sách Ví 2 mới và Ví 2 chưa phân tích
+      // Combine new secondary wallets and unanalyzed secondary wallets
       const allDepositWallets = [...pendingWallets, ...depositWallets].filter(
         (v, i, a) => a.findIndex(t => t.address === v.address) === i
       );
 
-      // Lấy tối đa MAX_WALLETS_PER_RUN ví để phân tích
+      // Select up to MAX_WALLETS_PER_RUN wallets for analysis
       walletsToAnalyze = allDepositWallets.slice(0, MAX_WALLETS_PER_RUN);
       const remainingWallets = allDepositWallets.slice(MAX_WALLETS_PER_RUN);
 
-      // Lưu các ví chưa phân tích vào PostgreSQL
+      // Save unanalyzed wallets to PostgreSQL
       if (remainingWallets.length > 0) {
         await savePendingWallets(remainingWallets);
       }
@@ -300,9 +299,9 @@ async function runHighVolumeWalletAnalysis() {
       logger.info(`Selected ${walletsToAnalyze.length} deposit wallets to analyze: ${walletsToAnalyze.map(w => w.address).join(', ')}`);
     }
 
-    // Bước 6: Phân tích Ví 2
+    // Step 6: Analyze Secondary Wallets
     if (walletsToAnalyze.length > 0) {
-      logger.info('Triggering analysis for deposit wallets (Ví 2)...');
+      logger.info('Triggering analysis for deposit wallets (Secondary Wallets)...');
       for (const wallet of walletsToAnalyze) {
         try {
           const identifyPayload = {
@@ -350,7 +349,7 @@ async function runHighVolumeWalletAnalysis() {
           );
           logger.info(`Large flow response for deposit wallet ${wallet.address}: ${JSON.stringify(largeFlowResponse.data)}`);
 
-          // Xóa ví khỏi pending_wallets_to_analyze sau khi phân tích
+          // Remove wallet from pending_wallets_to_analyze after analysis
           await deletePendingWallet(wallet.address);
         } catch (apiError) {
           logger.error(`Error analyzing deposit wallet ${wallet.address}: ${apiError.message}`, { stack: apiError.stack });
@@ -364,7 +363,7 @@ async function runHighVolumeWalletAnalysis() {
       logger.info('No deposit wallets to analyze. Proceeding to high-volume wallets.');
     }
 
-    // Bước 7: Phân tích ví high-volume
+    // Step 7: Analyze high-volume wallets
     logger.info('Fetching high-volume wallets...');
     const highVolumeWallets = await getHighVolumeWallets(
       'ethereum', 200, 500, 20, 1000, 50

@@ -1,16 +1,17 @@
 // components/TreemapTab.jsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { isAddress } from 'ethers';
 import { motion } from 'framer-motion';
+import throttle from 'lodash.throttle';
 
-const WalletNode = ({ address, nametag, image, txHash, type, isRoot = false, onSelect }) => {
+// Bọc WalletNode trong React.memo để tối ưu render
+const WalletNode = memo(({ address, nametag, image, txHash, type, isRoot = false, onSelect }) => {
   const truncateAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   const explorerUrl = txHash ? `https://etherscan.io/tx/${txHash}` : `https://etherscan.io/address/${address}`;
 
   return (
     <div
-      className={`flex items-center p-2 rounded-lg border border-white/10 backdrop-blur-md bg-gray-800/50 hover:bg-white/15 transition-all duration-300 cursor-pointer ${isRoot ? 'w-[180px] max-w-[180px] bg-gray-700/70 overflow-hidden' : 'min-w-[100px]'
-        }`}
+      className={`flex items-center p-2 rounded-lg border border-white/10 backdrop-blur-md bg-gray-800/50 hover:bg-white/15 transition-all duration-300 cursor-pointer ${isRoot ? 'w-[180px] max-w-[180px] bg-gray-700/70 overflow-hidden' : 'min-w-[100px]'}`}
       onClick={() => onSelect(address)}
     >
       {image && (
@@ -50,7 +51,11 @@ const WalletNode = ({ address, nametag, image, txHash, type, isRoot = false, onS
       )}
     </div>
   );
-};
+});
+
+// Định nghĩa TTL cho cache (1 giờ = 3600000 ms)
+const CACHE_TTL = 3600000;
+const NODES_PER_PAGE = 50; // Số node mỗi trang
 
 export default function TreemapTab({ recaptchaRef }) {
   const [walletAddress, setWalletAddress] = useState('');
@@ -64,13 +69,58 @@ export default function TreemapTab({ recaptchaRef }) {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [nodePage, setNodePage] = useState(1); // State cho phân trang
   const svgRef = useRef(null);
+
+  // Hàm lấy cache từ localStorage
+  const getCachedData = (address, chain) => {
+    try {
+      const cacheKey = `wallet_transactions_${chain}_${address.toLowerCase()}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_TTL) {
+          console.log(`Using cached data for ${address}`);
+          return data;
+        } else {
+          console.log(`Cache expired for ${address}`);
+          localStorage.removeItem(cacheKey);
+        }
+      }
+    } catch (err) {
+      console.error(`Error reading cache for ${address}: ${err.message}`);
+    }
+    return null;
+  };
+
+  // Hàm lưu cache vào localStorage
+  const setCachedData = (address, chain, data) => {
+    try {
+      const cacheKey = `wallet_transactions_${chain}_${address.toLowerCase()}`;
+      localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
+      console.log(`Cached data for ${address}`);
+    } catch (err) {
+      console.error(`Error caching data for ${address}: ${err.message}`);
+    }
+  };
 
   const fetchTransactions = async (address) => {
     if (!isAddress(address)) {
       setError('Địa chỉ ví không hợp lệ.');
       return;
     }
+
+    // Kiểm tra cache trước
+    const cachedData = getCachedData(address, 'ethereum');
+    if (cachedData) {
+      setIncomingData(cachedData.incoming);
+      setOutgoingData(cachedData.outgoing);
+      setWalletInfo(cachedData.wallet);
+      setWalletAddress(address);
+      setNodePage(1); // Reset trang khi tải ví mới
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setLoadingMessage('Đang lấy giao dịch từ Etherscan...');
@@ -95,7 +145,7 @@ export default function TreemapTab({ recaptchaRef }) {
       const incoming = result.incoming
         .filter((tx) => Number(tx.value) > 0)
         .map((tx) => ({
-          address: tx.from,
+          address: tx.from.toLowerCase(),
           nametag: tx.from_nametag,
           image: tx.from_image,
           txHash: tx.hash,
@@ -106,7 +156,7 @@ export default function TreemapTab({ recaptchaRef }) {
       const outgoing = result.outgoing
         .filter((tx) => Number(tx.value) > 0)
         .map((tx) => ({
-          address: tx.to,
+          address: tx.to.toLowerCase(),
           nametag: tx.to_nametag,
           image: tx.to_image,
           txHash: tx.hash,
@@ -119,10 +169,14 @@ export default function TreemapTab({ recaptchaRef }) {
       console.log('Outgoing Data:', outgoing);
       console.log('Wallet Info:', result.wallet);
 
+      // Lưu vào cache
+      setCachedData(address, 'ethereum', { incoming, outgoing, wallet: result.wallet });
+
       setIncomingData(incoming);
       setOutgoingData(outgoing);
       setWalletInfo(result.wallet);
       setWalletAddress(address);
+      setNodePage(1); // Reset trang khi tải ví mới
     } catch (err) {
       setError(`Lỗi: ${err.message}`);
       console.error(`Lỗi khi lấy giao dịch cho ${address}: ${err.message}`);
@@ -137,8 +191,8 @@ export default function TreemapTab({ recaptchaRef }) {
     console.log('Incoming Data Updated:', incomingData);
     console.log('Outgoing Data Updated:', outgoingData);
     console.log('Wallet Info Updated:', walletInfo);
-    console.log('Interaction:', { offset, zoom });
-  }, [incomingData, outgoingData, walletInfo, offset, zoom]);
+    console.log('Interaction:', { offset, zoom, nodePage });
+  }, [incomingData, outgoingData, walletInfo, offset, zoom, nodePage]);
 
   // Xử lý chọn ví mới làm ví gốc
   const handleSelectWallet = (address) => {
@@ -153,30 +207,41 @@ export default function TreemapTab({ recaptchaRef }) {
     setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
   };
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = throttle((e) => {
     if (isDragging) {
       setOffset({
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y,
       });
     }
-  };
+  }, 16); // Throttle mỗi 16ms (~60fps)
 
   const handleMouseUp = () => {
     setIsDragging(false);
   };
 
   // Xử lý zoom
-  const handleWheel = (e) => {
+  const handleWheel = throttle((e) => {
     e.preventDefault();
     const delta = e.deltaY * -0.001;
-    setZoom((prev) => Math.min(Math.max(prev + delta, 0.5), 2)); // Giới hạn zoom 0.5x - 2x
+    setZoom((prev) => Math.min(Math.max(prev + delta, 0.5), 2));
+  }, 16); // Throttle mỗi 16ms
+
+  // Xử lý nhấn nút Load More
+  const handleLoadMore = () => {
+    setNodePage((prev) => {
+      const newPage = prev + 1;
+      console.log(`Loading more nodes: page ${newPage}, showing up to ${newPage * NODES_PER_PAGE} nodes per type`);
+      return newPage;
+    });
   };
 
   // Tính toán vị trí các ô và đường nối
   const calculateNodePositions = () => {
     const isMobile = window.innerWidth < 640;
-    const totalNodes = incomingData.length + outgoingData.length;
+    const limitedIncoming = incomingData.slice(0, nodePage * NODES_PER_PAGE);
+    const limitedOutgoing = outgoingData.slice(0, nodePage * NODES_PER_PAGE);
+    const totalNodes = limitedIncoming.length + limitedOutgoing.length;
     const nodeWidth = isMobile ? 120 : totalNodes > 20 ? 100 : totalNodes > 10 ? 120 : 150;
     const nodeHeight = isMobile ? 50 : totalNodes > 20 ? 40 : totalNodes > 10 ? 50 : 60;
     const spacing = isMobile ? 20 : totalNodes > 20 ? 15 : 10;
@@ -188,15 +253,15 @@ export default function TreemapTab({ recaptchaRef }) {
 
     if (isMobile) {
       // Mobile: incoming trên, root giữa, outgoing dưới
-      const incomingHeight = Math.ceil(incomingData.length / columns) * (nodeHeight + spacing);
-      const outgoingHeight = Math.ceil(outgoingData.length / columns) * (nodeHeight + spacing);
+      const incomingHeight = Math.ceil(limitedIncoming.length / columns) * (nodeHeight + spacing);
+      const outgoingHeight = Math.ceil(limitedOutgoing.length / columns) * (nodeHeight + spacing);
       rootY = 100 + incomingHeight + nodeHeight + 2 * spacing;
 
-      const incomingNodes = incomingData.map((node, index) => {
+      const incomingNodes = limitedIncoming.map((node, index) => {
         const col = index % columns;
         const row = Math.floor(index / columns);
         const gridWidth = columns * (nodeWidth + spacing) - spacing;
-        const startX = 2000 / 2 - gridWidth / 2; // Căn giữa trong canvas 2000px
+        const startX = 2000 / 2 - gridWidth / 2;
         return {
           ...node,
           x: startX + col * (nodeWidth + spacing),
@@ -204,7 +269,7 @@ export default function TreemapTab({ recaptchaRef }) {
         };
       });
 
-      const outgoingNodes = outgoingData.map((node, index) => {
+      const outgoingNodes = limitedOutgoing.map((node, index) => {
         const col = index % columns;
         const row = Math.floor(index / columns);
         const gridWidth = columns * (nodeWidth + spacing) - spacing;
@@ -222,25 +287,25 @@ export default function TreemapTab({ recaptchaRef }) {
       const incomingWidth = columns * (nodeWidth + spacing) - spacing;
       const outgoingWidth = columns * (nodeWidth + spacing) - spacing;
 
-      const incomingNodes = incomingData.map((node, index) => {
+      const incomingNodes = limitedIncoming.map((node, index) => {
         const col = index % columns;
         const row = Math.floor(index / columns);
         const startX = rootX - incomingWidth - 18 * spacing;
         return {
           ...node,
           x: startX + col * (nodeWidth + spacing),
-          y: rootY - (Math.ceil(incomingData.length / columns) * (nodeHeight + spacing)) / 2 + row * (nodeHeight + spacing),
+          y: rootY - (Math.ceil(limitedIncoming.length / columns) * (nodeHeight + spacing)) / 2 + row * (nodeHeight + spacing),
         };
       });
 
-      const outgoingNodes = outgoingData.map((node, index) => {
+      const outgoingNodes = limitedOutgoing.map((node, index) => {
         const col = index % columns;
         const row = Math.floor(index / columns);
         const startX = rootX + nodeWidth + 25 * spacing;
         return {
           ...node,
           x: startX + col * (nodeWidth + spacing),
-          y: rootY - (Math.ceil(outgoingData.length / columns) * (nodeHeight + spacing)) / 2 + row * (nodeHeight + spacing),
+          y: rootY - (Math.ceil(limitedOutgoing.length / columns) * (nodeHeight + spacing)) / 2 + row * (nodeHeight + spacing),
         };
       });
 
@@ -296,7 +361,7 @@ export default function TreemapTab({ recaptchaRef }) {
         </div>
       </div>
 
-      {/* Nút Zoom và Reset */}
+      {/* Nút Zoom, Reset và Load More */}
       <div className="flex gap-2 mb-2 justify-center">
         <button
           onClick={() => {
@@ -307,6 +372,14 @@ export default function TreemapTab({ recaptchaRef }) {
         >
           Reset View
         </button>
+        {(incomingData.length > nodePage * NODES_PER_PAGE || outgoingData.length > nodePage * NODES_PER_PAGE) && (
+          <button
+            onClick={handleLoadMore}
+            className="px-2 py-1 bg-gray-800/50 text-white rounded text-xs border border-white/10"
+          >
+            Load More
+          </button>
+        )}
       </div>
 
       {error && (
@@ -348,8 +421,7 @@ export default function TreemapTab({ recaptchaRef }) {
             {incomingNodes.map((node, index) => (
               <path
                 key={`line-in-${index}`}
-                d={`M${node.x + nodeWidth} ${node.y + nodeHeight / 2} C${node.x + nodeWidth + 50} ${node.y + nodeHeight / 2
-                  }, ${rootX - 50} ${rootY + nodeHeight / 2}, ${rootX} ${rootY + nodeHeight / 2}`}
+                d={`M${node.x + nodeWidth} ${node.y + nodeHeight / 2} C${node.x + nodeWidth + 50} ${node.y + nodeHeight / 2}, ${rootX - 50} ${rootY + nodeHeight / 2}, ${rootX} ${rootY + nodeHeight / 2}`}
                 stroke="#00BFFF"
                 strokeWidth="2"
                 fill="none"
@@ -360,8 +432,7 @@ export default function TreemapTab({ recaptchaRef }) {
             {outgoingNodes.map((node, index) => (
               <path
                 key={`line-out-${index}`}
-                d={`M${rootX + nodeWidth + 60} ${rootY + nodeHeight / 2} C${rootX + nodeWidth + 80} ${rootY + nodeHeight / 2
-                  }, ${node.x - 50} ${node.y + nodeHeight / 2}, ${node.x} ${node.y + nodeHeight / 2}`}
+                d={`M${rootX + nodeWidth + 60} ${rootY + nodeHeight / 2} C${rootX + nodeWidth + 80} ${rootY + nodeHeight / 2}, ${node.x - 50} ${node.y + nodeHeight / 2}, ${node.x} ${node.y + nodeHeight / 2}`}
                 stroke="#FF4500"
                 strokeWidth="2"
                 fill="none"
@@ -441,4 +512,4 @@ export default function TreemapTab({ recaptchaRef }) {
       `}</style>
     </motion.div>
   );
-};
+}
