@@ -1,14 +1,13 @@
 // pages/api/analyze-wallets.js
 import { fetchBlockchainData } from '../../lib/blockchainData.js';
 import { getNametag, addNametag } from '../../lib/nametags.js';
-import { db } from '../../utils/firebaseAdmin.js';
+import { query } from '../../utils/postgres.js';
 import axios from 'axios';
 import { isAddress } from 'ethers';
 import { detectLargeFlow } from '../../lib/detectLargeFlow.js';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
 import pkg from '../../utils/logger.cjs';
-import { saveWalletAnalysis as saveAnalysisToFirestore, saveLargeFlow as saveLargeFlowToFirestore } from '../../lib/analysisStorage';
 import fs from 'fs/promises';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
@@ -17,7 +16,6 @@ import path from 'path';
 const { logger } = pkg;
 const ALLOWED_USER_AGENT = 'CronWorker/1.0';
 const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
-const API_KEYS_COLLECTION = 'api_keys';
 const RATE_LIMIT_REQUESTS = 100;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const DEFAULT_GEMINI_TIMEOUT_MS = 60000;
@@ -45,13 +43,16 @@ async function verifyHmacSignature(payload, signature, secret) {
 
 async function verifyApiKey(apiKey) {
   try {
-    const keyDoc = await db.collection(API_KEYS_COLLECTION).doc(apiKey).get();
-    if (!keyDoc.exists) {
+    const result = await query(
+      `SELECT active, expires_at FROM api_keys WHERE api_key = $1`,
+      [apiKey]
+    );
+    if (result.rows.length === 0) {
       logger.warn(`Invalid API key: ${apiKey}`);
       return false;
     }
-    const { active, expiresAt } = keyDoc.data();
-    if (!active || new Date(expiresAt) < new Date()) {
+    const { active, expires_at } = result.rows[0];
+    if (!active || new Date(expires_at) < new Date()) {
       logger.warn(`API key ${apiKey} is inactive or expired`);
       return false;
     }
@@ -59,6 +60,77 @@ async function verifyApiKey(apiKey) {
   } catch (error) {
     logger.error(`Error verifying API key: ${error.message}`, { stack: error.stack });
     return false;
+  }
+}
+
+async function checkAdminStatus(uid) {
+  if (!uid) return false;
+  try {
+    const result = await query(
+      `SELECT is_admin FROM admins WHERE uid = $1`,
+      [uid]
+    );
+    return result.rows.length > 0 && result.rows[0].is_admin === true;
+  } catch (error) {
+    logger.error(`Error checking admin status for user ${uid}: ${error.message}`);
+    return false;
+  }
+}
+
+async function saveWalletAnalysis(analysis) {
+  try {
+    await query(
+      `INSERT INTO wallet_analysis (wallet, is_deposit, deposit_confidence_percentage, nametag, image, reason, metrics, gemini_analysis, last_analysis)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (wallet) DO UPDATE SET
+         is_deposit = EXCLUDED.is_deposit,
+         deposit_confidence_percentage = EXCLUDED.deposit_confidence_percentage,
+         nametag = EXCLUDED.nametag,
+         image = EXCLUDED.image,
+         reason = EXCLUDED.reason,
+         metrics = EXCLUDED.metrics,
+         gemini_analysis = EXCLUDED.gemini_analysis,
+         last_analysis = EXCLUDED.last_analysis`,
+      [
+        analysis.wallet,
+        analysis.is_deposit,
+        analysis.deposit_confidence_percentage,
+        analysis.nametag,
+        analysis.image,
+        analysis.reason,
+        analysis.metrics,
+        analysis.gemini_analysis,
+        new Date(analysis.lastAnalysis)
+      ]
+    );
+    logger.info(`Saved wallet analysis for ${analysis.wallet} to PostgreSQL.`);
+  } catch (error) {
+    logger.error(`Error saving wallet analysis for ${analysis.wallet}: ${error.message}`, { stack: error.stack });
+  }
+}
+
+async function saveLargeFlow(data) {
+  try {
+    for (const flow of data.large_flows) {
+      await query(
+        `INSERT INTO large_flows (source_wallet_scanned, from_address, to_address, value_usd, tx_hash, block_time, from_nametag, to_nametag, timestamp_recorded)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          data.source_wallet_scanned,
+          flow.from,
+          flow.to,
+          flow.value_usd,
+          flow.tx_hash,
+          new Date(flow.block_time),
+          flow.from_nametag || 'Unknown',
+          flow.to_nametag || 'Unknown',
+          new Date()
+        ]
+      );
+    }
+    logger.info(`Saved ${data.large_flows.length} large flows for ${data.source_wallet_scanned} to PostgreSQL.`);
+  } catch (error) {
+    logger.error(`Error saving large flows for ${data.source_wallet_scanned}: ${error.message}`, { stack: error.stack });
   }
 }
 
@@ -83,17 +155,6 @@ async function readWalletFile() {
   } catch (error) {
     logger.error(`Error reading wallet file ${WALLET_FILE_PATH}: ${error.message}`, { stack: error.stack });
     return [];
-  }
-}
-
-async function checkAdminStatus(uid) {
-  if (!uid) return false;
-  try {
-    const adminDoc = await db.collection('admins').doc(uid).get();
-    return adminDoc.exists && adminDoc.data().isAdmin === true;
-  } catch (error) {
-    logger.error(`Error checking admin status for user ${uid}: ${error.message}`);
-    return false;
   }
 }
 
@@ -132,7 +193,7 @@ Provide a concise analysis (50-100 words) in Markdown to confirm if this is a de
     }, {
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': await verifyApiKey(),
+        'X-API-Key': process.env.INTERNAL_API_TOKEN,
         'X-HMAC-Signature': crypto.createHmac('sha256', HMAC_SECRET).update(JSON.stringify({ prompt, deepSearch: false })).digest('hex'),
         'User-Agent': 'Server/1.0'
       },
@@ -165,7 +226,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   let nametag = await getNametag(lowerWalletAddress) || 'Unknown';
 
   if (!txData || txData.length === 0) {
-    logger.info(`No transactions found for wallet ${lowerWalletAddress}. Skipping nametag assignment and Firestore save.`);
+    logger.info(`No transactions found for wallet ${lowerWalletAddress}. Skipping nametag assignment and PostgreSQL save.`);
     return {
       wallet: lowerWalletAddress,
       is_deposit: false,
@@ -222,7 +283,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   const totalOutgoingTxs = recentTxs30d.filter(tx => tx.from.toLowerCase() === lowerWalletAddress).length;
 
   if (outgoingToPrimaryTarget.length === 0) {
-    logger.info(`No outgoing transactions to primary wallet ${lowerPrimaryTargetWallet} for wallet ${lowerWalletAddress} in last 30 days. Skipping nametag assignment and Firestore save.`);
+    logger.info(`No outgoing transactions to primary wallet ${lowerPrimaryTargetWallet} for wallet ${lowerWalletAddress} in last 30 days. Skipping nametag assignment and PostgreSQL save.`);
     return {
       wallet: lowerWalletAddress,
       is_deposit: false,
@@ -314,34 +375,30 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
       const newNametagValue = `Unknown Deposit Wallet (Conf: ${confidenceScore.toFixed(0)}%)`;
       const newImage = '/icons/default.png';
       await addNametag(lowerWalletAddress, {
-        auto_tag: {
-          'Name Tag': newNametagValue,
-          Description: `Automatically detected as a deposit wallet, but primary wallet ${lowerPrimaryTargetWallet} not found in wallets.json.`,
-          Subcategory: 'Exchange/Service',
-          image: newImage
-        }
+        name: newNametagValue,
+        description: `Automatically detected as a deposit wallet, but primary wallet ${lowerPrimaryTargetWallet} not found in wallets.json.`,
+        subcategory: 'Exchange/Service',
+        image: newImage
       });
       result.nametag = newNametagValue;
       result.image = newImage;
     } else {
       const shortName = primaryWallet.name.split(' ')[0];
-      const newNametagValue = `${shortName} Deposit Wallet (Conf: ${confidenceScore.toFixed(0)}%)`;
+      const newNametagValue = `${shortName} Deposit Wallet`;
       const newImage = `/icons/${shortName.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
       logger.info(`Assigning nametag ${newNametagValue} and image ${newImage} to ${lowerWalletAddress}`);
       await addNametag(lowerWalletAddress, {
-        auto_tag: {
-          'Name Tag': newNametagValue,
-          Description: `Automatically detected as a deposit wallet sending to ${primaryWallet.name} wallet.`,
-          Subcategory: 'Exchange/Service',
-          image: newImage
-        }
+        name: newNametagValue,
+        description: `Automatically detected as a deposit wallet sending to ${primaryWallet.name} wallet.`,
+        subcategory: 'Exchange/Service',
+        image: newImage
       });
       result.nametag = newNametagValue;
       result.image = newImage;
     }
-    await saveAnalysisToFirestore(result);
+    await saveWalletAnalysis(result);
   } else {
-    logger.info(`Wallet ${lowerWalletAddress} does not meet criteria (is_deposit: ${isDeposit}, outgoing_to_primary_target_30d: ${outgoingToPrimaryTarget.length}). Skipping nametag assignment and Firestore save.`);
+    logger.info(`Wallet ${lowerWalletAddress} does not meet criteria (is_deposit: ${isDeposit}, outgoing_to_primary_target_30d: ${outgoingToPrimaryTarget.length}). Skipping nametag assignment and PostgreSQL save.`);
   }
 
   return result;
@@ -356,8 +413,11 @@ export default async function handler(req, res) {
     }
 
     const apiKey = req.headers['x-api-key'];
-    if (!apiKey || !(await verifyApiKey(apiKey))) {
-      logger.warn('Unauthorized: Invalid or missing API key.');
+    const internalApiToken = process.env.INTERNAL_API_TOKEN;
+
+    // Xác thực API key
+    if (!apiKey || (apiKey !== internalApiToken && !(await verifyApiKey(apiKey)))) {
+      logger.warn(`Unauthorized: Invalid or missing API key: ${apiKey}`);
       return res.status(401).json({ detail: 'Unauthorized: Invalid or missing API key.' });
     }
 
@@ -424,7 +484,7 @@ export default async function handler(req, res) {
           currentEthPriceUsd
         );
         if (largeFlowResult && largeFlowResult.large_flows && largeFlowResult.large_flows.length > 0) {
-          await saveLargeFlowToFirestore({
+          await saveLargeFlow({
             source_wallet_scanned: wallet_address,
             large_flows: largeFlowResult.large_flows
           });

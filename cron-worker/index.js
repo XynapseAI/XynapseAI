@@ -1,43 +1,39 @@
 // cron-worker/index.js
 import 'dotenv/config';
 import { getHighVolumeWallets } from '../lib/analysisStorage.js';
+import { loadAllNametags } from '../lib/nametags.js';
 import pkg from '../utils/logger.cjs';
-import { db } from '../utils/firebaseAdmin.js';
+import { query } from '../utils/postgres.js';
 import axios from 'axios';
 import fs from 'fs/promises';
 import { isAddress } from 'ethers';
 import { fetchBlockchainData } from '../lib/blockchainData.js';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const { logger } = pkg;
-const ANALYZE_WALLETS_API_URL = process.env.NEXTAUTH_URL + '/api/analyze-wallets';
+const ANALYZE_WALLETS_API_URL = process.env.ANALYZE_WALLETS_API_URL || (process.env.NEXTAUTH_URL + '/api/analyze-wallets');
 const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH
   ? path.resolve(process.env.WALLET_FILE_PATH)
   : path.resolve(process.cwd(), 'cron-worker/wallets.json');
-const PENDING_WALLETS_COLLECTION = 'pending_wallets_to_analyze';
-const ETH_PRICE_COLLECTION = 'eth_price';
-const API_KEYS_COLLECTION = 'api_keys';
 const MAX_WALLETS_PER_RUN = 200;
 const DEFAULT_ETH_PRICE_USD = 2000;
 const PRICE_CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 giờ
 const API_KEY_DURATION_MS = 24 * 60 * 60 * 1000; // 24 giờ
 const CRON_USER_AGENT = 'CronWorker/1.0';
-const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex'); // Tạo secret ngẫu nhiên nếu không có
+const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
+const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN;
 
 async function generateApiKey() {
   try {
     const apiKey = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + API_KEY_DURATION_MS);
-    await db.collection(API_KEYS_COLLECTION).doc(apiKey).set({
-      createdAt: new Date().toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      active: true
-    });
+    await query(
+      `INSERT INTO api_keys (api_key, created_at, expires_at, active)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (api_key) DO NOTHING`,
+      [apiKey, new Date(), expiresAt, true]
+    );
     logger.info(`Generated new API key: ${apiKey}, expires at ${expiresAt}`);
     return apiKey;
   } catch (error) {
@@ -48,23 +44,22 @@ async function generateApiKey() {
 
 async function getValidApiKey() {
   try {
-    const snapshot = await db.collection(API_KEYS_COLLECTION)
-      .where('active', '==', true)
-      .where('expiresAt', '>=', new Date().toISOString())
-      .limit(1)
-      .get();
-
-    if (!snapshot.empty) {
-      const doc = snapshot.docs[0];
-      logger.info(`Using existing API key: ${doc.id}`);
-      return doc.id;
+    const result = await query(
+      `SELECT api_key FROM api_keys
+       WHERE active = true AND expires_at >= CURRENT_TIMESTAMP
+       LIMIT 1`
+    );
+    if (result.rows.length > 0) {
+      const apiKey = result.rows[0].api_key;
+      logger.info(`Using existing API key: ${apiKey}`);
+      return apiKey;
     }
 
     logger.info('No valid API key found, generating new one...');
-    return await generateApiKey();
+    return await generateApiKey() || INTERNAL_API_TOKEN;
   } catch (error) {
     logger.error(`Error getting valid API key: ${error.message}`, { stack: error.stack });
-    return null;
+    return INTERNAL_API_TOKEN || null;
   }
 }
 
@@ -77,7 +72,9 @@ function generateHmacSignature(payload, secret) {
 async function readWalletFile() {
   try {
     logger.info(`Attempting to read wallet file at: ${WALLET_FILE_PATH}`);
-    const fileContent = await fs.readFile(WALLET_FILE_PATH, 'utf-8');
+    const absolutePath = path.resolve(WALLET_FILE_PATH);
+    await fs.access(absolutePath, fs.constants.F_OK);
+    const fileContent = await fs.readFile(absolutePath, 'utf-8');
     let wallets = [];
     if (WALLET_FILE_PATH.endsWith('.json')) {
       wallets = JSON.parse(fileContent);
@@ -143,7 +140,6 @@ async function findDepositWallets(primaryWallets, chain = 'ethereum', txLimit = 
     logger.info(`Found ${recentIncomingTxs.length} incoming transactions within last 24 hours for ${primaryWallet.address}, added ${recentIncomingTxs.length} deposit wallets.`);
   }
 
-  // Loại bỏ trùng lặp dựa trên address
   const uniqueDepositWallets = Array.from(new Map(depositWallets.map(w => [w.address, w])).values());
   logger.info(`Total unique deposit wallets found: ${uniqueDepositWallets.length}`);
   return uniqueDepositWallets;
@@ -151,50 +147,60 @@ async function findDepositWallets(primaryWallets, chain = 'ethereum', txLimit = 
 
 async function getPendingWallets() {
   try {
-    const snapshot = await db.collection(PENDING_WALLETS_COLLECTION).get();
-    const pendingWallets = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      if (isAddress(data.address)) {
-        pendingWallets.push({
-          address: data.address.toLowerCase(),
-          primaryWallet: data.primaryWallet,
-          primaryWalletName: data.primaryWalletName
-        });
-      }
-    });
-    logger.info(`Loaded ${pendingWallets.length} pending wallets from Firestore.`);
+    const result = await query(
+      `SELECT address, primary_wallet, primary_wallet_name, timestamp
+       FROM pending_wallets_to_analyze
+       ORDER BY timestamp ASC`
+    );
+    const pendingWallets = result.rows.map(row => ({
+      address: row.address.toLowerCase(),
+      primaryWallet: row.primary_wallet.toLowerCase(),
+      primaryWalletName: row.primary_wallet_name
+    }));
+    logger.info(`Loaded ${pendingWallets.length} pending wallets from PostgreSQL.`);
     return pendingWallets;
   } catch (error) {
-    logger.error(`Error fetching pending wallets from Firestore: ${error.message}`, { stack: error.stack });
+    logger.error(`Error fetching pending wallets from PostgreSQL: ${error.message}`, { stack: error.stack });
     return [];
   }
 }
 
 async function savePendingWallets(wallets) {
   try {
-    const batch = db.batch();
     for (const wallet of wallets) {
-      batch.set(db.collection(PENDING_WALLETS_COLLECTION).doc(wallet.address), {
-        address: wallet.address,
-        primaryWallet: wallet.primaryWallet,
-        primaryWalletName: wallet.primaryWalletName,
-        timestamp: new Date().toISOString()
-      });
+      await query(
+        `INSERT INTO pending_wallets_to_analyze (address, primary_wallet, primary_wallet_name, timestamp)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (address) DO NOTHING`,
+        [wallet.address, wallet.primaryWallet, wallet.primaryWalletName, new Date()]
+      );
     }
-    await batch.commit();
-    logger.info(`Saved ${wallets.length} pending wallets to Firestore.`);
+    logger.info(`Saved ${wallets.length} pending wallets to PostgreSQL.`);
   } catch (error) {
-    logger.error(`Error saving pending wallets to Firestore: ${error.message}`, { stack: error.stack });
+    logger.error(`Error saving pending wallets to PostgreSQL: ${error.message}`, { stack: error.stack });
+  }
+}
+
+async function deletePendingWallet(address) {
+  try {
+    await query(
+      `DELETE FROM pending_wallets_to_analyze WHERE address = $1`,
+      [address.toLowerCase()]
+    );
+    logger.info(`Deleted pending wallet ${address} from PostgreSQL.`);
+  } catch (error) {
+    logger.error(`Error deleting pending wallet ${address} from PostgreSQL: ${error.message}`, { stack: error.stack });
   }
 }
 
 async function getEthPrice() {
   try {
-    const priceDoc = await db.collection(ETH_PRICE_COLLECTION).doc('current').get();
+    const result = await query(
+      `SELECT price, timestamp FROM eth_price WHERE id = 'current'`
+    );
     const now = Date.now();
-    if (priceDoc.exists) {
-      const { price, timestamp } = priceDoc.data();
+    if (result.rows.length > 0) {
+      const { price, timestamp } = result.rows[0];
       if (now - new Date(timestamp).getTime() < PRICE_CACHE_DURATION_MS) {
         logger.info(`Using cached ETH price: $${price}`);
         return price;
@@ -203,13 +209,18 @@ async function getEthPrice() {
 
     logger.info('Fetching ETH price from CoinGecko...');
     const priceResponse = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd', {
+      headers: { 'x-cg-api-key': process.env.COINGECKO_API_KEY },
       timeout: 10000
     });
     const newPrice = priceResponse.data.ethereum.usd;
-    await db.collection(ETH_PRICE_COLLECTION).doc('current').set({
-      price: newPrice,
-      timestamp: new Date().toISOString()
-    });
+    await query(
+      `INSERT INTO eth_price (id, price, timestamp)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (id) DO UPDATE SET
+         price = EXCLUDED.price,
+         timestamp = EXCLUDED.timestamp`,
+      ['current', newPrice, new Date()]
+    );
     logger.info(`Fetched and cached ETH price: $${newPrice}`);
     return newPrice;
   } catch (error) {
@@ -237,30 +248,35 @@ async function runHighVolumeWalletAnalysis() {
   logger.info(`Environment variables - ANALYZE_WALLETS_API_URL: ${ANALYZE_WALLETS_API_URL}, WALLET_FILE_PATH: ${WALLET_FILE_PATH}`);
 
   if (!ANALYZE_WALLETS_API_URL) {
-    logger.error('Missing environment variable: NEXTAUTH_URL');
+    logger.error('Missing environment variable: ANALYZE_WALLETS_API_URL or NEXTAUTH_URL');
     return;
   }
 
   try {
-    // Bước 1: Lấy hoặc tạo API key
+    // Bước 1: Tải tất cả nametags từ file JSON
+    logger.info('Loading nametags into PostgreSQL...');
+    await loadAllNametags(true); // Force reload để đảm bảo nametags được cập nhật
+
+    // Bước 2: Lấy hoặc tạo API key
     const apiKey = await getValidApiKey();
     if (!apiKey) {
       logger.error('Failed to get or generate API key. Aborting cron job.');
       return;
     }
+    logger.info(`Using API key: ${apiKey}`);
 
-    // Bước 2: Lấy giá ETH
+    // Bước 3: Lấy giá ETH
     const currentEthPriceUsd = await getEthPrice();
     logger.info(`Using ETH price $${currentEthPriceUsd} for all analyses.`);
 
-    // Bước 3: Đọc ví từ file (Ví 1)
+    // Bước 4: Đọc ví từ file (Ví 1)
     logger.info('Reading primary wallets from file...');
     const primaryWallets = await readWalletFile();
     if (primaryWallets.length === 0) {
       logger.warn('No primary wallets to analyze. Skipping to high-volume wallets.');
     }
 
-    // Bước 4: Tìm và phân tích Ví 2 (có giao dịch đến Ví 1 trong 24h)
+    // Bước 5: Tìm và phân tích Ví 2 (có giao dịch đến Ví 1 trong 24h)
     let walletsToAnalyze = [];
     if (primaryWallets.length > 0) {
       logger.info('Finding deposit wallets (Ví 2) sending to primary wallets...');
@@ -276,7 +292,7 @@ async function runHighVolumeWalletAnalysis() {
       walletsToAnalyze = allDepositWallets.slice(0, MAX_WALLETS_PER_RUN);
       const remainingWallets = allDepositWallets.slice(MAX_WALLETS_PER_RUN);
 
-      // Lưu các ví chưa phân tích vào Firestore
+      // Lưu các ví chưa phân tích vào PostgreSQL
       if (remainingWallets.length > 0) {
         await savePendingWallets(remainingWallets);
       }
@@ -284,7 +300,7 @@ async function runHighVolumeWalletAnalysis() {
       logger.info(`Selected ${walletsToAnalyze.length} deposit wallets to analyze: ${walletsToAnalyze.map(w => w.address).join(', ')}`);
     }
 
-    // Bước 5: Phân tích Ví 2
+    // Bước 6: Phân tích Ví 2
     if (walletsToAnalyze.length > 0) {
       logger.info('Triggering analysis for deposit wallets (Ví 2)...');
       for (const wallet of walletsToAnalyze) {
@@ -334,8 +350,8 @@ async function runHighVolumeWalletAnalysis() {
           );
           logger.info(`Large flow response for deposit wallet ${wallet.address}: ${JSON.stringify(largeFlowResponse.data)}`);
 
-          // Xóa ví khỏi pending_wallets sau khi phân tích
-          await db.collection(PENDING_WALLETS_COLLECTION).doc(wallet.address).delete();
+          // Xóa ví khỏi pending_wallets_to_analyze sau khi phân tích
+          await deletePendingWallet(wallet.address);
         } catch (apiError) {
           logger.error(`Error analyzing deposit wallet ${wallet.address}: ${apiError.message}`, { stack: apiError.stack });
           if (apiError.response) {
@@ -348,7 +364,7 @@ async function runHighVolumeWalletAnalysis() {
       logger.info('No deposit wallets to analyze. Proceeding to high-volume wallets.');
     }
 
-    // Bước 6: Phân tích ví high-volume
+    // Bước 7: Phân tích ví high-volume
     logger.info('Fetching high-volume wallets...');
     const highVolumeWallets = await getHighVolumeWallets(
       'ethereum', 200, 500, 20, 1000, 50
@@ -372,15 +388,17 @@ async function runHighVolumeWalletAnalysis() {
         const identifySignature = generateHmacSignature(identifyPayload, HMAC_SECRET);
 
         logger.info(`Sending identify request for high-volume wallet: ${wallet}`);
-        const identifyResponse = await withRetry(() => axios.post(ANALYZE_WALLETS_API_URL, identifyPayload, {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': apiKey,
-            'X-HMAC-Signature': identifySignature,
-            'User-Agent': CRON_USER_AGENT
-          },
-          timeout: 120000
-        }));
+        const identifyResponse = await withRetry(() =>
+          axios.post(ANALYZE_WALLETS_API_URL, identifyPayload, {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': apiKey,
+              'X-HMAC-Signature': identifySignature,
+              'User-Agent': CRON_USER_AGENT
+            },
+            timeout: 120000
+          })
+        );
         logger.info(`Identify response for high-volume wallet ${wallet}: ${JSON.stringify(identifyResponse.data)}`);
 
         const largeFlowPayload = {
@@ -392,15 +410,17 @@ async function runHighVolumeWalletAnalysis() {
         const largeFlowSignature = generateHmacSignature(largeFlowPayload, HMAC_SECRET);
 
         logger.info(`Sending detect-large-flow request for high-volume wallet: ${wallet}`);
-        const largeFlowResponse = await withRetry(() => axios.post(ANALYZE_WALLETS_API_URL, largeFlowPayload, {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': apiKey,
-            'X-HMAC-Signature': largeFlowSignature,
-            'User-Agent': CRON_USER_AGENT
-          },
-          timeout: 120000
-        }));
+        const largeFlowResponse = await withRetry(() =>
+          axios.post(ANALYZE_WALLETS_API_URL, largeFlowPayload, {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': apiKey,
+              'X-HMAC-Signature': largeFlowSignature,
+              'User-Agent': CRON_USER_AGENT
+            },
+            timeout: 120000
+          })
+        );
         logger.info(`Large flow response for high-volume wallet ${wallet}: ${JSON.stringify(largeFlowResponse.data)}`);
       } catch (apiError) {
         logger.error(`Error analyzing high-volume wallet ${wallet}: ${apiError.message}`, { stack: apiError.stack });
@@ -417,4 +437,7 @@ async function runHighVolumeWalletAnalysis() {
   }
 }
 
-runHighVolumeWalletAnalysis();
+runHighVolumeWalletAnalysis().catch(error => {
+  logger.error(`Cron job execution failed: ${error.message}`, { stack: error.stack });
+  process.exit(1);
+});
