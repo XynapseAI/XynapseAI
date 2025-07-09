@@ -5,7 +5,7 @@ import debounce from 'lodash.debounce';
 import rateLimit from 'axios-rate-limit';
 import pLimit from 'p-limit';
 import { GECKOTERMINAL_CHAIN_MAPPING } from '../utils/constants';
-import btcNameTags from '../public//nametags/btc-top-holders.json';
+import btcNameTags from '../public/nametags/btc-top-holders.json';
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
   console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
@@ -413,7 +413,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
               headers: {
                 Authorization: `Bearer ${session?.accessToken}`,
               },
-              timeout: 10000,
+              timeout: 20000,
             }
           );
 
