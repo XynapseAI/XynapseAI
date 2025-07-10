@@ -1,21 +1,14 @@
-import { db, admin } from '../../utils/firebaseAdmin.js';
+import { query } from '../../utils/postgres.js';
 import { requireAuth } from './middleware/auth.js';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
 import TwitterApi from 'twitter-api-v2';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import winston from 'winston';
+import pkg from '../../utils/logger.cjs';
 import helmet from 'helmet';
 import fetch from 'node-fetch';
 
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.json(),
-  transports: [
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-  ],
-});
+const { logger } = pkg;
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -96,23 +89,32 @@ export default async function handler(req, res) {
 
   try {
     // Fetch task
-    const taskRef = db.collection('tasks').doc(taskId);
-    const taskDoc = await taskRef.get();
-    if (!taskDoc.exists) {
+    const taskResult = await query(
+      `SELECT is_daily, max_completions, points
+       FROM tasks
+       WHERE id = $1`,
+      [taskId]
+    );
+    if (taskResult.rows.length === 0) {
       logger.error(`Task not found: ${taskId}`);
       return res.status(404).json({ detail: 'Task not found' });
     }
-    const task = taskDoc.data();
+    const task = taskResult.rows[0];
 
     // Check daily task limit
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
     const dateString = today.toISOString().split('T')[0];
-    const completionRef = db.collection('taskCompletions').doc(`${userId}_${taskId}_${dateString}`);
-    const completionDoc = await completionRef.get();
-    let completionCount = completionDoc.exists ? completionDoc.data().completionCount : 0;
+    const completionId = `${userId}_${taskId}_${dateString}`;
+    const completionResult = await query(
+      `SELECT completion_count
+       FROM task_completions
+       WHERE id = $1`,
+      [completionId]
+    );
+    let completionCount = completionResult.rows.length > 0 ? completionResult.rows[0].completion_count : 0;
 
-    if (task.isDaily && completionCount >= task.maxCompletions) {
+    if (task.is_daily && completionCount >= task.max_completions) {
       logger.info(`Daily task limit reached for task: ${taskId}, user: ${userId}`);
       return res.status(400).json({ detail: 'Daily task limit reached' });
     }
@@ -121,31 +123,40 @@ export default async function handler(req, res) {
 
     // Handle task verification
     if (taskType === 'ai_interaction') {
-      const dailyInteractionRef = db.collection('dailyAIInteractions').doc(`${userId}_${dateString}_${taskType}`);
-      const dailyInteractionDoc = await dailyInteractionRef.get();
-      if (!dailyInteractionDoc.exists) {
+      const dailyInteractionId = `${userId}_${dateString}_${taskType}`;
+      const dailyInteractionResult = await query(
+        `SELECT count
+         FROM daily_ai_interactions
+         WHERE id = $1`,
+        [dailyInteractionId]
+      );
+      if (dailyInteractionResult.rows.length === 0) {
         logger.info(`No AI interactions found for user ${userId} on ${dateString}`);
         return res.status(400).json({ detail: 'No AI interactions recorded' });
       }
-      if (dailyInteractionDoc.data().count < task.maxCompletions) {
-        logger.info(`Insufficient AI interactions: ${dailyInteractionDoc.data().count}/${task.maxCompletions}`);
+      if (dailyInteractionResult.rows[0].count < task.max_completions) {
+        logger.info(`Insufficient AI interactions: ${dailyInteractionResult.rows[0].count}/${task.max_completions}`);
         return res.status(400).json({ detail: 'Complete all daily AI interactions before verifying' });
       }
-      completionCount = dailyInteractionDoc.data().count;
+      completionCount = dailyInteractionResult.rows[0].count;
       isCompleted = true;
     } else {
-      const userRef = db.collection('users').doc(userId);
-      const userDoc = await userRef.get();
-      if (!userDoc.exists || !userDoc.data().twitterAccessToken) {
+      const userResult = await query(
+        `SELECT twitter_access_token, twitter_handle, discord_access_token
+         FROM users
+         WHERE id = $1`,
+        [userId]
+      );
+      if (userResult.rows.length === 0 || !userResult.rows[0].twitter_access_token) {
         logger.error(`No Twitter access token for user: ${userId}`);
         return res.status(400).json({ detail: 'Twitter not connected' });
       }
-      const user = userDoc.data();
-      if (!user.twitterHandle || user.twitterHandle === '@undefined') {
-        logger.error(`Invalid Twitter handle for user: ${userId}, twitterHandle: ${user.twitterHandle}`);
+      const user = userResult.rows[0];
+      if (!user.twitter_handle || user.twitter_handle === '@undefined') {
+        logger.error(`Invalid Twitter handle for user: ${userId}, twitterHandle: ${user.twitter_handle}`);
         return res.status(400).json({ detail: 'Invalid Twitter handle. Please reconnect your Twitter account.' });
       }
-      const twitterClient = new TwitterApi(user.twitterAccessToken);
+      const twitterClient = new TwitterApi(user.twitter_access_token);
 
       if (taskType === 'follow' && link) {
         const targetHandle = link.startsWith('@') ? link.slice(1) : link;
@@ -159,10 +170,10 @@ export default async function handler(req, res) {
             logger.error(`Target Twitter user not found: ${targetHandle}`);
             return res.status(400).json({ detail: `Twitter user @${targetHandle} not found` });
           }
-          const userTwitter = await twitterClient.v2.usersByUsernames([user.twitterHandle.replace('@', '')]);
+          const userTwitter = await twitterClient.v2.usersByUsernames([user.twitter_handle.replace('@', '')]);
           const userTwitterId = userTwitter.data?.[0]?.id;
           if (!userTwitterId) {
-            logger.error(`Invalid Twitter user handle: ${user.twitterHandle}`);
+            logger.error(`Invalid Twitter user handle: ${user.twitter_handle}`);
             return res.status(400).json({ detail: 'Invalid Twitter user handle' });
           }
           let allFollowers = [];
@@ -170,7 +181,7 @@ export default async function handler(req, res) {
           try {
             do {
               const { data, meta } = await twitterClient.v2.followers(targetUser[0].id, {
-                max_results: 100, // Giảm để tránh rate limit
+                max_results: 100,
                 pagination_token: nextToken,
               });
               allFollowers = allFollowers.concat(data || []);
@@ -198,10 +209,10 @@ export default async function handler(req, res) {
           return res.status(400).json({ detail: `Twitter user @${targetHandle} not found` });
         }
       } else if (taskType === 'tweet' && link) {
-        const userTwitter = await twitterClient.v2.usersByUsernames([user.twitterHandle.replace('@', '')]);
+        const userTwitter = await twitterClient.v2.usersByUsernames([user.twitter_handle.replace('@', '')]);
         const userTwitterId = userTwitter.data?.[0]?.id;
         if (!userTwitterId) {
-          logger.error(`Invalid Twitter user: ${user.twitterHandle}`);
+          logger.error(`Invalid Twitter user: ${user.twitter_handle}`);
           return res.status(400).json({ detail: 'Invalid Twitter user' });
         }
         try {
@@ -245,10 +256,10 @@ export default async function handler(req, res) {
             allLikers = allLikers.concat(data || []);
             nextToken = meta.next_token;
           } while (nextToken);
-          const userTwitter = await twitterClient.v2.usersByUsernames([user.twitterHandle.replace('@', '')]);
+          const userTwitter = await twitterClient.v2.usersByUsernames([user.twitter_handle.replace('@', '')]);
           const userTwitterId = userTwitter.data?.[0]?.id;
           if (!userTwitterId) {
-            logger.error(`Invalid Twitter user: ${user.twitterHandle}`);
+            logger.error(`Invalid Twitter user: ${user.twitter_handle}`);
             return res.status(400).json({ detail: 'Invalid Twitter user' });
           }
           isCompleted = allLikers.some((liker) => liker.id === userTwitterId);
@@ -265,11 +276,11 @@ export default async function handler(req, res) {
           return res.status(400).json({ detail: `Failed to verify like task: ${error.message}` });
         }
       } else if (taskType === 'join' && link) {
-        if (!userDoc.data().discordAccessToken) {
+        if (!user.discord_access_token) {
           logger.error(`No Discord access token for user: ${userId}`);
           return res.status(400).json({ detail: 'Discord not connected' });
         }
-        const discordToken = userDoc.data().discordAccessToken;
+        const discordToken = user.discord_access_token;
         const guildId = link.match(/discord\.gg\/([a-zA-Z0-9]+)/)?.[1];
         if (!guildId) {
           logger.error(`Invalid Discord invite link: ${link}`);
@@ -304,26 +315,26 @@ export default async function handler(req, res) {
     }
 
     // Update completion and user points
-    const batch = db.batch();
-    completionCount = completionDoc.exists ? completionDoc.data().completionCount + 1 : 1;
-    batch.set(completionRef, {
-      userId,
-      taskId,
-      completedAt: admin.firestore.Timestamp.fromDate(today),
-      completionCount,
-    });
+    completionCount = completionCount + 1;
+    await query(
+      `INSERT INTO task_completions (id, user_id, task_id, completed_at, completion_count)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (id) DO UPDATE
+       SET completion_count = EXCLUDED.completion_count,
+           completed_at = EXCLUDED.completed_at`,
+      [completionId, userId, taskId, today, completionCount]
+    );
 
-    if (!task.isDaily || completionCount === task.maxCompletions) {
-      const userRef = db.collection('users').doc(userId);
-      const userDoc = await userRef.get();
-      const user = userDoc.data();
-      batch.update(userRef, {
-        taskPoints: (user.taskPoints || 0) + task.points,
-        points: (user.points || 0) + task.points,
-      });
+    if (!task.is_daily || completionCount === task.max_completions) {
+      await query(
+        `UPDATE users
+         SET task_points = task_points + $1,
+             points = points + $1
+         WHERE id = $2`,
+        [task.points, userId]
+      );
     }
 
-    await batch.commit();
     logger.info(`Task ${taskId} verified for user ${userId}, points: ${task.points}`);
     return res.status(200).json({ success: true, message: 'Task verified successfully', completionCount });
   } catch (error) {

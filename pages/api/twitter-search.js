@@ -1,22 +1,11 @@
-// pages/api/twitter-search.js
-import { config as dotenvConfig } from 'dotenv';
-import { db } from '../../utils/firebaseAdmin.js';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { query } from '../../utils/postgres.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import winston from 'winston';
+import pkg from '../../utils/logger.cjs';
 import helmet from 'helmet';
 
-dotenvConfig({ path: '.env' });
-
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-  transports: [
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-    new winston.transports.Console({ format: winston.format.simple() }),
-  ],
-});
+const { logger } = pkg;
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
@@ -133,7 +122,6 @@ export default async function handler(req, res) {
         }));
 
       logger.info(`Filtered tweets (likes >= ${MIN_LIKES}): ${formattedTweets.length}`);
-
       return formattedTweets;
     } catch (error) {
       throw error;
@@ -148,25 +136,25 @@ export default async function handler(req, res) {
       formattedTweets = await trySearch(`${tokenSymbol || 'XRP'} -is:retweet lang:en`);
     }
 
-    const batch = db.batch();
-    const tweetAnalyses = formattedTweets.map(tweet => ({
-      userId: 'system',
-      tweetId: tweet.id,
-      text: tweet.text,
-      points: tweet.likes + tweet.retweets * 2,
-      createdAt: new Date(tweet.created_at),
-    }));
-
-    tweetAnalyses.forEach(analysis => {
-      const analysisRef = db.collection('tweetAnalyses').doc(analysis.tweetId);
-      batch.set(analysisRef, analysis, { merge: true });
-    });
-
-    await batch.commit();
+    // Save to PostgreSQL
+    for (const tweet of formattedTweets) {
+      await query(
+        `INSERT INTO tweet_analyses (tweet_id, user_id, text, points, created_at)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (tweet_id) DO NOTHING`,
+        [
+          tweet.id,
+          'system',
+          tweet.text,
+          tweet.likes + tweet.retweets * 2,
+          new Date(tweet.created_at),
+        ]
+      );
+    }
 
     if (!global.tweetCache) global.tweetCache = {};
     global.tweetCache[cacheKey] = { data: formattedTweets, timestamp: Date.now() };
-    logger.info(`Saved ${tweetAnalyses.length} tweets to tweetAnalysis and cache`);
+    logger.info(`Saved ${formattedTweets.length} tweets to tweet_analyses and cache`);
 
     return res.status(200).json({
       success: true,

@@ -1,5 +1,4 @@
-// pages/api/verify-wallet.js
-import { db } from '../../utils/firebaseAdmin.js';
+import { query } from '../../utils/postgres.js';
 import { ethers } from 'ethers';
 import { getServerSession } from 'next-auth/next';
 import { getCsrfToken } from 'next-auth/react';
@@ -7,9 +6,11 @@ import { authOptions } from './auth/[...nextauth].js';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import { logger } from '../../utils/logger.cjs';
+import pkg from '../../utils/logger.cjs';
 import helmet from 'helmet';
 import jwt from 'jsonwebtoken';
+
+const { logger } = pkg;
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -121,9 +122,6 @@ export default async function handler(req, res) {
       return res.status(403).json({ detail: 'Invalid UID' });
     }
 
-    const batch = db.batch();
-    const userRef = db.collection('users').doc(session.user.id);
-
     if (action === 'verify-wallet') {
       if (!walletAddress || !signature || !message) {
         logger.warn('Missing wallet information:', { walletAddress, signature, message });
@@ -137,46 +135,59 @@ export default async function handler(req, res) {
         return res.status(403).json({ detail: 'Invalid signature' });
       }
 
-      batch.update(userRef, {
-        walletAddress: normalizedAddress,
-        lastConnected: new Date(),
-      });
+      await query(
+        `UPDATE users
+         SET wallet_address = $1, last_connected = $2
+         WHERE id = $3`,
+        [normalizedAddress, new Date(), session.user.id]
+      );
 
-      const walletHistoryRef = db.collection('walletHistories').doc();
-      batch.set(walletHistoryRef, {
-        userId: session.user.id,
-        walletAddress: normalizedAddress,
-        action: 'connect',
-        data: { signature, message },
-        createdAt: new Date(),
-      });
+      await query(
+        `INSERT INTO wallet_histories (user_id, wallet_address, action, data, created_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [session.user.id, normalizedAddress, 'connect', { signature, message }, new Date()]
+      );
 
-      await batch.commit();
-      const userDoc = await userRef.get();
+      const userResult = await query(
+        `SELECT id, twitter_handle, twitter_access_token, discord_access_token, wallet_address, task_points, points, last_connected
+         FROM users
+         WHERE id = $1`,
+        [session.user.id]
+      );
+      const user = userResult.rows[0];
       logger.info(`Wallet verified for user: ${uid}`, { walletAddress: normalizedAddress });
-      return res.status(200).json({ success: true, user: { id: userDoc.id, ...userDoc.data() } });
+      return res.status(200).json({ success: true, user });
     } else if (action === 'disconnect-wallet') {
-      const userDoc = await userRef.get();
-      const user = userDoc.data();
+      const userResult = await query(
+        `SELECT wallet_address
+         FROM users
+         WHERE id = $1`,
+        [session.user.id]
+      );
+      const user = userResult.rows[0];
 
-      batch.update(userRef, {
-        walletAddress: null,
-        lastConnected: new Date(),
-      });
+      await query(
+        `UPDATE users
+         SET wallet_address = NULL, last_connected = $1
+         WHERE id = $2`,
+        [new Date(), session.user.id]
+      );
 
-      const walletHistoryRef = db.collection('walletHistories').doc();
-      batch.set(walletHistoryRef, {
-        userId: session.user.id,
-        walletAddress: user.walletAddress || 'unknown',
-        action: 'disconnect',
-        data: {},
-        createdAt: new Date(),
-      });
+      await query(
+        `INSERT INTO wallet_histories (user_id, wallet_address, action, data, created_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [session.user.id, user.wallet_address || 'unknown', 'disconnect', {}, new Date()]
+      );
 
-      await batch.commit();
-      const updatedUserDoc = await userRef.get();
+      const updatedUserResult = await query(
+        `SELECT id, twitter_handle, twitter_access_token, discord_access_token, wallet_address, task_points, points, last_connected
+         FROM users
+         WHERE id = $1`,
+        [session.user.id]
+      );
+      const updatedUser = updatedUserResult.rows[0];
       logger.info(`Wallet disconnected for user: ${uid}`);
-      return res.status(200).json({ success: true, user: { id: updatedUserDoc.id, ...updatedUserDoc.data() } });
+      return res.status(200).json({ success: true, user: updatedUser });
     }
 
     logger.warn(`Invalid action: ${action}`);

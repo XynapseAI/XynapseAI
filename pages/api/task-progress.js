@@ -1,20 +1,12 @@
-// pages/api/task-progress.js
-import { db, admin } from '../../utils/firebaseAdmin.js';
+import { query } from '../../utils/postgres.js';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
 import rateLimit from 'express-rate-limit';
-import { query, validationResult } from 'express-validator';
-import winston from 'winston';
+import { query as expressQuery, validationResult } from 'express-validator';
+import pkg from '../../utils/logger.cjs';
 import helmet from 'helmet';
 
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.json(),
-  transports: [
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-  ],
-});
+const { logger } = pkg;
 
 const limiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -23,7 +15,7 @@ const limiter = rateLimit({
 });
 
 const validateGet = [
-  query('uid').isString().isLength({ max: 100 }).withMessage('Invalid UID'),
+  expressQuery('uid').isString().isLength({ max: 100 }).withMessage('Invalid UID'),
 ];
 
 export default async function handler(req, res) {
@@ -72,30 +64,18 @@ export default async function handler(req, res) {
     today.setUTCHours(0, 0, 0, 0);
     logger.info(`Querying task progress for user: ${uid}, date: ${today.toISOString()}`);
 
-    const progressQuery = db
-      .collection('taskCompletions')
-      .where('userId', '==', uid)
-      .where('completedAt', '>=', admin.firestore.Timestamp.fromDate(today));
+    const result = await query(
+      `SELECT task_id, completion_count, completed_at
+       FROM task_completions
+       WHERE user_id = $1 AND completed_at >= $2`,
+      [uid, today]
+    );
 
-    const progressSnapshot = await progressQuery.get();
-
-    if (!progressSnapshot.empty) {
-      const firstDoc = progressSnapshot.docs[0].data();
-      logger.info(`taskCompletions schema: ${JSON.stringify(Object.keys(firstDoc))}`);
-    } else {
-      logger.info(`No task progress found for user: ${uid}`);
-    }
-
-    const progress = progressSnapshot.empty
-      ? []
-      : progressSnapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            taskId: data.taskId || '',
-            completionCount: data.completionCount || 0,
-            completedAt: data.completedAt ? data.completedAt.toDate() : null,
-          };
-        });
+    const progress = result.rows.map((row) => ({
+      taskId: row.task_id,
+      completionCount: row.completion_count,
+      completedAt: row.completed_at,
+    }));
 
     logger.info(`Fetched ${progress.length} task progress entries for user: ${uid}`);
     return res.status(200).json({ success: true, progress });
@@ -104,7 +84,6 @@ export default async function handler(req, res) {
       stack: error.stack,
       uid: req.query.uid,
       code: error.code,
-      details: error.details,
     });
     return res.status(500).json({ detail: `Failed to fetch task progress: ${error.message}` });
   }

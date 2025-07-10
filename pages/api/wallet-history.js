@@ -1,22 +1,11 @@
-// pages/api/wallet-history.js
-import { config as dotenvConfig } from 'dotenv';
-import { db } from '../../utils/firebaseAdmin.js';
+import { query } from '../../utils/postgres.js';
 import { requireAuth } from './middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import winston from 'winston';
+import pkg from '../../utils/logger.cjs';
 import helmet from 'helmet';
 
-dotenvConfig({ path: '.env' });
-
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-  transports: [
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-  ],
-});
+const { logger } = pkg;
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
@@ -82,19 +71,25 @@ export default async function handler(req, res) {
   }
 
   try {
-    const walletHistoryRef = db.collection('walletHistories').doc();
+    const result = await query(
+      `INSERT INTO wallet_histories (user_id, wallet_address, action, data, created_at)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id`,
+      [uid, walletAddress, action, data, new Date()]
+    );
+    const walletHistoryId = result.rows[0].id;
     const walletHistory = {
+      id: walletHistoryId,
       userId: uid,
       walletAddress,
       action,
-      data, // Store data as-is (array)
+      data,
       createdAt: new Date(),
     };
-    await walletHistoryRef.set(walletHistory);
     logger.info(`Wallet history saved for user ${uid}, address ${walletAddress}, action ${action}`);
-    return res.status(200).json({ success: true, walletHistory: { id: walletHistoryRef.id, ...walletHistory } });
+    return res.status(200).json({ success: true, walletHistory });
   } catch (error) {
     logger.error(`Error saving wallet history: ${error.message}`);
-    return res.status(500).json({ detail: 'Failed to save wallet history.' });
+    return res.status(500).json({ detail: `Failed to save wallet history: ${error.message}` });
   }
 }

@@ -3,6 +3,7 @@ import { authOptions } from './auth/[...nextauth].js';
 import { RateLimiter } from 'limiter';
 import pkg from '../../utils/logger.cjs';
 import { body, validationResult } from 'express-validator';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { isAddress } from 'ethers';
 import { getNametagsBatch, addNametag } from '../../lib/nametags.js';
 
