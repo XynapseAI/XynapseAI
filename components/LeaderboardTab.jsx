@@ -1,4 +1,3 @@
-// components/LeaderboardTab.jsx
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -13,14 +12,29 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
   const [rankings, setRankings] = useState([]);
 
   useEffect(() => {
-    if (topPlayers) {
-      if (Array.isArray(topPlayers)) {
-        setRankings(topPlayers);
-      } else {
-        setRankings(topPlayers.rankings || []);
+    async function fetchConnectData() {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/connect-data`, {
+          headers: {
+            'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
+          },
+          withCredentials: true,
+        });
+        if (response.data.success) {
+          setRankings(response.data.rankings || []);
+        } else {
+          throw new Error(response.data.detail || 'Failed to fetch connect data');
+        }
+      } catch (err) {
+        console.error('Error fetching connect data:', err.response?.data || err.message);
+        setTabError(`Unable to load player list: ${err.response?.data?.detail || err.message}`);
       }
     }
-  }, [topPlayers]);
+
+    if (status === 'authenticated') {
+      fetchConnectData();
+    }
+  }, [status]);
 
   useEffect(() => {
     async function fetchUserData() {
@@ -30,7 +44,8 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         let recaptchaToken = null;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-            recaptchaToken = await recaptchaRef.current.executeAsync();
+            await recaptchaRef.current.reset();
+            recaptchaToken = await recaptchaRef.current.executeAsync({ action: 'get_user' });
             if (recaptchaToken) break;
           } catch (err) {
             if (attempt === 3) throw new Error('Failed to generate reCAPTCHA token after 3 attempts');
@@ -40,7 +55,10 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
 
         const userResponse = await axios.get(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
-          headers: { 'X-Recaptcha-Token': recaptchaToken },
+          headers: {
+            'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
+            'X-Recaptcha-Token': recaptchaToken,
+          },
           withCredentials: true,
         });
         if (!userResponse.data.success) {
@@ -48,9 +66,8 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         }
         setUserInfo(userResponse.data.user);
       } catch (err) {
-        setTabError(`Failed to load user information: ${err.message}`);
-      } finally {
-        if (recaptchaRef.current) recaptchaRef.current.reset();
+        console.error('Error fetching user data:', err.response?.data || err.message);
+        setTabError(`Failed to load user information: ${err.response?.data?.detail || err.message}`);
       }
     }
     fetchUserData();

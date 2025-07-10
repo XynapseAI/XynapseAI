@@ -1,11 +1,13 @@
+// pages/api/nametags.js
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
 import { RateLimiter } from 'limiter';
 import pkg from '../../utils/logger.cjs';
 import { body, validationResult } from 'express-validator';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// eslint-disable-next-line
 import { isAddress } from 'ethers';
 import { getNametagsBatch, addNametag } from '../../lib/nametags.js';
+import { query } from '../../utils/postgres.js';
 
 const { logger } = pkg;
 
@@ -34,11 +36,9 @@ async function checkAdminStatus(uid) {
       [uid]
     );
     logger.info(`Checked admin status for UID ${uid}: ${adminResult.rows.length > 0 && adminResult.rows[0].is_admin}`);
-    console.log(`Admin status for UID ${uid}: ${adminResult.rows.length > 0 && adminResult.rows[0].is_admin}`);
     return adminResult.rows.length > 0 && adminResult.rows[0].is_admin === true;
   } catch (error) {
     logger.error(`Error checking admin status for ${uid}: ${error.message}`, { stack: error.stack });
-    console.error(`Error checking admin status for ${uid}: ${error.message}`);
     return false;
   }
 }
@@ -70,6 +70,24 @@ const validatePut = [
     .withMessage('Labels must be a non-empty object.'),
 ];
 
+async function getWalletAnalysis(address) {
+  try {
+    const result = await query(
+      `SELECT is_deposit, deposit_confidence_percentage, nametag, image, reason, metrics, gemini_analysis, last_analysis
+       FROM wallet_analysis
+       WHERE wallet = $1`,
+      [address.toLowerCase()]
+    );
+    if (result.rows.length > 0) {
+      return result.rows[0];
+    }
+    return null;
+  } catch (error) {
+    logger.error(`Error fetching wallet analysis for ${address}: ${error.message}`, { stack: error.stack });
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   try {
     const remainingRequests = await limiter.removeTokens(1);
@@ -91,13 +109,11 @@ export default async function handler(req, res) {
     const internalToken = req.headers['x-internal-token'];
     if (process.env.NODE_ENV === 'development' && internalToken === process.env.INTERNAL_API_TOKEN) {
       logger.info('Bypassing auth with internal token for nametags API (development mode).');
-      console.log('Bypassing auth with internal token for nametags API');
       isAdminUser = true;
     } else if (req.method === 'PUT' || req.method === 'PATCH') {
       session = await getServerSession(req, res, authOptions);
       if (!session) {
         logger.warn('Unauthorized access attempt to nametags API (no session for PUT/PATCH)');
-        console.log('Unauthorized access attempt to nametags API (no session)');
         return res.status(401).json({
           success: false,
           detail: 'Unauthorized: Please log in.',
@@ -106,7 +122,6 @@ export default async function handler(req, res) {
       isAdminUser = await checkAdminStatus(session.user.id);
       if (!isAdminUser) {
         logger.warn(`Forbidden access attempt to nametags API by non-admin user: ${session?.user?.id || 'N/A'}`);
-        console.log(`Forbidden access attempt by non-admin user: ${session?.user?.id || 'N/A'}`);
         return res.status(403).json({
           success: false,
           detail: 'Forbidden: Admin access required.',
@@ -119,14 +134,12 @@ export default async function handler(req, res) {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         logger.warn(`Validation errors in GET request: ${JSON.stringify(errors.array())}`);
-        console.log(`Validation errors in GET request: ${JSON.stringify(errors.array())}`);
         return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
       }
 
       const { address } = req.query;
       if (!address) {
         logger.warn('GET request without address is not supported');
-        console.log('GET request without address is not supported');
         return res.status(400).json({
           success: false,
           detail: 'Address is required for GET request',
@@ -135,44 +148,40 @@ export default async function handler(req, res) {
 
       const normalizedAddress = address.toLowerCase();
       try {
-        const data = await getNametagsBatch([normalizedAddress]);
-        const nametag = data[normalizedAddress];
+        const nametag = (await getNametagsBatch([normalizedAddress]))[normalizedAddress];
+        const analysis = await getWalletAnalysis(normalizedAddress);
+        const responseData = {
+          Address: normalizedAddress,
+          Labels: {
+            deposit: {
+              'Name Tag': nametag.name,
+              Description: nametag.description,
+              Subcategory: nametag.subcategory,
+              image: nametag.image,
+              is_deposit: analysis?.is_deposit || false,
+              deposit_confidence_percentage: analysis?.deposit_confidence_percentage || null,
+              reason: analysis?.reason || '',
+              metrics: analysis?.metrics || {},
+              gemini_analysis: analysis?.gemini_analysis || '',
+              last_analysis: analysis?.last_analysis || null,
+            },
+          },
+        };
+
         if (nametag && nametag.name !== 'Unknown') {
           logger.info(`Nametag found for address ${normalizedAddress}: ${nametag.name}`);
-          console.log(`Nametag found for address ${normalizedAddress}: ${JSON.stringify(nametag)}`);
           return res.status(200).json({
             success: true,
-            data: {
-              [normalizedAddress]: {
-                Address: normalizedAddress,
-                Labels: {
-                  deposit: {
-                    'Name Tag': nametag.name,
-                    Description: nametag.description,
-                    Subcategory: nametag.subcategory,
-                    image: nametag.image,
-                    is_deposit: nametag.is_deposit,
-                    deposit_confidence_percentage: nametag.deposit_confidence_percentage,
-                    reason: nametag.reason,
-                    metrics: nametag.metrics,
-                    gemini_analysis: nametag.gemini_analysis,
-                    last_analysis: nametag.last_analysis,
-                    created_at: nametag.created_at
-                  },
-                },
-              },
-            },
+            data: { [normalizedAddress]: responseData },
           });
         }
         logger.info(`Nametag not found for address: ${normalizedAddress}`);
-        console.log(`Nametag not found for address: ${normalizedAddress}`);
         return res.status(404).json({
           success: false,
           detail: `Nametag not found for address ${normalizedAddress}`,
         });
       } catch (error) {
         logger.error(`Error fetching nametag for ${normalizedAddress}: ${error.message}`, { stack: error.stack });
-        console.error(`Error fetching nametag for ${normalizedAddress}: ${error.message}`);
         return res.status(500).json({
           success: false,
           detail: `Failed to fetch nametag: ${error.message}`,
@@ -185,39 +194,36 @@ export default async function handler(req, res) {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         logger.warn(`Validation errors in POST request: ${JSON.stringify(errors.array())}`);
-        console.log(`Validation errors in POST request: ${JSON.stringify(errors.array())}`);
         return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
       }
 
       const { addresses } = req.body;
       const normalizedAddresses = addresses.map(addr => addr.toLowerCase());
       try {
-        const data = await getNametagsBatch(normalizedAddresses);
+        const nametags = await getNametagsBatch(normalizedAddresses);
         const result = {};
-        normalizedAddresses.forEach(addr => {
-          const nametag = data[addr];
+        for (const addr of normalizedAddresses) {
+          const analysis = await getWalletAnalysis(addr);
           result[addr] = {
             Address: addr,
             Labels: {
               deposit: {
-                'Name Tag': nametag.name,
-                Description: nametag.description,
-                Subcategory: nametag.subcategory,
-                image: nametag.image,
-                is_deposit: nametag.is_deposit,
-                deposit_confidence_percentage: nametag.deposit_confidence_percentage,
-                reason: nametag.reason,
-                metrics: nametag.metrics,
-                gemini_analysis: nametag.gemini_analysis,
-                last_analysis: nametag.last_analysis,
-                created_at: nametag.created_at
+                'Name Tag': nametags[addr].name,
+                Description: nametags[addr].description,
+                Subcategory: nametags[addr].subcategory,
+                image: nametags[addr].image,
+                is_deposit: analysis?.is_deposit || false,
+                deposit_confidence_percentage: analysis?.deposit_confidence_percentage || null,
+                reason: analysis?.reason || '',
+                metrics: analysis?.metrics || {},
+                gemini_analysis: analysis?.gemini_analysis || '',
+                last_analysis: analysis?.last_analysis || null,
               },
             },
           };
-        });
+        }
 
         logger.info(`POST request processed: requested ${normalizedAddresses.length}, found ${Object.keys(result).length}`);
-        console.log(`POST request processed: ${JSON.stringify(result)}`);
         return res.status(200).json({
           success: true,
           data: result,
@@ -228,7 +234,6 @@ export default async function handler(req, res) {
         });
       } catch (error) {
         logger.error(`Error fetching batch nametags: ${error.message}`, { stack: error.stack });
-        console.error(`Error fetching batch nametags: ${error.message}`);
         return res.status(500).json({
           success: false,
           detail: `Failed to fetch nametags: ${error.message}`,
@@ -241,28 +246,19 @@ export default async function handler(req, res) {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         logger.warn(`Validation errors in PUT/PATCH request: ${JSON.stringify(errors.array())}`);
-        console.log(`Validation errors in PUT/PATCH request: ${JSON.stringify(errors.array())}`);
         return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
       }
 
       const { address, labels } = req.body;
       try {
-        // Đảm bảo labels chứa đầy đủ các trường cần thiết
         const normalizedLabels = {
           name: labels?.deposit?.['Name Tag'] || labels?.name || 'Unknown',
           description: labels?.deposit?.Description || labels?.description || '',
           subcategory: labels?.deposit?.Subcategory || labels?.subcategory || 'Others',
           image: labels?.deposit?.image || labels?.image || '/icons/default.png',
-          is_deposit: labels?.deposit?.is_deposit || false,
-          deposit_confidence_percentage: labels?.deposit?.deposit_confidence_percentage || null,
-          reason: labels?.deposit?.reason || '',
-          metrics: labels?.deposit?.metrics || {},
-          gemini_analysis: labels?.deposit?.gemini_analysis || '',
-          last_analysis: labels?.deposit?.last_analysis || new Date().toISOString()
         };
         await addNametag(address, normalizedLabels);
         logger.info(`Nametag added/updated for ${address}: ${JSON.stringify(normalizedLabels)}`);
-        console.log(`Nametag added/updated for ${address}: ${JSON.stringify(normalizedLabels)}`);
         return res.status(200).json({
           success: true,
           detail: `Nametag for ${address} successfully added/updated.`,
@@ -270,7 +266,6 @@ export default async function handler(req, res) {
         });
       } catch (error) {
         logger.error(`Failed to add/update nametag for ${address}: ${error.message}`, { stack: error.stack });
-        console.error(`Failed to add/update nametag for ${address}: ${error.message}`);
         return res.status(500).json({
           success: false,
           detail: `Failed to add/update nametag: ${error.message}`,
@@ -279,14 +274,12 @@ export default async function handler(req, res) {
     }
 
     logger.warn(`Method not allowed: ${req.method}`);
-    console.log(`Method not allowed: ${req.method}`);
     return res.status(405).json({
       success: false,
       detail: 'Method not allowed',
     });
   } catch (err) {
     logger.error(`Unexpected error in nametags: ${err.message}`, { stack: err.stack });
-    console.error(`Unexpected error in nametags: ${err.message}`);
     return res.status(500).json({ error: `Unexpected server error: ${err.message}` });
   }
 }

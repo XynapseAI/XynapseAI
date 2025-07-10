@@ -38,14 +38,19 @@ export default function AITab({ recaptchaRef }) {
     async function fetchDailyInteractions() {
       if (session?.user?.id) {
         try {
-          const response = await axios.get(`/api/daily-ai-interactions?uid=${session.user.id}&interactionType=chat`);
+          const response = await axios.get(`/api/daily-ai-interactions?uid=${session.user.id}&interactionType=chat`, {
+            headers: {
+              'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
+            },
+            withCredentials: true,
+          });
           if (response.data.success) {
             setDailyInteractions(Math.min(response.data.pointsCount, maxDailyInteractions));
             setTotalDailyChats(response.data.totalCount);
           }
         } catch (err) {
-          console.error('Error fetching daily interactions:', err);
-          setError('Failed to fetch daily interaction count.');
+          console.error('Error fetching daily interactions:', err.response?.data || err.message);
+          setError('Failed to fetch daily interaction count: ' + (err.response?.data?.detail || err.message));
         }
       }
     }
@@ -58,7 +63,7 @@ export default function AITab({ recaptchaRef }) {
     }
     try {
       const token = await recaptchaRef.current.executeAsync({ action });
-      console.log('reCAPTCHA token generated:', { action, token });
+      console.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
       return token;
     } catch (error) {
       console.error('reCAPTCHA execution error:', error);
@@ -151,12 +156,21 @@ export default function AITab({ recaptchaRef }) {
       const tokenSymbol = prompt.match(/bitcoin|eth|sol|ada|xrp|doge|crypto/i)?.[0]?.toUpperCase();
       const recaptchaToken = await executeRecaptcha('chat');
 
-      const response = await axios.post(apiEndpoint, {
-        prompt,
-        deepSearch: useDeepSearch,
-        tokenSymbol,
-        recaptchaToken,
-      });
+      const response = await axios.post(
+        apiEndpoint,
+        {
+          prompt,
+          deepSearch: useDeepSearch,
+          tokenSymbol,
+          recaptchaToken,
+        },
+        {
+          headers: {
+            'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
+          },
+          withCredentials: true,
+        }
+      );
       console.log(`${selectedModel} API response:`, response.data);
       const { answer, links } = response.data;
 
@@ -177,7 +191,11 @@ export default function AITab({ recaptchaRef }) {
               interactionType: 'chat',
             },
             {
-              headers: { 'X-Recaptcha-Token': interactionRecaptchaToken },
+              headers: {
+                'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
+                'X-Recaptcha-Token': interactionRecaptchaToken,
+              },
+              withCredentials: true,
             }
           );
           console.log('Saved AI interaction:', interactionRes.data);
@@ -252,12 +270,11 @@ export default function AITab({ recaptchaRef }) {
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'; // Reset chiều cao
+      textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const minHeight = window.innerWidth < 768 ? 24 : 38; // 24px trên mobile, 38px trên PC
-      const newHeight = Math.min(Math.max(scrollHeight, minHeight), 120); // Max height 120px
+      const minHeight = window.innerWidth < 768 ? 24 : 38;
+      const newHeight = Math.min(Math.max(scrollHeight, minHeight), 120);
       textareaRef.current.style.height = `${newHeight}px`;
-      // Đảm bảo textarea có thể cuộn nếu nội dung vượt quá maxHeight
       textareaRef.current.style.overflowY = newHeight >= 120 ? 'auto' : 'hidden';
     }
   }, [prompt]);
@@ -289,7 +306,7 @@ export default function AITab({ recaptchaRef }) {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isModelMenuOpen]);
 
   const markdownComponents = {
@@ -407,7 +424,7 @@ export default function AITab({ recaptchaRef }) {
 
       {/* Chat Content */}
       <div
-        className="flex-1 p-1 md:p-4 overflow-y-auto custom-scrollbar" // Thay overflow-hidden thành overflow-y-auto
+        className="flex-1 p-1 md:p-4 overflow-y-auto custom-scrollbar"
         ref={chatContainerRef}
         style={{ maxHeight: isMobile ? 'calc(100vh - 14rem)' : 'calc(100vh - 2rem)' }}
       >
@@ -505,13 +522,13 @@ export default function AITab({ recaptchaRef }) {
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Enter your prompt..."
-            className="flex-1 px-2 py-1 md:px-3 md:py-2 bg-gray-900/95 text-white rounded-lg text-xs placeholder:text-xs placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-neon-blue/50 backdrop-blur-md border border-gray-400 resize-none overflow-y-auto custom-scrollbar" // Đảm bảo overflow-y-auto
+            className="flex-1 px-2 py-1 md:px-3 md:py-2 bg-gray-900/95 text-white rounded-lg text-xs placeholder:text-xs placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-neon-blue/50 backdrop-blur-md border border-gray-400 resize-none overflow-y-auto custom-scrollbar"
             rows={1}
             disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
             ref={textareaRef}
             style={{
               minHeight: '24px',
-              maxHeight: '120px', // Giữ maxHeight
+              maxHeight: '120px',
               lineHeight: '1.4',
               touchAction: 'manipulation',
               WebkitTextSizeAdjust: '100%',
@@ -534,59 +551,58 @@ export default function AITab({ recaptchaRef }) {
 
       {/* Wave Loading Effect */}
       <style jsx>{`
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .wave-loading {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-  }
-  .dot {
-    display: inline-block;
-    width: 5px;
-    height: 5px;
-    background-color: #00bfff;
-    border-radius: 50%;
-    animation: wave 1s ease-in-out infinite;
-  }
-  .dot:nth-child(2) {
-    animation-delay: 0.2s;
-  }
-  .dot:nth-child(3) {
-    animation-delay: 0.4s;
-  }
-  @keyframes wave {
-    0%, 100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-5px);
-    }
-  }
-  /* Ngăn cuộn body trên di động, nhưng cho phép textarea và chat content cuộn */
-  @media (max-width: 640px) {
-    body {
-      overflow: hidden;
-      height: 100vh;
-      position: fixed;
-      width: 100%;
-    }
-    .custom-scrollbar:not(textarea):not(.flex-1) {
-      overflow: hidden !important;
-    }
-    textarea.custom-scrollbar, .flex-1.custom-scrollbar {
-      overflow-y: auto !important;
-    }
-  }
-`}</style>
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .wave-loading {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+        }
+        .dot {
+          display: inline-block;
+          width: 5px;
+          height: 5px;
+          background-color: #00bfff;
+          border-radius: 50%;
+          animation: wave 1s ease-in-out infinite;
+        }
+        .dot:nth-child(2) {
+          animation-delay: 0.2s;
+        }
+        .dot:nth-child(3) {
+          animation-delay: 0.4s;
+        }
+        @keyframes wave {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-5px);
+          }
+        }
+        @media (max-width: 640px) {
+          body {
+            overflow: hidden;
+            height: 100vh;
+            position: fixed;
+            width: 100%;
+          }
+          .custom-scrollbar:not(textarea):not(.flex-1) {
+            overflow: hidden !important;
+          }
+          textarea.custom-scrollbar, .flex-1.custom-scrollbar {
+            overflow-y: auto !important;
+          }
+        }
+      `}</style>
     </motion.div>
   );
 }

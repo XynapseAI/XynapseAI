@@ -1,8 +1,8 @@
-// components/TreemapTab.jsx
 import { useState, useEffect, useRef, memo } from 'react';
 import { isAddress } from 'ethers';
 import { motion } from 'framer-motion';
 import throttle from 'lodash.throttle';
+import crypto from 'crypto-js';
 
 // Bọc WalletNode trong React.memo để tối ưu render
 const WalletNode = memo(({ address, nametag, image, txHash, type, isRoot = false, onSelect }) => {
@@ -69,8 +69,22 @@ export default function TreemapTab({ recaptchaRef }) {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [nodePage, setNodePage] = useState(1); // State cho phân trang
+  const [nodePage, setNodePage] = useState(1);
   const svgRef = useRef(null);
+
+  // Hàm tạo HMAC signature
+  const generateHmacSignature = (payload) => {
+    try {
+      const hmacSecret = process.env.HMAC_SECRET || '88583e5e555aaeb3d9b3b0cafbd1e609f5a7ff96548caa71c8eda0783d66b1f1';
+      const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort());
+      const signature = crypto.HmacSHA256(sortedPayload, hmacSecret).toString(crypto.enc.Hex);
+      console.log('HMAC Signature:', signature);
+      return signature;
+    } catch (err) {
+      console.error('Lỗi khi tạo HMAC signature:', err.message);
+      return null;
+    }
+  };
 
   // Hàm lấy cache từ localStorage
   const getCachedData = (address, chain) => {
@@ -80,15 +94,15 @@ export default function TreemapTab({ recaptchaRef }) {
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < CACHE_TTL) {
-          console.log(`Using cached data for ${address}`);
+          console.log(`Sử dụng dữ liệu cache cho ${address}`);
           return data;
         } else {
-          console.log(`Cache expired for ${address}`);
+          console.log(`Cache hết hạn cho ${address}`);
           localStorage.removeItem(cacheKey);
         }
       }
     } catch (err) {
-      console.error(`Error reading cache for ${address}: ${err.message}`);
+      console.error(`Lỗi khi đọc cache cho ${address}: ${err.message}`);
     }
     return null;
   };
@@ -98,15 +112,16 @@ export default function TreemapTab({ recaptchaRef }) {
     try {
       const cacheKey = `wallet_transactions_${chain}_${address.toLowerCase()}`;
       localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
-      console.log(`Cached data for ${address}`);
+      console.log(`Đã lưu cache cho ${address}`);
     } catch (err) {
-      console.error(`Error caching data for ${address}: ${err.message}`);
+      console.error(`Lỗi khi lưu cache cho ${address}: ${err.message}`);
     }
   };
 
   const fetchTransactions = async (address) => {
     if (!isAddress(address)) {
       setError('Địa chỉ ví không hợp lệ.');
+      console.error('Địa chỉ ví không hợp lệ:', address);
       return;
     }
 
@@ -117,30 +132,44 @@ export default function TreemapTab({ recaptchaRef }) {
       setOutgoingData(cachedData.outgoing);
       setWalletInfo(cachedData.wallet);
       setWalletAddress(address);
-      setNodePage(1); // Reset trang khi tải ví mới
+      setNodePage(1);
       return;
     }
 
     setLoading(true);
     setError(null);
     setLoadingMessage('Đang lấy giao dịch từ Etherscan...');
+
     try {
-      if (!recaptchaRef.current) throw new Error('reCAPTCHA không được khởi tạo.');
+      if (!recaptchaRef.current) {
+        throw new Error('reCAPTCHA không được khởi tạo.');
+      }
       const recaptchaToken = await recaptchaRef.current.executeAsync();
+      const payload = {
+        wallet_address: address,
+        chain: 'ethereum',
+      };
+      const signature = generateHmacSignature(payload);
+      if (!signature) {
+        throw new Error('Không thể tạo HMAC signature.');
+      }
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-transactions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Recaptcha-Token': recaptchaToken,
+          'x-api-key': process.env.INTERNAL_API_KEY || 'f8397e3b47591eb37bcb1b0d1f8bc688626fbc9415db37f7e66dfde9a38db776',
+          'x-hmac-signature': signature,
         },
-        body: JSON.stringify({
-          wallet_address: address,
-          chain: 'ethereum',
-        }),
+        body: JSON.stringify(payload),
       });
+
       setLoadingMessage('Đang tra cứu nametag...');
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Lỗi khi lấy dữ liệu giao dịch.');
+      if (!response.ok) {
+        throw new Error(result.error || 'Lỗi khi lấy dữ liệu giao dịch.');
+      }
 
       const incoming = result.incoming
         .filter((tx) => Number(tx.value) > 0)
@@ -169,17 +198,16 @@ export default function TreemapTab({ recaptchaRef }) {
       console.log('Outgoing Data:', outgoing);
       console.log('Wallet Info:', result.wallet);
 
-      // Lưu vào cache
       setCachedData(address, 'ethereum', { incoming, outgoing, wallet: result.wallet });
 
       setIncomingData(incoming);
       setOutgoingData(outgoing);
       setWalletInfo(result.wallet);
       setWalletAddress(address);
-      setNodePage(1); // Reset trang khi tải ví mới
+      setNodePage(1);
     } catch (err) {
       setError(`Lỗi: ${err.message}`);
-      console.error(`Lỗi khi lấy giao dịch cho ${address}: ${err.message}`);
+      console.error(`Lỗi khi lấy giao dịch cho ${address}: ${err.message}`, { response: err.response });
     } finally {
       setLoading(false);
       setLoadingMessage('');
@@ -194,14 +222,12 @@ export default function TreemapTab({ recaptchaRef }) {
     console.log('Interaction:', { offset, zoom, nodePage });
   }, [incomingData, outgoingData, walletInfo, offset, zoom, nodePage]);
 
-  // Xử lý chọn ví mới làm ví gốc
   const handleSelectWallet = (address) => {
     if (address !== walletInfo.address) {
       fetchTransactions(address);
     }
   };
 
-  // Xử lý kéo/di chuyển
   const handleMouseDown = (e) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
@@ -214,20 +240,18 @@ export default function TreemapTab({ recaptchaRef }) {
         y: e.clientY - dragStart.y,
       });
     }
-  }, 16); // Throttle mỗi 16ms (~60fps)
+  }, 16);
 
   const handleMouseUp = () => {
     setIsDragging(false);
   };
 
-  // Xử lý zoom
   const handleWheel = throttle((e) => {
     e.preventDefault();
     const delta = e.deltaY * -0.001;
     setZoom((prev) => Math.min(Math.max(prev + delta, 0.5), 2));
-  }, 16); // Throttle mỗi 16ms
+  }, 16);
 
-  // Xử lý nhấn nút Load More
   const handleLoadMore = () => {
     setNodePage((prev) => {
       const newPage = prev + 1;
@@ -236,7 +260,6 @@ export default function TreemapTab({ recaptchaRef }) {
     });
   };
 
-  // Tính toán vị trí các ô và đường nối
   const calculateNodePositions = () => {
     const isMobile = window.innerWidth < 640;
     const limitedIncoming = incomingData.slice(0, nodePage * NODES_PER_PAGE);
@@ -248,11 +271,10 @@ export default function TreemapTab({ recaptchaRef }) {
     const columns = totalNodes > 30 ? 4 : totalNodes > 10 ? 2 : 1;
     const horizontalOffset = isMobile ? 0 : totalNodes > 20 ? 6 * spacing : 2 * spacing;
 
-    const rootX = 2000 / 2 - nodeWidth / 2; // Căn giữa trong canvas 2000px
-    let rootY = 1000 / 2 - nodeHeight / 2; // Căn giữa trong canvas 1000px
+    const rootX = 2000 / 2 - nodeWidth / 2;
+    let rootY = 1000 / 2 - nodeHeight / 2;
 
     if (isMobile) {
-      // Mobile: incoming trên, root giữa, outgoing dưới
       const incomingHeight = Math.ceil(limitedIncoming.length / columns) * (nodeHeight + spacing);
       const outgoingHeight = Math.ceil(limitedOutgoing.length / columns) * (nodeHeight + spacing);
       rootY = 100 + incomingHeight + nodeHeight + 2 * spacing;
@@ -283,7 +305,6 @@ export default function TreemapTab({ recaptchaRef }) {
 
       return { rootX, rootY, incomingNodes, outgoingNodes, nodeWidth, nodeHeight };
     } else {
-      // Desktop: incoming trái, root giữa, outgoing phải
       const incomingWidth = columns * (nodeWidth + spacing) - spacing;
       const outgoingWidth = columns * (nodeWidth + spacing) - spacing;
 
@@ -322,7 +343,6 @@ export default function TreemapTab({ recaptchaRef }) {
       transition={{ duration: 0.5 }}
       className="font-jetbrains w-full h-[calc(100vh)] bg-tech p-4 rounded-xl shadow-lg relative overflow-hidden"
     >
-      {/* Header: Wallet Flow và input tìm kiếm */}
       <div className="flex items-center justify-between gap-2 mb-4 mt-4">
         <div className="flex items-center gap-1">
           <h2 className="text-sm font-bold text-white uppercase">Wallet Flow</h2>
@@ -361,7 +381,6 @@ export default function TreemapTab({ recaptchaRef }) {
         </div>
       </div>
 
-      {/* Nút Zoom, Reset và Load More */}
       <div className="flex gap-2 mb-2 justify-center">
         <button
           onClick={() => {
@@ -384,7 +403,7 @@ export default function TreemapTab({ recaptchaRef }) {
 
       {error && (
         <p className="text-sm text-red-500 text-center p-4 bg-red-500/10 rounded-lg border border-red-500/30">
-          Error: {error}
+          Lỗi: {error}
         </p>
       )}
       {loading && (
@@ -398,7 +417,7 @@ export default function TreemapTab({ recaptchaRef }) {
                 className="absolute inset-0 w-8 h-8 m-2 object-contain"
               />
             </div>
-            <p className="text-sm text-gray-200 font-medium animate-pulse">{loadingMessage || 'Processing...'}</p>
+            <p className="text-sm text-gray-200 font-medium animate-pulse">{loadingMessage || 'Đang xử lý...'}</p>
           </div>
         </div>
       )}
@@ -416,7 +435,6 @@ export default function TreemapTab({ recaptchaRef }) {
           onMouseLeave={handleMouseUp}
           onWheel={handleWheel}
         >
-          {/* SVG cho đường nối */}
           <svg ref={svgRef} className="absolute inset-0 w-[2000px] h-[1000px] pointer-events-none">
             {incomingNodes.map((node, index) => (
               <path
@@ -442,7 +460,6 @@ export default function TreemapTab({ recaptchaRef }) {
             ))}
           </svg>
 
-          {/* Ví gốc */}
           <div
             className="absolute z-10"
             style={{ left: `${rootX}px`, top: `${rootY}px` }}
@@ -456,7 +473,6 @@ export default function TreemapTab({ recaptchaRef }) {
             />
           </div>
 
-          {/* Các ô incoming */}
           {incomingNodes.map((node, index) => (
             <div
               key={`in-${index}`}
@@ -474,7 +490,6 @@ export default function TreemapTab({ recaptchaRef }) {
             </div>
           ))}
 
-          {/* Các ô outgoing */}
           {outgoingNodes.map((node, index) => (
             <div
               key={`out-${index}`}

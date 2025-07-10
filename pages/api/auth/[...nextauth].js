@@ -31,73 +31,61 @@ export const authOptions = {
                     logger.error('No valid Twitter username found', { userId: user.id, profile });
                     return false;
                 }
+
                 const userData = {
-                    twitter_access_token: account.access_token,
+                    id: user.id,
                     twitter_handle: twitterHandle,
                     twitter_pfp: profile?.data?.profile_image_url || profile?.profile_image_url || user.image || '',
+                    twitter_access_token: account.access_token,
                     twitter_connected: true,
                     last_connected: new Date(),
                 };
 
-                const result = await query(
-                    `SELECT id FROM users WHERE id = $1`,
-                    [user.id]
+                // Sử dụng ON CONFLICT để xử lý cả trường hợp INSERT và UPDATE
+                await query(
+                    `INSERT INTO users (
+                        id, twitter_handle, twitter_pfp, twitter_access_token, 
+                        twitter_connected, points, tweet_points, ai_points, 
+                        task_points, is_creator, is_ai_rank, tier, is_plus, created_at, last_connected
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                    ON CONFLICT (id) DO UPDATE SET
+                        twitter_handle = EXCLUDED.twitter_handle,
+                        twitter_pfp = EXCLUDED.twitter_pfp,
+                        twitter_access_token = EXCLUDED.twitter_access_token,
+                        twitter_connected = EXCLUDED.twitter_connected,
+                        last_connected = EXCLUDED.last_connected,
+                        updated_at = CURRENT_TIMESTAMP`,
+                    [
+                        userData.id,
+                        userData.twitter_handle,
+                        userData.twitter_pfp,
+                        userData.twitter_access_token,
+                        userData.twitter_connected,
+                        0,
+                        0,
+                        0,
+                        0,
+                        false,
+                        false,
+                        'Basic',
+                        false,
+                        new Date(),
+                        userData.last_connected,
+                    ]
                 );
 
-                if (result.rows.length === 0) {
-                    await query(
-                        `INSERT INTO users (
-                            id, twitter_handle, twitter_pfp, twitter_access_token, 
-                            twitter_connected, points, tweet_points, ai_points, 
-                            task_points, is_creator, is_ai_rank, tier, is_plus, created_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-                        [
-                            user.id,
-                            userData.twitter_handle,
-                            userData.twitter_pfp,
-                            userData.twitter_access_token,
-                            userData.twitter_connected,
-                            0,
-                            0,
-                            0,
-                            0,
-                            false,
-                            false,
-                            'Basic',
-                            false,
-                            new Date(),
-                        ]
-                    );
-                    logger.info(`Created new user: ${user.id}`);
-                } else {
-                    await query(
-                        `UPDATE users SET
-                            twitter_handle = $1,
-                            twitter_pfp = $2,
-                            twitter_access_token = $3,
-                            twitter_connected = $4,
-                            last_connected = $5,
-                            updated_at = $6
-                         WHERE id = $7`,
-                        [
-                            userData.twitter_handle,
-                            userData.twitter_pfp,
-                            userData.twitter_access_token,
-                            userData.twitter_connected,
-                            userData.last_connected,
-                            new Date(),
-                            user.id,
-                        ]
-                    );
-                    logger.info(`Updated user: ${user.id}`);
-                }
+                logger.info(`Người dùng được tạo/cập nhật: ${user.id}`);
                 return true;
             } catch (error) {
-                logger.error('Error in signIn callback:', {
+                logger.error('Lỗi trong signIn callback:', {
                     error: error.message,
                     userId: user.id,
                     stack: error.stack,
                 });
+                if (error.message.includes('relation "users" does not exist')) {
+                    logger.error('Bảng users không tồn tại trong cơ sở dữ liệu');
+                    return false;
+                }
                 return false;
             }
         },

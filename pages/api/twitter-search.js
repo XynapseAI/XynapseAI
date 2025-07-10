@@ -1,21 +1,28 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// eslint-disable-next-line
 import { query } from '../../utils/postgres.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
-import pkg from '../../utils/logger.cjs';
+import winston from 'winston';
 import helmet from 'helmet';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from './auth/[...nextauth].js';
 
-const { logger } = pkg;
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+  transports: [
+    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'logs/combined.log' }),
+    new winston.transports.Console({ format: winston.format.simple() }),
+  ],
+});
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   message: { error: 'Too many requests, please try again later.' },
-  keyGenerator: (req) => {
-    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown-ip';
-    logger.info(`Rate limit IP: ${ip}`);
-    return ip;
-  },
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown',
+  trustProxy: true,
 });
 
 const validate = [
@@ -23,17 +30,35 @@ const validate = [
   body('tokenSymbol').optional().isString().isLength({ max: 20 }).withMessage('TokenSymbol must not exceed 20 characters'),
 ];
 
+const checkCSRF = (req) => {
+  const allowedOrigins = [
+    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'https://xynapseai.net',
+    'https://www.xynapseai.net',
+  ];
+  const origin = req.headers['origin'] || req.headers['referer']?.split('/').slice(0, 3).join('/');
+  const csrfToken = req.headers['x-csrf-token'];
+  if (!origin || !allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
+    logger.warn(`CSRF check failed: Invalid or missing Origin/Referer: ${origin}`, { ip: req.ip });
+    return false;
+  }
+  if (!csrfToken || csrfToken !== process.env.CSRF_SECRET) {
+    logger.warn(`CSRF check failed: Invalid or missing CSRF token: ${csrfToken}`, { ip: req.ip });
+    return false;
+  }
+  return true;
+};
+
 export const config = { api: { bodyParser: { sizeLimit: '1kb' } } };
 
 export default async function handler(req, res) {
-  req.app?.set('trust proxy', true);
-  helmet({ contentSecurityPolicy: false })(req, res, () => {});
-
-  const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
-  logger.info(`Request to ${req.url} from IP ${ip}`);
+  helmet()(req, res, () => {});
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
+  logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}`);
 
   if (req.method !== 'POST') {
-    logger.warn(`Invalid method ${req.method} for ${req.url}`);
+    logger.warn(`Invalid method ${req.method} for ${req.url}`, { ip });
     return res.status(405).json({ detail: 'Method not allowed' });
   }
 
@@ -42,22 +67,33 @@ export default async function handler(req, res) {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
     });
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`);
+    logger.error(`Rate limit error: ${err.message}`, { ip });
     return res.status(429).json({ success: false, tweets: [], message: 'Rate limit exceeded, try again later.' });
+  }
+
+  if (!checkCSRF(req)) {
+    logger.warn(`CSRF check failed`, { ip });
+    return res.status(403).json({ detail: 'CSRF check không hợp lệ.' });
+  }
+
+  const session = await getServerSession(req, res, authOptions);
+  if (!session || !session.user?.id) {
+    logger.warn('Session not authenticated or missing user ID', { ip, session });
+    return res.status(401).json({ detail: 'Unauthorized: Please log in.' });
   }
 
   await Promise.all(validate.map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`);
+    logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`, { ip, body: req.body });
     return res.status(400).json({ errors: errors.array() });
   }
 
   const { query, tokenSymbol } = req.body;
-  logger.info(`Processing Twitter search: query="${query}", tokenSymbol="${tokenSymbol || 'none'}"`);
+  logger.info(`Processing Twitter search: query="${query}", tokenSymbol="${tokenSymbol || 'none'}"`, { ip });
 
   if (!process.env.TWITTER_BEARER_TOKEN) {
-    logger.error('TWITTER_BEARER_TOKEN is not configured');
+    logger.error('TWITTER_BEARER_TOKEN is not configured', { ip });
     return res.status(500).json({
       success: false,
       tweets: [],
@@ -69,7 +105,7 @@ export default async function handler(req, res) {
   const CACHE_DURATION = 5 * 60 * 1000;
   const cached = global.tweetCache?.[cacheKey];
   if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    logger.info(`Using cached tweets for ${cacheKey}`);
+    logger.info(`Using cached tweets for ${cacheKey}`, { ip });
     return res.status(200).json({
       success: true,
       tweets: cached.data,
@@ -79,7 +115,7 @@ export default async function handler(req, res) {
 
   const trySearch = async (searchQuery) => {
     try {
-      logger.info(`Calling Twitter/X API with query: ${searchQuery}`);
+      logger.info(`Calling Twitter/X API with query: ${searchQuery}`, { ip });
       const params = new URLSearchParams({
         query: searchQuery,
         'tweet.fields': 'created_at,text,public_metrics,author_id',
@@ -97,7 +133,7 @@ export default async function handler(req, res) {
         remaining: response.headers.get('x-rate-limit-remaining') || 'unknown',
         reset: response.headers.get('x-rate-limit-reset') || 'unknown',
       };
-      logger.info(`Twitter/X API response: status=${response.status}, rateLimit=${JSON.stringify(rateLimit)}`);
+      logger.info(`Twitter/X API response: status=${response.status}, rateLimit=${JSON.stringify(rateLimit)}`, { ip });
 
       const data = await response.json();
       if (!response.ok) {
@@ -105,7 +141,7 @@ export default async function handler(req, res) {
       }
 
       const tweets = data.data || [];
-      logger.info(`Raw tweets received: ${tweets.length}`);
+      logger.info(`Raw tweets received: ${tweets.length}`, { ip });
 
       const MIN_LIKES = 10;
       const formattedTweets = tweets
@@ -121,7 +157,7 @@ export default async function handler(req, res) {
           link: `https://x.com/${data.includes?.users?.find(user => user.id === tweet.author_id)?.username || 'user'}/status/${tweet.id}`,
         }));
 
-      logger.info(`Filtered tweets (likes >= ${MIN_LIKES}): ${formattedTweets.length}`);
+      logger.info(`Filtered tweets (likes >= ${MIN_LIKES}): ${formattedTweets.length}`, { ip });
       return formattedTweets;
     } catch (error) {
       throw error;
@@ -132,11 +168,10 @@ export default async function handler(req, res) {
     let formattedTweets = await trySearch(`#${tokenSymbol || 'XRP'} OR ${tokenSymbol || 'XRP'} -is:retweet lang:en`);
 
     if (formattedTweets.length === 0) {
-      logger.info('No tweets found, trying fallback query');
+      logger.info('No tweets found, trying fallback query', { ip });
       formattedTweets = await trySearch(`${tokenSymbol || 'XRP'} -is:retweet lang:en`);
     }
 
-    // Save to PostgreSQL
     for (const tweet of formattedTweets) {
       await query(
         `INSERT INTO tweet_analyses (tweet_id, user_id, text, points, created_at)
@@ -144,7 +179,7 @@ export default async function handler(req, res) {
          ON CONFLICT (tweet_id) DO NOTHING`,
         [
           tweet.id,
-          'system',
+          session.user.id,
           tweet.text,
           tweet.likes + tweet.retweets * 2,
           new Date(tweet.created_at),
@@ -154,7 +189,7 @@ export default async function handler(req, res) {
 
     if (!global.tweetCache) global.tweetCache = {};
     global.tweetCache[cacheKey] = { data: formattedTweets, timestamp: Date.now() };
-    logger.info(`Saved ${formattedTweets.length} tweets to tweet_analyses and cache`);
+    logger.info(`Saved ${formattedTweets.length} tweets to tweet_analyses and cache`, { ip });
 
     return res.status(200).json({
       success: true,
@@ -162,9 +197,9 @@ export default async function handler(req, res) {
       message: `Successfully retrieved ${formattedTweets.length} tweets`,
     });
   } catch (error) {
-    logger.error(`Twitter/X API error: ${error.message}`);
+    logger.error(`Twitter/X API error: ${error.message}`, { ip, stack: error.stack });
     if (error.response?.status === 429 && cached) {
-      logger.info(`API limit reached, using cached tweets for ${cacheKey}`);
+      logger.info(`API limit reached, using cached tweets for ${cacheKey}`, { ip });
       return res.status(200).json({
         success: true,
         tweets: cached.data,
@@ -172,7 +207,7 @@ export default async function handler(req, res) {
       });
     }
     if (error.response?.status === 429) {
-      logger.warn('Twitter/X API rate limit reached');
+      logger.warn('Twitter/X API rate limit reached', { ip });
       return res.status(200).json({
         success: false,
         tweets: [],

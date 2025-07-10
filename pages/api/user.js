@@ -13,6 +13,7 @@ const logger = winston.createLogger({
     transports: [
         new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
         new winston.transports.File({ filename: 'logs/combined.log' }),
+        new winston.transports.Console(), // Thêm console để debug local
     ],
 });
 
@@ -55,11 +56,12 @@ export default async function handler(req, res) {
             limiter(req, res, (err) => (err ? reject(err) : resolve()));
         });
     } catch (err) {
-        logger.error(`Lỗi giới hạn yêu cầu: ${err.message}`);
+        logger.error(`Lỗi giới hạn yêu cầu: ${err.message}`, { stack: err.stack });
         return res.status(429).json({ detail: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' });
     }
 
     const session = await getServerSession(req, res, authOptions);
+    logger.debug(`Session: ${JSON.stringify(session)}`);
     if (!session || !session.user?.id) {
         logger.warn('Phiên chưa được xác thực hoặc thiếu ID người dùng', { session });
         return res.status(401).json({ detail: 'Chưa đăng nhập' });
@@ -75,6 +77,7 @@ export default async function handler(req, res) {
     try {
         if (req.method === 'GET') {
             const recaptchaToken = req.headers['x-recaptcha-token'];
+            logger.debug(`reCAPTCHA token: ${recaptchaToken ? recaptchaToken.substring(0, 8) + '...' : 'missing'}`);
             if (!recaptchaToken) {
                 logger.error('Thiếu header X-Recaptcha-Token');
                 return res.status(400).json({ detail: 'Thiếu token reCAPTCHA trong header' });
@@ -98,7 +101,7 @@ export default async function handler(req, res) {
             }
 
             const { uid } = req.query;
-            logger.info(`Giá trị uid: ${uid}`); // Thêm log để kiểm tra uid
+            logger.info(`Giá trị uid: ${uid}`);
             if (!uid || uid !== session.user.id) {
                 logger.warn(`Truy cập bị từ chối: uid=${uid}, sessionUserId=${session.user.id}`);
                 return res.status(403).json({ detail: 'Truy cập bị từ chối: UID không hợp lệ' });
@@ -109,31 +112,39 @@ export default async function handler(req, res) {
                 return res.status(400).json({ detail: 'UID không hợp lệ' });
             }
 
-            const result = await query(`SELECT * FROM users WHERE id = $1`, [uid]);
-            if (result.rows.length === 0) {
-                logger.error(`Không tìm thấy người dùng: ${uid}`);
-                return res.status(404).json({ detail: 'Không tìm thấy người dùng' });
-            }
+            try {
+                const result = await query(`SELECT * FROM users WHERE id = $1`, [uid]);
+                if (result.rows.length === 0) {
+                    logger.error(`Không tìm thấy người dùng: ${uid}`);
+                    return res.status(404).json({ detail: 'Không tìm thấy người dùng' });
+                }
 
-            const user = result.rows[0];
-            logger.info(`Lấy dữ liệu người dùng: ${uid}`);
-            return res.status(200).json({
-                success: true,
-                user: {
-                    id: user.id,
-                    twitterHandle: user.twitter_handle || '',
-                    twitterPFP: user.twitter_pfp || '',
-                    points: user.points || 0,
-                    tweetPoints: user.tweet_points || 0,
-                    aiPoints: user.ai_points || 0,
-                    taskPoints: user.task_points || 0,
-                    isCreator: user.is_creator || false,
-                    isAiRank: user.is_ai_rank || false,
-                    tier: user.tier || 'Basic',
-                    walletAddress: user.wallet_address || null,
-                    lastConnected: user.last_connected ? new Date(user.last_connected) : null,
-                },
-            });
+                const user = result.rows[0];
+                logger.info(`Lấy dữ liệu người dùng: ${uid}`);
+                return res.status(200).json({
+                    success: true,
+                    user: {
+                        id: user.id,
+                        twitterHandle: user.twitter_handle || '',
+                        twitterPFP: user.twitter_pfp || '',
+                        points: user.points || 0,
+                        tweetPoints: user.tweet_points || 0,
+                        aiPoints: user.ai_points || 0,
+                        taskPoints: user.task_points || 0,
+                        isCreator: user.is_creator || false,
+                        isAiRank: user.is_ai_rank || false,
+                        tier: user.tier || 'Basic',
+                        walletAddress: user.wallet_address || null,
+                        lastConnected: user.last_connected ? new Date(user.last_connected) : null,
+                    },
+                });
+            } catch (dbError) {
+                logger.error(`Lỗi truy vấn database: ${dbError.message}`, { stack: dbError.stack });
+                if (dbError.message.includes('relation "users" does not exist')) {
+                    return res.status(500).json({ detail: 'Lỗi server: Bảng users không tồn tại' });
+                }
+                throw dbError;
+            }
         } else if (req.method === 'POST') {
             if (session.user.id !== req.body.id) {
                 logger.warn(`Không được phép: uid=${req.body.id}, sessionUserId=${session.user.id}`);
@@ -156,48 +167,56 @@ export default async function handler(req, res) {
                 is_plus: false,
             };
 
-            await query(
-                `INSERT INTO users (
-                    id, twitter_handle, twitter_pfp, twitter_connected, 
-                    points, tweet_points, ai_points, task_points, 
-                    is_creator, is_ai_rank, tier, is_plus, created_at, last_connected
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-                ON CONFLICT (id) DO UPDATE SET
-                    twitter_handle = EXCLUDED.twitter_handle,
-                    twitter_pfp = EXCLUDED.twitter_pfp,
-                    twitter_connected = EXCLUDED.twitter_connected,
-                    last_connected = EXCLUDED.last_connected,
-                    points = EXCLUDED.points,
-                    tweet_points = EXCLUDED.tweet_points,
-                    ai_points = EXCLUDED.ai_points,
-                    task_points = EXCLUDED.task_points,
-                    is_creator = EXCLUDED.is_creator,
-                    is_ai_rank = EXCLUDED.is_ai_rank,
-                    tier = EXCLUDED.tier,
-                    is_plus = EXCLUDED.is_plus,
-                    updated_at = CURRENT_TIMESTAMP`,
-                [
-                    id,
-                    userData.twitter_handle,
-                    userData.twitter_pfp,
-                    userData.twitter_connected,
-                    userData.points,
-                    userData.tweet_points,
-                    userData.ai_points,
-                    userData.task_points,
-                    userData.is_creator,
-                    userData.is_ai_rank,
-                    userData.tier,
-                    userData.is_plus,
-                    new Date(),
-                    userData.last_connected,
-                ]
-            );
+            try {
+                await query(
+                    `INSERT INTO users (
+                        id, twitter_handle, twitter_pfp, twitter_connected, 
+                        points, tweet_points, ai_points, task_points, 
+                        is_creator, is_ai_rank, tier, is_plus, created_at, last_connected
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                    ON CONFLICT (id) DO UPDATE SET
+                        twitter_handle = EXCLUDED.twitter_handle,
+                        twitter_pfp = EXCLUDED.twitter_pfp,
+                        twitter_connected = EXCLUDED.twitter_connected,
+                        last_connected = EXCLUDED.last_connected,
+                        points = EXCLUDED.points,
+                        tweet_points = EXCLUDED.tweet_points,
+                        ai_points = EXCLUDED.ai_points,
+                        task_points = EXCLUDED.task_points,
+                        is_creator = EXCLUDED.is_creator,
+                        is_ai_rank = EXCLUDED.is_ai_rank,
+                        tier = EXCLUDED.tier,
+                        is_plus = EXCLUDED.is_plus,
+                        updated_at = CURRENT_TIMESTAMP`,
+                    [
+                        id,
+                        userData.twitter_handle,
+                        userData.twitter_pfp,
+                        userData.twitter_connected,
+                        userData.points,
+                        userData.tweet_points,
+                        userData.ai_points,
+                        userData.tweet_points,
+                        userData.is_creator,
+                        userData.is_ai_rank,
+                        userData.tier,
+                        userData.is_plus,
+                        new Date(),
+                        userData.last_connected,
+                    ]
+                );
 
-            const result = await query(`SELECT * FROM users WHERE id = $1`, [id]);
-            const updatedUser = result.rows[0];
-            logger.info(`Người dùng được tạo/cập nhật: ${id}`);
-            return res.status(200).json({ success: true, user: { id, ...updatedUser } });
+                const result = await query(`SELECT * FROM users WHERE id = $1`, [id]);
+                const updatedUser = result.rows[0];
+                logger.info(`Người dùng được tạo/cập nhật: ${id}`);
+                return res.status(200).json({ success: true, user: { id, ...updatedUser } });
+            } catch (dbError) {
+                logger.error(`Lỗi truy vấn database: ${dbError.message}`, { stack: dbError.stack });
+                if (dbError.message.includes('relation "users" does not exist')) {
+                    return res.status(500).json({ detail: 'Lỗi server: Bảng users không tồn tại' });
+                }
+                throw dbError;
+            }
         } else {
             logger.warn(`Phương thức không được phép: ${req.method}`);
             return res.status(405).json({ detail: 'Phương thức không được phép' });

@@ -13,27 +13,50 @@ const logger = winston.createLogger({
   transports: [
     new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
     new winston.transports.File({ filename: 'logs/combined.log' }),
+    new winston.transports.Console({ format: winston.format.simple() }),
   ],
 });
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
-  message: { error: 'Too many requests, please try again later.' },
+  message: { error: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' },
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown',
+  trustProxy: true,
 });
 
 const validateGet = [
-  expressQuery('uid').isString().isLength({ max: 100 }).withMessage('Invalid UID'),
+  expressQuery('uid').isString().isLength({ max: 100 }).withMessage('UID không hợp lệ'),
 ];
+
+const checkCSRF = (req) => {
+  const allowedOrigins = [
+    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'https://xynapseai.net',
+    'https://www.xynapseai.net',
+  ];
+  const origin = req.headers['origin'] || req.headers['referer']?.split('/').slice(0, 3).join('/');
+  const csrfToken = req.headers['x-csrf-token'];
+  if (!origin || !allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
+    logger.warn(`CSRF check failed: Invalid or missing Origin/Referer: ${origin}`);
+    return false;
+  }
+  if (!csrfToken || csrfToken !== process.env.CSRF_SECRET) {
+    logger.warn(`CSRF check failed: Invalid or missing CSRF token: ${csrfToken}`);
+    return false;
+  }
+  return true;
+};
 
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
-  logger.info(`Request to ${req.url} from IP ${ip}, query: ${JSON.stringify(req.query)}`);
+  logger.info(`Yêu cầu tới ${req.url} từ IP ${ip}, query: ${JSON.stringify(req.query)}`);
 
   if (req.method !== 'GET') {
-    logger.warn(`Method not allowed: ${req.method}`);
-    return res.status(405).json({ detail: 'Method not allowed' });
+    logger.warn(`Phương thức không được phép: ${req.method}`, { ip });
+    return res.status(405).json({ detail: 'Phương thức không được phép' });
   }
 
   try {
@@ -41,70 +64,100 @@ export default async function handler(req, res) {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
     });
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`);
-    return res.status(429).json({ detail: 'Too many requests, please try again later.' });
+    logger.error(`Lỗi giới hạn yêu cầu: ${err.message}`, { ip });
+    return res.status(429).json({ detail: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' });
+  }
+
+  if (!checkCSRF(req)) {
+    logger.warn(`CSRF check failed`, { ip });
+    return res.status(403).json({ detail: 'CSRF check không hợp lệ.' });
   }
 
   const session = await getServerSession(req, res, authOptions);
   if (!session || !session.user?.id) {
-    logger.warn('Session not authenticated or missing user ID', { session });
-    return res.status(401).json({ detail: 'Unauthorized: Please log in.' });
+    logger.warn('Chưa đăng nhập hoặc thiếu UID', { ip, session });
+    return res.status(401).json({ detail: 'Chưa đăng nhập.' });
   }
 
   await Promise.all(validateGet.map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`);
-    return res.status(400).json({ errors: errors.array() });
+    logger.warn(`Lỗi xác thực: ${JSON.stringify(errors.array())}`, { ip, query: req.query });
+    return res.status(400).json({ detail: 'Xác thực thất bại', errors: errors.array() });
   }
 
   try {
     const recaptchaToken = req.headers['x-recaptcha-token'];
     if (!recaptchaToken) {
-      logger.error('Missing X-Recaptcha-Token header');
-      return res.status(400).json({ detail: 'Missing reCAPTCHA token in header' });
+      logger.error('Thiếu header X-Recaptcha-Token', { ip });
+      return res.status(400).json({ detail: 'Thiếu token reCAPTCHA trong header' });
     }
 
     try {
       await verifyRecaptcha(recaptchaToken, 'get_point_history', ip);
-      logger.info('reCAPTCHA verified successfully for get_point_history', { token: recaptchaToken.substring(0, 8) + '...' });
+      logger.info('Xác minh reCAPTCHA thành công cho get_point_history', { token: recaptchaToken.substring(0, 8) + '...' });
     } catch (error) {
-      logger.error(`reCAPTCHA verification failed: ${error.message}`, { stack: error.stack });
-      return res.status(403).json({ detail: `reCAPTCHA verification failed: ${error.message}` });
+      logger.error(`Xác minh reCAPTCHA thất bại: ${error.message}`, { ip, stack: error.stack });
+      return res.status(403).json({ detail: `Xác minh reCAPTCHA thất bại: ${error.message}` });
     }
 
     const { uid } = req.query;
     if (!uid || uid !== session.user.id) {
-      logger.warn(`Access denied: uid=${uid}, sessionUserId=${session.user.id}`);
-      return res.status(403).json({ detail: 'Access denied: Invalid UID' });
+      logger.warn(`Truy cập bị từ chối: uid=${uid}, sessionUserId=${session.user.id}`, { ip });
+      return res.status(403).json({ detail: 'Truy cập bị từ chối: UID không hợp lệ' });
     }
 
-    const historyResult = await query(
-      `SELECT date, interaction_type, count, points
-       FROM daily_ai_interactions
-       WHERE uid = $1
-       ORDER BY date DESC
-       LIMIT 10`,
-      [uid]
-    );
+    let user;
+    try {
+      const userResult = await query(
+        `SELECT points, tweet_points, ai_points, task_points 
+         FROM users 
+         WHERE id = $1`,
+        [uid]
+      );
+      if (userResult.rows.length === 0) {
+        logger.error(`Không tìm thấy người dùng: ${uid}`, { ip });
+        return res.status(404).json({ detail: 'Không tìm thấy người dùng' });
+      }
+      user = userResult.rows[0];
+    } catch (error) {
+      if (error.message.includes('relation "users" does not exist')) {
+        logger.error(`Bảng users không tồn tại`, { ip });
+        return res.status(500).json({ detail: 'Lỗi server: Bảng users không tồn tại' });
+      }
+      throw error;
+    }
 
-    const history = historyResult.rows.map(row => ({
-      date: row.date.toISOString().split('T')[0],
-      tweetPoints: 0, // Không dùng trong schema
-      aiPoints: row.points || 0,
-      taskPoints: 0, // Không dùng trong schema
-      totalPoints: row.points || 0,
-    }));
+    let history;
+    try {
+      const historyResult = await query(
+        `SELECT date, interaction_type, count, points
+         FROM daily_ai_interactions
+         WHERE uid = $1
+         ORDER BY date DESC
+         LIMIT 10`,
+        [uid]
+      );
+      history = historyResult.rows.map((row) => ({
+        date: row.date.toISOString().split('T')[0],
+        interactionType: row.interaction_type,
+        tweetPoints: user.tweet_points || 0,
+        aiPoints: row.points || 0,
+        taskPoints: user.task_points || 0,
+        totalPoints: (user.tweet_points || 0) + (row.points || 0) + (user.task_points || 0),
+      }));
+    } catch (error) {
+      if (error.message.includes('relation "daily_ai_interactions" does not exist')) {
+        logger.error(`Bảng daily_ai_interactions không tồn tại`, { ip });
+        return res.status(500).json({ detail: 'Lỗi server: Bảng daily_ai_interactions không tồn tại' });
+      }
+      throw error;
+    }
 
-    logger.info(`Fetched ${history.length} point history entries for user: ${uid}`);
+    logger.info(`Lấy ${history.length} mục lịch sử điểm cho người dùng: ${uid}`, { ip });
     return res.status(200).json({ success: true, history });
   } catch (error) {
-    logger.error(`Error fetching point history: ${error.message}`, {
-      stack: error.stack,
-      uid: req.query.uid,
-      code: error.code,
-      details: error.details,
-    });
-    return res.status(500).json({ detail: `Failed to fetch point history: ${error.message}` });
+    logger.error(`Lỗi khi lấy lịch sử điểm: ${error.message}`, { stack: error.stack, ip, uid: req.query.uid });
+    return res.status(500).json({ detail: `Lỗi khi lấy lịch sử điểm: ${error.message}` });
   }
 }
