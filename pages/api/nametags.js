@@ -1,21 +1,15 @@
-// pages/api/nametags.js
-import fs from 'fs/promises';
-import path from 'path';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
 import { RateLimiter } from 'limiter';
 import pkg from '../../utils/logger.cjs';
-import { query, body, validationResult } from 'express-validator';
+import { body, validationResult } from 'express-validator';
 import { isAddress } from 'ethers';
-import { getNametagsBatch } from '../../lib/nametags.js';
+import { getNametagsBatch, addNametag } from '../../lib/nametags.js';
 
 const { logger } = pkg;
 
 const limiter = new RateLimiter({ tokensPerInterval: 100, interval: 'minute' });
 
-let NAMETAG_CACHE = null;
-
-// Kiểm tra CSRF
 const checkCSRF = (req) => {
   const allowedOrigins = [
     process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
@@ -31,160 +25,6 @@ const checkCSRF = (req) => {
   return true;
 };
 
-// Tải nametags từ file JSON vào cache
-async function loadNametagCache() {
-  if (!NAMETAG_CACHE) {
-    NAMETAG_CACHE = {};
-    const nametagsDir = process.env.NAMETAGS_DIR_PATH || path.join(process.cwd(), 'public', 'nametags');
-    try {
-      const files = await fs.readdir(nametagsDir);
-      const jsonFiles = files.filter(file => file.startsWith('addresses-') && file.endsWith('.json'));
-      for (const file of jsonFiles) {
-        try {
-          const filePath = path.join(nametagsDir, file);
-          const fileContent = await fs.readFile(filePath, 'utf8');
-          const jsonData = JSON.parse(fileContent);
-          for (const addressKey in jsonData) {
-            const normalizedAddress = addressKey.toLowerCase();
-            const data = jsonData[addressKey];
-            if (data.Labels && Object.keys(data.Labels).length > 0) {
-              const firstLabelKey = Object.keys(data.Labels)[0];
-              data.Labels[firstLabelKey].image = data.Labels[firstLabelKey].image || '/icons/default.png';
-            } else {
-              data.Labels = {
-                'deposit': {
-                  'Name Tag': 'Unknown',
-                  'Description': 'No specific label information.',
-                  'Subcategory': 'Deposit',
-                  'image': '/icons/default.png'
-                }
-              };
-            }
-            NAMETAG_CACHE[normalizedAddress] = data;
-          }
-        } catch (error) {
-          logger.error(`Error reading file ${file}:`, { message: error.message });
-        }
-      }
-      logger.info(`Loaded ${Object.keys(NAMETAG_CACHE).length} nametags from JSON.`);
-    } catch (error) {
-      logger.error(`Error accessing nametags directory: ${error.message}`);
-    }
-  }
-  return NAMETAG_CACHE;
-}
-
-// Lấy nametag cho một địa chỉ
-async function getNametagForAddress(address) {
-  const normalizedAddress = address.toLowerCase();
-  const cache = await loadNametagCache();
-  if (cache[normalizedAddress]) {
-    return cache[normalizedAddress];
-  }
-
-  const fileSuffix = normalizedAddress.slice(2, 8);
-  const filePath = path.join(process.env.NAMETAGS_DIR_PATH || path.join(process.cwd(), 'public', 'nametags'), `addresses-${fileSuffix}.json`);
-  try {
-    const fileContent = await fs.readFile(filePath, 'utf8');
-    const jsonData = JSON.parse(fileContent);
-    const data = jsonData[normalizedAddress];
-    if (data) {
-      if (data.Labels && Object.keys(data.Labels).length > 0) {
-        const firstLabelKey = Object.keys(data.Labels)[0];
-        data.Labels[firstLabelKey].image = data.Labels[firstLabelKey].image || '/icons/default.png';
-      } else {
-        data.Labels = {
-          'deposit': {
-            'Name Tag': 'Unknown',
-            'Description': 'Not found in JSON.',
-            'Subcategory': 'Deposit',
-            'image': '/icons/default.png'
-          }
-        };
-      }
-      cache[normalizedAddress] = data;
-      return data;
-    }
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      logger.error(`Error reading JSON file ${filePath}:`, { message: error.message });
-    }
-  }
-
-  // Fallback to PostgreSQL
-  const pgData = await getNametagsBatch([normalizedAddress]);
-  const pgNametag = pgData[normalizedAddress];
-  if (pgNametag && pgNametag.name !== 'Unknown') {
-    const data = {
-      Address: normalizedAddress,
-      Labels: {
-        'deposit': {
-          'Name Tag': pgNametag.name,
-          'Description': pgNametag.description || 'Not found in JSON.',
-          'Subcategory': pgNametag.subcategory || 'Deposit',
-          'image': pgNametag.image || '/icons/default.png'
-        }
-      }
-    };
-    cache[normalizedAddress] = data;
-    return data;
-  }
-  return null;
-}
-
-// Thêm hoặc cập nhật nametag
-async function addNametag(address, labels) {
-  if (!isAddress(address)) {
-    logger.error(`Invalid wallet address for addNametag: ${address}`);
-    throw new Error('Invalid EVM address');
-  }
-  const normalizedAddress = address.toLowerCase();
-  try {
-    // Update PostgreSQL
-    const nameTag = labels[Object.keys(labels)[0]]['Name Tag'] || labels[Object.keys(labels)[0]].name || 'Unknown';
-    const image = labels[Object.keys(labels)[0]].image || '/icons/default.png';
-    const description = labels[Object.keys(labels)[0]].Description || labels[Object.keys(labels)[0]].description || '';
-    const subcategory = labels[Object.keys(labels)[0]].Subcategory || labels[Object.keys(labels)[0]].subcategory || 'Others';
-
-    await query(
-      `INSERT INTO nametags (address, nametag, image, description, subcategory)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (address) DO UPDATE SET
-         nametag = EXCLUDED.nametag,
-         image = EXCLUDED.image,
-         description = EXCLUDED.description,
-         subcategory = EXCLUDED.subcategory`,
-      [normalizedAddress, nameTag, image, description, subcategory]
-    );
-
-    // Update local JSON file
-    const nametagsDir = process.env.NAMETAGS_DIR_PATH || path.join(process.cwd(), 'public', 'nametags');
-    const filePath = path.join(nametagsDir, `addresses-${normalizedAddress.slice(2, 8)}.json`);
-    let fileData = {};
-    try {
-      if (await fs.access(filePath).then(() => true).catch(() => false)) {
-        const fileContent = await fs.readFile(filePath, 'utf8');
-        fileData = JSON.parse(fileContent);
-      }
-    } catch (error) {
-      logger.error(`Error reading JSON file ${filePath} for update: ${error.message}`);
-    }
-    fileData[normalizedAddress] = { Address: address, Labels: labels };
-    await fs.writeFile(filePath, JSON.stringify(fileData, null, 2), 'utf8');
-    logger.info(`Updated JSON file ${filePath} with nametag for ${normalizedAddress}`);
-
-    // Update cache
-    if (NAMETAG_CACHE) {
-      NAMETAG_CACHE[normalizedAddress] = { Address: address, Labels: labels };
-    }
-    logger.info(`Added/Updated nametag for ${normalizedAddress} in PostgreSQL and JSON.`);
-  } catch (error) {
-    logger.error(`Error adding nametag for ${normalizedAddress}: ${error.message}`);
-    throw error;
-  }
-}
-
-// Kiểm tra quyền admin
 async function checkAdminStatus(uid) {
   if (!uid) return false;
   try {
@@ -192,9 +32,12 @@ async function checkAdminStatus(uid) {
       `SELECT is_admin FROM admins WHERE uid = $1`,
       [uid]
     );
+    logger.info(`Checked admin status for UID ${uid}: ${adminResult.rows.length > 0 && adminResult.rows[0].is_admin}`);
+    console.log(`Admin status for UID ${uid}: ${adminResult.rows.length > 0 && adminResult.rows[0].is_admin}`);
     return adminResult.rows.length > 0 && adminResult.rows[0].is_admin === true;
   } catch (error) {
-    logger.error(`Error checking admin status for ${uid}: ${error.message}`);
+    logger.error(`Error checking admin status for ${uid}: ${error.message}`, { stack: error.stack });
+    console.error(`Error checking admin status for ${uid}: ${error.message}`);
     return false;
   }
 }
@@ -247,11 +90,13 @@ export default async function handler(req, res) {
     const internalToken = req.headers['x-internal-token'];
     if (process.env.NODE_ENV === 'development' && internalToken === process.env.INTERNAL_API_TOKEN) {
       logger.info('Bypassing auth with internal token for nametags API (development mode).');
+      console.log('Bypassing auth with internal token for nametags API');
       isAdminUser = true;
     } else if (req.method === 'PUT' || req.method === 'PATCH') {
       session = await getServerSession(req, res, authOptions);
       if (!session) {
         logger.warn('Unauthorized access attempt to nametags API (no session for PUT/PATCH)');
+        console.log('Unauthorized access attempt to nametags API (no session)');
         return res.status(401).json({
           success: false,
           detail: 'Unauthorized: Please log in.',
@@ -260,6 +105,7 @@ export default async function handler(req, res) {
       isAdminUser = await checkAdminStatus(session.user.id);
       if (!isAdminUser) {
         logger.warn(`Forbidden access attempt to nametags API by non-admin user: ${session?.user?.id || 'N/A'}`);
+        console.log(`Forbidden access attempt by non-admin user: ${session?.user?.id || 'N/A'}`);
         return res.status(403).json({
           success: false,
           detail: 'Forbidden: Admin access required.',
@@ -272,12 +118,14 @@ export default async function handler(req, res) {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         logger.warn(`Validation errors in GET request: ${JSON.stringify(errors.array())}`);
+        console.log(`Validation errors in GET request: ${JSON.stringify(errors.array())}`);
         return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
       }
 
       const { address } = req.query;
       if (!address) {
         logger.warn('GET request without address is not supported');
+        console.log('GET request without address is not supported');
         return res.status(400).json({
           success: false,
           detail: 'Address is required for GET request',
@@ -286,21 +134,44 @@ export default async function handler(req, res) {
 
       const normalizedAddress = address.toLowerCase();
       try {
-        const data = await getNametagForAddress(normalizedAddress);
-        if (data) {
-          logger.info(`Nametag found for address ${normalizedAddress}: ${data.Labels[Object.keys(data.Labels)[0]]['Name Tag']}`);
+        const data = await getNametagsBatch([normalizedAddress]);
+        const nametag = data[normalizedAddress];
+        if (nametag && nametag.name !== 'Unknown') {
+          logger.info(`Nametag found for address ${normalizedAddress}: ${nametag.name}`);
+          console.log(`Nametag found for address ${normalizedAddress}: ${JSON.stringify(nametag)}`);
           return res.status(200).json({
             success: true,
-            data: { [normalizedAddress]: data },
+            data: {
+              [normalizedAddress]: {
+                Address: normalizedAddress,
+                Labels: {
+                  deposit: {
+                    'Name Tag': nametag.name,
+                    Description: nametag.description,
+                    Subcategory: nametag.subcategory,
+                    image: nametag.image,
+                    is_deposit: nametag.is_deposit,
+                    deposit_confidence_percentage: nametag.deposit_confidence_percentage,
+                    reason: nametag.reason,
+                    metrics: nametag.metrics,
+                    gemini_analysis: nametag.gemini_analysis,
+                    last_analysis: nametag.last_analysis,
+                    created_at: nametag.created_at
+                  },
+                },
+              },
+            },
           });
         }
         logger.info(`Nametag not found for address: ${normalizedAddress}`);
+        console.log(`Nametag not found for address: ${normalizedAddress}`);
         return res.status(404).json({
           success: false,
           detail: `Nametag not found for address ${normalizedAddress}`,
         });
       } catch (error) {
-        logger.error(`Error fetching nametag for ${normalizedAddress}: ${error.message}`);
+        logger.error(`Error fetching nametag for ${normalizedAddress}: ${error.message}`, { stack: error.stack });
+        console.error(`Error fetching nametag for ${normalizedAddress}: ${error.message}`);
         return res.status(500).json({
           success: false,
           detail: `Failed to fetch nametag: ${error.message}`,
@@ -313,41 +184,55 @@ export default async function handler(req, res) {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         logger.warn(`Validation errors in POST request: ${JSON.stringify(errors.array())}`);
+        console.log(`Validation errors in POST request: ${JSON.stringify(errors.array())}`);
         return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
       }
 
       const { addresses } = req.body;
       const normalizedAddresses = addresses.map(addr => addr.toLowerCase());
-      const result = {};
-      for (const addr of normalizedAddresses) {
-        const data = await getNametagForAddress(addr);
-        if (data) {
-          result[addr] = data;
-          logger.info(`Nametag found for address in POST: ${addr}, ${data.Labels[Object.keys(data.Labels)[0]]['Name Tag']}`);
-        } else {
+      try {
+        const data = await getNametagsBatch(normalizedAddresses);
+        const result = {};
+        normalizedAddresses.forEach(addr => {
+          const nametag = data[addr];
           result[addr] = {
             Address: addr,
             Labels: {
-              'deposit': {
-                'Name Tag': 'Unknown',
-                'Description': 'Not found in JSON.',
-                'Subcategory': 'Deposit',
-                'image': '/icons/default.png'
-              }
-            }
+              deposit: {
+                'Name Tag': nametag.name,
+                Description: nametag.description,
+                Subcategory: nametag.subcategory,
+                image: nametag.image,
+                is_deposit: nametag.is_deposit,
+                deposit_confidence_percentage: nametag.deposit_confidence_percentage,
+                reason: nametag.reason,
+                metrics: nametag.metrics,
+                gemini_analysis: nametag.gemini_analysis,
+                last_analysis: nametag.last_analysis,
+                created_at: nametag.created_at
+              },
+            },
           };
-        }
-      }
+        });
 
-      logger.info(`POST request processed: requested ${normalizedAddresses.length}, found ${Object.keys(result).length}`);
-      return res.status(200).json({
-        success: true,
-        data: result,
-        metadata: {
-          requested: normalizedAddresses.length,
-          found: Object.keys(result).length,
-        },
-      });
+        logger.info(`POST request processed: requested ${normalizedAddresses.length}, found ${Object.keys(result).length}`);
+        console.log(`POST request processed: ${JSON.stringify(result)}`);
+        return res.status(200).json({
+          success: true,
+          data: result,
+          metadata: {
+            requested: normalizedAddresses.length,
+            found: Object.keys(result).length,
+          },
+        });
+      } catch (error) {
+        logger.error(`Error fetching batch nametags: ${error.message}`, { stack: error.stack });
+        console.error(`Error fetching batch nametags: ${error.message}`);
+        return res.status(500).json({
+          success: false,
+          detail: `Failed to fetch nametags: ${error.message}`,
+        });
+      }
     }
 
     if (req.method === 'PUT' || req.method === 'PATCH') {
@@ -355,34 +240,52 @@ export default async function handler(req, res) {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         logger.warn(`Validation errors in PUT/PATCH request: ${JSON.stringify(errors.array())}`);
+        console.log(`Validation errors in PUT/PATCH request: ${JSON.stringify(errors.array())}`);
         return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
       }
 
       const { address, labels } = req.body;
       try {
-        await addNametag(address, labels);
+        // Đảm bảo labels chứa đầy đủ các trường cần thiết
+        const normalizedLabels = {
+          name: labels?.deposit?.['Name Tag'] || labels?.name || 'Unknown',
+          description: labels?.deposit?.Description || labels?.description || '',
+          subcategory: labels?.deposit?.Subcategory || labels?.subcategory || 'Others',
+          image: labels?.deposit?.image || labels?.image || '/icons/default.png',
+          is_deposit: labels?.deposit?.is_deposit || false,
+          deposit_confidence_percentage: labels?.deposit?.deposit_confidence_percentage || null,
+          reason: labels?.deposit?.reason || '',
+          metrics: labels?.deposit?.metrics || {},
+          gemini_analysis: labels?.deposit?.gemini_analysis || '',
+          last_analysis: labels?.deposit?.last_analysis || new Date().toISOString()
+        };
+        await addNametag(address, normalizedLabels);
+        logger.info(`Nametag added/updated for ${address}: ${JSON.stringify(normalizedLabels)}`);
+        console.log(`Nametag added/updated for ${address}: ${JSON.stringify(normalizedLabels)}`);
         return res.status(200).json({
           success: true,
           detail: `Nametag for ${address} successfully added/updated.`,
-          data: { address, labels }
+          data: { address, labels: normalizedLabels },
         });
       } catch (error) {
-        logger.error(`Failed to add/update nametag for ${address}: ${error.message}`);
+        logger.error(`Failed to add/update nametag for ${address}: ${error.message}`, { stack: error.stack });
+        console.error(`Failed to add/update nametag for ${address}: ${error.message}`);
         return res.status(500).json({
           success: false,
-          detail: 'Failed to add/update nametag.',
-          error: error.message
+          detail: `Failed to add/update nametag: ${error.message}`,
         });
       }
     }
 
     logger.warn(`Method not allowed: ${req.method}`);
+    console.log(`Method not allowed: ${req.method}`);
     return res.status(405).json({
       success: false,
       detail: 'Method not allowed',
     });
   } catch (err) {
     logger.error(`Unexpected error in nametags: ${err.message}`, { stack: err.stack });
+    console.error(`Unexpected error in nametags: ${err.message}`);
     return res.status(500).json({ error: `Unexpected server error: ${err.message}` });
   }
 }

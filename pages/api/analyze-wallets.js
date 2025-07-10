@@ -1,4 +1,3 @@
-// pages/api/analyze-wallets.js
 import { fetchBlockchainData } from '../../lib/blockchainData.js';
 import { getNametag, addNametag } from '../../lib/nametags.js';
 import { query } from '../../utils/postgres.js';
@@ -18,14 +17,15 @@ const ALLOWED_USER_AGENT = 'CronWorker/1.0';
 const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
 const RATE_LIMIT_REQUESTS = 100;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const DEFAULT_GEMINI_TIMEOUT_MS = 120000; // Tăng timeout lên 120 giây để an toàn
+const DEFAULT_GEMINI_TIMEOUT_MS = 120000;
 const LARGE_VALUE_THRESHOLD_USD = 500000;
 const DEPOSIT_WALLET_CONFIDENCE_THRESHOLD = 60;
-const GEMINI_CONFIDENCE_THRESHOLD = 70; // Ngưỡng mới cho Gemini
+const GEMINI_CONFIDENCE_THRESHOLD = 70;
 const DEFAULT_ETH_PRICE_USD = 2000;
 const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH
   ? path.resolve(process.env.WALLET_FILE_PATH)
   : path.resolve(process.cwd(), 'cron-worker/wallets.json');
+const VALID_CHAINS = ['ethereum', 'bsc', 'polygon'];
 
 // Rate limiting middleware
 const limiter = rateLimit({
@@ -34,6 +34,27 @@ const limiter = rateLimit({
   keyGenerator: (req) => req.headers['x-api-key'] || req.ip,
   message: 'Too many requests, please try again later.'
 });
+
+/**
+ * Retries an operation with exponential backoff.
+ * @param {Function} operation - The async operation to retry.
+ * @param {number} maxAttempts - Maximum number of attempts.
+ * @param {number} delayMs - Delay between attempts in milliseconds.
+ * @returns {Promise<any>} The result of the operation.
+ */
+async function withRetry(operation, maxAttempts = 3, delayMs = 1000) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (e) {
+      if (attempt === maxAttempts) {
+        throw e;
+      }
+      logger.warn(`Attempt ${attempt} failed: ${e.message}. Retrying after ${delayMs}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+}
 
 async function verifyHmacSignature(payload, signature, secret) {
   const hmac = crypto.createHmac('sha256', secret);
@@ -44,9 +65,11 @@ async function verifyHmacSignature(payload, signature, secret) {
 
 async function verifyApiKey(apiKey) {
   try {
-    const result = await query(
-      `SELECT active, expires_at FROM api_keys WHERE api_key = $1`,
-      [apiKey]
+    const result = await withRetry(() =>
+      query(
+        `SELECT active, expires_at FROM api_keys WHERE api_key = $1`,
+        [apiKey]
+      )
     );
     if (result.rows.length === 0) {
       logger.warn(`Invalid API key: ${apiKey}`);
@@ -60,6 +83,7 @@ async function verifyApiKey(apiKey) {
     return true;
   } catch (error) {
     logger.error(`Error verifying API key: ${error.message}`, { stack: error.stack });
+    console.error(`Error verifying API key: ${error.message}`);
     return false;
   }
 }
@@ -67,71 +91,52 @@ async function verifyApiKey(apiKey) {
 async function checkAdminStatus(uid) {
   if (!uid) return false;
   try {
-    const result = await query(
-      `SELECT is_admin FROM admins WHERE uid = $1`,
-      [uid]
+    const result = await withRetry(() =>
+      query(
+        `SELECT is_admin FROM admins WHERE uid = $1`,
+        [uid]
+      )
     );
     return result.rows.length > 0 && result.rows[0].is_admin === true;
   } catch (error) {
     logger.error(`Error checking admin status for user ${uid}: ${error.message}`);
+    console.error(`Error checking admin status: ${error.message}`);
     return false;
   }
 }
 
-async function saveWalletAnalysis(analysis) {
-  try {
-    await query(
-      `INSERT INTO wallet_analysis (wallet, is_deposit, deposit_confidence_percentage, nametag, image, reason, metrics, gemini_analysis, last_analysis)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       ON CONFLICT (wallet) DO UPDATE SET
-         is_deposit = EXCLUDED.is_deposit,
-         deposit_confidence_percentage = EXCLUDED.deposit_confidence_percentage,
-         nametag = EXCLUDED.nametag,
-         image = EXCLUDED.image,
-         reason = EXCLUDED.reason,
-         metrics = EXCLUDED.metrics,
-         gemini_analysis = EXCLUDED.gemini_analysis,
-         last_analysis = EXCLUDED.last_analysis`,
-      [
-        analysis.wallet,
-        analysis.is_deposit,
-        analysis.deposit_confidence_percentage,
-        analysis.nametag,
-        analysis.image,
-        analysis.reason,
-        analysis.metrics,
-        analysis.gemini_analysis,
-        new Date(analysis.lastAnalysis)
-      ]
-    );
-    logger.info(`Saved wallet analysis for ${analysis.wallet} to PostgreSQL.`);
-  } catch (error) {
-    logger.error(`Error saving wallet analysis for ${analysis.wallet}: ${error.message}`, { stack: error.stack });
-  }
-}
-
 async function saveLargeFlow(data) {
+  if (!data.large_flows || data.large_flows.length === 0) {
+    logger.info(`No large flows to save for ${data.source_wallet_scanned}.`);
+    return;
+  }
   try {
-    for (const flow of data.large_flows) {
-      await query(
-        `INSERT INTO large_flows (source_wallet_scanned, from_address, to_address, value_usd, tx_hash, block_time, from_nametag, to_nametag, timestamp_recorded)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [
-          data.source_wallet_scanned,
-          flow.from,
-          flow.to,
-          flow.value_usd,
-          flow.tx_hash,
-          new Date(flow.block_time),
-          flow.from_nametag || 'Unknown',
-          flow.to_nametag || 'Unknown',
-          new Date()
-        ]
-      );
-    }
+    const values = data.large_flows.map(flow => [
+      data.source_wallet_scanned || 'N/A',
+      flow.from,
+      flow.to,
+      flow.value_usd,
+      flow.tx_hash,
+      new Date(flow.block_time),
+      flow.from_nametag || 'Unknown',
+      flow.to_nametag || 'Unknown',
+      new Date()
+    ]);
+    const placeholders = values.map((_, i) =>
+      `(${values.map((_, j) => `$${i * 9 + j + 1}`).join(', ')})`
+    ).join(', ');
+    const queryText = `
+      INSERT INTO large_flows (source_wallet_scanned, from_address, to_address, value_usd, tx_hash, block_time, from_nametag, to_nametag, timestamp_recorded)
+      VALUES ${placeholders}
+    `;
+    await withRetry(() =>
+      query(queryText, values.flat())
+    );
     logger.info(`Saved ${data.large_flows.length} large flows for ${data.source_wallet_scanned} to PostgreSQL.`);
+    console.log(`Saved ${data.large_flows.length} large flows for ${data.source_wallet_scanned}`);
   } catch (error) {
     logger.error(`Error saving large flows for ${data.source_wallet_scanned}: ${error.message}`, { stack: error.stack });
+    console.error(`Error saving large flows: ${error.message}`);
   }
 }
 
@@ -139,11 +144,8 @@ async function readWalletFile() {
   try {
     logger.info(`Attempting to read wallet file at: ${WALLET_FILE_PATH}`);
     const absolutePath = path.resolve(WALLET_FILE_PATH);
-    logger.info(`Resolved absolute path: ${absolutePath}`);
     await fs.access(absolutePath, fs.constants.F_OK);
-    logger.info(`File exists at: ${absolutePath}`);
     const fileContent = await fs.readFile(absolutePath, 'utf-8');
-    logger.info(`Raw wallet file content: ${fileContent}`);
     const wallets = JSON.parse(fileContent);
     const validWallets = wallets
       .filter(wallet => isAddress(wallet.address))
@@ -152,9 +154,11 @@ async function readWalletFile() {
         name: wallet.name || 'Unknown'
       }));
     logger.info(`Loaded ${validWallets.length} valid wallets: ${JSON.stringify(validWallets)}`);
+    console.log(`Loaded wallets: ${JSON.stringify(validWallets)}`);
     return validWallets;
   } catch (error) {
     logger.error(`Error reading wallet file ${WALLET_FILE_PATH}: ${error.message}`, { stack: error.stack });
+    console.error(`Error reading wallet file: ${error.message}`);
     return [];
   }
 }
@@ -208,6 +212,7 @@ Provide a concise analysis (50-100 words) in Markdown to confirm if this is a de
     return response.data.answer;
   } catch (e) {
     logger.error(`Error fetching Gemini analysis for ${walletAddress}: ${e.message}`, { stack: e.stack, response: e.response?.data });
+    console.error(`Error fetching Gemini analysis for ${walletAddress}: ${e.message}`);
     return 'Unable to fetch Gemini analysis.';
   }
 }
@@ -216,6 +221,14 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   if (!isAddress(walletAddress) || !isAddress(primaryTargetWallet)) {
     logger.error(`Invalid wallet address (${walletAddress}) or primary target wallet (${primaryTargetWallet}) provided for identifyDepositWallet.`);
     return null;
+  }
+  if (!VALID_CHAINS.includes(chain)) {
+    logger.error(`Invalid chain: ${chain}. Supported chains: ${VALID_CHAINS.join(', ')}`);
+    return null;
+  }
+  if (typeof currentEthPriceUsd !== 'number' || currentEthPriceUsd <= 0) {
+    logger.warn(`Invalid eth_price_usd: ${currentEthPriceUsd}. Using default: ${DEFAULT_ETH_PRICE_USD}`);
+    currentEthPriceUsd = DEFAULT_ETH_PRICE_USD;
   }
 
   const lowerWalletAddress = walletAddress.toLowerCase();
@@ -227,7 +240,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   let nametag = await getNametag(lowerWalletAddress) || 'Unknown';
 
   if (!txData || txData.length === 0) {
-    logger.info(`No transactions found for wallet ${lowerWalletAddress}. Skipping nametag assignment and PostgreSQL save.`);
+    logger.info(`No transactions found for wallet ${lowerWalletAddress}. Skipping nametag assignment.`);
     return {
       wallet: lowerWalletAddress,
       is_deposit: false,
@@ -284,7 +297,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   const totalOutgoingTxs = recentTxs30d.filter(tx => tx.from.toLowerCase() === lowerWalletAddress).length;
 
   if (outgoingToPrimaryTarget.length === 0) {
-    logger.info(`No outgoing transactions to primary wallet ${lowerPrimaryTargetWallet} for wallet ${lowerWalletAddress} in last 30 days. Skipping nametag assignment and PostgreSQL save.`);
+    logger.info(`No outgoing transactions to primary wallet ${lowerPrimaryTargetWallet} for wallet ${lowerWalletAddress} in last 30 days. Skipping nametag assignment.`);
     return {
       wallet: lowerWalletAddress,
       is_deposit: false,
@@ -370,7 +383,6 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     lastAnalysis: new Date().toISOString()
   };
 
-  // Check if the wallet is a deposit wallet and has outgoing transactions to the primary target wallet
   if (isDeposit && outgoingToPrimaryTarget.length > 0) {
     const primaryWallets = await readWalletFile();
     logger.info(`Looking for primary wallet ${lowerPrimaryTargetWallet} in ${JSON.stringify(primaryWallets.map(w => ({ address: w.address, name: w.name })))}`);
@@ -383,7 +395,13 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
         name: newNametagValue,
         description: `Automatically detected as a deposit wallet, but primary wallet ${lowerPrimaryTargetWallet} not found in wallets.json.`,
         subcategory: 'Exchange/Service',
-        image: newImage
+        image: newImage,
+        is_deposit: result.is_deposit,
+        deposit_confidence_percentage: result.deposit_confidence_percentage,
+        reason: result.reason,
+        metrics: result.metrics,
+        gemini_analysis: result.gemini_analysis,
+        last_analysis: result.lastAnalysis
       });
       result.nametag = newNametagValue;
       result.image = newImage;
@@ -396,14 +414,22 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
         name: newNametagValue,
         description: `Automatically detected as a deposit wallet sending to ${primaryWallet.name} wallet.`,
         subcategory: 'Exchange/Service',
-        image: newImage
+        image: newImage,
+        is_deposit: result.is_deposit,
+        deposit_confidence_percentage: result.deposit_confidence_percentage,
+        reason: result.reason,
+        metrics: result.metrics,
+        gemini_analysis: result.gemini_analysis,
+        last_analysis: result.lastAnalysis
       });
       result.nametag = newNametagValue;
       result.image = newImage;
     }
-    await saveWalletAnalysis(result);
+    logger.info(`Saved nametag and analysis data for ${lowerWalletAddress} to nametags table.`);
+    console.log(`Saved nametag for ${lowerWalletAddress}: ${JSON.stringify(result)}`);
   } else {
-    logger.info(`Wallet ${lowerWalletAddress} does not meet criteria (is_deposit: ${isDeposit}, outgoing_to_primary_target_30d: ${outgoingToPrimaryTarget.length}). Skipping nametag assignment and PostgreSQL save.`);
+    logger.info(`Wallet ${lowerWalletAddress} does not meet criteria (is_deposit: ${isDeposit}, outgoing_to_primary_target_30d: ${outgoingToPrimaryTarget.length}). Skipping nametag assignment.`);
+    console.log(`Skipped saving for ${lowerWalletAddress} (is_deposit: ${isDeposit}, outgoing_to_primary_target: ${outgoingToPrimaryTarget.length})`);
   }
 
   return result;
@@ -420,7 +446,6 @@ export default async function handler(req, res) {
     const apiKey = req.headers['x-api-key'];
     const internalApiToken = process.env.INTERNAL_API_TOKEN;
 
-    // Xác thực API key
     if (!apiKey || (apiKey !== internalApiToken && !(await verifyApiKey(apiKey)))) {
       logger.warn(`Unauthorized: Invalid or missing API key: ${apiKey}`);
       return res.status(401).json({ detail: 'Unauthorized: Invalid or missing API key.' });
@@ -461,8 +486,16 @@ export default async function handler(req, res) {
     const { action, wallet_address, chain = 'ethereum', primary_target_wallet, eth_price_usd } = req.body;
 
     try {
-      const currentEthPriceUsd = eth_price_usd || DEFAULT_ETH_PRICE_USD;
-      logger.info(`Using ETH price: $${currentEthPriceUsd} for API call.`);
+      if (!action) {
+        return res.status(400).json({ error: 'Action is required.' });
+      }
+      const currentEthPriceUsd = typeof eth_price_usd === 'number' && eth_price_usd > 0 ? eth_price_usd : DEFAULT_ETH_PRICE_USD;
+      if (eth_price_usd !== currentEthPriceUsd) {
+        logger.warn(`Invalid eth_price_usd: ${eth_price_usd}. Using default: ${currentEthPriceUsd}`);
+      }
+      if (!VALID_CHAINS.includes(chain)) {
+        return res.status(400).json({ error: `Invalid chain: ${chain}. Supported chains: ${VALID_CHAINS.join(', ')}` });
+      }
 
       if (action === 'identify') {
         if (!wallet_address) {
@@ -494,6 +527,7 @@ export default async function handler(req, res) {
             large_flows: largeFlowResult.large_flows
           });
           logger.info(`Saved ${largeFlowResult.large_flows.length} large flows for ${wallet_address}.`);
+          console.log(`Saved ${largeFlowResult.large_flows.length} large flows for ${wallet_address}`);
         } else {
           logger.info(`No large flows detected for ${wallet_address}.`);
         }
@@ -533,26 +567,21 @@ export default async function handler(req, res) {
       } else if (action === 'debug-wallets') {
         const wallets = await readWalletFile();
         return res.status(200).json({ wallets });
-      } else {
-        return res.status(400).json({ error: "Invalid action. Supported actions: 'identify', 'detect-large-flow', 'debug-wallets'." });
-      }
-    } catch (error) {
-      logger.error(`Error in analyze-wallets API for action '${action}': ${error.message}`, { stack: error.stack });
-      return res.status(500).json({ error: `An error occurred: ${error.message}` });
-    }
-
-    if (action === 'debug-wallet-file') {
-      try {
+      } else if (action === 'debug-wallet-file') {
         const absolutePath = path.resolve(process.env.WALLET_FILE_PATH);
         await fs.access(absolutePath, fs.constants.F_OK);
         const fileContent = await fs.readFile(absolutePath, 'utf-8');
         logger.info(`Debug: Successfully read wallet file at ${absolutePath}. Content length: ${fileContent.length}`);
+        console.log(`Debug: Wallet file path ${absolutePath}, content length: ${fileContent.length}`);
         const wallets = await readWalletFile();
         return res.status(200).json({ path: absolutePath, wallets });
-      } catch (error) {
-        logger.error(`Debug: Failed to read wallet file at ${process.env.WALLET_FILE_PATH}: ${error.message}`, { stack: error.stack });
-        return res.status(500).json({ error: `Failed to read wallet file: ${error.message}` });
+      } else {
+        return res.status(400).json({ error: `Invalid action: ${action}. Supported actions: 'identify', 'detect-large-flow', 'get-transactions', 'debug-wallets', 'debug-wallet-file'.` });
       }
+    } catch (error) {
+      logger.error(`Error in analyze-wallets API for action '${action}': ${error.message}`, { stack: error.stack });
+      console.error(`Error in analyze-wallets API for action '${action}': ${error.message}`);
+      return res.status(500).json({ error: `An error occurred: ${error.message}` });
     }
   });
 }

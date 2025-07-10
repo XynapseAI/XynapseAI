@@ -1,10 +1,9 @@
-// pages/api/tasks.js
-import { db } from '../../utils/firebaseAdmin.js';
+import { query } from '../../utils/postgres.js';
 import winston from 'winston';
 
 const logger = winston.createLogger({
   level: 'info',
-  format: winston.format.json(),
+  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [
     new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
     new winston.transports.File({ filename: 'logs/combined.log' }),
@@ -18,19 +17,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const tasksSnapshot = await db.collection('tasks').orderBy('points', 'asc').get();
-    if (tasksSnapshot.empty) {
-      logger.info('No tasks found in Firestore');
-      return res.status(200).json({ success: true, tasks: [] });
-    }
-    const tasks = tasksSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-      description: doc.data().description || 'No description available',
-      points: doc.data().points || 0,
-      isDaily: doc.data().isDaily || false,
-      maxCompletions: doc.data().maxCompletions || 1,
+    const tasksResult = await query(
+      `SELECT id, description, points, is_daily, max_completions
+       FROM tasks
+       ORDER BY points ASC`
+    );
+    const tasks = tasksResult.rows.map(row => ({
+      id: row.id,
+      description: row.description || 'No description available',
+      points: row.points || 0,
+      isDaily: row.is_daily || false,
+      maxCompletions: row.max_completions || 1,
     }));
+
     logger.info(`Fetched ${tasks.length} tasks`);
     return res.status(200).json({ success: true, tasks });
   } catch (error) {

@@ -1,15 +1,15 @@
-import { db } from '../../utils/firebaseAdmin.js';
+import { query } from '../../utils/postgres.js';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
 import rateLimit from 'express-rate-limit';
-import { query, validationResult } from 'express-validator';
+import { query as expressQuery, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
 
 const logger = winston.createLogger({
   level: 'info',
-  format: winston.format.json(),
+  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [
     new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
     new winston.transports.File({ filename: 'logs/combined.log' }),
@@ -23,12 +23,12 @@ const limiter = rateLimit({
 });
 
 const validateGet = [
-  query('uid').isString().isLength({ max: 100 }).withMessage('Invalid UID'),
+  expressQuery('uid').isString().isLength({ max: 100 }).withMessage('Invalid UID'),
 ];
 
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}, query: ${JSON.stringify(req.query)}`);
 
   if (req.method !== 'GET') {
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
 
   const session = await getServerSession(req, res, authOptions);
   if (!session || !session.user?.id) {
-    logger.warn('Session not authenticated or missing user ID', { session }); // Sửa lỗi cú pháp
+    logger.warn('Session not authenticated or missing user ID', { session });
     return res.status(401).json({ detail: 'Unauthorized: Please log in.' });
   }
 
@@ -79,51 +79,22 @@ export default async function handler(req, res) {
       return res.status(403).json({ detail: 'Access denied: Invalid UID' });
     }
 
-    const historyQuery = db
-      .collection('dailyAIInteractions')
-      .where('userId', '==', uid)
-      .orderBy('timestamp', 'desc')
-      .limit(10);
+    const historyResult = await query(
+      `SELECT date, interaction_type, count, points
+       FROM daily_ai_interactions
+       WHERE uid = $1
+       ORDER BY date DESC
+       LIMIT 10`,
+      [uid]
+    );
 
-    logger.info(`Executing Firestore query for dailyAIInteractions with userId: ${uid}`);
-
-    let historySnapshot;
-    try {
-      historySnapshot = await historyQuery.get();
-    } catch (queryError) {
-      logger.error(`Firestore query failed: ${queryError.message}`, {
-        stack: queryError.stack,
-        code: queryError.code,
-      });
-      if (queryError.code === 'failed-precondition') {
-        return res.status(500).json({ detail: 'Firestore index missing. Please contact support.' });
-      }
-      throw queryError;
-    }
-
-    if (!historySnapshot.empty) {
-      const firstDoc = historySnapshot.docs[0].data();
-      logger.info(`dailyAIInteractions schema: ${JSON.stringify(Object.keys(firstDoc))}`);
-    } else {
-      logger.info(`No point history found for user: ${uid}`);
-    }
-
-    const history = historySnapshot.empty
-      ? []
-      : historySnapshot.docs.map((doc) => {
-          const data = doc.data();
-          if (!data.timestamp || typeof data.points !== 'number') {
-            logger.warn(`Invalid document schema for doc ${doc.id}: ${JSON.stringify(data)}`);
-            return null;
-          }
-          return {
-            date: data.timestamp.toDate().toISOString().split('T')[0],
-            tweetPoints: 0, // Not used in schema
-            aiPoints: data.points || 0,
-            taskPoints: 0, // Not used in schema
-            totalPoints: data.points || 0,
-          };
-        }).filter(item => item !== null);
+    const history = historyResult.rows.map(row => ({
+      date: row.date.toISOString().split('T')[0],
+      tweetPoints: 0, // Không dùng trong schema
+      aiPoints: row.points || 0,
+      taskPoints: 0, // Không dùng trong schema
+      totalPoints: row.points || 0,
+    }));
 
     logger.info(`Fetched ${history.length} point history entries for user: ${uid}`);
     return res.status(200).json({ success: true, history });

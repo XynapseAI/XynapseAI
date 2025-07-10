@@ -8,6 +8,7 @@ let logger;
 if (typeof window === 'undefined') {
   const logsDir = path.join(process.cwd(), 'logs');
 
+  // Tạo thư mục logs nếu chưa tồn tại
   if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
   }
@@ -15,8 +16,13 @@ if (typeof window === 'undefined') {
   logger = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
-      winston.format.timestamp(),
-      winston.format.json()
+      winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+      winston.format.errors({ stack: true }), // Ghi stack trace cho lỗi
+      winston.format.printf(({ level, message, timestamp, stack }) => {
+        return stack
+          ? `${timestamp} [${level.toUpperCase()}]: ${message} - ${stack}`
+          : `${timestamp} [${level.toUpperCase()}]: ${message}`;
+      })
     ),
     transports: [
       new winston.transports.File({
@@ -28,15 +34,18 @@ if (typeof window === 'undefined') {
       }),
       new winston.transports.Console({
         format: winston.format.combine(
-          winston.format.colorize(),
-          winston.format.simple() 
-        )
+          winston.format.colorize(), // Màu sắc cho console
+          winston.format.simple() // Định dạng đơn giản cho console
+        ),
       }),
     ],
   });
 
+  // Test log để xác nhận logger hoạt động
+  logger.info('Logger initialized successfully');
+  console.log('Logger initialized successfully');
 } else {
-  // Giữ nguyên logic cho browser
+  // Logic cho browser
   logger = {
     info: (...args) => console.log('[INFO]', ...args),
     warn: (...args) => console.warn('[WARN]', ...args),

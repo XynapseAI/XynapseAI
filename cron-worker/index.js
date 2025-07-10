@@ -1,7 +1,8 @@
 // cron-worker/index.js
+console.log('Starting cron-worker/index.js at:', new Date().toISOString());
 import 'dotenv/config';
 import { getHighVolumeWallets } from '../lib/analysisStorage.js';
-import { loadAllNametags } from '../lib/nametags.js'; // Still imported but not called with force reload
+import { loadAllNametags } from '../lib/nametags.js';
 import pkg from '../utils/logger.cjs';
 import { query } from '../utils/postgres.js';
 import axios from 'axios';
@@ -12,17 +13,22 @@ import path from 'path';
 import crypto from 'crypto';
 
 const { logger } = pkg;
-const ANALYZE_WALLETS_API_URL = process.env.ANALYZE_WALLETS_API_URL || (process.env.NEXTAUTH_URL + '/api/analyze-wallets');
+const ANALYZE_WALLETS_API_URL = process.env.ANALYZE_WALLETS_API_URL || (process.env.NEXTAUTH_URL || 'http://localhost:3000') + '/api/analyze-wallets';
 const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH
   ? path.resolve(process.env.WALLET_FILE_PATH)
   : path.resolve(process.cwd(), 'cron-worker/wallets.json');
 const MAX_WALLETS_PER_RUN = 200;
 const DEFAULT_ETH_PRICE_USD = 2000;
-const PRICE_CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
-const API_KEY_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+const PRICE_CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
+const API_KEY_DURATION_MS = 24 * 60 * 60 * 1000;
 const CRON_USER_AGENT = 'CronWorker/1.0';
 const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
 const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN;
+
+if (!INTERNAL_API_TOKEN) {
+  logger.error('INTERNAL_API_TOKEN is not defined in .env');
+  process.exit(1);
+}
 
 async function generateApiKey() {
   try {
@@ -55,8 +61,9 @@ async function getValidApiKey() {
       return apiKey;
     }
 
-    logger.info('No valid API key found, generating new one...');
-    return await generateApiKey() || INTERNAL_API_TOKEN;
+    logger.info('No valid API key found, generating new one');
+    const newApiKey = await generateApiKey();
+    return newApiKey || INTERNAL_API_TOKEN || null;
   } catch (error) {
     logger.error(`Error getting valid API key: ${error.message}`, { stack: error.stack });
     return INTERNAL_API_TOKEN || null;
@@ -71,7 +78,7 @@ function generateHmacSignature(payload, secret) {
 
 async function readWalletFile() {
   try {
-    logger.info(`Attempting to read wallet file at: ${WALLET_FILE_PATH}`);
+    logger.info(`Reading wallet file at: ${WALLET_FILE_PATH}`);
     const absolutePath = path.resolve(WALLET_FILE_PATH);
     await fs.access(absolutePath, fs.constants.F_OK);
     const fileContent = await fs.readFile(absolutePath, 'utf-8');
@@ -80,25 +87,20 @@ async function readWalletFile() {
       wallets = JSON.parse(fileContent);
     } else if (WALLET_FILE_PATH.endsWith('.csv')) {
       const lines = fileContent.trim().split('\n');
-      const headers = lines[0].split(',');
       wallets = lines.slice(1).map(line => {
         const [address, name] = line.split(',');
         return { address, name };
       });
     } else {
-      throw new Error('Unsupported file format. Use JSON or CSV.');
+      throw new Error('Unsupported wallet file format. Use JSON or CSV');
     }
     const validWallets = wallets
-      .filter(wallet => isAddress(wallet.address))
+      .filter(wallet => wallet && isAddress(wallet.address))
       .map(wallet => ({
         address: wallet.address.toLowerCase(),
-        name: wallet.name || 'Unknown'
+        name: wallet.name || 'Unknown',
       }));
-    if (validWallets.length === 0) {
-      logger.warn('No valid wallet addresses found in the file.');
-    } else {
-      logger.info(`Loaded ${validWallets.length} valid wallet addresses from ${WALLET_FILE_PATH}: ${validWallets.map(w => w.address).join(', ')}`);
-    }
+    logger.info(`Loaded ${validWallets.length} valid wallet addresses: ${validWallets.map(w => w.address).join(', ')}`);
     return validWallets;
   } catch (error) {
     logger.error(`Error reading wallet file ${WALLET_FILE_PATH}: ${error.message}`, { stack: error.stack });
@@ -111,56 +113,58 @@ async function findDepositWallets(primaryWallets, chain = 'ethereum', txLimit = 
   const now = new Date();
   const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  for (const primaryWallet of primaryWallets) {
-    logger.info(`Fetching transactions for primary wallet ${primaryWallet.address} (${primaryWallet.name}) to find deposit wallets...`);
-    const txData = await fetchBlockchainData(primaryWallet.address, 'transactions', true, txLimit, chain);
+  for (const primaryWallet of primaryWallets.slice(0, 50)) {
+    logger.info(`Fetching transactions for wallet ${primaryWallet.address} (${primaryWallet.name})`);
+    const txData = await fetchBlockchainData(primaryWallet.address.toLowerCase(), 'transactions', true, txLimit, chain);
     if (!txData || txData.length === 0) {
-      logger.info(`No transactions found for primary wallet ${primaryWallet.address}.`);
+      logger.info(`No transactions found for wallet ${primaryWallet.address}`);
       continue;
     }
 
-    const recentIncomingTxs = txData.filter(tx => {
-      try {
-        return tx.to.toLowerCase() === primaryWallet.address.toLowerCase() && new Date(tx.block_time) >= last24Hours;
-      } catch {
-        logger.warn(`Invalid block_time for tx in wallet ${primaryWallet.address}: ${tx.block_time}. Skipping.`);
-        return false;
-      }
-    });
+    const recentIncomingTxs = txData
+      .filter(tx => {
+        try {
+          return tx.to.toLowerCase() === primaryWallet.address.toLowerCase() && new Date(tx.block_time) >= last24Hours;
+        } catch {
+          logger.warn(`Invalid block_time for tx in wallet ${primaryWallet.address}: ${tx.block_time}`);
+          return false;
+        }
+      })
+      .slice(0, 100);
 
     recentIncomingTxs.forEach(tx => {
       if (isAddress(tx.from)) {
         depositWallets.push({
           address: tx.from.toLowerCase(),
           primaryWallet: primaryWallet.address.toLowerCase(),
-          primaryWalletName: primaryWallet.name
+          primaryWalletName: primaryWallet.name,
         });
       }
     });
-    logger.info(`Found ${recentIncomingTxs.length} incoming transactions within last 24 hours for ${primaryWallet.address}, added ${recentIncomingTxs.length} deposit wallets.`);
+    logger.info(`Found ${recentIncomingTxs.length} incoming transactions for ${primaryWallet.address}`);
   }
 
   const uniqueDepositWallets = Array.from(new Map(depositWallets.map(w => [w.address, w])).values());
-  logger.info(`Total unique deposit wallets found: ${uniqueDepositWallets.length}`);
+  logger.info(`Found ${uniqueDepositWallets.length} unique deposit wallets`);
   return uniqueDepositWallets;
 }
 
 async function getPendingWallets() {
   try {
     const result = await query(
-      `SELECT address, primary_wallet, primary_wallet_name, timestamp
+      `SELECT address, primary_wallet, primary_wallet_name
        FROM pending_wallets_to_analyze
        ORDER BY timestamp ASC`
     );
     const pendingWallets = result.rows.map(row => ({
       address: row.address.toLowerCase(),
       primaryWallet: row.primary_wallet.toLowerCase(),
-      primaryWalletName: row.primary_wallet_name
+      primaryWalletName: row.primary_wallet_name || 'Unknown',
     }));
-    logger.info(`Loaded ${pendingWallets.length} pending wallets from PostgreSQL.`);
+    logger.info(`Loaded ${pendingWallets.length} pending wallets from PostgreSQL`);
     return pendingWallets;
   } catch (error) {
-    logger.error(`Error fetching pending wallets from PostgreSQL: ${error.message}`, { stack: error.stack });
+    logger.error(`Error fetching pending wallets: ${error.message}`, { stack: error.stack });
     return [];
   }
 }
@@ -172,12 +176,17 @@ async function savePendingWallets(wallets) {
         `INSERT INTO pending_wallets_to_analyze (address, primary_wallet, primary_wallet_name, timestamp)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (address) DO NOTHING`,
-        [wallet.address, wallet.primaryWallet, wallet.primaryWalletName, new Date()]
+        [
+          wallet.address.toLowerCase(),
+          wallet.primaryWallet.toLowerCase(),
+          wallet.primaryWalletName || 'Unknown',
+          new Date(),
+        ]
       );
     }
-    logger.info(`Saved ${wallets.length} pending wallets to PostgreSQL.`);
+    logger.info(`Saved ${wallets.length} pending wallets to PostgreSQL`);
   } catch (error) {
-    logger.error(`Error saving pending wallets to PostgreSQL: ${error.message}`, { stack: error.stack });
+    logger.error(`Error saving pending wallets: ${error.message}`, { stack: error.stack });
   }
 }
 
@@ -187,16 +196,17 @@ async function deletePendingWallet(address) {
       `DELETE FROM pending_wallets_to_analyze WHERE address = $1`,
       [address.toLowerCase()]
     );
-    logger.info(`Deleted pending wallet ${address} from PostgreSQL.`);
+    logger.info(`Deleted pending wallet ${address} from PostgreSQL`);
   } catch (error) {
-    logger.error(`Error deleting pending wallet ${address} from PostgreSQL: ${error.message}`, { stack: error.stack });
+    logger.error(`Error deleting pending wallet ${address}: ${error.message}`, { stack: error.stack });
   }
 }
 
 async function getEthPrice() {
   try {
     const result = await query(
-      `SELECT price, timestamp FROM eth_price WHERE id = 'current'`
+      `SELECT price, timestamp FROM eth_price WHERE id = $1`,
+      ['current']
     );
     const now = Date.now();
     if (result.rows.length > 0) {
@@ -207,91 +217,93 @@ async function getEthPrice() {
       }
     }
 
-    logger.info('Fetching ETH price from CoinGecko...');
+    logger.info('Fetching ETH price from CoinGecko');
     const priceResponse = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd', {
       headers: { 'x-cg-api-key': process.env.COINGECKO_API_KEY },
-      timeout: 10000
+      timeout: 5000,
     });
     const newPrice = priceResponse.data.ethereum.usd;
     await query(
       `INSERT INTO eth_price (id, price, timestamp)
        VALUES ($1, $2, $3)
-       ON CONFLICT (id) DO UPDATE SET
-         price = EXCLUDED.price,
-         timestamp = EXCLUDED.timestamp`,
+       ON CONFLICT (id) DO UPDATE
+       SET price = EXCLUDED.price,
+           timestamp = EXCLUDED.timestamp`,
       ['current', newPrice, new Date()]
     );
     logger.info(`Fetched and cached ETH price: $${newPrice}`);
     return newPrice;
   } catch (error) {
-    logger.warn(`Failed to fetch or save ETH price: ${error.message}. Using default: $${DEFAULT_ETH_PRICE_USD}`);
+    logger.warn(`Failed to fetch ETH price: ${error.message}. Using default: $${DEFAULT_ETH_PRICE_USD}`);
     return DEFAULT_ETH_PRICE_USD;
   }
 }
 
-async function withRetry(operation, maxAttempts = 3, delayMs = 1000) {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+async function withRetry(operation, maxRetries = 3, baseDelayMs = 1000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await operation();
-    } catch (e) {
-      if (attempt === maxAttempts) {
-        throw e;
+    } catch (error) {
+      if (attempt === maxRetries) {
+        throw error;
       }
-      logger.warn(`Attempt ${attempt} failed: ${e.message}. Retrying after ${delayMs}ms...`);
+      const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
+      logger.warn(`Attempt ${attempt} failed: ${error.message}. Retrying in ${delayMs}ms`);
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
 }
 
 async function runHighVolumeWalletAnalysis() {
-  logger.info('Cron job started at: ' + new Date().toISOString());
-  logger.info(`Environment variables - ANALYZE_WALLETS_API_URL: ${ANALYZE_WALLETS_API_URL}, WALLET_FILE_PATH: ${WALLET_FILE_PATH}`);
+  logger.info(`Cron job started at: ${new Date().toISOString()}`);
+  logger.info(`Environment: ANALYZE_WALLETS_API_URL=${ANALYZE_WALLETS_API_URL}, WALLET_FILE_PATH=${WALLET_FILE_PATH}`);
 
-  if (!ANALYZE_WALLETS_API_URL) {
-    logger.error('Missing environment variable: ANALYZE_WALLETS_API_URL or NEXTAUTH_URL');
+  // Kiểm tra file wallets.json
+  try {
+    await fs.access(WALLET_FILE_PATH, fs.constants.F_OK);
+    logger.info(`Wallet file exists at: ${WALLET_FILE_PATH}`);
+  } catch (error) {
+    logger.error(`Wallet file not found at ${WALLET_FILE_PATH}: ${error.message}`);
+    return;
+  }
+
+  if (!ANALYZE_WALLETS_API_URL || ANALYZE_WALLETS_API_URL.includes('undefined')) {
+    logger.error('Invalid ANALYZE_WALLETS_API_URL. Set NEXTAUTH_URL or ANALYZE_WALLETS_API_URL in .env');
     return;
   }
 
   try {
-    // Step 1: Removed automatic nametag loading
-    logger.info('Skipping automatic nametag loading. Using existing nametags in PostgreSQL.');
+    logger.info('Skipping nametag auto-loading. Using existing nametags in PostgreSQL');
 
-    // Step 2: Get or create API key
     const apiKey = await getValidApiKey();
     if (!apiKey) {
-      logger.error('Failed to get or generate API key. Aborting cron job.');
+      logger.error('Failed to retrieve or generate API key. Aborting job');
       return;
     }
     logger.info(`Using API key: ${apiKey}`);
 
-    // Step 3: Get ETH price
-    const currentEthPriceUsd = await getEthPrice();
-    logger.info(`Using ETH price $${currentEthPriceUsd} for all analyses.`);
+    const currentEthPrice = await getEthPrice();
+    logger.info(`Using ETH price: $${currentEthPrice}`);
 
-    // Step 4: Read wallets from file (Primary Wallets)
-    logger.info('Reading primary wallets from file...');
+    logger.info('Reading primary wallets from file');
     const primaryWallets = await readWalletFile();
     if (primaryWallets.length === 0) {
-      logger.warn('No primary wallets to analyze. Skipping to high-volume wallets.');
+      logger.warn('No primary wallets found. Skipping to high-volume wallets');
     }
 
-    // Step 5: Find and analyze Secondary Wallets (deposit wallets sending to primary wallets in last 24h)
     let walletsToAnalyze = [];
     if (primaryWallets.length > 0) {
-      logger.info('Finding deposit wallets (Secondary Wallets) sending to primary wallets...');
+      logger.info('Searching for deposit wallets sending to primary wallets');
       const depositWallets = await findDepositWallets(primaryWallets);
       const pendingWallets = await getPendingWallets();
 
-      // Combine new secondary wallets and unanalyzed secondary wallets
       const allDepositWallets = [...pendingWallets, ...depositWallets].filter(
         (v, i, a) => a.findIndex(t => t.address === v.address) === i
       );
 
-      // Select up to MAX_WALLETS_PER_RUN wallets for analysis
       walletsToAnalyze = allDepositWallets.slice(0, MAX_WALLETS_PER_RUN);
       const remainingWallets = allDepositWallets.slice(MAX_WALLETS_PER_RUN);
 
-      // Save unanalyzed wallets to PostgreSQL
       if (remainingWallets.length > 0) {
         await savePendingWallets(remainingWallets);
       }
@@ -299,144 +311,139 @@ async function runHighVolumeWalletAnalysis() {
       logger.info(`Selected ${walletsToAnalyze.length} deposit wallets to analyze: ${walletsToAnalyze.map(w => w.address).join(', ')}`);
     }
 
-    // Step 6: Analyze Secondary Wallets
     if (walletsToAnalyze.length > 0) {
-      logger.info('Triggering analysis for deposit wallets (Secondary Wallets)...');
+      logger.info('Initiating analysis for deposit wallets');
       for (const wallet of walletsToAnalyze) {
         try {
           const identifyPayload = {
             action: 'identify',
-            wallet_address: wallet.address,
+            wallet_address: wallet.address.toLowerCase(),
             chain: 'ethereum',
-            primary_target_wallet: wallet.primaryWallet,
-            eth_price_usd: currentEthPriceUsd
+            primary_target_wallet: wallet.primaryWallet.toLowerCase(),
+            eth_price_usd: currentEthPrice,
           };
           const identifySignature = generateHmacSignature(identifyPayload, HMAC_SECRET);
 
-          logger.info(`Sending identify request for deposit wallet: ${wallet.address} (to ${wallet.primaryWalletName})`);
+          logger.info(`Sending identify request for wallet ${wallet.address} (to ${wallet.primaryWalletName})`);
           const identifyResponse = await withRetry(() =>
             axios.post(ANALYZE_WALLETS_API_URL, identifyPayload, {
               headers: {
                 'Content-Type': 'application/json',
                 'X-API-Key': apiKey,
                 'X-HMAC-Signature': identifySignature,
-                'User-Agent': CRON_USER_AGENT
+                'User-Agent': CRON_USER_AGENT,
               },
-              timeout: 120000
+              timeout: 60000, // Tăng timeout
             })
           );
-          logger.info(`Identify response for deposit wallet ${wallet.address}: ${JSON.stringify(identifyResponse.data)}`);
+          logger.info(`Identify response for wallet ${wallet.address}: ${JSON.stringify(identifyResponse.data)}`);
 
           const largeFlowPayload = {
             action: 'detect-large-flow',
-            wallet_address: wallet.address,
+            wallet_address: wallet.address.toLowerCase(),
             chain: 'ethereum',
-            eth_price_usd: currentEthPriceUsd
+            eth_price_usd: currentEthPrice,
           };
           const largeFlowSignature = generateHmacSignature(largeFlowPayload, HMAC_SECRET);
 
-          logger.info(`Sending detect-large-flow request for deposit wallet: ${wallet.address}`);
+          logger.info(`Sending detect-large-flow request for wallet ${wallet.address}`);
           const largeFlowResponse = await withRetry(() =>
             axios.post(ANALYZE_WALLETS_API_URL, largeFlowPayload, {
               headers: {
                 'Content-Type': 'application/json',
                 'X-API-Key': apiKey,
                 'X-HMAC-Signature': largeFlowSignature,
-                'User-Agent': CRON_USER_AGENT
+                'User-Agent': CRON_USER_AGENT,
               },
-              timeout: 120000
+              timeout: 60000,
             })
           );
-          logger.info(`Large flow response for deposit wallet ${wallet.address}: ${JSON.stringify(largeFlowResponse.data)}`);
+          logger.info(`Large flow response for wallet ${wallet.address}: ${JSON.stringify(largeFlowResponse.data)}`);
 
-          // Remove wallet from pending_wallets_to_analyze after analysis
           await deletePendingWallet(wallet.address);
         } catch (apiError) {
-          logger.error(`Error analyzing deposit wallet ${wallet.address}: ${apiError.message}`, { stack: apiError.stack });
+          logger.error(`Error analyzing wallet ${wallet.address}: ${apiError.message}`, { stack: apiError.stack });
           if (apiError.response) {
-            logger.error(`Response details: ${JSON.stringify(apiError.response.data)}`);
+            logger.error(`Response error: ${JSON.stringify(apiError.response.data)}`);
           }
         }
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     } else {
-      logger.info('No deposit wallets to analyze. Proceeding to high-volume wallets.');
+      logger.info('No deposit wallets to analyze. Moving to high-volume wallets');
     }
 
-    // Step 7: Analyze high-volume wallets
-    logger.info('Fetching high-volume wallets...');
-    const highVolumeWallets = await getHighVolumeWallets(
-      'ethereum', 200, 500, 20, 1000, 50
-    );
+    logger.info('Retrieving high-volume wallets');
+    const highVolumeWallets = await getHighVolumeWallets('ethereum', 200, 100, 50, 500, 50);
     if (highVolumeWallets.length === 0) {
-      logger.warn('No high-volume wallets found.');
+      logger.warn('No high-volume wallets found');
     } else {
       logger.info(`Found ${highVolumeWallets.length} high-volume wallets: ${highVolumeWallets.join(', ')}`);
     }
 
-    logger.info('Triggering wallet analysis for high-volume wallets...');
+    logger.info('Initiating analysis for high-volume wallets');
     for (const wallet of highVolumeWallets) {
       try {
         const identifyPayload = {
           action: 'identify',
-          wallet_address: wallet,
+          wallet_address: wallet.toLowerCase(),
           chain: 'ethereum',
-          primary_target_wallet: wallet,
-          eth_price_usd: currentEthPriceUsd
+          primary_target_wallet: wallet.toLowerCase(),
+          eth_price_usd: currentEthPrice,
         };
         const identifySignature = generateHmacSignature(identifyPayload, HMAC_SECRET);
 
-        logger.info(`Sending identify request for high-volume wallet: ${wallet}`);
+        logger.info(`Sending identify request for high-volume wallet ${wallet}`);
         const identifyResponse = await withRetry(() =>
           axios.post(ANALYZE_WALLETS_API_URL, identifyPayload, {
             headers: {
               'Content-Type': 'application/json',
               'X-API-Key': apiKey,
               'X-HMAC-Signature': identifySignature,
-              'User-Agent': CRON_USER_AGENT
+              'User-Agent': CRON_USER_AGENT,
             },
-            timeout: 120000
+            timeout: 60000,
           })
         );
         logger.info(`Identify response for high-volume wallet ${wallet}: ${JSON.stringify(identifyResponse.data)}`);
 
         const largeFlowPayload = {
           action: 'detect-large-flow',
-          wallet_address: wallet,
+          wallet_address: wallet.toLowerCase(),
           chain: 'ethereum',
-          eth_price_usd: currentEthPriceUsd
+          eth_price_usd: currentEthPrice,
         };
         const largeFlowSignature = generateHmacSignature(largeFlowPayload, HMAC_SECRET);
 
-        logger.info(`Sending detect-large-flow request for high-volume wallet: ${wallet}`);
+        logger.info(`Sending detect-large-flow request for high-volume wallet ${wallet}`);
         const largeFlowResponse = await withRetry(() =>
           axios.post(ANALYZE_WALLETS_API_URL, largeFlowPayload, {
             headers: {
               'Content-Type': 'application/json',
               'X-API-Key': apiKey,
               'X-HMAC-Signature': largeFlowSignature,
-              'User-Agent': CRON_USER_AGENT
+              'User-Agent': CRON_USER_AGENT,
             },
-            timeout: 120000
+            timeout: 60000,
           })
         );
         logger.info(`Large flow response for high-volume wallet ${wallet}: ${JSON.stringify(largeFlowResponse.data)}`);
       } catch (apiError) {
         logger.error(`Error analyzing high-volume wallet ${wallet}: ${apiError.message}`, { stack: apiError.stack });
         if (apiError.response) {
-          logger.error(`Response details: ${JSON.stringify(apiError.response.data)}`);
+          logger.error(`Response error: ${JSON.stringify(apiError.response.data)}`);
         }
       }
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    logger.info('Cron job finished at: ' + new Date().toISOString());
+    logger.info(`Cron job finished at: ${new Date().toISOString()}`);
   } catch (error) {
-    logger.error(`Cron job failed: ${error.message}`, { stack: error.stack });
+    logger.error(`Cron job error: ${error.message}`, { stack: error.stack });
   }
 }
 
 runHighVolumeWalletAnalysis().catch(error => {
-  logger.error(`Cron job execution failed: ${error.message}`, { stack: error.stack });
+  logger.error(`Cron job failed: ${error.message}`, { stack: error.stack });
   process.exit(1);
 });

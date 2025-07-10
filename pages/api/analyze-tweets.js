@@ -1,19 +1,16 @@
-import { config as dotenvConfig } from 'dotenv';
-import { db } from '../../utils/firebaseAdmin.js';
+import { query } from '../../utils/postgres.js';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
-import axios from 'axios';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
-
-dotenvConfig({ path: '.env' });
+import axios from 'axios';
 
 const logger = winston.createLogger({
   level: 'info',
-  format: winston.format.json(),
+  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [
     new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
     new winston.transports.File({ filename: 'logs/combined.log' }),
@@ -27,8 +24,8 @@ const limiter = rateLimit({
 });
 
 const validate = [
-  body('uid').isString().isLength({ max: 100 }),
-  body('recaptchaToken').isString(),
+  body('uid').isString().isLength({ max: 100 }).withMessage('Invalid UID'),
+  body('recaptchaToken').isString().notEmpty().withMessage('reCAPTCHA token is required'),
 ];
 
 export const config = {
@@ -75,7 +72,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
     await verifyRecaptcha(recaptchaToken, 'analyze_tweets', ip);
   } catch (error) {
     logger.error(`reCAPTCHA verification failed: ${error.message}`);
@@ -83,15 +80,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const userRef = db.collection('users').doc(uid);
-    const userDoc = await userRef.get();
-    if (!userDoc.exists || !userDoc.data().twitterConnected) {
+    const userResult = await query(`SELECT twitter_handle, twitter_connected, points, tweet_points, ai_points, task_points FROM users WHERE id = $1`, [uid]);
+    if (userResult.rows.length === 0 || !userResult.rows[0].twitter_connected) {
       logger.warn(`Twitter account not connected: ${uid}`);
       return res.status(403).json({ detail: 'Twitter account not connected' });
     }
-    const user = userDoc.data();
+    const user = userResult.rows[0];
 
-    let twitterHandle = user.twitterHandle
+    let twitterHandle = user.twitter_handle
       .replace(/^@/, '')
       .replace(/[^A-Za-z0-9_]/g, '');
     if (!twitterHandle.match(/^[A-Za-z0-9_]{1,15}$/)) {
@@ -126,12 +122,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ detail: 'No tweets found' });
     }
 
-    let totalTweetPoints = user.tweetPoints || 0;
+    let totalTweetPoints = user.tweet_points || 0;
     const cryptoKeywords = ['crypto', 'blockchain', 'bitcoin', 'ethereum', 'web3', 'nft'];
 
-    const batch = db.batch();
     const tweetAnalyses = [];
-    tweetsResponse.data.data.forEach((tweet) => {
+    for (const tweet of tweetsResponse.data.data) {
       let points = 0;
       const text = tweet.text.toLowerCase();
       const length = tweet.text.length;
@@ -148,24 +143,26 @@ export default async function handler(req, res) {
 
       totalTweetPoints += points;
 
-      const analysisRef = db.collection('tweetAnalyses').doc(tweet.id);
-      batch.set(analysisRef, {
-        userId: uid,
-        tweetId: tweet.id,
-        text: tweet.text,
-        points,
-        createdAt: new Date(tweet.created_at),
-      });
+      await query(
+        `INSERT INTO tweet_analyses (id, user_id, tweet_id, text, points, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (id) DO NOTHING`,
+        [tweet.id, uid, tweet.id, tweet.text, points, new Date(tweet.created_at)]
+      );
+
       tweetAnalyses.push({ id: tweet.id, userId: uid, tweetId: tweet.id, text: tweet.text, points, createdAt: new Date(tweet.created_at) });
-    });
+    }
 
-    const totalPoints = totalTweetPoints + (user.aiPoints || 0) + (user.taskPoints || 0);
-    batch.update(userRef, {
-      tweetPoints: totalTweetPoints,
-      points: totalPoints,
-    });
+    const totalPoints = totalTweetPoints + (user.ai_points || 0) + (user.task_points || 0);
+    await query(
+      `UPDATE users SET
+         tweet_points = $1,
+         points = $2,
+         updated_at = $3
+       WHERE id = $4`,
+      [totalTweetPoints, totalPoints, new Date(), uid]
+    );
 
-    await batch.commit();
     return res.status(200).json({
       success: true,
       points: totalPoints,

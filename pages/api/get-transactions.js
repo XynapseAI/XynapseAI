@@ -39,38 +39,10 @@ async function getNametagsBatchWithAnalysis(addresses) {
   }
 
   try {
-    // Lấy nametags từ bảng nametags
+    // Chỉ lấy nametags từ bảng nametags
     const nametagsResult = await getNametagsBatch(uniqueAddresses);
+    console.log(`Nametags from getNametagsBatch: ${JSON.stringify(nametagsResult)}`);
     Object.assign(nametags, nametagsResult);
-
-    // Lấy nametags từ bảng wallet_analysis cho các địa chỉ chưa có nametag hợp lệ
-    const remainingAddresses = uniqueAddresses.filter(addr => !nametags[addr] || nametags[addr].name === 'Unknown');
-    if (remainingAddresses.length > 0) {
-      logger.info(`Fetching from wallet_analysis for ${remainingAddresses.length} remaining addresses: ${remainingAddresses.join(', ')}`);
-      const batchSize = 100;
-      for (let i = 0; i < remainingAddresses.length; i += batchSize) {
-        const batchAddresses = remainingAddresses.slice(i, i + batchSize);
-        const analysisResult = await query(
-          `SELECT wallet, nametag, image FROM wallet_analysis WHERE wallet = ANY($1)`,
-          [batchAddresses]
-        );
-        analysisResult.rows.forEach(row => {
-          const nametag = row.nametag || 'Unknown';
-          let image = row.image || '/icons/default.png';
-          if (nametag !== 'Unknown' && !image) {
-            const shortName = nametag.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-            image = `/icons/${shortName}.png`;
-          }
-          nametags[row.wallet.toLowerCase()] = {
-            address: row.wallet.toLowerCase(),
-            name: nametag,
-            image: image,
-            description: '',
-            subcategory: 'Others'
-          };
-        });
-      }
-    }
 
     // Gán mặc định cho các địa chỉ không tìm thấy
     uniqueAddresses.forEach(addr => {
@@ -89,6 +61,7 @@ async function getNametagsBatchWithAnalysis(addresses) {
     return nametags;
   } catch (error) {
     logger.error(`Error fetching nametags batch: ${error.message}`, { stack: error.stack });
+    console.error(`Error fetching nametags batch: ${error.message}`);
     return uniqueAddresses.reduce((acc, addr) => ({
       ...acc,
       [addr]: {

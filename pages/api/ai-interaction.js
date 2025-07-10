@@ -1,16 +1,13 @@
-// pages/api/ai-interaction.js
-import { config as dotenvConfig } from 'dotenv';
-import { db } from '../../utils/firebaseAdmin.js';
-import { requireAuth } from './middleware/auth.js';
+import { query } from '../../utils/postgres.js';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from './auth/[...nextauth].js';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
 import rateLimit from 'express-rate-limit';
-import { body, query, validationResult } from 'express-validator';
+import { body, query as expressQuery, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
 import { exec } from 'child_process';
 import util from 'util';
-
-dotenvConfig({ path: '.env' });
 
 const execPromise = util.promisify(exec);
 
@@ -46,9 +43,9 @@ const validatePost = [
 ];
 
 const validateGet = [
-  query('uid').isString().isLength({ max: 100 }).withMessage('Invalid UID'),
-  query('limit').optional().isInt({ min: 1, max: 20 }).withMessage('Limit must be 1-20'),
-  query('interactionType')
+  expressQuery('uid').isString().isLength({ max: 100 }).withMessage('Invalid UID'),
+  expressQuery('limit').optional().isInt({ min: 1, max: 20 }).withMessage('Limit must be 1-20'),
+  expressQuery('interactionType')
     .isString()
     .isIn(['chat', 'market', 'analyze-deposit', 'detect-large-flow'])
     .optional()
@@ -65,7 +62,7 @@ export const config = {
 
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
 
   try {
     await new Promise((resolve, reject) => {
@@ -76,17 +73,13 @@ export default async function handler(req, res) {
     return res.status(429).json({ detail: 'Too many requests, please try again later.' });
   }
 
-  try {
-    await new Promise((resolve, reject) => {
-      requireAuth(req, res, (err) => (err ? reject(err) : resolve()));
-    });
-  } catch (err) {
-    logger.error(`Authentication error: ${err.message}`, { ip });
+  const session = await getServerSession(req, res, authOptions);
+  if (!session || !session.user?.id) {
+    logger.error(`Authentication error: No session or user ID`, { ip });
     return res.status(401).json({ detail: 'Unauthorized: Please log in.' });
   }
 
-  const validate = req.method === 'POST' ? validatePost : validateGet;
-  await Promise.all(validate.map((validation) => validation.run(req)));
+  await Promise.all((req.method === 'POST' ? validatePost : validateGet).map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`, { ip });
@@ -102,22 +95,25 @@ export default async function handler(req, res) {
     await verifyRecaptcha(recaptchaToken, req.method === 'POST' ? 'ai_interaction' : 'get_ai_interaction', ip);
 
     if (req.method === 'POST') {
-      const { uid, query, response, interactionType = 'chat', walletAddress } = req.body;
+      const { uid, query: queryText, response, interactionType = 'chat', walletAddress } = req.body;
 
       if (['chat', 'market'].includes(interactionType)) {
-        // Existing logic for chat and market interactions
-        if (!uid || uid !== req.session?.user?.id || !query) {
-          logger.error(`Invalid parameters: uid=${uid}, sessionUserId=${req.session?.user?.id}, query=${query}`, { ip });
+        if (!uid || uid !== session.user.id || !queryText) {
+          logger.error(`Invalid parameters: uid=${uid}, sessionUserId=${session.user.id}, query=${queryText}`, { ip });
           return res.status(400).json({ detail: 'Missing or invalid parameters' });
         }
 
         const today = new Date();
         today.setUTCHours(0, 0, 0, 0);
         const dateString = today.toISOString().split('T')[0];
+        const interactionId = `${uid}_${dateString}_${interactionType}`;
 
-        const dailyInteractionRef = db.collection('dailyAIInteractions').doc(`${uid}_${dateString}_${interactionType}`);
-        const dailyInteractionDoc = await dailyInteractionRef.get();
-        const dailyInteraction = dailyInteractionDoc.exists ? dailyInteractionDoc.data() : { count: 0, points: 0 };
+        // Kiểm tra daily_ai_interactions
+        const dailyInteractionResult = await query(
+          `SELECT count, points FROM daily_ai_interactions WHERE id = $1`,
+          [interactionId]
+        );
+        const dailyInteraction = dailyInteractionResult.rows[0] || { count: 0, points: 0 };
 
         const maxDailyInteractions = interactionType === 'chat' ? 50 : 5;
         if (dailyInteraction.count >= maxDailyInteractions) {
@@ -128,76 +124,104 @@ export default async function handler(req, res) {
 
         let pointsAwarded = 0;
         const pointsPerInteraction = 10;
-        const batch = db.batch();
 
-        const dailyInteractionData = {
-          userId: uid,
-          date: today,
-          count: dailyInteraction.count + 1,
-          interactionType,
-          points: interactionType === 'market' ? (dailyInteraction.points || 0) + pointsPerInteraction : dailyInteraction.points || 0,
-        };
-        batch.set(dailyInteractionRef, dailyInteractionData);
+        // Cập nhật daily_ai_interactions
+        await query(
+          `INSERT INTO daily_ai_interactions (id, uid, date, interaction_type, count, points, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (id) DO UPDATE SET
+             count = daily_ai_interactions.count + 1,
+             points = $6,
+             created_at = $7`,
+          [
+            interactionId,
+            uid,
+            today,
+            interactionType,
+            dailyInteraction.count + 1,
+            interactionType === 'market' ? dailyInteraction.points + pointsPerInteraction : dailyInteraction.points,
+            new Date(),
+          ]
+        );
 
         if (interactionType === 'market') {
-          const userRef = db.collection('users').doc(uid);
-          const userDoc = await userRef.get();
-          if (!userDoc.exists) {
+          const userResult = await query(`SELECT points, ai_points FROM users WHERE id = $1`, [uid]);
+          if (userResult.rows.length === 0) {
             logger.error(`User ${uid} not found`, { ip });
             return res.status(404).json({ detail: 'User not found' });
           }
-          const user = userDoc.data();
-          batch.update(userRef, {
-            aiPoints: (user.aiPoints || 0) + pointsPerInteraction,
-            points: (user.points || 0) + pointsPerInteraction,
-          });
+          const user = userResult.rows[0];
+          await query(
+            `UPDATE users SET
+               ai_points = $1,
+               points = $2,
+               updated_at = $3
+             WHERE id = $4`,
+            [
+              user.ai_points + pointsPerInteraction,
+              user.points + pointsPerInteraction,
+              new Date(),
+              uid,
+            ]
+          );
           pointsAwarded = pointsPerInteraction;
         }
 
-        const interactionRef = db.collection('aiInteractions').doc();
-        batch.set(interactionRef, {
-          userId: uid,
-          query,
-          response,
-          createdAt: new Date(),
-          interactionType,
-        });
+        // Lưu tương tác AI (tương ứng với aiInteractions trong Firebase)
+        const interactionResult = await query(
+          `INSERT INTO daily_ai_interactions (id, uid, date, interaction_type, count, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING id`,
+          [interactionId + '_' + Date.now(), uid, today, interactionType, 1, new Date()]
+        );
+        const interactionIdNew = interactionResult.rows[0].id;
 
         const taskId = interactionType === 'chat' ? 'task8' : 'task9';
-        const taskRef = db.collection('tasks').doc(taskId);
-        const taskDoc = await taskRef.get();
-        if (taskDoc.exists) {
-          const task = taskDoc.data();
-          if (task.isDaily) {
-            const taskCompletionRef = db.collection('taskCompletions').doc(`${uid}_${task.id}_${dateString}`);
-            const completionDoc = await taskCompletionRef.get();
-            const completionCount = completionDoc.exists ? completionDoc.data().completionCount + 1 : 1;
+        const taskResult = await query(`SELECT points, is_daily, max_completions FROM tasks WHERE id = $1`, [taskId]);
+        if (taskResult.rows.length > 0) {
+          const task = taskResult.rows[0];
+          if (task.is_daily) {
+            const taskCompletionId = `${uid}_${taskId}_${dateString}`;
+            const completionResult = await query(
+              `SELECT completion_count FROM task_completions WHERE id = $1`,
+              [taskCompletionId]
+            );
+            const completionCount = completionResult.rows[0]?.completion_count + 1 || 1;
 
-            if (completionCount <= task.maxCompletions) {
-              batch.set(taskCompletionRef, {
-                userId: uid,
-                taskId: task.id,
-                completedAt: today,
-                completionCount,
-              });
+            if (completionCount <= task.max_completions) {
+              await query(
+                `INSERT INTO task_completions (id, user_id, task_id, completed_at, completion_count)
+                 VALUES ($1, $2, $3, $4, $5)
+                 ON CONFLICT (id) DO UPDATE SET
+                   completion_count = $5,
+                   completed_at = $4`,
+                [taskCompletionId, uid, taskId, today, completionCount]
+              );
 
-              if (completionCount === task.maxCompletions) {
-                const userRef = db.collection('users').doc(uid);
-                const userDoc = await userRef.get();
-                const user = userDoc.data();
-                batch.update(userRef, {
-                  taskPoints: (user.taskPoints || 0) + task.points,
-                  points: (user.points || 0) + task.points,
-                });
+              if (completionCount === task.max_completions) {
+                const userResult = await query(`SELECT points, task_points FROM users WHERE id = $1`, [uid]);
+                const user = userResult.rows[0];
+                await query(
+                  `UPDATE users SET
+                     task_points = $1,
+                     points = $2,
+                     updated_at = $3
+                   WHERE id = $4`,
+                  [
+                    user.task_points + task.points,
+                    user.points + task.points,
+                    new Date(),
+                    uid,
+                  ]
+                );
               }
             }
           }
         }
 
-        await batch.commit();
         return res.status(200).json({
           success: true,
-          interaction: { id: interactionRef.id, userId: uid, query, response, createdAt: new Date(), interactionType },
+          interaction: { id: interactionIdNew, userId: uid, query: queryText, response, createdAt: new Date(), interactionType },
           pointsAwarded,
         });
       } else if (interactionType === 'analyze-deposit') {
@@ -212,14 +236,23 @@ export default async function handler(req, res) {
         }
         const result = JSON.parse(stdout);
 
-        // Store in Firestore
-        const nametagRef = db.collection('nametags').doc(walletAddress);
-        await nametagRef.set({
-          address: walletAddress,
-          is_deposit: result.is_deposit,
-          nametag: result.nametag || 'Unknown',
-          updatedAt: new Date(),
-        }, { merge: true });
+        // Lưu vào bảng nametags
+        await query(
+          `INSERT INTO nametags (address, nametag, image, description, subcategory)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (address) DO UPDATE SET
+             nametag = $2,
+             image = $3,
+             description = $4,
+             subcategory = $5`,
+          [
+            walletAddress.toLowerCase(),
+            result.nametag || 'Unknown',
+            result.image || '/icons/default.png',
+            '',
+            'Others',
+          ]
+        );
 
         logger.info(`Deposit wallet analysis for ${walletAddress}: ${JSON.stringify(result)}`, { ip });
         return res.status(200).json({ success: true, data: result });
@@ -235,21 +268,25 @@ export default async function handler(req, res) {
         }
         const result = JSON.parse(stdout);
 
-        // Store large transactions in Firestore
-        const batch = db.batch();
+        // Lưu vào bảng large_flows
         for (const tx of result.large_flows) {
-          const txRef = db.collection('large_transactions').doc(tx.hash);
-          batch.set(txRef, {
-            wallet: walletAddress,
-            hash: tx.hash,
-            value_usd: tx.value_usd,
-            to_address: tx.to,
-            nametag_to: tx.nametag_to || 'Unknown',
-            block_time: tx.block_time,
-            createdAt: new Date(),
-          });
+          await query(
+            `INSERT INTO large_flows (id, source_wallet_scanned, from_address, to_address, value_usd, tx_hash, block_time, from_nametag, to_nametag, timestamp_recorded)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [
+              `${walletAddress}_${tx.hash}`,
+              walletAddress.toLowerCase(),
+              tx.from.toLowerCase(),
+              tx.to.toLowerCase(),
+              tx.value_usd,
+              tx.hash,
+              new Date(tx.block_time),
+              tx.nametag_from || 'Unknown',
+              tx.nametag_to || 'Unknown',
+              new Date(),
+            ]
+          );
         }
-        await batch.commit();
 
         logger.info(`Large flow detection for ${walletAddress}: ${JSON.stringify(result)}`, { ip });
         return res.status(200).json({ success: true, data: result });
@@ -259,25 +296,33 @@ export default async function handler(req, res) {
       return res.status(400).json({ detail: 'Invalid interactionType' });
     } else if (req.method === 'GET') {
       const { uid, limit = 5, interactionType } = req.query;
-      if (!uid || uid !== req.session?.user?.id) {
-        logger.error(`Invalid GET parameters: uid=${uid}, sessionUserId=${req.session?.user?.id}`, { ip });
+      if (!uid || uid !== session.user.id) {
+        logger.error(`Invalid GET parameters: uid=${uid}, sessionUserId=${session.user.id}`, { ip });
         return res.status(400).json({ detail: 'Missing or invalid user ID' });
       }
 
       const today = new Date();
       today.setUTCHours(0, 0, 0, 0);
       const dateString = today.toISOString().split('T')[0];
+      const dailyInteractionId = `${uid}_${dateString}_${interactionType || 'chat'}`;
 
-      const dailyInteractionRef = db.collection('dailyAIInteractions').doc(`${uid}_${dateString}_${interactionType || 'chat'}`);
-      const dailyInteractionDoc = await dailyInteractionRef.get();
-      const dailyInteraction = dailyInteractionDoc.exists ? dailyInteractionDoc.data() : { count: 0 };
+      const dailyInteractionResult = await query(
+        `SELECT count FROM daily_ai_interactions WHERE id = $1`,
+        [dailyInteractionId]
+      );
+      const dailyInteraction = dailyInteractionResult.rows[0] || { count: 0 };
 
-      let query = db.collection('aiInteractions').where('userId', '==', uid);
+      let interactionQuery = `SELECT * FROM daily_ai_interactions WHERE uid = $1`;
+      const params = [uid];
       if (interactionType) {
-        query = query.where('interactionType', '==', interactionType);
+        interactionQuery += ` AND interaction_type = $2`;
+        params.push(interactionType);
       }
-      const interactionsSnapshot = await query.orderBy('createdAt', 'desc').limit(parseInt(limit)).get();
-      const interactions = interactionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      interactionQuery += ` ORDER BY created_at DESC LIMIT $3`;
+      params.push(parseInt(limit));
+
+      const interactionsResult = await query(interactionQuery, params);
+      const interactions = interactionsResult.rows;
 
       return res.status(200).json({
         success: true,

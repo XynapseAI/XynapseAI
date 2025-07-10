@@ -1,19 +1,17 @@
-import { config as dotenvConfig } from 'dotenv';
-import { db } from '../../utils/firebaseAdmin.js';
+import { query } from '../../utils/postgres.js';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from './auth/[...nextauth].js';
 import { braveSearch } from '../../utils/braveSearch.js';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
-import { requireAuth } from './middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
 import axios from 'axios';
 
-dotenvConfig({ path: '.env' });
-
 const logger = winston.createLogger({
   level: 'info',
-  format: winston.format.json(),
+  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [
     new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
     new winston.transports.File({ filename: 'logs/combined.log' }),
@@ -53,7 +51,7 @@ const retryRequest = async (fn, retries = 3, delay = 1000) => {
 
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}`);
 
   try {
@@ -65,12 +63,9 @@ export default async function handler(req, res) {
     return res.status(429).json({ detail: 'Rate limit exceeded, please try again later.' });
   }
 
-  try {
-    await new Promise((resolve, reject) => {
-      requireAuth(req, res, (err) => (err ? reject(err) : resolve()));
-    });
-  } catch (err) {
-    logger.error(`Authentication error: ${err.message}`);
+  const session = await getServerSession(req, res, authOptions);
+  if (!session || !session.user?.id) {
+    logger.error(`Authentication error: No session or user ID`);
     return res.status(401).json({ detail: 'Unauthorized: Please log in.' });
   }
 
@@ -103,45 +98,26 @@ export default async function handler(req, res) {
 
   try {
     logger.info(`Fetching tweets for tokenSymbol: ${tokenSymbol}`);
-    const tweetsQuery = db.collection('tweetAnalyses')
-      .where('text', '>=', tokenSymbol)
-      .where('text', '<=', tokenSymbol + '\uf8ff')
-      .orderBy('createdAt', 'desc')
-      .limit(10);
-    logger.info(`Executing tweetAnalyses query for ${tokenSymbol}`);
-    let tweetsSnapshot;
-    try {
-      tweetsSnapshot = await tweetsQuery.get();
-    } catch (queryError) {
-      logger.error(`tweetAnalyses query failed for ${tokenSymbol}: ${queryError.message}`, {
-        stack: queryError.stack,
-        code: queryError.code,
-      });
-      throw queryError;
-    }
-    const tweets = tweetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    logger.info(`Fetched ${tweets.length} tweets for ${tokenSymbol}`);
+    const tweetsResult = await query(
+      `SELECT id, user_id, tweet_id, text, points, created_at
+       FROM tweet_analyses
+       WHERE LOWER(text) LIKE $1
+       ORDER BY created_at DESC
+       LIMIT 10`,
+      [`%${tokenSymbol}%`]
+    );
+    const tweets = tweetsResult.rows;
 
     logger.info(`Fetching AI interactions for tokenSymbol: ${tokenSymbol}`);
-    logger.info(`Querying aiInteractions with range: ${tokenSymbol} to ${tokenSymbol + '\uf8ff'}`);
-    const aiInteractionsQuery = db.collection('aiInteractions')
-      .where('query', '>=', tokenSymbol)
-      .where('query', '<=', tokenSymbol + '\uf8ff')
-      .orderBy('createdAt', 'desc')
-      .limit(10);
-    logger.info(`Executing aiInteractions query for ${tokenSymbol}`);
-    let aiInteractionsSnapshot;
-    try {
-      aiInteractionsSnapshot = await aiInteractionsQuery.get();
-    } catch (queryError) {
-      logger.error(`aiInteractions query failed for ${tokenSymbol}: ${queryError.message}`, {
-        stack: queryError.stack,
-        code: queryError.code,
-      });
-      throw queryError;
-    }
-    const aiInteractions = aiInteractionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    logger.info(`Fetched ${aiInteractions.length} AI interactions for ${tokenSymbol}`);
+    const aiInteractionsResult = await query(
+      `SELECT id, uid, date, interaction_type, count, points, created_at
+       FROM daily_ai_interactions
+       WHERE LOWER(query) LIKE $1
+       ORDER BY created_at DESC
+       LIMIT 10`,
+      [`%${tokenSymbol}%`]
+    );
+    const aiInteractions = aiInteractionsResult.rows;
 
     let aiAnalysis = `Token ${tokenSymbol} recorded ${tweets.length} tweets and ${aiInteractions.length} AI interactions. `;
     let links = [], snippets = null;
