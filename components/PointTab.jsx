@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+
 export default function PointTab({ userData, error: propError, loading, handleAnalyzeTweets, isAnalyzing, recaptchaRef }) {
   const { data: session } = useSession();
   const [pointHistory, setPointHistory] = useState([]);
@@ -13,7 +15,7 @@ export default function PointTab({ userData, error: propError, loading, handleAn
   const [taskGrowth, setTaskGrowth] = useState({ value: 0, color: 'gray' });
   const [error, setError] = useState(propError);
 
-  const executeRecaptcha = async (action = 'fetch_points', retries = 2) => {
+  const executeRecaptcha = async (action = 'fetch_points', retries = 4) => {
     if (!recaptchaRef.current) {
       throw new Error('reCAPTCHA not initialized');
     }
@@ -24,16 +26,16 @@ export default function PointTab({ userData, error: propError, loading, handleAn
           if (!token) throw new Error('Empty reCAPTCHA token');
           return token;
         }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 60000)),
       ]);
       console.log('reCAPTCHA token generated:', { action, token: token.substring(0, 8) + '...' });
       return token;
     } catch (error) {
       if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
         return executeRecaptcha(action, retries - 1);
       }
-      throw new Error(`reCAPTCHA failed after ${2 - retries + 1} attempts: ${error.message}`);
+      throw new Error(`reCAPTCHA failed after ${5 - retries} attempts: ${error.message}`);
     }
   };
 
@@ -43,9 +45,12 @@ export default function PointTab({ userData, error: propError, loading, handleAn
 
       try {
         const recaptchaToken = await executeRecaptcha('get_user');
+        const csrfToken = localStorage.getItem('csrfToken');
+        if (!csrfToken) throw new Error('CSRF token not found');
+
         const userResponse = await axios.get(`/api/user?uid=${session.user.id}`, {
           headers: {
-            'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
+            'x-csrf-token': csrfToken,
             'X-Recaptcha-Token': recaptchaToken,
           },
           withCredentials: true,
@@ -58,7 +63,7 @@ export default function PointTab({ userData, error: propError, loading, handleAn
           const historyRecaptchaToken = await executeRecaptcha('get_point_history');
           const historyResponse = await axios.get(`/api/point-history?uid=${session.user.id}`, {
             headers: {
-              'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
+              'x-csrf-token': csrfToken,
               'X-Recaptcha-Token': historyRecaptchaToken,
             },
             withCredentials: true,
@@ -88,10 +93,13 @@ export default function PointTab({ userData, error: propError, loading, handleAn
             color: taskGrowthValue > 0 ? 'green' : taskGrowthValue < 0 ? 'red' : 'gray',
           });
         } else {
-          setError('Invalid user data.');
+          throw new Error('Invalid user data.');
         }
       } catch (err) {
         console.error('Error fetching point data:', err.response?.data || err.message);
+        setPointHistory([]); // Clear old data
+        setAiPoints(0);
+        setTaskPoints(0);
         setError(
           err.response?.status === 429
             ? 'API rate limit exceeded. Please try again later.'
@@ -109,6 +117,8 @@ export default function PointTab({ userData, error: propError, loading, handleAn
   const handleAnalyzeTweetsWithRecaptcha = async () => {
     try {
       const token = await executeRecaptcha('analyze_tweets');
+      const csrfToken = localStorage.getItem('csrfToken');
+      if (!csrfToken) throw new Error('CSRF token not found');
       await handleAnalyzeTweets({ recaptchaToken: token });
       setError(null);
     } catch (err) {

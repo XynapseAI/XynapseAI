@@ -15,6 +15,7 @@ const logger = winston.createLogger({
   transports: [
     new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
     new winston.transports.File({ filename: 'logs/combined.log' }),
+    new winston.transports.Console({ format: winston.format.simple() }),
   ],
 });
 
@@ -22,6 +23,8 @@ const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   message: { error: 'Too many requests, please try again later.' },
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown',
+  trustProxy: true,
 });
 
 const validate = [
@@ -50,54 +53,56 @@ const retryRequest = async (fn, retries = 3, delay = 1000) => {
 };
 
 export default async function handler(req, res) {
+  res.setHeader('Content-Type', 'application/json');
+
   helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
-  logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}`);
+  logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}, body: ${JSON.stringify(req.body)}`);
 
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
     });
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`);
+    logger.error(`Rate limit error: ${err.message}`, { ip });
     return res.status(429).json({ detail: 'Rate limit exceeded, please try again later.' });
   }
 
   const session = await getServerSession(req, res, authOptions);
   if (!session || !session.user?.id) {
-    logger.error(`Authentication error: No session or user ID`);
+    logger.error(`Authentication error: No session or user ID`, { ip });
     return res.status(401).json({ detail: 'Unauthorized: Please log in.' });
   }
 
   if (req.method !== 'POST') {
-    logger.warn(`Invalid method ${req.method} for ${req.url}`);
+    logger.warn(`Invalid method ${req.method} for ${req.url}`, { ip });
     return res.status(405).json({ detail: 'Method not allowed' });
   }
 
   await Promise.all(validate.map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    logger.warn(`Validation errors for ${req.url}: ${JSON.stringify(errors.array())}`);
+    logger.warn(`Validation errors for ${req.url}: ${JSON.stringify(errors.array())}`, { ip });
     return res.status(400).json({ errors: errors.array() });
   }
 
   const { tokenSymbol: rawTokenSymbol, recaptchaToken } = req.body;
-  const tokenSymbol = rawTokenSymbol.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const tokenSymbol = rawTokenSymbol?.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   if (!tokenSymbol) {
-    logger.warn(`Invalid tokenSymbol after sanitization: ${rawTokenSymbol}`);
+    logger.warn(`Invalid tokenSymbol after sanitization: ${rawTokenSymbol}`, { ip });
     return res.status(400).json({ errors: [{ msg: 'Invalid token symbol' }] });
   }
 
   try {
     await verifyRecaptcha(recaptchaToken, 'analyze', ip);
-    logger.info(`reCAPTCHA verified for action: analyze`);
+    logger.info(`reCAPTCHA verified for action: analyze`, { ip });
   } catch (error) {
-    logger.error(`reCAPTCHA verification failed: ${error.message}`);
+    logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip });
     return res.status(403).json({ detail: `reCAPTCHA verification failed: ${error.message}` });
   }
 
   try {
-    logger.info(`Fetching tweets for tokenSymbol: ${tokenSymbol}`);
+    logger.info(`Fetching tweets for tokenSymbol: ${tokenSymbol}`, { ip });
     const tweetsResult = await query(
       `SELECT id, user_id, tweet_id, text, points, created_at
        FROM tweet_analyses
@@ -108,14 +113,13 @@ export default async function handler(req, res) {
     );
     const tweets = tweetsResult.rows;
 
-    logger.info(`Fetching AI interactions for tokenSymbol: ${tokenSymbol}`);
+    logger.info(`Fetching AI interactions for tokenSymbol: ${tokenSymbol}`, { ip });
     const aiInteractionsResult = await query(
       `SELECT id, uid, date, interaction_type, count, points, created_at
        FROM daily_ai_interactions
-       WHERE LOWER(query) LIKE $1
+       WHERE interaction_type = 'market'
        ORDER BY created_at DESC
-       LIMIT 10`,
-      [`%${tokenSymbol}%`]
+       LIMIT 10`
     );
     const aiInteractions = aiInteractionsResult.rows;
 
@@ -128,8 +132,7 @@ export default async function handler(req, res) {
       aiAnalysis += `No related tweets found. `;
     }
     if (aiInteractions.length > 0) {
-      const positiveInteractions = aiInteractions.filter(i => i.response?.toLowerCase().includes('positive')).length;
-      aiAnalysis += `${positiveInteractions}/${aiInteractions.length} AI interactions are positive. `;
+      aiAnalysis += `${aiInteractions.length} market-related AI interactions recorded. `;
     } else {
       aiAnalysis += `No related AI interactions found. `;
     }
@@ -143,14 +146,14 @@ export default async function handler(req, res) {
       snippets = searchResult.snippets;
       links = searchResult.links || [];
       aiAnalysis += snippets ? `Web discussions indicate ${links.length} related articles in the past 7 days. ` : `No related web articles found. `;
-      logger.info(`Brave Search returned ${links.length} links for ${tokenSymbol}`);
+      logger.info(`Brave Search returned ${links.length} links for ${tokenSymbol}`, { ip });
     } catch (braveError) {
-      logger.error(`Brave Search error for ${tokenSymbol}: ${braveError.message}`);
+      logger.error(`Brave Search error for ${tokenSymbol}: ${braveError.message}`, { ip });
       aiAnalysis += `Unable to fetch web articles. `;
     }
 
     if (process.env.XAI_API_KEY) {
-      logger.info(`Calling XAI API for token: ${tokenSymbol}`);
+      logger.info(`Calling XAI API for token: ${tokenSymbol}`, { ip });
       try {
         const aiResponse = await retryRequest(() =>
           axios.post(
@@ -177,14 +180,14 @@ export default async function handler(req, res) {
             .replace(/<\|eos\|>/g, '')
             .replace(/Assistant/g, '')
             .trim();
-          logger.info(`XAI API returned analysis for ${tokenSymbol}`);
+          logger.info(`XAI API returned analysis for ${tokenSymbol}`, { ip });
         }
       } catch (xaiError) {
-        logger.error(`XAI API error for ${tokenSymbol}: ${xaiError.message}`);
+        logger.error(`XAI API error for ${tokenSymbol}: ${xaiError.message}`, { ip });
         aiAnalysis += `Unable to fetch real-time data from XAI. `;
       }
     } else {
-      logger.warn(`No XAI_API_KEY provided for ${tokenSymbol}`);
+      logger.warn(`No XAI_API_KEY provided for ${tokenSymbol}`, { ip });
       aiAnalysis += `Additional data required to assess trends. `;
     }
 
@@ -200,7 +203,11 @@ export default async function handler(req, res) {
       stack: error.stack,
       code: error.code,
       details: error.details,
+      ip,
     });
+    if (error.message.includes('does not exist')) {
+      return res.status(500).json({ detail: `Database error: ${error.message}` });
+    }
     return res.status(500).json({ detail: `Unable to analyze token: ${error.message}` });
   }
 }

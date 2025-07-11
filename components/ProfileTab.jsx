@@ -11,44 +11,33 @@ export default function ProfileTab({ recaptchaRef }) {
   const [error, setError] = useState(null);
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const [isDisconnectingWallet, setIsDisconnectingWallet] = useState(false);
-  const [recaptchaTokens, setRecaptchaTokens] = useState({});
   const [csrfToken, setCsrfToken] = useState(null);
-  const [jwtToken, setJwtToken] = useState(null);
 
   useEffect(() => {
-    async function fetchTokens() {
+    async function fetchCsrfToken() {
       let attempts = 0;
       const maxAttempts = 3;
       while (attempts < maxAttempts) {
         try {
-          attempts++;
-          const [csrfResponse, jwtResponse] = await Promise.all([
-            axios.get('/api/csrf-token', { withCredentials: true }),
-            axios.get('/api/auth/jwt', { withCredentials: true }),
-          ]);
-
-          const csrf = csrfResponse.data.csrfToken;
-          const jwt = jwtResponse.data.token;
-
-          if (!csrf || !jwt) {
-            throw new Error('Invalid token data');
-          }
-
+          const response = await axios.get('/api/csrf-token', { withCredentials: true });
+          const csrf = response.data.csrfToken;
+          if (!csrf) throw new Error('Empty CSRF token received');
           setCsrfToken(csrf);
-          setJwtToken(jwt);
+          localStorage.setItem('csrfToken', csrf); // Đồng bộ với Dashboard
           setError(null);
           return;
         } catch (err) {
+          attempts++;
           if (attempts === maxAttempts) {
-            setError(`Failed to fetch CSRF or JWT after ${maxAttempts} attempts: ${err.message}`);
+            setError(`Failed to fetch CSRF token after ${maxAttempts} attempts: ${err.message}`);
           }
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 2000));
         }
       }
     }
 
     if (status === 'authenticated') {
-      fetchTokens();
+      fetchCsrfToken();
     }
   }, [status]);
 
@@ -56,30 +45,32 @@ export default function ProfileTab({ recaptchaRef }) {
     if (!recaptchaRef.current) {
       throw new Error('reCAPTCHA not initialized');
     }
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    for (let attempt = 1; attempt <= 5; attempt++) {
       try {
         await recaptchaRef.current.reset();
-        const token = await recaptchaRef.current.executeAsync();
+        const token = await recaptchaRef.current.executeAsync({ action });
         if (!token) throw new Error('Empty reCAPTCHA token');
-        setRecaptchaTokens((prev) => ({ ...prev, [action]: token }));
         return token;
       } catch (err) {
-        if (attempt === 3) throw new Error(`Failed to generate reCAPTCHA token after 3 attempts: ${err.message}`);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (attempt === 5) throw new Error(`Failed to generate reCAPTCHA token for ${action} after 5 attempts: ${err.message}`);
+        await new Promise((resolve) => setTimeout(resolve, 3000));
       }
     }
-    throw new Error('Unable to generate reCAPTCHA token');
+    throw new Error(`Unable to generate reCAPTCHA token for ${action}`);
   };
 
   useEffect(() => {
     async function fetchUserData() {
-      if (status !== 'authenticated' || !session?.user?.id) {
+      if (status !== 'authenticated' || !session?.user?.id || !csrfToken) {
         return;
       }
       try {
         const token = await executeRecaptcha('get_user');
         const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
-          headers: { 'X-Recaptcha-Token': token },
+          headers: {
+            'x-csrf-token': csrfToken,
+            'X-Recaptcha-Token': token,
+          },
           withCredentials: true,
         });
         if (!response.data.success) {
@@ -92,29 +83,28 @@ export default function ProfileTab({ recaptchaRef }) {
         setUserData(response.data.user);
         setError(null);
       } catch (err) {
+        console.error('Error fetching user data:', err);
         if (err.response?.status === 404) {
           setError('User not found. Signing out...');
           await signOut({ redirect: false });
           window.location.href = '/auth/signin';
+        } else if (err.response?.status === 403) {
+          setError(`Access denied: ${err.response?.data?.detail || 'Invalid CSRF or reCAPTCHA. Please try again.'}`);
         } else {
-          setError(
-            err.response?.status === 403
-              ? `Access denied: ${err.response?.data?.detail || 'Please try again later'}`
-              : `Unable to load profile: ${err.message}`
-          );
+          setError(`Unable to load profile: ${err.message}`);
         }
       }
     }
     fetchUserData();
-  }, [status, session?.user?.id]);
+  }, [status, session?.user?.id, csrfToken]);
 
   const handleConnectWallet = async () => {
     if (!window.ethereum) {
       setError('Please install MetaMask.');
       return;
     }
-    if (!csrfToken || !jwtToken) {
-      setError('CSRF token or JWT not fetched');
+    if (!csrfToken) {
+      setError('CSRF token not fetched');
       return;
     }
     setIsConnectingWallet(true);
@@ -140,8 +130,7 @@ export default function ProfileTab({ recaptchaRef }) {
         },
         {
           headers: {
-            'X-CSRF-Token': csrfToken,
-            Authorization: `Bearer ${jwtToken}`,
+            'x-csrf-token': csrfToken,
             'Content-Type': 'application/json',
           },
           withCredentials: true,
@@ -153,6 +142,7 @@ export default function ProfileTab({ recaptchaRef }) {
       }
       setUserData({ ...userData, walletAddress });
     } catch (err) {
+      console.error('Wallet connection error:', err);
       setError(`Unable to connect wallet: ${err.response?.data?.detail || err.message}`);
     } finally {
       setIsConnectingWallet(false);
@@ -161,8 +151,8 @@ export default function ProfileTab({ recaptchaRef }) {
   };
 
   const handleDisconnectWallet = async () => {
-    if (!csrfToken || !jwtToken) {
-      setError('CSRF token or JWT not fetched');
+    if (!csrfToken) {
+      setError('CSRF token not fetched');
       return;
     }
     setIsDisconnectingWallet(true);
@@ -178,8 +168,7 @@ export default function ProfileTab({ recaptchaRef }) {
         },
         {
           headers: {
-            'X-CSRF-Token': csrfToken,
-            Authorization: `Bearer ${jwtToken}`,
+            'x-csrf-token': csrfToken,
             'Content-Type': 'application/json',
           },
           withCredentials: true,
@@ -191,7 +180,8 @@ export default function ProfileTab({ recaptchaRef }) {
       }
       setUserData({ ...userData, walletAddress: null });
     } catch (err) {
-      setError(`Unable to disconnect wallet: ${err.message}`);
+      console.error('Wallet disconnection error:', err);
+      setError(`Unable to disconnect wallet: ${err.response?.data?.detail || err.message}`);
     } finally {
       setIsDisconnectingWallet(false);
       if (recaptchaRef.current) recaptchaRef.current.reset();
@@ -203,8 +193,11 @@ export default function ProfileTab({ recaptchaRef }) {
       await signOut({ redirect: false });
       setUserData(null);
       setError(null);
+      setCsrfToken(null);
+      localStorage.removeItem('csrfToken');
       window.location.href = '/auth/signin';
     } catch (err) {
+      console.error('Twitter disconnection error:', err);
       setError('Unable to disconnect Twitter');
     }
   };
@@ -264,6 +257,12 @@ export default function ProfileTab({ recaptchaRef }) {
                 />
                 <span className="text-xs md:text-sm text-white">{userData.twitterHandle || 'Not connected'}</span>
               </div>
+              <button
+                onClick={handleDisconnectTwitter}
+                className="w-full mt-2 px-3 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md text-red-500 hover:bg-red-500/10"
+              >
+                Disconnect Twitter
+              </button>
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
               <h3 className="text-sm md:text-base font-bold text-white mb-3">WALLET</h3>
@@ -286,7 +285,7 @@ export default function ProfileTab({ recaptchaRef }) {
                   className={`w-full mt-2 px-3 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${
                     isDisconnectingWallet
                       ? 'text-white/50 cursor-not-allowed opacity-50'
-                      : 'text-red border border-red'
+                      : 'text-red-500 hover:bg-red-500/10'
                   }`}
                 >
                   {isDisconnectingWallet ? 'Disconnecting...' : 'Disconnect'}
@@ -295,7 +294,7 @@ export default function ProfileTab({ recaptchaRef }) {
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
               <h3 className="text-sm md:text-base font-bold text-white mb-3">POINTS</h3>
-              <p className="text-3xl md:text-5xl font-bold text-green-500 text-center mb-10">{userData.points || 12}</p>
+              <p className="text-3xl md:text-5xl font-bold text-green-500 text-center mb-10">{userData.points || 0}</p>
             </div>
             <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
               <h3 className="text-sm md:text-base font-bold text-white mb-3">DAYS ACTIVE</h3>

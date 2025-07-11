@@ -24,55 +24,35 @@ const logger = winston.createLogger({
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
-  message: { error: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' },
+  message: { error: 'Too many requests, please try again later.' },
   keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown',
   trustProxy: true,
 });
 
 const validatePost = [
-  body('uid').isString().isLength({ max: 100 }).withMessage('UID không hợp lệ').optional(),
-  body('query').isString().isLength({ min: 1, max: 1000 }).withMessage('Query phải từ 1-1000 ký tự').optional(),
-  body('response').isString().isLength({ max: 5000 }).withMessage('Response phải <= 5000 ký tự').optional(),
+  body('uid').isString().isLength({ max: 100 }).withMessage('Invalid UID').optional(),
+  body('query').isString().isLength({ min: 1, max: 1000 }).withMessage('Query must be 1-1000 characters').optional(),
+  body('response').isString().isLength({ max: 5000 }).withMessage('Response must be <= 5000 characters').optional(),
   body('interactionType')
     .isString()
     .isIn(['chat', 'market', 'analyze-deposit', 'detect-large-flow'])
     .optional()
-    .withMessage('Loại tương tác không hợp lệ'),
+    .withMessage('Invalid interaction type'),
   body('walletAddress')
     .optional()
     .matches(/^0x[a-fA-F0-9]{40}$/)
-    .withMessage('Địa chỉ EVM không hợp lệ'),
+    .withMessage('Invalid EVM address'),
 ];
 
 const validateGet = [
-  expressQuery('uid').isString().isLength({ max: 100 }).withMessage('UID không hợp lệ'),
-  expressQuery('limit').optional().isInt({ min: 1, max: 20 }).withMessage('Limit phải từ 1-20'),
+  expressQuery('uid').isString().isLength({ max: 100 }).withMessage('Invalid UID'),
+  expressQuery('limit').optional().isInt({ min: 1, max: 20 }).withMessage('Limit must be 1-20'),
   expressQuery('interactionType')
     .isString()
     .isIn(['chat', 'market', 'analyze-deposit', 'detect-large-flow'])
     .optional()
-    .withMessage('Loại tương tác không hợp lệ'),
+    .withMessage('Invalid interaction type'),
 ];
-
-const checkCSRF = (req) => {
-  const allowedOrigins = [
-    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    'http://localhost:3000',
-    'https://xynapseai.net',
-    'https://www.xynapseai.net',
-  ];
-  const origin = req.headers['origin'] || req.headers['referer']?.split('/').slice(0, 3).join('/');
-  const csrfToken = req.headers['x-csrf-token'];
-  if (!origin || !allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
-    logger.warn(`CSRF check failed: Invalid or missing Origin/Referer: ${origin}`);
-    return false;
-  }
-  if (!csrfToken || csrfToken !== process.env.CSRF_SECRET) {
-    logger.warn(`CSRF check failed: Invalid or missing CSRF token: ${csrfToken}`);
-    return false;
-  }
-  return true;
-};
 
 export const config = {
   api: {
@@ -85,40 +65,35 @@ export const config = {
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
-  logger.info(`Yêu cầu tới ${req.url} từ IP ${ip}, phương thức: ${req.method}`);
+  logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}`);
 
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
     });
   } catch (err) {
-    logger.error(`Lỗi giới hạn yêu cầu: ${err.message}`, { ip });
-    return res.status(429).json({ detail: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' });
-  }
-
-  if (!checkCSRF(req)) {
-    logger.warn(`CSRF check failed`, { ip });
-    return res.status(403).json({ detail: 'CSRF check không hợp lệ.' });
+    logger.error(`Rate limit error: ${err.message}`, { ip });
+    return res.status(429).json({ detail: 'Too many requests, please try again later.' });
   }
 
   const session = await getServerSession(req, res, authOptions);
   if (!session || !session.user?.id) {
-    logger.error(`Lỗi xác thực: Không có session hoặc UID`, { ip });
-    return res.status(401).json({ detail: 'Chưa đăng nhập.' });
+    logger.error(`Authentication error: No session or UID`, { ip });
+    return res.status(401).json({ detail: 'Not authenticated.' });
   }
 
   await Promise.all((req.method === 'POST' ? validatePost : validateGet).map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    logger.warn(`Lỗi xác thực: ${JSON.stringify(errors.array())}`, { ip, body: req.body, query: req.query });
-    return res.status(400).json({ detail: 'Xác thực thất bại', errors: errors.array() });
+    logger.warn(`Validation error: ${JSON.stringify(errors.array())}`, { ip, body: req.body, query: req.query });
+    return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
   }
 
   try {
     const recaptchaToken = req.headers['x-recaptcha-token'];
     if (!recaptchaToken) {
-      logger.error('Thiếu header X-Recaptcha-Token', { ip });
-      return res.status(400).json({ detail: 'Thiếu token reCAPTCHA trong header' });
+      logger.error('Missing X-Recaptcha-Token header', { ip });
+      return res.status(400).json({ detail: 'Missing reCAPTCHA token in header' });
     }
     await verifyRecaptcha(recaptchaToken, req.method === 'POST' ? 'ai_interaction' : 'get_ai_interaction', ip);
 
@@ -127,8 +102,8 @@ export default async function handler(req, res) {
 
       if (['chat', 'market'].includes(interactionType)) {
         if (!uid || uid !== session.user.id || !queryText) {
-          logger.error(`Tham số không hợp lệ: uid=${uid}, sessionUserId=${session.user.id}, query=${queryText}`, { ip });
-          return res.status(400).json({ detail: 'Tham số thiếu hoặc không hợp lệ' });
+          logger.error(`Invalid parameters: uid=${uid}, sessionUserId=${session.user.id}, query=${queryText}`, { ip });
+          return res.status(400).json({ detail: 'Missing or invalid parameters' });
         }
 
         const today = new Date();
@@ -145,8 +120,8 @@ export default async function handler(req, res) {
           dailyInteraction = dailyInteractionResult.rows[0] || { count: 0, points: 0 };
         } catch (error) {
           if (error.message.includes('relation "daily_ai_interactions" does not exist')) {
-            logger.error(`Bảng daily_ai_interactions không tồn tại`, { ip });
-            return res.status(500).json({ detail: 'Lỗi server: Bảng daily_ai_interactions không tồn tại' });
+            logger.error(`Table daily_ai_interactions does not exist`, { ip });
+            return res.status(500).json({ detail: 'Server error: Table daily_ai_interactions does not exist' });
           }
           throw error;
         }
@@ -154,7 +129,7 @@ export default async function handler(req, res) {
         const maxDailyInteractions = interactionType === 'chat' ? 50 : 5;
         if (dailyInteraction.count >= maxDailyInteractions) {
           return res.status(400).json({
-            detail: `Đã đạt tối đa ${maxDailyInteractions} tương tác ${interactionType} hàng ngày. Thử lại vào ngày mai.`,
+            detail: `Reached maximum ${maxDailyInteractions} daily ${interactionType} interactions. Try again tomorrow.`,
           });
         }
 
@@ -173,8 +148,8 @@ export default async function handler(req, res) {
           );
         } catch (error) {
           if (error.message.includes('relation "daily_ai_interactions" does not exist')) {
-            logger.error(`Bảng daily_ai_interactions không tồn tại`, { ip });
-            return res.status(500).json({ detail: 'Lỗi server: Bảng daily_ai_interactions không tồn tại' });
+            logger.error(`Table daily_ai_interactions does not exist`, { ip });
+            return res.status(500).json({ detail: 'Server error: Table daily_ai_interactions does not exist' });
           }
           throw error;
         }
@@ -184,14 +159,14 @@ export default async function handler(req, res) {
           try {
             const userResult = await query(`SELECT points, ai_points FROM users WHERE id = $1`, [uid]);
             if (userResult.rows.length === 0) {
-              logger.error(`Không tìm thấy người dùng: ${uid}`, { ip });
-              return res.status(404).json({ detail: 'Không tìm thấy người dùng' });
+              logger.error(`User not found: ${uid}`, { ip });
+              return res.status(404).json({ detail: 'User not found' });
             }
             user = userResult.rows[0];
           } catch (error) {
             if (error.message.includes('relation "users" does not exist')) {
-              logger.error(`Bảng users không tồn tại`, { ip });
-              return res.status(500).json({ detail: 'Lỗi server: Bảng users không tồn tại' });
+              logger.error(`Table users does not exist`, { ip });
+              return res.status(500).json({ detail: 'Server error: Table users does not exist' });
             }
             throw error;
           }
@@ -212,14 +187,14 @@ export default async function handler(req, res) {
         try {
           const taskResult = await query(`SELECT points, is_daily, max_completions FROM tasks WHERE id = $1`, [taskId]);
           if (taskResult.rows.length === 0) {
-            logger.warn(`Không tìm thấy task: ${taskId}`, { ip });
+            logger.warn(`Task not found: ${taskId}`, { ip });
           } else {
             task = taskResult.rows[0];
           }
         } catch (error) {
           if (error.message.includes('relation "tasks" does not exist')) {
-            logger.error(`Bảng tasks không tồn tại`, { ip });
-            return res.status(500).json({ detail: 'Lỗi server: Bảng tasks không tồn tại' });
+            logger.error(`Table tasks does not exist`, { ip });
+            return res.status(500).json({ detail: 'Server error: Table tasks does not exist' });
           }
           throw error;
         }
@@ -235,8 +210,8 @@ export default async function handler(req, res) {
             completionCount = completionResult.rows[0]?.completion_count + 1 || 1;
           } catch (error) {
             if (error.message.includes('relation "task_completions" does not exist')) {
-              logger.error(`Bảng task_completions không tồn tại`, { ip });
-              return res.status(500).json({ detail: 'Lỗi server: Bảng task_completions không tồn tại' });
+              logger.error(`Table task_completions does not exist`, { ip });
+              return res.status(500).json({ detail: 'Server error: Table task_completions does not exist' });
             }
             throw error;
           }
@@ -259,8 +234,8 @@ export default async function handler(req, res) {
                 user = userResult.rows[0];
               } catch (error) {
                 if (error.message.includes('relation "users" does not exist')) {
-                  logger.error(`Bảng users không tồn tại`, { ip });
-                  return res.status(500).json({ detail: 'Lỗi server: Bảng users không tồn tại' });
+                  logger.error(`Table users does not exist`, { ip });
+                  return res.status(500).json({ detail: 'Server error: Table users does not exist' });
                 }
                 throw error;
               }
@@ -284,20 +259,20 @@ export default async function handler(req, res) {
         });
       } else if (interactionType === 'analyze-deposit') {
         if (!walletAddress) {
-          logger.error('Thiếu walletAddress cho analyze-deposit', { ip });
-          return res.status(400).json({ detail: 'Thiếu walletAddress' });
+          logger.error('Missing walletAddress for analyze-deposit', { ip });
+          return res.status(400).json({ detail: 'Missing walletAddress' });
         }
         let result;
         try {
           const { stdout, stderr } = await execPromise(`python3 scripts/analyze_wallets.py predict ${walletAddress}`);
           if (stderr) {
-            logger.error(`Lỗi Python: ${stderr}`, { ip });
-            return res.status(500).json({ detail: 'Lỗi xử lý AI' });
+            logger.error(`Python error: ${stderr}`, { ip });
+            return res.status(500).json({ detail: 'AI processing error' });
           }
           result = JSON.parse(stdout);
         } catch (error) {
-          logger.error(`Lỗi khi chạy analyze_wallets.py: ${error.message}`, { ip });
-          return res.status(500).json({ detail: `Lỗi xử lý AI: ${error.message}` });
+          logger.error(`Error running analyze_wallets.py: ${error.message}`, { ip });
+          return res.status(500).json({ detail: `AI processing error: ${error.message}` });
         }
 
         try {
@@ -314,30 +289,30 @@ export default async function handler(req, res) {
           );
         } catch (error) {
           if (error.message.includes('relation "nametags" does not exist')) {
-            logger.error(`Bảng nametags không tồn tại`, { ip });
-            return res.status(500).json({ detail: 'Lỗi server: Bảng nametags không tồn tại' });
+            logger.error(`Table nametags does not exist`, { ip });
+            return res.status(500).json({ detail: 'Server error: Table nametags does not exist' });
           }
           throw error;
         }
 
-        logger.info(`Phân tích ví deposit cho ${walletAddress}: ${JSON.stringify(result)}`, { ip });
+        logger.info(`Analyzed deposit wallet for ${walletAddress}: ${JSON.stringify(result)}`, { ip });
         return res.status(200).json({ success: true, data: result });
       } else if (interactionType === 'detect-large-flow') {
         if (!walletAddress) {
-          logger.error('Thiếu walletAddress cho detect-large-flow', { ip });
-          return res.status(400).json({ detail: 'Thiếu walletAddress' });
+          logger.error('Missing walletAddress for detect-large-flow', { ip });
+          return res.status(400).json({ detail: 'Missing walletAddress' });
         }
         let result;
         try {
           const { stdout, stderr } = await execPromise(`python3 scripts/detect_large_flow.py ${walletAddress}`);
           if (stderr) {
-            logger.error(`Lỗi Python: ${stderr}`, { ip });
-            return res.status(500).json({ detail: 'Lỗi xử lý AI' });
+            logger.error(`Python error: ${stderr}`, { ip });
+            return res.status(500).json({ detail: 'AI processing error' });
           }
           result = JSON.parse(stdout);
         } catch (error) {
-          logger.error(`Lỗi khi chạy detect_large_flow.py: ${error.message}`, { ip });
-          return res.status(500).json({ detail: `Lỗi xử lý AI: ${error.message}` });
+          logger.error(`Error running detect_large_flow.py: ${error.message}`, { ip });
+          return res.status(500).json({ detail: `AI processing error: ${error.message}` });
         }
 
         try {
@@ -362,23 +337,23 @@ export default async function handler(req, res) {
           }
         } catch (error) {
           if (error.message.includes('relation "large_flows" does not exist')) {
-            logger.error(`Bảng large_flows không tồn tại`, { ip });
-            return res.status(500).json({ detail: 'Lỗi server: Bảng large_flows không tồn tại' });
+            logger.error(`Table large_flows does not exist`, { ip });
+            return res.status(500).json({ detail: 'Server error: Table large_flows does not exist' });
           }
           throw error;
         }
 
-        logger.info(`Phát hiện dòng chảy lớn cho ${walletAddress}: ${JSON.stringify(result)}`, { ip });
+        logger.info(`Detected large flows for ${walletAddress}: ${JSON.stringify(result)}`, { ip });
         return res.status(200).json({ success: true, data: result });
       }
 
-      logger.warn(`Loại tương tác không hợp lệ: ${interactionType}`, { ip });
-      return res.status(400).json({ detail: 'Loại tương tác không hợp lệ' });
+      logger.warn(`Invalid interaction type: ${interactionType}`, { ip });
+      return res.status(400).json({ detail: 'Invalid interaction type' });
     } else if (req.method === 'GET') {
       const { uid, limit = 5, interactionType } = req.query;
       if (!uid || uid !== session.user.id) {
-        logger.error(`Tham số không hợp lệ: uid=${uid}, sessionUserId=${session.user.id}`, { ip });
-        return res.status(400).json({ detail: 'Thiếu hoặc ID người dùng không hợp lệ' });
+        logger.error(`Invalid parameters: uid=${uid}, sessionUserId=${session.user.id}`, { ip });
+        return res.status(400).json({ detail: 'Missing or invalid user ID' });
       }
 
       const today = new Date();
@@ -395,8 +370,8 @@ export default async function handler(req, res) {
         dailyInteraction = dailyInteractionResult.rows[0] || { count: 0 };
       } catch (error) {
         if (error.message.includes('relation "daily_ai_interactions" does not exist')) {
-          logger.error(`Bảng daily_ai_interactions không tồn tại`, { ip });
-          return res.status(500).json({ detail: 'Lỗi server: Bảng daily_ai_interactions không tồn tại' });
+          logger.error(`Table daily_ai_interactions does not exist`, { ip });
+          return res.status(500).json({ detail: 'Server error: Table daily_ai_interactions does not exist' });
         }
         throw error;
       }
@@ -418,8 +393,8 @@ export default async function handler(req, res) {
         interactions = interactionsResult.rows;
       } catch (error) {
         if (error.message.includes('relation "daily_ai_interactions" does not exist')) {
-          logger.error(`Bảng daily_ai_interactions không tồn tại`, { ip });
-          return res.status(500).json({ detail: 'Lỗi server: Bảng daily_ai_interactions không tồn tại' });
+          logger.error(`Table daily_ai_interactions does not exist`, { ip });
+          return res.status(500).json({ detail: 'Server error: Table daily_ai_interactions does not exist' });
         }
         throw error;
       }
@@ -431,11 +406,11 @@ export default async function handler(req, res) {
         totalCount: dailyInteraction.count || 0,
       });
     } else {
-      logger.warn(`Phương thức không được phép: ${req.method}`, { ip });
-      return res.status(405).json({ detail: 'Phương thức không được phép' });
+      logger.warn(`Method not allowed: ${req.method}`, { ip });
+      return res.status(405).json({ detail: 'Method not allowed' });
     }
   } catch (error) {
-    logger.error(`Lỗi xử lý yêu cầu: ${error.message}`, { stack: error.stack, ip });
-    return res.status(500).json({ detail: `Lỗi server: ${error.message}` });
+    logger.error(`Request processing error: ${error.message}`, { stack: error.stack, ip });
+    return res.status(500).json({ detail: `Server error: ${error.message}` });
   }
 }

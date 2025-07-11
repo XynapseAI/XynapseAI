@@ -6,119 +6,121 @@ import pkg from '../../../utils/logger.cjs';
 const { logger } = pkg;
 
 export const authOptions = {
-    providers: [
-        TwitterProvider.default({
-            clientId: process.env.TWITTER_CLIENT_ID,
-            clientSecret: process.env.TWITTER_CLIENT_SECRET,
-            version: '2.0',
-            authorization: {
-                params: {
-                    scope: 'tweet.read users.read offline.access',
-                },
-            },
-        }),
-    ],
-    callbacks: {
-        async signIn({ user, account, profile }) {
-            try {
-                logger.info('Twitter signIn profile:', { profile, user, account });
-                const twitterHandle = profile?.data?.username
-                    ? `@${profile.data.username}`
-                    : profile?.username
-                        ? `@${profile.username}`
-                        : user.name || '';
-                if (!twitterHandle) {
-                    logger.error('No valid Twitter username found', { userId: user.id, profile });
-                    return false;
-                }
-
-                const userData = {
-                    id: user.id,
-                    twitter_handle: twitterHandle,
-                    twitter_pfp: profile?.data?.profile_image_url || profile?.profile_image_url || user.image || '',
-                    twitter_access_token: account.access_token,
-                    twitter_connected: true,
-                    last_connected: new Date(),
-                };
-
-                // Sử dụng ON CONFLICT để xử lý cả trường hợp INSERT và UPDATE
-                await query(
-                    `INSERT INTO users (
-                        id, twitter_handle, twitter_pfp, twitter_access_token, 
-                        twitter_connected, points, tweet_points, ai_points, 
-                        task_points, is_creator, is_ai_rank, tier, is_plus, created_at, last_connected
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-                    ON CONFLICT (id) DO UPDATE SET
-                        twitter_handle = EXCLUDED.twitter_handle,
-                        twitter_pfp = EXCLUDED.twitter_pfp,
-                        twitter_access_token = EXCLUDED.twitter_access_token,
-                        twitter_connected = EXCLUDED.twitter_connected,
-                        last_connected = EXCLUDED.last_connected,
-                        updated_at = CURRENT_TIMESTAMP`,
-                    [
-                        userData.id,
-                        userData.twitter_handle,
-                        userData.twitter_pfp,
-                        userData.twitter_access_token,
-                        userData.twitter_connected,
-                        0,
-                        0,
-                        0,
-                        0,
-                        false,
-                        false,
-                        'Basic',
-                        false,
-                        new Date(),
-                        userData.last_connected,
-                    ]
-                );
-
-                logger.info(`Người dùng được tạo/cập nhật: ${user.id}`);
-                return true;
-            } catch (error) {
-                logger.error('Lỗi trong signIn callback:', {
-                    error: error.message,
-                    userId: user.id,
-                    stack: error.stack,
-                });
-                if (error.message.includes('relation "users" does not exist')) {
-                    logger.error('Bảng users không tồn tại trong cơ sở dữ liệu');
-                    return false;
-                }
-                return false;
-            }
+  providers: [
+    TwitterProvider.default({
+      clientId: process.env.TWITTER_CLIENT_ID,
+      clientSecret: process.env.TWITTER_CLIENT_SECRET,
+      version: '2.0',
+      authorization: {
+        params: {
+          scope: 'tweet.read users.read offline.access',
         },
-        async jwt({ token, account, profile }) {
-            if (account) {
-                token.id = account.providerAccountId;
-                token.twitterAccessToken = account.access_token;
-                token.twitterHandle = profile?.data?.username
-                    ? `@${profile.data.username}`
-                    : profile?.username
-                        ? `@${profile.username}`
-                        : '';
-            }
-            logger.info('JWT callback:', {
-                tokenId: token.id,
-                accountId: account?.providerAccountId,
-            });
-            return token;
-        },
-        async session({ session, token }) {
-            session.user.id = token.id;
-            session.user.twitterHandle = token.twitterHandle;
-            session.user.twitterAccessToken = token.twitterAccessToken;
-            logger.info('Session callback:', { userId: session.user.id });
-            return session;
-        },
+      },
+    }),
+  ],
+  callbacks: {
+    async signIn({ user, account, profile }) {
+      try {
+        logger.info('Twitter signIn profile', { profile, user, account });
+
+        // Extract Twitter handle from profile or user data
+        const twitterHandle = profile?.data?.username
+          ? `@${profile.data.username}`
+          : profile?.username
+            ? `@${profile.username}`
+            : user.name || '';
+        if (!twitterHandle) {
+          logger.error('No valid Twitter username found', { userId: user.id, profile });
+          return false;
+        }
+
+        const userData = {
+          id: user.id,
+          twitter_handle: twitterHandle,
+          twitter_pfp: profile?.data?.profile_image_url || profile?.profile_image_url || user.image || '',
+          twitter_access_token: account.access_token,
+          twitter_connected: true,
+          last_connected: new Date(),
+        };
+
+        // Insert or update user in the database
+        await query(
+          `INSERT INTO users (
+            id, twitter_handle, twitter_pfp, twitter_access_token, 
+            twitter_connected, points, tweet_points, ai_points, 
+            task_points, is_creator, is_ai_rank, tier, is_plus, created_at, last_connected
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          ON CONFLICT (id) DO UPDATE SET
+            twitter_handle = EXCLUDED.twitter_handle,
+            twitter_pfp = EXCLUDED.twitter_pfp,
+            twitter_access_token = EXCLUDED.twitter_access_token,
+            twitter_connected = EXCLUDED.twitter_connected,
+            last_connected = EXCLUDED.last_connected,
+            updated_at = CURRENT_TIMESTAMP`,
+          [
+            userData.id,
+            userData.twitter_handle,
+            userData.twitter_pfp,
+            userData.twitter_access_token,
+            userData.twitter_connected,
+            0,
+            0,
+            0,
+            0,
+            false,
+            false,
+            'Basic',
+            false,
+            new Date(),
+            userData.last_connected,
+          ]
+        );
+
+        logger.info(`User created/updated: ${user.id}`);
+        return true;
+      } catch (error) {
+        logger.error('Error in signIn callback', {
+          error: error.message,
+          userId: user.id,
+          stack: error.stack,
+        });
+        if (error.message.includes('relation "users" does not exist')) {
+          logger.error('Table "users" does not exist in the database');
+          return false;
+        }
+        return false;
+      }
     },
-    secret: process.env.NEXTAUTH_SECRET,
-    session: {
-        strategy: 'jwt',
-        maxAge: 30 * 24 * 60 * 60,
-        updateAge: 24 * 60 * 60,
+    async jwt({ token, account, profile }) {
+      if (account) {
+        token.id = account.providerAccountId;
+        token.twitterAccessToken = account.access_token;
+        token.twitterHandle = profile?.data?.username
+          ? `@${profile.data.username}`
+          : profile?.username
+            ? `@${profile.username}`
+            : '';
+      }
+      logger.info('JWT callback', {
+        tokenId: token.id,
+        accountId: account?.providerAccountId,
+      });
+      return token;
     },
+    async session({ session, token }) {
+      session.user.id = token.id;
+      session.user.twitterHandle = token.twitterHandle;
+      session.user.twitterAccessToken = token.twitterAccessToken;
+      logger.info('Session callback', { userId: session.user.id });
+      return session;
+    },
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60, // 24 hours
+  },
 };
 
 export default NextAuth.default(authOptions);

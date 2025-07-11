@@ -10,53 +10,42 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
   const [userInfo, setUserInfo] = useState(null);
   const [tabError, setTabError] = useState(null);
   const [rankings, setRankings] = useState([]);
+  const [creators, setCreators] = useState([]);
+  const [aiRank, setAiRank] = useState([]);
 
+  // Use topPlayers prop instead of refetching /api/connect-data
   useEffect(() => {
-    async function fetchConnectData() {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/connect-data`, {
-          headers: {
-            'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
-          },
-          withCredentials: true,
-        });
-        if (response.data.success) {
-          setRankings(response.data.rankings || []);
-        } else {
-          throw new Error(response.data.detail || 'Failed to fetch connect data');
-        }
-      } catch (err) {
-        console.error('Error fetching connect data:', err.response?.data || err.message);
-        setTabError(`Unable to load player list: ${err.response?.data?.detail || err.message}`);
-      }
+    if (topPlayers) {
+      setRankings(topPlayers.rankings || []);
+      setCreators(topPlayers.creators || []);
+      setAiRank(topPlayers.aiRank || []);
     }
+  }, [topPlayers]);
 
-    if (status === 'authenticated') {
-      fetchConnectData();
-    }
-  }, [status]);
-
+  // Fetch user data
   useEffect(() => {
     async function fetchUserData() {
       if (status !== 'authenticated' || !session?.user?.id) return;
       try {
         if (!recaptchaRef.current) throw new Error('reCAPTCHA not ready');
         let recaptchaToken = null;
-        for (let attempt = 1; attempt <= 3; attempt++) {
+        for (let attempt = 1; attempt <= 5; attempt++) {
           try {
             await recaptchaRef.current.reset();
-            recaptchaToken = await recaptchaRef.current.executeAsync({ action: 'get_user' });
+            recaptchaToken = await Promise.race([
+              recaptchaRef.current.executeAsync({ action: 'get_user' }),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 60000)),
+            ]);
             if (recaptchaToken) break;
           } catch (err) {
-            if (attempt === 3) throw new Error('Failed to generate reCAPTCHA token after 3 attempts');
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+            if (attempt === 5) throw new Error('Failed to generate reCAPTCHA token after 5 attempts');
+            await new Promise((resolve) => setTimeout(resolve, 3000));
           }
         }
         if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
 
         const userResponse = await axios.get(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
           headers: {
-            'x-csrf-token': process.env.NEXT_PUBLIC_CSRF_TOKEN || '7b3a9f8c2d6e4b1a0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3a2c1d0e9f8a7',
             'X-Recaptcha-Token': recaptchaToken,
           },
           withCredentials: true,
@@ -67,12 +56,14 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         setUserInfo(userResponse.data.user);
       } catch (err) {
         console.error('Error fetching user data:', err.response?.data || err.message);
+        setUserInfo(null);
         setTabError(`Failed to load user information: ${err.response?.data?.detail || err.message}`);
       }
     }
     fetchUserData();
-  }, [status, session]);
+  }, [status, session, recaptchaRef]);
 
+  // Sync propError to tabError
   useEffect(() => {
     setTabError(propError);
   }, [propError]);
@@ -127,7 +118,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
           <p className="text-xs md:text-sm text-red-500">Error: {tabError || propError}</p>
         )}
         {!loading && !(tabError || propError) && rankings.length === 0 && (
-          <p className="text-xs md:text-sm text-gray-600">No ranking data.</p>
+          <p className="text-xs md:text-sm text-gray-600">No ranking data available.</p>
         )}
         <div className="grid grid-cols-12 gap-2 text-sm md:text-sm text-gray-400">
           <div className="col-span-2">Rank</div>

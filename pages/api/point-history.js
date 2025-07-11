@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import { query as expressQuery, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
+import { getCsrfToken } from 'next-auth/react';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -19,35 +20,14 @@ const logger = winston.createLogger({
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 50, // Tăng giới hạn để debug
   message: { error: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' },
   keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown',
-  trustProxy: true,
 });
 
 const validateGet = [
   expressQuery('uid').isString().isLength({ max: 100 }).withMessage('UID không hợp lệ'),
 ];
-
-const checkCSRF = (req) => {
-  const allowedOrigins = [
-    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    'http://localhost:3000',
-    'https://xynapseai.net',
-    'https://www.xynapseai.net',
-  ];
-  const origin = req.headers['origin'] || req.headers['referer']?.split('/').slice(0, 3).join('/');
-  const csrfToken = req.headers['x-csrf-token'];
-  if (!origin || !allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
-    logger.warn(`CSRF check failed: Invalid or missing Origin/Referer: ${origin}`);
-    return false;
-  }
-  if (!csrfToken || csrfToken !== process.env.CSRF_SECRET) {
-    logger.warn(`CSRF check failed: Invalid or missing CSRF token: ${csrfToken}`);
-    return false;
-  }
-  return true;
-};
 
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
@@ -68,8 +48,10 @@ export default async function handler(req, res) {
     return res.status(429).json({ detail: 'Quá nhiều yêu cầu, vui lòng thử lại sau.' });
   }
 
-  if (!checkCSRF(req)) {
-    logger.warn(`CSRF check failed`, { ip });
+  const csrfToken = req.headers['x-csrf-token'];
+  const expectedCsrfToken = await getCsrfToken({ req });
+  if (!csrfToken || csrfToken !== expectedCsrfToken) {
+    logger.warn(`CSRF check failed: Invalid CSRF token: ${csrfToken}`, { ip });
     return res.status(403).json({ detail: 'CSRF check không hợp lệ.' });
   }
 
