@@ -18,7 +18,7 @@ const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH
   ? path.resolve(process.env.WALLET_FILE_PATH)
   : path.resolve(process.cwd(), 'cron-worker/wallets.json');
 const BATCH_SIZE = 10;
-const MAX_WALLETS_PER_RUN = 50;
+const MAX_WALLETS_PER_RUN = 200;
 const DEFAULT_ETH_PRICE_USD = 2000;
 const PRICE_CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
 const API_KEY_DURATION_MS = 24 * 60 * 60 * 1000;

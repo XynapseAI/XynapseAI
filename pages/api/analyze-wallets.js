@@ -345,7 +345,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     };
   }
 
-  if (totalOutgoingTxs > 0 && outgoingToPrimaryTarget.length / totalOutgoingTxs >= 0.3) {
+  if (totalOutgoingTxs > 0 && outgoingToPrimaryTarget.length / totalOutgoingTxs >= 0.6) {
     confidenceScore += 30;
     reasonParts.push(`Significant portion of outgoing transactions sent back to target wallet ${lowerPrimaryTargetWallet} in last 30 days.`);
   } else if (outgoingToPrimaryTarget.length > 0) {
