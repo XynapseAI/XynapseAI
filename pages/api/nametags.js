@@ -19,6 +19,8 @@ const checkCSRF = (req) => {
     'http://localhost:3000',
     'https://xynapseai.net',
     'https://www.xynapseai.net',
+    'https://postgres-production-e852c.up.railway.app',
+    'https://xynapseai-production.up.railway.app',
   ];
   const origin = req.headers['origin'] || req.headers['referer']?.split('/').slice(0, 3).join('/');
   if (!origin || !allowedOrigins.some((allowed) => origin.startsWith(allowed))) {

@@ -413,7 +413,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
               headers: {
                 Authorization: `Bearer ${session?.accessToken}`,
               },
-              timeout: 20000,
+              timeout: 40000,
             }
           );
 
