@@ -1,7 +1,9 @@
+// pages\api\auth\[...nextauth].js
 import NextAuth from 'next-auth';
 import TwitterProvider from 'next-auth/providers/twitter';
 import { query } from '../../../utils/postgres.js';
 import pkg from '../../../utils/logger.cjs';
+import crypto from 'crypto';
 
 const { logger } = pkg;
 
@@ -23,7 +25,6 @@ export const authOptions = {
       try {
         logger.info('Twitter signIn profile', { profile, user, account });
 
-        // Extract Twitter handle from profile or user data
         const twitterHandle = profile?.data?.username
           ? `@${profile.data.username}`
           : profile?.username
@@ -41,21 +42,23 @@ export const authOptions = {
           twitter_access_token: account.access_token,
           twitter_connected: true,
           last_connected: new Date(),
+          api_key: crypto.randomBytes(32).toString('hex'), // Tạo API key
         };
 
-        // Insert or update user in the database
         await query(
           `INSERT INTO users (
             id, twitter_handle, twitter_pfp, twitter_access_token, 
             twitter_connected, points, tweet_points, ai_points, 
-            task_points, is_creator, is_ai_rank, tier, is_plus, created_at, last_connected
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            task_points, is_creator, is_ai_rank, tier, is_plus, 
+            created_at, last_connected, api_key, is_premium, premium_expires_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
           ON CONFLICT (id) DO UPDATE SET
             twitter_handle = EXCLUDED.twitter_handle,
             twitter_pfp = EXCLUDED.twitter_pfp,
             twitter_access_token = EXCLUDED.twitter_access_token,
             twitter_connected = EXCLUDED.twitter_connected,
             last_connected = EXCLUDED.last_connected,
+            api_key = COALESCE(users.api_key, EXCLUDED.api_key),
             updated_at = CURRENT_TIMESTAMP`,
           [
             userData.id,
@@ -73,6 +76,9 @@ export const authOptions = {
             false,
             new Date(),
             userData.last_connected,
+            userData.api_key,
+            false,
+            null,
           ]
         );
 
@@ -84,10 +90,6 @@ export const authOptions = {
           userId: user.id,
           stack: error.stack,
         });
-        if (error.message.includes('relation "users" does not exist')) {
-          logger.error('Table "users" does not exist in the database');
-          return false;
-        }
         return false;
       }
     },
@@ -101,16 +103,20 @@ export const authOptions = {
             ? `@${profile.username}`
             : '';
       }
-      logger.info('JWT callback', {
-        tokenId: token.id,
-        accountId: account?.providerAccountId,
-      });
+      // Lấy api_key từ database
+      const result = await query(`SELECT api_key, is_premium FROM users WHERE id = $1`, [token.id]);
+      if (result.rows.length > 0) {
+        token.apiKey = result.rows[0].api_key;
+        token.isPremium = result.rows[0].is_premium;
+      }
       return token;
     },
     async session({ session, token }) {
       session.user.id = token.id;
       session.user.twitterHandle = token.twitterHandle;
       session.user.twitterAccessToken = token.twitterAccessToken;
+      session.user.apiKey = token.apiKey;
+      session.user.isPremium = token.isPremium || false;
       logger.info('Session callback', { userId: session.user.id });
       return session;
     },

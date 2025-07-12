@@ -4,6 +4,13 @@ export default {
   reactStrictMode: true,
   images: {
     domains: ['ipfs.io'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'coin-images.coingecko.com',
+        pathname: '/asset_platforms/images/**',
+      },
+    ],
   },
   async rewrites() {
     return [

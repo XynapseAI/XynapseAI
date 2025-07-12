@@ -1,39 +1,58 @@
 import { useState, useEffect, useRef, memo } from 'react';
+import { useSession } from 'next-auth/react';
 import { isAddress } from 'ethers';
 import { motion } from 'framer-motion';
 import throttle from 'lodash.throttle';
 import crypto from 'crypto-js';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import Image from 'next/image';
+import { formatDistanceToNow } from 'date-fns';
+import { chains, mapCoinGeckoChains, getPlatformImage, getExplorerUrls } from '../utils/constants';
+import axios from 'axios';
 
-// WalletNode component with improved tooltip and mobile support
-const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, value, isRoot = false, onSelect }) => {
+// WalletNode component
+const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, value, chainLogo, isRoot = false, onSelect }) => {
   const truncateAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   const displayName = nametag !== 'Unknown' ? nametag : truncateAddress(address);
 
   return (
     <div
-      className={`relative flex items-center justify-center p-2 rounded-lg border border-white/10 backdrop-blur-md bg-gray-800/50 hover:bg-white/15 transition-all duration-300 cursor-pointer ${
-        isRoot ? 'w-[180px] max-w-[180px] bg-gray-700/70' : 'w-[120px]'
-      } group`}
+      className={`relative flex items-center justify-center p-2 rounded-lg border border-white/10 backdrop-blur-md bg-gray-800/50 hover:bg-white/15 transition-all duration-300 cursor-pointer ${isRoot ? 'w-[180px] max-w-[180px] bg-gray-700/70' : 'w-[120px]'
+        } group`}
       onClick={() => onSelect(address)}
     >
       <p className="text-white text-[10px] font-medium text-center truncate" title={displayName}>
         {displayName}
       </p>
-      {/* Hover Tooltip */}
       <div className="absolute z-50 hidden group-hover:flex flex-col -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full w-64 bg-gray-900/90 border border-white/20 rounded-lg shadow-lg p-3 text-white text-xs font-jetbrains backdrop-blur-md pointer-events-none">
         <div className="flex items-center gap-2 mb-2">
           {image && (
-            <img
+            <Image
               src={image}
               alt={`${nametag} logo`}
-              className="w-5 h-5 rounded-full"
-              onError={(e) => (e.target.src = '/icons/default.png')}
+              width={20}
+              height={20}
+              className="rounded-full"
+              onError={() => console.log(`Failed to load wallet image: ${image}`)}
             />
           )}
           <span>{nametag !== 'Unknown' ? nametag : 'No Nametag'}</span>
         </div>
         <p><strong>Address:</strong> {truncateAddress(address)}</p>
-        {txHash && <p><strong>Tx Hash:</strong> {truncateAddress(txHash)}</p>}
+        {txHash && (
+          <p>
+            <strong>Tx Hash:</strong>{' '}
+            <a
+              href={getExplorerUrls('ethereum', txHash, address).txUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-blue-400 hover:underline"
+            >
+              {truncateAddress(txHash)}
+            </a>
+          </p>
+        )}
         {type && <p><strong>Type:</strong> {type}</p>}
         {block_time && <p><strong>Block Time:</strong> {new Date(block_time).toLocaleString()}</p>}
         {value && <p><strong>Value:</strong> {value.toFixed(6)} ETH</p>}
@@ -42,27 +61,90 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
   );
 });
 
+// LoadingOverlay component (giữ nguyên)
+const LoadingOverlay = ({ message }) => {
+  return (
+    <div className="fixed inset-0 bg-gray/10 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="flex flex-col items-center gap-4">
+        <div className="relative w-12 h-12">
+          <div className="absolute inset-0 border-4 border-gray-600/50 border-t-white rounded-full animate-spin"></div>
+          <Image
+            src="/logos/logo-scan.png"
+            alt="Loading Logo"
+            width={32}
+            height={32}
+            className="absolute inset-0 m-2 object-contain"
+            onError={() => console.log(`Failed to load loading logo: /logos/logo-scan.png`)}
+          />
+        </div>
+        <p className="text-xs text-gray-200 font-medium animate-pulse">{message || 'Processing...'}</p>
+      </div>
+    </div>
+  );
+};
+
 // Cache TTL (1 hour = 3600000 ms)
 const CACHE_TTL = 3600000;
 const NODES_PER_PAGE = 50;
 
 export default function TreemapTab({ recaptchaRef }) {
+  const { data: session, status } = useSession();
   const [walletAddress, setWalletAddress] = useState('');
   const [incomingData, setIncomingData] = useState([]);
   const [outgoingData, setOutgoingData] = useState([]);
-  const [walletInfo, setWalletInfo] = useState({ address: '', nametag: 'Unknown', image: '/icons/default.png' });
+  const [walletInfo, setWalletInfo] = useState({ address: '', nametag: 'Unknown', image: '/icons/default.png', chainLogo: '/icons/default.png' });
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
-  const [error, setError] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [nodePage, setNodePage] = useState(1);
+  const [selectedChain, setSelectedChain] = useState('ethereum');
+  const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [coingeckoChains, setCoingeckoChains] = useState([]);
   const svgRef = useRef(null);
+  const chainDropdownRef = useRef(null);
+  const limitDropdownRef = useRef(null);
   const touchStartRef = useRef({ touches: [], scale: 1 });
+  const [selectedLimit, setSelectedLimit] = useState(100);
+  const [isLimitDropdownOpen, setIsLimitDropdownOpen] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
 
-  // Generate HMAC signature
+  useEffect(() => {
+    if (session?.user) {
+      setIsPremium(session.user.isPremium || false);
+    }
+  }, [session]);
+
+  // Fetch CoinGecko chains
+  useEffect(() => {
+    const fetchCoingeckoChains = async () => {
+      try {
+        const response = await axios.get('/api/coingecko/chains');
+        if (response.data.success) {
+          setCoingeckoChains(response.data.data);
+          console.log('Fetched CoinGecko chains:', response.data.data.slice(0, 5));
+        } else {
+          console.error('Failed to fetch CoinGecko chains:', response.data.detail);
+          toast.error('Failed to load chain data. Using fallback images.', {
+            position: 'top-center',
+            autoClose: 5000,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching CoinGecko chains:', error.message);
+        toast.error('Error loading chain data. Using fallback images.', {
+          position: 'top-center',
+          autoClose: 5000,
+        });
+      }
+    };
+    fetchCoingeckoChains();
+  }, []);
+
+  // Generate HMAC signature (giữ nguyên)
   const generateHmacSignature = (payload) => {
     try {
       const hmacSecret = process.env.HMAC_SECRET || '88583e5e555aaeb3d9b3b0cafbd1e609f5a7ff96548caa71c8eda0783d66b1f1';
@@ -76,18 +158,18 @@ export default function TreemapTab({ recaptchaRef }) {
     }
   };
 
-  // Cache handling
-  const getCachedData = (address, chain) => {
+  // Cache handling (giữ nguyên)
+  const getCachedData = (address, chain, limit) => {
     try {
-      const cacheKey = `wallet_transactions_${chain}_${address.toLowerCase()}`;
+      const cacheKey = `wallet_transactions_${chain}_${address.toLowerCase()}_${limit}`;
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < CACHE_TTL) {
-          console.log(`Using cached data for ${address}`);
+          console.log(`Using cached data for ${address} with limit ${limit}`);
           return data;
         } else {
-          console.log(`Cache expired for ${address}`);
+          console.log(`Cache expired for ${address} with limit ${limit}`);
           localStorage.removeItem(cacheKey);
         }
       }
@@ -99,9 +181,9 @@ export default function TreemapTab({ recaptchaRef }) {
 
   const setCachedData = (address, chain, data) => {
     try {
-      const cacheKey = `wallet_transactions_${chain}_${address.toLowerCase()}`;
+      const cacheKey = `wallet_transactions_${chain}_${address.toLowerCase()}_${selectedLimit}`;
       localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
-      console.log(`Cached data stored for ${address}`);
+      console.log(`Cached data stored for ${address} with limit ${selectedLimit}`);
     } catch (err) {
       console.error(`Error storing cache for ${address}: ${err.message}`);
     }
@@ -109,26 +191,29 @@ export default function TreemapTab({ recaptchaRef }) {
 
   const fetchTransactions = async (address) => {
     if (!isAddress(address)) {
-      setError('Invalid wallet address.');
+      toast.error('Invalid wallet address. Please enter a valid Ethereum address.', {
+        position: 'top-center',
+        autoClose: 5000,
+      });
       console.error('Invalid wallet address:', address);
       return;
     }
 
-    const cachedData = getCachedData(address, 'ethereum');
+    const cachedData = getCachedData(address, selectedChain, selectedLimit);
     if (cachedData) {
       setIncomingData(cachedData.incoming);
       setOutgoingData(cachedData.outgoing);
       setWalletInfo(cachedData.wallet);
+      setIsPremium(cachedData.wallet.isPremium || false);
       setWalletAddress(address);
       setNodePage(1);
-      setOffset({ x: 0, y: 0 }); // Reset offset on new search
-      setZoom(1); // Reset zoom on new search
+      setOffset({ x: 0, y: 0 });
+      setZoom(1);
       return;
     }
 
     setLoading(true);
-    setError(null);
-    setLoadingMessage('Fetching transactions from Etherscan...');
+    setLoadingMessage(`Fetching transactions from ${chains.find((c) => c.value === selectedChain)?.label || 'blockchain'}...`);
 
     try {
       if (!recaptchaRef.current) {
@@ -137,7 +222,8 @@ export default function TreemapTab({ recaptchaRef }) {
       const recaptchaToken = await recaptchaRef.current.executeAsync();
       const payload = {
         wallet_address: address,
-        chain: 'ethereum',
+        chain: selectedChain,
+        limit: selectedLimit,
       };
       const signature = generateHmacSignature(payload);
       if (!signature) {
@@ -149,11 +235,28 @@ export default function TreemapTab({ recaptchaRef }) {
         headers: {
           'Content-Type': 'application/json',
           'X-Recaptcha-Token': recaptchaToken,
-          'x-api-key': process.env.INTERNAL_API_KEY || 'f8397e3b47591eb37bcb1b0d1f8bc688626fbc9415db37f7e66dfde9a38db776',
+          'x-api-key': session?.user?.apiKey || 'default-api-key',
           'x-hmac-signature': signature,
         },
         body: JSON.stringify(payload),
       });
+
+      if (response.status === 304) {
+        console.log('Received 304 Not Modified, using cached data if available');
+        const cached = getCachedData(address, selectedChain, selectedLimit);
+        if (cached) {
+          setIncomingData(cached.incoming);
+          setOutgoingData(cached.outgoing);
+          setWalletInfo(cached.wallet);
+          setIsPremium(cached.wallet.isPremium || false);
+          setWalletAddress(address);
+          setNodePage(1);
+          setOffset({ x: 0, y: 0 });
+          setZoom(1);
+          setLoading(false);
+          return;
+        }
+      }
 
       setLoadingMessage('Looking up nametags...');
       const result = await response.json();
@@ -168,9 +271,10 @@ export default function TreemapTab({ recaptchaRef }) {
           nametag: tx.from_nametag,
           image: tx.from_image,
           txHash: tx.hash,
-          value: Number(tx.value),
+          value: Number(tx.value) / 1e18,
           block_time: tx.block_time,
           type: 'Incoming',
+          chainLogo: tx.chainLogo,
         }));
       const outgoing = result.outgoing
         .filter((tx) => Number(tx.value) > 0)
@@ -179,22 +283,34 @@ export default function TreemapTab({ recaptchaRef }) {
           nametag: tx.to_nametag,
           image: tx.to_image,
           txHash: tx.hash,
-          value: Number(tx.value),
+          value: Number(tx.value) / 1e18,
           block_time: tx.block_time,
           type: 'Outgoing',
+          chainLogo: tx.chainLogo,
         }));
 
-      setCachedData(address, 'ethereum', { incoming, outgoing, wallet: result.wallet });
+      if (incoming.length === 0 && outgoing.length === 0) {
+        toast.info(`No transactions found for this address on ${chains.find((c) => c.value === selectedChain)?.label || selectedChain}. Please verify the address or try another chain.`, {
+          position: 'top-center',
+          autoClose: 5000,
+        });
+      }
+
+      setCachedData(address, selectedChain, { incoming, outgoing, wallet: result.wallet });
 
       setIncomingData(incoming);
       setOutgoingData(outgoing);
       setWalletInfo(result.wallet);
+      setIsPremium(result.wallet.isPremium || false);
       setWalletAddress(address);
       setNodePage(1);
       setOffset({ x: 0, y: 0 });
       setZoom(1);
     } catch (err) {
-      setError(`Error: ${err.message}`);
+      toast.error(`Error: ${err.message}`, {
+        position: 'top-center',
+        autoClose: 5000,
+      });
       console.error(`Error fetching transactions for ${address}: ${err.message}`, { response: err.response });
     } finally {
       setLoading(false);
@@ -207,8 +323,28 @@ export default function TreemapTab({ recaptchaRef }) {
     console.log('Incoming Data Updated:', incomingData);
     console.log('Outgoing Data Updated:', outgoingData);
     console.log('Wallet Info Updated:', walletInfo);
-    console.log('Interaction:', { offset, zoom, nodePage });
-  }, [incomingData, outgoingData, walletInfo, offset, zoom, nodePage]);
+    console.log('Interaction:', { offset, zoom, nodePage, selectedChain });
+  }, [incomingData, outgoingData, walletInfo, offset, zoom, nodePage, selectedChain]);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (chainDropdownRef.current && !chainDropdownRef.current.contains(event.target)) {
+        setIsChainDropdownOpen(false);
+      }
+      if (limitDropdownRef.current && !limitDropdownRef.current.contains(event.target)) {
+        setIsLimitDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSelectWallet = (address) => {
     if (address !== walletInfo.address) {
@@ -216,7 +352,7 @@ export default function TreemapTab({ recaptchaRef }) {
     }
   };
 
-  // Mouse events
+  // Mouse events (giữ nguyên)
   const handleMouseDown = (e) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
@@ -235,11 +371,11 @@ export default function TreemapTab({ recaptchaRef }) {
     setIsDragging(false);
   };
 
-  // Touch events
+  // Touch events (giữ nguyên)
   const handleTouchStart = (e) => {
     e.preventDefault();
     const touches = e.touches;
-    touchStartRef.current.touches = Array.from(touches).map(t => ({ x: t.clientX, y: t.clientY }));
+    touchStartRef.current.touches = Array.from(touches).map((t) => ({ x: t.clientX, y: t.clientY }));
     if (touches.length === 1) {
       setIsDragging(true);
       setDragStart({ x: touches[0].clientX - offset.x, y: touches[0].clientY - offset.y });
@@ -288,7 +424,6 @@ export default function TreemapTab({ recaptchaRef }) {
   };
 
   const calculateNodePositions = () => {
-    const isMobile = window.innerWidth < 640;
     const limitedIncoming = incomingData.slice(0, nodePage * NODES_PER_PAGE);
     const limitedOutgoing = outgoingData.slice(0, nodePage * NODES_PER_PAGE);
     const totalNodes = limitedIncoming.length + limitedOutgoing.length;
@@ -362,6 +497,7 @@ export default function TreemapTab({ recaptchaRef }) {
     }
   };
 
+  const mappedChains = coingeckoChains.length > 0 ? mapCoinGeckoChains(coingeckoChains) : chains;
   const { rootX, rootY, incomingNodes, outgoingNodes, nodeWidth, nodeHeight, canvasWidth, canvasHeight } = calculateNodePositions();
 
   return (
@@ -369,43 +505,180 @@ export default function TreemapTab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="font-jetbrains w-full h-[calc(100vh)] bg-tech p-4 rounded-xl shadow-lg relative overflow-hidden touch-pinch-zoom"
+      className="font-jetbrains w-full max-w-10xl mx-auto bg-gray-800/50 backdrop-blur-md p-4 rounded-xl shadow-lg h-[calc(100vh)] border border-white/10"
     >
       <div className="flex flex-col sm:flex-row items-center justify-between gap-2 mb-4 mt-4">
         <div className="flex items-center gap-1">
-          <h2 className="text-sm font-bold text-white uppercase">Wallet Flow</h2>
+          <h2 className="text-xs sm:text-sm font-bold text-white uppercase">Wallet Flow</h2>
         </div>
-        <div className="relative flex items-center w-full sm:w-auto">
-          <input
-            type="text"
-            placeholder="0x..."
-            value={walletAddress}
-            onChange={(e) => setWalletAddress(e.target.value)}
-            className="bg-gray-800/50 text-white px-2 py-1 rounded-lg text-xs w-full sm:w-56 border border-white/10 backdrop-blur-md focus:outline-none pr-8"
-            aria-label="Wallet address"
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
-                fetchTransactions(walletAddress);
-              }
-            }}
-          />
-          <button
-            onClick={() => fetchTransactions(walletAddress)}
-            className="absolute right-1 text-white p-1 transition-all duration-300 backdrop-blur-md rounded-r-xl"
-            aria-label="Search wallet"
-            disabled={loading}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Dropdown chọn chain */}
+          <div className="relative" ref={chainDropdownRef}>
+            <button
+              onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
+              className="text-white px-2 py-1 rounded-lg border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300 flex items-center justify-center text-xs"
+              aria-label="Select chain"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </button>
+              <span className="flex items-center">
+                <Image
+                  src={getPlatformImage(selectedChain, coingeckoChains)}
+                  alt={`${mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
+                  width={16}
+                  height={16}
+                  className="mr-2"
+                  onError={() => console.log(`Failed to load chain image: ${getPlatformImage(selectedChain, coingeckoChains)} for chain: ${selectedChain}`)}
+                />
+                <span className="text-xs">
+                  {mappedChains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
+                </span>
+              </span>
+              <span className="ml-1.5">{isChainDropdownOpen ? '▲' : '▼'}</span>
+            </button>
+            {isChainDropdownOpen && (
+              <div
+                className="absolute z-20 rounded-lg mt-1 w-56 max-h-64 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10 bg-gray-800/50"
+                style={{ left: '50%', transform: 'translateX(-50%)' }}
+              >
+                {mappedChains.length === 0 ? (
+                  <div className="px-3 py-1.5 text-gray-400 text-xs">No supported chains available</div>
+                ) : (
+                  mappedChains
+                    .filter((chain) => process.env.NODE_ENV === 'development' || !chain.testnet)
+                    .map((chain) => (
+                      <button
+                        key={chain.value}
+                        onClick={() => {
+                          if (!isPremium && chain.value !== '1') {
+                            toast.error('Premium account required to select this chain.', {
+                              position: 'top-center',
+                              autoClose: 5000,
+                            });
+                            return;
+                          }
+                          console.log(`Selected chain: ${chain.value}, image: ${chain.image}`);
+                          setSelectedChain(chain.value);
+                          setIsChainDropdownOpen(false);
+                        }}
+                        className={`flex items-center w-full text-left px-3 py-1.5 rounded-md text-white font-medium text-xs relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/15'
+                          }`}
+                      >
+                        <Image
+                          src={chain.image}
+                          alt={`${chain.label} logo`}
+                          width={16}
+                          height={16}
+                          className="mr-4"
+                          onError={() => console.log(`Failed to load chain image: ${chain.image} for chain: ${chain.value}`)}
+                        />
+                        {chain.label}
+                        {!isPremium && chain.value !== '1' && (
+                          <span className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                            <Image
+                              src="/icons/crown.png"
+                              alt="Premium required"
+                              width={12}
+                              height={12}
+                              className="opacity-80"
+                            />
+                            <span className="absolute hidden group-hover:block bg-gray-900/90 text-white text-xs rounded p-1 -top-6 right-0">
+                              Premium account required
+                            </span>
+                          </span>
+                        )}
+                      </button>
+                    ))
+                )}
+              </div>
+            )}
+          </div>
+          {/* Dropdown chọn limit */}
+          <div className="relative" ref={limitDropdownRef}>
+            <button
+              onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
+              className="text-white px-2 py-1 rounded-lg border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300 flex items-center justify-center text-xs"
+              aria-label="Select transaction limit"
+            >
+              <span className="text-xs">Limit: {selectedLimit}</span>
+              <span className="ml-1.5">{isLimitDropdownOpen ? '▲' : '▼'}</span>
+            </button>
+            {isLimitDropdownOpen && (
+              <div
+                className="absolute z-20 rounded-lg mt-1 w-32 max-h-64 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10 bg-gray-800/50"
+                style={{ left: '50%', transform: 'translateX(-50%)' }}
+              >
+                {[100, 200, 300, 500].map((limit) => (
+                  <button
+                    key={limit}
+                    onClick={() => {
+                      if (!isPremium && limit > 100) {
+                        toast.error('Premium account required to fetch more than 100 transactions.', {
+                          position: 'top-center',
+                          autoClose: 5000,
+                        });
+                        return;
+                      }
+                      setSelectedLimit(limit);
+                      setIsLimitDropdownOpen(false);
+                      if (walletAddress) {
+                        fetchTransactions(walletAddress); // Gọi lại API với limit mới
+                      }
+                    }}
+                    className={`flex items-center w-full text-left px-3 py-1.5 rounded-md text-white font-medium text-xs relative ${!isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/15'
+                      }`}
+                  >
+                    {limit}
+                    {!isPremium && limit > 100 && (
+                      <span className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                        <Image
+                          src="/icons/crown.png"
+                          alt="Premium required"
+                          width={12}
+                          height={12}
+                          className="opacity-80"
+                        />
+                        <span className="absolute hidden group-hover:block bg-gray-900/90 text-white text-xs rounded p-1 -top-6 right-0">
+                          Premium account required
+                        </span>
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Input địa chỉ ví */}
+          <div className="relative flex items-center w-full sm:w-auto">
+            <input
+              type="text"
+              placeholder="0x..."
+              value={walletAddress}
+              onChange={(e) => setWalletAddress(e.target.value)}
+              className="bg-gray-800/50 text-white px-2 py-1 rounded-lg text-xs w-full sm:w-56 border border-white/10 backdrop-blur-md focus:outline-none pr-8"
+              aria-label="Wallet address"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+                  fetchTransactions(walletAddress);
+                }
+              }}
+            />
+            <button
+              onClick={() => fetchTransactions(walletAddress)}
+              className="absolute right-1 text-white p-1 transition-all duration-300 backdrop-blur-md rounded-r-xl"
+              aria-label="Search wallet"
+              disabled={loading}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -415,48 +688,32 @@ export default function TreemapTab({ recaptchaRef }) {
             setOffset({ x: 0, y: 0 });
             setZoom(1);
           }}
-          className="px-2 py-1 bg-gray-800/50 text-white rounded text-xs border border-white/10"
+          className="px-2 py-1 bg-gray-800/50 text-white rounded-lg text-xs border border-white/10 backdrop-blur-md hover:bg-white/15 transition-all duration-300"
         >
           Reset View
         </button>
         {(incomingData.length > nodePage * NODES_PER_PAGE || outgoingData.length > nodePage * NODES_PER_PAGE) && (
           <button
             onClick={handleLoadMore}
-            className="px-2 py-1 bg-gray-800/50 text-white rounded text-xs border border-white/10"
+            className="px-2 py-1 bg-gray-800/50 text-white rounded-lg text-xs border border-white/10 backdrop-blur-md hover:bg-white/15 transition-all duration-300"
           >
             Load More
           </button>
         )}
       </div>
 
-      {error && (
-        <p className="text-sm text-red-500 text-center p-4 bg-red-500/10 rounded-lg border border-red-500/30">
-          Error: {error}
-        </p>
-      )}
-      {loading && (
-        <div className="fixed inset-0 bg-gray/10 flex items-center justify-center z-50">
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative w-12 h-12">
-              <div className="absolute inset-0 border-4 border-gray-600/50 border-t-white rounded-full animate-spin"></div>
-              <img
-                src="/logos/logo-scan.png"
-                alt="Loading Logo"
-                className="absolute inset-0 w-8 h-8 m-2 object-contain"
-              />
-            </div>
-            <p className="text-sm text-gray-200 font-medium animate-pulse">{loadingMessage || 'Processing...'}</p>
-          </div>
+      {loading && <LoadingOverlay message={loadingMessage} />}
+      {!loading && incomingData.length === 0 && outgoingData.length === 0 && walletInfo.address && (
+        <div className="text-center text-gray-400 text-xs p-4 bg-gray-800/50 rounded-lg border border-white/10 backdrop-blur-md">
+          <p className="mb-2">No transactions found for this address on {mappedChains.find((c) => c.value === selectedChain)?.label || selectedChain}.</p>
+          <p>Please verify the wallet address or try a different chain.</p>
         </div>
-      )}
-      {!loading && incomingData.length === 0 && outgoingData.length === 0 && !error && (
-        <p className="text-xs text-gray-400 text-center flex-1">No transactions to display.</p>
       )}
 
       {walletInfo.address && (
         <div
           className="relative w-full h-[calc(100vh-120px)] overflow-auto hide-scrollbar touch-pinch-zoom"
-          style={{ 
+          style={{
             transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
             transformOrigin: 'center',
             width: `${canvasWidth}px`,
@@ -506,6 +763,7 @@ export default function TreemapTab({ recaptchaRef }) {
               address={walletInfo.address}
               nametag={walletInfo.nametag}
               image={walletInfo.image}
+              chainLogo={walletInfo.chainLogo}
               isRoot={true}
               onSelect={handleSelectWallet}
             />
@@ -525,6 +783,7 @@ export default function TreemapTab({ recaptchaRef }) {
                 type={node.type}
                 block_time={node.block_time}
                 value={node.value}
+                chainLogo={node.chainLogo}
                 onSelect={handleSelectWallet}
               />
             </div>
@@ -544,6 +803,7 @@ export default function TreemapTab({ recaptchaRef }) {
                 type={node.type}
                 block_time={node.block_time}
                 value={node.value}
+                chainLogo={node.chainLogo}
                 onSelect={handleSelectWallet}
               />
             </div>
@@ -551,13 +811,10 @@ export default function TreemapTab({ recaptchaRef }) {
         </div>
       )}
 
+      <ToastContainer position="top-center" autoClose={5000} />
       <style jsx>{`
         .bg-tech {
           background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
-        }
-        .spinner-border {
-          border-top-color: #00BFFF;
-          border-right-color: transparent;
         }
         .hide-scrollbar::-webkit-scrollbar {
           display: none;
@@ -568,6 +825,19 @@ export default function TreemapTab({ recaptchaRef }) {
         }
         .touch-pinch-zoom {
           touch-action: pan-x pan-y pinch-zoom;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.3);
         }
         @media (max-width: 640px) {
           .relative.w-full {
