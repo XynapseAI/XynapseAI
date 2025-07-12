@@ -133,6 +133,7 @@ export default async function handler(req, res) {
             isCreator: user.is_creator || false,
             isAiRank: user.is_ai_rank || false,
             tier: user.tier || 'Basic',
+            is_premium: user.is_premium || false, // Add is_premium to response
             walletAddress: user.wallet_address || null,
             lastConnected: user.last_connected ? new Date(user.last_connected) : null,
           },
@@ -164,6 +165,8 @@ export default async function handler(req, res) {
         is_ai_rank: false,
         tier: 'Basic',
         is_plus: false,
+        isPremium: response.data.user.is_premium || false,
+        tier: response.data.user.is_premium ? 'Premium' : 'Basic',
       };
 
       try {

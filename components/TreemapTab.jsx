@@ -11,21 +11,60 @@ import { formatDistanceToNow } from 'date-fns';
 import { chains, mapCoinGeckoChains, getPlatformImage, getExplorerUrls } from '../utils/constants';
 import axios from 'axios';
 
-// WalletNode component
+
 const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, value, chainLogo, isRoot = false, onSelect }) => {
   const truncateAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   const displayName = nametag !== 'Unknown' ? nametag : truncateAddress(address);
 
+  const handleCopyAddress = async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(address);
+      toast.success('Address copied to clipboard!', {
+        position: 'top-center',
+        autoClose: 3000,
+      });
+    } catch (err) {
+      console.error('Failed to copy address:', err);
+      toast.error('Failed to copy address.', {
+        position: 'top-center',
+        autoClose: 3000,
+      });
+    }
+  };
+
   return (
     <div
-      className={`relative flex items-center justify-center p-2 rounded-lg border border-white/10 backdrop-blur-md bg-gray-800/50 hover:bg-white/15 transition-all duration-300 cursor-pointer ${isRoot ? 'w-[180px] max-w-[180px] bg-gray-700/70' : 'w-[120px]'
-        } group`}
+      className={`relative flex items-center justify-center p-2 rounded-xl border border-white/10 backdrop-blur-lg bg-gray-900/30 duration-200 cursor-pointer group ${isRoot ? 'w-[160px] max-w-[160px] bg-gray-900/50 shadow-glow-neon' : 'w-[100px]'
+        }`}
       onClick={() => onSelect(address)}
     >
-      <p className="text-white text-[10px] font-medium text-center truncate" title={displayName}>
+      <button
+        onClick={handleCopyAddress}
+        className="absolute top-1 right-1 z-20 p-1 rounded-full hover:bg-gray-700/50 transition-colors duration-200 group-hover:block hidden"
+        title="Copy address"
+        aria-label="Copy wallet address"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-3 w-3 text-white"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
+        </svg>
+      </button>
+
+      <p className="text-white text-[9px] font-medium text-center truncate mr-2" title={displayName}>
         {displayName}
       </p>
-      <div className="absolute z-50 hidden group-hover:flex flex-col -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full w-64 bg-gray-900/90 border border-white/20 rounded-lg shadow-lg p-3 text-white text-xs font-jetbrains backdrop-blur-md pointer-events-none">
+      <div className="absolute z-50 hidden group-hover:flex flex-col -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full w-64 bg-gray-900/95 border border-white/10 rounded-lg shadow-glow-neon p-2 text-white text-xs font-jetbrains backdrop-blur-lg pointer-events-none">
         <div className="flex items-center gap-2 mb-2">
           {image && (
             <Image
@@ -37,7 +76,7 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
               onError={() => console.log(`Failed to load wallet image: ${image}`)}
             />
           )}
-          <span>{nametag !== 'Unknown' ? nametag : 'No Nametag'}</span>
+          <span className="font-bold">{nametag !== 'Unknown' ? nametag : 'No Nametag'}</span>
         </div>
         <p><strong>Address:</strong> {truncateAddress(address)}</p>
         {txHash && (
@@ -47,7 +86,7 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
               href={getExplorerUrls('ethereum', txHash, address).txUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-blue-400 hover:underline"
+              className="text-neon-blue hover:underline"
             >
               {truncateAddress(txHash)}
             </a>
@@ -55,29 +94,29 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
         )}
         {type && <p><strong>Type:</strong> {type}</p>}
         {block_time && <p><strong>Block Time:</strong> {new Date(block_time).toLocaleString()}</p>}
-        {value && <p><strong>Value:</strong> {value.toFixed(6)} ETH</p>}
+        {value != null && <p><strong>Value:</strong> {value < 0.000001 ? value.toExponential(4) : value.toFixed(6)} ETH</p>}
       </div>
     </div>
   );
 });
 
-// LoadingOverlay component (giữ nguyên)
+// LoadingOverlay component
 const LoadingOverlay = ({ message }) => {
   return (
-    <div className="fixed inset-0 bg-gray/10 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-lg flex items-center justify-center z-50">
       <div className="flex flex-col items-center gap-4">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 border-4 border-gray-600/50 border-t-white rounded-full animate-spin"></div>
+        <div className="relative w-14 h-14">
+          <div className="absolute inset-0 border-4 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>
           <Image
             src="/logos/logo-scan.png"
             alt="Loading Logo"
-            width={32}
-            height={32}
-            className="absolute inset-0 m-2 object-contain"
+            width={40}
+            height={40}
+            className="absolute inset-0 m-2 object-contain animate-pulse"
             onError={() => console.log(`Failed to load loading logo: /logos/logo-scan.png`)}
           />
         </div>
-        <p className="text-xs text-gray-200 font-medium animate-pulse">{message || 'Processing...'}</p>
+        <p className="text-sm text-gray-200 font-medium animate-pulse">{message || 'Processing...'}</p>
       </div>
     </div>
   );
@@ -144,7 +183,7 @@ export default function TreemapTab({ recaptchaRef }) {
     fetchCoingeckoChains();
   }, []);
 
-  // Generate HMAC signature (giữ nguyên)
+  // Generate HMAC signature
   const generateHmacSignature = (payload) => {
     try {
       const hmacSecret = process.env.HMAC_SECRET || '88583e5e555aaeb3d9b3b0cafbd1e609f5a7ff96548caa71c8eda0783d66b1f1';
@@ -158,7 +197,7 @@ export default function TreemapTab({ recaptchaRef }) {
     }
   };
 
-  // Cache handling (giữ nguyên)
+  // Cache handling
   const getCachedData = (address, chain, limit) => {
     try {
       const cacheKey = `wallet_transactions_${chain}_${address.toLowerCase()}_${limit}`;
@@ -264,30 +303,26 @@ export default function TreemapTab({ recaptchaRef }) {
         throw new Error(result.error || 'Error fetching transaction data.');
       }
 
-      const incoming = result.incoming
-        .filter((tx) => Number(tx.value) > 0)
-        .map((tx) => ({
-          address: tx.from.toLowerCase(),
-          nametag: tx.from_nametag,
-          image: tx.from_image,
-          txHash: tx.hash,
-          value: Number(tx.value) / 1e18,
-          block_time: tx.block_time,
-          type: 'Incoming',
-          chainLogo: tx.chainLogo,
-        }));
-      const outgoing = result.outgoing
-        .filter((tx) => Number(tx.value) > 0)
-        .map((tx) => ({
-          address: tx.to.toLowerCase(),
-          nametag: tx.to_nametag,
-          image: tx.to_image,
-          txHash: tx.hash,
-          value: Number(tx.value) / 1e18,
-          block_time: tx.block_time,
-          type: 'Outgoing',
-          chainLogo: tx.chainLogo,
-        }));
+      const incoming = result.incoming.map((tx) => ({
+        address: tx.from.toLowerCase(),
+        nametag: tx.from_nametag,
+        image: tx.from_image,
+        txHash: tx.hash,
+        value: parseFloat(tx.value),
+        block_time: tx.block_time,
+        type: 'Incoming',
+        chainLogo: tx.chainLogo,
+      }));
+      const outgoing = result.outgoing.map((tx) => ({
+        address: tx.to.toLowerCase(),
+        nametag: tx.to_nametag,
+        image: tx.to_image,
+        txHash: tx.hash,
+        value: parseFloat(tx.value),
+        block_time: tx.block_time,
+        type: 'Outgoing',
+        chainLogo: tx.chainLogo,
+      }));
 
       if (incoming.length === 0 && outgoing.length === 0) {
         toast.info(`No transactions found for this address on ${chains.find((c) => c.value === selectedChain)?.label || selectedChain}. Please verify the address or try another chain.`, {
@@ -352,7 +387,7 @@ export default function TreemapTab({ recaptchaRef }) {
     }
   };
 
-  // Mouse events (giữ nguyên)
+  // Mouse events
   const handleMouseDown = (e) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
@@ -371,7 +406,7 @@ export default function TreemapTab({ recaptchaRef }) {
     setIsDragging(false);
   };
 
-  // Touch events (giữ nguyên)
+  // Touch events
   const handleTouchStart = (e) => {
     e.preventDefault();
     const touches = e.touches;
@@ -504,41 +539,33 @@ export default function TreemapTab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="font-jetbrains w-full max-w-10xl mx-auto bg-gray-800/50 backdrop-blur-md p-4 rounded-xl shadow-lg h-[calc(100vh)] border border-white/10"
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="font-jetbrains w-full max-w-10xl mx-auto bg-tech/90 backdrop-blur-xl mt-6 md:mt-10 p-4 md:p-6 shadow-2xl h-[calc(100vh)] overflow-hidden"
     >
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 mb-4 mt-4">
-        <div className="flex items-center gap-1">
-          <h2 className="text-xs sm:text-sm font-bold text-white uppercase">Wallet Flow</h2>
-        </div>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2 w-full sm:w-auto">
           {/* Dropdown chọn chain */}
           <div className="relative" ref={chainDropdownRef}>
             <button
               onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-              className="text-white px-2 py-1 rounded-lg border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300 flex items-center justify-center text-xs"
+              className="text-white px-2 py-1 rounded-full border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center gap-1.5 text-xs"
               aria-label="Select chain"
             >
-              <span className="flex items-center">
-                <Image
-                  src={getPlatformImage(selectedChain, coingeckoChains)}
-                  alt={`${mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
-                  width={16}
-                  height={16}
-                  className="mr-2"
-                  onError={() => console.log(`Failed to load chain image: ${getPlatformImage(selectedChain, coingeckoChains)} for chain: ${selectedChain}`)}
-                />
-                <span className="text-xs">
-                  {mappedChains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
-                </span>
+              <Image
+                src={getPlatformImage(selectedChain, coingeckoChains)}
+                alt={`${mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
+                width={16}
+                height={16}
+                className="rounded-full"
+                onError={() => console.log(`Failed to load chain image: ${getPlatformImage(selectedChain, coingeckoChains)} for chain: ${selectedChain}`)}
+              />
+              <span className="text-xs font-medium">
+                {mappedChains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
               </span>
-              <span className="ml-1.5">{isChainDropdownOpen ? '▲' : '▼'}</span>
+              <span className="text-xs">{isChainDropdownOpen ? '▲' : '▼'}</span>
             </button>
             {isChainDropdownOpen && (
-              <div
-                className="absolute z-20 rounded-lg mt-1 w-56 max-h-64 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10 bg-gray-800/50"
-                style={{ left: '50%', transform: 'translateX(-50%)' }}
-              >
+              <div className="absolute z-20 bg-gray-900/95 backdrop-blur-lg rounded-lg mt-1 w-56 max-h-72 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
                 {mappedChains.length === 0 ? (
                   <div className="px-3 py-1.5 text-gray-400 text-xs">No supported chains available</div>
                 ) : (
@@ -559,7 +586,7 @@ export default function TreemapTab({ recaptchaRef }) {
                           setSelectedChain(chain.value);
                           setIsChainDropdownOpen(false);
                         }}
-                        className={`flex items-center w-full text-left px-3 py-1.5 rounded-md text-white font-medium text-xs relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/15'
+                        className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-white/10 rounded-md text-white font-medium text-xs transition-colors duration-200 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                       >
                         <Image
@@ -567,7 +594,7 @@ export default function TreemapTab({ recaptchaRef }) {
                           alt={`${chain.label} logo`}
                           width={16}
                           height={16}
-                          className="mr-4"
+                          className="mr-2 rounded-full"
                           onError={() => console.log(`Failed to load chain image: ${chain.image} for chain: ${chain.value}`)}
                         />
                         {chain.label}
@@ -580,8 +607,8 @@ export default function TreemapTab({ recaptchaRef }) {
                               height={12}
                               className="opacity-80"
                             />
-                            <span className="absolute hidden group-hover:block bg-gray-900/90 text-white text-xs rounded p-1 -top-6 right-0">
-                              Premium account required
+                            <span className="absolute hidden group-hover:block bg-gray-900/90 text-white text-[10px] rounded p-1 -top-5 right-0">
+                              Premium required
                             </span>
                           </span>
                         )}
@@ -595,17 +622,14 @@ export default function TreemapTab({ recaptchaRef }) {
           <div className="relative" ref={limitDropdownRef}>
             <button
               onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
-              className="text-white px-2 py-1 rounded-lg border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300 flex items-center justify-center text-xs"
+              className="text-white px-2 py-1 rounded-full border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center text-xs"
               aria-label="Select transaction limit"
             >
-              <span className="text-xs">Limit: {selectedLimit}</span>
-              <span className="ml-1.5">{isLimitDropdownOpen ? '▲' : '▼'}</span>
+              <span className="text-xs font-medium">Limit: {selectedLimit}</span>
+              <span className="ml-1 text-xs">{isLimitDropdownOpen ? '▲' : '▼'}</span>
             </button>
             {isLimitDropdownOpen && (
-              <div
-                className="absolute z-20 rounded-lg mt-1 w-32 max-h-64 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10 bg-gray-800/50"
-                style={{ left: '50%', transform: 'translateX(-50%)' }}
-              >
+              <div className="absolute z-20 bg-gray-900/95 backdrop-blur-lg rounded-lg mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
                 {[100, 200, 300, 500].map((limit) => (
                   <button
                     key={limit}
@@ -620,10 +644,10 @@ export default function TreemapTab({ recaptchaRef }) {
                       setSelectedLimit(limit);
                       setIsLimitDropdownOpen(false);
                       if (walletAddress) {
-                        fetchTransactions(walletAddress); // Gọi lại API với limit mới
+                        fetchTransactions(walletAddress);
                       }
                     }}
-                    className={`flex items-center w-full text-left px-3 py-1.5 rounded-md text-white font-medium text-xs relative ${!isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/15'
+                    className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-white/10 rounded-md text-white font-medium text-xs transition-colors duration-200 relative ${!isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                   >
                     {limit}
@@ -636,8 +660,8 @@ export default function TreemapTab({ recaptchaRef }) {
                           height={12}
                           className="opacity-80"
                         />
-                        <span className="absolute hidden group-hover:block bg-gray-900/90 text-white text-xs rounded p-1 -top-6 right-0">
-                          Premium account required
+                        <span className="absolute hidden group-hover:block bg-gray-900/90 text-white text-[10px] rounded p-1 -top-5 right-0">
+                          Premium required
                         </span>
                       </span>
                     )}
@@ -650,10 +674,10 @@ export default function TreemapTab({ recaptchaRef }) {
           <div className="relative flex items-center w-full sm:w-auto">
             <input
               type="text"
-              placeholder="0x..."
+              placeholder="Search wallet (0x...)"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
-              className="bg-gray-800/50 text-white px-2 py-1 rounded-lg text-xs w-full sm:w-56 border border-white/10 backdrop-blur-md focus:outline-none pr-8"
+              className="bg-gray-900/50 text-white px-3 py-1 rounded-full text-xs w-full sm:w-64 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-neon-blue/50 transition-colors duration-200 pr-8"
               aria-label="Wallet address"
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -663,7 +687,7 @@ export default function TreemapTab({ recaptchaRef }) {
             />
             <button
               onClick={() => fetchTransactions(walletAddress)}
-              className="absolute right-1 text-white p-1 transition-all duration-300 backdrop-blur-md rounded-r-xl"
+              className="absolute right-1.5 text-white p-1 rounded-full hover:bg-white/10 transition-colors duration-200"
               aria-label="Search wallet"
               disabled={loading}
             >
@@ -683,169 +707,170 @@ export default function TreemapTab({ recaptchaRef }) {
       </div>
 
       <div className="flex gap-2 mb-4 justify-center">
-        <button
+        <motion.button
           onClick={() => {
             setOffset({ x: 0, y: 0 });
             setZoom(1);
           }}
-          className="px-2 py-1 bg-gray-800/50 text-white rounded-lg text-xs border border-white/10 backdrop-blur-md hover:bg-white/15 transition-all duration-300"
+          className="px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium text-white border border-white/20 backdrop-blur-md hover:bg-white/10 transition-all duration-300"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
         >
           Reset View
-        </button>
+        </motion.button>
         {(incomingData.length > nodePage * NODES_PER_PAGE || outgoingData.length > nodePage * NODES_PER_PAGE) && (
-          <button
+          <motion.button
             onClick={handleLoadMore}
-            className="px-2 py-1 bg-gray-800/50 text-white rounded-lg text-xs border border-white/10 backdrop-blur-md hover:bg-white/15 transition-all duration-300"
+            className="px-4 py-1.5 rounded-full text-sm font-medium text-white border border-white/20 backdrop-blur-md hover:bg-white/10 transition-all duration-300"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             Load More
-          </button>
+          </motion.button>
         )}
       </div>
 
       {loading && <LoadingOverlay message={loadingMessage} />}
       {!loading && incomingData.length === 0 && outgoingData.length === 0 && walletInfo.address && (
-        <div className="text-center text-gray-400 text-xs p-4 bg-gray-800/50 rounded-lg border border-white/10 backdrop-blur-md">
+        <div className="text-center text-gray-400 text-sm p-4 bg-gray-900/30 rounded-2xl border border-white/10 backdrop-blur-lg shadow-glow-neon">
           <p className="mb-2">No transactions found for this address on {mappedChains.find((c) => c.value === selectedChain)?.label || selectedChain}.</p>
           <p>Please verify the wallet address or try a different chain.</p>
         </div>
       )}
 
       {walletInfo.address && (
-        <div
-          className="relative w-full h-[calc(100vh-120px)] overflow-auto hide-scrollbar touch-pinch-zoom"
-          style={{
-            transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-            transformOrigin: 'center',
-            width: `${canvasWidth}px`,
-            height: `${canvasHeight}px`,
-            minWidth: '100%',
-            minHeight: '100%',
-          }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onWheel={handleWheel}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          <svg ref={svgRef} className="absolute inset-0 pointer-events-none" style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}>
-            {incomingNodes.map((node, index) => (
-              <path
-                key={`line-in-${index}`}
-                d={`M${node.x + nodeWidth} ${node.y + nodeHeight / 2} C${node.x + nodeWidth + 50} ${node.y + nodeHeight / 2}, ${rootX - 50} ${rootY + nodeHeight / 2}, ${rootX} ${rootY + nodeHeight / 2}`}
-                stroke="#00BFFF"
-                strokeWidth="2"
-                fill="none"
-                strokeDasharray="5,5"
-                className="transition-all duration-300 hover:stroke-opacity-80"
-              />
-            ))}
-            {outgoingNodes.map((node, index) => (
-              <path
-                key={`line-out-${index}`}
-                d={`M${rootX + nodeWidth + 60} ${rootY + nodeHeight / 2} C${rootX + nodeWidth + 80} ${rootY + nodeHeight / 2}, ${node.x - 50} ${node.y + nodeHeight / 2}, ${node.x} ${node.y + nodeHeight / 2}`}
-                stroke="#FF4500"
-                strokeWidth="2"
-                fill="none"
-                strokeDasharray="5,5"
-                className="transition-all duration-300 hover:stroke-opacity-80"
-              />
-            ))}
-          </svg>
-
+        <div className="relative w-full h-[calc(100vh-120px)] overflow-hidden rounded-2xl border border-white/10 bg-gray-900/30 backdrop-blur-lg shadow-glow-neon">
           <div
-            className="absolute z-10 group"
-            style={{ left: `${rootX}px`, top: `${rootY}px` }}
+            className="relative w-full h-full"
+            style={{
+              touchAction: 'none',
+              transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+              transformOrigin: 'center',
+              width: `${canvasWidth}px`,
+              height: `${canvasHeight}px`,
+              minWidth: '100%',
+              minHeight: '100%',
+            }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
-            <WalletNode
-              address={walletInfo.address}
-              nametag={walletInfo.nametag}
-              image={walletInfo.image}
-              chainLogo={walletInfo.chainLogo}
-              isRoot={true}
-              onSelect={handleSelectWallet}
-            />
+            <svg ref={svgRef} className="absolute inset-0 pointer-events-none" style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}>
+              {incomingNodes.map((node, index) => (
+                <path
+                  key={`line-in-${index}`}
+                  d={`M${node.x + nodeWidth} ${node.y + nodeHeight / 2} C${node.x + nodeWidth + 50} ${node.y + nodeHeight / 2}, ${rootX - 50} ${rootY + nodeHeight / 2}, ${rootX} ${rootY + nodeHeight / 2}`}
+                  stroke="#00BFFF"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeDasharray="5,5"
+                  className="transition-all duration-300 hover:stroke-neon-blue/80"
+                />
+              ))}
+              {outgoingNodes.map((node, index) => (
+                <path
+                  key={`line-out-${index}`}
+                  d={`M${rootX + nodeWidth + 60} ${rootY + nodeHeight / 2} C${rootX + nodeWidth + 80} ${rootY + nodeHeight / 2}, ${node.x - 50} ${node.y + nodeHeight / 2}, ${node.x} ${node.y + nodeHeight / 2}`}
+                  stroke="#EF4444"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeDasharray="5,5"
+                  className="transition-all duration-300 hover:stroke-red-500/80"
+                />
+              ))}
+            </svg>
+
+            <div
+              className="absolute z-10 group"
+              style={{ left: `${rootX}px`, top: `${rootY}px` }}
+            >
+              <WalletNode
+                address={walletInfo.address}
+                nametag={walletInfo.nametag}
+                image={walletInfo.image}
+                chainLogo={walletInfo.chainLogo}
+                isRoot={true}
+                onSelect={handleSelectWallet}
+              />
+            </div>
+
+            {incomingNodes.map((node, index) => (
+              <div
+                key={`in-${index}`}
+                className="absolute group"
+                style={{ left: `${node.x}px`, top: `${node.y}px` }}
+              >
+                <WalletNode
+                  address={node.address}
+                  nametag={node.nametag}
+                  image={node.image}
+                  txHash={node.txHash}
+                  type={node.type}
+                  block_time={node.block_time}
+                  value={node.value}
+                  chainLogo={node.chainLogo}
+                  onSelect={handleSelectWallet}
+                />
+              </div>
+            ))}
+
+            {outgoingNodes.map((node, index) => (
+              <div
+                key={`out-${index}`}
+                className="absolute group"
+                style={{ left: `${node.x}px`, top: `${node.y}px` }}
+              >
+                <WalletNode
+                  address={node.address}
+                  nametag={node.nametag}
+                  image={node.image}
+                  txHash={node.txHash}
+                  type={node.type}
+                  block_time={node.block_time}
+                  value={node.value}
+                  chainLogo={node.chainLogo}
+                  onSelect={handleSelectWallet}
+                />
+              </div>
+            ))}
           </div>
-
-          {incomingNodes.map((node, index) => (
-            <div
-              key={`in-${index}`}
-              className="absolute group"
-              style={{ left: `${node.x}px`, top: `${node.y}px` }}
-            >
-              <WalletNode
-                address={node.address}
-                nametag={node.nametag}
-                image={node.image}
-                txHash={node.txHash}
-                type={node.type}
-                block_time={node.block_time}
-                value={node.value}
-                chainLogo={node.chainLogo}
-                onSelect={handleSelectWallet}
-              />
-            </div>
-          ))}
-
-          {outgoingNodes.map((node, index) => (
-            <div
-              key={`out-${index}`}
-              className="absolute group"
-              style={{ left: `${node.x}px`, top: `${node.y}px` }}
-            >
-              <WalletNode
-                address={node.address}
-                nametag={node.nametag}
-                image={node.image}
-                txHash={node.txHash}
-                type={node.type}
-                block_time={node.block_time}
-                value={node.value}
-                chainLogo={node.chainLogo}
-                onSelect={handleSelectWallet}
-              />
-            </div>
-          ))}
         </div>
       )}
 
       <ToastContainer position="top-center" autoClose={5000} />
       <style jsx>{`
-        .bg-tech {
-          background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      @media (max-width: 640px) {
+        .relative.w-full {
+          overflow: hidden;
+          -webkit-overflow-scrolling: auto;
         }
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .touch-pinch-zoom {
-          touch-action: pan-x pan-y pinch-zoom;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.3);
-        }
-        @media (max-width: 640px) {
-          .relative.w-full {
-            overflow: auto;
-            -webkit-overflow-scrolling: touch;
-          }
-        }
-      `}</style>
+      }
+    `}</style>
     </motion.div>
   );
 }

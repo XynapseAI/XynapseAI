@@ -151,30 +151,34 @@ const getExplorerUrls = (chain, hash, address) => {
 const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
   if (!isOpen) return null;
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
       className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains"
       onClick={onClose}
     >
       <div
-        className="backdrop-blur-md p-4 sm:p-6 rounded-xl max-w-[90%] sm:max-w-4xl w-full relative my-4 border border-white/10"
+        className="backdrop-blur-xl bg-gray-900/50 p-4 sm:p-6 rounded-2xl max-w-[90%] sm:max-w-4xl w-full relative my-4 border border-white/10 shadow-glow-neon"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 text-white text-lg sm:text-xl font-bold bg-white/10 border border-white/20 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/15 transition-all duration-300"
+          className="absolute top-3 right-3 text-white text-lg font-bold bg-gray-900/50 border border-white/20 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300"
           aria-label="Close modal"
         >
           ✕
         </button>
-        <h4 className="text-sm font-bold text-white mb-4 uppercase">{title}</h4>
-        <div className="text-xs text-gray-200 mb-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+        <h4 className="text-sm font-bold text-white mb-4 uppercase tracking-wide">{title}</h4>
+        <div className="text-sm text-gray-200 mb-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
           {typeof content === 'string' ? (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               rehypePlugins={[rehypeHighlight]}
               components={{
                 a: ({ href, children }) => (
-                  <a href={href} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">
+                  <a href={href} target="_blank" rel="noreferrer" className="text-neon-blue hover:underline">
                     {children}
                   </a>
                 ),
@@ -182,13 +186,13 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
                   <table className="border-collapse border border-white/20 w-full table-auto">{children}</table>
                 ),
                 th: ({ children }) => (
-                  <th className="border border-white/20 px-4 py-2 bg-gray-700/50 backdrop-blur-sm text-white text-left">{children}</th>
+                  <th className="border border-white/20 px-4 py-2 bg-gray-900/50 backdrop-blur-sm text-white text-left">{children}</th>
                 ),
                 td: ({ children }) => (
                   <td className="border border-white/20 px-4 py-2 text-gray-200">{children}</td>
                 ),
                 code: ({ className, children }) => (
-                  <code className={`${className || ''} bg-gray-900/80 rounded text-white backdrop-blur-md text-gray-400`}>
+                  <code className={`${className || ''} bg-gray-900/80 rounded text-white backdrop-blur-md text-gray-400 p-1`}>
                     {children}
                   </code>
                 ),
@@ -202,7 +206,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
         </div>
         {links.length > 0 && (
           <div>
-            <h5 className="text-xs font-bold text-white mb-2 uppercase">References:</h5>
+            <h5 className="text-sm font-bold text-white mb-2 uppercase tracking-wide">References:</h5>
             <ul className="list-none">
               {links.map((link, index) => (
                 <li key={index} className="mb-2">
@@ -210,7 +214,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
                     href={link}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs text-blue-400 hover:underline"
+                    className="text-sm text-neon-blue hover:underline"
                   >
                     {link.length > 30 ? `${link.slice(0, 30)}...` : link}
                   </a>
@@ -220,7 +224,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -228,7 +232,6 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
 const LoadingOverlay = ({ loadingStates = {} }) => {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
-  // Define loading messages based on active loading states
   const messages = [
     ...(loadingStates.loading ? ['Loading market data...'] : []),
     ...(loadingStates.isChartLoading ? ['Loading chart data...'] : []),
@@ -242,7 +245,7 @@ const LoadingOverlay = ({ loadingStates = {} }) => {
 
     const interval = setInterval(() => {
       setCurrentMessageIndex((prevIndex) => (prevIndex + 1) % messages.length);
-    }, 2000); // Change message every 2 seconds
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [messages.length]);
@@ -250,22 +253,22 @@ const LoadingOverlay = ({ loadingStates = {} }) => {
   if (messages.length === 0) return null;
 
   return (
-  <div className="fixed inset-0 bg-gray/10 backdrop-blur-sm flex items-center justify-center z-50">
-    <div className="flex flex-col items-center gap-4">
-      <div className="relative w-12 h-12 sm:w-14 sm:h-14">
-        <div className="absolute inset-0 border-4 border-gray-600/50 border-t-white rounded-full animate-spin"></div>
-        <img
-          src="/logos/logo-scan.png"
-          alt="Loading Logo"
-          className="absolute inset-0 w-8 h-8 sm:w-10 sm:h-10 m-2 sm:m-2 object-contain"
-        />
+    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-lg flex items-center justify-center z-50">
+      <div className="flex flex-col items-center gap-4">
+        <div className="relative w-14 h-14">
+          <div className="absolute inset-0 border-4 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>
+          <img
+            src="/logos/logo-scan.png"
+            alt="Loading Logo"
+            className="absolute inset-0 w-10 h-10 m-2 object-contain animate-pulse"
+          />
+        </div>
+        <p className="text-sm text-gray-200 font-medium animate-pulse">
+          {messages[currentMessageIndex] || 'Processing...'}
+        </p>
       </div>
-      <p className="text-xs sm:text-sm text-gray-200 font-medium animate-pulse">
-        {messages[currentMessageIndex] || 'Processing...'}
-      </p>
     </div>
-  </div>
-);
+  );
 };
 
 // WalletBalances component
@@ -345,17 +348,23 @@ const WalletBalances = ({
   });
 
   const overlayContent = (
-    <div className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains min-h-screen">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains min-h-screen"
+    >
       <div
         ref={walletBalancesRef}
-        className="backdrop-blur-md p-3 sm:p-4 max-w-6xl w-[90%] rounded-xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar"
+        className="backdrop-blur-xl bg-gray-900/50 p-4 sm:p-6 max-w-6xl w-[90%] rounded-2xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar border border-white/10 shadow-glow-neon"
       >
-        <div className="sticky top-0 z-10 backdrop-blur-md p-2">
+        <div className="sticky top-0 z-10 backdrop-blur-lg bg-gray-900/50 p-2 border-b border-white/10">
           <div className="flex justify-between items-center mb-3">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 text-white"
+                className="h-5 w-5 text-white"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -371,7 +380,7 @@ const WalletBalances = ({
                 <img
                   src={walletImage}
                   alt={`${displayWalletAddress} logo`}
-                  className="w-4 h-4 rounded-full flex-shrink-0"
+                  className="w-5 h-5 rounded-full flex-shrink-0"
                   onError={(e) => {
                     logger.error('Wallet name tag image failed to load:', {
                       address: walletAddress,
@@ -381,50 +390,52 @@ const WalletBalances = ({
                   }}
                 />
               )}
-              <span className="text-[10px] sm:text-xs font-bold text-white">
-                {displayWalletAddress}
-              </span>
+              <span className="text-sm font-bold text-white tracking-tight">{displayWalletAddress}</span>
             </div>
-            <button
+            <motion.button
               onClick={onClose}
-              className="text-white text-sm font-bold bg-white/10 border border-white/20 backdrop-blur-md rounded-full w-6 h-6 flex items-center justify-center hover:bg-white/15 transition-all duration-300"
+              className="text-white text-lg font-bold bg-gray-900/50 border border-white/20 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300"
               aria-label="Close balances"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
             >
               ✕
-            </button>
+            </motion.button>
           </div>
-          <div className="flex space-x-1.5 mb-3">
-            <button
+          <div className="flex space-x-2 mb-3">
+            <motion.button
               onClick={() => setActiveTab('portfolio')}
-              className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
-                }`}
+              className={`px-3 py-1 rounded-full text-xs md:text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               Portfolio
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               onClick={() => setActiveTab('transactions')}
-              className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'transactions' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/15'
-                }`}
+              className={`px-3 py-1 rounded-full text-xs md:text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'transactions' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               Transactions
-            </button>
+            </motion.button>
           </div>
         </div>
         <div className="overflow-y-auto max-h-[calc(80vh-100px)] rounded-lg custom-scrollbar">
           {activeTab === 'portfolio' && (
             <>
-              {isLoading && <p className="text-[10px] sm:text-xs text-gray-400 text-center"></p>}
-              {error && <p className="text-[10px] sm:text-xs text-red-500 text-center">Error: {error}</p>}
+              {isLoading && <p className="text-sm text-gray-400 text-center">Loading portfolio...</p>}
+              {error && <p className="text-sm text-red-500 text-center">Error: {error}</p>}
               {!isLoading && !error && balances?.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
-                    <thead className="sticky top-0 bg-black/30 z-10 uppercase">
+                    <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10 uppercase">
                       <tr>
-                        <th className="px-2 py-1 text-white text-center text-[8px] sm:text-[12px] w-[8%] sm:w-[10%]">
-                          <div className="flex items-center justify-center gap-1">
+                        <th className="px-2 py-1.5 text-white text-center text-[10px] md:text-sm w-[10%]">
+                          <div className="flex items-center justify-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 fill-white flex-shrink-0"
+                              className="w-4 h-4 fill-white flex-shrink-0"
                               viewBox="0 0 24 24"
                             >
                               <path
@@ -437,11 +448,11 @@ const WalletBalances = ({
                             Chain
                           </div>
                         </th>
-                        <th className="px-2 py-1 text-white text-left text-[8px] sm:text-[12px] w-[20%] sm:w-[60%]">
-                          <div className="flex items-center gap-1">
+                        <th className="px-2 py-1.5 text-white text-left text-[10px] md:text-sm w-[50%]">
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-3 w-3 fill-white"
+                              className="h-4 w-4 fill-white"
                               viewBox="0 0 24 24"
                             >
                               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
@@ -449,11 +460,11 @@ const WalletBalances = ({
                             Token
                           </div>
                         </th>
-                        <th className="px-2 py-1 text-white text-left text-[8px] sm:text-[12px] w-[18%] sm:w-[15%]">
-                          <div className="flex items-center gap-1">
+                        <th className="px-2 py-1.5 text-white text-left text-[10px] md:text-sm w-[20%]">
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-3 w-3 fill-white"
+                              className="h-4 w-4 fill-white"
                               viewBox="0 0 24 24"
                             >
                               <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
@@ -461,11 +472,11 @@ const WalletBalances = ({
                             Balance
                           </div>
                         </th>
-                        <th className="px-2 py-1 text-white text-left text-[8px] sm:text-[12px] w-[22%] sm:w-[15%]">
-                          <div className="flex items-center gap-1">
+                        <th className="px-2 py-1.5 text-white text-left text-[10px] md:text-sm w-[20%]">
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-3 w-3 stroke-white fill-none"
+                              className="h-4 w-4 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
@@ -484,14 +495,14 @@ const WalletBalances = ({
                       {balances.map((balance, index) => (
                         <tr
                           key={`${balance.chain}-${balance.address}-${index}`}
-                          className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
+                          className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
                         >
-                          <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
+                          <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
                             <div className="flex flex-col items-center">
                               <img
                                 src={getPlatformImage(balance.chain)}
                                 alt={`${balance.chain} logo`}
-                                className="w-3 h-3 flex-shrink-0"
+                                className="w-3 h-3 md:w-5 md:h-5 rounded-full flex-shrink-0"
                                 onError={(e) => {
                                   logger.error('Platform logo failed to load:', {
                                     chain: balance.chain,
@@ -500,18 +511,18 @@ const WalletBalances = ({
                                   e.target.src = '/fallback-image.png';
                                 }}
                               />
-                              <span className="text-[6px] sm:text-[8px] text-gray-500 flex-shrink-0">
+                              <span className="text-[8px] md:text-[10px] text-gray-400 flex-shrink-0">
                                 {chains.find((c) => c.value === balance.chain)?.label || balance.chain}
                               </span>
                             </div>
                           </td>
-                          <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
-                            <div className="flex items-center sm:items-center sm:space-x-2">
+                          <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
+                            <div className="flex items-center space-x-2">
                               {balance.logo && (
                                 <img
                                   src={balance.logo}
                                   alt={`${balance.symbol} logo`}
-                                  className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 mr-1"
+                                  className="w-5 h-5 rounded-full flex-shrink-0"
                                   onError={(e) => {
                                     logger.error('Token logo failed to load:', {
                                       symbol: balance.symbol,
@@ -521,24 +532,24 @@ const WalletBalances = ({
                                   }}
                                 />
                               )}
-                              <div className="flex flex-col items-start sm:flex-row sm:items-center sm:space-x-1">
+                              <div className="flex flex-col items-start">
                                 <span>
                                   {balance.symbol || 'Unknown'} {balance.address === 'native' ? '(Native)' : ''}
                                 </span>
                                 {balance.price_usd != null && (
-                                  <span className="text-[7px] sm:text-[8px] text-gray-500">
+                                  <span className="text-[10px] text-gray-400">
                                     ({formatPrice(balance.price_usd)})
                                   </span>
                                 )}
                               </div>
                             </div>
                           </td>
-                          <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
+                          <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
                             {balance.amount != null
                               ? balance.amount.toLocaleString('en-US', { maximumFractionDigits: 2 })
                               : 'N/A'}
                           </td>
-                          <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
+                          <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
                             {balance.value_usd != null
                               ? `$${balance.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
                               : 'N/A'}
@@ -549,7 +560,7 @@ const WalletBalances = ({
                   </table>
                 </div>
               ) : (
-                !isLoading && <p className="text-[10px] sm:text-xs text-gray-400 text-center">No balances found for this wallet.</p>
+                !isLoading && <p className="text-sm text-gray-400 text-center">No balances found for this wallet.</p>
               )}
             </>
           )}
@@ -557,19 +568,19 @@ const WalletBalances = ({
           {activeTab === 'transactions' && (
             <>
               {isLoadingTransactions && (
-                <p className="text-[11px] sm:text-xs text-gray-400 text-center">Loading transactions...</p>
+                <p className="text-sm text-gray-400 text-center">Loading transactions...</p>
               )}
-              {transactionsError && <p className="text-[11px] sm:text-xs text-red-500 text-center">Error: {transactionsError}</p>}
+              {transactionsError && <p className="text-sm text-red-500 text-center">Error: {transactionsError}</p>}
               {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
-                    <thead className="sticky top-0 bg-gray-700/50 backdrop-blur-sm z-10">
+                    <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10">
                       <tr>
-                        <th className="px-2 py-1 text-white text-left text-[9px] sm:text-[12px] w-[60%] sm:w-[70%] uppercase">
-                          <div className="flex items-center gap-1">
+                        <th className="px-2 py-1.5 text-white text-left text-xs md:text-sm w-[60%] uppercase">
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 fill-white stroke-white flex-shrink-0"
+                              className="w-5 h-5 fill-white stroke-white flex-shrink-0"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
@@ -582,11 +593,11 @@ const WalletBalances = ({
                             Transfer
                           </div>
                         </th>
-                        <th className="px-2 py-1 text-white text-left text-[9px] sm:text-[12px] w-[20%] sm:w-[15%] uppercase">
-                          <div className="flex items-center gap-1">
+                        <th className="px-2 py-1.5 text-white text-left text-xs md:text-sm w-[20%] uppercase">
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-3 w-3 stroke-white fill-none"
+                              className="h-5 w-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
@@ -599,11 +610,11 @@ const WalletBalances = ({
                             Value
                           </div>
                         </th>
-                        <th className="px-2 py-1 text-white text-center text-[9px] sm:text-[12px] w-[20%] sm:w-[15%] uppercase">
-                          <div className="flex items-center justify-center gap-1">
+                        <th className="px-2 py-1.5 text-white text-center text-xs md:text-sm w-[20%] uppercase">
+                          <div className="flex items-center justify-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-3 w-3 stroke-white fill-none"
+                              className="h-5 w-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
@@ -628,16 +639,16 @@ const WalletBalances = ({
                         return (
                           <tr
                             key={`${tx.chain}-${tx.hash}-${index}`}
-                            className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
+                            className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
                           >
-                            <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
+                            <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
                               <div className="flex items-center space-x-1">
                                 <div className="flex items-center gap-1 mr-0 md:mr-2">
                                   {fromImage && (
                                     <img
                                       src={fromImage}
                                       alt={`${fromText} logo`}
-                                      className="w-3 h-3 rounded-full flex-shrink-0"
+                                      className="w-5 h-5 rounded-full flex-shrink-0"
                                       onError={(e) => {
                                         logger.error('From address name tag image failed to load:', {
                                           address: tx.from,
@@ -651,25 +662,22 @@ const WalletBalances = ({
                                     href={fromUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-blue-500 hover:underline"
+                                    className="text-neon-blue hover:underline"
                                     title={tx.from}
                                     onClick={() => handleAddressClick(tx.from)}
                                   >
                                     {fromText}
                                   </a>
                                 </div>
-
                                 <div className="flex items-center gap-1">
                                   <span className="mx-1">→</span>
                                 </div>
-
-
                                 <div className="flex items-center gap-1 ml-2">
                                   {toImage && (
                                     <img
                                       src={toImage}
                                       alt={`${toText} logo`}
-                                      className="w-3 h-3 rounded-full flex-shrink-0"
+                                      className="w-5 h-5 rounded-full flex-shrink-0"
                                       onError={(e) => {
                                         logger.error('To address name tag image failed to load:', {
                                           address: tx.to,
@@ -683,7 +691,7 @@ const WalletBalances = ({
                                     href={toUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-blue-500 hover:underline"
+                                    className="text-neon-blue hover:underline"
                                     title={tx.to}
                                     onClick={() => handleAddressClick(tx.to)}
                                   >
@@ -692,16 +700,16 @@ const WalletBalances = ({
                                 </div>
                               </div>
                             </td>
-                            <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
+                            <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
                               {weiToEth(tx.value)}
                             </td>
-                            <td className="px-2 py-1 text-gray-200 text-[8px] sm:text-[11px]">
+                            <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
                               <div className="flex flex-col items-center gap-0.5">
                                 <div className="flex items-center justify-center gap-1">
                                   <img
                                     src={getPlatformImage(tx.chain)}
                                     alt={`${tx.chain} logo`}
-                                    className="w-3 h-3 flex-shrink-0"
+                                    className="w-3 h-3 md:w-5 md:h-5 rounded-full flex-shrink-0"
                                     onError={(e) => {
                                       logger.error('Transaction chain logo failed to load:', {
                                         chain: tx.chain,
@@ -719,12 +727,12 @@ const WalletBalances = ({
                                     <img
                                       src="/logos/etherscan-logo.png"
                                       alt="Etherscan"
-                                      className="w-3 h-3"
+                                      className="w-3 h-3 md:w-5 md:h-5"
                                       onError={(e) => (e.target.src = '/fallback-image.png')}
                                     />
                                   </a>
                                 </div>
-                                <span className="text-[7px] sm:text-[8px] text-gray-500 text-center">
+                                <span className="text-[8px] md:text-[10px] text-gray-400 text-center">
                                   {new Date(tx.block_time).toLocaleString('en-US')}
                                 </span>
                               </div>
@@ -737,14 +745,14 @@ const WalletBalances = ({
                 </div>
               ) : (
                 !isLoadingTransactions && (
-                  <p className="text-[10px] sm:text-xs text-gray-400 text-center">No transactions found for this address.</p>
+                  <p className="text-sm text-gray-400 text-center">No transactions found for this address.</p>
                 )
               )}
             </>
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 
   return createPortal(overlayContent, document.body);
@@ -1039,59 +1047,55 @@ const MarketTab = ({ recaptchaRef }) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-jetbrains w-[100%] max-w-10xl mx-auto bg-tech mt-8 md:mt-12 p-4 md:p-2 rounded-xl shadow-lg h-[calc(100vh)]"
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="font-jetbrains w-full max-w-9xl mx-auto bg-tech/90 backdrop-blur-xl mt-6 md:mt-6 p-4 md:p-6 rounded-2xl shadow-2xl border border-white/10 h-[calc(100vh)] overflow-hidden"
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          <h2 className="text-xs md:text-sm font-bold text-white uppercase">Crypto</h2>
-          <span>|</span>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 bg-gray-900/50 backdrop-blur-md px-2 py-1 rounded-xl border border-white/10">
+          <h2 className="text-xs font-bold text-white uppercase tracking-wide">Crypto</h2>
+          <span className="text-gray-400">|</span>
           <button
-            className="text-xs md:text-sm font-bold text-white/50 uppercase cursor-default flex items-center gap-1"
+            className="text-xs font-bold text-gray-400 uppercase cursor-not-allowed flex items-center gap-1 transition-colors duration-300"
             disabled
             aria-label="Stock tab (coming soon)"
           >
-            Stock <span className="text-[7px] md:text-[8px] text-white/50">(Soon)</span>
+            Stock <span className="text-[9px] text-gray-500">(Soon)</span>
           </button>
         </div>
         <div className="relative" ref={chainDropdownRef}>
           <button
             onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-            className={`text-white m-2 p-1 rounded-lg border border-white/20 backdrop-blur-md hover:bg-white/15 transition-all duration-300 flex items-center justify-center ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`text-white px-2 py-1 rounded-xl border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all duration-300 flex items-center gap-2 ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) || !selectedToken}
             aria-label="Select chain"
           >
-            <span className="flex items-center">
-              {selectedChain ? (
-                <>
-                  <img
-                    src={getPlatformImage(selectedChain)}
-                    alt={`${chains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
-                    className="w-4 h-4 mr-2"
-                    onError={(e) => {
-                      logger.error('Chain logo failed to load:', {
-                        chain: selectedChain,
-                        src: getPlatformImage(selectedChain),
-                      });
-                      e.target.src = '/fallback-image.png';
-                    }}
-                  />
-                  <span className="text-xs">
-                    {chains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
-                  </span>
-                </>
-              ) : (
-                <div className="w-4 h-4 bg-gray-600 rounded-full mr-4"></div>
-              )}
-            </span>
-            <span className="text-xs ml-1.5">{isChainDropdownOpen ? '▲' : '▼'}</span>
+            {selectedChain ? (
+              <>
+                <img
+                  src={getPlatformImage(selectedChain)}
+                  alt={`${chains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
+                  className="w-4 h-4 rounded-full"
+                  onError={(e) => {
+                    logger.error('Chain logo failed to load:', {
+                      chain: selectedChain,
+                      src: getPlatformImage(selectedChain),
+                    });
+                    e.target.src = '/fallback-image.png';
+                  }}
+                />
+                <span className="text-xs font-medium">
+                  {chains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
+                </span>
+              </>
+            ) : (
+              <div className="w-4 h-4 bg-gray-600 rounded-full"></div>
+            )}
+            <span className="text-sm">{isChainDropdownOpen ? '▲' : '▼'}</span>
           </button>
           {isChainDropdownOpen && (
-            <div
-              className="absolute z-20 rounded-lg mt-1 w-56 max-h-64 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10"
-              style={{ left: '70%', transform: 'translateX(calc(-50% - 10px))' }}
-            >
+            <div className="absolute z-20 bg-gray-900/95 backdrop-blur-lg rounded-lg mt-2 w-64 max-h-80 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
               {getAvailableChains().length === 0 ? (
-                <div className="px-3 py-1.5 text-gray-400 text-xs">No supported chains available</div>
+                <div className="px-4 py-2 text-gray-400 text-xs">No supported chains available</div>
               ) : (
                 getAvailableChains()
                   .filter((chain) => process.env.NODE_ENV === 'development' || !chain.testnet)
@@ -1102,12 +1106,12 @@ const MarketTab = ({ recaptchaRef }) => {
                         setSelectedChain(chain.value);
                         setIsChainDropdownOpen(false);
                       }}
-                      className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/15 rounded-md text-white font-medium text-xs"
+                      className="flex items-center w-full text-left px-4 py-2 hover:bg-white/10 rounded-md text-white font-medium text-xs transition-all duration-200"
                     >
                       <img
                         src={chain.image}
                         alt={`${chain.label} logo`}
-                        className="w-4 h-4 mr-4"
+                        className="w-4 h-4 rounded-full mr-3"
                         onError={(e) => {
                           logger.error('Dropdown chain logo failed to load:', {
                             chain: chain.value,
@@ -1126,10 +1130,10 @@ const MarketTab = ({ recaptchaRef }) => {
         <div className="relative flex items-center">
           <input
             type="text"
-            placeholder="0x..."
+            placeholder="Search wallet (0x...)"
             value={walletAddress}
             onChange={(e) => setWalletAddress(e.target.value)}
-            className="bg-gray-800/50 text-white px-2 py-1 rounded-lg text-xs w-28 sm:w-56 border border-white/10 backdrop-blur-md focus:outline-none pr-8"
+            className="bg-gray-900/50 text-white px-4 py-1 rounded-full text-[10px] w-32 sm:w-72 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 pr-10"
             aria-label="Wallet address"
             onKeyPress={(e) => {
               if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -1143,7 +1147,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 handleWalletSearch();
               }
             }}
-            className="absolute right-1 text-white p-1 transition-all duration-300 backdrop-blur-md rounded-r-xl"
+            className="absolute right-2 text-white p-1.5 rounded-full hover:bg-white/10 transition-all duration-300"
             aria-label="Search wallet"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1170,13 +1174,13 @@ const MarketTab = ({ recaptchaRef }) => {
       {!loading && !error && tokens.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 grid-rows-[1fr_1fr] gap-3 h-[calc(100%-2.5rem)] md:overflow-hidden overflow-y-auto hide-scrollbar">
           {/* Top Left: Token Info */}
-          <div className="rounded-lg p-4 backdrop-blur-md border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-4rem)] min-h-[550px] sm:min-h-[300px] relative">
+          <div className="rounded-2xl p-4 md:p-4 backdrop-blur-lg bg-gray-900/30 border border-white/10 flex flex-col h-full max-h-[calc(80vh)] md:max-h-[calc(50vh-4rem)] min-h-[520px] md:min-h-[290px] relative shadow-glow-neon mt-0 md:mt-6">
             {selectedToken ? (
-              <div>
-                <div className="absolute top-2 right-2 w-32 sm:w-56 z-20" ref={dropdownRef}>
+              <div className="flex-1">
+                <div className="absolute top-4 right-4 w-40 sm:w-64 z-20" ref={dropdownRef}>
                   <button
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="text-white px-2 py-1 rounded-lg text-xs flex items-center w-full border border-white/10 backdrop-blur-md bg-black/50 hover:bg-white/15 transition-all duration-200"
+                    className="text-white px-2 py-1 rounded-full text-[10px] flex items-center w-full border border-white/10 backdrop-blur-md bg-gray-900/50 hover:bg-white/10 transition-all duration-300 shadow-sm"
                     aria-label="Select token"
                   >
                     {selectedToken ? (
@@ -1184,7 +1188,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         <img
                           src={selectedToken.image}
                           alt={`${selectedToken.symbol} logo`}
-                          className="w-4 h-4 mr-1"
+                          className="w-4 h-4 md:w-6 md:h-6 rounded-full mr-2"
                           onError={(e) => (e.target.src = '/fallback-image.png')}
                         />
                         {selectedToken.symbol?.toUpperCase()}/USD
@@ -1192,10 +1196,10 @@ const MarketTab = ({ recaptchaRef }) => {
                     ) : (
                       'Select Token'
                     )}
-                    <span className="ml-auto">{isDropdownOpen ? '▲' : '▼'}</span>
+                    <span className="ml-auto text-sm">{isDropdownOpen ? '▲' : '▼'}</span>
                   </button>
                   {isDropdownOpen && (
-                    <div className="absolute bg-black/95 rounded-lg mt-1 w-full max-h-52 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10 shadow-lg">
+                    <div className="absolute bg-black backdrop-blur-lg rounded-lg mt-2 w-full max-h-64 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
                       <input
                         type="text"
                         placeholder="Search token (e.g, BTC)"
@@ -1203,20 +1207,20 @@ const MarketTab = ({ recaptchaRef }) => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onClick={(e) => e.stopPropagation()}
                         ref={searchInputRef}
-                        className="bg-gray-700/80 text-white px-2 py-1 w-full rounded-t-lg text-[10px] border-b border-white/10 backdrop-blur-md focus:outline-none"
+                        className="bg-gray-800/50 text-white px-3 py-1.5 w-full rounded-t-lg text-[10px] border-b border-white/10 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50"
                       />
-                      <div className="p-1">
+                      <div className="p-2">
                         {(searchQuery ? searchResults : tokens.slice(0, 30)).map((token) => (
                           <button
                             key={token.id}
                             onClick={() => debouncedHandleTokenSelect(token)}
-                            className="flex items-center w-full text-left px-2 py-1 hover:bg-white/15 rounded-sm text-white sm:text-[10px] text-[9px] transition-all duration-200"
+                            className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/10 rounded-md text-white text-[10px] transition-all duration-200"
                           >
                             {token.image && (
                               <img
                                 src={token.image}
                                 alt={`${token.symbol} logo`}
-                                className="w-4 h-4 mr-1"
+                                className="w-5 h-5 rounded-full mr-2"
                                 onError={(e) => (e.target.src = '/fallback-image.png')}
                               />
                             )}
@@ -1228,36 +1232,37 @@ const MarketTab = ({ recaptchaRef }) => {
                   )}
                 </div>
 
-                <div className="mb-3 pt-2 sm:pt-0">
-                  <div className="flex items-center">
+                <div className="mb-2">
+                  <div className="flex items-center gap-3">
                     {selectedToken.image && (
-                      <img
+                      <motion.img
                         src={selectedToken.image}
                         alt={`${selectedToken.symbol} logo`}
-                        className="w-6 h-6 mr-2 rounded-full"
+                        className="w-6 h-6 rounded-full"
                         onError={(e) => (e.target.src = '/fallback-image.png')}
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.3 }}
                       />
                     )}
                     <div>
-                      <h4 className="text-sm font-bold text-white">
+                      <h4 className="text-sm md:text-xl font-bold text-white tracking-tight">
                         {selectedToken.name} ({selectedToken.symbol?.toUpperCase()})
                       </h4>
                       {selectedToken.market_cap_rank && (
-                        <span className="text-xs text-gray-500">Rank #{selectedToken.market_cap_rank}</span>
+                        <span className="text-[10px] text-gray-400">Rank #{selectedToken.market_cap_rank}</span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex-1 md:overflow-y-auto sm:overflow-hidden">
-                  <div className="mb-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                <div className="flex-1 md:overflow-y-auto">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
-                        <p className="text-2xl sm:text-xl font-bold text-white">
-                          {formatPrice(selectedToken.current_price)}
-                        </p>
+                        <p className="text-xl font-bold text-white">{formatPrice(selectedToken.current_price)}</p>
                         <span
-                          className={`text-[10px] font-medium ${selectedToken.price_change_percentage_24h >= 0 ? 'text-green' : 'text-red'}`}
+                          className={`text-[10px] font-medium ${selectedToken.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'}`}
                         >
                           {selectedToken.price_change_percentage_24h != null
                             ? `${selectedToken.price_change_percentage_24h.toFixed(2)}% (24h)`
@@ -1265,45 +1270,39 @@ const MarketTab = ({ recaptchaRef }) => {
                         </span>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:gap-4 text-xs text-gray-200">
-                      <p className="text-gray-500 sm:ml-2">
-                        24h High:{' '}
-                        <span className="text-green font-bold">
-                          {formatPrice(selectedToken.high_24h)}
-                        </span>
+                    <div className="flex flex-col sm:flex-row sm:gap-4 text-[10px] text-gray-200">
+                      <p className="text-gray-400">
+                        24h High: <span className="text-green-500 font-bold">{formatPrice(selectedToken.high_24h)}</span>
                       </p>
-                      <p className="text-gray-500 sm:ml-2">
-                        24h Low:{' '}
-                        <span className="text-red font-bold">
-                          {formatPrice(selectedToken.low_24h)}
-                        </span>
+                      <p className="text-gray-400">
+                        24h Low: <span className="text-red-500 font-bold">{formatPrice(selectedToken.low_24h)}</span>
                       </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 m-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <h5 className="text-sm font-bold text-white mb-2 uppercase">Market Stats</h5>
-                      <div className="grid grid-cols-1 gap-1 text-xs">
-                        <p className="text-gray-500">
+                      <h5 className="text-sm font-bold text-white mb-2 uppercase tracking-wide">Market Stats</h5>
+                      <div className="grid grid-cols-1 gap-2 text-[10px]">
+                        <p className="text-gray-400">
                           Market Cap:{' '}
-                          <span className="text-white font-bold">
+                          <span className="text-white font-semibold">
                             {selectedToken.market_cap != null
                               ? `$${selectedToken.market_cap.toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
-                        <p className="text-gray-500">
+                        <p className="text-gray-400">
                           Fully Diluted Valuation:{' '}
-                          <span className="text-white font-bold">
+                          <span className="text-white font-semibold">
                             {selectedToken.fully_diluted_valuation != null
                               ? `$${selectedToken.fully_diluted_valuation.toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
-                        <p className="text-gray-500">
+                        <p className="text-gray-400">
                           24h Volume:{' '}
-                          <span className="text-white font-bold">
+                          <span className="text-white font-semibold">
                             {selectedToken.total_volume != null
                               ? `$${selectedToken.total_volume.toLocaleString('en-US')}`
                               : 'N/A'}
@@ -1313,27 +1312,27 @@ const MarketTab = ({ recaptchaRef }) => {
                     </div>
 
                     <div>
-                      <h5 className="text-sm font-bold text-white uppercase mb-2">Supply Stats</h5>
-                      <div className="grid grid-cols-1 gap-1 text-xs">
-                        <p className="text-gray-500">
+                      <h5 className="text-sm font-bold text-white uppercase mb-2 tracking-wide">Supply Stats</h5>
+                      <div className="grid grid-cols-1 gap-2 text-[10px]">
+                        <p className="text-gray-400">
                           Circulating Supply:{' '}
-                          <span className="text-white font-bold">
+                          <span className="text-white font-semibold">
                             {selectedToken.circulating_supply != null
                               ? `${selectedToken.circulating_supply.toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
-                        <p className="text-gray-500">
+                        <p className="text-gray-400">
                           Total Supply:{' '}
-                          <span className="text-white font-bold">
+                          <span className="text-white font-semibold">
                             {selectedToken.total_supply != null
                               ? `${selectedToken.total_supply.toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
-                        <p className="text-gray-500">
+                        <p className="text-gray-400">
                           Max Supply:{' '}
-                          <span className="text-white font-bold">
+                          <span className="text-white font-semibold">
                             {selectedToken.max_supply != null
                               ? `${selectedToken.max_supply.toLocaleString('en-US')}`
                               : 'N/A'}
@@ -1343,19 +1342,19 @@ const MarketTab = ({ recaptchaRef }) => {
                     </div>
 
                     <div>
-                      <h5 className="text-sm font-bold text-white uppercase mt-2 mb-2">All-Time Stats</h5>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
-                        <p className="text-gray-500">
+                      <h5 className="text-sm font-bold text-white uppercase mb-2 tracking-wide">All-Time Stats</h5>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
+                        <p className="text-gray-400">
                           ATH:{' '}
-                          <span className={typeof selectedToken.ath === 'number' ? (selectedToken.ath_change_percentage >= 0 ? 'text-red font-medium' : 'text-green font-medium') : 'text-white'}>
+                          <span className={typeof selectedToken.ath === 'number' ? (selectedToken.ath_change_percentage >= 0 ? 'text-red-500' : 'text-green-500') : 'text-white'}>
                             {typeof selectedToken.ath === 'number'
                               ? `$${selectedToken.ath.toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
-                        <p className="text-gray-500">
+                        <p className="text-gray-400">
                           ATL:{' '}
-                          <span className={typeof selectedToken.atl === 'number' ? (selectedToken.atl_change_percentage >= 0 ? 'text-red font-medium' : 'text-green font-medium') : 'text-white'}>
+                          <span className={typeof selectedToken.atl === 'number' ? (selectedToken.atl_change_percentage >= 0 ? 'text-red-500' : 'text-green-500') : 'text-white'}>
                             {typeof selectedToken.atl === 'number'
                               ? `$${selectedToken.atl.toLocaleString('en-US')}`
                               : 'N/A'}
@@ -1365,7 +1364,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     </div>
 
                     <div>
-                      <h5 className="text-sm font-bold text-white uppercase mb-2 mt-2">Additional Info</h5>
+                      <h5 className="text-sm font-bold text-white uppercase mb-2 tracking-wide">Additional Info</h5>
                       <div className="text-[10px]">
                         <p className="text-gray-400">
                           Last Updated:{' '}
@@ -1384,85 +1383,90 @@ const MarketTab = ({ recaptchaRef }) => {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-gray-400 text-center flex-1">Please select a token to view details.</p>
+              <p className="text-sm text-gray-400 text-center flex-1">Please select a token to view details.</p>
             )}
           </div>
 
-          <div className="rounded-lg shadow-lg p-3 backdrop-blur-md border border-white/10 flex flex-col h-full max-h-[calc(50vh)] md:max-h-[calc(50vh-4rem)] min-h-[calc(50vh)] md:min-h-[calc(50vh-4rem)] relative">
-            {/* Logo and Text Container */}
-            <div className="absolute top-2 right-2 flex items-center group m-1 md:m-2">
+          <div className="rounded-2xl p-4 md:p-6 backdrop-blur-lg bg-gray-900/30 border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-4rem)] min-h-[300px] relative shadow-glow-neon mt-0 md:mt-6">
+            <div className="absolute top-4 right-4 flex items-center group">
               <img
-                src="/logos/CG.png" // Path to CG.png
+                src="/logos/CG.png"
                 alt="CG Logo"
                 className="w-4 h-4 md:w-5 md:h-5 object-contain"
               />
               <span
-                className="absolute right-24 text-[9.5px] text-gray-200 opacity-0 translate-x-10 group-hover:opacity-100 group-hover:-translate-x-[-2] transition-all duration-300 ease-in-out whitespace-nowrap flex items-center"
+                className="absolute right-28 md:right-22 text-[9px] md:text-[10px] text-gray-200 opacity-0 translate-x-2 md:translate-x-6 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center"
               >
                 Data powered by
                 <img
-                  src="/logos/CG_1.png" // Path to CG_1.png
+                  src="/logos/CG_1.png"
                   alt="CG_1 Logo"
-                  className="w-14 h-14 object-contain ml-1"
+                  className="w-14 h-14 md:w-14 md:h-14 object-contain ml-2"
                 />
               </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:justify-center mb-2 gap-1.5">
-              <div className="flex space-x-1.5 justify-center mt-12 md:mt-0">
-                <button
+            <div className="flex flex-col sm:flex-row sm:justify-center mb-4 gap-2">
+              <div className="flex space-x-2 justify-center mt-8 md:mt-0">
+                <motion.button
                   onClick={debouncedHandleAnalysis}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 border border-white ${selectedToken && dailyMarketInteractions < 5
-                    ? 'text-white hover:bg-white/15 hover:shadow-lg'
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${selectedToken && dailyMarketInteractions < 5
+                    ? 'text-white hover:bg-white/10 hover:shadow-glow'
                     : 'text-gray-400 cursor-not-allowed opacity-50'
                     }`}
                   disabled={!selectedToken || dailyMarketInteractions >= 5}
                   aria-label="Analyze token"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   Analyze
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   onClick={debouncedHandlePrediction}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 border border-blue-500 ${selectedToken && dailyMarketInteractions < 5
-                    ? 'text-blue-500 hover:bg-white/15 hover:shadow-lg'
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300 border border-neon-blue/50 backdrop-blur-md ${selectedToken && dailyMarketInteractions < 5
+                    ? 'text-neon-blue hover:bg-neon-blue/10 hover:shadow-glow'
                     : 'text-gray-400 cursor-not-allowed opacity-50'
                     }`}
                   disabled={!selectedToken || dailyMarketInteractions >= 5}
                   aria-label="Predict token price"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   Predict
-                </button>
+                </motion.button>
               </div>
             </div>
             <div className="flex flex-wrap gap-1 m-4 justify-end">
               {['12H', '1D', '7D', '1M', '3M', '1Y'].map((range, idx) => (
-                <button
+                <motion.button
                   key={range}
                   onClick={() => setTimeRange(['0.5', '1', '7', '30', '90', '365'][idx])}
-                  className={`px-1.5 py-1 rounded-md text-[8px] md:text-[10px] transition-all duration-300 border border-white/20 backdrop-blur-md ${timeRange === ['0.5', '1', '7', '30', '90', '365'][idx]
+                  className={`px-2 py-1 rounded-sm text-[9px] md:text-[11px] transition-all duration-300 border border-white/20 backdrop-blur-md ${timeRange === ['0.5', '1', '7', '30', '90', '365'][idx]
                     ? 'bg-white text-black'
-                    : 'bg-white/10 text-white hover:bg-white/15'
+                    : 'bg-gray-900/50 text-white hover:bg-white/10'
                     }`}
                   aria-label={`Select ${range} time range`}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   {range}
-                </button>
+                </motion.button>
               ))}
             </div>
             {isChartLoading ? (
-              <p className="text-xs text-gray-400 text-center flex-1">Loading chart data...</p>
+              <p className="text-sm text-gray-400 text-center flex-1">Loading chart data...</p>
             ) : priceHistory && priceHistory.length > 0 ? (
-              <div className="h-48">
+              <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={priceHistory} margin={{ top: 5, right: 15, bottom: 50, left: -15 }}>
-                    <CartesianGrid stroke="#404040" strokeDasharray="3 3" />
+                  <AreaChart data={priceHistory} margin={{ top: 10, right: 20, bottom: -10, left: 0 }}>
+                    <CartesianGrid stroke="#404040" strokeDasharray="4 4" opacity={0.3} />
                     <XAxis
                       dataKey="title"
                       stroke="#FFFFFF"
-                      tick={{ fontSize: 8, fill: '#FFFFFF' }}
+                      tick={{ fontSize: 6, fill: '#FFFFFF' }}
                       angle={-45}
                       textAnchor="end"
-                      height={50}
+                      height={70}
                       interval={timeRange === '0.5' ? Math.floor(priceHistory.length / 12) : timeRange === '1' ? 0 : 'preserveStartEnd'}
                     />
                     <YAxis
@@ -1491,20 +1495,21 @@ const MarketTab = ({ recaptchaRef }) => {
                     <Area
                       type="monotone"
                       dataKey="price"
-                      stroke="#FFFFFF"
-                      fillOpacity={0.3}
-                      fill="#FFFFFF"
-                      strokeWidth={1.5}
+                      stroke="#00BFFF"
+                      fillOpacity={0.2}
+                      fill="#00BFFF"
+                      strokeWidth={2}
                       isAnimationActive={true}
+                      animationDuration={1000}
                     />
                     {priceHistory.length > 0 && (
                       <ReferenceDot
                         x={priceHistory[priceHistory.length - 1].title}
                         y={priceHistory[priceHistory.length - 1].price}
-                        r={4}
-                        fill="#FFFFFF"
+                        r={5}
+                        fill="#00BFFF"
                         stroke="#FFFFFF"
-                        strokeWidth={1.5}
+                        strokeWidth={2}
                         className="animate-pulse"
                       />
                     )}
@@ -1512,24 +1517,24 @@ const MarketTab = ({ recaptchaRef }) => {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-xs text-gray-400 text-center flex-1">
+              <p className="text-sm text-gray-400 text-center flex-1">
                 {selectedToken ? 'No price data available for this token.' : 'Please select a token to view the chart.'}
               </p>
             )}
           </div>
 
-          <div className="rounded-lg border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(70vh)] mb-2 md:mb-14">
+          <div className="rounded-2xl border border-white/10 bg-gray-900/30 backdrop-blur-lg flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(70vh)] shadow-glow-neon">
             {isLoadingOnChain && <LoadingOverlay message="Loading on-chain data..." />}
             {selectedToken ? (
-              <div className="flex-1 overflow-y-auto hide-scrollbar rounded-xl">
-                <div className="h-[6vh] md:h-[6vh] flex justify-center items-center sticky top-0 p-1.5 backdrop-blur-md">
-                  <h4 className="text-xs font-bold text-white text-center uppercase flex items-center gap-1">
+              <div className="flex-1 overflow-y-auto hide-scrollbar rounded-2xl">
+                <div className="h-[6vh] md:h-[6vh] flex justify-center items-center sticky top-0 p-2 backdrop-blur-lg bg-gray-900/50 border-b border-white/10">
+                  <h4 className="text-sm font-bold text-white text-center uppercase tracking-wide flex items-center gap-2">
                     Top 100
                     {selectedToken.image && (
                       <img
                         src={selectedToken.image}
                         alt={`${selectedToken.symbol} logo`}
-                        className="w-4 h-4 rounded-full ml-1"
+                        className="w-5 h-5 rounded-full"
                         onError={(e) => {
                           logger.error('Token logo failed to load:', {
                             symbol: selectedToken.symbol,
@@ -1545,17 +1550,14 @@ const MarketTab = ({ recaptchaRef }) => {
 
                 {onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                   <div className="relative overflow-x-auto md:max-h-[calc(100%-3rem)] max-h-[calc(70vh-6rem)] overflow-y-auto hide-scrollbar">
-                    <table className={`w-full ${isMobile ? 'text-[9px]' : 'text-[11px]'}`}>
-                      <thead className="sticky top-0 bg-gray-700/50 backdrop-blur-sm z-10">
-                        <tr>
-                          <th
-                            className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'min-w-[200px]' : 'min-w-[300px]'
-                              }`}
-                          >
-                            <div className="flex items-center gap-1">
+                    <table className={`w-full ${isMobile ? 'text-[10px]' : 'text-sm'}`}>
+                      <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10">
+                        <tr className=" bg-gray-900/50">
+                          <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'min-w-[200px]' : 'min-w-[300px]'}`}>
+                            <div className="flex items-center gap-2 text-xs">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-5 w-5 stroke-white fill-none"
+                                className="h-4 w-4 stroke-white fill-none"
                                 viewBox="0 0 24 24"
                                 strokeWidth="2"
                               >
@@ -1568,11 +1570,8 @@ const MarketTab = ({ recaptchaRef }) => {
                               Address/Name
                             </div>
                           </th>
-                          <th
-                            className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px]' : 'w-[100px] min-w-[100px]'
-                              }`}
-                          >
-                            <div className="flex items-center gap-1">
+                          <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px]' : 'w-[100px] min-w-[100px]'}`}>
+                            <div className="flex items-center gap-2 text-xs">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 className="h-4 w-4 fill-white"
@@ -1596,18 +1595,15 @@ const MarketTab = ({ recaptchaRef }) => {
                           return (
                             <tr
                               key={index}
-                              className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
+                              className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
                             >
-                              <td
-                                className={`px-1.5 py-1 text-white ${isMobile ? 'min-w-[200px]' : 'min-w-[300px]'
-                                  }`}
-                              >
-                                <div className="flex items-center gap-1">
+                              <td className={`px-2 py-1.5 text-white ${isMobile ? 'min-w-[200px]' : 'min-w-[300px]'}`}>
+                                <div className="flex items-center gap-2 text-[10px]">
                                   {image && (
                                     <img
                                       src={image}
                                       alt={`${displayText} logo`}
-                                      className={`${isMobile ? 'w-4 h-4' : 'w-5 h-5'} rounded-full flex-shrink-0 m-1`}
+                                      className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} rounded-full flex-shrink-0`}
                                       onError={(e) => {
                                         logger.error('Name tag image failed to load:', {
                                           address,
@@ -1622,14 +1618,14 @@ const MarketTab = ({ recaptchaRef }) => {
                                       href={`https://blockchair.com/${selectedToken?.id.toLowerCase()}/address/${holder.address}`}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="text-white hover:underline"
+                                      className="text-neon-blue hover:underline"
                                       title={holder.address}
                                     >
                                       {displayText}
                                     </a>
                                   ) : (
                                     <span
-                                      className={`text-gray-200 ${isValidEvmAddress ? 'cursor-pointer hover:underline' : 'cursor-default'}`}
+                                      className={`text-gray-200 ${isValidEvmAddress ? 'cursor-pointer hover:text-neon-blue hover:underline' : 'cursor-default'}`}
                                       onClick={() => isValidEvmAddress && handleAddressClick(holder.address)}
                                       title={displayText}
                                     >
@@ -1638,10 +1634,7 @@ const MarketTab = ({ recaptchaRef }) => {
                                   )}
                                 </div>
                               </td>
-                              <td
-                                className={`px-1.5 py-1 text-gray-200 ${isMobile ? 'w-[80px] min-w-[80px]' : 'w-[100px] min-w-[100px]'
-                                  }`}
-                              >
+                              <td className={`px-2 py-1.5 text-gray-200 text-[10px] ${isMobile ? 'w-[80px] min-w-[80px]' : 'w-[100px] min-w-[100px]'}`}>
                                 <span>
                                   {holder.balance.toLocaleString('en-US', {
                                     minimumFractionDigits: 2,
@@ -1656,45 +1649,48 @@ const MarketTab = ({ recaptchaRef }) => {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 text-center">
+                  <p className="text-sm text-gray-400 text-center">
                     {isLoadingOnChain
                       ? 'Loading top holders data...'
                       : NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
                         ? `No public treasury data available for ${selectedToken?.symbol?.toUpperCase() || 'selected token'}.`
-                        : `No top holders data available for ${selectedToken?.symbol?.toUpperCase() || 'selected token'} on ${chains.find((c) => c.value === selectedChain)?.label || 'selected chain'
-                        }.`}
+                        : `No top holders data available for ${selectedToken?.symbol?.toUpperCase() || 'selected token'} on ${chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.`}
                   </p>
                 )}
               </div>
             ) : (
-              <p className="text-xs text-gray-400 text-center flex-1 p-3">Please select a token to view holders.</p>
+              <p className="text-sm text-gray-400 text-center flex-1 p-4">Please select a token to view holders.</p>
             )}
           </div>
 
-          <div className="rounded-lg border border-gray-500/30 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(70vh-3rem)] sm:min-h-[300px] min-h-[500px] overflow-auto hide-scrollbar mb-12">
+          <div className="rounded-2xl border border-white/10 bg-gray-900/30 backdrop-blur-lg flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(70vh-3rem)] sm:min-h-[300px] min-h-[500px] overflow-auto hide-scrollbar mb-12 shadow-glow-neon">
             {selectedToken ? (
               <>
-                <div className={`flex justify-between items-center p-1.5 text-[9px] text-gray-500 ${isMobile ? 'text-[8px]' : ''}`}>
-                  <div className="relative flex items-center bg-gray-800/50 backdrop-blur-md rounded-lg overflow-hidden border border-white/10 m-2">
-                    <button
+                <div className={`flex justify-between items-center p-2 text-sm text-gray-400 ${isMobile ? 'text-[10px]' : ''}`}>
+                  <div className="relative flex items-center bg-gray-900/50 backdrop-blur-md rounded-lg overflow-hidden border border-white/10 m-2">
+                    <motion.button
                       onClick={() => {
                         setActiveMarketTab('cex');
                         setShowTrades(false);
                       }}
-                      className={`relative px-2 py-1 text-[10px] font-medium transition-all duration-300 ${activeMarketTab === 'cex' ? 'bg-white text-black' : 'text-white hover:bg-white/15'} z-10`}
+                      className={`relative px-2 py-1 text-xs font-medium transition-all duration-300 ${activeMarketTab === 'cex' ? 'bg-white text-black' : 'text-white hover:bg-white/10'}`}
                       style={{ clipPath: 'polygon(0 0, 80% 0, 100% 100%, 0% 100%)' }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
                       CEX
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
                       onClick={handleDexTabClick}
-                      className={`relative px-2 py-1 text-[10px] font-medium transition-all duration-300 ${activeMarketTab === 'dex' ? 'bg-white text-black' : 'text-white hover:bg-white/15'} z-10`}
+                      className={`relative px-2 py-1 text-xs font-medium transition-all duration-300 ${activeMarketTab === 'dex' ? 'bg-white text-black' : 'text-white hover:bg-white/10'}`}
                       style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 20% 100%)' }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
                       DEX
-                    </button>
+                    </motion.button>
                   </div>
-                  <span className="flex flex-col items-end text-[8px] mr-2">
+                  <span className="flex flex-col items-end text-[9px] mr-2">
                     <span>Last Updated</span>
                     <span>
                       {lastDexFetchTime
@@ -1706,46 +1702,46 @@ const MarketTab = ({ recaptchaRef }) => {
 
                 {activeMarketTab === 'cex' ? (
                   <>
-                    {tickerError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-xs'}`}>{tickerError}</p>}
+                    {tickerError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>{tickerError}</p>}
                     {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
                       <div className="relative overflow-x-auto md:max-h-[calc(100%-2rem)] max-h-[calc(70vh-6rem)] overflow-y-auto hide-scrollbar">
-                        <table className={`w-full table-fixed ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
-                          <thead className="sticky top-0 bg-gray-700/50 backdrop-blur-sm z-10">
+                        <table className={`w-full table-fixed ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                          <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10">
                             <tr>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
-                                <div className="flex items-center gap-1">
+                              <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                <div className="flex items-center gap-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 12h12l3-12H3zm9 10v-4m-4 4v-2m8 2v-2" />
                                   </svg>
                                   Market
                                 </div>
                               </th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[40px] min-w-[40px] max-w-[40px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
-                                <div className="flex items-center gap-1">
+                              <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[40px] min-w-[40px] max-w-[40px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
+                                <div className="flex items-center gap-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4M4 17h12m0 0l4-4m-4 4l4 4" />
                                   </svg>
                                   Pair
                                 </div>
                               </th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[50px] min-w-[50px] max-w-[50px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
-                                <div className="flex items-center gap-1">
+                              <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[50px] min-w-[50px] max-w-[50px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
+                                <div className="flex items-center gap-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5" />
                                   </svg>
                                   Price
                                 </div>
                               </th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
-                                <div className="flex items-center gap-1">
+                              <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                <div className="flex items-center gap-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z" />
                                   </svg>
                                   Volume
                                 </div>
                               </th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
-                                <div className="flex items-center gap-1">
+                              <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                <div className="flex items-center gap-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                   </svg>
@@ -1758,15 +1754,15 @@ const MarketTab = ({ recaptchaRef }) => {
                             {tickerData.slice(0, 30).map((ticker, index) => (
                               <tr
                                 key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}
-                                className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
+                                className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
                               >
-                                <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
-                                  <div className="flex items-center gap-0.5">
+                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                  <div className="flex items-center gap-1">
                                     {ticker.market.logo && (
                                       <img
                                         src={ticker.market.logo}
                                         alt={`${ticker.market.name} logo`}
-                                        className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} flex-shrink-0`}
+                                        className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} flex-shrink-0`}
                                         onError={(e) => (e.target.src = '/fallback-image.png')}
                                       />
                                     )}
@@ -1774,24 +1770,24 @@ const MarketTab = ({ recaptchaRef }) => {
                                       href={ticker.trade_url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className={`text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[40px]' : 'max-w-[60px]'}`}
+                                      className={`text-neon-blue hover:underline truncate ${isMobile ? 'max-w-[40px]' : 'max-w-[60px]'}`}
                                       title={ticker.market.name}
                                     >
                                       {ticker.market.name}
                                     </a>
                                   </div>
                                 </td>
-                                <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[40px] min-w-[40px] max-w-[40px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
+                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[40px] min-w-[40px] max-w-[40px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
                                   <span className="truncate">{ticker.base}/{ticker.target}</span>
                                 </td>
-                                <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[50px] min-w-[50px] max-w-[50px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
+                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[50px] min-w-[50px] max-w-[50px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
                                   <span className="truncate">
                                     {ticker.converted_last.usd != null
                                       ? formatPrice(ticker.converted_last.usd)
                                       : 'N/A'}
                                   </span>
                                 </td>
-                                <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
                                   <span className="truncate">
                                     ${ticker.converted_volume.usd?.toLocaleString('en-US', {
                                       minimumFractionDigits: 0,
@@ -1799,7 +1795,7 @@ const MarketTab = ({ recaptchaRef }) => {
                                     }) || 'N/A'}
                                   </span>
                                 </td>
-                                <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
                                   <span className="truncate">
                                     {ticker.last_traded_at
                                       ? new Date(ticker.last_traded_at).toLocaleTimeString('en-US', {
@@ -1816,7 +1812,7 @@ const MarketTab = ({ recaptchaRef }) => {
                       </div>
                     ) : (
                       !isLoadingTickers && (
-                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-sm' : 'text-sm'}`}>
                           No CEX data available for {selectedToken.symbol?.toUpperCase()}.
                         </p>
                       )
@@ -1824,62 +1820,62 @@ const MarketTab = ({ recaptchaRef }) => {
                   </>
                 ) : (
                   <>
-                    {dexError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>{dexError}</p>}
+                    {dexError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-sm' : 'text-sm'}`}>{dexError}</p>}
                     {!isLoadingDex && !dexError && dexData.trades.length > 0 ? (
                       <div className="relative overflow-x-auto md:max-h-[calc(100%-2rem)] max-h-[calc(70vh-6rem)] overflow-y-auto hide-scrollbar">
-                        <table className={`w-full table-fixed ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
-                          <thead className="sticky top-0 bg-gray-700/50 backdrop-blur-sm z-10">
+                        <table className={`w-full table-fixed ${isMobile ? 'text-[10px]' : 'text-[10px]'}`}>
+                          <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10">
                             <tr>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
-                                <div className="flex items-center gap-1">
+                              <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
+                                <div className="flex items-center gap-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" />
                                   </svg>
                                   Token
                                 </div>
                               </th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
-                                <div className="flex items-center gap-1">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
+                              <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
+                                <div className="flex items-center gap-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                                   </svg>
                                   From Address
                                 </div>
                               </th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
-                                <div className="flex items-center gap-1">
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
+                              <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
+                                <div className="flex items-center gap-2">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                                   </svg>
                                   To Address
                                 </div>
                               </th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[90px] min-w-[90px] max-w-[90px]' : 'w-[90px] min-w-[90px] max-w-[90px]'}`}>
-                                <div className="flex items-center gap-1">
+                              <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[90px] min-w-[90px] max-w-[90px]' : 'w-[90px] min-w-[90px] max-w-[90px]'}`}>
+                                <div className="flex items-center gap-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z" />
                                   </svg>
                                   Volume (USD)
                                 </div>
                               </th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
-                                <div className="flex items-center gap-1">
+                              <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                <div className="flex items-center gap-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z" />
                                   </svg>
                                   Value
                                 </div>
                               </th>
-                              <th className={`px-1.5 py-1 text-white text-center font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
-                                <div className="flex items-center justify-center gap-1">
+                              <th className={`px-2 py-1.5 text-white text-center font-medium ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                <div className="flex items-center justify-center gap-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                   </svg>
                                   Tx/Time
                                 </div>
                               </th>
-                              <th className={`px-1.5 py-1 text-white text-left font-medium ${isMobile ? 'w-[90px] min-w-[90px] max-w-[90px]' : 'w-[90px] min-w-[90px] max-w-[90px]'}`}>
-                                <div className="flex items-center gap-1">
+                              <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[90px] min-w-[90px] max-w-[90px]' : 'w-[90px] min-w-[90px] max-w-[90px]'}`}>
+                                <div className="flex items-center gap-2">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 stroke-white fill-none" viewBox="0 0 24 24" strokeWidth="2">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M6 15h12M9 18h6" />
                                   </svg>
@@ -1890,11 +1886,6 @@ const MarketTab = ({ recaptchaRef }) => {
                           </thead>
                           <tbody>
                             {dexData.trades.slice(0, 100).map((trade, index) => {
-                              if (process.env.NODE_ENV === 'development') {
-                                console.log('Trade pool_address:', trade.pool_address);
-                                console.log('dexData.poolTokens keys:', Object.keys(dexData.poolTokens));
-                              }
-
                               const { txUrl, addressUrl: fromUrl } = getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address);
                               const { addressUrl: toUrl } = getExplorerUrls(selectedChain, trade.tx_hash, trade.to_token_address);
                               const pool = dexData.pools.find((p) => p.attributes.address === trade.pool_address);
@@ -1924,28 +1915,28 @@ const MarketTab = ({ recaptchaRef }) => {
                               return (
                                 <tr
                                   key={`${trade.tx_hash}-${index}`}
-                                  className="border-t border-gray-500/20 hover:bg-gray-800/50 transition-all duration-200"
+                                  className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
                                 >
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[50px] min-w-[50px] max-w-[50px]' : 'w-[70px] min-w-[70px] max-w-[70px]'}`}>
+                                  <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[50px] min-w-[50px] max-w-[50px]' : 'w-[70px] min-w-[70px] max-w-[70px]'}`}>
                                     <div className="flex items-center gap-1">
                                       {selectedToken?.image && (
                                         <img
                                           src={selectedToken.image}
                                           alt={`${selectedToken.symbol} logo`}
-                                          className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} rounded-full flex-shrink-0`}
+                                          className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'} rounded-full flex-shrink-0`}
                                           onError={(e) => (e.target.src = '/fallback-image.png')}
                                         />
                                       )}
                                       <span className="truncate">{tokenSymbol || 'N/A'}</span>
                                     </div>
                                   </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
+                                  <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
                                     <div className="flex items-center gap-1">
                                       <a
                                         href={fromUrl}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="text-blue-400 hover:underline truncate cursor-pointer"
+                                        className="text-neon-blue hover:underline truncate cursor-pointer"
                                         title={trade.tx_from_address}
                                       >
                                         {truncateAddress(trade.tx_from_address)}
@@ -1953,12 +1944,12 @@ const MarketTab = ({ recaptchaRef }) => {
                                       {trade.tx_from_address && typeof trade.tx_from_address === 'string' && (
                                         <button
                                           onClick={() => copyToClipboard(trade.tx_from_address)}
-                                          className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                                          className="text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0"
                                           title="Copy address"
                                         >
                                           <svg
                                             xmlns="http://www.w3.org/2000/svg"
-                                            className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
+                                            className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
                                             fill="none"
                                             viewBox="0 0 24 24"
                                             stroke="currentColor"
@@ -1974,13 +1965,13 @@ const MarketTab = ({ recaptchaRef }) => {
                                       )}
                                     </div>
                                   </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
+                                  <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[100px] min-w-[100px] max-w-[100px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
                                     <div className="flex items-center gap-1">
                                       <a
                                         href={toUrl}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="text-blue-400 hover:underline truncate cursor-pointer"
+                                        className="text-neon-blue hover:underline truncate cursor-pointer"
                                         title={trade.to_token_address}
                                       >
                                         {truncateAddress(trade.to_token_address)}
@@ -1988,12 +1979,12 @@ const MarketTab = ({ recaptchaRef }) => {
                                       {trade.to_token_address && typeof trade.to_token_address === 'string' && (
                                         <button
                                           onClick={() => copyToClipboard(trade.to_token_address)}
-                                          className="text-gray-400 hover:text-white transition-colors flex-shrink-0"
+                                          className="text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0"
                                           title="Copy address"
                                         >
                                           <svg
                                             xmlns="http://www.w3.org/2000/svg"
-                                            className={`${isMobile ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'}`}
+                                            className={`${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
                                             fill="none"
                                             viewBox="0 0 24 24"
                                             stroke="currentColor"
@@ -2009,7 +2000,7 @@ const MarketTab = ({ recaptchaRef }) => {
                                       )}
                                     </div>
                                   </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                  <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
                                     <div className="flex items-center gap-1">
                                       <span className="truncate">
                                         ${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
@@ -2018,13 +2009,13 @@ const MarketTab = ({ recaptchaRef }) => {
                                         })}
                                       </span>
                                       <span
-                                        className={`inline-block px-1.5 py-0.5 rounded-full text-[7px] font-medium flex-shrink-0 ${trade.kind === 'buy' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}
+                                        className={`inline-block px-1.5 py-0.5 rounded-full text-[8px] font-medium flex-shrink-0 ${trade.kind === 'buy' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}
                                       >
                                         {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
                                       </span>
                                     </div>
                                   </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[90px] min-w-[90px] max-w-[90px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                  <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[90px] min-w-[90px] max-w-[90px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
                                     <div className="flex flex-col gap-0.5">
                                       <span className="truncate">
                                         {parseFloat(tokenAmount || 0).toLocaleString('en-US', {
@@ -2035,7 +2026,7 @@ const MarketTab = ({ recaptchaRef }) => {
                                       </span>
                                     </div>
                                   </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[120px] min-w-[120px] max-w-[120px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
+                                  <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[120px] min-w-[120px] max-w-[120px]' : 'w-[120px] min-w-[120px] max-w-[120px]'}`}>
                                     <div className="flex flex-col gap-0.5 items-center">
                                       <a href={txUrl} target="_blank" rel="noreferrer" title={trade.tx_hash} className="flex-shrink-0">
                                         <img
@@ -2045,13 +2036,13 @@ const MarketTab = ({ recaptchaRef }) => {
                                           onError={(e) => (e.target.src = '/fallback-image.png')}
                                         />
                                       </a>
-                                      <span className="truncate text-[7px] md:text-[9px] text-center">{formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}</span>
+                                      <span className="truncate text-[8px] md:text-[10px] text-center">{formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}</span>
                                     </div>
                                   </td>
-                                  <td className={`px-1.5 py-1 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
+                                  <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[80px] min-w-[80px] max-w-[80px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
                                     <button
                                       onClick={() => trade.pool_address && handlePoolClick(trade.pool_address)}
-                                      className={`flex items-center gap-1 text-[9px] text-blue-400 hover:underline truncate ${isMobile ? 'max-w-[50px]' : 'max-w-[50px]'}`}
+                                      className={`flex items-center gap-1 text-[10px] text-neon-blue hover:underline truncate ${isMobile ? 'max-w-[50px]' : 'max-w-[50px]'}`}
                                       title={pool?.attributes.name || 'View Pool Details'}
                                       disabled={!trade.pool_address || !token1 || !token2}
                                     >
@@ -2084,7 +2075,7 @@ const MarketTab = ({ recaptchaRef }) => {
                       </div>
                     ) : (
                       !isLoadingDex && (
-                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
+                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-sm' : 'text-sm'}`}>
                           No DEX data available for {selectedToken.symbol?.toUpperCase()} on {chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.
                         </p>
                       )
@@ -2093,7 +2084,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 )}
               </>
             ) : (
-              <p className={`text-gray-400 text-center flex-1 p-3 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Please select a token to view CEX/DEX data.</p>
+              <p className={`text-gray-400 text-center flex-1 p-4 ${isMobile ? 'text-sm' : 'text-sm'}`}>Please select a token to view CEX/DEX data.</p>
             )}
           </div>
 
@@ -2173,7 +2164,7 @@ const MarketTab = ({ recaptchaRef }) => {
   }
 `}</style>
     </motion.div>
-    
+
   );
 };
 

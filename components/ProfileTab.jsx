@@ -60,43 +60,50 @@ export default function ProfileTab({ recaptchaRef }) {
   };
 
   useEffect(() => {
-    async function fetchUserData() {
-      if (status !== 'authenticated' || !session?.user?.id || !csrfToken) {
-        return;
+  async function fetchUserData() {
+    if (status !== 'authenticated' || !session?.user?.id || !csrfToken) {
+      return;
+    }
+    try {
+      const token = await executeRecaptcha('get_user');
+      const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+        headers: {
+          'x-csrf-token': csrfToken,
+          'X-Recaptcha-Token': token,
+        },
+        withCredentials: true,
+      });
+      if (!response.data.success) {
+        throw new Error(
+          response.data.detail ||
+          response.data.errors?.map((e) => e.msg).join(', ') ||
+          'Unable to fetch user data'
+        );
       }
-      try {
-        const token = await executeRecaptcha('get_user');
-        const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
-          headers: {
-            'x-csrf-token': csrfToken,
-            'X-Recaptcha-Token': token,
-          },
-          withCredentials: true,
-        });
-        if (!response.data.success) {
-          throw new Error(
-            response.data.detail ||
-            response.data.errors?.map((e) => e.msg).join(', ') ||
-            'Unable to fetch user data'
-          );
-        }
-        setUserData(response.data.user);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching user data:', err);
-        if (err.response?.status === 404) {
-          setError('User not found. Signing out...');
-          await signOut({ redirect: false });
-          window.location.href = '/auth/signin';
-        } else if (err.response?.status === 403) {
-          setError(`Access denied: ${err.response?.data?.detail || 'Invalid CSRF or reCAPTCHA. Please try again.'}`);
-        } else {
-          setError(`Unable to load profile: ${err.message}`);
-        }
+      // Map is_premium to tier for UI consistency
+      const user = {
+        ...response.data.user,
+        isPremium: response.data.user.is_premium || false,
+        tier: response.data.user.is_premium ? 'Premium' : 'Basic',
+      };
+      console.log('User Data:', user); // Debug log
+      setUserData(user);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching user data:', err);
+      if (err.response?.status === 404) {
+        setError('User not found. Signing out...');
+        await signOut({ redirect: false });
+        window.location.href = '/auth/signin';
+      } else if (err.response?.status === 403) {
+        setError(`Access denied: ${err.response?.data?.detail || 'Invalid CSRF or reCAPTCHA. Please try again.'}`);
+      } else {
+        setError(`Unable to load profile: ${err.message}`);
       }
     }
-    fetchUserData();
-  }, [status, session?.user?.id, csrfToken]);
+  }
+  fetchUserData();
+}, [status, session?.user?.id, csrfToken]);
 
   const handleConnectWallet = async () => {
     if (!window.ethereum) {
@@ -238,43 +245,57 @@ export default function ProfileTab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-jetbrains w-full max-w-screen-md md:max-w-full h-[calc(100vh-4rem)] mx-auto p-2 md:p-6 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+      transition={{ duration: 0.5 }}
+      className="font-jetbrains w-full mx-auto p-4 md:p-6 backdrop-blur-md rounded-xl shadow-lg h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar"
     >
-      <div className="w-full rounded-xl shadow-card backdrop-blur-md p-4 md:p-6">
-        {error && <p className="text-red-500 text-sm md:text-base mb-4">Error: {error}</p>}
+      <div className="w-full h-full rounded-xl p- md:p-3 backdrop-blur-md ">
+        {error && (
+          <p className="text-red-400 text-sm md:text-base mb-4 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center">
+            Error: {error}
+          </p>
+        )}
         {!userData && !error && (
-          <p className="text-sm md:text-base text-gray-600 text-center">Loading profile...</p>
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative w-12 h-12">
+                <div className="absolute inset-0 border-4 border-gray-600/50 border-t-white rounded-full animate-spin"></div>
+              </div>
+              <p className="text-sm md:text-base text-gray-400 animate-pulse">Loading profile...</p>
+            </div>
+          </div>
         )}
         {userData && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-tech backdrop-blur-md">
-              <h3 className="text-sm md:text-base font-bold text-white mb-3">TWITTER (X)</h3>
-              <div className="flex items-center mb-10">
+            {/* Twitter (X) Card */}
+            <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-800/50 backdrop-blur-md">
+              <h3 className="text-sm md:text-base font-bold text-white mb-3 uppercase">Twitter (X)</h3>
+              <div className="flex items-center mb-6">
                 <img
                   src={userData.twitterPFP || '/default-avatar.png'}
                   alt={userData.twitterHandle}
-                  className="w-12 h-12 md:w-16 md:h-16 border border-white rounded-xl mr-2 md:mr-3"
+                  className="w-12 h-12 md:w-16 md:h-16 rounded-xl border border-white/20 mr-3"
+                  onError={() => console.log(`Failed to load Twitter PFP: ${userData.twitterPFP}`)}
                 />
-                <span className="text-xs md:text-sm text-white">{userData.twitterHandle || 'Not connected'}</span>
+                <span className="text-xs md:text-sm text-white truncate">{userData.twitterHandle || 'Not connected'}</span>
               </div>
               <button
                 onClick={handleDisconnectTwitter}
-                className="w-full mt-2 px-3 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md text-red-500 hover:bg-red-500/10"
+                className="w-full mt-2 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md text-red-400 hover:bg-red-500/20 hover:shadow-glow-neon-red"
               >
                 Disconnect Twitter
               </button>
             </div>
-            <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm md:text-base font-bold text-white mb-3">WALLET</h3>
-              <p className="text-xs md:text-sm text-white truncate">{userData.walletAddress || 'Not connected'}</p>
+            {/* Wallet Card */}
+            <div className="min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-800/50 backdrop-blur-md">
+              <h3 className="text-sm md:text-base font-bold text-white mb-3 uppercase">Wallet</h3>
+              <p className="text-xs md:text-sm text-white truncate mb-6">{userData.walletAddress || 'Not connected'}</p>
               <button
                 onClick={handleConnectWallet}
                 disabled={isConnectingWallet || userData.walletAddress}
-                className={`w-full mt-3 md:mt-4 px-3 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
-                  isConnectingWallet || userData.walletAddress
+                className={`w-full mt-2 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${isConnectingWallet || userData.walletAddress
                     ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
-                    : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
-                }`}
+                    : 'text-white hover:bg-white/20 hover:shadow-glow-neon'
+                  }`}
               >
                 {isConnectingWallet ? 'Connecting...' : 'Connect Wallet'}
               </button>
@@ -282,43 +303,72 @@ export default function ProfileTab({ recaptchaRef }) {
                 <button
                   onClick={handleDisconnectWallet}
                   disabled={isDisconnectingWallet}
-                  className={`w-full mt-2 px-3 py-1 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${
-                    isDisconnectingWallet
+                  className={`w-full mt-2 px-3 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${isDisconnectingWallet
                       ? 'text-white/50 cursor-not-allowed opacity-50'
-                      : 'text-red-500 hover:bg-red-500/10'
-                  }`}
+                      : 'text-red-400 hover:bg-red-500/20 hover:shadow-glow-neon-red'
+                    }`}
                 >
                   {isDisconnectingWallet ? 'Disconnecting...' : 'Disconnect'}
                 </button>
               )}
             </div>
-            <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm md:text-base font-bold text-white mb-3">POINTS</h3>
-              <p className="text-3xl md:text-5xl font-bold text-green-500 text-center mb-10">{userData.points || 0}</p>
+            {/* Points Card */}
+            <div className="min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-800/50 backdrop-blur-md">
+              <h3 className="text-sm md:text-base font-bold text-white mb-3 uppercase">Points</h3>
+              <p className="text-3xl md:text-5xl font-bold text-green-400 text-center mb-6">{userData.points || 0}</p>
             </div>
-            <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm md:text-base font-bold text-white mb-3">DAYS ACTIVE</h3>
-              <p className="text-xl md:text-2xl font-bold text-green-500 text-center">{getDaysActive()}</p>
+            {/* Days Active Card */}
+            <div className="rounded-xl min-h-[200px] p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-800/50 backdrop-blur-md">
+              <h3 className="text-sm md:text-base font-bold text-white mb-3 uppercase">Days Active</h3>
+              <p className="text-xl md:text-2xl font-bold text-green-400 text-center mb-6">{getDaysActive()}</p>
             </div>
-            <div className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 backdrop-blur-md">
-              <h3 className="text-sm md:text-base font-bold text-white mb-3">TIER</h3>
-              <p className="text-xs md:text-sm text-center text-white">{userData.tier || 'Basic'}</p>
+            {/* Tier Card */}
+            <div
+              className={`min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border ${userData.isPremium ? 'border-yellow-400/50' : 'border-white/10'
+                } bg-gray-800/50 backdrop-blur-md hover:bg-white/15`}
+            >
+              <h3 className="text-sm md:text-base font-bold text-white mb-3 uppercase">Account</h3>
+              <p
+                className={`text-xl md:text-2xl font-bold text-center mb-6 ${userData.isPremium ? 'text-yellow-400' : 'text-white'
+                  }`}
+              >
+                {userData.isPremium ? 'Premium' : 'Basic'}
+              </p>
+              <div
+                className={`w-full h-2 rounded-b-lg ${userData.isPremium ? 'bg-gradient-to-r from-yellow-400/50 to-yellow-600/50' : 'bg-gradient-to-r from-white/50 to-gray-400/50'
+                  }`}
+              ></div>
             </div>
           </div>
         )}
       </div>
       <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 2px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-      `}</style>
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .shadow-glow-neon {
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.3), 0 0 16px rgba(255, 255, 255, 0.1);
+      }
+      .shadow-glow-neon-red {
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.3), 0 0 16px rgba(239, 68, 68, 0.1);
+      }
+      .shadow-glow-neon-yellow {
+        box-shadow: 0 0 8px rgba(251, 191, 36, 0.3), 0 0 16px rgba(251, 191, 36, 0.1);
+      }
+      .bg-tech {
+        background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
+      }
+    `}</style>
     </motion.div>
   );
 }
