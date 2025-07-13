@@ -387,7 +387,7 @@ export default function AITab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={`font-jetbrains w-full max-w-10xl mx-auto bg-gray-900/30 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon ${isMobile ? 'h-[calc(100vh)]' : 'h-[calc(100vh)]'} flex flex-col overflow-hidden`}
+      className={`font-jetbrains w-full max-w-10xl mx-auto bg-gray-900/30 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon ${isMobile ? 'h-[calc(80vh)]' : 'h-[calc(100vh)]'} flex flex-col overflow-hidden`}
     >
       {/* Header */}
       <div className="p-2 bg-gray-900/50 border-b border-white/10 flex items-center shrink-0 rounded-t-lg">
@@ -457,7 +457,7 @@ export default function AITab({ recaptchaRef }) {
       <div
         className="flex-1 p-2 md:p-4 overflow-y-auto custom-scrollbar bg-gradient-to-b from-gray-900/50 to-gray-800/50 rounded-b-lg"
         ref={chatContainerRef}
-        style={{ maxHeight: isMobile ? 'calc(100vh - 14rem)' : 'calc(100vh - 10rem)' }}
+        style={{ maxHeight: isMobile ? 'calc(100vh)' : 'calc(100vh - 10rem)' }}
       >
         {error && !error.includes('maximum of 50 daily chats') && (
           <motion.div

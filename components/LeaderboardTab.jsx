@@ -92,7 +92,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         className={`grid grid-cols-12 gap-2 p-2 rounded-xl font-jetbrains transition-all duration-300 border border-white/10 bg-gray-900/50 backdrop-blur-lg hover:bg-gray-900/70 relative overflow-hidden ${
           rankStyles[rank] || ''
         } ${isCurrentUser ? 'border-neon-blue shadow-glow-neon-blue' : ''}`}
-        whileHover={{ scale: 1.02 }}
+        whileHover={{ scale: 1 }}
         whileTap={{ scale: 0.98 }}
       >
         {/* Sliding underline effect on hover */}

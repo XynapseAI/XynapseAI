@@ -431,11 +431,11 @@ const WalletBalances = ({
                   <table className="w-full table-fixed">
                     <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10 uppercase">
                       <tr>
-                        <th className="px-2 py-1.5 text-white text-center text-[10px] md:text-sm w-[10%]">
+                        <th className="px-2 py-1.5 text-white text-center text-[9px] md:text-xs w-[10%]">
                           <div className="flex items-center justify-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-4 h-4 fill-white flex-shrink-0"
+                              className="w-3 h-3 md:w-4 md:h-4 fill-white flex-shrink-0"
                               viewBox="0 0 24 24"
                             >
                               <path
@@ -448,11 +448,11 @@ const WalletBalances = ({
                             Chain
                           </div>
                         </th>
-                        <th className="px-2 py-1.5 text-white text-left text-[10px] md:text-sm w-[50%]">
+                        <th className="px-2 py-1.5 text-white text-left text-[9px] md:text-xs w-[30%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4 fill-white"
+                              className="w-3 h-3 md:w-4 md:h-4 fill-white"
                               viewBox="0 0 24 24"
                             >
                               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
@@ -460,11 +460,11 @@ const WalletBalances = ({
                             Token
                           </div>
                         </th>
-                        <th className="px-2 py-1.5 text-white text-left text-[10px] md:text-sm w-[20%]">
+                        <th className="px-2 py-1.5 text-white text-left text-[9px] md:text-xs w-[20%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4 fill-white"
+                              className="w-3 h-3 md:w-4 md:h-4 fill-white"
                               viewBox="0 0 24 24"
                             >
                               <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
@@ -472,11 +472,11 @@ const WalletBalances = ({
                             Balance
                           </div>
                         </th>
-                        <th className="px-2 py-1.5 text-white text-left text-[10px] md:text-sm w-[20%]">
+                        <th className="px-2 py-1.5 text-white text-left text-[9px] md:text-xs w-[20%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4 stroke-white fill-none"
+                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
@@ -497,7 +497,7 @@ const WalletBalances = ({
                           key={`${balance.chain}-${balance.address}-${index}`}
                           className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
                         >
-                          <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
+                          <td className="px-2 py-1.5 text-gray-200 text-[9px] md:text-xs">
                             <div className="flex flex-col items-center">
                               <img
                                 src={getPlatformImage(balance.chain)}
@@ -516,13 +516,13 @@ const WalletBalances = ({
                               </span>
                             </div>
                           </td>
-                          <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
+                          <td className="px-2 py-1.5 text-gray-200 text-[9px] md:text-xs">
                             <div className="flex items-center space-x-2">
                               {balance.logo && (
                                 <img
                                   src={balance.logo}
                                   alt={`${balance.symbol} logo`}
-                                  className="w-5 h-5 rounded-full flex-shrink-0"
+                                  className="w-3 h-3 md:w-4 md:h-4 rounded-full flex-shrink-0"
                                   onError={(e) => {
                                     logger.error('Token logo failed to load:', {
                                       symbol: balance.symbol,
@@ -537,14 +537,14 @@ const WalletBalances = ({
                                   {balance.symbol || 'Unknown'} {balance.address === 'native' ? '(Native)' : ''}
                                 </span>
                                 {balance.price_usd != null && (
-                                  <span className="text-[10px] text-gray-400">
+                                  <span className="text-[8px] text-gray-400">
                                     ({formatPrice(balance.price_usd)})
                                   </span>
                                 )}
                               </div>
                             </div>
                           </td>
-                          <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
+                          <td className="px-2 py-1.5 text-gray-200 text-[9px] md:text-xs">
                             {balance.amount != null
                               ? balance.amount.toLocaleString('en-US', { maximumFractionDigits: 2 })
                               : 'N/A'}
@@ -560,7 +560,7 @@ const WalletBalances = ({
                   </table>
                 </div>
               ) : (
-                !isLoading && <p className="text-xs text-gray-400 text-center">No balances found for this wallet.</p>
+                !isLoading && <p className="text-[9px] md:text-xs text-gray-400 text-center">No balances found for this wallet.</p>
               )}
             </>
           )}
@@ -1383,7 +1383,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-gray-400 text-center flex-1">Please select a token to view details.</p>
+              <p className="text-[[10px]] md:text-xs text-gray-400 text-center flex-1">Please select a token to view details.</p>
             )}
           </div>
 
@@ -1554,7 +1554,7 @@ const MarketTab = ({ recaptchaRef }) => {
                       <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10">
                         <tr className=" bg-gray-900/50">
                           <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'min-w-[200px]' : 'min-w-[300px]'}`}>
-                            <div className="flex items-center gap-2 text-xs">
+                            <div className="flex items-center gap-2 text-[10px] md:text-xs">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 className="h-4 w-4 stroke-white fill-none"
@@ -1571,7 +1571,7 @@ const MarketTab = ({ recaptchaRef }) => {
                             </div>
                           </th>
                           <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[80px] min-w-[80px]' : 'w-[100px] min-w-[100px]'}`}>
-                            <div className="flex items-center gap-2 text-xs">
+                            <div className="flex items-center gap-2 text-[10px] md:text-xs">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 className="h-4 w-4 fill-white"
@@ -1598,7 +1598,7 @@ const MarketTab = ({ recaptchaRef }) => {
                               className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
                             >
                               <td className={`px-2 py-1.5 text-white ${isMobile ? 'min-w-[200px]' : 'min-w-[300px]'}`}>
-                                <div className="flex items-center gap-2 text-[10px]">
+                                <div className="flex items-center gap-2 text-[9px] md:text-[10px]">
                                   {image && (
                                     <img
                                       src={image}
@@ -1634,7 +1634,7 @@ const MarketTab = ({ recaptchaRef }) => {
                                   )}
                                 </div>
                               </td>
-                              <td className={`px-2 py-1.5 text-gray-200 text-[10px] ${isMobile ? 'w-[80px] min-w-[80px]' : 'w-[100px] min-w-[100px]'}`}>
+                              <td className={`px-2 py-1.5 text-gray-200 text-[9px] md:text-[10px] ${isMobile ? 'w-[80px] min-w-[80px]' : 'w-[100px] min-w-[100px]'}`}>
                                 <span>
                                   {holder.balance.toLocaleString('en-US', {
                                     minimumFractionDigits: 2,
@@ -1705,7 +1705,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     {tickerError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>{tickerError}</p>}
                     {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
                       <div className="relative overflow-x-auto md:max-h-[calc(100%-2rem)] max-h-[calc(70vh-6rem)] overflow-y-auto hide-scrollbar">
-                        <table className={`w-full table-fixed ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                        <table className={`w-full table-fixed ${isMobile ? 'text-[10px]' : 'text-[11px]'}`}>
                           <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10">
                             <tr>
                               <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>

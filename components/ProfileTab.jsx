@@ -300,7 +300,7 @@ export default function ProfileTab({ recaptchaRef }) {
             {/* Twitter (X) Card */}
             <motion.div
               className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-900/50 backdrop-blur-lg shadow-glow-neon hover:bg-gray-900/70"
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.98 }}
             >
               <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Twitter (X)</h3>
@@ -318,7 +318,7 @@ export default function ProfileTab({ recaptchaRef }) {
               <motion.button
                 onClick={handleDisconnectTwitter}
                 className="w-full px-3 py-1.5 rounded-full text-[9px] md:text-xs font-medium text-red-400 border border-red-500/50 backdrop-blur-md hover:bg-red-500/20 hover:shadow-glow-neon-red transition-all duration-300"
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.95 }}
               >
                 Disconnect Twitter
@@ -327,7 +327,7 @@ export default function ProfileTab({ recaptchaRef }) {
             {/* Wallet Card */}
             <motion.div
               className="min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-900/50 backdrop-blur-lg shadow-glow-neon hover:bg-gray-900/70"
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.98 }}
             >
               <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Wallet</h3>
@@ -340,7 +340,7 @@ export default function ProfileTab({ recaptchaRef }) {
                     ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
                     : 'text-white hover:bg-white/20 hover:shadow-glow-neon'
                 }`}
-                whileHover={{ scale: isConnectingWallet || userData.walletAddress ? 1 : 1.05 }}
+                whileHover={{ scale: isConnectingWallet || userData.walletAddress ? 1 : 1 }}
                 whileTap={{ scale: isConnectingWallet || userData.walletAddress ? 1 : 0.95 }}
               >
                 {isConnectingWallet ? 'Connecting...' : 'Connect Wallet'}
@@ -354,7 +354,7 @@ export default function ProfileTab({ recaptchaRef }) {
                       ? 'text-white/50 cursor-not-allowed opacity-50'
                       : 'text-red-400 hover:bg-red-500/20 hover:shadow-glow-neon-red'
                   }`}
-                  whileHover={{ scale: isDisconnectingWallet ? 1 : 1.05 }}
+                  whileHover={{ scale: isDisconnectingWallet ? 1 : 1 }}
                   whileTap={{ scale: isDisconnectingWallet ? 1 : 0.95 }}
                 >
                   {isDisconnectingWallet ? 'Disconnecting...' : 'Disconnect'}
@@ -364,7 +364,7 @@ export default function ProfileTab({ recaptchaRef }) {
             {/* Points Card */}
             <motion.div
               className="min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-900/50 backdrop-blur-lg shadow-glow-neon hover:bg-gray-900/70"
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.98 }}
             >
               <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Points</h3>
@@ -373,7 +373,7 @@ export default function ProfileTab({ recaptchaRef }) {
             {/* Days Active Card */}
             <motion.div
               className="min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-900/50 backdrop-blur-lg shadow-glow-neon hover:bg-gray-900/70"
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.98 }}
             >
               <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Days Active</h3>
@@ -384,7 +384,7 @@ export default function ProfileTab({ recaptchaRef }) {
               className={`min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border ${
                 userData.isPremium ? 'border-yellow-400/50 shadow-glow-neon-yellow' : 'border-white/10 shadow-glow-neon'
               } bg-gray-900/50 backdrop-blur-lg hover:bg-gray-900/70`}
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.98 }}
             >
               <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Account</h3>

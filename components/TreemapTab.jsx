@@ -548,7 +548,7 @@ export default function TreemapTab({ recaptchaRef }) {
           <div className="relative" ref={chainDropdownRef}>
             <button
               onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-              className="text-white px-2 py-1 rounded-full border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center gap-1.5 text-xs"
+              className="text-white px-5 py-1 rounded-xl border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center gap-1.5 text-xs"
               aria-label="Select chain"
             >
               <Image
@@ -559,15 +559,15 @@ export default function TreemapTab({ recaptchaRef }) {
                 className="rounded-full"
                 onError={() => console.log(`Failed to load chain image: ${getPlatformImage(selectedChain, coingeckoChains)} for chain: ${selectedChain}`)}
               />
-              <span className="text-xs font-medium">
+              <span className="text-[9px] md:text-xs font-medium">
                 {mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'}
               </span>
-              <span className="text-xs">{isChainDropdownOpen ? '▲' : '▼'}</span>
+              <span className="text-[10px] md:text-xs mr-2">{isChainDropdownOpen ? '▲' : '▼'}</span>
             </button>
             {isChainDropdownOpen && (
               <div className="absolute z-20 bg-gray-900/95 backdrop-blur-lg rounded-lg mt-1 w-56 max-h-72 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
                 {mappedChains.length === 0 ? (
-                  <div className="px-3 py-1.5 text-gray-400 text-xs">No supported chains available</div>
+                  <div className="px-3 py-1.5 text-gray-400 text-[10px] md:text-xs">No supported chains available</div>
                 ) : (
                   mappedChains
                     .filter((chain) => process.env.NODE_ENV === 'development' || !chain.testnet)
@@ -622,11 +622,11 @@ export default function TreemapTab({ recaptchaRef }) {
           <div className="relative" ref={limitDropdownRef}>
             <button
               onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
-              className="text-white px-2 py-1 rounded-full border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center text-xs"
+              className="text-white px-5 py-1 rounded-xl border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center text-xs"
               aria-label="Select transaction limit"
             >
-              <span className="text-xs font-medium">Txh: {selectedLimit}</span>
-              <span className="ml-2 text-xs">{isLimitDropdownOpen ? '▲' : '▼'}</span>
+              <span className="text-[10px] md:text-xs font-medium ">Txh:{selectedLimit}</span>
+              <span className="ml-2 text-[10px] md:text-xs">{isLimitDropdownOpen ? '▲' : '▼'}</span>
             </button>
             {isLimitDropdownOpen && (
               <div className="absolute z-20 bg-gray-900/95 backdrop-blur-lg rounded-lg mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
@@ -677,7 +677,7 @@ export default function TreemapTab({ recaptchaRef }) {
               placeholder="Search wallet (0x...)"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
-              className="bg-gray-900/50 text-white px-3 py-1 rounded-full text-[10px] w-full sm:w-64 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-neon-blue/50 transition-colors duration-200 pr-8"
+              className="bg-gray-900/50 text-white px-3 py-1 rounded-full text-[9px] w-32 sm:w-64 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-neon-blue/50 transition-colors duration-200 pr-8"
               aria-label="Wallet address"
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -693,7 +693,7 @@ export default function TreemapTab({ recaptchaRef }) {
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4"
+                className="h-4 w-4 mr-2 md:mr-0"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
