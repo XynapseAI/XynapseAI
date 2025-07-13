@@ -160,7 +160,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
       onClick={onClose}
     >
       <div
-        className="backdrop-blur-xl bg-gray-900/50 p-4 sm:p-6 rounded-2xl max-w-[90%] sm:max-w-4xl w-full relative my-4 border border-white/10 shadow-glow-neon"
+        className="backdrop-blur-md bg-gray-900/50 p-4 sm:p-6 rounded-2xl max-w-[90%] sm:max-w-4xl w-full relative my-4 border border-white/10 shadow-glow-neon"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -171,7 +171,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
           ✕
         </button>
         <h4 className="text-sm font-bold text-white mb-4 uppercase tracking-wide">{title}</h4>
-        <div className="text-sm text-gray-200 mb-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+        <div className="text-xs md:text-sm text-gray-200 mb-4 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
           {typeof content === 'string' ? (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
@@ -183,16 +183,16 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
                   </a>
                 ),
                 table: ({ children }) => (
-                  <table className="border-collapse border border-white/20 w-full table-auto">{children}</table>
+                  <table className="border-collapse border border-white/20 w-full table-auto mb-2">{children}</table>
                 ),
                 th: ({ children }) => (
-                  <th className="border border-white/20 px-4 py-2 bg-gray-900/50 backdrop-blur-sm text-white text-left">{children}</th>
+                  <th className="border border-white/20 px-4 py-2 bg-gray-900/50 backdrop-blur-sm text-white text-left mb-2">{children}</th>
                 ),
                 td: ({ children }) => (
-                  <td className="border border-white/20 px-4 py-2 text-gray-200">{children}</td>
+                  <td className="border border-white/20 px-4 py-2 text-gray-200 mb-2">{children}</td>
                 ),
                 code: ({ className, children }) => (
-                  <code className={`${className || ''} bg-gray-900/80 rounded text-white backdrop-blur-md text-gray-400 p-1`}>
+                  <code className={`${className || ''} bg-gray-900/80 rounded text-white backdrop-blur-md text-gray-400 p-1 mb-2`}>
                     {children}
                   </code>
                 ),
@@ -214,7 +214,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
                     href={link}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-sm text-neon-blue hover:underline"
+                    className="text-xs md:text-sm text-neon-blue hover:underline"
                   >
                     {link.length > 30 ? `${link.slice(0, 30)}...` : link}
                   </a>
@@ -254,16 +254,16 @@ const LoadingOverlay = ({ loadingStates = {} }) => {
 
   return (
     <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-lg flex items-center justify-center z-50">
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative w-14 h-14">
-          <div className="absolute inset-0 border-4 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>
+      <div className="flex flex-col items-center gap-3">
+        <div className="relative w-10 h-10"> {/* Giảm từ w-14 h-14 xuống w-10 h-10 */}
+          <div className="absolute inset-0 border-2 border-neon-blue/50 border-t-white rounded-full animate-spin"></div> {/* Giảm border từ 4 xuống 3 */}
           <img
             src="/logos/logo-scan.png"
             alt="Loading Logo"
-            className="absolute inset-0 w-10 h-10 m-2 object-contain animate-pulse"
+            className="absolute inset-0 w-7 h-7 m-1.5 object-contain animate-pulse" // Giảm từ w-10 h-10 xuống w-7 h-7, m-2 xuống m-1.5
           />
         </div>
-        <p className="text-sm text-gray-200 font-medium animate-pulse">
+        <p className="text-[9px] md:text-[10px] text-gray-400 font-medium animate-pulse"> {/* Giảm từ text-sm xuống text-xs */}
           {messages[currentMessageIndex] || 'Processing...'}
         </p>
       </div>
@@ -359,7 +359,7 @@ const WalletBalances = ({
         ref={walletBalancesRef}
         className="backdrop-blur-xl bg-gray-900/50 p-4 sm:p-6 max-w-6xl w-[90%] rounded-2xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar border border-white/10 shadow-glow-neon"
       >
-        <div className="sticky top-0 z-10 backdrop-blur-lg bg-gray-900/50 p-2 border-b border-white/10">
+        <div className="sticky top-0 z-10 p-2">
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-2">
               <svg
@@ -1050,16 +1050,16 @@ const MarketTab = ({ recaptchaRef }) => {
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="font-jetbrains w-full max-w-9xl mx-auto bg-tech/90 backdrop-blur-xl mt-6 md:mt-6 p-4 md:p-6 rounded-2xl shadow-2xl border border-white/10 h-[calc(100vh)] overflow-hidden"
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 bg-gray-900/50 backdrop-blur-md px-2 py-1 rounded-xl border border-white/10">
-          <h2 className="text-xs font-bold text-white uppercase tracking-wide">Crypto</h2>
+      <div className="flex items-center justify-between mb-1 md:mb-2">
+        <div className="flex items-center gap-1 px-2 py-1">
+          <h2 className="text-[11px] md:text-xs font-bold text-white uppercase tracking-wide">Crypto</h2>
           <span className="text-gray-400">|</span>
           <button
-            className="text-xs font-bold text-gray-400 uppercase cursor-not-allowed flex items-center gap-1 transition-colors duration-300"
+            className="text-[11px] md:text-xs font-bold text-gray-400 uppercase cursor-not-allowed flex items-center gap-1 transition-colors duration-300"
             disabled
             aria-label="Stock tab (coming soon)"
           >
-            Stock <span className="text-[9px] text-gray-500">(Soon)</span>
+            Stock <span className="text-[8px] md:text-[9px] text-gray-500">(Soon)</span>
           </button>
         </div>
         <div className="relative" ref={chainDropdownRef}>
@@ -1074,7 +1074,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 <img
                   src={getPlatformImage(selectedChain)}
                   alt={`${chains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
-                  className="w-4 h-4 rounded-full"
+                  className="w-3 h-3 md:w-4 md:h-4 rounded-full"
                   onError={(e) => {
                     logger.error('Chain logo failed to load:', {
                       chain: selectedChain,
@@ -1083,14 +1083,14 @@ const MarketTab = ({ recaptchaRef }) => {
                     e.target.src = '/fallback-image.png';
                   }}
                 />
-                <span className="text-xs font-medium">
+                <span className="text-[10px] md:text-xs font-medium">
                   {chains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
                 </span>
               </>
             ) : (
               <div className="w-4 h-4 bg-gray-600 rounded-full"></div>
             )}
-            <span className="text-sm">{isChainDropdownOpen ? '▲' : '▼'}</span>
+            <span className="text-xs md:text-sm">{isChainDropdownOpen ? '▲' : '▼'}</span>
           </button>
           {isChainDropdownOpen && (
             <div className="absolute z-20 bg-gray-900/95 backdrop-blur-lg rounded-lg mt-2 w-64 max-h-80 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
@@ -1133,7 +1133,7 @@ const MarketTab = ({ recaptchaRef }) => {
             placeholder="Search wallet (0x...)"
             value={walletAddress}
             onChange={(e) => setWalletAddress(e.target.value)}
-            className="bg-gray-900/50 text-white px-4 py-1 rounded-full text-[10px] w-32 sm:w-72 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 pr-10"
+            className="bg-gray-900/50 text-white px-4 py-1 rounded-full text-[8px] md:text-[10px] w-28 sm:w-72 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 pr-10"
             aria-label="Wallet address"
             onKeyPress={(e) => {
               if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -1150,7 +1150,7 @@ const MarketTab = ({ recaptchaRef }) => {
             className="absolute right-2 text-white p-1.5 rounded-full hover:bg-white/10 transition-all duration-300"
             aria-label="Search wallet"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </button>
@@ -1177,10 +1177,10 @@ const MarketTab = ({ recaptchaRef }) => {
           <div className="rounded-2xl p-4 md:p-4 backdrop-blur-lg bg-gray-900/30 border border-white/10 flex flex-col h-full max-h-[calc(80vh)] md:max-h-[calc(50vh-4rem)] min-h-[520px] md:min-h-[290px] relative shadow-glow-neon mt-0 md:mt-6">
             {selectedToken ? (
               <div className="flex-1">
-                <div className="absolute top-4 right-4 w-40 sm:w-64 z-20" ref={dropdownRef}>
+                <div className="absolute top-4 right-4 w-28 sm:w-64 z-20" ref={dropdownRef}>
                   <button
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="text-white px-2 py-1 rounded-full text-[10px] flex items-center w-full border border-white/10 backdrop-blur-md bg-gray-900/50 hover:bg-white/10 transition-all duration-300 shadow-sm"
+                    className="text-white px-2 py-1 rounded-full text-[8px] md:text-[10px] flex items-center w-full border border-white/10 backdrop-blur-md bg-gray-900/50 hover:bg-white/10 transition-all duration-300 shadow-sm"
                     aria-label="Select token"
                   >
                     {selectedToken ? (
@@ -1196,7 +1196,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     ) : (
                       'Select Token'
                     )}
-                    <span className="ml-auto text-sm">{isDropdownOpen ? '▲' : '▼'}</span>
+                    <span className="ml-auto text-xs md:text-sm">{isDropdownOpen ? '▲' : '▼'}</span>
                   </button>
                   {isDropdownOpen && (
                     <div className="absolute bg-black backdrop-blur-lg rounded-lg mt-2 w-full max-h-64 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
@@ -1207,20 +1207,20 @@ const MarketTab = ({ recaptchaRef }) => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onClick={(e) => e.stopPropagation()}
                         ref={searchInputRef}
-                        className="bg-gray-800/50 text-white px-3 py-1.5 w-full rounded-t-lg text-[10px] border-b border-white/10 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50"
+                        className="bg-gray-800/50 text-white px-3 py-1.5 w-full rounded-t-lg text-[8px] md:text-[10px] border-b border-white/10 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50"
                       />
-                      <div className="p-2">
+                      <div className="p-1">
                         {(searchQuery ? searchResults : tokens.slice(0, 30)).map((token) => (
                           <button
                             key={token.id}
                             onClick={() => debouncedHandleTokenSelect(token)}
-                            className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/10 rounded-md text-white text-[10px] transition-all duration-200"
+                            className="flex items-center w-full text-left px-3 py-1.5 hover:bg-white/10 rounded-md text-white text-[9px] md:text-[10px] transition-all duration-200"
                           >
                             {token.image && (
                               <img
                                 src={token.image}
                                 alt={`${token.symbol} logo`}
-                                className="w-5 h-5 rounded-full mr-2"
+                                className="w-3 h-3 md:w-5 md:h-5 rounded-full mr-2"
                                 onError={(e) => (e.target.src = '/fallback-image.png')}
                               />
                             )}
@@ -1387,7 +1387,7 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          <div className="rounded-2xl p-4 md:p-6 backdrop-blur-lg bg-gray-900/30 border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-4rem)] min-h-[300px] relative shadow-glow-neon mt-0 md:mt-6">
+          <div className="rounded-2xl p-4 md:p-6 backdrop-blur-lg bg-gray-900/30 border border-white/10 flex flex-col h-full max-h-[calc(80vh)] md:max-h-[calc(50vh-4rem)] min-h-[450px] md:min-h-[300px] relative shadow-glow-neon mt-0 md:mt-6">
             <div className="absolute top-4 right-4 flex items-center group">
               <img
                 src="/logos/CG.png"
@@ -1395,13 +1395,13 @@ const MarketTab = ({ recaptchaRef }) => {
                 className="w-4 h-4 md:w-5 md:h-5 object-contain"
               />
               <span
-                className="absolute right-28 md:right-22 text-[9px] md:text-[10px] text-gray-200 opacity-0 translate-x-2 md:translate-x-6 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center"
+                className="absolute right-24 md:right-22 text-[8px] md:text-[10px] text-gray-200 opacity-0 translate-x-2 md:translate-x-6 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center"
               >
                 Data powered by
                 <img
                   src="/logos/CG_1.png"
                   alt="CG_1 Logo"
-                  className="w-14 h-14 md:w-14 md:h-14 object-contain ml-2"
+                  className="w-12 h-12 md:w-14 md:h-14 object-contain ml-3 md:ml-1"
                 />
               </span>
             </div>
@@ -1410,7 +1410,7 @@ const MarketTab = ({ recaptchaRef }) => {
               <div className="flex space-x-2 justify-center mt-8 md:mt-0">
                 <motion.button
                   onClick={debouncedHandleAnalysis}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${selectedToken && dailyMarketInteractions < 5
+                  className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${selectedToken && dailyMarketInteractions < 5
                     ? 'text-white hover:bg-white/10 hover:shadow-glow'
                     : 'text-gray-400 cursor-not-allowed opacity-50'
                     }`}
@@ -1423,7 +1423,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 </motion.button>
                 <motion.button
                   onClick={debouncedHandlePrediction}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-300 border border-neon-blue/50 backdrop-blur-md ${selectedToken && dailyMarketInteractions < 5
+                  className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all duration-300 border border-neon-blue/50 backdrop-blur-md ${selectedToken && dailyMarketInteractions < 5
                     ? 'text-neon-blue hover:bg-neon-blue/10 hover:shadow-glow'
                     : 'text-gray-400 cursor-not-allowed opacity-50'
                     }`}
@@ -1436,12 +1436,12 @@ const MarketTab = ({ recaptchaRef }) => {
                 </motion.button>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1 m-4 justify-end">
+            <div className="flex flex-wrap gap-1 m-2 justify-end">
               {['12H', '1D', '7D', '1M', '3M', '1Y'].map((range, idx) => (
                 <motion.button
                   key={range}
                   onClick={() => setTimeRange(['0.5', '1', '7', '30', '90', '365'][idx])}
-                  className={`px-2 py-1 rounded-sm text-[9px] md:text-[11px] transition-all duration-300 border border-white/20 backdrop-blur-md ${timeRange === ['0.5', '1', '7', '30', '90', '365'][idx]
+                  className={`px-2 py-1 rounded-sm text-[8px] md:text-[9px] transition-all duration-300 border border-white/20 backdrop-blur-md ${timeRange === ['0.5', '1', '7', '30', '90', '365'][idx]
                     ? 'bg-white text-black'
                     : 'bg-gray-900/50 text-white hover:bg-white/10'
                     }`}
@@ -1527,8 +1527,8 @@ const MarketTab = ({ recaptchaRef }) => {
             {isLoadingOnChain && <LoadingOverlay message="Loading on-chain data..." />}
             {selectedToken ? (
               <div className="flex-1 overflow-y-auto hide-scrollbar rounded-2xl">
-                <div className="h-[6vh] md:h-[6vh] flex justify-center items-center sticky top-0 p-2 backdrop-blur-lg bg-gray-900/50 border-b border-white/10">
-                  <h4 className="text-sm font-bold text-white text-center uppercase tracking-wide flex items-center gap-2">
+                <div className="h-[5vh] md:h-[5vh] flex justify-center items-center sticky top-0 p-1 backdrop-blur-lg bg-gray-900/50 border-b border-white/10">
+                  <h4 className="text-[11px] md:text-xs font-bold text-white text-center uppercase tracking-wide flex items-center gap-2">
                     Top 100
                     {selectedToken.image && (
                       <img
@@ -1649,7 +1649,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400 text-center">
+                  <p className="text-[10px] md:text-xs text-gray-400 text-center">
                     {isLoadingOnChain
                       ? 'Loading top holders data...'
                       : NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
@@ -1673,7 +1673,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         setActiveMarketTab('cex');
                         setShowTrades(false);
                       }}
-                      className={`relative px-2 py-1 text-xs font-medium transition-all duration-300 ${activeMarketTab === 'cex' ? 'bg-white text-black' : 'text-white hover:bg-white/10'}`}
+                      className={`relative px-2 py-1 text-[10px] md:text-xs font-medium transition-all duration-300 ${activeMarketTab === 'cex' ? 'bg-white text-black' : 'text-white hover:bg-white/10'}`}
                       style={{ clipPath: 'polygon(0 0, 80% 0, 100% 100%, 0% 100%)' }}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -1682,7 +1682,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     </motion.button>
                     <motion.button
                       onClick={handleDexTabClick}
-                      className={`relative px-2 py-1 text-xs font-medium transition-all duration-300 ${activeMarketTab === 'dex' ? 'bg-white text-black' : 'text-white hover:bg-white/10'}`}
+                      className={`relative px-2 py-1 text-[10px] md:text-xs font-medium transition-all duration-300 ${activeMarketTab === 'dex' ? 'bg-white text-black' : 'text-white hover:bg-white/10'}`}
                       style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 20% 100%)' }}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}

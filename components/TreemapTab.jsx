@@ -105,18 +105,18 @@ const LoadingOverlay = ({ message }) => {
   return (
     <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-lg flex items-center justify-center z-50">
       <div className="flex flex-col items-center gap-4">
-        <div className="relative w-14 h-14">
-          <div className="absolute inset-0 border-4 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>
+        <div className="relative w-10 h-10">
+          <div className="absolute inset-0 border-2 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>
           <Image
             src="/logos/logo-scan.png"
             alt="Loading Logo"
             width={40}
             height={40}
-            className="absolute inset-0 m-2 object-contain animate-pulse"
+            className="absolute inset-0 w-7 h-7 m-1.5 object-contain animate-pulse"
             onError={() => console.log(`Failed to load loading logo: /logos/logo-scan.png`)}
           />
         </div>
-        <p className="text-sm text-gray-200 font-medium animate-pulse">{message || 'Processing...'}</p>
+        <p className="text-[10px] text-gray-500 font-medium animate-pulse">{message || 'Processing...'}</p>
       </div>
     </div>
   );
@@ -560,7 +560,7 @@ export default function TreemapTab({ recaptchaRef }) {
                 onError={() => console.log(`Failed to load chain image: ${getPlatformImage(selectedChain, coingeckoChains)} for chain: ${selectedChain}`)}
               />
               <span className="text-xs font-medium">
-                {mappedChains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
+                {mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'}
               </span>
               <span className="text-xs">{isChainDropdownOpen ? '▲' : '▼'}</span>
             </button>
@@ -625,8 +625,8 @@ export default function TreemapTab({ recaptchaRef }) {
               className="text-white px-2 py-1 rounded-full border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center text-xs"
               aria-label="Select transaction limit"
             >
-              <span className="text-xs font-medium">Limit: {selectedLimit}</span>
-              <span className="ml-1 text-xs">{isLimitDropdownOpen ? '▲' : '▼'}</span>
+              <span className="text-xs font-medium">Txh: {selectedLimit}</span>
+              <span className="ml-2 text-xs">{isLimitDropdownOpen ? '▲' : '▼'}</span>
             </button>
             {isLimitDropdownOpen && (
               <div className="absolute z-20 bg-gray-900/95 backdrop-blur-lg rounded-lg mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
@@ -677,7 +677,7 @@ export default function TreemapTab({ recaptchaRef }) {
               placeholder="Search wallet (0x...)"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
-              className="bg-gray-900/50 text-white px-3 py-1 rounded-full text-xs w-full sm:w-64 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-neon-blue/50 transition-colors duration-200 pr-8"
+              className="bg-gray-900/50 text-white px-3 py-1 rounded-full text-[10px] w-full sm:w-64 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-neon-blue/50 transition-colors duration-200 pr-8"
               aria-label="Wallet address"
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -706,13 +706,25 @@ export default function TreemapTab({ recaptchaRef }) {
         </div>
       </div>
 
-      <div className="flex gap-2 mb-4 justify-center">
+      
+
+      {loading && <LoadingOverlay message={loadingMessage} />}
+      {!loading && incomingData.length === 0 && outgoingData.length === 0 && walletInfo.address && (
+        <div className="text-center text-gray-400 text-sm p-4 bg-gray-900/30 rounded-2xl border border-white/10 backdrop-blur-lg shadow-glow-neon">
+          <p className="mb-2">No transactions found for this address on {mappedChains.find((c) => c.value === selectedChain)?.label || selectedChain}.</p>
+          <p>Please verify the wallet address or try a different chain.</p>
+        </div>
+      )}
+      {walletInfo.address && (
+        
+        <div className="relative w-full h-[calc(100vh)] overflow-hidden backdrop-blur-lg shadow-glow-neon">
+          <div className="flex gap-2 mb-2 mt-2 justify-center">
         <motion.button
           onClick={() => {
             setOffset({ x: 0, y: 0 });
             setZoom(1);
           }}
-          className="px-4 py-1.5 rounded-xl text-xs md:text-sm font-medium text-white border border-white/20 backdrop-blur-md hover:bg-white/10 transition-all duration-300"
+          className="px-2 py-1 rounded-xl text-[9px] md:text-[10px] font-medium text-white border border-white/20 backdrop-blur-md hover:bg-white/10 transition-all duration-300"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
@@ -729,17 +741,6 @@ export default function TreemapTab({ recaptchaRef }) {
           </motion.button>
         )}
       </div>
-
-      {loading && <LoadingOverlay message={loadingMessage} />}
-      {!loading && incomingData.length === 0 && outgoingData.length === 0 && walletInfo.address && (
-        <div className="text-center text-gray-400 text-sm p-4 bg-gray-900/30 rounded-2xl border border-white/10 backdrop-blur-lg shadow-glow-neon">
-          <p className="mb-2">No transactions found for this address on {mappedChains.find((c) => c.value === selectedChain)?.label || selectedChain}.</p>
-          <p>Please verify the wallet address or try a different chain.</p>
-        </div>
-      )}
-
-      {walletInfo.address && (
-        <div className="relative w-full h-[calc(100vh-120px)] overflow-hidden rounded-2xl border border-white/10 bg-gray-900/30 backdrop-blur-lg shadow-glow-neon">
           <div
             className="relative w-full h-full"
             style={{
