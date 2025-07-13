@@ -45,7 +45,7 @@ async function verifyRecaptcha(token, action, ip) {
     throw new Error(errorMessage);
   }
 
-    if (score < 0.5) {
+    if (score < 0.1) {
       throw new Error('reCAPTCHA score too low');
     }
 

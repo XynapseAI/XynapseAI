@@ -6,9 +6,10 @@ import { useSession } from 'next-auth/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import 'highlight.js/styles/github.css';
+import 'highlight.js/styles/github-dark.css';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import Image from 'next/image';
 
 export default function AITab({ recaptchaRef }) {
   const { data: session, status } = useSession();
@@ -96,6 +97,10 @@ export default function AITab({ recaptchaRef }) {
         const codeText = codeRef.current.innerText;
         navigator.clipboard.writeText(codeText).then(() => {
           setCopiedStates((prev) => ({ ...prev, [id]: true }));
+          toast.success('Code copied to clipboard!', {
+            position: 'top-center',
+            autoClose: 3000,
+          });
           setTimeout(() => {
             setCopiedStates((prev) => ({ ...prev, [id]: false }));
           }, 2000);
@@ -104,6 +109,10 @@ export default function AITab({ recaptchaRef }) {
     } catch (err) {
       console.error('Error copying text:', err);
       setError('Failed to copy content.');
+      toast.error('Failed to copy code.', {
+        position: 'top-center',
+        autoClose: 3000,
+      });
     }
   };
 
@@ -111,11 +120,19 @@ export default function AITab({ recaptchaRef }) {
     e.preventDefault();
     if (!prompt.trim()) {
       setError('Please enter a prompt.');
+      toast.error('Please enter a prompt.', {
+        position: 'top-center',
+        autoClose: 3000,
+      });
       return;
     }
 
     if (status !== 'authenticated') {
       setError('Please log in to interact with the AI.');
+      toast.error('Please log in to interact with the AI.', {
+        position: 'top-center',
+        autoClose: 3000,
+      });
       return;
     }
 
@@ -212,13 +229,29 @@ export default function AITab({ recaptchaRef }) {
       console.error(`Error calling ${selectedModel} API:`, err.response?.data || err.message);
       if (err.response?.status === 429) {
         setError('API rate limit exceeded. Please try again later.');
+        toast.error('API rate limit exceeded. Please try again later.', {
+          position: 'top-center',
+          autoClose: 3000,
+        });
       } else if (err.response?.status === 422 && err.response?.data?.error?.code === 'VALIDATION') {
         console.warn('Brave Search API validation error:', err.response.data);
         setError('Unable to fetch web information. Please try again.');
+        toast.error('Unable to fetch web information. Please try again.', {
+          position: 'top-center',
+          autoClose: 3000,
+        });
       } else if (err.response?.status === 400) {
         setError(err.response?.data?.errors?.map((e) => e.msg).join(', ') || 'Invalid request. Please check your input.');
+        toast.error(err.response?.data?.errors?.map((e) => e.msg).join(', ') || 'Invalid request. Please check your input.', {
+          position: 'top-center',
+          autoClose: 3000,
+        });
       } else {
         setError(err.response?.data?.detail || `Unable to get response from ${selectedModel}.`);
+        toast.error(err.response?.data?.detail || `Unable to get response from ${selectedModel}.`, {
+          position: 'top-center',
+          autoClose: 3000,
+        });
       }
     } finally {
       setIsLoading(false);
@@ -272,25 +305,12 @@ export default function AITab({ recaptchaRef }) {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const minHeight = window.innerWidth < 768 ? 24 : 38;
+      const minHeight = isMobile ? 24 : 24; // Adjusted to match Send button height
       const newHeight = Math.min(Math.max(scrollHeight, minHeight), 120);
       textareaRef.current.style.height = `${newHeight}px`;
       textareaRef.current.style.overflowY = newHeight >= 120 ? 'auto' : 'hidden';
     }
-  }, [prompt]);
-
-  const [toggleButtonWidth, setToggleButtonWidth] = useState(0);
-
-  useEffect(() => {
-    if (toggleButtonRef.current) {
-      const updateWidth = () => {
-        setToggleButtonWidth(toggleButtonRef.current.offsetWidth);
-      };
-      updateWidth();
-      window.addEventListener('resize', updateWidth);
-      return () => window.removeEventListener('resize', updateWidth);
-    }
-  }, []);
+  }, [prompt, isMobile]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -310,48 +330,50 @@ export default function AITab({ recaptchaRef }) {
   }, [isModelMenuOpen]);
 
   const markdownComponents = {
-    p: ({ children }) => <div className="my-2 whitespace-pre-wrap">{children}</div>,
+    p: ({ children }) => <div className="my-2 whitespace-pre-wrap text-[9px] md:text-[10px]">{children}</div>,
     a: ({ href, children }) => (
       <a href={href} target="_blank" rel="noopener noreferrer" className="text-neon-blue hover:underline">
         {children}
       </a>
     ),
     table: ({ children }) => (
-      <table className="border-collapse border border-white/20 w-full my-2">{children}</table>
+      <table className="border-collapse border border-white/10 w-full my-2">{children}</table>
     ),
     th: ({ children }) => (
-      <th className="border border-white/20 px-2 py-1 bg-gray-700/50 backdrop-blur-sm text-white text-xs md:text-sm">{children}</th>
+      <th className="border border-white/10 px-2 py-1 bg-gray-900/50 backdrop-blur-lg text-white text-[9px] md:text-[10px]">{children}</th>
     ),
     td: ({ children }) => (
-      <td className="border border-white/20 px-2 py-1 text-white text-xs md:text-sm">{children}</td>
+      <td className="border border-white/10 px-2 py-1 text-white text-[9px] md:text-[10px]">{children}</td>
     ),
     code: ({ inline, className, children, ...props }) => {
       const codeRef = useRef(null);
       const codeId = `code-${Math.random().toString(36).substr(2, 9)}`;
       if (inline) {
         return (
-          <code className={`${className || ''} bg-gray-900/80 p-0.5 rounded text-gray-200 backdrop-blur-sm text-xs md:text-sm`} {...props}>
+          <code className={`${className || ''} bg-gray-900/80 p-0.5 rounded text-gray-200 backdrop-blur-lg text-[9px] md:text-[10px]`} {...props}>
             {children}
           </code>
         );
       }
       return (
-        <div className="my-2 border border-white/10 rounded-md overflow-hidden">
+        <div className="my-2 border border-white/10 rounded-lg overflow-hidden shadow-glow-neon">
           <div className="flex items-center justify-between bg-gray-900/95 px-2 py-1">
             <div className="flex items-center">
-              <span className="text-gray-600 mr-1 text-xs md:text-sm">&lt;/&gt;</span>
-              <span className="text-gray-400 text-xs md:text-sm font-medium">{getCodeTitle(prompt)}</span>
+              <span className="text-gray-400 mr-1 text-[9px] md:text-[10px]">&lt;/&gt;</span>
+              <span className="text-gray-400 text-[9px] md:text-[10px] font-medium">{getCodeTitle(prompt)}</span>
             </div>
-            <button
+            <motion.button
               onClick={() => copyToClipboard(codeRef, codeId)}
-              className="text-gray-600 hover:text-blue-400 transition-colors duration-200"
+              className="text-gray-400 hover:text-neon-blue transition-colors duration-200"
               title="Copy code"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
             >
-              {copiedStates[codeId] ? <CheckIcon className="h-4 w-4 md:h-5 w-5" /> : <ClipboardIcon className="h-4 w-4 md:h-5 w-5" />}
-            </button>
+              {copiedStates[codeId] ? <CheckIcon className="h-3 w-3 md:h-4 w-4" /> : <ClipboardIcon className="h-3 w-3 md:h-4 w-4" />}
+            </motion.button>
           </div>
           <pre className="bg-gray-900/95 p-2 overflow-x-auto whitespace-pre-wrap">
-            <code ref={codeRef} className={`${className || ''} text-gray-200 text-xs md:text-sm`} {...props}>
+            <code ref={codeRef} className={`${className || ''} text-gray-200 text-[9px] md:text-[10px]`} {...props}>
               {children}
             </code>
           </pre>
@@ -364,91 +386,111 @@ export default function AITab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`font-jetbrains w-full max-w-screen-md md:max-w-full ${isMobile ? 'h-[calc(100vh-4rem)]' : 'h-[calc(100vh-2rem)]'} mx-auto p-1 md:p-4 rounded-xl shadow-card flex flex-col`}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
+      className={`font-jetbrains w-full max-w-10xl mx-auto bg-gray-900/30 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon ${isMobile ? 'h-[calc(100vh)]' : 'h-[calc(100vh)]'} flex flex-col overflow-hidden`}
     >
       {/* Header */}
-      <div className="p-2 bg-tech border-b border-white/10 flex justify-between items-center shrink-0">
-        <span className="text-[10px] md:text-xs text-gray-400">
+      <div className="p-2 bg-gray-900/50 border-b border-white/10 flex items-center shrink-0 rounded-t-lg">
+        <span className="text-[9px] md:text-[10px] text-gray-400">
           Daily Points: {dailyInteractions}/{maxDailyInteractions}
           {totalDailyChats >= maxTotalDailyChats && ' (Limit)'}
         </span>
-        <div className="relative">
-          <button
-            ref={toggleButtonRef}
-            onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
-            className="px-2 py-1 md:px-2 md:py-1 rounded-lg text-[10px] md:text-[10px] font-medium transition-all duration-300 border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/15 hover:shadow-glow-neon"
-          >
-            {selectedModel}
-          </button>
-          {isModelMenuOpen && (
-            <motion.div
-              ref={menuRef}
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="absolute top-[calc(100%+0.25rem)] bg-gray-800/95 rounded-lg shadow-lg p-2 z-20 backdrop-blur-md border border-white/20 w-32"
-              style={{
-                left: '-60%',
-                transform: 'translateX(-50%)',
-              }}
+        <div className="flex-1 flex justify-center">
+          <div className="relative" ref={toggleButtonRef}>
+            <motion.button
+              onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
+              className="px-2 py-1 md:px-2 md:py-1 rounded-full text-[9px] md:text-[10px] font-medium transition-all duration-300 bg-gray-900/50 text-white backdrop-blur-md hover:bg-gray-900/70 hover:shadow-glow-neon"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              {models.map((model) => (
-                <button
-                  key={model}
-                  onClick={() => {
-                    setSelectedModel(model);
-                    setIsModelMenuOpen(false);
-                  }}
-                  className={`w-full text-center px-1 py-1/2 rounded-xs text-[10px] md:text-xs transition-all duration-300 backdrop-blur-md ${selectedModel === model
-                    ? 'bg-white text-black'
-                    : 'text-white hover:bg-white/15 hover:shadow-glow-neon'
-                    }`}
-                >
-                  {model}
-                </button>
-              ))}
-            </motion.div>
-          )}
+              {selectedModel}
+            </motion.button>
+            {isModelMenuOpen && (
+              <motion.div
+                ref={menuRef}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="absolute top-[calc(100%+0.25rem)] bg-gray-900/95 rounded-lg shadow-glow-neon p-2 z-20 backdrop-blur-lg border border-white/10 w-32"
+                style={{
+                  left: '-20%',
+                  transform: 'translateX(-50%)',
+                }}
+              >
+                {models.map((model) => (
+                  <motion.button
+                    key={model}
+                    onClick={() => {
+                      setSelectedModel(model);
+                      setIsModelMenuOpen(false);
+                    }}
+                    className={`w-full text-center px-2 py-1 rounded-md text-[9px] md:text-[10px] transition-all duration-300 backdrop-blur-md ${selectedModel === model
+                        ? 'bg-neon-blue/20 text-white border border-neon-blue/50'
+                        : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
+                      }`}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    {model}
+                  </motion.button>
+                ))}
+              </motion.div>
+            )}
+          </div>
         </div>
-        <button
+        <motion.button
           onClick={() => setUseDeepSearch(!useDeepSearch)}
-          className={`px-2 py-1 md:px-1 md:py-1/2 rounded-lg text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${useDeepSearch
-            ? 'bg-white text-black'
-            : ' text-white hover:shadow-glow-neon'
-            } flex items-center`}
+          className={`px-2 py-1 md:px-2 md:py-1 rounded-full text-[9px] md:text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md flex items-center ${useDeepSearch
+              ? 'bg-neon-blue/20 text-white border-neon-blue/50'
+              : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
+            }`}
           title="Toggle real-time web search"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
         >
           <MagnifyingGlassIcon className="h-3 w-3 md:h-4 w-4 mr-1" />
           DeepSearch
-        </button>
+        </motion.button>
       </div>
 
       {/* Chat Content */}
       <div
-        className="flex-1 p-1 md:p-4 overflow-y-auto custom-scrollbar"
+        className="flex-1 p-2 md:p-4 overflow-y-auto custom-scrollbar bg-gradient-to-b from-gray-900/50 to-gray-800/50 rounded-b-lg"
         ref={chatContainerRef}
-        style={{ maxHeight: isMobile ? 'calc(100vh - 14rem)' : 'calc(100vh - 2rem)' }}
+        style={{ maxHeight: isMobile ? 'calc(100vh - 14rem)' : 'calc(100vh - 10rem)' }}
       >
         {error && !error.includes('maximum of 50 daily chats') && (
-          <div className="text-xs md:text-xs text-red-500 mb-2 p-2 bg-red-900/20 rounded-md border border-red-500/50">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-red-400 text-[9px] md:text-[10px] mb-4 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center shadow-glow-neon-red"
+          >
             {error}
-          </div>
+          </motion.div>
         )}
         {chatHistory.length === 0 && !isLoading && (
-          <div className="text-[10px] md:text-xs text-gray-600 text-center">
+          <div className="text-[9px] md:text-[10px] text-gray-400 text-center p-4">
             Start a conversation by entering a prompt below.
           </div>
         )}
         {chatHistory.map((message, index) => (
-          <div
+          <motion.div
             key={index}
             className={`mb-2 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
           >
             <div
-              className={`max-w-[85%] md:max-w-[70%] px-3 md:px-3 rounded-lg text-[10px] md:text-xs overflow-y-auto custom-scrollbar ${message.role === 'user'
-                ? 'bg-blue-500/20 text-white'
-                : 'text-white backdrop-blur-md'
-                } relative group`}
+              className={`max-w-[85%] md:max-w-[70%] p-3 rounded-xl text-[9px] md:text-[10px] overflow-y-auto custom-scrollbar group ${message.role === 'user'
+                  ? 'bg-neon-blue/20 text-white border border-neon-blue/50 shadow-glow-neon-blue'
+                  : 'bg-gray-900/50 text-white backdrop-blur-lg border border-white/10 shadow-glow-neon'
+                } relative`}
             >
+              <span
+                className={`absolute bottom-0 left-0 w-full h-0.5 bg-neon-blue transform scale-x-0 origin-left transition-transform duration-300 ${message.role === 'user' ? 'group-hover:scale-x-100' : ''
+                  }`}
+              />
               {message.role === 'assistant' && index === chatHistory.length - 1 && typingText ? (
                 <div className="max-h-[200px] md:max-h-[400px] overflow-y-auto custom-scrollbar">
                   <ReactMarkdown
@@ -471,11 +513,11 @@ export default function AITab({ recaptchaRef }) {
                 </div>
               )}
               {message.role === 'assistant' && (message.links?.length > 0 || message.content) && (
-                <div className="mt-1 flex items-center justify-between overflow-y-auto custom-scrollbar flex-wrap">
+                <div className="mt-2 flex items-center justify-between overflow-y-auto custom-scrollbar flex-wrap">
                   <div className="flex items-center overflow-y-auto custom-scrollbar">
                     {message.links?.length > 0 && (
                       <>
-                        <h5 className="text-xs md:text-sm font-bold text-white mr-1"></h5>
+                        <h5 className="text-[9px] md:text-[10px] font-bold text-white mr-1">Sources:</h5>
                         {message.links.map((link, idx) => (
                           <a
                             key={idx}
@@ -485,10 +527,12 @@ export default function AITab({ recaptchaRef }) {
                             title={link}
                             className="inline-block mx-0.5"
                           >
-                            <img
+                            <Image
                               src={getFaviconUrl(link)}
                               alt="Website favicon"
-                              className="w-2 h-2 md:w-4 h-4 rounded-xs md:rounded-lg"
+                              width={16}
+                              height={16}
+                              className="rounded-full border border-white/20"
                               onError={(e) => (e.target.src = '/favicon.ico')}
                             />
                           </a>
@@ -499,15 +543,24 @@ export default function AITab({ recaptchaRef }) {
                 </div>
               )}
             </div>
-          </div>
+          </motion.div>
         ))}
         {isLoading && (
           <div className="mb-2 flex justify-start">
-            <div className="max-w-[85%] p-2 md:p-4 bg-gray-800/95 text-white text-xs md:text-sm rounded-lg flex items-center backdrop-blur-md">
-              <div className="wave-loading mt-2">
-                <span className="dot"></span>
-                <span className="dot"></span>
-                <span className="dot"></span>
+            <div className="max-w-[85%] p-3 bg-gray-900/50 text-white text-[9px] md:text-[10px] rounded-xl flex items-center backdrop-blur-lg border border-white/10 shadow-glow-neon">
+              <div className="flex items-center gap-2">
+                <div className="relative w-6 h-6">
+                  <div className="absolute inset-0 border-2 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>
+                  <Image
+                    src="/logos/logo-scan.png"
+                    alt="Loading Logo"
+                    width={24}
+                    height={24}
+                    className="absolute inset-0 w-4 h-4 m-1 object-contain animate-pulse"
+                    onError={() => console.log(`Failed to load loading logo: /logos/logo-scan.png`)}
+                  />
+                </div>
+                <span>Loading...</span>
               </div>
             </div>
           </div>
@@ -515,14 +568,14 @@ export default function AITab({ recaptchaRef }) {
       </div>
 
       {/* Input Prompt */}
-      <div className="p-2 md:p-4 border-t border-white/10 shrink-0 overflow-y-auto custom-scrollbar">
-        <form onSubmit={handleSendPrompt} className="flex items-center gap-2 overflow-y-auto custom-scrollbar">
+      <div className="p-2 md:p-4 border-t border-white/10 shrink-0 bg-gray-900/50 rounded-b-lg">
+        <form onSubmit={handleSendPrompt} className="flex items-center gap-2">
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Enter your prompt..."
-            className="flex-1 px-2 py-1 md:px-3 md:py-2 bg-gray-900/95 text-white rounded-lg text-xs placeholder:text-xs placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-neon-blue/50 backdrop-blur-md border border-gray-400 resize-none overflow-y-auto custom-scrollbar"
+            className="flex-1 px-3 py-1 bg-gray-900/50 text-white rounded-xl text-[9px] md:text-[10px] placeholder:text-[9px] md:placeholder:text-[10px] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-neon-blue/50 backdrop-blur-lg border border-white/10 resize-none overflow-y-auto custom-scrollbar"
             rows={1}
             disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
             ref={textareaRef}
@@ -534,69 +587,67 @@ export default function AITab({ recaptchaRef }) {
               WebkitTextSizeAdjust: '100%',
             }}
           />
-          <button
+          <motion.button
             type="submit"
-            className={`px-2 py-1 md:px-3 md:py-2 rounded-lg text-[10px] md:text-xs font-medium transition-all duration-300 border border-gray-400 backdrop-blur-md flex items-center justify-center ${isLoading || totalDailyChats >= maxTotalDailyChats
-              ? 'bg-gray-600 text-gray-200 cursor-not-allowed'
-              : 'bg-white/10 text-white hover:bg-white/15 hover:shadow-glow-neon'
+            className={`px-2 py-1 md:px-3 md:py-1 rounded-full text-[9px] md:text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md flex items-center justify-center ${isLoading || totalDailyChats >= maxTotalDailyChats
+                ? 'bg-gray-900/50 text-white/50 cursor-not-allowed opacity-50'
+                : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
               }`}
             disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
-            style={{ minHeight: '20px' }}
+            whileHover={{ scale: isLoading || totalDailyChats >= maxTotalDailyChats ? 1 : 1.05 }}
+            whileTap={{ scale: isLoading || totalDailyChats >= maxTotalDailyChats ? 1 : 0.95 }}
+            style={{ minHeight: '24px' }}
           >
             {isLoading ? '...' : 'Send'}
-          </button>
+          </motion.button>
         </form>
       </div>
       <ToastContainer position="top-center" autoClose={3000} />
 
-      {/* Wave Loading Effect */}
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 2px;
+          width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
         }
-        .wave-loading {
-          display: flex;
-          align-items: center;
-          gap: 3px;
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 3px;
         }
-        .dot {
-          display: inline-block;
-          width: 5px;
-          height: 5px;
-          background-color: #00bfff;
-          border-radius: 50%;
-          animation: wave 1s ease-in-out infinite;
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.3);
         }
-        .dot:nth-child(2) {
-          animation-delay: 0.2s;
+        .shadow-glow-neon {
+          box-shadow: 0 0 8px rgba(255, 255, 255, 0.3), 0 0 16px rgba(255, 255, 255, 0.1);
         }
-        .dot:nth-child(3) {
-          animation-delay: 0.4s;
+        .shadow-glow-neon-red {
+          box-shadow: 0 0 8px rgba(239, 68, 68, 0.3), 0 0 16px rgba(239, 68, 68, 0.1);
         }
-        @keyframes wave {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-5px);
-          }
+        .shadow-glow-neon-blue {
+          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
+        }
+        .bg-tech {
+          background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
         }
         @media (max-width: 640px) {
-          body {
-            overflow: hidden;
-            height: 100vh;
-            position: fixed;
-            width: 100%;
+          .flex-col {
+            flex-direction: column;
           }
-          .custom-scrollbar:not(textarea):not(.flex-1) {
-            overflow: hidden !important;
+          .text-[10px] {
+            font-size: 8px;
+          }
+          .text-[9px] {
+            font-size: 7px;
+          }
+          .max-h-[400px] {
+            max-height: 200px;
+          }
+          .w-2 {
+            width: 12px;
+          }
+          .h-2 {
+            height: 12px;
           }
           textarea.custom-scrollbar, .flex-1.custom-scrollbar {
             overflow-y: auto !important;

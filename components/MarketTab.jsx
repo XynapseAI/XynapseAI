@@ -424,7 +424,7 @@ const WalletBalances = ({
         <div className="overflow-y-auto max-h-[calc(80vh-100px)] rounded-lg custom-scrollbar">
           {activeTab === 'portfolio' && (
             <>
-              {isLoading && <p className="text-sm text-gray-400 text-center">Loading portfolio...</p>}
+              {isLoading && <p className="text-xs text-gray-400 text-center">Loading portfolio...</p>}
               {error && <p className="text-sm text-red-500 text-center">Error: {error}</p>}
               {!isLoading && !error && balances?.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -560,7 +560,7 @@ const WalletBalances = ({
                   </table>
                 </div>
               ) : (
-                !isLoading && <p className="text-sm text-gray-400 text-center">No balances found for this wallet.</p>
+                !isLoading && <p className="text-xs text-gray-400 text-center">No balances found for this wallet.</p>
               )}
             </>
           )}
@@ -568,7 +568,7 @@ const WalletBalances = ({
           {activeTab === 'transactions' && (
             <>
               {isLoadingTransactions && (
-                <p className="text-sm text-gray-400 text-center">Loading transactions...</p>
+                <p className="text-xs text-gray-400 text-center">Loading transactions...</p>
               )}
               {transactionsError && <p className="text-sm text-red-500 text-center">Error: {transactionsError}</p>}
               {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
@@ -745,7 +745,7 @@ const WalletBalances = ({
                 </div>
               ) : (
                 !isLoadingTransactions && (
-                  <p className="text-sm text-gray-400 text-center">No transactions found for this address.</p>
+                  <p className="text-xs text-gray-400 text-center">No transactions found for this address.</p>
                 )
               )}
             </>
@@ -1454,7 +1454,7 @@ const MarketTab = ({ recaptchaRef }) => {
               ))}
             </div>
             {isChartLoading ? (
-              <p className="text-sm text-gray-400 text-center flex-1">Loading chart data...</p>
+              <p className="text-xs text-gray-400 text-center flex-1">Loading chart data...</p>
             ) : priceHistory && priceHistory.length > 0 ? (
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
@@ -1812,7 +1812,7 @@ const MarketTab = ({ recaptchaRef }) => {
                       </div>
                     ) : (
                       !isLoadingTickers && (
-                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-sm' : 'text-sm'}`}>
+                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                           No CEX data available for {selectedToken.symbol?.toUpperCase()}.
                         </p>
                       )
@@ -1820,7 +1820,7 @@ const MarketTab = ({ recaptchaRef }) => {
                   </>
                 ) : (
                   <>
-                    {dexError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-sm' : 'text-sm'}`}>{dexError}</p>}
+                    {dexError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>{dexError}</p>}
                     {!isLoadingDex && !dexError && dexData.trades.length > 0 ? (
                       <div className="relative overflow-x-auto md:max-h-[calc(100%-2rem)] max-h-[calc(70vh-6rem)] overflow-y-auto hide-scrollbar">
                         <table className={`w-full table-fixed ${isMobile ? 'text-[10px]' : 'text-[10px]'}`}>
@@ -2075,7 +2075,7 @@ const MarketTab = ({ recaptchaRef }) => {
                       </div>
                     ) : (
                       !isLoadingDex && (
-                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-sm' : 'text-sm'}`}>
+                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                           No DEX data available for {selectedToken.symbol?.toUpperCase()} on {chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.
                         </p>
                       )

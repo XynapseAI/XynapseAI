@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
+import Image from 'next/image';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
@@ -76,32 +77,50 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
 
   const renderUserRow = (user, index, isCurrentUser = false, list = rankings) => {
     const rank = isCurrentUser ? getUserRank(user, list) || 'N/A' : index + 1;
+    const rankStyles = {
+      1: 'bg-gradient-to-r from-yellow-400/20 to-transparent border-yellow-400/50 shadow-glow-neon-yellow',
+      2: 'bg-gradient-to-r from-gray-400/20 to-transparent border-gray-400/50 shadow-glow-neon',
+      3: 'bg-gradient-to-r from-orange-400/20 to-transparent border-orange-400/50 shadow-glow-neon-orange',
+    };
+
     return (
-      <a
+      <motion.a
         key={user.id}
         href={`https://x.com/${user.twitterHandle}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="grid grid-cols-12 gap-2 p-1 font-jetbrains hover:bg-white/15 rounded-lg transition-all duration-300 border border-white/10 backdrop-blur-md"
+        className={`grid grid-cols-12 gap-2 p-2 rounded-xl font-jetbrains transition-all duration-300 border border-white/10 bg-gray-900/50 backdrop-blur-lg hover:bg-gray-900/70 relative overflow-hidden ${
+          rankStyles[rank] || ''
+        } ${isCurrentUser ? 'border-neon-blue shadow-glow-neon-blue' : ''}`}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
       >
-        <div className="col-span-2 text-[10px] md:text-xs text-white">{rank}</div>
+        {/* Sliding underline effect on hover */}
+        <span className="absolute bottom-0 left-0 w-full h-0.5 bg-neon-blue transform scale-x-0 origin-left transition-transform duration-300 group-hover:scale-x-100" />
+        <div className="col-span-2 text-[9px] md:text-[10px] text-white flex items-center">{rank}</div>
         <div className="col-span-6 flex items-center">
-          <img
-            src={user.twitterPFP || '/default-avatar.png'}
-            alt={user.twitterHandle}
-            className="w-5 h-5 md:w-6 h-6 rounded-full mr-1 md:mr-2 object-fit: cover"
+          <Image
+            src={user.twitterPFP && user.twitterPFP.startsWith('http') ? user.twitterPFP : '/default-avatar.png'}
+            alt={user.twitterHandle || 'User Avatar'}
+            width={24}
+            height={24}
+            className="rounded-full border border-white/20 mr-2 object-cover"
+            onError={(e) => {
+              console.log(`Failed to load Twitter PFP: ${user.twitterPFP}`);
+              e.target.src = '/default-avatar.png';
+            }}
           />
-          <span className="font-jetbrains text-[10px] md:text-xs text-white flex items-center">
+          <span className="font-jetbrains text-[9px] md:text-[10px] text-white truncate flex items-center">
             {user.twitterHandle || 'Anonymous'}
             {isCurrentUser && (
-              <span className="ml-1 text-[8px] md:text-[10px] font-medium text-white bg-blue-500 px-1 rounded">
+              <span className="ml-2 text-[8px] md:text-[9px] font-medium text-neon-blue bg-gray-900/80 px-1.5 py-0.5 rounded-full border border-neon-blue/50">
                 You
               </span>
             )}
           </span>
         </div>
-        <div className="col-span-4 text-right text-[10px] md:text-xs text-white">{user.points || 0}</div>
-      </a>
+        <div className="col-span-4 text-right text-[9px] md:text-[10px] text-neon-blue">{user.points || 0}</div>
+      </motion.a>
     );
   };
 
@@ -109,35 +128,102 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="font-jetbrains w-full max-w-screen-md md:max-w-full h-[calc(100vh-2rem)] mx-auto p-2 md:p-4 rounded-xl shadow-card overflow-y-auto custom-scrollbar"
+      transition={{ duration: 0.5, ease: 'easeOut' }}
+      className="font-jetbrains w-full max-w-10xl mx-auto bg-gray-900/30 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon h-[calc(100vh)] overflow-y-auto custom-scrollbar"
     >
-      <div className="w-full rounded-xl p-3 md:p-4 overflow-y-auto custom-scrollbar backdrop-blur-md border border-white/10">
-        <h3 className="text-lg md:text-sm font-bold text-white mb-2 md:mb-3 text-center uppercase">Top 100 Rankings</h3>
-        {loading && <p className="text-xs md:text-sm text-gray-600">Loading...</p>}
+      <div className="w-full rounded-2xl p-4 md:p-6 backdrop-blur-lg border border-white/10 bg-gray-900/50">
+        <h3 className="text-[12px] md:text-sm font-bold text-white mb-4 text-center uppercase tracking-wider">
+          Top 100 Rankings
+        </h3>
+        {loading && (
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative w-10 h-10">
+                <div className="absolute inset-0 border-2 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>
+                <Image
+                  src="/logos/logo-scan.png"
+                  alt="Loading Logo"
+                  width={40}
+                  height={40}
+                  className="absolute inset-0 w-7 h-7 m-1.5 object-contain animate-pulse"
+                  onError={() => console.log(`Failed to load loading logo: /logos/logo-scan.png`)}
+                />
+              </div>
+              <p className="text-[10px] text-gray-500 font-medium animate-pulse">Loading rankings...</p>
+            </div>
+          </div>
+        )}
         {(tabError || propError) && (
-          <p className="text-xs md:text-sm text-red-500">Error: {tabError || propError}</p>
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-red-400 text-[10px] md:text-sm mb-4 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center shadow-glow-neon-red"
+          >
+            Error: {tabError || propError}
+          </motion.div>
         )}
         {!loading && !(tabError || propError) && rankings.length === 0 && (
-          <p className="text-xs md:text-sm text-gray-600">No ranking data available.</p>
+          <div className="text-center text-gray-400 text-[10px] md:text-sm p-4 bg-gray-900/50 rounded-2xl border border-white/10 backdrop-blur-lg shadow-glow-neon">
+            <p>No ranking data available.</p>
+          </div>
         )}
-        <div className="grid grid-cols-12 gap-2 text-sm md:text-sm text-gray-400">
-          <div className="col-span-2">Rank</div>
-          <div className="col-span-6">User</div>
-          <div className="col-span-4 text-right">Points</div>
-        </div>
-        {userInfo && renderUserRow(userInfo, -1, true, rankings)}
-        {rankings.map((user, index) => renderUserRow(user, index, false, rankings))}
+        {!loading && rankings.length > 0 && (
+          <>
+            <div className="grid grid-cols-12 gap-2 text-[9px] md:text-[10px] text-gray-400 mb-2">
+              <div className="col-span-2">Rank</div>
+              <div className="col-span-6">User</div>
+              <div className="col-span-4 text-right">Points</div>
+            </div>
+            {userInfo && renderUserRow(userInfo, -1, true, rankings)}
+            {rankings.map((user, index) => renderUserRow(user, index, false, rankings))}
+          </>
+        )}
       </div>
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 2px;
+          width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.3);
+        }
+        .shadow-glow-neon {
+          box-shadow: 0 0 8px rgba(255, 255, 255, 0.3), 0 0 16px rgba(255, 255, 255, 0.1);
+        }
+        .shadow-glow-neon-red {
+          box-shadow: 0 0 8px rgba(239, 68, 68, 0.3), 0 0 16px rgba(239, 68, 68, 0.1);
+        }
+        .shadow-glow-neon-yellow {
+          box-shadow: 0 0 8px rgba(251, 191, 36, 0.3), 0 0 16px rgba(251, 191, 36, 0.1);
+        }
+        .shadow-glow-neon-orange {
+          box-shadow: 0 0 8px rgba(255, 147, 0, 0.3), 0 0 16px rgba(255, 147, 0, 0.1);
+        }
+        .shadow-glow-neon-blue {
+          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
+        }
+        .bg-tech {
+          background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
+        }
+        @media (max-width: 640px) {
+          .grid-cols-12 {
+            grid-template-columns: 2fr 6fr 4fr;
+          }
+          .p-2 {
+            padding: 1rem;
+          }
+          .text-[10px] {
+            font-size: 8px;
+          }
+          .text-[9px] {
+            font-size: 7px;
+          }
         }
       `}</style>
     </motion.div>
