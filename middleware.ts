@@ -17,7 +17,6 @@ export default async function middleware(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
   const allowedDomains = ['localhost:3000', 'xynapseai.net', 'app.xynapseai.net', 'api.xynapseai.net'];
 
-  // Kiểm tra rate limit
   try {
     await rateLimiter.consume(ip);
   } catch (error) {
@@ -33,14 +32,12 @@ export default async function middleware(req: NextRequest) {
     );
   }
 
-  // Kiểm tra domain hợp lệ
   if (!allowedDomains.some(domain => hostname.includes(domain))) {
     return new Response(null, { status: 404 });
   }
 
-  // Xử lý định tuyến
   if (hostname.includes('app.xynapseai.net')) {
-    if (!url.pathname.startsWith('/dashboard') && !url.pathname.startsWith('/api')) {
+    if (!url.pathname.startsWith('/dashboard') && !url.pathname.startsWith('/api') && !url.pathname.startsWith('/_next')) {
       return NextResponse.rewrite(new URL('/dashboard/profile', req.url));
     }
   } else if (hostname.includes('api.xynapseai.net')) {
@@ -49,7 +46,6 @@ export default async function middleware(req: NextRequest) {
     }
   } else if (hostname.includes('xynapseai.net')) {
     if (url.pathname.startsWith('/dashboard')) {
-      // Chuyển hướng /dashboard/* sang app.xynapseai.net
       return NextResponse.redirect(new URL(`https://app.xynapseai.net${url.pathname}`, req.url));
     }
     if (url.pathname === '/' || !url.pathname.startsWith('/api')) {

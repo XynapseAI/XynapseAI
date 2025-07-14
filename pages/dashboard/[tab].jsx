@@ -57,36 +57,37 @@ export default function Dashboard() {
 
     // Fetch top players data
     useEffect(() => {
-        if (!isMounted) return;
-        async function fetchTopPlayers() {
-            setLoading(true);
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000);
-                const response = await fetch('/api/connect-data', {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
-                    signal: controller.signal,
-                });
-                clearTimeout(timeoutId);
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.detail || 'Failed to fetch leaderboard data');
-                setTopPlayers({
-                    rankings: result.rankings || [],
-                    creators: result.creators || [],
-                    aiRank: result.aiRank || [],
-                });
-            } catch (err) {
-                console.error('Error fetching leaderboard data:', err);
-                setTopPlayers({ rankings: [], creators: [], aiRank: [] });
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchTopPlayers();
-    }, [isMounted]);
+    if (!isMounted) return;
+    async function fetchTopPlayers() {
+      setLoading(true);
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(`${API_BASE_URL}/connect-data`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || 'Failed to fetch leaderboard data');
+        setTopPlayers({
+          rankings: result.rankings || [],
+          creators: result.creators || [],
+          aiRank: result.aiRank || [],
+        });
+      } catch (err) {
+        console.error('Error fetching leaderboard data:', err);
+        setTopPlayers({ rankings: [], creators: [], aiRank: [] });
+        setError(`Failed to load leaderboard data: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchTopPlayers();
+  }, [isMounted]);
 
     // Fetch user data
     useEffect(() => {
