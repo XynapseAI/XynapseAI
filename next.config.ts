@@ -3,7 +3,7 @@
 export default {
   reactStrictMode: true,
   images: {
-    domains: ['ipfs.io', 'pbs.twimg.com', 'localhost', 'lh3.googleusercontent.com', 'xynapseai.net', 'app.xynapseai.net'],
+    domains: ['ipfs.io', 'pbs.twimg.com', 'localhost', 'lh3.googleusercontent.com', 'xynapseai.net', 'app.xynapseai.net', 'api.xynapseai.net'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -13,14 +13,16 @@ export default {
       {
         protocol: 'https',
         hostname: 'xynapseai.net',
-        pathname: '/**', // Hỗ trợ tất cả đường dẫn trên xynapseai.net
+        pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'app.xynapseai.net',
-        pathname: '/**', // Hỗ trợ tất cả đường dẫn trên app.xynapseai.net
+        pathname: '/**',
       },
     ],
+    loader: 'default', // Sử dụng Next.js Image Optimization mặc định
+    path: '/_next/image', // Đường dẫn tối ưu hóa hình ảnh
   },
   async rewrites() {
     return [
