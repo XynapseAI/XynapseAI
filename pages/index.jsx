@@ -308,7 +308,7 @@ export default function Home() {
             <img src="/logos/discord.png" alt="Discord Logo" className="h-5 sm:h-6 opacity-50" />
           </span>
           <Link
-            href="/dashboard/leaderboard"
+            href="https://app.xynapseai.net/profile"
             className="px-4 py-2 text-white text-sm border border-white/20 rounded-lg font-medium transition-all duration-300 hover:bg-white/10 backdrop-blur-md"
           >
             <MatrixHoverEffect text="Launch App" hoverColor="#00BFFF" />
@@ -336,7 +336,7 @@ export default function Home() {
             <MatrixHoverEffect text="Discover Now" hoverColor="#00BFFF" />
           </Link>
           <Link
-            href="/dashboard/leaderboard"
+            href="https://app.xynapseai.net/profile"
             className="px-6 py-3 text-white border border-white/20 rounded-full text-sm font-medium transition-all duration-300 hover:bg-white/10 backdrop-blur-md uppercase"
           >
             <MatrixHoverEffect text="Launch App" hoverColor="#00BFFF" />
@@ -480,7 +480,7 @@ export default function Home() {
         </div>
         <div className="flex gap-4 mt-8">
           <Link
-            href="/signup"
+            href="/dashboard/profile"
             className="px-6 py-3 bg-white text-black rounded-full text-sm font-medium transition-all duration-300 uppercase shadow-glow-neon hover:bg-gray-200"
           >
             <MatrixHoverEffect text="Sign Up" hoverColor="#00BFFF" />
