@@ -1,4 +1,3 @@
-// pages/index.jsx
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -58,142 +57,144 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const checkRefs = () => {
-      if (
-        !sectionRef.current ||
-        !card1Ref.current ||
-        !card2Ref.current ||
-        !card3Ref.current ||
-        !cardsContainerRef.current ||
-        !newSectionRef.current ||
-        !text1Ref.current ||
-        !text2Ref.current ||
-        !text3Ref.current
-      ) {
-        return false;
-      }
-      return true;
-    };
+  const checkRefs = () => {
+    if (
+      !sectionRef.current ||
+      !card1Ref.current ||
+      !card2Ref.current ||
+      !card3Ref.current ||
+      !cardsContainerRef.current ||
+      !newSectionRef.current ||
+      !text1Ref.current ||
+      !text2Ref.current ||
+      !text3Ref.current
+    ) {
+      return false;
+    }
+    return true;
+  };
 
-    const initAnimation = () => {
-      if (!checkRefs()) {
-        setTimeout(initAnimation, 100);
-        return;
-      }
+  const initAnimation = () => {
+    if (!checkRefs()) {
+      setTimeout(initAnimation, 100);
+      return;
+    }
 
-      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+    ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
 
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      const isMobile = viewportWidth < 640;
-      const cardWidth = isMobile ? viewportWidth * 0.9 : Math.min(viewportWidth * 0.8, 1000);
-      const cardHeight = isMobile ? viewportHeight * 0.35 : viewportHeight * 0.3;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const isMobile = viewportWidth < 640;
+    const cardWidth = isMobile ? viewportWidth * 0.9 : Math.min(viewportWidth * 0.8, 1000);
+    const cardHeight = isMobile ? viewportHeight * 0.35 : viewportHeight * 0.3;
 
-      cardsContainerRef.current.style.minHeight = `${cardHeight * 1.4 + 150}px`;
-      sectionRef.current.style.minHeight = `${viewportHeight * 1.2}px`;
-      sectionRef.current.style.marginTop = isMobile ? '-10vh' : '0';
+    // Card section setup
+    cardsContainerRef.current.style.minHeight = `${cardHeight * 1.4 + 150}px`;
+    sectionRef.current.style.minHeight = `${viewportHeight * 1.2}px`;
+    sectionRef.current.style.marginTop = isMobile ? '-10vh' : '0';
 
-      gsap.set([card1Ref.current, card2Ref.current, card3Ref.current], {
-        opacity: 0,
-        y: 150,
-        scale: isMobile ? 0.95 : 0.9,
-        width: cardWidth,
-        height: cardHeight,
-        overwrite: 'auto',
-      });
-
-      const cardTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: isMobile ? 'top 10%' : 'top 20%',
-          end: isMobile ? `+=${viewportHeight * 1.5}` : `+=${viewportHeight * 2}`,
-          scrub: 0.5,
-          pin: true,
-          pinSpacing: true,
-          markers: false,
-          immediateRender: true,
-          anticipatePin: 1,
-        },
-      });
-
-      cardTl
-        .to(card1Ref.current, {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: isMobile ? 0.8 : 1,
-          ease: 'power3.out',
-        }, 0)
-        .to(card2Ref.current, {
-          opacity: 1,
-          y: isMobile ? cardHeight * 0.2 : 20,
-          scale: 1,
-          duration: isMobile ? 0.8 : 1,
-          ease: 'power3.out',
-        }, isMobile ? 0.3 : 0.5)
-        .to(card3Ref.current, {
-          opacity: 1,
-          y: isMobile ? cardHeight * 0.4 : 40,
-          scale: 1,
-          duration: isMobile ? 0.8 : 1,
-          ease: 'power3.out',
-        }, isMobile ? 0.6 : 1);
-
-      gsap.set([text1Ref.current, text2Ref.current, text3Ref.current], {
-        opacity: 0,
-        y: isMobile ? 30 : 50,
-        overwrite: 'auto',
-      });
-
-      const textTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: newSectionRef.current,
-          start: isMobile ? 'top 20%' : 'top top',
-          end: isMobile ? `+=${viewportHeight}` : '+=1000',
-          pin: true,
-          pinSpacing: true,
-          scrub: 0.5,
-          markers: false,
-          immediateRender: true,
-        },
-      });
-
-      textTl
-        .to(text1Ref.current, {
-          opacity: 1,
-          y: 0,
-          duration: isMobile ? 0.8 : 1,
-          ease: 'power3.out',
-        }, 0)
-        .to(text2Ref.current, {
-          opacity: 1,
-          y: 0,
-          duration: isMobile ? 0.8 : 1,
-          ease: 'power3.out',
-        }, isMobile ? 0.3 : 0.5)
-        .to(text3Ref.current, {
-          opacity: 1,
-          y: 0,
-          duration: isMobile ? 0.8 : 1,
-          ease: 'power3.out',
-        }, isMobile ? 0.6 : 1);
-
-      ScrollTrigger.refresh();
-    };
-
-    initAnimation();
-
-    window.addEventListener('resize', () => {
-      ScrollTrigger.refresh();
-      initAnimation();
+    gsap.set([card1Ref.current, card2Ref.current, card3Ref.current], {
+      opacity: 0,
+      y: 150,
+      scale: isMobile ? 0.95 : 0.9,
+      width: cardWidth,
+      height: cardHeight,
+      overwrite: 'auto',
     });
 
-    return () => {
-      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
-      window.removeEventListener('resize', initAnimation);
-      document.body.style.overflow = 'auto';
-    };
-  }, []);
+    const cardTl = gsap.timeline({
+      scrollTrigger: {
+        trigger: sectionRef.current,
+        start: isMobile ? 'top 10%' : 'top 20%',
+        end: isMobile ? `+=${viewportHeight * 1.5}` : `+=${viewportHeight * 2}`,
+        scrub: 0.5,
+        pin: true,
+        pinSpacing: true,
+        markers: false,
+        immediateRender: true,
+        anticipatePin: 1,
+      },
+    });
+
+    cardTl
+      .to(card1Ref.current, {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        duration: isMobile ? 0.8 : 1,
+        ease: 'power3.out',
+      }, 0)
+      .to(card2Ref.current, {
+        opacity: 1,
+        y: isMobile ? cardHeight * 0.2 : 20,
+        scale: 1,
+        duration: isMobile ? 0.8 : 1,
+        ease: 'power3.out',
+      }, isMobile ? 0.3 : 0.5)
+      .to(card3Ref.current, {
+        opacity: 1,
+        y: isMobile ? cardHeight * 0.4 : 40,
+        scale: 1,
+        duration: isMobile ? 0.8 : 1,
+        ease: 'power3.out',
+      }, isMobile ? 0.6 : 1);
+
+    // Restore text animation for "Our Vision" section
+    gsap.set([text1Ref.current, text2Ref.current, text3Ref.current], {
+      opacity: 0,
+      y: isMobile ? 30 : 50, // Smaller offset on mobile for tighter spacing
+      overwrite: 'auto',
+    });
+
+    const textTl = gsap.timeline({
+      scrollTrigger: {
+        trigger: newSectionRef.current,
+        start: isMobile ? 'top 20%' : 'top top', // Earlier trigger on mobile
+        end: isMobile ? `+=${viewportHeight}` : '+=1000', // Shorter scroll distance on mobile
+        pin: true,
+        pinSpacing: true,
+        scrub: 0.5, // Match card animation smoothness
+        markers: false,
+        immediateRender: true,
+      },
+    });
+
+    textTl
+      .to(text1Ref.current, {
+        opacity: 1,
+        y: 0,
+        duration: isMobile ? 0.8 : 1,
+        ease: 'power3.out',
+      }, 0)
+      .to(text2Ref.current, {
+        opacity: 1,
+        y: 0,
+        duration: isMobile ? 0.8 : 1,
+        ease: 'power3.out',
+      }, isMobile ? 0.3 : 0.5)
+      .to(text3Ref.current, {
+        opacity: 1,
+        y: 0,
+        duration: isMobile ? 0.8 : 1,
+        ease: 'power3.out',
+      }, isMobile ? 0.6 : 1);
+
+    ScrollTrigger.refresh();
+  };
+
+  initAnimation();
+
+  window.addEventListener('resize', () => {
+    ScrollTrigger.refresh();
+    initAnimation();
+  });
+
+  return () => {
+    ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+    window.removeEventListener('resize', initAnimation);
+    document.body.style.overflow = 'auto';
+  };
+}, []);
 
   const partnerLogos = [
     '/logos/logo1.png',
@@ -298,6 +299,7 @@ export default function Home() {
         />
       </Head>
 
+      {/* Header */}
       <header className="w-full py-4 px-6 flex justify-between items-center bg-gray-900/30 backdrop-blur-lg border-b border-white/10 z-50 sticky top-0">
         <img src="/logos/logo-landscape.png" alt="Xynapse Logo" className="h-12 sm:h-16" />
         <div className="flex items-center gap-4">
@@ -308,7 +310,7 @@ export default function Home() {
             <img src="/logos/discord.png" alt="Discord Logo" className="h-5 sm:h-6 opacity-50" />
           </span>
           <Link
-            href="https://app.xynapseai.net/profile"
+            href="/dashboard"
             className="px-4 py-2 text-white text-sm border border-white/20 rounded-lg font-medium transition-all duration-300 hover:bg-white/10 backdrop-blur-md"
           >
             <MatrixHoverEffect text="Launch App" hoverColor="#00BFFF" />
@@ -316,6 +318,7 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Banner */}
       <section className="min-h-screen flex flex-col items-center justify-center py-16 bg-gradient-to-b from-black to-gray-900">
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
@@ -336,7 +339,7 @@ export default function Home() {
             <MatrixHoverEffect text="Discover Now" hoverColor="#00BFFF" />
           </Link>
           <Link
-            href="https://app.xynapseai.net/profile"
+            href="/dashboard"
             className="px-6 py-3 text-white border border-white/20 rounded-full text-sm font-medium transition-all duration-300 hover:bg-white/10 backdrop-blur-md uppercase"
           >
             <MatrixHoverEffect text="Launch App" hoverColor="#00BFFF" />
@@ -344,6 +347,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Trusted By */}
       <section className="py-8">
         <p className="text-center text-gray-400 text-xl font-bold mb-6 uppercase">
           Trusted by Top Crypto Innovators
@@ -362,6 +366,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Cards with Scroll Animation */}
       <section
         ref={sectionRef}
         className="py-10 flex flex-col items-center relative z-50 mt-16"
@@ -399,6 +404,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Why Choose Us? */}
       <section className="py-16 flex flex-col items-center relative z-10">
         <h3 className="text-2xl sm:text-3xl font-bold text-white mb-4 text-center uppercase">
           Why Xynapse Analytics?
@@ -426,6 +432,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* New Section: Image and Text Scroll Animation */}
       <section
         ref={newSectionRef}
         className="min-h-screen flex items-center justify-center relative bg-black py-16"
@@ -457,6 +464,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Call to Action */}
       <section className="py-16 flex flex-col items-center">
         <h3 className="text-2xl sm:text-3xl font-bold text-white mb-4 text-center uppercase">
           Take Control of the Crypto Market
@@ -480,7 +488,7 @@ export default function Home() {
         </div>
         <div className="flex gap-4 mt-8">
           <Link
-            href="/dashboard/profile"
+            href="/signup"
             className="px-6 py-3 bg-white text-black rounded-full text-sm font-medium transition-all duration-300 uppercase shadow-glow-neon hover:bg-gray-200"
           >
             <MatrixHoverEffect text="Sign Up" hoverColor="#00BFFF" />
@@ -488,6 +496,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Partners Section */}
       <section className="min-h-screen flex flex-col items-center justify-center relative bg-black py-16">
         <p className="text-center font-bold text-gray-400 text-xl mb-12 uppercase">
           On-chain data on 65+ chains
@@ -528,6 +537,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Modal for Terms and Privacy */}
       {isModalOpen && (
         <div
           className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
@@ -561,6 +571,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* Footer */}
       <footer className="py-8 bg-gray-900/30 backdrop-blur-lg border-t border-white/20 relative">
         <img
           src="/logos/logo-landscape.png"
@@ -584,7 +595,7 @@ export default function Home() {
                 {col.links.map((link) => (
                   <p key={link} className="text-sm text-gray-200 mb-1">
                     <Link
-                      href={`/${link.toLowerCase()}`}
+                      href={`${link.toLowerCase()}`}
                       className="transition-all duration-300"
                     >
                       <MatrixHoverEffect text={link} hoverColor="#00BFFF" />

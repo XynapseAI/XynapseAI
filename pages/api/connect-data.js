@@ -1,8 +1,9 @@
-// pages/api/connect-data.js
+import { query } from '../../utils/postgres.js';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from './auth/[...nextauth]';
-import { query } from '../../utils/postgres';
+import { authOptions } from './auth/[...nextauth].js';
+import rateLimit from 'express-rate-limit';
 import winston from 'winston';
+import helmet from 'helmet';
 
 const logger = winston.createLogger({
   level: 'info',
@@ -14,20 +15,35 @@ const logger = winston.createLogger({
   ],
 });
 
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: { error: 'Too many requests, please try again later.' },
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown',
+  trustProxy: true,
+});
+
 export default async function handler(req, res) {
-  // Thêm header CORS
-  res.setHeader('Access-Control-Allow-Origin', 'https://app.xynapseai.net');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Access-Control-Allow-Credentials', 'true'); // Thêm để hỗ trợ credentials
-
-  // Xử lý preflight request (OPTIONS)
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        frameAncestors: ["'self'", 'https://www.google.com', 'https://www.recaptcha.net'],
+        frameSrc: ['https://www.google.com', 'https://www.recaptcha.net'],
+      },
+    },
+  })(req, res, () => {});
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}`);
+
+  try {
+    await new Promise((resolve, reject) => {
+      limiter(req, res, (err) => (err ? reject(err) : resolve()));
+    });
+  } catch (err) {
+    logger.error(`Rate limit error: ${err.message}`, { stack: err.stack, ip });
+    return res.status(429).json({ detail: 'Too many requests, please try again later.' });
+  }
 
   const session = await getServerSession(req, res, authOptions);
   if (!session || !session.user?.id) {
