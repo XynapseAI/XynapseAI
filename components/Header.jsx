@@ -1,20 +1,23 @@
 // components/Header.jsx
+'use client';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { Power } from 'lucide-react';
+import Link from 'next/link';
 
 export default function Header({ activeTab, setActiveTab, handleSignOut }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
   const tabs = [
-    { id: 'market', label: 'Market' },
-    { id: 'ai', label: 'AI' },
-    { id: 'point', label: 'Point' },
-    { id: 'leaderboard', label: 'Leaderboard' },
-    { id: 'task', label: 'Task' },
-    { id: 'profile', label: 'Profile' },
-    { id: 'treemap', label: 'Treemap' },
+    { id: 'market', label: 'Market', href: '/dashboard/market' },
+    { id: 'ai', label: 'AI', href: '/dashboard/ai' },
+    { id: 'point', label: 'Point', href: '/dashboard/point' },
+    { id: 'leaderboard', label: 'Leaderboard', href: '/dashboard/leaderboard' },
+    { id: 'task', label: 'Task', href: '/dashboard/task' },
+    { id: 'profile', label: 'Profile', href: '/dashboard/profile' },
+    { id: 'treemap', label: 'Treemap', href: '/dashboard/treemap' },
   ];
 
   useEffect(() => {
@@ -107,8 +110,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
     return text.split('').map((char, index) => (
       <span
         key={index}
-        className={`inline-block transform-style-3d transition-transform-opacity duration-300 ease-in-out underline underline-offset-2 ${char === ' ' ? '' : `animation-delay-${(index % 13) + 1}`
-          }`}
+        className={`inline-block transform-style-3d transition-transform-opacity duration-300 ease-in-out underline underline-offset-2 ${char === ' ' ? '' : `animation-delay-${(index % 13) + 1}`}`}
       >
         {char === ' ' ? '\u00A0' : char}
       </span>
@@ -144,19 +146,21 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
       <div className="hidden sm:flex items-center space-x-2">
         {tabs.map((tab, index) => (
           <div key={tab.id} className="flex items-center">
-            <motion.button
-              onClick={() => setActiveTab(tab.id)}
-              onMouseEnter={handleMouseEnter}
-              className={`group px-3 py-1.5 text-xs font-medium transition-all duration-300 text-white backdrop-blur-md perspective-1000 ${
-                activeTab === tab.id ? 'bg-gray-400 text-black' : ''
-              }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <span className="matrix-text inline-block underline underline-offset-2">
-                {renderMatrixText(tab.label)}
-              </span>
-            </motion.button>
+            <Link href={tab.href} passHref>
+              <motion.button
+                onClick={() => handleTabClick(tab.id)}
+                onMouseEnter={handleMouseEnter}
+                className={`group px-3 py-1.5 text-xs font-medium transition-all duration-300 text-white backdrop-blur-md perspective-1000 ${
+                  activeTab === tab.id ? 'bg-gray-400 text-black' : ''
+                }`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <span className="matrix-text inline-block underline underline-offset-2">
+                  {renderMatrixText(tab.label)}
+                </span>
+              </motion.button>
+            </Link>
             {index < tabs.length - 1 && (
               <span className="h-6 w-px bg-white/30 mx-2"></span>
             )}
@@ -197,19 +201,21 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
             <nav className="flex flex-col space-y-2 flex-grow overflow-y-auto">
               {tabs.map((tab, index) => (
                 <div key={tab.id} className="flex flex-col">
-                  <motion.button
-                    onClick={() => handleTabClick(tab.id)}
-                    onMouseEnter={handleMouseEnter}
-                    className={`group w-2/3 text-left px-2 py-1 md:py-2 text-[10px] md:text-xs font-medium transition-all duration-300 bg-white/10 text-white backdrop-blur-md hover:bg-white/15 hover:shadow-glow-neon perspective-1000 ${
-                      activeTab === tab.id ? 'bg-white text-black' : ''
-                    }`}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                  >
-                    <span className="matrix-text inline-block underline underline-offset-2">
-                      {renderMatrixText(tab.label)}
-                    </span>
-                  </motion.button>
+                  <Link href={tab.href} passHref>
+                    <motion.button
+                      onClick={() => handleTabClick(tab.id)}
+                      onMouseEnter={handleMouseEnter}
+                      className={`group w-2/3 text-left px-2 py-1 md:py-2 text-[10px] md:text-xs font-medium transition-all duration-300 bg-white/10 text-white backdrop-blur-md hover:bg-white/15 hover:shadow-glow-neon perspective-1000 ${
+                        activeTab === tab.id ? 'bg-white text-black' : ''
+                      }`}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <span className="matrix-text inline-block underline underline-offset-2">
+                        {renderMatrixText(tab.label)}
+                      </span>
+                    </motion.button>
+                  </Link>
                   {index < tabs.length - 1 && (
                     <span className="w-full h-px bg-white/30 my-2"></span>
                   )}
@@ -241,6 +247,12 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
           />
         )}
       </AnimatePresence>
+
+      <style jsx>{`
+        .shadow-glow-neon {
+          box-shadow: 0 0 10px rgba(0, 191, 255, 0.3), 0 0 20px rgba(0, 191, 255, 0.2);
+        }
+      `}</style>
     </header>
   );
 }

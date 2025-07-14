@@ -3,7 +3,7 @@
 export default {
   reactStrictMode: true,
   images: {
-    domains: ['ipfs.io', 'pbs.twimg.com', 'localhost'],
+    domains: ['ipfs.io', 'pbs.twimg.com', 'localhost' , 'lh3.googleusercontent.com'],
     remotePatterns: [
       {
         protocol: 'https',

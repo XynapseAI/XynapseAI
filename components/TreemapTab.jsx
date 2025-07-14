@@ -540,7 +540,7 @@ export default function TreemapTab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="font-jetbrains w-full max-w-10xl mx-auto bg-tech/90 backdrop-blur-xl mt-6 md:mt-10 p-4 md:p-6 shadow-2xl h-[calc(100vh)] overflow-hidden"
+      className="font-jetbrains w-full max-w-10xl mx-auto bg-galaxy backdrop-blur-xl mt-6 md:mt-10 p-4 md:p-6 shadow-2xl h-[calc(100vh)] overflow-hidden"
     >
       <div className="flex flex-col sm:flex-row items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -548,7 +548,7 @@ export default function TreemapTab({ recaptchaRef }) {
           <div className="relative" ref={chainDropdownRef}>
             <button
               onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-              className="text-white px-5 py-1 rounded-xl border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center gap-1.5 text-xs"
+              className="text-white px-4 py-1 rounded-lg border border-gray-500 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center gap-1.5 text-xs"
               aria-label="Select chain"
             >
               <Image
@@ -622,7 +622,7 @@ export default function TreemapTab({ recaptchaRef }) {
           <div className="relative" ref={limitDropdownRef}>
             <button
               onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
-              className="text-white px-5 py-1 rounded-xl border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center text-xs"
+              className="text-white px-4 py-1 rounded-lg border border-gray-500 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center text-xs"
               aria-label="Select transaction limit"
             >
               <span className="text-[10px] md:text-xs font-medium ">Txh:{selectedLimit}</span>
@@ -677,7 +677,7 @@ export default function TreemapTab({ recaptchaRef }) {
               placeholder="Search wallet (0x...)"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
-              className="bg-gray-900/50 text-white px-3 py-1 rounded-full text-[9px] w-32 sm:w-64 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-neon-blue/50 transition-colors duration-200 pr-8"
+              className="bg-gray-900/50 text-white px-3 py-1.5 rounded-lg text-[10px] w-42 sm:w-64 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-neon-blue/50 transition-colors duration-200 pr-8"
               aria-label="Wallet address"
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -687,7 +687,7 @@ export default function TreemapTab({ recaptchaRef }) {
             />
             <button
               onClick={() => fetchTransactions(walletAddress)}
-              className="absolute right-1.5 text-white p-1 rounded-full hover:bg-white/10 transition-colors duration-200"
+              className="absolute right-1.5 text-white p-1 transition-colors duration-200"
               aria-label="Search wallet"
               disabled={loading}
             >

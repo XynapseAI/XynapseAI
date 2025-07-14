@@ -387,11 +387,11 @@ export default function AITab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={`font-jetbrains w-full max-w-10xl mx-auto bg-gray-900/30 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon ${isMobile ? 'h-[calc(80vh)]' : 'h-[calc(100vh)]'} flex flex-col overflow-hidden`}
+      className={`font-jetbrains w-full h-full mx-auto bg-galaxy backdrop-blur-lg p-4 shadow-glow-neon ${isMobile ? 'h-[calc(60vh)]' : 'h-[calc(100vh)]'} flex flex-col overflow-hidden`}
     >
       {/* Header */}
       <div className="p-2 bg-gray-900/50 border-b border-white/10 flex items-center shrink-0 rounded-t-lg">
-        <span className="text-[9px] md:text-[10px] text-gray-400">
+        <span className="text-[9px] md:text-[10px] text-gray-500">
           Daily Points: {dailyInteractions}/{maxDailyInteractions}
           {totalDailyChats >= maxTotalDailyChats && ' (Limit)'}
         </span>
@@ -399,8 +399,8 @@ export default function AITab({ recaptchaRef }) {
           <div className="relative" ref={toggleButtonRef}>
             <motion.button
               onClick={() => setIsModelMenuOpen(!isModelMenuOpen)}
-              className="px-2 py-1 md:px-2 md:py-1 rounded-full text-[9px] md:text-[10px] font-medium transition-all duration-300 bg-gray-900/50 text-white backdrop-blur-md hover:bg-gray-900/70 hover:shadow-glow-neon"
-              whileHover={{ scale: 1.05 }}
+              className="px-2 py-1 md:px-2 md:py-1 rounded-full border-2 border-gray-500 text-[9px] md:text-[10px] font-medium bg-gray-900/50 text-white backdrop-blur-md hover:shadow-glow-neon"
+              whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.95 }}
             >
               {selectedModel}
@@ -425,10 +425,10 @@ export default function AITab({ recaptchaRef }) {
                       setIsModelMenuOpen(false);
                     }}
                     className={`w-full text-center px-2 py-1 rounded-md text-[9px] md:text-[10px] transition-all duration-300 backdrop-blur-md ${selectedModel === model
-                        ? 'bg-neon-blue/20 text-white border border-neon-blue/50'
-                        : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
+                      ? 'bg-neon-blue/20 text-white border border-neon-blue/50'
+                      : 'text-white'
                       }`}
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1 }}
                     whileTap={{ scale: 0.95 }}
                   >
                     {model}
@@ -441,8 +441,8 @@ export default function AITab({ recaptchaRef }) {
         <motion.button
           onClick={() => setUseDeepSearch(!useDeepSearch)}
           className={`px-2 py-1 md:px-2 md:py-1 rounded-full text-[9px] md:text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md flex items-center ${useDeepSearch
-              ? 'bg-neon-blue/20 text-white border-neon-blue/50'
-              : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
+            ? 'bg-white text-black border-neon-blue/50'
+            : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
             }`}
           title="Toggle real-time web search"
           whileHover={{ scale: 1.05 }}
@@ -482,17 +482,17 @@ export default function AITab({ recaptchaRef }) {
             transition={{ duration: 0.3 }}
           >
             <div
-              className={`max-w-[85%] md:max-w-[70%] p-3 rounded-xl text-[9px] md:text-[10px] overflow-y-auto custom-scrollbar group ${message.role === 'user'
-                  ? 'bg-neon-blue/20 text-white border border-neon-blue/50 shadow-glow-neon-blue'
-                  : 'bg-gray-900/50 text-white backdrop-blur-lg border border-white/10 shadow-glow-neon'
+              className={`max-w-[85%] md:max-w-[70%] p-3 rounded-lg text-[9px] md:text-[10px] overflow-y-auto custom-scrollbar group ${message.role === 'user'
+                ? 'bg-neon-blue/20 text-white border border-neon-blue/50'
+                : 'bg-gray-900/50 text-white backdrop-blur-lg border border-white/10'
                 } relative`}
             >
               <span
-                className={`absolute bottom-0 left-0 w-full h-0.5 bg-neon-blue transform scale-x-0 origin-left transition-transform duration-300 ${message.role === 'user' ? 'group-hover:scale-x-100' : ''
+                className={`absolute bottom-0 left-0 w-full h-0.5 origin-left transition-transform duration-300 ${message.role === 'user' ? 'group-hover:scale-x-100' : ''
                   }`}
               />
               {message.role === 'assistant' && index === chatHistory.length - 1 && typingText ? (
-                <div className="max-h-[200px] md:max-h-[400px] overflow-y-auto custom-scrollbar">
+                <div className="max-h-[400px] md:max-h-[600px] overflow-y-auto custom-scrollbar">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeHighlight]}
@@ -575,7 +575,7 @@ export default function AITab({ recaptchaRef }) {
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Enter your prompt..."
-            className="flex-1 px-3 py-1 bg-gray-900/50 text-white rounded-xl text-[9px] md:text-[10px] placeholder:text-[9px] md:placeholder:text-[10px] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-neon-blue/50 backdrop-blur-lg border border-white/10 resize-none overflow-y-auto custom-scrollbar"
+            className="flex-1 px-3 py-1 bg-gray-900/50 text-white rounded-lg text-[9px] md:text-[10px] placeholder:text-[9px] md:placeholder:text-[10px] placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-neon-blue/50 backdrop-blur-lg border border-white/10 resize-none overflow-y-auto custom-scrollbar"
             rows={1}
             disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
             ref={textareaRef}
@@ -589,9 +589,9 @@ export default function AITab({ recaptchaRef }) {
           />
           <motion.button
             type="submit"
-            className={`px-2 py-1 md:px-3 md:py-1 rounded-full text-[9px] md:text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md flex items-center justify-center ${isLoading || totalDailyChats >= maxTotalDailyChats
-                ? 'bg-gray-900/50 text-white/50 cursor-not-allowed opacity-50'
-                : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
+            className={`px-2 py-1 md:px-3 md:py-1 rounded-lg text-[9px] md:text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md flex items-center justify-center ${isLoading || totalDailyChats >= maxTotalDailyChats
+              ? 'bg-gray-900/50 text-white/50 cursor-not-allowed opacity-50'
+              : 'text-white hover:bg-gray-900/70 hover:shadow-glow-neon'
               }`}
             disabled={isLoading || totalDailyChats >= maxTotalDailyChats}
             whileHover={{ scale: isLoading || totalDailyChats >= maxTotalDailyChats ? 1 : 1.05 }}

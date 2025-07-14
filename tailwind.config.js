@@ -21,9 +21,9 @@ export default {
           200: '#E5E7EB',
         },
         green: '#22C55E',
-        'green-500': '#22C55E', // Added to match green
+        'green-500': '#22C55E',
         red: '#EF4444',
-        'red-500': '#EF4444', // Added to match red
+        'red-500': '#EF4444',
         neon: {
           blue: '#00BFFF',
           green: '#00ff99',
@@ -59,6 +59,7 @@ export default {
       backgroundImage: {
         gradient: 'linear-gradient(to right, #1A1A1A, #2D2D2D)',
         tech: 'linear-gradient(to bottom right, rgba(0, 0, 0, 0.85) 0%, rgba(26, 26, 26, 0.7) 50%, rgba(0, 191, 255, 0.5) 80%, rgba(34, 197, 94, 0.4) 100%)',
+        galaxy: 'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(17, 24, 39, 0.9))',
       },
       backgroundOpacity: {
         10: '0.1',

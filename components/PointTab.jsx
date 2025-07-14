@@ -137,7 +137,7 @@ export default function PointTab({ userData, error: propError, loading, handleAn
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="font-jetbrains w-full max-w-10xl mx-auto bg-gray-900/30 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon h-[calc(100vh)] overflow-y-auto custom-scrollbar"
+      className="font-jetbrains w-full max-w-10xl mx-auto bg-galaxy backdrop-blur-lg p-4 md:p-6 shadow-glow-neon h-[calc(100vh)] overflow-y-auto custom-scrollbar"
     >
       <div className="w-full flex flex-col gap-4">
         {loading && (

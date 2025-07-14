@@ -265,9 +265,9 @@ export default function ProfileTab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="font-jetbrains w-full max-w-10xl mx-auto bg-gray-900/30 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon h-[calc(100vh)] overflow-y-auto custom-scrollbar"
+      className="font-jetbrains w-full max-w-10xl mx-auto bg-galaxy backdrop-blur-lg p-4 md:p-6 shadow-glow-neon h-[calc(100vh)] overflow-y-auto custom-scrollbar"
     >
-      <div className="w-full h-full rounded-2xl p-4 md:p-6 backdrop-blur-md border border-white/10">
+      <div className="w-full h-full p-4 md:p-6 backdrop-blur-md ">
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -317,7 +317,7 @@ export default function ProfileTab({ recaptchaRef }) {
               </div>
               <motion.button
                 onClick={handleDisconnectTwitter}
-                className="w-full px-3 py-1.5 rounded-full text-[9px] md:text-xs font-medium text-red-400 border border-red-500/50 backdrop-blur-md hover:bg-red-500/20 hover:shadow-glow-neon-red transition-all duration-300"
+                className="w-full px-3 py-1.5 rounded-lg text-[9px] md:text-xs font-medium text-red-400 border border-red-500/50 backdrop-blur-md hover:bg-red-500/20 hover:shadow-glow-neon-red transition-all duration-300"
                 whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -335,11 +335,10 @@ export default function ProfileTab({ recaptchaRef }) {
               <motion.button
                 onClick={handleConnectWallet}
                 disabled={isConnectingWallet || userData.walletAddress}
-                className={`w-full px-3 py-1.5 rounded-full text-[9px] md:text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
-                  isConnectingWallet || userData.walletAddress
+                className={`w-full px-3 py-1.5 rounded-lg text-[9px] md:text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${isConnectingWallet || userData.walletAddress
                     ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
                     : 'text-white hover:bg-white/20 hover:shadow-glow-neon'
-                }`}
+                  }`}
                 whileHover={{ scale: isConnectingWallet || userData.walletAddress ? 1 : 1 }}
                 whileTap={{ scale: isConnectingWallet || userData.walletAddress ? 1 : 0.95 }}
               >
@@ -349,11 +348,10 @@ export default function ProfileTab({ recaptchaRef }) {
                 <motion.button
                   onClick={handleDisconnectWallet}
                   disabled={isDisconnectingWallet}
-                  className={`w-full mt-2 px-3 py-1.5 rounded-full text-[9px] md:text-xs font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${
-                    isDisconnectingWallet
+                  className={`w-full mt-2 px-3 py-1.5 rounded-lg text-[9px] md:text-xs font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${isDisconnectingWallet
                       ? 'text-white/50 cursor-not-allowed opacity-50'
                       : 'text-red-400 hover:bg-red-500/20 hover:shadow-glow-neon-red'
-                  }`}
+                    }`}
                   whileHover={{ scale: isDisconnectingWallet ? 1 : 1 }}
                   whileTap={{ scale: isDisconnectingWallet ? 1 : 0.95 }}
                 >
@@ -381,24 +379,21 @@ export default function ProfileTab({ recaptchaRef }) {
             </motion.div>
             {/* Tier Card */}
             <motion.div
-              className={`min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border ${
-                userData.isPremium ? 'border-yellow-400/50 shadow-glow-neon-yellow' : 'border-white/10 shadow-glow-neon'
-              } bg-gray-900/50 backdrop-blur-lg hover:bg-gray-900/70`}
+              className={`min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border ${userData.isPremium ? 'border-yellow-400/50 shadow-glow-neon-yellow' : 'border-white/10 shadow-glow-neon'
+                } bg-gray-900/50 backdrop-blur-lg hover:bg-gray-900/70`}
               whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.98 }}
             >
               <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Account</h3>
               <p
-                className={`text-xl md:text-2xl font-bold text-center mb-6 ${
-                  userData.isPremium ? 'text-yellow-400' : 'text-white'
-                }`}
+                className={`text-xl md:text-2xl font-bold text-center mb-6 ${userData.isPremium ? 'text-yellow-400' : 'text-white'
+                  }`}
               >
                 {userData.isPremium ? 'Premium' : 'Basic'}
               </p>
               <div
-                className={`w-full h-2 rounded-b-lg ${
-                  userData.isPremium ? 'bg-gradient-to-r from-yellow-400/50 to-yellow-600/50' : 'bg-gradient-to-r from-white/50 to-gray-400/50'
-                }`}
+                className={`w-full h-2 rounded-b-lg ${userData.isPremium ? 'bg-gradient-to-r from-yellow-400/50 to-yellow-600/50' : 'bg-gradient-to-r from-white/50 to-gray-400/50'
+                  }`}
               ></div>
             </motion.div>
           </div>

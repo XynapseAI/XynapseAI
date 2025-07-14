@@ -148,7 +148,7 @@ const getExplorerUrls = (chain, hash, address) => {
 };
 
 // Modal component
-const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
+const Modal = ({ isOpen, onClose, title, content, links = [] , isMobile  }) => {
   if (!isOpen) return null;
   return (
     <motion.div
@@ -160,12 +160,14 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
       onClick={onClose}
     >
       <div
-        className="backdrop-blur-md bg-gray-900/50 p-4 sm:p-6 rounded-2xl max-w-[90%] sm:max-w-4xl w-full relative my-4 border border-white/10 shadow-glow-neon"
+        className={`p-4 sm:p-6 rounded-2xl max-w-[90%] sm:max-w-4xl w-full relative my-4 border border-white/10 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md bg-gray-900/50 shadow-glow-neon'
+          }`}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 text-white text-lg font-bold bg-gray-900/50 border border-white/20 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300"
+          className={`absolute top-3 right-3 text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300 ${isMobile ? 'bg-gray-900 border border-white/20' : 'bg-gray-900/50 border border-white/20 backdrop-blur-md'
+            }`}
           aria-label="Close modal"
         >
           ✕
@@ -186,13 +188,15 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
                   <table className="border-collapse border border-white/20 w-full table-auto mb-2">{children}</table>
                 ),
                 th: ({ children }) => (
-                  <th className="border border-white/20 px-4 py-2 bg-gray-900/50 backdrop-blur-sm text-white text-left mb-2">{children}</th>
+                  <th className={`border border-white/20 px-4 py-2 text-white text-left mb-2 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-sm'
+                    }`}>{children}</th>
                 ),
                 td: ({ children }) => (
                   <td className="border border-white/20 px-4 py-2 text-gray-200 mb-2">{children}</td>
                 ),
                 code: ({ className, children }) => (
-                  <code className={`${className || ''} bg-gray-900/80 rounded text-white backdrop-blur-md text-gray-400 p-1 mb-2`}>
+                  <code className={`${className || ''} rounded text-white text-gray-400 p-1 mb-2 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/80 backdrop-blur-md'
+                    }`}>
                     {children}
                   </code>
                 ),
@@ -229,7 +233,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [] }) => {
 };
 
 // LoadingOverlay component
-const LoadingOverlay = ({ loadingStates = {} }) => {
+const LoadingOverlay = ({ loadingStates = {}, isMobile }) => {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
   const messages = [
@@ -253,17 +257,19 @@ const LoadingOverlay = ({ loadingStates = {} }) => {
   if (messages.length === 0) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-lg flex items-center justify-center z-50">
+    <div className={`fixed inset-0 flex items-center justify-center z-50 ${isMobile ? 'bg-gray-900/70' : 'bg-gray-900/30 backdrop-blur-sm'
+      }`}>
       <div className="flex flex-col items-center gap-3">
-        <div className="relative w-10 h-10"> {/* Giảm từ w-14 h-14 xuống w-10 h-10 */}
-          <div className="absolute inset-0 border-2 border-neon-blue/50 border-t-white rounded-full animate-spin"></div> {/* Giảm border từ 4 xuống 3 */}
+        <div className="relative w-10 h-10">
+          <div className={`absolute inset-0 border-2 rounded-full animate-spin ${isMobile ? 'border-gray-400 border-t-white' : 'border-neon-blue/50 border-t-white'
+            }`}></div>
           <img
             src="/logos/logo-scan.png"
             alt="Loading Logo"
-            className="absolute inset-0 w-7 h-7 m-1.5 object-contain animate-pulse" // Giảm từ w-10 h-10 xuống w-7 h-7, m-2 xuống m-1.5
+            className={`absolute inset-0 w-7 h-7 m-1.5 object-contain ${isMobile ? '' : 'animate-pulse'}`}
           />
         </div>
-        <p className="text-[9px] md:text-[10px] text-gray-400 font-medium animate-pulse"> {/* Giảm từ text-sm xuống text-xs */}
+        <p className="text-[9px] md:text-[10px] text-gray-400 font-medium">
           {messages[currentMessageIndex] || 'Processing...'}
         </p>
       </div>
@@ -290,6 +296,7 @@ const WalletBalances = ({
   setTransactionsError,
   setWalletAddress,
   nameTags,
+  isMobile,
 }) => {
   const walletBalancesRef = useRef(null);
   const [activeTab, setActiveTab] = useState('portfolio');
@@ -357,7 +364,8 @@ const WalletBalances = ({
     >
       <div
         ref={walletBalancesRef}
-        className="backdrop-blur-xl bg-gray-900/50 p-4 sm:p-6 max-w-6xl w-[90%] rounded-2xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar border border-white/10 shadow-glow-neon"
+        className={`p-4 sm:p-6 max-w-6xl w-[90%] rounded-2xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar border border-white/10 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-xl bg-gray-900/50 shadow-glow-neon'
+          }`}
       >
         <div className="sticky top-0 z-10 p-2">
           <div className="flex justify-between items-center mb-3">
@@ -394,7 +402,8 @@ const WalletBalances = ({
             </div>
             <motion.button
               onClick={onClose}
-              className="text-white text-lg font-bold bg-gray-900/50 border border-white/20 backdrop-blur-md rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300"
+              className={`text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300 ${isMobile ? 'bg-gray-900 border border-white/20' : 'bg-gray-900/50 border border-white/20 backdrop-blur-md'
+                }`}
               aria-label="Close balances"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
@@ -405,17 +414,17 @@ const WalletBalances = ({
           <div className="flex space-x-2 mb-3">
             <motion.button
               onClick={() => setActiveTab('portfolio')}
-              className={`px-3 py-1 rounded-full text-xs md:text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              className={`px-3 py-1 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md'
+                } ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
+              whileHover={{ scale: 1 }}
             >
               Portfolio
             </motion.button>
             <motion.button
               onClick={() => setActiveTab('transactions')}
-              className={`px-3 py-1 rounded-full text-xs md:text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${activeTab === 'transactions' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              className={`px-3 py-1 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md'
+                } ${activeTab === 'transactions' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
+              whileHover={{ scale: 1 }}
             >
               Transactions
             </motion.button>
@@ -424,15 +433,16 @@ const WalletBalances = ({
         <div className="overflow-y-auto max-h-[calc(80vh-100px)] rounded-lg custom-scrollbar">
           {activeTab === 'portfolio' && (
             <>
-              {isLoading && <p className="text-xs text-gray-400 text-center">Loading portfolio...</p>}
+              {isLoading && <p className="text-[9px] md:text-[10px] text-gray-400 text-center">Loading portfolio...</p>}
               {error && <p className="text-sm text-red-500 text-center">Error: {error}</p>}
               {!isLoading && !error && balances?.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
-                    <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10 uppercase">
+                    <thead className={`sticky top-0 z-10 border-b border-white/10 uppercase ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
+                      }`}>
                       <tr>
-                        <th className="px-2 py-1.5 text-white text-center text-[9px] md:text-xs w-[10%]">
-                          <div className="flex items-center justify-center gap-2">
+                        <th className="px-2 py-1.5 text-white text-center text-[8px] md:text-xs w-[7%]">
+                          <div className="flex items-center justify-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               className="w-3 h-3 md:w-4 md:h-4 fill-white flex-shrink-0"
@@ -448,8 +458,8 @@ const WalletBalances = ({
                             Chain
                           </div>
                         </th>
-                        <th className="px-2 py-1.5 text-white text-left text-[9px] md:text-xs w-[30%]">
-                          <div className="flex items-center gap-2">
+                        <th className="px-2 py-1.5 text-white text-left text-[8px] md:text-xs w-[16%]">
+                          <div className="flex items-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               className="w-3 h-3 md:w-4 md:h-4 fill-white"
@@ -460,8 +470,8 @@ const WalletBalances = ({
                             Token
                           </div>
                         </th>
-                        <th className="px-2 py-1.5 text-white text-left text-[9px] md:text-xs w-[20%]">
-                          <div className="flex items-center gap-2">
+                        <th className="px-2 py-1.5 text-white text-left text-[8px] md:text-xs w-[16%]">
+                          <div className="flex items-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               className="w-3 h-3 md:w-4 md:h-4 fill-white"
@@ -472,8 +482,8 @@ const WalletBalances = ({
                             Balance
                           </div>
                         </th>
-                        <th className="px-2 py-1.5 text-white text-left text-[9px] md:text-xs w-[20%]">
-                          <div className="flex items-center gap-2">
+                        <th className="px-2 py-1.5 text-white text-left text-[8px] md:text-xs w-[20%]">
+                          <div className="flex items-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
@@ -497,12 +507,12 @@ const WalletBalances = ({
                           key={`${balance.chain}-${balance.address}-${index}`}
                           className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
                         >
-                          <td className="px-2 py-1.5 text-gray-200 text-[9px] md:text-xs">
+                          <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
                             <div className="flex flex-col items-center">
                               <img
                                 src={getPlatformImage(balance.chain)}
                                 alt={`${balance.chain} logo`}
-                                className="w-3 h-3 md:w-5 md:h-5 rounded-full flex-shrink-0"
+                                className="w-2 h-2 md:w-5 md:h-5 rounded-full flex-shrink-0"
                                 onError={(e) => {
                                   logger.error('Platform logo failed to load:', {
                                     chain: balance.chain,
@@ -511,12 +521,12 @@ const WalletBalances = ({
                                   e.target.src = '/fallback-image.png';
                                 }}
                               />
-                              <span className="text-[8px] md:text-[10px] text-gray-400 flex-shrink-0">
+                              <span className="text-[7px] md:text-[10px] text-gray-400 flex-shrink-0">
                                 {chains.find((c) => c.value === balance.chain)?.label || balance.chain}
                               </span>
                             </div>
                           </td>
-                          <td className="px-2 py-1.5 text-gray-200 text-[9px] md:text-xs">
+                          <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
                             <div className="flex items-center space-x-2">
                               {balance.logo && (
                                 <img
@@ -537,19 +547,19 @@ const WalletBalances = ({
                                   {balance.symbol || 'Unknown'} {balance.address === 'native' ? '(Native)' : ''}
                                 </span>
                                 {balance.price_usd != null && (
-                                  <span className="text-[8px] text-gray-400">
+                                  <span className="text-[6px] text-gray-400">
                                     ({formatPrice(balance.price_usd)})
                                   </span>
                                 )}
                               </div>
                             </div>
                           </td>
-                          <td className="px-2 py-1.5 text-gray-200 text-[9px] md:text-xs">
+                          <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
                             {balance.amount != null
                               ? balance.amount.toLocaleString('en-US', { maximumFractionDigits: 2 })
                               : 'N/A'}
                           </td>
-                          <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
+                          <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-sm">
                             {balance.value_usd != null
                               ? `$${balance.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
                               : 'N/A'}
@@ -574,9 +584,10 @@ const WalletBalances = ({
               {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
-                    <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10">
+                    <thead className={`sticky top-0 z-10 border-b border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
+                      }`}>
                       <tr>
-                        <th className="px-2 py-1.5 text-white text-left text-xs md:text-sm w-[60%] uppercase">
+                        <th className="px-2 py-1.5 text-white text-left text-[10px] md:text-xs w-[60%] uppercase">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -593,7 +604,7 @@ const WalletBalances = ({
                             Transfer
                           </div>
                         </th>
-                        <th className="px-2 py-1.5 text-white text-left text-xs md:text-sm w-[20%] uppercase">
+                        <th className="px-2 py-1.5 text-white text-left text-[10px] md:text-xs w-[20%] uppercase">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -610,7 +621,7 @@ const WalletBalances = ({
                             Value
                           </div>
                         </th>
-                        <th className="px-2 py-1.5 text-white text-center text-xs md:text-sm w-[20%] uppercase">
+                        <th className="px-2 py-1.5 text-white text-center text-[10px] md:text-xs w-[20%] uppercase">
                           <div className="flex items-center justify-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -641,7 +652,7 @@ const WalletBalances = ({
                             key={`${tx.chain}-${tx.hash}-${index}`}
                             className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
                           >
-                            <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
+                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
                               <div className="flex items-center space-x-1">
                                 <div className="flex items-center gap-1 mr-0 md:mr-2">
                                   {fromImage && (
@@ -700,10 +711,10 @@ const WalletBalances = ({
                                 </div>
                               </div>
                             </td>
-                            <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
+                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
                               {weiToEth(tx.value)}
                             </td>
-                            <td className="px-2 py-1.5 text-gray-200 text-[10px] md:text-sm">
+                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
                               <div className="flex flex-col items-center gap-0.5">
                                 <div className="flex items-center justify-center gap-1">
                                   <img
@@ -745,7 +756,7 @@ const WalletBalances = ({
                 </div>
               ) : (
                 !isLoadingTransactions && (
-                  <p className="text-xs text-gray-400 text-center">No transactions found for this address.</p>
+                  <p className="text-[10px] md:text-xs text-gray-400 text-center">No transactions found for this address.</p>
                 )
               )}
             </>
@@ -1048,7 +1059,8 @@ const MarketTab = ({ recaptchaRef }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="font-jetbrains w-full max-w-9xl mx-auto bg-tech/90 backdrop-blur-xl mt-6 md:mt-6 p-4 md:p-6 rounded-2xl shadow-2xl border border-white/10 h-[calc(100vh)] overflow-hidden"
+      className={`font-jetbrains w-full max-w-9xl mx-auto mt-6 md:mt-6 p-4 md:p-6 rounded-2xl border border-white/10 h-[calc(100vh)] overflow-hidden ${isMobile ? 'bg-galaxy' : 'bg-galaxy backdrop-blur-xl shadow-2xl'
+        }`}
     >
       <div className="flex items-center justify-between mb-1 md:mb-2">
         <div className="flex items-center gap-1 px-2 py-1">
@@ -1065,7 +1077,8 @@ const MarketTab = ({ recaptchaRef }) => {
         <div className="relative" ref={chainDropdownRef}>
           <button
             onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-            className={`text-white px-2 py-1 rounded-xl border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all duration-300 flex items-center gap-2 ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`text-white px-2 py-1 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 flex items-center gap-1 ${isMobile ? 'bg-gray-900/30' : 'backdrop-blur-md'
+              } ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) || !selectedToken}
             aria-label="Select chain"
           >
@@ -1083,7 +1096,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     e.target.src = '/fallback-image.png';
                   }}
                 />
-                <span className="text-[10px] md:text-xs font-medium">
+                <span className="text-[9px] md:text-xs font-medium">
                   {chains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
                 </span>
               </>
@@ -1093,9 +1106,10 @@ const MarketTab = ({ recaptchaRef }) => {
             <span className="text-xs md:text-sm">{isChainDropdownOpen ? '▲' : '▼'}</span>
           </button>
           {isChainDropdownOpen && (
-            <div className="absolute z-20 bg-gray-900/95 backdrop-blur-lg rounded-lg mt-2 w-64 max-h-80 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
+            <div className={`absolute z-50 rounded-lg mt-2 w-48 max-h-80 overflow-y-auto custom-scrollbar border border-white/10 ${isMobile ? 'bg-gray-900/30 backdrop-blur-lg shadow-glow-neon' : 'bg-gray-900/30 backdrop-blur-lg shadow-glow-neon'
+              }`}>
               {getAvailableChains().length === 0 ? (
-                <div className="px-4 py-2 text-gray-400 text-xs">No supported chains available</div>
+                <div className="px-4 py-2 text-gray-400 text-[9px] md:text-[10px]">No supported chains available</div>
               ) : (
                 getAvailableChains()
                   .filter((chain) => process.env.NODE_ENV === 'development' || !chain.testnet)
@@ -1106,7 +1120,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         setSelectedChain(chain.value);
                         setIsChainDropdownOpen(false);
                       }}
-                      className="flex items-center w-full text-left px-4 py-2 hover:bg-white/10 rounded-md text-white font-medium text-xs transition-all duration-200"
+                      className="flex items-center w-full text-left text-[9px] md:text-xs px-4 py-2 hover:bg-white/10 rounded-md text-white font-medium transition-all duration-200"
                     >
                       <img
                         src={chain.image}
@@ -1133,7 +1147,8 @@ const MarketTab = ({ recaptchaRef }) => {
             placeholder="Search wallet (0x...)"
             value={walletAddress}
             onChange={(e) => setWalletAddress(e.target.value)}
-            className="bg-gray-900/50 text-white px-4 py-1 rounded-full text-[8px] md:text-[10px] w-28 sm:w-72 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 pr-10"
+            className={`text-white px-4 py-1 rounded-full text-[8px] md:text-[10px] w-28 sm:w-72 border border-white/10 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 pr-10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'
+              }`}
             aria-label="Wallet address"
             onKeyPress={(e) => {
               if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -1165,6 +1180,7 @@ const MarketTab = ({ recaptchaRef }) => {
           isAnalyzing,
           isPredicting,
         }}
+        isMobile={isMobile}
       />
       {error && (
         <p className="text-sm text-red-500 text-center p-4 bg-red-500/10 rounded-lg border border-red-500/30">
@@ -1174,13 +1190,15 @@ const MarketTab = ({ recaptchaRef }) => {
       {!loading && !error && tokens.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 grid-rows-[1fr_1fr] gap-3 h-[calc(100%-2.5rem)] md:overflow-hidden overflow-y-auto hide-scrollbar">
           {/* Top Left: Token Info */}
-          <div className="rounded-2xl p-4 md:p-4 backdrop-blur-lg bg-gray-900/30 border border-white/10 flex flex-col h-full max-h-[calc(80vh)] md:max-h-[calc(50vh-4rem)] min-h-[520px] md:min-h-[290px] relative shadow-glow-neon mt-0 md:mt-6">
+          <div className={`rounded-2xl p-4 md:p-4 border border-white/10 flex flex-col h-full max-h-[calc(80vh)] md:max-h-[calc(50vh-4rem)] min-h-[520px] md:min-h-[290px] relative ${isMobile ? 'bg-gray-900/30' : 'backdrop-blur-lg bg-gray-900/30 shadow-glow-neon'
+            }`}>
             {selectedToken ? (
               <div className="flex-1">
-                <div className="absolute top-4 right-4 w-28 sm:w-64 z-20" ref={dropdownRef}>
+                <div className="absolute top-4 right-4 w-28 sm:w-48 z-20" ref={dropdownRef}>
                   <button
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="text-white px-2 py-1 rounded-full text-[8px] md:text-[10px] flex items-center w-full border border-white/10 backdrop-blur-md bg-gray-900/50 hover:bg-white/10 transition-all duration-300 shadow-sm"
+                    className={`text-white px-2 py-1 p-1 rounded-xl text-[8px] md:text-[10px] flex items-center w-full border border-white/10 hover:bg-white/10 transition-all duration-300 shadow-sm ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md bg-gray-900/50'
+                      }`}
                     aria-label="Select token"
                   >
                     {selectedToken ? (
@@ -1188,7 +1206,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         <img
                           src={selectedToken.image}
                           alt={`${selectedToken.symbol} logo`}
-                          className="w-4 h-4 md:w-6 md:h-6 rounded-full mr-2"
+                          className="w-4 h-4 md:w-5 md:h-5 rounded-full mr-2"
                           onError={(e) => (e.target.src = '/fallback-image.png')}
                         />
                         {selectedToken.symbol?.toUpperCase()}/USD
@@ -1199,7 +1217,8 @@ const MarketTab = ({ recaptchaRef }) => {
                     <span className="ml-auto text-xs md:text-sm">{isDropdownOpen ? '▲' : '▼'}</span>
                   </button>
                   {isDropdownOpen && (
-                    <div className="absolute bg-black backdrop-blur-lg rounded-lg mt-2 w-full max-h-64 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
+                    <div className={`absolute bg-black rounded-lg mt-2 w-full max-h-64 overflow-y-auto custom-scrollbar border border-white/10 ${isMobile ? '' : 'backdrop-blur-lg shadow-glow-neon'
+                      }`}>
                       <input
                         type="text"
                         placeholder="Search token (e.g, BTC)"
@@ -1207,7 +1226,8 @@ const MarketTab = ({ recaptchaRef }) => {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onClick={(e) => e.stopPropagation()}
                         ref={searchInputRef}
-                        className="bg-gray-800/50 text-white px-3 py-1.5 w-full rounded-t-lg text-[8px] md:text-[10px] border-b border-white/10 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50"
+                        className={`text-white px-3 py-1.5 w-full rounded-t-lg text-[8px] md:text-[10px] border-b border-white/10 focus:outline-none ${isMobile ? 'bg-black' : 'bg-black backdrop-blur-md'
+                          }`}
                       />
                       <div className="p-1">
                         {(searchQuery ? searchResults : tokens.slice(0, 30)).map((token) => (
@@ -1387,7 +1407,8 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          <div className="rounded-2xl p-4 md:p-6 backdrop-blur-lg bg-gray-900/30 border border-white/10 flex flex-col h-full max-h-[calc(80vh)] md:max-h-[calc(50vh-4rem)] min-h-[450px] md:min-h-[300px] relative shadow-glow-neon mt-0 md:mt-6">
+          <div className={`rounded-2xl p-4 md:p-6 border border-white/10 flex flex-col h-full max-h-[calc(80vh)] md:max-h-[calc(50vh-4rem)] min-h-[450px] md:min-h-[300px] relative ${isMobile ? 'bg-gray-900/30' : 'backdrop-blur-lg bg-gray-900/30 shadow-glow-neon'
+            }`}>
             <div className="absolute top-4 right-4 flex items-center group">
               <img
                 src="/logos/CG.png"
@@ -1410,26 +1431,28 @@ const MarketTab = ({ recaptchaRef }) => {
               <div className="flex space-x-2 justify-center mt-8 md:mt-0">
                 <motion.button
                   onClick={debouncedHandleAnalysis}
-                  className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${selectedToken && dailyMarketInteractions < 5
-                    ? 'text-white hover:bg-white/10 hover:shadow-glow'
-                    : 'text-gray-400 cursor-not-allowed opacity-50'
+                  className={`px-4 py-1.5 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${isMobile ? 'bg-gray-900 rounded-lg' : 'backdrop-blur-md rounded-xl'
+                    } ${selectedToken && dailyMarketInteractions < 5
+                      ? 'text-white hover:bg-white/10'
+                      : 'text-gray-400 cursor-not-allowed opacity-50'
                     }`}
                   disabled={!selectedToken || dailyMarketInteractions >= 5}
                   aria-label="Analyze token"
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={{ scale: 1 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   Analyze
                 </motion.button>
                 <motion.button
                   onClick={debouncedHandlePrediction}
-                  className={`px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all duration-300 border border-neon-blue/50 backdrop-blur-md ${selectedToken && dailyMarketInteractions < 5
-                    ? 'text-neon-blue hover:bg-neon-blue/10 hover:shadow-glow'
-                    : 'text-gray-400 cursor-not-allowed opacity-50'
+                  className={`px-4 py-1.5 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-neon-blue/50 ${isMobile ? 'bg-gray-900 rounded-lg' : 'backdrop-blur-md rounded-xl'
+                    } ${selectedToken && dailyMarketInteractions < 5
+                      ? 'text-neon-blue hover:bg-neon-blue/10'
+                      : 'text-gray-400 cursor-not-allowed opacity-50'
                     }`}
                   disabled={!selectedToken || dailyMarketInteractions >= 5}
                   aria-label="Predict token price"
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={{ scale: 1 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   Predict
@@ -1441,9 +1464,10 @@ const MarketTab = ({ recaptchaRef }) => {
                 <motion.button
                   key={range}
                   onClick={() => setTimeRange(['0.5', '1', '7', '30', '90', '365'][idx])}
-                  className={`px-2 py-1 rounded-sm text-[8px] md:text-[9px] transition-all duration-300 border border-white/20 backdrop-blur-md ${timeRange === ['0.5', '1', '7', '30', '90', '365'][idx]
-                    ? 'bg-white text-black'
-                    : 'bg-gray-900/50 text-white hover:bg-white/10'
+                  className={`px-2 py-1 rounded-sm text-[8px] md:text-[9px] transition-all duration-300 border border-white/20 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md'
+                    } ${timeRange === ['0.5', '1', '7', '30', '90', '365'][idx]
+                      ? 'bg-white text-black'
+                      : 'bg-gray-900/50 text-white hover:bg-white/10'
                     }`}
                   aria-label={`Select ${range} time range`}
                   whileHover={{ scale: 1.05 }}
@@ -1458,7 +1482,7 @@ const MarketTab = ({ recaptchaRef }) => {
             ) : priceHistory && priceHistory.length > 0 ? (
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={priceHistory} margin={{ top: 10, right: 20, bottom: -10, left: 0 }}>
+                  <AreaChart data={priceHistory} margin={{ top: 10, right: 20, bottom: -20, left: 0 }}>
                     <CartesianGrid stroke="#404040" strokeDasharray="4 4" opacity={0.3} />
                     <XAxis
                       dataKey="title"
@@ -1523,11 +1547,12 @@ const MarketTab = ({ recaptchaRef }) => {
             )}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-gray-900/30 backdrop-blur-lg flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(70vh)] shadow-glow-neon">
-            {isLoadingOnChain && <LoadingOverlay message="Loading on-chain data..." />}
+          <div className={`rounded-2xl border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(70vh)] sm:min-h-[300px] min-h-[500px] overflow-auto hide-scrollbar ${isMobile ? 'bg-gray-900/30' : 'backdrop-blur-lg bg-gray-900/30 shadow-glow-neon mb-12'
+            }`}>
             {selectedToken ? (
               <div className="flex-1 overflow-y-auto hide-scrollbar rounded-2xl">
-                <div className="h-[5vh] md:h-[5vh] flex justify-center items-center sticky top-0 p-1 backdrop-blur-lg bg-gray-900/50 border-b border-white/10">
+                <div className={`h-[5vh] md:h-[5vh] flex justify-center items-center sticky top-0 p-1 border-b border-white/10 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-lg bg-gray-900/50'
+                  }`}>
                   <h4 className="text-[11px] md:text-xs font-bold text-white text-center uppercase tracking-wide flex items-center gap-2">
                     Top 100
                     {selectedToken.image && (
@@ -1547,11 +1572,11 @@ const MarketTab = ({ recaptchaRef }) => {
                     {selectedToken.symbol?.toUpperCase()} Holders
                   </h4>
                 </div>
-
                 {onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                   <div className="relative overflow-x-auto md:max-h-[calc(100%-3rem)] max-h-[calc(70vh-6rem)] overflow-y-auto hide-scrollbar">
                     <table className={`w-full ${isMobile ? 'text-[10px]' : 'text-sm'}`}>
-                      <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10">
+                      <thead className={`sticky top-0 z-10 border-b border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
+                        }`}>
                         <tr className=" bg-gray-900/50">
                           <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'min-w-[200px]' : 'min-w-[300px]'}`}>
                             <div className="flex items-center gap-2 text-[10px] md:text-xs">
@@ -1659,21 +1684,24 @@ const MarketTab = ({ recaptchaRef }) => {
                 )}
               </div>
             ) : (
-              <p className="text-sm text-gray-400 text-center flex-1 p-4">Please select a token to view holders.</p>
+              <p className={`text-gray-400 text-center flex-1 p-4 ${isMobile ? 'text-sm' : 'text-sm'}`}>Please select a token to view holders.</p>
             )}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-gray-900/30 backdrop-blur-lg flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(70vh-3rem)] sm:min-h-[300px] min-h-[500px] overflow-auto hide-scrollbar mb-12 shadow-glow-neon">
+          <div className={`rounded-2xl border border-white/10 flex flex-col h-full md:max-h-[calc(50vh-4rem)] max-h-[calc(70vh-3rem)] sm:min-h-[300px] min-h-[500px] overflow-auto hide-scrollbar mb-12 ${isMobile ? 'bg-gray-900/30' : 'backdrop-blur-lg bg-gray-900/30 shadow-glow-neon'
+            }`}>
             {selectedToken ? (
               <>
                 <div className={`flex justify-between items-center p-2 text-sm text-gray-400 ${isMobile ? 'text-[10px]' : ''}`}>
-                  <div className="relative flex items-center bg-gray-900/50 backdrop-blur-md rounded-lg overflow-hidden border border-white/10 m-2">
+                  <div className={`relative flex items-center rounded-lg overflow-hidden border border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'
+                    } m-2`}>
                     <motion.button
                       onClick={() => {
                         setActiveMarketTab('cex');
                         setShowTrades(false);
                       }}
-                      className={`relative px-2 py-1 text-[10px] md:text-xs font-medium transition-all duration-300 ${activeMarketTab === 'cex' ? 'bg-white text-black' : 'text-white hover:bg-white/10'}`}
+                      className={`relative px-2 py-1 text-[10px] md:text-[11px] font-medium transition-all duration-300 ${activeMarketTab === 'cex' ? 'bg-white text-black' : 'text-white hover:bg-white/10'
+                        }`}
                       style={{ clipPath: 'polygon(0 0, 80% 0, 100% 100%, 0% 100%)' }}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -1682,7 +1710,8 @@ const MarketTab = ({ recaptchaRef }) => {
                     </motion.button>
                     <motion.button
                       onClick={handleDexTabClick}
-                      className={`relative px-2 py-1 text-[10px] md:text-xs font-medium transition-all duration-300 ${activeMarketTab === 'dex' ? 'bg-white text-black' : 'text-white hover:bg-white/10'}`}
+                      className={`relative px-2 py-1 text-[10px] md:text-[11px] font-medium transition-all duration-300 ${activeMarketTab === 'dex' ? 'bg-white text-black' : 'text-white hover:bg-white/10'
+                        }`}
                       style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 20% 100%)' }}
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -1699,14 +1728,14 @@ const MarketTab = ({ recaptchaRef }) => {
                     </span>
                   </span>
                 </div>
-
                 {activeMarketTab === 'cex' ? (
                   <>
                     {tickerError && <p className={`text-red-500 text-center flex-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>{tickerError}</p>}
                     {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
                       <div className="relative overflow-x-auto md:max-h-[calc(100%-2rem)] max-h-[calc(70vh-6rem)] overflow-y-auto hide-scrollbar">
                         <table className={`w-full table-fixed ${isMobile ? 'text-[10px]' : 'text-[11px]'}`}>
-                          <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10">
+                          <thead className={`sticky top-0 z-10 border-b border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
+                            }`}>
                             <tr>
                               <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
                                 <div className="flex items-center gap-2">
@@ -1756,7 +1785,7 @@ const MarketTab = ({ recaptchaRef }) => {
                                 key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}
                                 className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
                               >
-                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px] text-[10px]'}`}>
                                   <div className="flex items-center gap-1">
                                     {ticker.market.logo && (
                                       <img
@@ -1770,24 +1799,24 @@ const MarketTab = ({ recaptchaRef }) => {
                                       href={ticker.trade_url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className={`text-neon-blue hover:underline truncate ${isMobile ? 'max-w-[40px]' : 'max-w-[60px]'}`}
+                                      className={`text-neon-blue hover:underline truncate ${isMobile ? 'max-w-[40px] text-[9px]' : 'max-w-[60px]'}`}
                                       title={ticker.market.name}
                                     >
                                       {ticker.market.name}
                                     </a>
                                   </div>
                                 </td>
-                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[40px] min-w-[40px] max-w-[40px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
+                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[40px] min-w-[40px] max-w-[40px] text-[9px]' : 'w-[60px] min-w-[60px] max-w-[60px] text-[10px]'}`}>
                                   <span className="truncate">{ticker.base}/{ticker.target}</span>
                                 </td>
-                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[50px] min-w-[50px] max-w-[50px]' : 'w-[80px] min-w-[80px] max-w-[80px]'}`}>
+                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[50px] min-w-[50px] max-w-[50px] text-[9px]' : 'w-[80px] min-w-[80px] max-w-[80px] text-[10px]'}`}>
                                   <span className="truncate">
                                     {ticker.converted_last.usd != null
                                       ? formatPrice(ticker.converted_last.usd)
                                       : 'N/A'}
                                   </span>
                                 </td>
-                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px] text-[9px]' : 'w-[100px] min-w-[100px] max-w-[100px] text-[10px]'}`}>
                                   <span className="truncate">
                                     ${ticker.converted_volume.usd?.toLocaleString('en-US', {
                                       minimumFractionDigits: 0,
@@ -1795,7 +1824,7 @@ const MarketTab = ({ recaptchaRef }) => {
                                     }) || 'N/A'}
                                   </span>
                                 </td>
-                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[100px] min-w-[100px] max-w-[100px]'}`}>
+                                <td className={`px-2 py-1.5 text-gray-200 overflow-hidden ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px] text-[9px]' : 'w-[100px] min-w-[100px] max-w-[100px] text-[10px]'}`}>
                                   <span className="truncate">
                                     {ticker.last_traded_at
                                       ? new Date(ticker.last_traded_at).toLocaleTimeString('en-US', {
@@ -1824,7 +1853,8 @@ const MarketTab = ({ recaptchaRef }) => {
                     {!isLoadingDex && !dexError && dexData.trades.length > 0 ? (
                       <div className="relative overflow-x-auto md:max-h-[calc(100%-2rem)] max-h-[calc(70vh-6rem)] overflow-y-auto hide-scrollbar">
                         <table className={`w-full table-fixed ${isMobile ? 'text-[10px]' : 'text-[10px]'}`}>
-                          <thead className="sticky top-0 bg-gray-900/50 backdrop-blur-lg z-10 border-b border-white/10">
+                          <thead className={`sticky top-0 z-10 border-b border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
+                            }`}>
                             <tr>
                               <th className={`px-2 py-1.5 text-white text-left font-medium ${isMobile ? 'w-[60px] min-w-[60px] max-w-[60px]' : 'w-[60px] min-w-[60px] max-w-[60px]'}`}>
                                 <div className="flex items-center gap-2">
@@ -2116,55 +2146,57 @@ const MarketTab = ({ recaptchaRef }) => {
           />
 
           <Modal
-            isOpen={!!analysis}
-            onClose={() => {
-              setAnalysis(null);
-              setAnalysisLinks([]);
-            }}
-            title="Analysis"
-            content={analysis}
-            links={analysisLinks}
-          />
-          <Modal
-            isOpen={!!prediction}
-            onClose={() => setPrediction(null)}
-            title="Prediction"
-            content={prediction}
-          />
-          <Modal
-            isOpen={!!selectedPool}
-            onClose={() => setSelectedPool(null)}
-            title={`Pool Details`}
-            content={renderPoolModalContent()}
-            links={[`https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${selectedPool?.address}`]}
-          />
+          isOpen={!!analysis}
+          onClose={() => {
+            setAnalysis(null);
+            setAnalysisLinks([]);
+          }}
+          title="Analysis"
+          content={analysis}
+          links={analysisLinks}
+          isMobile={isMobile}
+        />
+        <Modal
+          isOpen={!!prediction}
+          onClose={() => setPrediction(null)}
+          title="Prediction"
+          content={prediction}
+          isMobile={isMobile}
+        />
+        <Modal
+          isOpen={!!selectedPool}
+          onClose={() => setSelectedPool(null)}
+          title="Pool Details"
+          content={renderPoolModalContent()}
+          links={[`https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${selectedPool?.address}`]}
+          isMobile={isMobile}
+        />
           {isAnalyzing && <LoadingOverlay message="Analyzing token..." />}
           {isPredicting && <LoadingOverlay message="Predicting price trend..." />}
         </div>
       )}
       <ToastContainer position="top-center" autoClose={5000} />
       <style jsx>{`
-  .scanner-container {
-    /* Existing styles */
-  }
-  .scanner-container.horizontal::after,
-  .scanner-container.vertical::after {
-    /* Existing animation styles */
-  }
-  .animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-  @keyframes pulse {
-    0%, 100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
-  }
-`}</style>
+        .scanner-container {
+          /* Existing styles */
+        }
+        .scanner-container.horizontal::after,
+        .scanner-container.vertical::after {
+          /* Existing animation styles */
+        }
+        .animate-pulse {
+          animation: ${isMobile ? 'none' : 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+        }
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+        }
+      `}</style>
     </motion.div>
-
   );
 };
 
