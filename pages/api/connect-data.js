@@ -19,6 +19,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://app.xynapseai.net');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Credentials', 'true'); // Thêm để hỗ trợ credentials
 
   // Xử lý preflight request (OPTIONS)
   if (req.method === 'OPTIONS') {

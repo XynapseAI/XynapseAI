@@ -13,12 +13,12 @@ export default {
       {
         protocol: 'https',
         hostname: 'xynapseai.net',
-        pathname: '/logos/**',
+        pathname: '/**', // Hỗ trợ tất cả đường dẫn trên xynapseai.net
       },
       {
         protocol: 'https',
         hostname: 'app.xynapseai.net',
-        pathname: '/logos/**',
+        pathname: '/**', // Hỗ trợ tất cả đường dẫn trên app.xynapseai.net
       },
     ],
   },
