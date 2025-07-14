@@ -3,7 +3,7 @@
 export default {
   reactStrictMode: true,
   images: {
-    domains: ['ipfs.io', 'pbs.twimg.com', 'localhost', 'lh3.googleusercontent.com', 'xynapseai.net', 'app.xynapseai.net', 'api.xynapseai.net'],
+    domains: ['ipfs.io', 'pbs.twimg.com', 'localhost', 'lh3.googleusercontent.com', 'xynapseai.net', 'app.xynapseai.net'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -21,8 +21,10 @@ export default {
         pathname: '/**',
       },
     ],
-    loader: 'default', // Sử dụng Next.js Image Optimization mặc định
-    path: '/_next/image', // Đường dẫn tối ưu hóa hình ảnh
+    loader: 'default',
+    path: '/_next/image',
+    // Thêm để hỗ trợ file cục bộ
+    unoptimized: false, // Bật tối ưu hóa, nhưng có thể thử true nếu vẫn lỗi
   },
   async rewrites() {
     return [
