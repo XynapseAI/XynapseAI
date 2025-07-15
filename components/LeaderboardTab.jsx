@@ -188,7 +188,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={`font-jetbrains w-full max-w-10xl mx-auto h-[calc(100vh)] overflow-hidden ${
+      className={`font-jetbrains w-full mt-12 max-w-10xl mx-auto h-[calc(100vh)] overflow-hidden ${
         isMobile ? 'bg-galaxy' : 'bg-galaxy'
       }`}
     >

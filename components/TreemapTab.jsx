@@ -540,7 +540,7 @@ export default function TreemapTab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="font-jetbrains w-full max-w-10xl mx-auto bg-galaxy backdrop-blur-xl  p-4 md:p-6 shadow-2xl h-[calc(100vh)] overflow-hidden"
+      className="font-jetbrains w-full max-w-10xl mx-auto bg-galaxy backdrop-blur-xl  p-4 md:p-6 mt-6 shadow-2xl h-[calc(100vh)] overflow-hidden"
     >
       <div className="flex flex-col sm:flex-row items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2 w-full sm:w-auto">

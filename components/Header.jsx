@@ -1,28 +1,22 @@
-'use client';
-
+// components/Header.jsx
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { Power } from 'lucide-react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import MatrixHoverEffect from './MatrixHoverEffect';
 
 export default function Header({ activeTab, setActiveTab, handleSignOut }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
-  const router = useRouter();
 
   const tabs = [
-    { id: 'leaderboard', label: 'Leaderboard' },
-    { id: 'point', label: 'Points' },
-    { id: 'ai', label: 'AI' },
-    { id: 'task', label: 'Tasks' },
-    { id: 'profile', label: 'Profile' },
     { id: 'market', label: 'Market' },
+    { id: 'ai', label: 'AI' },
+    { id: 'point', label: 'Point' },
+    { id: 'leaderboard', label: 'Leaderboard' },
+    { id: 'task', label: 'Task' },
+    { id: 'profile', label: 'Profile' },
     { id: 'treemap', label: 'Treemap' },
   ];
 
-  // Handle clicks outside the mobile menu to close it
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -33,14 +27,70 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Handle tab navigation
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
-    router.push(`/dashboard/${tabId}`);
     setIsMenuOpen(false);
   };
 
-  // Animation variants for mobile menu toggle
+  const handleMouseEnter = (e) => {
+    const container = e.currentTarget.querySelector('.matrix-text');
+    if (container) {
+      container.classList.add('active');
+      const spans = container.querySelectorAll('span');
+      const positions = Array.from(spans).map((span) => span.offsetLeft);
+      const charCount = spans.length;
+
+      const shuffledIndices1 = Array.from({ length: charCount }, (_, i) => i);
+      const shuffledIndices2 = Array.from({ length: charCount }, (_, i) => i);
+      const shuffledIndices3 = Array.from({ length: charCount }, (_, i) => i);
+      for (let i = charCount - 1; i > 0; i--) {
+        const j1 = Math.floor(Math.random() * (i + 1));
+        const j2 = Math.floor(Math.random() * (i + 1));
+        const j3 = Math.floor(Math.random() * (i + 1));
+        [shuffledIndices1[i], shuffledIndices1[j1]] = [shuffledIndices1[j1], shuffledIndices1[i]];
+        [shuffledIndices2[i], shuffledIndices2[j2]] = [shuffledIndices2[j2], shuffledIndices2[i]];
+        [shuffledIndices3[i], shuffledIndices3[j3]] = [shuffledIndices3[j3], shuffledIndices3[i]];
+      }
+
+      spans.forEach((span, index) => {
+        if (span.textContent !== '\u00A0') {
+          const targetIndex1 = shuffledIndices1[index];
+          const targetIndex2 = shuffledIndices2[index];
+          const targetIndex3 = shuffledIndices3[index];
+          const offset1 = positions[targetIndex1] - positions[index];
+          const offset2 = positions[targetIndex2] - positions[index];
+          const offset3 = positions[targetIndex3] - positions[index];
+
+          span.style.setProperty('--shuffle-offset-1', `${offset1}px`);
+          span.style.setProperty('--shuffle-offset-2', `${offset2}px`);
+          span.style.setProperty('--shuffle-offset-3', `${offset3}px`);
+
+          span.classList.add(
+            'animate-matrix-flip',
+            'animate-flicker',
+            'animate-shuffle-position',
+            `animation-delay-${(index % 13) + 1}`
+          );
+        }
+      });
+
+      setTimeout(() => {
+        container.classList.remove('active');
+        spans.forEach((span) => {
+          span.classList.remove(
+            'animate-matrix-flip',
+            'animate-flicker',
+            'animate-shuffle-position',
+            ...Array.from(span.classList).filter((c) => c.startsWith('animation-delay-'))
+          );
+          span.style.removeProperty('--shuffle-offset-1');
+          span.style.removeProperty('--shuffle-offset-2');
+          span.style.removeProperty('--shuffle-offset-3');
+        });
+      }, 400);
+    }
+  };
+
   const lineVariants = {
     closed: { rotate: 0, y: 0, opacity: 1, transition: { duration: 0.3 } },
     openTop: { rotate: 45, y: 8, transition: { duration: 0.3 } },
@@ -48,20 +98,25 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
     hidden: { opacity: 0, transition: { duration: 0.3 } },
   };
 
-  // Animation variants for mobile menu
   const menuVariants = {
     closed: { x: '-100%', opacity: 0, transition: { duration: 0.3, ease: 'easeInOut' } },
     open: { x: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeInOut' } },
   };
 
+  const renderMatrixText = (text) => {
+    return text.split('').map((char, index) => (
+      <span
+        key={index}
+        className={`inline-block transform-style-3d transition-transform-opacity duration-300 ease-in-out underline underline-offset-2 ${char === ' ' ? '' : `animation-delay-${(index % 13) + 1}`
+          }`}
+      >
+        {char === ' ' ? '\u00A0' : char}
+      </span>
+    ));
+  };
+
   return (
     <header className="h-[5vh] sm:h-[6vh] bg-galaxy border-b rounded-b-xl p-3 flex justify-between items-center sticky top-[-10px] z-20 font-jetbrains">
-      {/* Logo */}
-      <Link href="/">
-        <img src="/logos/logo-landscape.png" alt="Xynapse Logo" className="h-8 sm:h-10" />
-      </Link>
-
-      {/* Mobile Menu Toggle */}
       <div className="block sm:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -86,31 +141,32 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
         </button>
       </div>
 
-      {/* Desktop Navigation */}
-      <nav className="hidden sm:flex items-center space-x-2">
+      <div className="hidden sm:flex items-center space-x-2">
         {tabs.map((tab, index) => (
           <div key={tab.id} className="flex items-center">
             <motion.button
-              onClick={() => handleTabClick(tab.id)}
+              onClick={() => setActiveTab(tab.id)}
+              onMouseEnter={handleMouseEnter}
               className={`group px-3 py-1.5 text-xs font-medium transition-all duration-300 text-white backdrop-blur-md perspective-1000 ${
-                activeTab === tab.id ? 'bg-gray-400 text-black' : 'hover:bg-white/10'
+                activeTab === tab.id ? 'bg-gray-400 text-black' : ''
               }`}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <MatrixHoverEffect text={tab.label} hoverColor="#00BFFF" />
+              <span className="matrix-text inline-block underline underline-offset-2">
+                {renderMatrixText(tab.label)}
+              </span>
             </motion.button>
             {index < tabs.length - 1 && (
               <span className="h-6 w-px bg-white/30 mx-2"></span>
             )}
           </div>
         ))}
-      </nav>
+      </div>
 
-      {/* Desktop Sign-Out Button */}
       <motion.button
         onClick={handleSignOut}
-        className="hidden sm:flex fixed bottom-4 right-4 sm:static w-8 h-8 rounded-full text-red-500 flex items-center justify-center backdrop-blur-md z-50 mr-4"
+        className="hidden sm:flex fixed bottom-4 right-4 sm:static w-8 h-8 rounded-full text-red flex items-center justify-center backdrop-blur-md z-50 mr-4"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.9 }}
         aria-label="Sign out"
@@ -118,7 +174,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
         <Power size={20} />
       </motion.button>
 
-      {/* Mobile Menu */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
@@ -144,13 +199,16 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
                 <div key={tab.id} className="flex flex-col">
                   <motion.button
                     onClick={() => handleTabClick(tab.id)}
-                    className={`group w-2/3 text-left px-2 py-1 md:py-2 text-[10px] md:text-xs font-medium transition-all duration-300 bg-white/10 text-white backdrop-blur-md hover:bg-white/15 hover:shadow-glow-neon perspective-1000 ${
-                      activeTab === tab.id ? 'bg-white text-black' : ''
+                    onMouseEnter={handleMouseEnter}
+                    className={`group w-1/3 text-left px-2 py-1 md:py-2 text-[10px] md:text-xs font-medium transition-all duration-300 bg-black/80 text-white backdrop-blur-md ${
+                      activeTab === tab.id ? 'bg-gray-500 text-black' : ''
                     }`}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
                   >
-                    <MatrixHoverEffect text={tab.label} hoverColor="#00BFFF" />
+                    <span className="matrix-text inline-block underline underline-offset-2">
+                      {renderMatrixText(tab.label)}
+                    </span>
                   </motion.button>
                   {index < tabs.length - 1 && (
                     <span className="w-full h-px bg-white/30 my-2"></span>
@@ -160,7 +218,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
             </nav>
             <motion.button
               onClick={handleSignOut}
-              className="self-end mt-4 w-8 h-8 rounded-full text-red-500 flex items-center justify-center backdrop-blur-md"
+              className="self-end mt-4 w-8 h-8 rounded-full text-red flex items-center justify-center backdrop-blur-md"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.9 }}
               aria-label="Sign out"
@@ -171,7 +229,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
         )}
       </AnimatePresence>
 
-      {/* Mobile Menu Backdrop */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
@@ -184,12 +241,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
           />
         )}
       </AnimatePresence>
-
-      <style jsx>{`
-        .shadow-glow-neon {
-          box-shadow: 0 0 8px rgba(255, 255, 255, 0.3), 0 0 16px rgba(255, 255, 255, 0.1);
-        }
-      `}</style>
     </header>
   );
 }

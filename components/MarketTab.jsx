@@ -1059,10 +1059,10 @@ const MarketTab = ({ recaptchaRef }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className={`font-jetbrains w-full p-2 max-w-9xl mx-auto h-[calc(100vh)] overflow-hidden ${isMobile ? 'bg-galaxy' : 'bg-galaxy backdrop-blur-xl shadow-2xl'
+      className={`font-jetbrains w-full max-w-9xl mx-auto mt-6 md:mt-6 p-4 md:p-6 rounded-2xl border border-white/10 h-[calc(100vh)] overflow-hidden ${isMobile ? 'bg-galaxy' : 'bg-galaxy backdrop-blur-xl shadow-2xl'
         }`}
     >
-      <div className="flex items-center justify-between mt-1 md:mt-2">
+      <div className="flex items-center justify-between mb-1 md:mb-2">
         <div className="flex items-center gap-1 px-2 py-1">
           <h2 className="text-[11px] md:text-xs font-bold text-white uppercase tracking-wide">Crypto</h2>
           <span className="text-gray-400">|</span>
@@ -1147,7 +1147,7 @@ const MarketTab = ({ recaptchaRef }) => {
             placeholder="Search wallet (0x...)"
             value={walletAddress}
             onChange={(e) => setWalletAddress(e.target.value)}
-            className={`text-white px-4 py-1 text-[8px] md:text-[10px] w-28 sm:w-72 border-b-2 border-b-white focus:outline-none transition-all duration-300 pr-10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'
+            className={`text-white px-4 py-1 rounded-full text-[8px] md:text-[10px] w-28 sm:w-72 border border-white/10 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 pr-10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'
               }`}
             aria-label="Wallet address"
             onKeyPress={(e) => {
@@ -1162,7 +1162,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 handleWalletSearch();
               }
             }}
-            className="absolute right-2 text-white p-1.5 transition-all duration-300"
+            className="absolute right-2 text-white p-1.5 rounded-full hover:bg-white/10 transition-all duration-300"
             aria-label="Search wallet"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
