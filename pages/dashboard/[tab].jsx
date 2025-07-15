@@ -43,9 +43,11 @@ export default function DashboardTab() {
   // Initialize component
   useEffect(() => {
     setIsMounted(true);
+    console.log('DashboardTab mounted, current tab:', tab);
     if (tab && validTabs.includes(tab)) {
       setActiveTab(tab);
     } else if (tab) {
+      console.log('Invalid tab, redirecting to leaderboard');
       router.replace(`${APP_URL}/dashboard/leaderboard`);
     }
   }, [tab, router]);
@@ -58,6 +60,7 @@ export default function DashboardTab() {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000);
+        console.log('Fetching top players from:', `${API_BASE_URL}/connect-data`);
         const response = await fetch(`${API_BASE_URL}/connect-data`, {
           headers: {
             'Content-Type': 'application/json',
@@ -88,6 +91,7 @@ export default function DashboardTab() {
   useEffect(() => {
     if (!isMounted || !session?.user?.id) {
       console.log('No session or user ID, skipping user data fetch', { status, userId: session?.user?.id });
+      setLoading(false);
       return;
     }
     async function initUserData() {
@@ -110,9 +114,9 @@ export default function DashboardTab() {
         }
         if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
 
+        console.log('Fetching user data for UID:', session.user.id);
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
-        console.log('Fetching user data for UID:', session.user.id);
         const response = await fetch(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
           method: 'GET',
           headers: {
@@ -150,6 +154,7 @@ export default function DashboardTab() {
       const signature = await signMessageAsync({ message });
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
+      console.log('Connecting wallet for UID:', session.user.id);
       const response = await fetch(`${API_BASE_URL}/verify-wallet`, {
         method: 'POST',
         headers: {
@@ -183,7 +188,7 @@ export default function DashboardTab() {
 
   const handleSignInTwitter = async () => {
     try {
-      console.log('Initiating Twitter sign-in');
+      console.log('Initiating Twitter sign-in, redirecting to:', `${APP_URL}/dashboard/leaderboard`);
       await signIn('twitter', { callbackUrl: `${APP_URL}/dashboard/leaderboard` });
     } catch (error) {
       console.error('Twitter sign-in error:', error);
@@ -193,7 +198,7 @@ export default function DashboardTab() {
 
   const handleSignOut = async () => {
     try {
-      console.log('Initiating sign-out');
+      console.log('Initiating sign-out, redirecting to:', `${APP_URL}`);
       await signOut({ callbackUrl: `${APP_URL}` });
       if (isConnected) disconnect();
       setUserData(null);
@@ -213,6 +218,7 @@ export default function DashboardTab() {
       const recaptchaToken = await recaptchaRef.current.executeAsync();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
+      console.log('Analyzing tweets for UID:', session.user.id);
       const response = await fetch(`${API_BASE_URL}/analyze-tweets`, {
         method: 'POST',
         headers: {
@@ -239,11 +245,24 @@ export default function DashboardTab() {
   };
 
   const handleTabChange = (newTab) => {
+    console.log('Changing tab to:', newTab);
     setActiveTab(newTab);
     router.push(`/dashboard/${newTab}`);
   };
 
   if (!isMounted) return null;
+
+  if (status === 'loading') {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
+        <Head>
+          <title>Loading...</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        </Head>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   if (status === 'unauthenticated') {
     return (

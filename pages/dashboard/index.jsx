@@ -15,10 +15,10 @@ export default function Dashboard() {
   useEffect(() => {
     console.log('Dashboard redirect check, status:', status);
     if (status === 'authenticated') {
-      console.log('Redirecting to dashboard/leaderboard');
+      console.log('Redirecting to:', `${APP_URL}/dashboard/leaderboard`);
       router.replace(`${APP_URL}/dashboard/leaderboard`);
     } else if (status === 'unauthenticated') {
-      console.log('Redirecting to auth/signin');
+      console.log('Redirecting to:', `${APP_URL}/auth/signin`);
       router.replace(`${APP_URL}/auth/signin`);
     }
   }, [status, router]);
