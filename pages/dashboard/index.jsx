@@ -1,3 +1,4 @@
+// pages/dashboard/index.jsx
 'use client';
 
 import { useEffect } from 'react';
@@ -11,11 +12,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      // Redirect to default tab (e.g., leaderboard)
       router.replace('/dashboard/leaderboard');
     } else if (status === 'unauthenticated') {
-      // Redirect to sign-in if not authenticated
-      router.push('/auth/signin');
+      router.replace('/auth/signin');
     }
   }, [status, router]);
 

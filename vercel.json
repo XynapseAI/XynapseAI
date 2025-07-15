@@ -21,7 +21,23 @@
       "destination": "/api/:path*"
     },
     {
+      "source": "/auth/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.xynapseai.net"
+        }
+      ],
+      "destination": "/auth/:path*"
+    },
+    {
       "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "xynapseai.net"
+        }
+      ],
       "destination": "/index"
     }
   ],
@@ -39,7 +55,11 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type,X-Recaptcha-Token,X-Internal-Token"
+          "value": "Content-Type,X-Recaptcha-Token,X-Internal-Token,Authorization"
+        },
+        {
+          "key": "Access-Control-Allow-Credentials",
+          "value": "true"
         }
       ]
     }

@@ -1,6 +1,6 @@
+// pages/api/sim.js
 import axios from 'axios';
 import winston from 'winston';
-import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
@@ -8,6 +8,7 @@ import Cors from 'cors';
 import { isAddress } from 'ethers';
 import { requireAuth } from './middleware/auth.js';
 
+// Logger
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
@@ -15,32 +16,60 @@ const logger = winston.createLogger({
     new winston.transports.Console(),
     ...(process.env.NODE_ENV !== 'production'
       ? [
-        new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-        new winston.transports.File({ filename: 'logs/combined.log' }),
-      ]
+          new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+          new winston.transports.File({ filename: 'logs/combined.log' }),
+        ]
       : []),
   ],
 });
 
-const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 100,
-  message: { error: 'Too many requests, please try again later.' },
-  keyGenerator: (req) => {
-    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
-    return ip;
+// CORS
+const cors = Cors({
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      process.env.NEXT_PUBLIC_APP_URL,
+      'http://localhost:3000',
+      'https://xynapse-ai.vercel.app',
+      'https://xynapseai.net',
+      'https://app.xynapseai.net',
+    ].filter(Boolean);
+    logger.info(`CORS check: Origin ${origin || 'undefined'}, Allowed origins: ${allowedOrigins}`);
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      logger.error(`CORS error: Origin ${origin} not allowed`, { allowedOrigins });
+      callback(new Error('Not allowed by CORS'));
+    }
   },
-  trustProxy: true,
+  methods: ['POST'],
 });
 
-const addressLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  keyGenerator: (req) => req.body?.address || 'unknown-address',
-  message: { error: 'Too many requests for this wallet address.' },
-  trustProxy: true,
-});
+// Rate Limiting (in-memory store)
+const requestCounts = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 phút
+const RATE_LIMIT_MAX = 100; // 100 yêu cầu/phút/IP
+const ADDRESS_RATE_LIMIT_MAX = 30; // 30 yêu cầu/phút/địa chỉ ví
 
+const rateLimitMiddleware = (req, limit, key) => {
+  const currentTime = Date.now();
+  const windowStart = currentTime - RATE_LIMIT_WINDOW_MS;
+  const requestKey = `${key}:${Math.floor(currentTime / RATE_LIMIT_WINDOW_MS)}`;
+  
+  const count = requestCounts.get(requestKey) || 0;
+  if (count >= limit) {
+    throw new Error(`Too many requests for ${key}`);
+  }
+  
+  requestCounts.set(requestKey, count + 1);
+  // Xóa các key cũ
+  for (const [k, v] of requestCounts) {
+    if (k.includes(key) && parseInt(k.split(':')[1]) < windowStart / RATE_LIMIT_WINDOW_MS) {
+      requestCounts.delete(k);
+    }
+  }
+};
+
+// Axios Retry
 axiosRetry(axios, {
   retries: 5,
   retryDelay: (retryCount) => Math.min(retryCount * 2000, 10000),
@@ -54,26 +83,7 @@ axiosRetry(axios, {
   },
 });
 
-const cors = Cors({
-  origin: (origin, callback) => {
-    const allowedOrigins = [
-      process.env.NEXT_PUBLIC_APP_URL,
-      'http://localhost:3000',
-      'https://xynapse-ai.vercel.app',
-      'https://app.xynapseai.net',
-      'https://xynapseai.net',
-    ].filter(Boolean);
-    logger.info(`CORS check: Origin ${origin || 'undefined'}, Allowed origins: ${allowedOrigins}`);
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      logger.error(`CORS error: Origin ${origin} not allowed`, { allowedOrigins });
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['POST'],
-});
-
+// Validation Rules
 const validate = [
   body('action')
     .isString()
@@ -168,44 +178,51 @@ export default async function handler(req, res) {
   const startTime = Date.now();
   logger.info(`Request to ${req.url} from IP ${ip}, body: ${JSON.stringify(req.body)}`);
 
+  // Áp dụng CORS
   try {
     await new Promise((resolve, reject) => {
       cors(req, res, (err) => (err ? reject(err) : resolve()));
     });
+  } catch (err) {
+    logger.error(`CORS error: ${err.message}`, { ip });
+    return res.status(403).json({ success: false, detail: 'Not allowed by CORS' });
+  }
 
-    helmet()(req, res, () => { });
+  // Áp dụng helmet
+  helmet()(req, res);
 
-    await Promise.all([
-      new Promise((resolve, reject) => limiter(req, res, (err) => (err ? reject(err) : resolve()))),
-      new Promise((resolve, reject) => addressLimiter(req, res, (err) => (err ? reject(err) : resolve()))),
-    ]);
+  // Áp dụng rate-limit thủ công
+  try {
+    rateLimitMiddleware(req, RATE_LIMIT_MAX, ip);
+    if (req.body.address) {
+      rateLimitMiddleware(req, ADDRESS_RATE_LIMIT_MAX, req.body.address);
+    }
   } catch (err) {
     logger.error(`Rate limit error: ${err.message}`, { ip });
-    return res.status(429).json({ detail: 'Too many requests, please try again later.' });
+    return res.status(429).json({ success: false, detail: 'Too many requests, please try again later.' });
   }
 
   if (req.method !== 'POST') {
     logger.warn(`Method not allowed: ${req.method}`, { ip });
-    return res.status(405).json({ detail: 'Method not allowed' });
+    return res.status(405).json({ success: false, detail: 'Method not allowed' });
   }
 
+  // Validation
   await Promise.all(validate.map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`, { ip });
-    return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
+    return res.status(400).json({ success: false, detail: 'Validation failed', errors: errors.array() });
   }
 
   const { chain, tokenAddress, action, decimalPlace = 18, address } = req.body;
 
   if (!process.env.SIM_API_KEY) {
-    logger.error('SIM_API_KEY is not configured');
-    return res.status(500).json({ detail: 'Server configuration error: Missing SIM_API_KEY' });
-  }
-  if (!process.env.NEXT_PUBLIC_APP_URL) {
-    logger.warn('NEXT_PUBLIC_APP_URL is not configured, falling back to default');
+    logger.error('SIM_API_KEY is not configured', { ip });
+    return res.status(500).json({ success: false, detail: 'Server configuration error: Missing SIM_API_KEY' });
   }
 
+  // Yêu cầu xác thực cho wallet-balances và transactions
   if (['wallet-balances', 'transactions'].includes(action)) {
     try {
       await new Promise((resolve, reject) => {
@@ -213,13 +230,14 @@ export default async function handler(req, res) {
       });
     } catch (err) {
       logger.error(`Authentication error: ${err.message}`, { ip });
-      return res.status(401).json({ detail: 'Unauthorized: Please log in.' });
+      return res.status(401).json({ success: false, detail: 'Unauthorized: Please log in.' });
     }
   }
 
-  if (['wallet-balances', 'transactions'].includes(action) && address && !isAddress(address)) {
+  // Validate EVM address
+  if (address && !isAddress(address)) {
     logger.warn(`Invalid EVM address: ${address}`, { ip });
-    return res.status(400).json({ detail: 'Invalid EVM address' });
+    return res.status(400).json({ success: false, detail: 'Invalid EVM address' });
   }
 
   try {
@@ -227,7 +245,7 @@ export default async function handler(req, res) {
       const chainId = CHAIN_ID_MAP[chain?.toLowerCase()];
       if (!chainId) {
         logger.warn(`Unsupported chain: ${chain}`, { ip });
-        return res.status(400).json({ detail: `Unsupported chain: ${chain}` });
+        return res.status(400).json({ success: false, detail: `Unsupported chain: ${chain}` });
       }
 
       const url = `https://api.sim.dune.com/v1/evm/token-holders/${chainId}/${tokenAddress}?limit=100`;
@@ -271,8 +289,8 @@ export default async function handler(req, res) {
       logger.info(`Processed top holders data: ${data.length} holders`, { ip });
       return res.status(200).json({ success: true, data });
     } else if (action === 'wallet-balances' && address) {
-      logger.info(`Processing wallet-balances for address: ${address}`, { ip });
       const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${SUPPORTED_CHAIN_IDS}&metadata=logo&limit=100`;
+      logger.info(`Calling Dune Sim API for wallet-balances: ${url}`, { ip });
       const response = await axios.get(url, {
         headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
         timeout: 15000,
@@ -301,8 +319,8 @@ export default async function handler(req, res) {
       logger.info(`Processed wallet balances data: ${data.length} tokens`, { ip });
       return res.status(200).json({ success: true, data });
     } else if (action === 'transactions' && address) {
-      logger.info(`Processing transactions for address: ${address}`, { ip });
       const url = `https://api.sim.dune.com/v1/evm/transactions/${address}?chain_ids=${SUPPORTED_CHAIN_IDS}&limit=100`;
+      logger.info(`Calling Dune Sim API for transactions: ${url}`, { ip });
       const response = await axios.get(url, {
         headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
         timeout: 15000,
@@ -330,7 +348,7 @@ export default async function handler(req, res) {
     }
 
     logger.warn(`Invalid parameters for action: ${action}`, { ip });
-    return res.status(400).json({ detail: `Invalid parameters for action: ${action}` });
+    return res.status(400).json({ success: false, detail: `Invalid parameters for action: ${action}` });
   } catch (error) {
     logger.error(`Dune Sim API error for action ${action}: ${error.message}`, {
       status: error.response?.status,
@@ -345,6 +363,6 @@ export default async function handler(req, res) {
         : status === 404
           ? 'Requested data not found.'
           : `Dune Sim API error: ${error.message}`;
-    return res.status(status).json({ detail });
+    return res.status(status).json({ success: false, detail });
   }
 }
