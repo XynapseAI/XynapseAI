@@ -1,4 +1,3 @@
-// pages/dashboard/index.jsx
 'use client';
 
 import { useEffect } from 'react';
@@ -6,20 +5,17 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useSession } from 'next-auth/react';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.xynapseai.net';
-
 export default function Dashboard() {
   const { status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    console.log('Dashboard redirect check, status:', status);
     if (status === 'authenticated') {
-      console.log('Redirecting to:', `${APP_URL}/dashboard/leaderboard`);
-      router.replace(`${APP_URL}/dashboard/leaderboard`);
+      // Redirect to default tab (e.g., leaderboard)
+      router.replace('/dashboard/leaderboard');
     } else if (status === 'unauthenticated') {
-      console.log('Redirecting to:', `${APP_URL}/auth/signin`);
-      router.replace(`${APP_URL}/auth/signin`);
+      // Redirect to sign-in if not authenticated
+      router.push('/auth/signin');
     }
   }, [status, router]);
 
