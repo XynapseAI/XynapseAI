@@ -6,15 +6,20 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useSession } from 'next-auth/react';
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.xynapseai.net';
+
 export default function Dashboard() {
   const { status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
+    console.log('Dashboard redirect check, status:', status);
     if (status === 'authenticated') {
-      router.replace('/dashboard/leaderboard');
+      console.log('Redirecting to dashboard/leaderboard');
+      router.replace(`${APP_URL}/dashboard/leaderboard`);
     } else if (status === 'unauthenticated') {
-      router.replace('/auth/signin');
+      console.log('Redirecting to auth/signin');
+      router.replace(`${APP_URL}/auth/signin`);
     }
   }, [status, router]);
 

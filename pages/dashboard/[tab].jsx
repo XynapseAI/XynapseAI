@@ -19,6 +19,7 @@ import ReCAPTCHA from 'react-google-recaptcha';
 import MatrixHoverEffect from '../../components/MatrixHoverEffect';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.xynapseai.net';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.xynapseai.net';
 
 export default function DashboardTab() {
   const { data: session, status } = useSession();
@@ -45,7 +46,7 @@ export default function DashboardTab() {
     if (tab && validTabs.includes(tab)) {
       setActiveTab(tab);
     } else if (tab) {
-      router.replace('/dashboard/leaderboard');
+      router.replace(`${APP_URL}/dashboard/leaderboard`);
     }
   }, [tab, router]);
 
@@ -85,7 +86,10 @@ export default function DashboardTab() {
 
   // Fetch user data
   useEffect(() => {
-    if (!isMounted || !session?.user?.id) return;
+    if (!isMounted || !session?.user?.id) {
+      console.log('No session or user ID, skipping user data fetch', { status, userId: session?.user?.id });
+      return;
+    }
     async function initUserData() {
       setLoading(true);
       try {
@@ -108,6 +112,7 @@ export default function DashboardTab() {
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
+        console.log('Fetching user data for UID:', session.user.id);
         const response = await fetch(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
           method: 'GET',
           headers: {
@@ -120,6 +125,7 @@ export default function DashboardTab() {
         clearTimeout(timeoutId);
         const result = await response.json();
         if (!response.ok) {
+          console.error('User fetch error:', result);
           throw new Error(`${result.detail || 'Unknown error'}${result.errors ? `: ${result.errors.map(e => e.msg).join(', ')}` : ''} (HTTP ${response.status})`);
         }
         setUserData(result.user);
@@ -177,7 +183,8 @@ export default function DashboardTab() {
 
   const handleSignInTwitter = async () => {
     try {
-      await signIn('twitter', { callbackUrl: '/dashboard/leaderboard' });
+      console.log('Initiating Twitter sign-in');
+      await signIn('twitter', { callbackUrl: `${APP_URL}/dashboard/leaderboard` });
     } catch (error) {
       console.error('Twitter sign-in error:', error);
       setError(`Failed to sign in with Twitter: ${error.message || 'System error'}`);
@@ -186,7 +193,8 @@ export default function DashboardTab() {
 
   const handleSignOut = async () => {
     try {
-      await signOut({ callbackUrl: '/' });
+      console.log('Initiating sign-out');
+      await signOut({ callbackUrl: `${APP_URL}` });
       if (isConnected) disconnect();
       setUserData(null);
       setError(null);
