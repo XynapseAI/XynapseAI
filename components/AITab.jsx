@@ -387,7 +387,7 @@ export default function AITab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={`font-jetbrains w-full h-full mx-auto bg-galaxy backdrop-blur-lg p-4 shadow-glow-neon ${isMobile ? 'h-[calc(60vh)]' : 'h-[calc(100vh)]'} flex flex-col overflow-hidden`}
+      className={`font-jetbrains w-full h-full mx-auto bg-galaxy backdrop-blur-lg shadow-glow-neon ${isMobile ? 'h-[calc(50vh)]' : 'h-[calc(100vh)] min-h-[calc(95vh)]'} flex flex-col overflow-hidden`}
     >
       {/* Header */}
       <div className="p-2 bg-gray-900/50 border-b border-white/10 flex items-center shrink-0 rounded-t-lg">
@@ -547,7 +547,7 @@ export default function AITab({ recaptchaRef }) {
         ))}
         {isLoading && (
           <div className="mb-2 flex justify-start">
-            <div className="max-w-[85%] p-3 bg-gray-900/50 text-white text-[9px] md:text-[10px] rounded-xl flex items-center backdrop-blur-lg border border-white/10 shadow-glow-neon">
+            <div className="max-w-[85%] p-3 bg-gray-900/50 text-white text-[9px] md:text-[10px] rounded-xl flex items-center backdrop-blur-lg">
               <div className="flex items-center gap-2">
                 <div className="relative w-6 h-6">
                   <div className="absolute inset-0 border-2 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>

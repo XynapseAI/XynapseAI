@@ -188,13 +188,13 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={`font-jetbrains w-full max-w-10xl mx-auto mt-6 md:mt-6 p-2 md:p-3  h-[calc(100vh)] overflow-hidden ${
+      className={`font-jetbrains w-full max-w-10xl mx-auto h-[calc(100vh)] overflow-hidden ${
         isMobile ? 'bg-galaxy' : 'bg-galaxy'
       }`}
     >
       <LoadingOverlay loadingStates={{ loading }} isMobile={isMobile} />
       <div className={`w-full rounded-xl p-2 md:p-3 ${
-        isMobile ? 'bg-gray-900' : 'backdrop-blur-lg '
+        isMobile ? 'backdrop-blur-lg' : 'backdrop-blur-lg'
       }`}>
         <h3 className="text-[12px] md:text-sm font-bold text-white mb-4 text-center uppercase tracking-wider">
           Top 100 Rankings

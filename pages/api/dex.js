@@ -17,7 +17,11 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 // CORS configuration with strict origin validation
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
+  'http://localhost:3000',
   'https://xynapse-ai.vercel.app',
+  'https://app.xynapseai.net',
+  'https://xynapseai.net',
+
 ].filter(Boolean);
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {

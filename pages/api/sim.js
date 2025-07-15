@@ -15,9 +15,9 @@ const logger = winston.createLogger({
     new winston.transports.Console(),
     ...(process.env.NODE_ENV !== 'production'
       ? [
-          new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-          new winston.transports.File({ filename: 'logs/combined.log' }),
-        ]
+        new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+        new winston.transports.File({ filename: 'logs/combined.log' }),
+      ]
       : []),
   ],
 });
@@ -60,6 +60,8 @@ const cors = Cors({
       process.env.NEXT_PUBLIC_APP_URL,
       'http://localhost:3000',
       'https://xynapse-ai.vercel.app',
+      'https://app.xynapseai.net',
+      'https://xynapseai.net',
     ].filter(Boolean);
     logger.info(`CORS check: Origin ${origin || 'undefined'}, Allowed origins: ${allowedOrigins}`);
     if (!origin || allowedOrigins.includes(origin)) {
@@ -171,7 +173,7 @@ export default async function handler(req, res) {
       cors(req, res, (err) => (err ? reject(err) : resolve()));
     });
 
-    helmet()(req, res, () => {});
+    helmet()(req, res, () => { });
 
     await Promise.all([
       new Promise((resolve, reject) => limiter(req, res, (err) => (err ? reject(err) : resolve()))),

@@ -171,7 +171,7 @@ export default function PointTab({ userData, error: propError, loading, handleAn
           <>
             <motion.div
               className="rounded-2xl border border-white/10 bg-gray-900/50 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon"
-              whileHover={{ scale: 1.01 }}
+              whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.99 }}
             >
               <h2 className="text-[12px] md:text-sm font-bold text-white mb-4 uppercase tracking-wider">Point History</h2>
@@ -233,8 +233,8 @@ export default function PointTab({ userData, error: propError, loading, handleAn
             </motion.div>
             <div className="flex-1 flex flex-col sm:flex-row gap-4">
               <motion.div
-                className="flex-1 rounded-2xl border border-white/10 bg-gray-900/50 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon hover:bg-gray-900/70 min-h-[150px]"
-                whileHover={{ scale: 1.02 }}
+                className="flex-1 rounded-2xl border border-white/10 bg-gray-900/50 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon min-h-[150px]"
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase tracking-wider">Total Points</h3>
@@ -254,8 +254,8 @@ export default function PointTab({ userData, error: propError, loading, handleAn
                 </motion.button>
               </motion.div>
               <motion.div
-                className="flex-1 rounded-2xl border border-white/10 bg-gray-900/50 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon hover:bg-gray-900/70 min-h-[150px] flex flex-col items-center justify-center"
-                whileHover={{ scale: 1.02 }}
+                className="flex-1 rounded-2xl border border-white/10 bg-gray-900/50 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon min-h-[150px] flex flex-col items-center justify-center"
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase tracking-wider">AI Points</h3>
@@ -271,8 +271,8 @@ export default function PointTab({ userData, error: propError, loading, handleAn
                 </div>
               </motion.div>
               <motion.div
-                className="flex-1 rounded-2xl border border-white/10 bg-gray-900/50 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon hover:bg-gray-900/70 min-h-[150px] flex flex-col items-center justify-center"
-                whileHover={{ scale: 1.02 }}
+                className="flex-1 rounded-2xl border border-white/10 bg-gray-900/50 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon min-h-[150px] flex flex-col items-center justify-center"
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase tracking-wider">Task Points</h3>

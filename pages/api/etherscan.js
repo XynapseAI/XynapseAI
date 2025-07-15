@@ -64,6 +64,8 @@ const cors = Cors({
             process.env.NEXT_PUBLIC_APP_URL,
             'http://localhost:3000',
             'https://xynapse-ai.vercel.app',
+            'https://app.xynapseai.net',
+            'https://xynapseai.net',
         ].filter(Boolean);
         logger.info(`CORS check: Origin ${origin || 'undefined'}, Allowed origins: ${allowedOrigins}`);
         if (!origin || allowedOrigins.includes(origin)) {
@@ -232,8 +234,8 @@ export default async function handler(req, res) {
                     symbol: chain === 'ethereum' ? 'ETH' : (chain === 'bnb' ? 'BNB' : 'Native'),
                     decimals: 18, // Native coin usually 18 decimals
                     amount: ethBalanceWei / Math.pow(10, 18),
-                    price_usd: 0, 
-                    value_usd: 0, 
+                    price_usd: 0,
+                    value_usd: 0,
                     logo: null,
                 }];
             } else {
