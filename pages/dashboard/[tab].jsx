@@ -177,7 +177,7 @@ export default function DashboardTab() {
 
   const handleSignInTwitter = async () => {
     try {
-      await signIn('twitter', { callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/leaderboard` });
+      await signIn('twitter', { callbackUrl: '/dashboard/leaderboard' });
     } catch (error) {
       console.error('Twitter sign-in error:', error);
       setError(`Failed to sign in with Twitter: ${error.message || 'System error'}`);
