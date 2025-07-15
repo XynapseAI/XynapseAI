@@ -62,7 +62,7 @@ const rateLimitMiddleware = (req, limit, key) => {
   
   requestCounts.set(requestKey, count + 1);
   // Xóa các key cũ
-  for (const [k, v] of requestCounts) {
+  for (const [k] of requestCounts) {
     if (k.includes(key) && parseInt(k.split(':')[1]) < windowStart / RATE_LIMIT_WINDOW_MS) {
       requestCounts.delete(k);
     }
