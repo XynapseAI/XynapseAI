@@ -1080,7 +1080,7 @@ const MarketTab = ({ recaptchaRef }) => {
             className={`text-white px-2 py-1 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 flex items-center gap-1 ${isMobile ? 'bg-gray-900/30' : 'backdrop-blur-md'
               } ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) || !selectedToken}
-            aria-label="Select chain"
+            aria-label="ETH"
           >
             {selectedChain ? (
               <>
@@ -1403,7 +1403,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 </div>
               </div>
             ) : (
-              <p className="text-[[10px]] md:text-xs text-gray-400 text-center flex-1">Please select a token to view details.</p>
+              <p className="text-[9px] md:text-[10px] text-gray-400 text-center flex-1">Please select a token to view details.</p>
             )}
           </div>
 
@@ -1541,7 +1541,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-sm text-gray-400 text-center flex-1">
+              <p className="text-[9px] md:text-[10px] text-gray-400 text-center flex-1">
                 {selectedToken ? 'No price data available for this token.' : 'Please select a token to view the chart.'}
               </p>
             )}
@@ -1684,7 +1684,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 )}
               </div>
             ) : (
-              <p className={`text-gray-400 text-center flex-1 p-4 ${isMobile ? 'text-sm' : 'text-sm'}`}>Please select a token to view holders.</p>
+              <p className={`text-gray-400 text-center flex-1 p-4 ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>Please select a token to view holders.</p>
             )}
           </div>
 
@@ -1841,7 +1841,7 @@ const MarketTab = ({ recaptchaRef }) => {
                       </div>
                     ) : (
                       !isLoadingTickers && (
-                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
+                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>
                           No CEX data available for {selectedToken.symbol?.toUpperCase()}.
                         </p>
                       )
@@ -2105,7 +2105,7 @@ const MarketTab = ({ recaptchaRef }) => {
                       </div>
                     ) : (
                       !isLoadingDex && (
-                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-xs' : 'text-xs'}`}>
+                        <p className={`text-gray-400 text-center flex-1 ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>
                           No DEX data available for {selectedToken.symbol?.toUpperCase()} on {chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.
                         </p>
                       )
@@ -2114,7 +2114,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 )}
               </>
             ) : (
-              <p className={`text-gray-400 text-center flex-1 p-4 ${isMobile ? 'text-sm' : 'text-sm'}`}>Please select a token to view CEX/DEX data.</p>
+              <p className={`text-gray-400 text-center flex-1 p-4 ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>Please select a token to view CEX/DEX data.</p>
             )}
           </div>
 
