@@ -15,6 +15,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
     { id: 'task', label: 'Task' },
     { id: 'profile', label: 'Profile' },
     { id: 'treemap', label: 'Treemap' },
+    { id: 'watchlists', label: 'Watchlists' },
   ];
 
   useEffect(() => {

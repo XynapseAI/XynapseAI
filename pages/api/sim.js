@@ -46,7 +46,7 @@ axiosRetry(axios, {
   retryDelay: (retryCount) => Math.min(retryCount * 2000, 10000),
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
   onRetry: (retryCount, error) => {
-    logger.warn(`Retrying Dune API request (attempt ${retryCount})`, {
+    logger.log('warn', `Retrying Dune API request (attempt ${retryCount})`, {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -66,17 +66,21 @@ const cors = Cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      logger.error(`CORS error: Origin ${origin} not allowed`, { allowedOrigins });
+      logger.error(` C O R S error: Origin ${origin} not allowed`, { allowedOrigins });
       callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ['POST'],
 });
 
+const isValidSolanaAddress = (address) => {
+  return address && address.length === 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
+};
+
 const validate = [
   body('action')
     .isString()
-    .isIn(['top-holders', 'wallet-balances', 'transactions'])
+    .isIn(['top-holders', 'wallet-balances', 'transactions', 'collectibles'])
     .withMessage('Invalid action'),
   body('chain')
     .if(body('action').equals('top-holders'))
@@ -89,15 +93,27 @@ const validate = [
     .matches(/^0x[a-fA-F0-9]{40}$/)
     .withMessage('Token address must be a valid EVM address for top-holders'),
   body('address')
-    .if(body('action').isIn(['wallet-balances', 'transactions']))
+    .if(body('action').isIn(['wallet-balances', 'transactions', 'collectibles']))
     .notEmpty()
     .isString()
-    .matches(/^0x[a-fA-F0-9]{40}$/)
-    .withMessage('Wallet address must be a valid EVM address'),
+    .custom((value, { req }) => {
+      const { action } = req.body;
+      if (action === 'top-holders') return true;
+      const isEVM = isAddress(value);
+      const isSVM = isValidSolanaAddress(value);
+      if (!isEVM && !isSVM) {
+        throw new Error('Wallet address must be a valid EVM or Solana address');
+      }
+      return true;
+    }),
   body('decimalPlace')
     .optional({ nullable: true })
     .isInt({ min: 0 })
     .withMessage('Decimal place must be a non-negative integer'),
+  body('limit')
+    .optional({ nullable: true })
+    .isInt({ min: 1, max: 500 })
+    .withMessage('Limit must be an integer between 1 and 500'),
 ];
 
 const CHAIN_ID_MAP = {
@@ -184,28 +200,28 @@ export default async function handler(req, res) {
   }
 
   if (req.method !== 'POST') {
-    logger.warn(`Method not allowed: ${req.method}`, { ip });
+    logger.log('warn', `Method not allowed: ${req.method}`, { ip });
     return res.status(405).json({ detail: 'Method not allowed' });
   }
 
   await Promise.all(validate.map((validation) => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    logger.warn(`Validation errors: ${JSON.stringify(errors.array())}`, { ip });
+    logger.log('warn', `Validation errors: ${JSON.stringify(errors.array())}`, { ip });
     return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
   }
 
-  const { chain, tokenAddress, action, decimalPlace = 18, address } = req.body;
+  const { chain, tokenAddress, action, decimalPlace = 18, address, limit = 100 } = req.body;
 
   if (!process.env.SIM_API_KEY) {
     logger.error('SIM_API_KEY is not configured');
     return res.status(500).json({ detail: 'Server configuration error: Missing SIM_API_KEY' });
   }
   if (!process.env.NEXT_PUBLIC_APP_URL) {
-    logger.warn('NEXT_PUBLIC_APP_URL is not configured, falling back to default');
+    logger.log('warn', 'NEXT_PUBLIC_APP_URL is not configured, falling back to default');
   }
 
-  if (['wallet-balances', 'transactions'].includes(action)) {
+  if (['wallet-balances', 'transactions', 'collectibles'].includes(action)) {
     try {
       await new Promise((resolve, reject) => {
         requireAuth(req, res, (err) => (err ? reject(err) : resolve()));
@@ -216,20 +232,20 @@ export default async function handler(req, res) {
     }
   }
 
-  if (['wallet-balances', 'transactions'].includes(action) && address && !isAddress(address)) {
-    logger.warn(`Invalid EVM address: ${address}`, { ip });
-    return res.status(400).json({ detail: 'Invalid EVM address' });
-  }
-
   try {
+    const isEVMAddress = isAddress(address);
+    const isSVMAddress = isValidSolanaAddress(address);
+    // Luôn sử dụng SUPPORTED_CHAIN_IDS nếu không có chain_ids cụ thể được cung cấp
+    const chainParam = isEVMAddress ? `chain_ids=${SUPPORTED_CHAIN_IDS}` : `chains=solana`;
+
     if (action === 'top-holders' && chain && tokenAddress) {
       const chainId = CHAIN_ID_MAP[chain?.toLowerCase()];
       if (!chainId) {
-        logger.warn(`Unsupported chain: ${chain}`, { ip });
+        logger.log('warn', `Unsupported chain: ${chain}`, { ip });
         return res.status(400).json({ detail: `Unsupported chain: ${chain}` });
       }
 
-      const url = `https://api.sim.dune.com/v1/evm/token-holders/${chainId}/${tokenAddress}?limit=100`;
+      const url = `https://api.sim.dune.com/v1/evm/token-holders/${chainId}/${tokenAddress}?limit=${limit}`;
       logger.info(`Calling Dune Sim API: ${url}`, { ip });
       const response = await axios.get(url, {
         headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
@@ -240,13 +256,13 @@ export default async function handler(req, res) {
       if (process.env.NODE_ENV === 'development') {
         console.log('Raw top holders response:', {
           totalSupply: response.data.totalSupply,
-          holders: response.data.holders.slice(0, 5),
+          holders: response.data.holders?.slice(0, 5),
         });
       }
 
       let effectiveDecimalPlace = Number(decimalPlace);
       if (isNaN(effectiveDecimalPlace) || effectiveDecimalPlace < 0 || effectiveDecimalPlace > 36) {
-        logger.warn(`Invalid decimal place: ${decimalPlace}, defaulting to 18`, { ip });
+        logger.log('warn', `Invalid decimal place: ${decimalPlace}, defaulting to 18`, { ip });
         effectiveDecimalPlace = 18;
       }
       const knownTokens = {
@@ -271,7 +287,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, data });
     } else if (action === 'wallet-balances' && address) {
       logger.info(`Processing wallet-balances for address: ${address}`, { ip });
-      const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${SUPPORTED_CHAIN_IDS}&metadata=logo&limit=100`;
+      const url = `https://api.sim.dune.com/v1/${isEVMAddress ? 'evm' : 'solana'}/balances/${address}?${chainParam}&metadata=logo&limit=${limit}`;
       const response = await axios.get(url, {
         headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
         timeout: 15000,
@@ -281,13 +297,13 @@ export default async function handler(req, res) {
       if (process.env.NODE_ENV === 'development') {
         console.log('Raw wallet balances response:', {
           wallet_address: response.data.wallet_address,
-          balances: response.data.balances.slice(0, 5),
+          balances: response.data.balances?.slice(0, 5),
         });
       }
 
       const data = response.data.balances?.map((balance) => ({
         chain: balance.chain,
-        chain_id: balance.chain_id,
+        chain_id: balance.chain_id || (isSVMAddress ? 'solana' : balance.chain_id),
         address: balance.address,
         symbol: balance.symbol || 'Unknown',
         decimals: balance.decimals || 18,
@@ -295,13 +311,14 @@ export default async function handler(req, res) {
         price_usd: balance.price_usd || 0,
         value_usd: balance.value_usd || 0,
         logo: balance.token_metadata?.logo || null,
+        low_liquidity: balance.low_liquidity || false,
       })) || [];
 
       logger.info(`Processed wallet balances data: ${data.length} tokens`, { ip });
       return res.status(200).json({ success: true, data });
     } else if (action === 'transactions' && address) {
       logger.info(`Processing transactions for address: ${address}`, { ip });
-      const url = `https://api.sim.dune.com/v1/evm/transactions/${address}?chain_ids=${SUPPORTED_CHAIN_IDS}&limit=100`;
+      const url = `https://api.sim.dune.com/v1/${isEVMAddress ? 'evm' : 'solana'}/transactions/${address}?${chainParam}&limit=${limit}`;
       const response = await axios.get(url, {
         headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
         timeout: 15000,
@@ -311,7 +328,7 @@ export default async function handler(req, res) {
       if (process.env.NODE_ENV === 'development') {
         console.log('Raw transactions response:', {
           wallet_address: response.data.wallet_address,
-          transactions: response.data.transactions.slice(0, 5),
+          transactions: response.data.transactions?.slice(0, 5),
         });
       }
 
@@ -326,9 +343,42 @@ export default async function handler(req, res) {
 
       logger.info(`Processed transactions data: ${data.length} transactions`, { ip });
       return res.status(200).json({ success: true, data });
+    } else if (action === 'collectibles' && address) {
+      logger.info(`Processing collectibles for address: ${address}`, { ip });
+      const effectiveLimit = Math.min(limit, 500); // Cap at Sim API max
+      const url = `https://api.sim.dune.com/v1/${isEVMAddress ? 'evm' : 'solana'}/collectibles/${address}?${chainParam}&limit=${effectiveLimit}`;
+      const response = await axios.get(url, {
+        headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
+        timeout: 15000,
+      });
+
+      logger.info(`Collectibles response for address ${address}: ${response.data.entries?.length || response.data.collectibles?.length || 0} collectibles, time: ${Date.now() - startTime}ms`, { ip });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Raw collectibles response:', {
+          wallet_address: response.data.address || response.data.wallet_address,
+          entries: response.data.entries?.slice(0, 5) || response.data.collectibles?.slice(0, 5),
+        });
+      }
+
+      const data = (response.data.entries || response.data.collectibles || []).map((nft) => ({
+        chain: nft.chain,
+        chain_id: nft.chain_id || (isSVMAddress ? 'solana' : nft.chain_id),
+        contract_address: nft.contract_address,
+        token_id: nft.token_id,
+        name: nft.name || 'Unknown',
+        symbol: nft.symbol || 'Unknown',
+        token_standard: nft.token_standard || 'Unknown',
+        balance: Number(nft.balance) || 1,
+        token_metadata: {
+          logo: nft.token_metadata?.logo || null,
+        },
+      }));
+
+      logger.info(`Processed collectibles data: ${data.length} collectibles`, { ip });
+      return res.status(200).json({ success: true, data });
     }
 
-    logger.warn(`Invalid parameters for action: ${action}`, { ip });
+    logger.log('warn', `Invalid parameters for action: ${action}`, { ip });
     return res.status(400).json({ detail: `Invalid parameters for action: ${action}` });
   } catch (error) {
     logger.error(`Dune Sim API error for action ${action}: ${error.message}`, {
@@ -342,8 +392,8 @@ export default async function handler(req, res) {
       status === 429
         ? 'Dune Sim API rate limit exceeded, please try again later.'
         : status === 404
-          ? 'Requested data not found.'
-          : `Dune Sim API error: ${error.message}`;
+        ? 'Requested data not found.'
+        : `Dune Sim API error: ${error.message}`;
     return res.status(status).json({ detail });
   }
 }

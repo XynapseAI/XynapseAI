@@ -358,7 +358,7 @@
         "Name Tag": "MicroStrategy Inc.",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/default.png"
+        "image": "/icons/microstrategy.png"
       }
     }
   },
@@ -369,7 +369,7 @@
         "Name Tag": "Marathon Digital Holdings",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/default.png"
+        "image": "/icons/marathon.png"
       }
     }
   },
@@ -380,7 +380,7 @@
         "Name Tag": "Riot Platforms, Inc",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/default.png"
+        "image": "/icons/riot.png"
       }
     }
   },
@@ -391,7 +391,7 @@
         "Name Tag": "Galaxy Digital Holdings",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/default.png"
+        "image": "/icons/galaxy.png"
       }
     }
   },
@@ -402,7 +402,7 @@
         "Name Tag": "Tesla, Inc.",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/default.png"
+        "image": "/icons/tesla.png"
       }
     }
   },
@@ -413,7 +413,7 @@
         "Name Tag": "Hut 8 Mining Corp",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/default.png"
+        "image": "/icons/hut8.png"
       }
     }
   },

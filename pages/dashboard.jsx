@@ -12,8 +12,10 @@ import TaskTab from '../components/TaskTab';
 import ProfileTab from '../components/ProfileTab';
 import MarketTab from '../components/MarketTab';
 import TreemapTab from '../components/TreemapTab';
+import WatchlistsTab from '../components/WatchlistsTab';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReCAPTCHA from 'react-google-recaptcha';
+import { toast } from 'react-toastify';
 import Link from 'next/link';
 import MatrixHoverEffect from '../components/MatrixHoverEffect';
 
@@ -418,7 +420,7 @@ export default function Dashboard() {
               loading={loading}
               handleAnalyzeTweets={handleAnalyzeTweets}
               isAnalyzing={isAnalyzing}
-              recaptcha débarRef={recaptchaRef}
+              recaptchaRef={recaptchaRef} // Fixed typo: 'recaptcha débardRef' to 'recaptchaRef'
             />
           )}
           {activeTab === 'task' && <TaskTab recaptchaRef={recaptchaRef} />}
@@ -432,9 +434,8 @@ export default function Dashboard() {
               recaptchaRef={recaptchaRef}
             />
           )}
-          {activeTab === 'treemap' && (
-            <TreemapTab recaptchaRef={recaptchaRef} />
-          )}
+          {activeTab === 'treemap' && <TreemapTab recaptchaRef={recaptchaRef} />}
+          {activeTab === 'watchlists' && <WatchlistsTab toast={toast} />} {/* Add WatchlistsTab */}
         </motion.div>
       </main>
       <ReCAPTCHA
