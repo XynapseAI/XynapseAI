@@ -312,7 +312,7 @@ export default async function handler(req, res) {
   }
   try {
     const { score } = await verifyRecaptcha(recaptchaToken, 'get_transactions', ip);
-    if (score < 0.7) {
+    if (score < 0.2) {
       logger.error(`reCAPTCHA score too low: ${score}`, { ip });
       return res.status(403).json({ error: 'reCAPTCHA verification failed: Suspicious activity detected' });
     }
