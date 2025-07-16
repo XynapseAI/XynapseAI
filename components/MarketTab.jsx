@@ -1097,7 +1097,7 @@ const MarketTab = ({ recaptchaRef }) => {
                   }}
                 />
                 <span className="text-[9px] md:text-xs font-medium">
-                  {chains.find((c) => c.value === selectedChain)?.label || 'Select Chain'}
+                  {chains.find((c) => c.value === selectedChain)?.label || 'Chain'}
                 </span>
               </>
             ) : (

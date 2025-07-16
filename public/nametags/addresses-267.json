@@ -581,5 +581,137 @@
         "image": "/icons/gnosis.png"
       }
     }
+  },
+  "0xad354cfbaa4a8572dd6df021514a3931a8329ef5": {
+    "Address": "0xad354cfbaa4a8572dd6df021514a3931a8329ef5",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Binance 90",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/binance.png"
+      }
+    }
+  },
+  "0x37305b1cd40574e4c5ce33f8e8306be057fd7341": {
+    "Address": "0x37305b1cd40574e4c5ce33f8e8306be057fd7341",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "MakerDAO",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/makerdao.png"
+      }
+    }
+  },
+  "0xe1940f578743367f38d3f25c2d2d32d6636929b6": {
+    "Address": "0xe1940f578743367f38d3f25c2d2d32d6636929b6",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Binance 91",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/binance.png"
+      }
+    }
+  },
+  "0x420ef1f25563593af5fe3f9b9d3bc56a8bd8c104": {
+    "Address": "0x420ef1f25563593af5fe3f9b9d3bc56a8bd8c104",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Binance 92",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/binance.png"
+      }
+    }
+  },
+  "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c": {
+    "Address": "0x98c23e9d8f34fefb1b7bd6a91b7ff122f4e16f5c",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Aave: USDC V3",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/aave.png"
+      }
+    }
+  },
+  "0x22af984f13DFB5C80145E3F9eE1050Ae5a5FB651": {
+    "Address": "0x22af984f13DFB5C80145E3F9eE1050Ae5a5FB651",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Kraken Cold Wallet",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/kraken.png"
+      }
+    }
+  },
+  "0xd54f23be482d9a58676590fca79c8e43087f92fb": {
+    "Address": "0xd54f23be482d9a58676590fca79c8e43087f92fb",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Ethena: Coinbase Web3 Wallet 2",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/ethena.png"
+      }
+    }
+  },
+  "0x3b4d794a66304f130a4db8f2551b0070dfcf5ca7": {
+    "Address": "0x3b4d794a66304f130a4db8f2551b0070dfcf5ca7",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Lighter: ZkLighter",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
+      }
+    }
+  },
+  "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8": {
+    "Address": "0x5ee5bf7ae06d1be5997a1a72006fe6c607ec6de8",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Aave: Ethereum WBTC V3",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/aave.png"
+      }
+    }
+  },
+  "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb": {
+    "Address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Morpho",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/default.png"
+      }
+    }
+  },
+  "0x9f199b93ae33c330880bdb31422fca37c6d3fb14": {
+    "Address": "0x9f199b93ae33c330880bdb31422fca37c6d3fb14",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Hyperliquid",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/hyperliquid.png"
+      }
+    }
+  },
+  "0xed470553f61f23cd30ccf51ab066dc1598ed0c4f": {
+    "Address": "0xed470553f61f23cd30ccf51ab066dc1598ed0c4f",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Hyperliquid",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/hyperliquid.png"
+      }
+    }
   }
 }

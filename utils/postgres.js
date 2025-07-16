@@ -1,4 +1,6 @@
 // utils/postgres.js
+import dotenv from 'dotenv';
+dotenv.config();
 import { Pool } from 'pg';
 import pkg from './logger.cjs';
 

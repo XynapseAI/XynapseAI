@@ -1,5 +1,9 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url'; // Thêm dòng này
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 📁 Thư mục chứa các file JSON
 const jsonFolder = path.join(__dirname, '../public/nametags');
@@ -41,7 +45,8 @@ const keywordToImage = {
   fluid: 'fluid.png',
   ethena: 'ethena.png',
   sui: 'sui.png',
-  crypto: 'crypto.png'
+  crypto: 'crypto.png',
+  hyperliquid: 'hyperliquid.png'
 };
 
 const getImageFromNameTag = (nameTag = '') => {

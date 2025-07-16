@@ -32,46 +32,40 @@ async function withRetry(operation, maxAttempts = 3, delayMs = 1000) {
 }
 
 /**
- * Reads all JSON files from a directory and returns their content
+ * Reads a specific JSON file and returns its content
  */
-async function readJsonFiles(directory) {
+async function readJsonFiles(filePath) {
   try {
-    logger.info(`Scanning directory: ${directory}`);
-    console.log(`Scanning directory: ${directory}`);
-    const files = await fs.readdir(directory);
-    const jsonFiles = files.filter(file => file.endsWith('.json'));
-    logger.info(`Found ${jsonFiles.length} JSON files: ${jsonFiles.join(', ')}`);
-    console.log(`Found ${jsonFiles.length} JSON files: ${jsonFiles.join(', ')}`);
-    const allData = [];
-
-    for (const file of jsonFiles) {
-      const filePath = path.join(directory, file);
-      logger.info(`Reading JSON file: ${filePath}`);
-      console.log(`Reading JSON file: ${filePath}`);
-      const content = await fs.readFile(filePath, 'utf-8');
-      const jsonData = JSON.parse(content);
-      logger.info(`Parsed JSON file: ${filePath}, found ${Object.keys(jsonData).length} addresses`);
-      console.log(`Parsed JSON file: ${filePath}, found ${Object.keys(jsonData).length} addresses`);
-      allData.push(jsonData);
+    logger.info(`Reading JSON file: ${filePath}`);
+    console.log(`Reading JSON file: ${filePath}`);
+    
+    // Kiểm tra xem file có tồn tại không
+    await fs.access(filePath); // Ném lỗi nếu file không tồn tại
+    
+    if (!filePath.endsWith('.json')) {
+      throw new Error(`File ${filePath} is not a JSON file`);
     }
 
-    logger.info(`Read ${jsonFiles.length} JSON files from ${directory}`);
-    console.log(`Read ${jsonFiles.length} JSON files successfully`);
-    return allData;
+    const content = await fs.readFile(filePath, 'utf-8');
+    const jsonData = JSON.parse(content);
+    logger.info(`Parsed JSON file: ${filePath}, found ${Object.keys(jsonData).length} addresses`);
+    console.log(`Parsed JSON file: ${filePath}, found ${Object.keys(jsonData).length} addresses`);
+    
+    return [jsonData]; // Trả về mảng chứa một object JSON duy nhất
   } catch (error) {
-    logger.error(`Error reading JSON files from ${directory}: ${error.message}`, { stack: error.stack });
-    console.error(`Error reading JSON files: ${error.message}`);
+    logger.error(`Error reading JSON file ${filePath}: ${error.message}`, { stack: error.stack });
+    console.error(`Error reading JSON file: ${error.message}`);
     return [];
   }
 }
 
 /**
- * Imports nametag data from JSON files into PostgreSQL nametags table
+ * Imports nametag data from a specific JSON file into PostgreSQL nametags table
  */
-async function importNametags(directory) {
+async function importNametags(filePath) {
   logger.info('Starting nametag import process...');
   console.log('Starting nametag import process...');
-  const jsonDataArray = await readJsonFiles(directory);
+  const jsonDataArray = await readJsonFiles(filePath);
   let totalImported = 0;
   let totalSkipped = 0;
 
@@ -84,6 +78,7 @@ async function importNametags(directory) {
       if (!isAddress(address)) {
         logger.warn(`Invalid address in JSON data: ${address}. Skipping.`);
         console.log(`Invalid address: ${address}. Skipping.`);
+        totalSkipped++;
         continue;
       }
 
@@ -96,74 +91,30 @@ async function importNametags(directory) {
         name: labelData['Name Tag'] || 'Unknown',
         description: labelData.Description || '',
         subcategory: labelData.Subcategory || 'Others',
-        image: labelData.image || '/icons/default.png',
-        is_deposit: false,
-        deposit_confidence_percentage: null,
-        reason: '',
-        metrics: {},
-        gemini_analysis: '',
-        last_analysis: null
+        image: labelData.image || '/icons/default.png'
       };
 
       logger.info(`Processing address ${normalizedAddress}: ${nametagData.name}`);
       console.log(`Processing address ${normalizedAddress}: ${nametagData.name}`);
 
-      // Kiểm tra xem địa chỉ đã tồn tại và là ví deposit
-      let isExistingDeposit = false;
-      try {
-        const existing = await query(
-          `SELECT is_deposit FROM nametags WHERE address = $1`,
-          [normalizedAddress]
-        );
-        if (existing.rows.length > 0 && existing.rows[0].is_deposit) {
-          isExistingDeposit = true;
-          totalSkipped++;
-          logger.info(`Skipping address ${normalizedAddress}: Already a deposit wallet.`);
-          console.log(`Skipping address ${normalizedAddress}: Already a deposit wallet`);
-          continue;
-        }
-      } catch (error) {
-        logger.error(`Error checking existing nametag for ${normalizedAddress}: ${error.message}`, { stack: error.stack });
-        console.error(`Error checking existing nametag for ${normalizedAddress}: ${error.message}`);
-        continue;
-      }
-
       try {
         await withRetry(() =>
           query(
-            `INSERT INTO nametags (address, nametag, image, description, subcategory, is_deposit, deposit_confidence_percentage, reason, metrics, gemini_analysis, last_analysis, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-             ON CONFLICT (address) DO UPDATE SET
-               nametag = EXCLUDED.nametag,
-               image = EXCLUDED.image,
-               description = EXCLUDED.description,
-               subcategory = EXCLUDED.subcategory,
-               is_deposit = EXCLUDED.is_deposit,
-               deposit_confidence_percentage = EXCLUDED.deposit_confidence_percentage,
-               reason = EXCLUDED.reason,
-               metrics = EXCLUDED.metrics,
-               gemini_analysis = EXCLUDED.gemini_analysis,
-               last_analysis = EXCLUDED.last_analysis,
-               created_at = EXCLUDED.created_at`,
+            `INSERT INTO nametags (address, nametag, image, description, subcategory)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (address) DO NOTHING`,
             [
               normalizedAddress,
               nametagData.name,
               nametagData.image,
               nametagData.description,
-              nametagData.subcategory,
-              nametagData.is_deposit,
-              nametagData.deposit_confidence_percentage,
-              nametagData.reason,
-              nametagData.metrics,
-              nametagData.gemini_analysis,
-              nametagData.last_analysis,
-              new Date()
+              nametagData.subcategory
             ]
           )
         );
         totalImported++;
-        logger.info(`Imported/Updated nametag for ${normalizedAddress}: ${nametagData.name}`);
-        console.log(`Imported/Updated nametag for ${normalizedAddress}: ${JSON.stringify(nametagData)}`);
+        logger.info(`Imported nametag for ${normalizedAddress}: ${nametagData.name}`);
+        console.log(`Imported nametag for ${normalizedAddress}: ${JSON.stringify(nametagData)}`);
       } catch (error) {
         logger.error(`Error importing nametag for ${normalizedAddress}: ${error.message}`, { stack: error.stack });
         console.error(`Error importing nametag for ${normalizedAddress}: ${error.message}`);
@@ -171,19 +122,19 @@ async function importNametags(directory) {
     }
   }
 
-  logger.info(`Import completed: ${totalImported} nametags imported/updated, ${totalSkipped} skipped (deposit wallets).`);
-  console.log(`Import completed: ${totalImported} imported/updated, ${totalSkipped} skipped`);
+  logger.info(`Import completed: ${totalImported} nametags imported, ${totalSkipped} skipped (invalid addresses).`);
+  console.log(`Import completed: ${totalImported} imported, ${totalSkipped} skipped (invalid addresses)`);
 }
 
 /**
  * Main function to run the import
  */
 async function main() {
-  const directory = path.join(__dirname, '../public/nametags');
-  logger.info(`Starting import from directory: ${directory}`);
-  console.log(`Starting import from directory: ${directory}`);
+  const filePath = path.join(__dirname, '../public/nametags/addresses-267.json'); // Chỉ định file cụ thể
+  logger.info(`Starting import from file: ${filePath}`);
+  console.log(`Starting import from file: ${filePath}`);
   try {
-    await importNametags(directory);
+    await importNametags(filePath);
     logger.info('Nametag import process completed successfully.');
     console.log('Nametag import process completed successfully.');
   } catch (error) {
