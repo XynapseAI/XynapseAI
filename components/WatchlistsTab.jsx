@@ -7,6 +7,7 @@ import { isAddress } from 'ethers';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { SUPPORTED_CHAINS, CHAIN_MAPPING, CHAIN_ID_TO_NAME, CHAIN_EXPLORER_MAP } from '../utils/constants';
+import { formatDistanceToNow } from 'date-fns';
 
 // Utility functions
 const formatPrice = (price) => {
@@ -650,15 +651,15 @@ export default function WatchlistsTab({ toast }) {
         ? tx.token_metadata.logo
         : NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png';
     const tokenSymbol = tx.token || 'Unknown';
-    const typeColor = tx.type === 'receive' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400';
     const addressToShow = tx.type === 'receive' ? tx.from : tx.to;
+    const { text: displayAddress, image: addressImage } = truncateAddress(addressToShow, nameTags);
 
     return (
       <tr
-        key={`${tx.chain}-${transactionKey}`}
+        key={`${tx.chain}-${transactionKey}-${index}`}
         className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
       >
-        <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
+        <td className={`px-2 py-1.5 text-gray-200 text-[8px] md:text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}>
           <div className="flex flex-col items-center">
             <Image
               src={getPlatformImage(tx.chain)}
@@ -676,21 +677,7 @@ export default function WatchlistsTab({ toast }) {
             </span>
           </div>
         </td>
-        <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
-          <div className="flex items-center space-x-2">
-            <a
-              href={txUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-neon-blue transition-colors"
-            >
-              <span className="text-[8px] md:text-xs">
-                {`${transactionKey.slice(0, 6)}...${transactionKey.slice(-4)}`}
-              </span>
-            </a>
-          </div>
-        </td>
-        <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
+        <td className={`px-2 py-1.5 text-gray-200 text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
           <div className="flex items-center space-x-2">
             <Image
               src={tokenLogo}
@@ -706,28 +693,63 @@ export default function WatchlistsTab({ toast }) {
             <span>{tokenSymbol}</span>
           </div>
         </td>
-        <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
-          <span className={`inline-block px-2 py-0.5 rounded-full text-[8px] md:text-[10px] font-medium ${typeColor}`}>
-            {tx.type || 'Unknown'}
-          </span>
-        </td>
-        <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
-          <a
-            href={addressUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-neon-blue transition-colors"
-          >
-            {addressToShow ? truncateAddress(addressToShow, nameTags).text : 'N/A'}
-          </a>
-        </td>
-        <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
+        <td className={`px-2 py-1.5 text-gray-200 text-[8px] md:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+  <div className="flex flex-col items-center space-y-1">
+    <span
+      className={`inline-flex px-1 py-0.5 md:px-1.5 md:py-0.5 rounded-full text-[6px] md:text-[7px] font-medium flex-shrink-0 ${
+        tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'
+      }`}
+    >
+      {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
+    </span>
+    <div className="flex items-center justify-center space-x-2">
+      {addressImage && (
+        <Image
+          src={addressImage}
+          alt={`${displayAddress} logo`}
+          width={isMobile ? 12 : 16}
+          height={isMobile ? 12 : 16}
+          style={{ width: 'auto', height: 'auto' }}
+          className="rounded-full flex-shrink-0"
+          onError={(e) => {
+            e.target.src = '/icons/default.png';
+          }}
+        />
+      )}
+      <a
+        href={addressUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hover:text-neon-blue transition-colors"
+        title={addressToShow}
+      >
+        {displayAddress}
+      </a>
+    </div>
+  </div>
+</td>
+        <td className={`px-2 py-1.5 text-gray-200 text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
           {tx.value
             ? `${Number(tx.value).toLocaleString('en-US', { maximumFractionDigits: 6 })}`
             : 'N/A'}
         </td>
-        <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs text-center">
-          {tx.block_time ? new Date(tx.block_time).toLocaleString() : 'N/A'}
+        <td className={`px-2 py-1.5 text-gray-200 text-[8px] md:text-xs text-center ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+          <div className="flex flex-col items-center gap-0.5">
+            <a href={txUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+              <Image
+                src="/logos/etherscan-logo.png"
+                alt="Etherscan"
+                width={isMobile ? 12 : 16}
+                height={isMobile ? 12 : 16}
+                style={{ width: 'auto', height: 'auto' }}
+                className="flex-shrink-0"
+                onError={(e) => (e.target.src = '/fallback-image.png')}
+              />
+            </a>
+            <span className="text-[7px] md:text-[9px] text-gray-400">
+              {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
+            </span>
+          </div>
         </td>
       </tr>
     );
@@ -936,196 +958,229 @@ export default function WatchlistsTab({ toast }) {
       {!loadingStates.loading && !loadingStates.balances && !loadingStates.collectibles && !loadingStates.transactions && selectedWallet && (
         <div className="space-y-2 overflow-x-auto">
           {activeTab === 'Tokens' && (
-  <>
-    {balances.length > 0 ? (
-      <table className="w-full table-fixed">
-        <thead
-          className={`sticky top-0 z-10 border-b border-white/10 uppercase ${
-            isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
-          }`}
-        >
-          <tr>
-            <th
-              className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[7%]' : 'w-[7%]'}`}
-            >
-              <div className="flex items-center justify-center gap-1">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-3 h-3 md:w-4 md:h-4 fill-white flex-shrink-0"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-                Chain
-              </div>
-            </th>
-            <th
-              className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}
-            >
-              <div className="flex items-center gap-1">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-3 h-3 md:w-4 md:h-4 fill-white"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
-                </svg>
-                Token
-              </div>
-            </th>
-            <th
-              className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}
-            >
-              <div className="flex items-center gap-1">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-3 h-3 md:w-4 md:h-4 fill-white"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
-                </svg>
-                Balance
-              </div>
-            </th>
-            <th
-              className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}
-            >
-              <div className="flex items-center gap-1">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
-                  viewBox="0 0 24 24"
-                  strokeWidth="2"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
-                  />
-                </svg>
-                Value
-              </div>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {balances
-            .filter((b) => {
-              if (!activeChain || b.chain === activeChain) {
-                const tokenInfoData = tokenInfo[b.address] || [];
-                const tokenDetails = tokenInfoData.find((t) => t.chain === b.chain) || {};
-                const isNative = b.address === 'native' && NATIVE_TOKEN_INFO[b.chain];
-                const hasValidLogo =
-                  isNative ||
-                  (b.logo && !b.logo.includes('scontent.xx.fbcdn.net') && b.logo !== '/fallback-image.png') ||
-                  (tokenDetails.logo && !tokenDetails.logo.includes('scontent.xx.fbcdn.net') && tokenDetails.logo !== '/fallback-image.png');
-                return hasValidLogo;
-              }
-              return false;
-            })
-            .map(renderTokenRow)}
-        </tbody>
-      </table>
-    ) : (
-      <p className="text-[9px] md:text-xs text-gray-400 text-center">
-        No balances found for this wallet.
-      </p>
-    )}
-  </>
-)}
-{activeTab === 'NFTs' && (
-  <>
-    {collectibles.length > 0 && collectibles.some((nft) => (!activeChain || nft.chain === activeChain) && nft.token_metadata?.logo && !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') && nft.token_metadata.logo !== '/fallback-image.png') ? (
-      <table className="w-full table-fixed">
-        <thead
-          className={`sticky top-0 z-10 border-b border-white/10 uppercase ${
-            isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
-          }`}
-        >
-          <tr>
-            <th
-              className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[7%]' : 'w-[7%]'}`}
-            >
-              <div className="flex items-center justify-center gap-1">Chain</div>
-            </th>
-            <th
-              className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}
-            >
-              <div className="flex items-center gap-1">Name</div>
-            </th>
-            <th
-              className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}
-            >
-              <div className="flex items-center gap-1">Balance</div>
-            </th>
-            <th
-              className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}
-            >
-              <div className="flex items-center gap-1">Value</div>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {collectibles
-            .filter((nft) => {
-              if (!activeChain || nft.chain === activeChain) {
-                return nft.token_metadata?.logo && !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') && nft.token_metadata.logo !== '/fallback-image.png';
-              }
-              return false;
-            })
-            .map(renderNFTRow)}
-        </tbody>
-      </table>
-    ) : (
-      <p className="text-[9px] md:text-xs text-gray-400 text-center">
-        No NFTs found for this wallet.
-      </p>
-    )}
-  </>
-)}
+            <>
+              {balances.length > 0 ? (
+                <table className="w-full table-fixed">
+                  <thead
+                    className={`sticky top-0 z-10 border-b border-white/10 uppercase ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
+                      }`}
+                  >
+                    <tr>
+                      <th
+                        className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[7%]' : 'w-[7%]'}`}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-3 h-3 md:w-4 md:h-4 fill-white flex-shrink-0"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                          </svg>
+                          Chain
+                        </div>
+                      </th>
+                      <th
+                        className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-3 h-3 md:w-4 md:h-4 fill-white"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                          </svg>
+                          Token
+                        </div>
+                      </th>
+                      <th
+                        className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-3 h-3 md:w-4 md:h-4 fill-white"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
+                          </svg>
+                          Balance
+                        </div>
+                      </th>
+                      <th
+                        className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="2"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
+                            />
+                          </svg>
+                          Value
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {balances
+                      .filter((b) => {
+                        if (!activeChain || b.chain === activeChain) {
+                          const tokenInfoData = tokenInfo[b.address] || [];
+                          const tokenDetails = tokenInfoData.find((t) => t.chain === b.chain) || {};
+                          const isNative = b.address === 'native' && NATIVE_TOKEN_INFO[b.chain];
+                          const hasValidLogo =
+                            isNative ||
+                            (b.logo && !b.logo.includes('scontent.xx.fbcdn.net') && b.logo !== '/fallback-image.png') ||
+                            (tokenDetails.logo && !tokenDetails.logo.includes('scontent.xx.fbcdn.net') && tokenDetails.logo !== '/fallback-image.png');
+                          return hasValidLogo;
+                        }
+                        return false;
+                      })
+                      .map(renderTokenRow)}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-[9px] md:text-xs text-gray-400 text-center">
+                  No balances found for this wallet.
+                </p>
+              )}
+            </>
+          )}
+          {activeTab === 'NFTs' && (
+            <>
+              {collectibles.length > 0 && collectibles.some((nft) => (!activeChain || nft.chain === activeChain) && nft.token_metadata?.logo && !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') && nft.token_metadata.logo !== '/fallback-image.png') ? (
+                <table className="w-full table-fixed">
+                  <thead
+                    className={`sticky top-0 z-10 border-b border-white/10 uppercase ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
+                      }`}
+                  >
+                    <tr>
+                      <th
+                        className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[7%]' : 'w-[7%]'}`}
+                      >
+                        <div className="flex items-center justify-center gap-1">Chain</div>
+                      </th>
+                      <th
+                        className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}
+                      >
+                        <div className="flex items-center gap-1">Name</div>
+                      </th>
+                      <th
+                        className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}
+                      >
+                        <div className="flex items-center gap-1">Balance</div>
+                      </th>
+                      <th
+                        className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}
+                      >
+                        <div className="flex items-center gap-1">Value</div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {collectibles
+                      .filter((nft) => {
+                        if (!activeChain || nft.chain === activeChain) {
+                          return nft.token_metadata?.logo && !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') && nft.token_metadata.logo !== '/fallback-image.png';
+                        }
+                        return false;
+                      })
+                      .map(renderNFTRow)}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-[9px] md:text-xs text-gray-400 text-center">
+                  No NFTs found for this wallet.
+                </p>
+              )}
+            </>
+          )}
           {activeTab === 'Activity' && (
             <>
               {transactions.length > 0 && transactions.some((tx) => !activeChain || tx.chain === activeChain) ? (
                 <table className="w-full table-fixed">
                   <thead
-                    className={`sticky top-0 z-10 border-b border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
-                      }`}
+                    className={`sticky top-0 z-10 border-b border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'}`}
                   >
                     <tr>
-                      <th
-                        className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}
-                      >
-                        <div className="flex items-center justify-center gap-1">Chain</div>
+                      <th className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}>
+                        <div className="flex items-center justify-center gap-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-3 h-3 md:w-4 md:h-4 fill-white flex-shrink-0"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                          </svg>
+                          Chain
+                        </div>
                       </th>
-                      <th
-                        className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}
-                      >
-                        <div className="flex items-center gap-1">Transaction</div>
+                      <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
+                        <div className="flex items-center gap-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-3 h-3 md:w-4 md:h-4 fill-white"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                          </svg>
+                          Token
+                        </div>
                       </th>
-                      <th
-                        className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}
-                      >
-                        <div className="flex items-center gap-1">Token</div>
+                      <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                        <div className="flex items-center gap-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="2"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                            />
+                          </svg>
+                          Address
+                        </div>
                       </th>
-                      <th
-                        className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}
-                      >
-                        <div className="flex items-center gap-1">Type</div>
+                      <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
+                        <div className="flex items-center gap-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="2"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
+                            />
+                          </svg>
+                          Value
+                        </div>
                       </th>
-                      <th
-                        className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}
-                      >
-                        <div className="flex items-center gap-1">Address</div>
-                      </th>
-                      <th
-                        className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}
-                      >
-                        <div className="flex items-center gap-1">Value</div>
-                      </th>
-                      <th
-                        className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}
-                      >
-                        <div className="flex items-center justify-center gap-1">Time</div>
+                      <th className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                        <div className="flex items-center justify-center gap-1">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="2"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Time
+                        </div>
                       </th>
                     </tr>
                   </thead>

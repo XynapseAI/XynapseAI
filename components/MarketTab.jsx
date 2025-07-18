@@ -11,7 +11,7 @@ import { useMarketTabLogic } from './MarketTabLogic';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { formatDistanceToNow } from 'date-fns';
-import { GECKOTERMINAL_CHAIN_MAPPING , CHAIN_ID_TO_NAME } from '../utils/constants';
+import { GECKOTERMINAL_CHAIN_MAPPING, CHAIN_ID_TO_NAME } from '../utils/constants';
 
 // Custom logger
 const logger = {
@@ -148,7 +148,7 @@ const getExplorerUrls = (chain, hash, address) => {
 };
 
 // Modal component
-const Modal = ({ isOpen, onClose, title, content, links = [] , isMobile  }) => {
+const Modal = ({ isOpen, onClose, title, content, links = [], isMobile }) => {
   if (!isOpen) return null;
   return (
     <motion.div
@@ -373,9 +373,8 @@ const WalletBalances = ({
     >
       <div
         ref={walletBalancesRef}
-        className={`p-4 sm:p-6 max-w-6xl w-[90%] rounded-2xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar border border-white/10 ${
-          isMobile ? 'bg-gray-900' : 'backdrop-blur-xl bg-gray-900/50 shadow-glow-neon'
-        }`}
+        className={`p-4 sm:p-6 max-w-6xl w-[90%] rounded-2xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar border border-white/10 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-xl bg-gray-900/50 shadow-glow-neon'
+          }`}
       >
         <div className="sticky top-0 z-10 p-2">
           <div className="flex justify-between items-center mb-3">
@@ -412,9 +411,8 @@ const WalletBalances = ({
             </div>
             <motion.button
               onClick={onClose}
-              className={`text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300 ${
-                isMobile ? 'bg-gray-900 border border-white/20' : 'bg-gray-900/50 border border-white/20 backdrop-blur-md'
-              }`}
+              className={`text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300 ${isMobile ? 'bg-gray-900 border border-white/20' : 'bg-gray-900/50 border border-white/20 backdrop-blur-md'
+                }`}
               aria-label="Close balances"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
@@ -425,18 +423,16 @@ const WalletBalances = ({
           <div className="flex space-x-2 mb-3">
             <motion.button
               onClick={() => setActiveTab('portfolio')}
-              className={`px-3 py-1 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${
-                isMobile ? 'bg-gray-900' : 'backdrop-blur-md'
-              } ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
+              className={`px-3 py-1 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md'
+                } ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
               whileHover={{ scale: 1 }}
             >
               Portfolio
             </motion.button>
             <motion.button
               onClick={() => setActiveTab('activity')}
-              className={`px-3 py-1 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${
-                isMobile ? 'bg-gray-900' : 'backdrop-blur-md'
-              } ${activeTab === 'activity' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
+              className={`px-3 py-1 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md'
+                } ${activeTab === 'activity' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
               whileHover={{ scale: 1 }}
             >
               Activity
@@ -452,9 +448,8 @@ const WalletBalances = ({
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
                     <thead
-                      className={`sticky top-0 z-10 border-b border-white/10 uppercase ${
-                        isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
-                      }`}
+                      className={`sticky top-0 z-10 border-b border-white/10 uppercase ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
+                        }`}
                     >
                       <tr>
                         <th className="px-2 py-1.5 text-white text-center text-[8px] md:text-xs w-[7%]">
@@ -591,247 +586,214 @@ const WalletBalances = ({
             </>
           )}
           {activeTab === 'activity' && (
-            <>
-              {isLoadingTransactions && (
-                <p className="text-xs text-gray-400 text-center">Loading activity...</p>
-              )}
-              {transactionsError && <p className="text-sm text-red-500 text-center">Error: {transactionsError}</p>}
-              {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full table-fixed">
-                    <thead
-                      className={`sticky top-0 z-10 border-b border-white/10 ${
-                        isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
-                      }`}
-                    >
-                      <tr>
-                        <th className="px-2 py-1.5 text-white text-center text-[8px] md:text-xs w-[10%]">
-                          <div className="flex items-center justify-center gap-1">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 fill-white flex-shrink-0"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                              />
-                            </svg>
-                            Chain
-                          </div>
-                        </th>
-                        <th className="px-2 py-1.5 text-white text-left text-[8px] md:text-xs w-[15%]">
-                          <div className="flex items-center gap-1">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 fill-white"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
-                            </svg>
-                            Token
-                          </div>
-                        </th>
-                        <th className="px-2 py-1.5 text-white text-center text-[8px] md:text-xs w-[10%]">
-                          <div className="flex items-center justify-center gap-1">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
-                              viewBox="0 0 24 24"
-                              strokeWidth="2"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Type
-                          </div>
-                        </th>
-                        <th className="px-2 py-1.5 text-white text-left text-[8px] md:text-xs w-[25%]">
-                          <div className="flex items-center gap-1">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
-                              viewBox="0 0 24 24"
-                              strokeWidth="2"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                              />
-                            </svg>
-                            Address
-                          </div>
-                        </th>
-                        <th className="px-2 py-1.5 text-white text-left text-[8px] md:text-xs w-[15%]">
-                          <div className="flex items-center gap-1">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
-                              viewBox="0 0 24 24"
-                              strokeWidth="2"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
-                              />
-                            </svg>
-                            Value
-                          </div>
-                        </th>
-                        <th className="px-2 py-1.5 text-white text-center text-[8px] md:text-xs w-[25%]">
-                          <div className="flex items-center justify-center gap-1">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
-                              viewBox="0 0 24 24"
-                              strokeWidth="2"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Time
-                          </div>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {transactions.map((tx, index) => {
-                        const chainName = CHAIN_ID_TO_NAME[tx.chain] || tx.chain || 'ethereum';
-                        const { txUrl, addressUrl } = getExplorerUrls(chainName, tx.hash, tx.type === 'receive' ? tx.from : tx.to);
-                        const { text: displayAddress, image: addressImage } = truncateAddress(
-                          tx.type === 'receive' ? tx.from : tx.to,
-                          nameTags
-                        );
-
-                        return (
-                          <tr
-                            key={`${tx.chain}-${tx.hash}-${index}`}
-                            className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
-                          >
-                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
-                              <div className="flex flex-col items-center">
-                                <img
-                                  src={getPlatformImage(tx.chain)}
-                                  alt={`${chainName} logo`}
-                                  className="w-2 h-2 md:w-5 md:h-5 rounded-full flex-shrink-0"
-                                  onError={(e) => {
-                                    logger.error('Transaction chain logo failed to load:', {
-                                      chain: tx.chain,
-                                      chainName,
-                                      src: getPlatformImage(tx.chain),
-                                    });
-                                    e.target.src = '/fallback-image.png';
-                                  }}
-                                />
-                                <span className="text-[7px] md:text-[10px] text-gray-400 flex-shrink-0">
-                                  {getChainLabel(tx.chain)}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
-                              <div className="flex items-center space-x-2">
-                                {tx.token_metadata?.logo && (
-                                  <img
-                                    src={tx.token_metadata.logo}
-                                    alt={`${tx.token} logo`}
-                                    className="w-3 h-3 md:w-4 md:h-4 rounded-full flex-shrink-0"
-                                    onError={(e) => {
-                                      logger.error('Token logo failed to load:', {
-                                        symbol: tx.token,
-                                        src: tx.token_metadata.logo,
-                                      });
-                                      e.target.src = '/fallback-image.png';
-                                    }}
-                                  />
-                                )}
-                                <span>{tx.token || 'Unknown'}</span>
-                              </div>
-                            </td>
-                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs text-center">
-                              <span
-                                className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-medium ${
-                                  tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : tx.type === 'send' ? 'bg-blue-500/20 text-blue-500' : 'bg-gray-500/20 text-gray-500'
-                                }`}
-                              >
-                                {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
-                              <div className="flex items-center space-x-2">
-                                {addressImage && (
-                                  <img
-                                    src={addressImage}
-                                    alt={`${displayAddress} logo`}
-                                    className="w-3 h-3 md:w-4 md:h-4 rounded-full flex-shrink-0"
-                                    onError={(e) => {
-                                      logger.error('Address name tag image failed to load:', {
-                                        address: tx.type === 'receive' ? tx.from : tx.to,
-                                        src: addressImage,
-                                      });
-                                      e.target.src = '/icons/default.png';
-                                    }}
-                                  />
-                                )}
-                                <a
-                                  href={addressUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-neon-blue hover:underline"
-                                  title={tx.type === 'receive' ? tx.from : tx.to}
-                                  onClick={() => handleAddressClick(tx.type === 'receive' ? tx.from : tx.to)}
-                                >
-                                  {displayAddress}
-                                </a>
-                              </div>
-                            </td>
-                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
-                              {formatNumber(tx.value)}
-                            </td>
-                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
-                              <div className="flex flex-col items-center gap-0.5">
-                                <div className="flex items-center justify-center gap-1">
-                                  <img
-                                    src={getPlatformImage(tx.chain)}
-                                    alt={`${chainName} logo`}
-                                    className="w-3 h-3 md:w-5 md:h-5 rounded-full flex-shrink-0"
-                                    onError={(e) => {
-                                      logger.error('Transaction chain logo failed to load:', {
-                                        chain: tx.chain,
-                                        chainName,
-                                        src: getPlatformImage(tx.chain),
-                                      });
-                                      e.target.src = '/fallback-image.png';
-                                    }}
-                                  />
-                                  <a href={txUrl} target="_blank" rel="noreferrer" className="flex-shrink-0">
-                                    <img
-                                      src="/logos/etherscan-logo.png"
-                                      alt="Etherscan"
-                                      className="w-3 h-3 md:w-5 md:h-5"
-                                      onError={(e) => (e.target.src = '/fallback-image.png')}
-                                    />
-                                  </a>
-                                </div>
-                                <span className="text-[8px] md:text-[10px] text-gray-400 text-center">
-                                  {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+  <>
+    {isLoadingTransactions && (
+      <p className="text-[10px] md:text-xs text-gray-400 text-center">Loading activity...</p>
+    )}
+    {transactionsError && <p className="text-[10px] md:text-sm text-red-500 text-center">Error: {transactionsError}</p>}
+    {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
+      <div className="overflow-x-auto">
+        <table className="w-full table-fixed">
+          <thead
+            className={`sticky top-0 z-10 border-b border-white/10 ${
+              isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
+            }`}
+          >
+            <tr>
+              <th className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}>
+                <div className="flex items-center justify-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-3 h-3 md:w-4 md:h-4 fill-white flex-shrink-0"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                  Chain
                 </div>
-              ) : (
-                !isLoadingTransactions && (
-                  <p className="text-[10px] md:text-xs text-gray-400 text-center">No activity found for this address.</p>
-                )
-              )}
-            </>
-          )}
+              </th>
+              <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
+                <div className="flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-3 h-3 md:w-4 md:h-4 fill-white"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                  </svg>
+                  Token
+                </div>
+              </th>
+              <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                <div className="flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                    />
+                  </svg>
+                  Address
+                </div>
+              </th>
+              <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
+                <div className="flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
+                    />
+                  </svg>
+                  Value
+                </div>
+              </th>
+              <th className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                <div className="flex items-center justify-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="2"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Time
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map((tx, index) => {
+              const chainName = CHAIN_ID_TO_NAME[tx.chain] || tx.chain || 'ethereum';
+              const { txUrl, addressUrl } = getExplorerUrls(chainName, tx.hash, tx.type === 'receive' ? tx.from : tx.to);
+              const { text: displayAddress, image: addressImage } = truncateAddress(
+                tx.type === 'receive' ? tx.from : tx.to,
+                nameTags
+              );
+
+              return (
+                <tr
+                  key={`${tx.chain}-${tx.hash}-${index}`}
+                  className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
+                >
+                  <td className={`px-2 py-1.5 text-gray-200 text-[8px] md:text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}>
+                    <div className="flex flex-col items-center">
+                      <img
+                        src={getPlatformImage(tx.chain)}
+                        alt={`${chainName} logo`}
+                        className={`rounded-full flex-shrink-0 object-contain ${isMobile ? 'w-2.5 h-2.5' : 'w-5 h-5'}`}
+                        onError={(e) => {
+                          logger.error('Transaction chain logo failed to load:', {
+                            chain: tx.chain,
+                            chainName,
+                            src: getPlatformImage(tx.chain),
+                          });
+                          e.target.src = '/fallback-image.png';
+                        }}
+                      />
+                      <span className="text-[6px] md:text-[10px] text-gray-400 flex-shrink-0">
+                        {getChainLabel(tx.chain)}
+                      </span>
+                    </div>
+                  </td>
+                  <td className={`px-2 py-1.5 text-gray-200 text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
+                    <div className="flex items-center space-x-2">
+                      {tx.token_metadata?.logo && (
+                        <img
+                          src={tx.token_metadata.logo}
+                          alt={`${tx.token} logo`}
+                          className={`rounded-full flex-shrink-0 object-contain ${isMobile ? 'w-2.5 h-2.5' : 'w-4 h-4'}`}
+                          onError={(e) => {
+                            logger.error('Token logo failed to load:', {
+                              symbol: tx.token,
+                              src: tx.token_metadata.logo,
+                            });
+                            e.target.src = '/fallback-image.png';
+                          }}
+                        />
+                      )}
+                      <span>{tx.token || 'Unknown'}</span>
+                    </div>
+                  </td>
+                  <td className={`px-2 py-1.5 text-gray-200 text-[8px] md:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                    <div className="flex flex-col items-center space-y-1">
+                      <span
+                        className={`inline-flex px-1 py-0.5 md:px-1.5 md:py-0.5 rounded-full text-[6px] md:text-[7px] font-medium flex-shrink-0 ${
+                          tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'
+                        }`}
+                      >
+                        {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
+                      </span>
+                      <div className="flex items-center justify-center space-x-2">
+                        {addressImage && (
+                          <img
+                            src={addressImage}
+                            alt={`${displayAddress} logo`}
+                            className={`rounded-full flex-shrink-0 object-contain ${isMobile ? 'w-2 h-2' : 'w-4 h-4'}`}
+                            onError={(e) => {
+                              logger.error('Address name tag image failed to load:', {
+                                address: tx.type === 'receive' ? tx.from : tx.to,
+                                src: addressImage,
+                              });
+                              e.target.src = '/icons/default.png';
+                            }}
+                          />
+                        )}
+                        <a
+                          href={addressUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-neon-blue hover:underline"
+                          title={tx.type === 'receive' ? tx.from : tx.to}
+                          onClick={() => handleAddressClick(tx.type === 'receive' ? tx.from : tx.to)}
+                        >
+                          {displayAddress}
+                        </a>
+                      </div>
+                    </div>
+                  </td>
+                  <td className={`px-2 py-1.5 text-gray-200 text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
+                    {formatNumber(tx.value)}
+                  </td>
+                  <td className={`px-2 py-1.5 text-gray-200 text-[8px] md:text-xs text-center ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <a href={txUrl} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                        <img
+                          src="/logos/etherscan-logo.png"
+                          alt="Etherscan"
+                          className={`flex-shrink-0 object-contain ${isMobile ? 'w-2.5 h-2.5' : 'w-4 h-4'}`}
+                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                        />
+                      </a>
+                      <span className="text-[6px] md:text-[9px] text-gray-400 text-center">
+                        {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      !isLoadingTransactions && (
+        <p className="text-[10px] md:text-xs text-gray-400 text-center">No activity found for this address.</p>
+      )
+    )}
+  </>
+)}
         </div>
       </div>
     </motion.div>
@@ -938,12 +900,12 @@ const MarketTab = ({ recaptchaRef }) => {
   const [selectedPool, setSelectedPool] = useState(null);
 
   const getPlatformImage = (chainValue) => {
-  const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
-  const chain = chains.find((c) => c.value === chainName);
-  const imageUrl = chain?.image || '/fallback-image.png';
-  logger.log('getPlatformImage:', { chainValue, chainName, imageUrl, found: !!chain });
-  return imageUrl;
-};
+    const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
+    const chain = chains.find((c) => c.value === chainName);
+    const imageUrl = chain?.image || '/fallback-image.png';
+    logger.log('getPlatformImage:', { chainValue, chainName, imageUrl, found: !!chain });
+    return imageUrl;
+  };
 
 
 
@@ -2218,31 +2180,31 @@ const MarketTab = ({ recaptchaRef }) => {
           />
 
           <Modal
-          isOpen={!!analysis}
-          onClose={() => {
-            setAnalysis(null);
-            setAnalysisLinks([]);
-          }}
-          title="Analysis"
-          content={analysis}
-          links={analysisLinks}
-          isMobile={isMobile}
-        />
-        <Modal
-          isOpen={!!prediction}
-          onClose={() => setPrediction(null)}
-          title="Prediction"
-          content={prediction}
-          isMobile={isMobile}
-        />
-        <Modal
-          isOpen={!!selectedPool}
-          onClose={() => setSelectedPool(null)}
-          title="Pool Details"
-          content={renderPoolModalContent()}
-          links={[`https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${selectedPool?.address}`]}
-          isMobile={isMobile}
-        />
+            isOpen={!!analysis}
+            onClose={() => {
+              setAnalysis(null);
+              setAnalysisLinks([]);
+            }}
+            title="Analysis"
+            content={analysis}
+            links={analysisLinks}
+            isMobile={isMobile}
+          />
+          <Modal
+            isOpen={!!prediction}
+            onClose={() => setPrediction(null)}
+            title="Prediction"
+            content={prediction}
+            isMobile={isMobile}
+          />
+          <Modal
+            isOpen={!!selectedPool}
+            onClose={() => setSelectedPool(null)}
+            title="Pool Details"
+            content={renderPoolModalContent()}
+            links={[`https://www.geckoterminal.com/${GECKOTERMINAL_CHAIN_MAPPING[selectedChain]}/pools/${selectedPool?.address}`]}
+            isMobile={isMobile}
+          />
           {isAnalyzing && <LoadingOverlay message="Analyzing token..." />}
           {isPredicting && <LoadingOverlay message="Predicting price trend..." />}
         </div>
