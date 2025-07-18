@@ -28,7 +28,7 @@
         "Name Tag": "MT Gox Hacker",
         "Description": "The pseudonymous creator of Bitcoin.",
         "Subcategory": "Historical",
-        "image": "/icons/default.png"
+        "image": "/icons/mtgox.png"
       }
     }
   },
@@ -127,18 +127,18 @@
         "Name Tag": "Gemini Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       }
     }
   },
-  "bc1q4j7fcl8zx5yl562j00nkqez9zf3f6ggqchwzzcs5hjxwqhsgxvavq3qfgpr": {
+  "bc1q4j7fcl8zx5yl56j00nkqez9zf3f6ggqchwzzcs5hjxwqhsgxvavq3qfgpr": {
     "Address": "bc1q4j7fcl8zx5yl56j00nkqez9zf3f6ggqchwzzcs5hjxwqhsgxvavq3qfgpr",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Coincheck",
+        "Name Tag": "Coincheck Hot Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/coincheck.png"
       }
     }
   },
@@ -171,7 +171,7 @@
         "Name Tag": "UK - Governmemt",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/uk.png"
       }
     }
   },
@@ -182,7 +182,7 @@
         "Name Tag": "Bitmex Cold Walet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/bitmex.png"
       }
     }
   },
@@ -226,7 +226,7 @@
         "Name Tag": "Kraken Cold wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/kraken.png"
+        "image": "http://icons/kraken.png"
       }
     }
   },
@@ -248,7 +248,7 @@
         "Name Tag": "VanEck wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/vaneck.png"
       }
     }
   },
@@ -259,7 +259,7 @@
         "Name Tag": "BitMex Cold wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/bitmex.png"
       }
     }
   },
@@ -336,7 +336,7 @@
         "Name Tag": "MT Gox Cold wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/mtgox.png"
       }
     }
   },
@@ -417,8 +417,8 @@
       }
     }
   },
-  "3MgEAFWu1HKSnZ5ZsC8qf61ZW18xrP5pgd": {
-    "Address": "3MgEAFWu1HKSnZ5ZsC8qf61ZW18xrP5pgd",
+  "3mgeafwu1hksnz5zs8qf61zw18xrp5pgd": {
+    "Address": "3mgeafwu1hksnz5zs8qf61zw18xrp5pgd",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Gemini Cold Wallet",
@@ -428,19 +428,8 @@
       }
     }
   },
-  "bc1q4j7fcl8zx5yl56j00nkqez9zf3f6ggqchwzzcs5hjxwqhsgxvavq3qfgpr": {
-    "Address": "bc1q4j7fcl8zx5yl56j00nkqez9zf3f6ggqchwzzcs5hjxwqhsgxvavq3qfgpr",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Coincheck Hot Wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/coincheck.png"
-      }
-    }
-  },
-  "3LQUu4v9z6KNch71j7kbj8GPeAGUo1FW6a": {
-    "Address": "3LQUu4v9z6KNch71j7kbj8GPeAGUo1FW6a",
+  "3lquu4v9z6knch71j7kbj8gpeagu1fw6a": {
+    "Address": "3lquu4v9z6knch71j7kbj8gpeagu1fw6a",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Binance Cold Wallet",
@@ -483,8 +472,8 @@
       }
     }
   },
-  "3FuhQLprN9s9MR3bZzR5da7mw75fuahsaU": {
-    "Address": "3FuhQLprN9s9MR3bZzR5da7mw75fuahsaU",
+  "3fuhqlprn9s9mr3bzzr5da7mw75fuahsaU": {
+    "Address": "3fuhqlprn9s9mr3bzzr5da7mw75fuahsaU",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Bitthumb Hot Wallet",
@@ -494,8 +483,8 @@
       }
     }
   },
-  "1N7jWmv63mkMdsYzbNUVHbEYDQfcq1u8Yp": {
-    "Address": "1N7jWmv63mkMdsYzbNUVHbEYDQfcq1u8Yp",
+  "1n7jwmv63mkm dsyzbnuvhbeydqfcq1u8yp": {
+    "Address": "1n7jwmv63mkm dsyzbnuvhbeydqfcq1u8yp",
     "Labels": {
       "bitcoin": {
         "Name Tag": "MT Gox wallet",
@@ -505,8 +494,8 @@
       }
     }
   },
-  "3JZq4atUahhuA9rLhXLMhhTo133J9rF97j": {
-    "Address": "3JZq4atUahhuA9rLhXLMhhTo133J9rF97j",
+  "3jzq4atuahhuanrlhxmhhto133j9rf97j": {
+    "Address": "3jzq4atuahhuanrlhxmhhto133j9rf97j",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Bitfinex Cold Wallet",
@@ -538,8 +527,8 @@
       }
     }
   },
-  "3HfD4pvF43jdu9dzVMEr1b8AnDHooRGc5t": {
-    "Address": "3HfD4pvF43jdu9dzVMEr1b8AnDHooRGc5t",
+  "3hfd4pvf43jdu9dzvmer1b8andhoorgc5t": {
+    "Address": "3hfd4pvf43jdu9dzvmer1b8andhoorgc5t",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Paxos Cold Wallet",
@@ -549,8 +538,8 @@
       }
     }
   },
-  "38UmuUqPCrFmQo4khkomQwZ4VbY2nZMJ67": {
-    "Address": "38UmuUqPCrFmQo4khkomQwZ4VbY2nZMJ67",
+  "38umuuqpcrfmqo4khkomqwz4vby2nzmj67": {
+    "Address": "38umuuqpcrfmqo4khkomqwz4vby2nzmj67",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Gemini Cold Wallet",
@@ -582,8 +571,8 @@
       }
     }
   },
-  "34HpHYiyQwg69gFmCq2BGHjF1DZnZnBeBP": {
-    "Address": "34HpHYiyQwg69gFmCq2BGHjF1DZnZnBeBP",
+  "34hphyiyqwg69gfmCq2bghjf1dznznbebp": {
+    "Address": "34hphyiyqwg69gfmCq2bghjf1dznznbebp",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Binance Cold Wallet",
@@ -615,8 +604,8 @@
       }
     }
   },
-  "1DcoAJJmCexsYCF8h9qBzduNDo2cXAWXFe": {
-    "Address": "1DcoAJJmCexsYCF8h9qBzduNDo2cXAWXFe",
+  "1dcoajjmcexsycf8h9qbzdundo2cxawxfe": {
+    "Address": "1dcoajjmcexsycf8h9qbzdundo2cxawxfe",
     "Labels": {
       "bitcoin": {
         "Name Tag": "MT Gox Cold wallet",
@@ -626,8 +615,8 @@
       }
     }
   },
-  "1Q8QR5k32hexiMQnRgkJ6fmmjn5fMWhdv9": {
-    "Address": "1Q8QR5k32hexiMQnRgkJ6fmmjn5fMWhdv9",
+  "1q8qr5k32heximqnr6kj6fmmjn5fmwhdv9": {
+    "Address": "1q8qr5k32heximqnr6kj6fmmjn5fmwhdv9",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Binance Pool wallet",
@@ -637,8 +626,8 @@
       }
     }
   },
-  "1DzsfLRDfbmQM99xm59au2SrTY3YmciBSB": {
-    "Address": "1DzsfLRDfbmQM99xm59au2SrTY3YmciBSB",
+  "1dzsflrdfbmqm99xm59au2srty3ymcibsb": {
+    "Address": "1dzsflrdfbmqm99xm59au2srty3ymcibsb",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Upbit Cold Wallet",
@@ -648,8 +637,8 @@
       }
     }
   },
-  "1GUfWdZQoo2pQ4BKHsiegxuZPnheY5ueTm": {
-    "Address": "1GUfWdZQoo2pQ4BKHsiegxuZPnheY5ueTm",
+  "1gufwdzqoo2pq4bkhsiegxuzpnhey5uetm": {
+    "Address": "1gufwdzqoo2pq4bkhsiegxuzpnhey5uetm",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Upbit Cold Wallet",
@@ -659,8 +648,8 @@
       }
     }
   },
-  "12HnxiXEeKUVjQRbMVTytsGWnzHd5LdGCt": {
-    "Address": "12HnxiXEeKUVjQRbMVTytsGWnzHd5LdGCt",
+  "12hnxixee Kuvjqrbmvtytsgwnzhd5ld gct": {
+    "Address": "12hnxixeekuvjqrbmvtytsgwnzhd5ldgct",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Upbit Cold Wallet",
@@ -670,8 +659,8 @@
       }
     }
   },
-  "17uULjz9moeLyjXHoKNwDRgKzf8ahY3Jia": {
-    "Address": "17uULjz9moeLyjXHoKNwDRgKzf8ahY3Jia",
+  "17uuljz9moelyjxhoknwdrgkzf8ahy3jia": {
+    "Address": "17uuljz9moelyjxhoknwdrgkzf8ahy3jia",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Upbit Cold Wallet",
@@ -681,8 +670,8 @@
       }
     }
   },
-  "18qNs1yBGGKR8RyErnEF5kegbNUgPfixhS": {
-    "Address": "18qNs1yBGGKR8RyErnEF5kegbNUgPfixhS",
+  "18qns1ybggkr8ryernef5kegbnugpfixhs": {
+    "Address": "18qns1ybggkr8ryernef5kegbnugpfixhs",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Upbit Cold Wallet",
@@ -692,8 +681,8 @@
       }
     }
   },
-  "1DP3VYwN6ozHXDDaETbvNFLd86CAXfaewi": {
-    "Address": "1DP3VYwN6ozHXDDaETbvNFLd86CAXfaewi",
+  "1dp3vywn6ozhxddaetbvnfld86caxfaewi": {
+    "Address": "1dp3vywn6ozhxddaetbvnfld86caxfaewi",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Upbit Cold Wallet",
@@ -703,8 +692,8 @@
       }
     }
   },
-  "1NhJGUJu8rrTwPS4vopsdTqqcK4nAwdLwJ": {
-    "Address": "1NhJGUJu8rrTwPS4vopsdTqqcK4nAwdLwJ",
+  "1nhjguju8rrtwps4vopsdtqqcK4nawdlwj": {
+    "Address": "1nhjguju8rrtwps4vopsdtqqcK4nawdlwj",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Upbit Cold Wallet",
@@ -714,8 +703,8 @@
       }
     }
   },
-  "1MewpRkpcbFdqamPPYc1bXa9AJ189Succy": {
-    "Address": "1MewpRkpcbFdqamPPYc1bXa9AJ189Succy",
+  "1mewprkpcbfdqamppyc1bxa9aj189succy": {
+    "Address": "1mewprkpcbfdqamppyc1bxa9aj189succy",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Upbit Cold Wallet",
@@ -725,8 +714,8 @@
       }
     }
   },
-  "1MtUMTqtdrpT6Rar5fgWoyrzAevatssej5": {
-    "Address": "1MtUMTqtdrpT6Rar5fgWoyrzAevatssej5",
+  "1mtumtqtdrpt6rar5fgwoyrzaevatssej5": {
+    "Address": "1mtumtqtdrpt6rar5fgwoyrzaevatssej5",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Upbit Cold Wallet",
@@ -736,8 +725,8 @@
       }
     }
   },
-  "1H2MXWiSniAgg7ykdXEzPHL6oTH1ic4kP": {
-    "Address": "1H2MXWiSniAgg7ykdXEzPHL6oTH1ic4kP",
+  "1h2mxwisniagg7ykdxezphl6oth1ic4kp": {
+    "Address": "1h2mxwisniagg7ykdxezphl6oth1ic4kp",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Upbit Cold Wallet",
@@ -747,8 +736,8 @@
       }
     }
   },
-  "1DcT5Wij5tfb3oVViF8mA8p4WrG98ahZPT": {
-    "Address": "1DcT5Wij5tfb3oVViF8mA8p4WrG98ahZPT",
+  "1dct5wij5tfb3ovvif8ma8p4wrg98ahzpt": {
+    "Address": "1dct5wij5tfb3ovvif8ma8p4wrg98ahzpt",
     "Labels": {
       "bitcoin": {
         "Name Tag": "OKX Cold Wallet",
@@ -758,8 +747,8 @@
       }
     }
   },
-  "1CY7fykRLWXeSbKB885Kr4KjQxmDdvW923": {
-    "Address": "1CY7fykRLWXeSbKB885Kr4KjQxmDdvW923",
+  "1cy7fykrlwxesbkb885kr4kjqxmddvw923": {
+    "Address": "1cy7fykrlwxesbkb885kr4kjqxmddvw923",
     "Labels": {
       "bitcoin": {
         "Name Tag": "OKX Cold Wallet",
@@ -780,8 +769,8 @@
       }
     }
   },
-  "39DUz1NCkLu25GczWiAjjgZBu4mUjKbdNA": {
-    "Address": "39DUz1NCkLu25GczWiAjjgZBu4mUjKbdNA",
+  "39duz1ncklu25gczwiajjgzbu4mujkbdna": {
+    "Address": "39duz1ncklu25gczwiajjgzbu4mujkbdna",
     "Labels": {
       "bitcoin": {
         "Name Tag": "MaskEX Cold Wallet",
@@ -802,8 +791,8 @@
       }
     }
   },
-  "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": {
-    "Address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+  "1a1zp1ep5qgefi2dmptftl5slmv7divfna": {
+    "Address": "1a1zp1ep5qgefi2dmptftl5slmv7divfna",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Satoshi Nakamoto",

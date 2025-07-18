@@ -117,7 +117,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
   };
 
   return (
-    <header className="h-[5vh] sm:h-[6vh] bg-galaxy border-b rounded-b-xl p-3 flex justify-between items-center sticky top-[-10px] z-20 font-jetbrains">
+    <header className="h-[4vh] sm:h-[5vh] bg-galaxy border-b rounded-b-xl p-3 flex justify-between items-center sticky top-[-10px] z-20 font-jetbrains">
       <div className="block sm:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -148,18 +148,18 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
             <motion.button
               onClick={() => setActiveTab(tab.id)}
               onMouseEnter={handleMouseEnter}
-              className={`group px-3 py-1.5 text-xs font-medium transition-all duration-300 text-white backdrop-blur-md perspective-1000 ${
+              className={`group px-3 py-1.5 text-[10px] md:text-[10px] font-medium transition-all duration-300 text-white backdrop-blur-md perspective-1000 ${
                 activeTab === tab.id ? 'bg-gray-400 text-black' : ''
               }`}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <span className="matrix-text inline-block underline underline-offset-2">
+              <span className="matrix-text inline-block">
                 {renderMatrixText(tab.label)}
               </span>
             </motion.button>
             {index < tabs.length - 1 && (
-              <span className="h-6 w-px bg-white/30 mx-2"></span>
+              <span className="h-6 w-px bg-white/30 mx-1"></span>
             )}
           </div>
         ))}
@@ -179,7 +179,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
         {isMenuOpen && (
           <motion.div
             ref={menuRef}
-            className="fixed top-0 left-0 w-full max-w-xs h-2/3 bg-galaxy backdrop-blur-lg z-30 flex flex-col p-4 sm:hidden rounded-xl"
+            className="fixed top-0 left-0 w-full max-w-xs h-full bg-galaxy backdrop-blur-lg z-30 flex flex-col p-4 sm:hidden rounded-r-xl"
             initial="closed"
             animate="open"
             exit="closed"

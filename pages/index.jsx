@@ -313,7 +313,7 @@ export default function Home() {
             href="/dashboard"
             className="px-4 py-2 text-white text-sm border border-white/20 rounded-lg font-medium transition-all duration-300 hover:bg-white/10 backdrop-blur-md"
           >
-            <MatrixHoverEffect text="Launch App" hoverColor="#00BFFF" />
+            <MatrixHoverEffect text="App" hoverColor="#00BFFF" />
           </Link>
         </div>
       </header>
@@ -342,7 +342,7 @@ export default function Home() {
             href="/dashboard"
             className="px-6 py-3 text-white border border-white/20 rounded-full text-sm font-medium transition-all duration-300 hover:bg-white/10 backdrop-blur-md uppercase"
           >
-            <MatrixHoverEffect text="Launch App" hoverColor="#00BFFF" />
+            <MatrixHoverEffect text="App" hoverColor="#00BFFF" />
           </Link>
         </div>
       </section>

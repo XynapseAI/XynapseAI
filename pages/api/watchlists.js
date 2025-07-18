@@ -1,4 +1,3 @@
-// pages/api/watchlists.js
 import { query } from '../../utils/postgres.js';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
@@ -25,6 +24,10 @@ const limiter = rateLimit({
   trustProxy: true,
 });
 
+const isValidSolanaAddress = (address) => {
+  return address && address.length === 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
+};
+
 const validatePost = [
   body('action')
     .isString()
@@ -35,9 +38,9 @@ const validatePost = [
     .isString()
     .custom((value) => {
       const isValidEVM = isAddress(value);
-      const isValidSVM = value.length === 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(value);
+      const isValidSVM = isValidSolanaAddress(value);
       if (!isValidEVM && !isValidSVM) {
-        throw new Error('Invalid EVM or SVM address');
+        throw new Error('Invalid EVM or Solana address');
       }
       return true;
     })
@@ -97,6 +100,8 @@ export default async function handler(req, res) {
     }
 
     const { action, wallet_address } = req.body;
+    const isEVMAddress = isAddress(wallet_address);
+    const normalizedAddress = isEVMAddress ? wallet_address.toLowerCase() : wallet_address;
 
     if (action === 'add') {
       try {
@@ -110,7 +115,7 @@ export default async function handler(req, res) {
         // Insert new wallet
         await query(
           `INSERT INTO watchlists (user_id, wallet_address, name) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT unique_user_wallet DO NOTHING`,
-          [session.user.id, wallet_address.toLowerCase(), 'Unnamed Wallet']
+          [session.user.id, normalizedAddress, 'Unnamed Wallet']
         );
 
         // Fetch updated watchlist
@@ -118,7 +123,7 @@ export default async function handler(req, res) {
           `SELECT wallet_address, name, created_at FROM watchlists WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5`,
           [session.user.id]
         );
-        logger.info(`Added wallet ${wallet_address} for user ${session.user.id}`, { ip });
+        logger.info(`Added wallet ${normalizedAddress} for user ${session.user.id}`, { ip });
         return res.status(200).json({ success: true, data: result.rows });
       } catch (dbError) {
         logger.error(`Database error adding wallet: ${dbError.message}`, { stack: dbError.stack, ip });
@@ -128,7 +133,7 @@ export default async function handler(req, res) {
       try {
         await query(
           `DELETE FROM watchlists WHERE user_id = $1 AND wallet_address = $2`,
-          [session.user.id, wallet_address.toLowerCase()]
+          [session.user.id, normalizedAddress]
         );
 
         // Fetch updated watchlist
@@ -136,7 +141,7 @@ export default async function handler(req, res) {
           `SELECT wallet_address, name, created_at FROM watchlists WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5`,
           [session.user.id]
         );
-        logger.info(`Removed wallet ${wallet_address} for user ${session.user.id}`, { ip });
+        logger.info(`Removed wallet ${normalizedAddress} for user ${session.user.id}`, { ip });
         return res.status(200).json({ success: true, data: result.rows });
       } catch (dbError) {
         logger.error(`Database error removing wallet: ${dbError.message}`, { stack: dbError.stack, ip });

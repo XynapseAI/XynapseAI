@@ -66,7 +66,7 @@ const cors = Cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      logger.error(` C O R S error: Origin ${origin} not allowed`, { allowedOrigins });
+      logger.error(`CORS error: Origin ${origin} not allowed`, { allowedOrigins });
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -80,8 +80,13 @@ const isValidSolanaAddress = (address) => {
 const validate = [
   body('action')
     .isString()
-    .isIn(['top-holders', 'wallet-balances', 'transactions', 'collectibles'])
+    .isIn(['top-holders', 'wallet-balances', 'transactions', 'collectibles', 'proxy-image'])
     .withMessage('Invalid action'),
+  body('imageUrl')
+    .if(body('action').equals('proxy-image'))
+    .isString()
+    .notEmpty()
+    .withMessage('Image URL is required for proxy-image action'),
   body('chain')
     .if(body('action').equals('top-holders'))
     .isString()
@@ -174,7 +179,50 @@ const CHAIN_ID_MAP = {
   zora: '7777777',
 };
 
+const SUPPORTED_SVM_CHAINS = ['solana', 'eclipse'];
 const SUPPORTED_CHAIN_IDS = Object.values(CHAIN_ID_MAP).join(',');
+
+// Native token metadata for SVM chains
+const NATIVE_TOKEN_METADATA = {
+  solana: { symbol: 'SOL', logo: '/solana-logo.png', name: 'Solana' },
+  eclipse: { symbol: 'ECL', logo: '/eclipse-logo.png', name: 'Eclipse' },
+};
+
+// Function to fetch actual image URL from metadata endpoint
+const fetchImageUrl = async (metadataUrl, ip) => {
+  try {
+    const blockedDomains = ['scontent.xx.fbcdn.net', 'fbcdn.net'];
+    if (blockedDomains.some((domain) => metadataUrl.includes(domain))) {
+      logger.warn(`Blocked metadata URL: ${metadataUrl} due to restricted domain`, { ip });
+      return null;
+    }
+
+    const response = await axios.get(metadataUrl, {
+      timeout: 5000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'image/*,application/json',
+      },
+    });
+
+    if (response.headers['content-type'].includes('application/json')) {
+      const metadata = response.data;
+      const imageUrl = metadata.image || metadata.logo || metadata.image_url || null;
+      if (imageUrl && blockedDomains.some((domain) => imageUrl.includes(domain))) {
+        logger.warn(`Blocked image URL from metadata: ${imageUrl}`, { ip });
+        return null;
+      }
+      return imageUrl;
+    }
+    if (response.headers['content-type'].startsWith('image/')) {
+      return metadataUrl;
+    }
+    return null;
+  } catch (error) {
+    logger.warn(`Failed to fetch image from metadata URL ${metadataUrl}: ${error.message}`, { ip });
+    return null;
+  }
+};
 
 export const config = { api: { bodyParser: { sizeLimit: '10kb' } } };
 
@@ -224,10 +272,18 @@ export default async function handler(req, res) {
   if (['wallet-balances', 'transactions', 'collectibles'].includes(action)) {
     try {
       await new Promise((resolve, reject) => {
-        requireAuth(req, res, (err) => (err ? reject(err) : resolve()));
+        logger.info(`Running requireAuth for action: ${action}, address: ${address}`, { ip });
+        requireAuth(req, res, (err) => {
+          if (err) {
+            logger.error(`requireAuth failed: ${err.message}`, { ip, headers: req.headers });
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
       });
     } catch (err) {
-      logger.error(`Authentication error: ${err.message}`, { ip });
+      logger.error(`Authentication error: ${err.message}`, { ip, stack: err.stack });
       return res.status(401).json({ detail: 'Unauthorized: Please log in.' });
     }
   }
@@ -235,8 +291,7 @@ export default async function handler(req, res) {
   try {
     const isEVMAddress = isAddress(address);
     const isSVMAddress = isValidSolanaAddress(address);
-    // Luôn sử dụng SUPPORTED_CHAIN_IDS nếu không có chain_ids cụ thể được cung cấp
-    const chainParam = isEVMAddress ? `chain_ids=${SUPPORTED_CHAIN_IDS}` : `chains=solana`;
+    const chainParam = isEVMAddress ? `chain_ids=${SUPPORTED_CHAIN_IDS}` : `chains=${SUPPORTED_SVM_CHAINS.join(',')}`;
 
     if (action === 'top-holders' && chain && tokenAddress) {
       const chainId = CHAIN_ID_MAP[chain?.toLowerCase()];
@@ -283,11 +338,14 @@ export default async function handler(req, res) {
         };
       }) || [];
 
-      logger.info(`Processed top holders data: ${data.length} holders`, { ip });
+      logger.info(`Processed top-holders data: ${data.length} holders`, { ip });
       return res.status(200).json({ success: true, data });
     } else if (action === 'wallet-balances' && address) {
       logger.info(`Processing wallet-balances for address: ${address}`, { ip });
-      const url = `https://api.sim.dune.com/v1/${isEVMAddress ? 'evm' : 'solana'}/balances/${address}?${chainParam}&metadata=logo&limit=${limit}`;
+      const url = isEVMAddress
+        ? `https://api.sim.dune.com/v1/evm/balances/${address}?${chainParam}&metadata=logo&limit=${limit}`
+        : `https://api.sim.dune.com/beta/svm/balances/${address}?${chainParam}&limit=${limit}`;
+      logger.info(`Calling Dune Sim API: ${url}`, { ip });
       const response = await axios.get(url, {
         headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
         timeout: 15000,
@@ -301,81 +359,229 @@ export default async function handler(req, res) {
         });
       }
 
-      const data = response.data.balances?.map((balance) => ({
-        chain: balance.chain,
-        chain_id: balance.chain_id || (isSVMAddress ? 'solana' : balance.chain_id),
-        address: balance.address,
-        symbol: balance.symbol || 'Unknown',
-        decimals: balance.decimals || 18,
-        amount: Number(balance.amount) / Math.pow(10, balance.decimals || 18),
-        price_usd: balance.price_usd || 0,
-        value_usd: balance.value_usd || 0,
-        logo: balance.token_metadata?.logo || null,
-        low_liquidity: balance.low_liquidity || false,
-      })) || [];
+      const balances = await Promise.all(
+        response.data.balances?.map(async (balance) => {
+          let logo = isEVMAddress ? balance.token_metadata?.logo || null : balance.uri || null;
+          if ((balance.chain === 'solana' || balance.chain === 'eclipse') && balance.address === 'native') {
+            logo = balance.chain === 'solana' ? '/solana-logo.png' : '/eclipse-logo.png';
+          } else if (isSVMAddress && logo) {
+            const imageUrl = await fetchImageUrl(logo, ip);
+            logo = imageUrl;
+          }
+          return {
+            chain: balance.chain,
+            chain_id: balance.chain_id || (isSVMAddress ? balance.chain : balance.chain_id),
+            address: balance.address,
+            symbol: balance.symbol || 'Unknown',
+            decimals: balance.decimals || 18,
+            amount: Number(balance.amount) / Math.pow(10, balance.decimals || 18),
+            price_usd: balance.price_usd || 0,
+            value_usd: balance.value_usd || 0,
+            logo,
+            low_liquidity: balance.low_liquidity || false,
+            name: balance.name || 'Unknown',
+          };
+        }) || []
+      );
 
-      logger.info(`Processed wallet balances data: ${data.length} tokens`, { ip });
+      const data = balances;
+      logger.info(`Processed wallet balances data: ${data.length} tokens after processing`, { ip });
       return res.status(200).json({ success: true, data });
     } else if (action === 'transactions' && address) {
       logger.info(`Processing transactions for address: ${address}`, { ip });
-      const url = `https://api.sim.dune.com/v1/${isEVMAddress ? 'evm' : 'solana'}/transactions/${address}?${chainParam}&limit=${limit}`;
+      const url = isEVMAddress
+        ? `https://api.sim.dune.com/v1/evm/activity/${address}?${chainParam}&limit=${limit}&sort=desc`
+        : `https://api.sim.dune.com/beta/svm/transactions/${address}?${chainParam}&limit=${limit}&sort=desc`;
+      logger.info(`Calling Dune Sim API: ${url}`, { ip });
       const response = await axios.get(url, {
         headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
         timeout: 15000,
       });
 
-      logger.info(`Transactions response for address ${address}: ${response.data.transactions?.length || 0} transactions, time: ${Date.now() - startTime}ms`, { ip });
+      logger.info(`Transactions response for address ${address}: ${response.data.activity?.length || response.data.transactions?.length || 0} transactions, time: ${Date.now() - startTime}ms`, { ip });
       if (process.env.NODE_ENV === 'development') {
         console.log('Raw transactions response:', {
-          wallet_address: response.data.wallet_address,
-          transactions: response.data.transactions?.slice(0, 5),
+          wallet_address: response.data.wallet_address || response.data.address,
+          transactions: (response.data.activity || response.data.transactions)?.slice(0, 5),
         });
       }
 
-      const data = response.data.transactions?.map((tx) => ({
-        chain: tx.chain,
-        hash: tx.hash,
-        from: tx.from,
-        to: tx.to || 'None',
-        value: tx.value || '0x0',
-        block_time: tx.block_time,
-      })) || [];
+      const data = (isEVMAddress ? response.data.activity : response.data.transactions)?.map((tx) => {
+        if (isEVMAddress) {
+          const decimals = tx.asset_type === 'native' ? 18 : tx.token_metadata?.decimals || 18;
+          return {
+            chain: Object.keys(CHAIN_ID_MAP).find((key) => CHAIN_ID_MAP[key] === tx.chain_id) || tx.chain_id || 'Unknown',
+            hash: tx.tx_hash || 'Unknown',
+            from: tx.from || tx.tx_from || 'Unknown',
+            to: tx.to || tx.tx_to || 'None',
+            value: Number(tx.value || 0) / Math.pow(10, decimals),
+            block_time: tx.block_time || null,
+            block_slot: tx.block_number || null,
+            token: tx.token_metadata?.symbol || (tx.asset_type === 'native' ? 'Native' : 'Unknown'),
+            type: tx.type || 'Unknown',
+            token_metadata: {
+              symbol: tx.token_metadata?.symbol || (tx.asset_type === 'native' ? NATIVE_TOKEN_METADATA[tx.chain]?.symbol || 'Native' : 'Unknown'),
+              logo: tx.token_metadata?.logo || NATIVE_TOKEN_METADATA[tx.chain]?.logo || null,
+              name: tx.token_metadata?.name || NATIVE_TOKEN_METADATA[tx.chain]?.name || 'Unknown',
+            },
+          };
+        } else {
+          let toAddress = 'None';
+          let value = '0';
+          let type = 'Unknown';
+          const fromAddress = tx.from || tx.address || 'Unknown';
+          let tokenSymbol = tx.chain === 'solana' ? 'SOL' : 'ECL';
+          let tokenLogo = NATIVE_TOKEN_METADATA[tx.chain]?.logo || null;
+          let tokenName = NATIVE_TOKEN_METADATA[tx.chain]?.name || 'Unknown';
+
+          // Check for token transfer
+          const tokenRecipient = tx.meta?.postTokenBalances?.find((postBalance) => {
+            const preBalance = tx.meta?.preTokenBalances?.find(
+              (pre) => pre.mint === postBalance.mint && pre.owner === postBalance.owner
+            );
+            return (
+              preBalance &&
+              Number(postBalance.uiTokenAmount.amount) > Number(preBalance.uiTokenAmount.amount)
+            );
+          });
+
+          if (tokenRecipient) {
+            toAddress = tokenRecipient.owner;
+            const preBalance = tx.meta?.preTokenBalances?.find(
+              (pre) => pre.mint === tokenRecipient.mint && pre.owner === tokenRecipient.owner
+            );
+            value = (
+              (Number(tokenRecipient.uiTokenAmount.amount) - Number(preBalance.uiTokenAmount.amount)) /
+              Math.pow(10, tokenRecipient.uiTokenAmount.uiDecimals || 9)
+            ).toString();
+            type = tokenRecipient.owner === address ? 'receive' : 'send';
+            tokenSymbol = tokenRecipient.uiTokenAmount?.uiDecimals ? tokenRecipient.mint : tokenSymbol;
+            tokenLogo = null; // Token-specific logo requires additional metadata fetch
+            tokenName = 'Unknown Token'; // Token-specific name requires additional metadata fetch
+          } else {
+            // Check for native token transfer (SOL or Eclipse ETH)
+            if (tx.meta?.postBalances && tx.meta?.preBalances && tx.raw_transaction?.transaction?.message?.accountKeys) {
+              const deltas = tx.meta.postBalances.map((post, i) => post - (tx.meta.preBalances[i] || 0));
+              const recipientIndex = deltas.findIndex(
+                (delta, i) => delta > 0 && tx.raw_transaction.transaction.message.accountKeys[i] !== fromAddress
+              );
+              const senderIndex = deltas.findIndex(
+                (delta, i) => delta < 0 && tx.raw_transaction.transaction.message.accountKeys[i] === fromAddress
+              );
+
+              if (recipientIndex > -1 && tx.raw_transaction.transaction.message.accountKeys[recipientIndex] === address) {
+                toAddress = fromAddress;
+                value = (deltas[recipientIndex] / 1e9).toString();
+                type = 'receive';
+              } else if (senderIndex > -1 && tx.raw_transaction.transaction.message.accountKeys[senderIndex] === address) {
+                toAddress = tx.raw_transaction.transaction.message.accountKeys[deltas.findIndex((delta) => delta > 0)] || 'None';
+                value = (-deltas[senderIndex] / 1e9).toString();
+                type = 'send';
+              }
+            }
+          }
+
+          return {
+            chain: tx.chain,
+            hash: tx.raw_transaction?.transaction?.signatures?.[0] || 'Unknown',
+            from: fromAddress,
+            to: toAddress,
+            value: value,
+            block_time: tx.block_time ? new Date(tx.block_time / 1000).toISOString() : null,
+            block_slot: tx.block_slot || null,
+            token: tokenSymbol,
+            type: type,
+            token_metadata: {
+              symbol: tokenSymbol,
+              logo: tokenLogo,
+              name: tokenName,
+            },
+          };
+        }
+      }) || [];
 
       logger.info(`Processed transactions data: ${data.length} transactions`, { ip });
       return res.status(200).json({ success: true, data });
     } else if (action === 'collectibles' && address) {
       logger.info(`Processing collectibles for address: ${address}`, { ip });
-      const effectiveLimit = Math.min(limit, 500); // Cap at Sim API max
-      const url = `https://api.sim.dune.com/v1/${isEVMAddress ? 'evm' : 'solana'}/collectibles/${address}?${chainParam}&limit=${effectiveLimit}`;
-      const response = await axios.get(url, {
-        headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
-        timeout: 15000,
-      });
-
-      logger.info(`Collectibles response for address ${address}: ${response.data.entries?.length || response.data.collectibles?.length || 0} collectibles, time: ${Date.now() - startTime}ms`, { ip });
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Raw collectibles response:', {
-          wallet_address: response.data.address || response.data.wallet_address,
-          entries: response.data.entries?.slice(0, 5) || response.data.collectibles?.slice(0, 5),
+      const effectiveLimit = Math.min(limit, 500);
+      const url = isEVMAddress
+        ? `https://api.sim.dune.com/v1/evm/collectibles/${address}?${chainParam}&limit=${effectiveLimit}`
+        : `https://api.sim.dune.com/beta/svm/collectibles/${address}?${chainParam}&limit=${effectiveLimit}`;
+      logger.info(`Calling Dune Sim API: ${url}`, { ip });
+      try {
+        const response = await axios.get(url, {
+          headers: { 'X-Sim-Api-Key': process.env.SIM_API_KEY },
+          timeout: 15000,
         });
+
+        logger.info(`Collectibles response for address ${address}: ${response.data.entries?.length || response.data.collectibles?.length || 0} collectibles, time: ${Date.now() - startTime}ms`, { ip });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Raw collectibles response:', {
+            wallet_address: response.data.address || response.data.wallet_address,
+            entries: response.data.entries?.slice(0, 5) || response.data.collectibles?.slice(0, 5),
+          });
+        }
+
+        const data = (response.data.entries || response.data.collectibles || [])
+          .filter((nft) => nft.image_url || nft.token_metadata?.logo)
+          .map((nft) => ({
+            chain: nft.chain,
+            chain_id: nft.chain_id || (isSVMAddress ? nft.chain : nft.chain_id),
+            contract_address: nft.contract_address,
+            token_id: nft.token_id,
+            name: nft.name || 'Unknown',
+            symbol: nft.symbol || 'Unknown',
+            token_standard: nft.token_standard || 'Unknown',
+            balance: Number(nft.balance) || 1,
+            token_metadata: {
+              logo: nft.image_url || nft.token_metadata?.logo || null,
+            },
+          }));
+
+        logger.info(`Processed collectibles data: ${data.length} collectibles after filtering`, { ip });
+        return res.status(200).json({ success: true, data });
+      } catch (error) {
+        if (error.response?.status === 404 && isSVMAddress) {
+          logger.warn(`SVM collectibles not supported for address: ${address}`, { ip });
+          return res.status(200).json({ success: true, data: [] });
+        }
+        throw error;
       }
+    } else if (action === 'proxy-image' && req.body.imageUrl) {
+      try {
+        const imageUrl = req.body.imageUrl;
+        logger.info(`Proxying image: ${imageUrl}`, { ip });
 
-      const data = (response.data.entries || response.data.collectibles || []).map((nft) => ({
-        chain: nft.chain,
-        chain_id: nft.chain_id || (isSVMAddress ? 'solana' : nft.chain_id),
-        contract_address: nft.contract_address,
-        token_id: nft.token_id,
-        name: nft.name || 'Unknown',
-        symbol: nft.symbol || 'Unknown',
-        token_standard: nft.token_standard || 'Unknown',
-        balance: Number(nft.balance) || 1,
-        token_metadata: {
-          logo: nft.token_metadata?.logo || null,
-        },
-      }));
+        const blockedDomains = ['scontent.xx.fbcdn.net', 'fbcdn.net'];
+        if (blockedDomains.some((domain) => imageUrl.includes(domain))) {
+          logger.warn(`Blocked image URL: ${imageUrl} due to restricted domain`, { ip });
+          return res.status(400).json({ detail: 'Image URL from restricted domain' });
+        }
 
-      logger.info(`Processed collectibles data: ${data.length} collectibles`, { ip });
-      return res.status(200).json({ success: true, data });
+        const response = await axios.get(imageUrl, {
+          responseType: 'arraybuffer',
+          timeout: 5000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'image/*',
+            'Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://xynapseai.net',
+          },
+        });
+
+        const contentType = response.headers['content-type'];
+        if (!contentType.startsWith('image/')) {
+          logger.warn(`Invalid content-type for image ${imageUrl}: ${contentType}`, { ip });
+          return res.status(400).json({ detail: 'Invalid image content type' });
+        }
+
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.status(200).send(response.data);
+      } catch (error) {
+        logger.warn(`Failed to proxy image ${req.body.imageUrl}: ${error.message}`, { ip });
+        return res.status(400).json({ detail: 'Failed to fetch image', error: error.message });
+      }
     }
 
     logger.log('warn', `Invalid parameters for action: ${action}`, { ip });
@@ -392,8 +598,8 @@ export default async function handler(req, res) {
       status === 429
         ? 'Dune Sim API rate limit exceeded, please try again later.'
         : status === 404
-        ? 'Requested data not found.'
-        : `Dune Sim API error: ${error.message}`;
+          ? 'Requested data not found.'
+          : `Dune Sim API error: ${error.message}`;
     return res.status(status).json({ detail });
   }
 }

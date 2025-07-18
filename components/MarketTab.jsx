@@ -11,7 +11,7 @@ import { useMarketTabLogic } from './MarketTabLogic';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { formatDistanceToNow } from 'date-fns';
-import { GECKOTERMINAL_CHAIN_MAPPING } from '../utils/constants';
+import { GECKOTERMINAL_CHAIN_MAPPING , CHAIN_ID_TO_NAME } from '../utils/constants';
 
 // Custom logger
 const logger = {
@@ -277,7 +277,6 @@ const LoadingOverlay = ({ loadingStates = {}, isMobile }) => {
   );
 };
 
-// WalletBalances component
 const WalletBalances = ({
   balances,
   walletAddress,
@@ -313,8 +312,8 @@ const WalletBalances = ({
 
   useEffect(() => {
     if (
-      activeTab === 'transactions' &&
-      walletAddress?.match(/^0x[a-fA-F0-9]{40}$/) &&
+      activeTab === 'activity' &&
+      walletAddress &&
       !transactions &&
       !isLoadingTransactions &&
       !transactionsError
@@ -329,20 +328,30 @@ const WalletBalances = ({
 
   if (!walletAddress) return null;
 
-  const weiToEth = (wei) => {
-    if (!wei) return '0.000000';
-    const value = parseInt(wei, 16) || 0;
-    return (value / 1e18).toFixed(6);
-  };
-
   const getPlatformImage = (chainValue) => {
-    const chain = chains.find((c) => c.value === chainValue);
+    // Map numeric chain ID to chain name
+    const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
+    const chain = chains.find((c) => c.value === chainName);
     const imageUrl = chain?.image || '/fallback-image.png';
-    logger.log('getPlatformImage:', { chainValue, imageUrl, found: !!chain });
+    logger.log('getPlatformImage:', { chainValue, chainName, imageUrl, found: !!chain });
     return imageUrl;
   };
 
+  const getChainLabel = (chainValue) => {
+    // Map numeric chain ID to chain name
+    const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
+    return chains.find((c) => c.value === chainName)?.label || chainName;
+  };
+
   const { text: displayWalletAddress, image: walletImage } = truncateAddress(walletAddress, nameTags);
+
+  const formatNumber = (value, decimals = 6) => {
+    if (value == null || isNaN(value)) return 'N/A';
+    return Number(value).toLocaleString('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  };
 
   logger.log('WalletBalances rendering:', {
     walletAddress,
@@ -359,13 +368,14 @@ const WalletBalances = ({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
       className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains min-h-screen"
     >
       <div
         ref={walletBalancesRef}
-        className={`p-4 sm:p-6 max-w-6xl w-[90%] rounded-2xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar border border-white/10 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-xl bg-gray-900/50 shadow-glow-neon'
-          }`}
+        className={`p-4 sm:p-6 max-w-6xl w-[90%] rounded-2xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar border border-white/10 ${
+          isMobile ? 'bg-gray-900' : 'backdrop-blur-xl bg-gray-900/50 shadow-glow-neon'
+        }`}
       >
         <div className="sticky top-0 z-10 p-2">
           <div className="flex justify-between items-center mb-3">
@@ -402,8 +412,9 @@ const WalletBalances = ({
             </div>
             <motion.button
               onClick={onClose}
-              className={`text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300 ${isMobile ? 'bg-gray-900 border border-white/20' : 'bg-gray-900/50 border border-white/20 backdrop-blur-md'
-                }`}
+              className={`text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300 ${
+                isMobile ? 'bg-gray-900 border border-white/20' : 'bg-gray-900/50 border border-white/20 backdrop-blur-md'
+              }`}
               aria-label="Close balances"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
@@ -414,19 +425,21 @@ const WalletBalances = ({
           <div className="flex space-x-2 mb-3">
             <motion.button
               onClick={() => setActiveTab('portfolio')}
-              className={`px-3 py-1 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md'
-                } ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
+              className={`px-3 py-1 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${
+                isMobile ? 'bg-gray-900' : 'backdrop-blur-md'
+              } ${activeTab === 'portfolio' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
               whileHover={{ scale: 1 }}
             >
               Portfolio
             </motion.button>
             <motion.button
-              onClick={() => setActiveTab('transactions')}
-              className={`px-3 py-1 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md'
-                } ${activeTab === 'transactions' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
+              onClick={() => setActiveTab('activity')}
+              className={`px-3 py-1 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${
+                isMobile ? 'bg-gray-900' : 'backdrop-blur-md'
+              } ${activeTab === 'activity' ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'}`}
               whileHover={{ scale: 1 }}
             >
-              Transactions
+              Activity
             </motion.button>
           </div>
         </div>
@@ -438,8 +451,11 @@ const WalletBalances = ({
               {!isLoading && !error && balances?.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
-                    <thead className={`sticky top-0 z-10 border-b border-white/10 uppercase ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
-                      }`}>
+                    <thead
+                      className={`sticky top-0 z-10 border-b border-white/10 uppercase ${
+                        isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
+                      }`}
+                    >
                       <tr>
                         <th className="px-2 py-1.5 text-white text-center text-[8px] md:text-xs w-[7%]">
                           <div className="flex items-center justify-center gap-1">
@@ -522,7 +538,7 @@ const WalletBalances = ({
                                 }}
                               />
                               <span className="text-[7px] md:text-[10px] text-gray-400 flex-shrink-0">
-                                {chains.find((c) => c.value === balance.chain)?.label || balance.chain}
+                                {getChainLabel(balance.chain)}
                               </span>
                             </div>
                           </td>
@@ -574,41 +590,85 @@ const WalletBalances = ({
               )}
             </>
           )}
-
-          {activeTab === 'transactions' && (
+          {activeTab === 'activity' && (
             <>
               {isLoadingTransactions && (
-                <p className="text-xs text-gray-400 text-center">Loading transactions...</p>
+                <p className="text-xs text-gray-400 text-center">Loading activity...</p>
               )}
               {transactionsError && <p className="text-sm text-red-500 text-center">Error: {transactionsError}</p>}
               {!isLoadingTransactions && !transactionsError && transactions && transactions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
-                    <thead className={`sticky top-0 z-10 border-b border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
-                      }`}>
+                    <thead
+                      className={`sticky top-0 z-10 border-b border-white/10 ${
+                        isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'
+                      }`}
+                    >
                       <tr>
-                        <th className="px-2 py-1.5 text-white text-left text-[10px] md:text-xs w-[60%] uppercase">
-                          <div className="flex items-center gap-2">
+                        <th className="px-2 py-1.5 text-white text-center text-[8px] md:text-xs w-[10%]">
+                          <div className="flex items-center justify-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-5 h-5 fill-white stroke-white flex-shrink-0"
+                              className="w-3 h-3 md:w-4 md:h-4 fill-white flex-shrink-0"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                              />
+                            </svg>
+                            Chain
+                          </div>
+                        </th>
+                        <th className="px-2 py-1.5 text-white text-left text-[8px] md:text-xs w-[15%]">
+                          <div className="flex items-center gap-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-3 h-3 md:w-4 md:h-4 fill-white"
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                            </svg>
+                            Token
+                          </div>
+                        </th>
+                        <th className="px-2 py-1.5 text-white text-center text-[8px] md:text-xs w-[10%]">
+                          <div className="flex items-center justify-center gap-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Type
+                          </div>
+                        </th>
+                        <th className="px-2 py-1.5 text-white text-left text-[8px] md:text-xs w-[25%]">
+                          <div className="flex items-center gap-1">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                d="M14 5l7 7m0 0l-7 7m7-7H3"
+                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
                               />
                             </svg>
-                            Transfer
+                            Address
                           </div>
                         </th>
-                        <th className="px-2 py-1.5 text-white text-left text-[10px] md:text-xs w-[20%] uppercase">
-                          <div className="flex items-center gap-2">
+                        <th className="px-2 py-1.5 text-white text-left text-[8px] md:text-xs w-[15%]">
+                          <div className="flex items-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-5 w-5 stroke-white fill-none"
+                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
@@ -621,19 +681,15 @@ const WalletBalances = ({
                             Value
                           </div>
                         </th>
-                        <th className="px-2 py-1.5 text-white text-center text-[10px] md:text-xs w-[20%] uppercase">
-                          <div className="flex items-center justify-center gap-2">
+                        <th className="px-2 py-1.5 text-white text-center text-[8px] md:text-xs w-[25%]">
+                          <div className="flex items-center justify-center gap-1">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="h-5 w-5 stroke-white fill-none"
+                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             Time
                           </div>
@@ -642,10 +698,12 @@ const WalletBalances = ({
                     </thead>
                     <tbody>
                       {transactions.map((tx, index) => {
-                        const { txUrl, addressUrl: fromUrl } = getExplorerUrls(tx.chain, tx.hash, tx.from);
-                        const { addressUrl: toUrl } = getExplorerUrls(tx.chain, tx.hash, tx.to);
-                        const { text: fromText, image: fromImage } = truncateAddress(tx.from, nameTags);
-                        const { text: toText, image: toImage } = truncateAddress(tx.to, nameTags);
+                        const chainName = CHAIN_ID_TO_NAME[tx.chain] || tx.chain || 'ethereum';
+                        const { txUrl, addressUrl } = getExplorerUrls(chainName, tx.hash, tx.type === 'receive' ? tx.from : tx.to);
+                        const { text: displayAddress, image: addressImage } = truncateAddress(
+                          tx.type === 'receive' ? tx.from : tx.to,
+                          nameTags
+                        );
 
                         return (
                           <tr
@@ -653,88 +711,101 @@ const WalletBalances = ({
                             className="border-t border-white/10 hover:bg-white/5 transition-all duration-200"
                           >
                             <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
-                              <div className="flex items-center space-x-1">
-                                <div className="flex items-center gap-1 mr-0 md:mr-2">
-                                  {fromImage && (
-                                    <img
-                                      src={fromImage}
-                                      alt={`${fromText} logo`}
-                                      className="w-5 h-5 rounded-full flex-shrink-0"
-                                      onError={(e) => {
-                                        logger.error('From address name tag image failed to load:', {
-                                          address: tx.from,
-                                          src: fromImage,
-                                        });
-                                        e.target.src = '/icons/default.png';
-                                      }}
-                                    />
-                                  )}
-                                  <a
-                                    href={fromUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-neon-blue hover:underline"
-                                    title={tx.from}
-                                    onClick={() => handleAddressClick(tx.from)}
-                                  >
-                                    {fromText}
-                                  </a>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="mx-1">→</span>
-                                </div>
-                                <div className="flex items-center gap-1 ml-2">
-                                  {toImage && (
-                                    <img
-                                      src={toImage}
-                                      alt={`${toText} logo`}
-                                      className="w-5 h-5 rounded-full flex-shrink-0"
-                                      onError={(e) => {
-                                        logger.error('To address name tag image failed to load:', {
-                                          address: tx.to,
-                                          src: toImage,
-                                        });
-                                        e.target.src = '/icons/default.png';
-                                      }}
-                                    />
-                                  )}
-                                  <a
-                                    href={toUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-neon-blue hover:underline"
-                                    title={tx.to}
-                                    onClick={() => handleAddressClick(tx.to)}
-                                  >
-                                    {toText}
-                                  </a>
-                                </div>
+                              <div className="flex flex-col items-center">
+                                <img
+                                  src={getPlatformImage(tx.chain)}
+                                  alt={`${chainName} logo`}
+                                  className="w-2 h-2 md:w-5 md:h-5 rounded-full flex-shrink-0"
+                                  onError={(e) => {
+                                    logger.error('Transaction chain logo failed to load:', {
+                                      chain: tx.chain,
+                                      chainName,
+                                      src: getPlatformImage(tx.chain),
+                                    });
+                                    e.target.src = '/fallback-image.png';
+                                  }}
+                                />
+                                <span className="text-[7px] md:text-[10px] text-gray-400 flex-shrink-0">
+                                  {getChainLabel(tx.chain)}
+                                </span>
                               </div>
                             </td>
                             <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
-                              {weiToEth(tx.value)}
+                              <div className="flex items-center space-x-2">
+                                {tx.token_metadata?.logo && (
+                                  <img
+                                    src={tx.token_metadata.logo}
+                                    alt={`${tx.token} logo`}
+                                    className="w-3 h-3 md:w-4 md:h-4 rounded-full flex-shrink-0"
+                                    onError={(e) => {
+                                      logger.error('Token logo failed to load:', {
+                                        symbol: tx.token,
+                                        src: tx.token_metadata.logo,
+                                      });
+                                      e.target.src = '/fallback-image.png';
+                                    }}
+                                  />
+                                )}
+                                <span>{tx.token || 'Unknown'}</span>
+                              </div>
+                            </td>
+                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs text-center">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded-full text-[8px] font-medium ${
+                                  tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : tx.type === 'send' ? 'bg-blue-500/20 text-blue-500' : 'bg-gray-500/20 text-gray-500'
+                                }`}
+                              >
+                                {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
+                              <div className="flex items-center space-x-2">
+                                {addressImage && (
+                                  <img
+                                    src={addressImage}
+                                    alt={`${displayAddress} logo`}
+                                    className="w-3 h-3 md:w-4 md:h-4 rounded-full flex-shrink-0"
+                                    onError={(e) => {
+                                      logger.error('Address name tag image failed to load:', {
+                                        address: tx.type === 'receive' ? tx.from : tx.to,
+                                        src: addressImage,
+                                      });
+                                      e.target.src = '/icons/default.png';
+                                    }}
+                                  />
+                                )}
+                                <a
+                                  href={addressUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-neon-blue hover:underline"
+                                  title={tx.type === 'receive' ? tx.from : tx.to}
+                                  onClick={() => handleAddressClick(tx.type === 'receive' ? tx.from : tx.to)}
+                                >
+                                  {displayAddress}
+                                </a>
+                              </div>
+                            </td>
+                            <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
+                              {formatNumber(tx.value)}
                             </td>
                             <td className="px-2 py-1.5 text-gray-200 text-[8px] md:text-xs">
                               <div className="flex flex-col items-center gap-0.5">
                                 <div className="flex items-center justify-center gap-1">
                                   <img
                                     src={getPlatformImage(tx.chain)}
-                                    alt={`${tx.chain} logo`}
+                                    alt={`${chainName} logo`}
                                     className="w-3 h-3 md:w-5 md:h-5 rounded-full flex-shrink-0"
                                     onError={(e) => {
                                       logger.error('Transaction chain logo failed to load:', {
                                         chain: tx.chain,
+                                        chainName,
                                         src: getPlatformImage(tx.chain),
                                       });
                                       e.target.src = '/fallback-image.png';
                                     }}
                                   />
-                                  <a
-                                    href={txUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="flex-shrink-0"
-                                  >
+                                  <a href={txUrl} target="_blank" rel="noreferrer" className="flex-shrink-0">
                                     <img
                                       src="/logos/etherscan-logo.png"
                                       alt="Etherscan"
@@ -744,7 +815,7 @@ const WalletBalances = ({
                                   </a>
                                 </div>
                                 <span className="text-[8px] md:text-[10px] text-gray-400 text-center">
-                                  {new Date(tx.block_time).toLocaleString('en-US')}
+                                  {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
                                 </span>
                               </div>
                             </td>
@@ -756,7 +827,7 @@ const WalletBalances = ({
                 </div>
               ) : (
                 !isLoadingTransactions && (
-                  <p className="text-[10px] md:text-xs text-gray-400 text-center">No transactions found for this address.</p>
+                  <p className="text-[10px] md:text-xs text-gray-400 text-center">No activity found for this address.</p>
                 )
               )}
             </>
@@ -867,11 +938,12 @@ const MarketTab = ({ recaptchaRef }) => {
   const [selectedPool, setSelectedPool] = useState(null);
 
   const getPlatformImage = (chainValue) => {
-    const chain = chains.find((c) => c.value === chainValue);
-    const imageUrl = chain?.image || '/fallback-image.png';
-    logger.log('getPlatformImage:', { chainValue, imageUrl, found: !!chain });
-    return imageUrl;
-  };
+  const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
+  const chain = chains.find((c) => c.value === chainName);
+  const imageUrl = chain?.image || '/fallback-image.png';
+  logger.log('getPlatformImage:', { chainValue, chainName, imageUrl, found: !!chain });
+  return imageUrl;
+};
 
 
 
