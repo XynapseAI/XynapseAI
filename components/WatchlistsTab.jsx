@@ -692,9 +692,8 @@ export default function WatchlistsTab({ toast }) {
         <td className={`px-2 py-1.5 text-gray-200 text-[8px] md:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
           <div className="flex flex-col items-center space-y-1">
             <span
-              className={`inline-flex px-1 py-0.5 md:px-1.5 md:py-0.5 rounded-full text-[6px] md:text-[7px] font-medium flex-shrink-0 ${
-                tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'
-              }`}
+              className={`inline-flex px-1 py-0.5 md:px-1.5 md:py-0.5 rounded-full text-[6px] md:text-[7px] font-medium flex-shrink-0 ${tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'
+                }`}
             >
               {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
             </span>
@@ -756,88 +755,64 @@ export default function WatchlistsTab({ toast }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={`font-jetbrains w-full max-w-9xl mx-auto mt-6 md:mt-6 p-4 md:p-6 rounded-2xl border border-white/10 h-[calc(100vh)] overflow-hidden ${isMobile ? 'bg-galaxy' : 'bg-galaxy backdrop-blur-xl shadow-glow-neon'}`}
+      className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 p-3 md:p-4 h-[calc(100vh-3rem)] overflow-hidden ${isMobile ? 'bg-gray-900' : 'bg-gray-900/20 backdrop-blur-xl border border-white/10 shadow-neon'
+        }`}
     >
       <LoadingOverlay loadingStates={loadingStates} isMobile={isMobile} />
       <ToastContainer position="top-center" autoClose={5000} />
 
       {/* Header Section */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[11px] md:text-xs font-bold text-white uppercase tracking-wider">
+      <div className="flex items-center justify-between mb-3 md:mb-4 border-b border-white/10 pb-1">
+        <h3 className="text-xs font-bold text-white uppercase tracking-wide bg-gradient-to-r from-neon-blue/20 to-transparent">
           Wallet Selection
         </h3>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <motion.select
+              value={selectedWallet?.address || ''}
+              onChange={(e) => {
+                const wallet = watchlists.find((w) => w.address === e.target.value);
+                setSelectedWallet(wallet || null);
+                setBalances([]);
+                setCollectibles([]);
+                setTransactions([]);
+                setTokenInfo({});
+                setActiveChain(null);
+                setActiveChainType(wallet?.chainType || 'EVM');
+              }}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className={`text-xs px-3 py-2 border border-white/10 focus:ring-2 focus:ring-neon-blue focus:outline-none transition-all duration-300 rounded-none ${isMobile ? 'bg-gray-900 w-36' : 'bg-gray-900/50 backdrop-blur-md w-48 hover:bg-white/10'
+                }`}
+            >
+              {watchlists.length === 0 ? (
+                <option value="">No wallets added</option>
+              ) : (
+                watchlists.map((wallet) => (
+                  <option key={wallet.address} value={wallet.address}>
+                    {wallet.name} ({truncateAddress(wallet.address, nameTags).text})
+                  </option>
+                ))
+              )}
+            </motion.select>
+          </div>
           <motion.button
             onClick={() => setShowAddModal(true)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md bg-gray-900/50 hover:bg-white/10'}`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className={`px-3 py-2 text-xs font-medium transition-all duration-300 border border-white/10 bg-gradient-to-r from-neon-blue/20 to-transparent rounded-none ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md bg-gray-900/50 hover:bg-white/10'
+              }`}
           >
-            <span>Add Wallet</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
-            </svg>
+            Add Wallet
           </motion.button>
-          <motion.select
-            value={selectedWallet?.address || ''}
-            onChange={(e) => {
-              const wallet = watchlists.find((w) => w.address === e.target.value);
-              setSelectedWallet(wallet || null);
-              setBalances([]);
-              setCollectibles([]);
-              setTransactions([]);
-              setTokenInfo({});
-              setActiveChain(null);
-              setActiveChainType(wallet?.chainType || 'EVM');
-            }}
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className={`text-[9px] md:text-[10px] px-2 py-1 rounded-xl border border-white/10 focus:ring-2 focus:ring-neon-blue focus:outline-none transition-all duration-300 ${isMobile ? 'bg-gray-900 w-36' : 'bg-gray-900/50 backdrop-blur-md w-48 hover:bg-white/10'}`}
-          >
-            {watchlists.length === 0 ? (
-              <option value="">No wallets added</option>
-            ) : (
-              watchlists.map((wallet) => (
-                <option key={wallet.address} value={wallet.address}>
-                  {wallet.name} ({truncateAddress(wallet.address, nameTags).text})
-                </option>
-              ))
-            )}
-          </motion.select>
-          {selectedWallet && (
-            <div className="flex items-center gap-2">
-              {getChainLogos(selectedWallet.chainType).map((chain, index) => (
-                <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
-                  <Image
-                    src={`/${chain}-logo.png`}
-                    alt={`${chain} logo`}
-                    width={isMobile ? 16 : 20}
-                    height={isMobile ? 16 : 20}
-                    style={{
-                      marginLeft: index > 0 ? '-6px' : '0px',
-                      zIndex: getChainLogos(selectedWallet.chainType).length - index,
-                    }}
-                    className="rounded-full border border-white/20"
-                    onError={(e) => {
-                      e.target.src = '/fallback-image.png';
-                    }}
-                  />
-                </Tooltip>
-              ))}
-            </div>
-          )}
           {selectedWallet && (
             <motion.button
               onClick={() => handleRemoveWallet(selectedWallet.address)}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              className={`text-red-400 hover:text-red-300 text-[10px] mt-2 transition-all duration-300 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'}`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`px-3 py-2 text-xs font-medium text-red-400 hover:text-red-300 transition-all duration-300 border border-white/10 bg-gradient-to-r from-red-500/20 to-transparent rounded-none ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'
+                }`}
             >
               Remove Wallet
             </motion.button>
@@ -845,96 +820,27 @@ export default function WatchlistsTab({ toast }) {
         </div>
       </div>
 
-      {/* Add Wallet Modal */}
-      <AnimatePresence>
-        {showAddModal && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains"
-            onClick={() => setShowAddModal(false)}
-          >
-            <div
-              className={`p-4 sm:p-6 rounded-2xl max-w-[90%] sm:max-w-md w-full relative border border-white/10 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md bg-gray-900/50 shadow-glow-neon'}`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <motion.button
-                onClick={() => setShowAddModal(false)}
-                className={`absolute top-3 right-3 text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300 ${isMobile ? 'bg-gray-900 border border-white/20' : 'bg-gray-900/50 border border-white/20 backdrop-blur-md'}`}
-                aria-label="Close modal"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                ✕
-              </motion.button>
-              <h4 className="text-sm font-bold text-white mb-4 uppercase tracking-wide">Add Wallet to Watchlist</h4>
-              <div className="flex gap-3 mb-4">
-                {['EVM', 'SVM'].map((type) => (
-                  <motion.button
-                    key={type}
-                    onClick={() => setNewChainType(type)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className={`flex-1 px-3 py-1.5 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border ${newChainType === type
-                      ? 'bg-white text-black border-white/20'
-                      : 'bg-gray-900/50 text-white border-white/20 hover:bg-white/10'
-                    } ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md'}`}
-                  >
-                    {type}
-                  </motion.button>
-                ))}
-              </div>
-              <input
-                type="text"
-                value={newAddress}
-                onChange={(e) => setNewAddress(e.target.value)}
-                placeholder={`Enter wallet address (${newChainType === 'EVM' ? 'EVM' : 'Solana/Eclipse'})`}
-                className={`w-full text-[9px] md:text-[10px] px-4 py-1.5 rounded-xl border border-white/10 focus:ring-2 focus:ring-neon-blue focus:outline-none transition-all duration-300 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'}`}
-              />
-              <div className="flex justify-end gap-3 mt-4">
-                <motion.button
-                  onClick={() => setShowAddModal(false)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="text-gray-300 text-[9px] md:text-[10px] font-medium hover:text-white transition-all duration-300"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  onClick={handleAddWallet}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`px-4 py-1.5 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md bg-gray-900/50 hover:bg-white/10'} text-white`}
-                >
-                  Add Wallet
-                </motion.button>
-              </div>
-              {error && <p className="text-red-500 text-[9px] md:text-[10px] mt-3">{error}</p>}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Chain Selection */}
       {chainsWithAssets.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-3">
           {chainsWithAssets.map((chain) => (
             <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
               <motion.button
                 onClick={() => setActiveChain(chain)}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                className={`p-1.5 rounded-xl border transition-all duration-300 ${activeChain === chain ? 'border-neon-blue bg-neon-blue/10' : 'border-white/20 hover:bg-white/10'} ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md bg-gray-900/50'}`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`p-1 border transition-all duration-300 rounded-none ${activeChain === chain
+                    ? 'border-neon-blue bg-neon-blue/10 shadow-neon'
+                    : 'border-white/10 hover:bg-white/10 hover:shadow-neon'
+                  } ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md bg-gray-900/50'}`}
               >
                 <Image
                   src={getPlatformImage(chain)}
                   alt={chain}
-                  width={isMobile ? 16 : 20}
-                  height={isMobile ? 16 : 20}
+                  width={isMobile ? 20 : 24}
+                  height={isMobile ? 20 : 24}
                   style={{ width: 'auto', height: 'auto' }}
-                  className="object-contain rounded-lg"
+                  className="object-contain rounded-none"
                   onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
                 />
               </motion.button>
@@ -944,16 +850,20 @@ export default function WatchlistsTab({ toast }) {
       )}
 
       {/* Tabs */}
-      <div className="flex space-x-2 mb-3">
+      <div
+        className={`flex w-full border-b border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'
+          }`}
+      >
         {['Tokens', 'NFTs', 'Activity'].map((tab) => (
           <motion.button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className={`px-3 py-1 rounded-xl text-[10px] md:text-xs font-medium transition-all duration-300 border border-white/20 ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md'} ${
-              activeTab === tab ? 'bg-white text-black' : 'bg-gray-900/50 text-white hover:bg-white/10'
-            }`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className={`flex-1 px-3 py-2 text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/20 to-transparent rounded-none ${activeTab === tab
+              ? 'bg-white text-black shadow-neon'
+              : 'text-white hover:bg-white/10 hover:shadow-neon'
+              }`}
           >
             {tab}
           </motion.button>
@@ -966,7 +876,7 @@ export default function WatchlistsTab({ toast }) {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="text-red-500 text-[9px] md:text-[10px] mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center shadow-glow-neon-red"
+          className="text-red-500 text-xs mb-3 bg-red-500/10 border border-red-500/30 p-3 text-center shadow-neon-red rounded-none"
         >
           Error: {error}
         </motion.div>
@@ -974,7 +884,8 @@ export default function WatchlistsTab({ toast }) {
 
       {/* Data Table */}
       <div
-        className={`flex-1 overflow-y-auto custom-scrollbar rounded-xl border border-white/10 ${isMobile ? 'bg-gray-900/30' : 'backdrop-blur-lg bg-gray-900/30 shadow-glow-neon'}`}
+        className={`flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-none ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md shadow-neon'
+          }`}
         style={{ maxHeight: isMobile ? 'calc(100vh - 16rem)' : 'calc(100vh - 20rem)' }}
       >
         {!loadingStates.loading && !loadingStates.balances && !loadingStates.collectibles && !loadingStates.transactions && selectedWallet ? (
@@ -984,50 +895,66 @@ export default function WatchlistsTab({ toast }) {
                 {balances.length > 0 ? (
                   <table className="w-full table-fixed">
                     <thead
-                      className={`sticky top-0 z-10 border-b border-white/10 uppercase ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'}`}
+                      className={`sticky top-0 z-10 border-b border-white/10 uppercase ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'
+                        }`}
                     >
                       <tr>
-                        <th className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[7%]' : 'w-[7%]'}`}>
-                          <div className="flex items-center justify-center gap-1">
+                        <th className={`px-2 py-2 text-white text-center text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}>
+                          <div className="flex items-center justify-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 fill-white flex-shrink-0"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
+                              strokeWidth="2"
                             >
-                              <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                              />
                             </svg>
                             Chain
                           </div>
                         </th>
-                        <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}>
-                          <div className="flex items-center gap-1">
+                        <th className={`px-2 py-2 text-white text-left text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 fill-white"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
+                              strokeWidth="2"
                             >
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4-4z"
+                              />
                             </svg>
                             Token
                           </div>
                         </th>
-                        <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}>
-                          <div className="flex items-center gap-1">
+                        <th className={`px-2 py-2 text-white text-left text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 fill-white"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
+                              strokeWidth="2"
                             >
-                              <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z"
+                              />
                             </svg>
                             Balance
                           </div>
                         </th>
-                        <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
-                          <div className="flex items-center gap-1">
+                        <th className={`px-2 py-2 text-white text-left text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
@@ -1037,8 +964,7 @@ export default function WatchlistsTab({ toast }) {
                                 d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
                               />
                             </svg>
-                            Value
-                          </div>
+                            Value</div>
                         </th>
                       </tr>
                     </thead>
@@ -1061,7 +987,7 @@ export default function WatchlistsTab({ toast }) {
                     </tbody>
                   </table>
                 ) : (
-                  <p className="text-[9px] md:text-[10px] text-gray-400 text-center p-4">
+                  <p className="text-xs text-gray-400 text-center p-4">
                     No balances found for this wallet.
                   </p>
                 )}
@@ -1072,50 +998,66 @@ export default function WatchlistsTab({ toast }) {
                 {collectibles.length > 0 && collectibles.some((nft) => (!activeChain || nft.chain === activeChain) && nft.token_metadata?.logo && !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') && nft.token_metadata.logo !== '/fallback-image.png') ? (
                   <table className="w-full table-fixed">
                     <thead
-                      className={`sticky top-0 z-10 border-b border-white/10 uppercase ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'}`}
+                      className={`sticky top-0 z-10 border-b border-white/10 uppercase ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'
+                        }`}
                     >
                       <tr>
-                        <th className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[7%]' : 'w-[7%]'}`}>
-                          <div className="flex items-center justify-center gap-1">
+                        <th className={`px-2 py-2 text-white text-center text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}>
+                          <div className="flex items-center justify-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 fill-white flex-shrink-0"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
+                              strokeWidth="2"
                             >
-                              <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                              />
                             </svg>
                             Chain
                           </div>
                         </th>
-                        <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}>
-                          <div className="flex items-center gap-1">
+                        <th className={`px-2 py-2 text-white text-left text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 fill-white"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
+                              strokeWidth="2"
                             >
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4-4z"
+                              />
                             </svg>
                             Name
                           </div>
                         </th>
-                        <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[16%]' : 'w-[16%]'}`}>
-                          <div className="flex items-center gap-1">
+                        <th className={`px-2 py-2 text-white text-left text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 fill-white"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
+                              strokeWidth="2"
                             >
-                              <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z"
+                              />
                             </svg>
                             Balance
                           </div>
                         </th>
-                        <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
-                          <div className="flex items-center gap-1">
+                        <th className={`px-2 py-2 text-white text-left text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
@@ -1142,7 +1084,7 @@ export default function WatchlistsTab({ toast }) {
                     </tbody>
                   </table>
                 ) : (
-                  <p className="text-[9px] md:text-[10px] text-gray-400 text-center p-4">
+                  <p className="text-xs text-gray-400 text-center p-4">
                     No NFTs found for this wallet.
                   </p>
                 )}
@@ -1153,38 +1095,49 @@ export default function WatchlistsTab({ toast }) {
                 {transactions.length > 0 && transactions.some((tx) => !activeChain || tx.chain === activeChain) ? (
                   <table className="w-full table-fixed">
                     <thead
-                      className={`sticky top-0 z-10 border-b border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-lg'}`}
+                      className={`sticky top-0 z-10 border-b border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'
+                        }`}
                     >
                       <tr>
-                        <th className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}>
-                          <div className="flex items-center justify-center gap-1">
+                        <th className={`px-2 py-2 text-white text-center text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}>
+                          <div className="flex items-center justify-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 fill-white flex-shrink-0"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
+                              strokeWidth="2"
                             >
-                              <path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                              />
                             </svg>
                             Chain
                           </div>
                         </th>
-                        <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
-                          <div className="flex items-center gap-1">
+                        <th className={`px-2 py-2 text-white text-left text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 fill-white"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
+                              strokeWidth="2"
                             >
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4-4z"
+                              />
                             </svg>
                             Token
                           </div>
                         </th>
-                        <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
-                          <div className="flex items-center gap-1">
+                        <th className={`px-2 py-2 text-white text-left text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
@@ -1197,11 +1150,11 @@ export default function WatchlistsTab({ toast }) {
                             Address
                           </div>
                         </th>
-                        <th className={`px-2 py-1.5 text-white text-left text-[8px] md:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
-                          <div className="flex items-center gap-1">
+                        <th className={`px-2 py-2 text-white text-left text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
+                          <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
@@ -1214,11 +1167,11 @@ export default function WatchlistsTab({ toast }) {
                             Value
                           </div>
                         </th>
-                        <th className={`px-2 py-1.5 text-white text-center text-[8px] md:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
-                          <div className="flex items-center justify-center gap-1">
+                        <th className={`px-2 py-2 text-white text-center text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
+                          <div className="flex items-center justify-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-3 h-3 md:w-4 md:h-4 stroke-white fill-none"
+                              className="w-5 h-5 stroke-white fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
@@ -1236,7 +1189,7 @@ export default function WatchlistsTab({ toast }) {
                     </tbody>
                   </table>
                 ) : (
-                  <p className="text-[9px] md:text-[10px] text-gray-400 text-center p-4">
+                  <p className="text-xs text-gray-400 text-center p-4">
                     No transactions found for this wallet.
                   </p>
                 )}
@@ -1244,47 +1197,122 @@ export default function WatchlistsTab({ toast }) {
             )}
           </div>
         ) : (
-          <div className="text-[9px] md:text-[10px] text-gray-400 text-center p-4">
+          <div className="text-xs text-gray-400 text-center p-4">
             {selectedWallet ? 'Loading data...' : 'Please select a wallet to view data.'}
           </div>
         )}
       </div>
 
+      {/* Add Wallet Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains"
+            onClick={() => setShowAddModal(false)}
+          >
+            <div
+              className={`p-4 sm:p-6 max-w-[90%] sm:max-w-md w-full relative border border-white/10 rounded-none ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md bg-gray-900/50 shadow-neon'
+                }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <motion.button
+                onClick={() => setShowAddModal(false)}
+                className={`absolute top-3 right-3 text-white text-lg font-bold rounded-none w-8 h-8 flex items-center justify-center hover:bg-white/10 transition-all duration-300 border border-white/10 ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'
+                  }`}
+                aria-label="Close modal"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                ✕
+              </motion.button>
+              <h4 className="text-xs font-bold text-white mb-3 uppercase tracking-wide bg-gradient-to-r from-neon-blue/20 to-transparent">
+                Add Wallet to Watchlist
+              </h4>
+              <div className="flex w-full border-b border-white/10 mb-3">
+                {['EVM', 'SVM'].map((type) => (
+                  <motion.button
+                    key={type}
+                    onClick={() => setNewChainType(type)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`flex-1 px-3 py-2 text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/20 to-transparent rounded-none ${newChainType === type
+                      ? 'bg-white text-black shadow-neon'
+                      : 'text-white hover:bg-white/10 hover:shadow-neon'
+                      }`}
+                  >
+                    {type}
+                  </motion.button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={newAddress}
+                onChange={(e) => setNewAddress(e.target.value)}
+                placeholder={`Enter wallet address (${newChainType === 'EVM' ? 'EVM' : 'Solana/Eclipse'})`}
+                className={`w-full text-xs px-3 py-2 border border-white/10 focus:ring-2 focus:ring-neon-blue focus:outline-none transition-all duration-300 rounded-none ${isMobile ? 'bg-gray-900' : 'bg-gray-900/50 backdrop-blur-md'
+                  }`}
+              />
+              <div className="flex justify-end gap-3 mt-3">
+                <motion.button
+                  onClick={() => setShowAddModal(false)}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="text-gray-300 text-xs font-medium hover:text-white transition-all duration-300"
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  onClick={handleAddWallet}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`px-3 py-2 text-xs font-medium transition-all duration-300 border border-white/10 bg-gradient-to-r from-neon-blue/20 to-transparent rounded-none ${isMobile ? 'bg-gray-900' : 'backdrop-blur-md bg-gray-900/50 hover:bg-white/10'
+                    } text-white`}
+                >
+                  Add Wallet
+                </motion.button>
+              </div>
+              {error && <p className="text-red-500 text-xs mt-3">Error: {error}</p>}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
+      .shadow-neon {
+        box-shadow: 0 0 8px rgba(0, 191, 255, 0.3);
+      }
+      .shadow-neon-red {
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 0;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.4);
+      }
+      .animate-pulse {
+        animation: ${isMobile ? 'none' : 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+      }
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
+        50% {
+          opacity: 0.5;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.3);
-        }
-        .shadow-glow-neon {
-          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
-        }
-        .shadow-glow-neon-red {
-          box-shadow: 0 0 8px rgba(239, 68, 68, 0.3), 0 0 16px rgba(239, 68, 68, 0.1);
-        }
-        .bg-galaxy {
-          background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
-        }
-        .animate-pulse {
-          animation: ${isMobile ? 'none' : 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
-        }
-        @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-        }
-      `}</style>
+      }
+    `}</style>
     </motion.div>
   );
 }
