@@ -50,6 +50,13 @@ const validatePost = [
     .isString()
     .notEmpty()
     .withMessage('Wallet address is required for removal'),
+  body('name')
+    .if(body('action').equals('add'))
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('Wallet name must be a string with maximum 50 characters'),
 ];
 
 export const config = {
@@ -99,7 +106,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ detail: 'Invalid input data', errors: errors.array() });
     }
 
-    const { action, wallet_address } = req.body;
+    const { action, wallet_address, name } = req.body;
     const isEVMAddress = isAddress(wallet_address);
     const normalizedAddress = isEVMAddress ? wallet_address.toLowerCase() : wallet_address;
 
@@ -115,7 +122,7 @@ export default async function handler(req, res) {
         // Insert new wallet
         await query(
           `INSERT INTO watchlists (user_id, wallet_address, name) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT unique_user_wallet DO NOTHING`,
-          [session.user.id, normalizedAddress, 'Unnamed Wallet']
+          [session.user.id, normalizedAddress, name || 'Unnamed Wallet']
         );
 
         // Fetch updated watchlist
@@ -123,7 +130,7 @@ export default async function handler(req, res) {
           `SELECT wallet_address, name, created_at FROM watchlists WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5`,
           [session.user.id]
         );
-        logger.info(`Added wallet ${normalizedAddress} for user ${session.user.id}`, { ip });
+        logger.info(`Added wallet ${normalizedAddress} for user ${session.user.id} with name ${name || 'Unnamed Wallet'}`, { ip });
         return res.status(200).json({ success: true, data: result.rows });
       } catch (dbError) {
         logger.error(`Database error adding wallet: ${dbError.message}`, { stack: dbError.stack, ip });

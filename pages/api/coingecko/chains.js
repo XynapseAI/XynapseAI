@@ -87,7 +87,7 @@ export default async function handler(req, res) {
       sample: chains.slice(0, 5).map((c) => ({
         id: c.id,
         name: c.name,
-        image: c.image?.thumb,
+        image: c.image?.large,
       })),
     });
     return res.status(200).json({ success: true, data: chains });

@@ -12,7 +12,7 @@ import { chains, mapCoinGeckoChains, getPlatformImage, getExplorerUrls } from '.
 import axios from 'axios';
 
 
-const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, value, chainLogo, isRoot = false, onSelect }) => {
+const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, value, chainLogo, isRoot = false, onSelect, isMobile }) => {
   const truncateAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   const displayName = nametag !== 'Unknown' ? nametag : truncateAddress(address);
 
@@ -35,13 +35,14 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
 
   return (
     <div
-      className={`relative flex items-center justify-center p-2 rounded-xl border border-white/10 backdrop-blur-lg bg-gray-900/30 duration-200 cursor-pointer group ${isRoot ? 'w-[160px] max-w-[160px] bg-gray-900/50 shadow-glow-neon' : 'w-[100px]'
-        }`}
+      className={`relative flex items-center justify-center p-2 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md transition-all duration-300 cursor-pointer group ${
+        isRoot ? 'w-[160px] max-w-[160px] shadow-neon' : 'w-[100px]'
+      }`}
       onClick={() => onSelect(address)}
     >
       <button
         onClick={handleCopyAddress}
-        className="absolute top-1 right-1 z-20 p-1 rounded-full hover:bg-gray-700/50 transition-colors duration-200 group-hover:block hidden"
+        className="absolute top-1 right-1 z-20 p-1 rounded-full hover:bg-neon-blue/30 transition-all duration-200 group-hover:block hidden"
         title="Copy address"
         aria-label="Copy wallet address"
       >
@@ -60,18 +61,17 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
           />
         </svg>
       </button>
-
-      <p className="text-white text-[9px] font-medium text-center truncate mr-2" title={displayName}>
+      <p className="text-white text-[8px] sm:text-[10px] font-medium text-center truncate mr-2" title={displayName}>
         {displayName}
       </p>
-      <div className="absolute z-50 hidden group-hover:flex flex-col -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full w-64 bg-gray-900/95 border border-white/10 rounded-lg shadow-glow-neon p-2 text-white text-xs font-jetbrains backdrop-blur-lg pointer-events-none">
+      <div className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[8px] sm:text-[10px] py-2 px-3 rounded-lg shadow-neon z-50 -top-20 sm:-top-24 left-1/2 -translate-x-1/2 w-56 sm:w-64 font-jetbrains transition-all duration-300">
         <div className="flex items-center gap-2 mb-2">
           {image && (
             <Image
               src={image}
               alt={`${nametag} logo`}
-              width={20}
-              height={20}
+              width={isMobile ? 16 : 20}
+              height={isMobile ? 16 : 20}
               className="rounded-full"
               onError={() => console.log(`Failed to load wallet image: ${image}`)}
             />
@@ -93,8 +93,10 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
           </p>
         )}
         {type && <p><strong>Type:</strong> {type}</p>}
-        {block_time && <p><strong>Block Time:</strong> {new Date(block_time).toLocaleString()}</p>}
-        {value != null && <p><strong>Value:</strong> {value < 0.000001 ? value.toExponential(4) : value.toFixed(6)} ETH</p>}
+        {block_time && <p><strong>Block Time:</strong> {formatDistanceToNow(new Date(block_time), { addSuffix: true })}</p>}
+        {value != null && (
+          <p><strong>Value:</strong> {value < 0.000001 ? value.toExponential(4) : value.toFixed(6)} ETH</p>
+        )}
       </div>
     </div>
   );
@@ -103,20 +105,17 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
 // LoadingOverlay component
 const LoadingOverlay = ({ message }) => {
   return (
-    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-lg flex items-center justify-center z-50">
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/80 backdrop-blur-xs">
       <div className="flex flex-col items-center gap-4">
-        <div className="relative w-10 h-10">
-          <div className="absolute inset-0 border-2 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>
-          <Image
+        <div className="relative w-12 h-12">
+          <div className="absolute inset-0 border-4 border-gray-700 border-t-neon-blue rounded-full animate-spin"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-neon-blue/50 to-transparent rounded-full animate-pulse"></div>
+          <img
             src="/logos/logo-scan.png"
             alt="Loading Logo"
-            width={40}
-            height={40}
-            className="absolute inset-0 w-7 h-7 m-1.5 object-contain animate-pulse"
-            onError={() => console.log(`Failed to load loading logo: /logos/logo-scan.png`)}
+            className="absolute inset-0 w-8 h-8 m-2 object-contain"
           />
         </div>
-        <p className="text-[10px] text-gray-500 font-medium animate-pulse">{message || 'Processing...'}</p>
       </div>
     </div>
   );
@@ -539,35 +538,52 @@ export default function TreemapTab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      className="font-jetbrains w-full max-w-10xl mx-auto bg-galaxy backdrop-blur-xl  p-4 md:p-6 mt-6 shadow-2xl h-[calc(100vh)] overflow-hidden"
+      transition={{ duration: 0.5, ease: 'easeInOut' }}
+      className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] rounded-xl border border-white/10 bg-black/60 backdrop-blur-2xl shadow-neon-lg ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
     >
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          {/* Dropdown chọn chain */}
+      <ToastContainer position="top-center" autoClose={5000} theme="dark" />
+      <div className="mb-2 sm:mb-3 border-b border-white/10 pb-2">
+        <div className="flex items-center justify-between mb-2 sm:mb-3">
+          <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded flex items-center gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+              />
+            </svg>
+            Treemap
+          </h3>
+        </div>
+        <div className="flex items-center justify-end gap-2 sm:gap-3 flex-wrap">
           <div className="relative" ref={chainDropdownRef}>
             <button
               onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-              className="text-white px-4 py-1 rounded-lg border border-gray-500 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center gap-1.5 text-xs"
+              className="text-white px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 flex items-center gap-2 text-[10px] sm:text-xs"
               aria-label="Select chain"
             >
               <Image
                 src={getPlatformImage(selectedChain, coingeckoChains)}
                 alt={`${mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
-                width={16}
-                height={16}
+                width={isMobile ? 16 : 20}
+                height={isMobile ? 16 : 20}
                 className="rounded-full"
                 onError={() => console.log(`Failed to load chain image: ${getPlatformImage(selectedChain, coingeckoChains)} for chain: ${selectedChain}`)}
               />
-              <span className="text-[9px] md:text-xs font-medium">
+              <span className="font-medium">
                 {mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'}
               </span>
-              <span className="text-[10px] md:text-xs mr-2">{isChainDropdownOpen ? '▲' : '▼'}</span>
+              <span>{isChainDropdownOpen ? '▲' : '▼'}</span>
             </button>
             {isChainDropdownOpen && (
-              <div className="absolute z-20 bg-gray-900/95 backdrop-blur-lg rounded-lg mt-1 w-56 max-h-72 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
+              <div className="absolute z-20 bg-black/80 backdrop-blur-lg rounded-lg mt-1 w-56 max-h-72 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon">
                 {mappedChains.length === 0 ? (
-                  <div className="px-3 py-1.5 text-gray-400 text-[10px] md:text-xs">No supported chains available</div>
+                  <div className="px-3 py-1.5 text-gray-400 text-[10px] sm:text-xs">No supported chains available</div>
                 ) : (
                   mappedChains
                     .filter((chain) => process.env.NODE_ENV === 'development' || !chain.testnet)
@@ -586,28 +602,28 @@ export default function TreemapTab({ recaptchaRef }) {
                           setSelectedChain(chain.value);
                           setIsChainDropdownOpen(false);
                         }}
-                        className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-white/10 rounded-md text-white font-medium text-xs transition-colors duration-200 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
+                        className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/30 rounded-md text-white font-medium text-[10px] sm:text-xs transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                       >
                         <Image
                           src={chain.image}
                           alt={`${chain.label} logo`}
-                          width={16}
-                          height={16}
+                          width={isMobile ? 16 : 20}
+                          height={isMobile ? 16 : 20}
                           className="mr-2 rounded-full"
                           onError={() => console.log(`Failed to load chain image: ${chain.image} for chain: ${chain.value}`)}
                         />
                         {chain.label}
                         {!isPremium && chain.value !== '1' && (
-                          <span className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                          <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
                             <Image
                               src="/icons/crown.png"
                               alt="Premium required"
-                              width={12}
-                              height={12}
+                              width={isMobile ? 10 : 12}
+                              height={isMobile ? 10 : 12}
                               className="opacity-80"
                             />
-                            <span className="absolute hidden group-hover:block bg-gray-900/90 text-white text-[10px] rounded p-1 -top-5 right-0">
+                            <span className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[8px] sm:text-[10px] rounded p-1 -top-5 right-0">
                               Premium required
                             </span>
                           </span>
@@ -618,18 +634,17 @@ export default function TreemapTab({ recaptchaRef }) {
               </div>
             )}
           </div>
-          {/* Dropdown chọn limit */}
           <div className="relative" ref={limitDropdownRef}>
             <button
               onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
-              className="text-white px-4 py-1 rounded-lg border border-gray-500 backdrop-blur-md hover:bg-white/10 transition-colors duration-200 flex items-center text-xs"
+              className="text-white px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 flex items-center gap-2 text-[10px] sm:text-xs"
               aria-label="Select transaction limit"
             >
-              <span className="text-[10px] md:text-xs font-medium ">Txh:{selectedLimit}</span>
-              <span className="ml-2 text-[10px] md:text-xs">{isLimitDropdownOpen ? '▲' : '▼'}</span>
+              <span className="font-medium">Txh: {selectedLimit}</span>
+              <span>{isLimitDropdownOpen ? '▲' : '▼'}</span>
             </button>
             {isLimitDropdownOpen && (
-              <div className="absolute z-20 bg-gray-900/95 backdrop-blur-lg rounded-lg mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-glow-neon">
+              <div className="absolute z-20 bg-black/80 backdrop-blur-lg rounded-lg mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon">
                 {[100, 200, 300, 500].map((limit) => (
                   <button
                     key={limit}
@@ -647,20 +662,20 @@ export default function TreemapTab({ recaptchaRef }) {
                         fetchTransactions(walletAddress);
                       }
                     }}
-                    className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-white/10 rounded-md text-white font-medium text-xs transition-colors duration-200 relative ${!isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : ''
+                    className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/30 rounded-md text-white font-medium text-[10px] sm:text-xs transition-all duration-300 relative ${!isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                   >
                     {limit}
                     {!isPremium && limit > 100 && (
-                      <span className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                      <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
                         <Image
                           src="/icons/crown.png"
                           alt="Premium required"
-                          width={12}
-                          height={12}
+                          width={isMobile ? 10 : 12}
+                          height={isMobile ? 10 : 12}
                           className="opacity-80"
                         />
-                        <span className="absolute hidden group-hover:block bg-gray-900/90 text-white text-[10px] rounded p-1 -top-5 right-0">
+                        <span className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[8px] sm:text-[10px] rounded p-1 -top-5 right-0">
                           Premium required
                         </span>
                       </span>
@@ -670,14 +685,13 @@ export default function TreemapTab({ recaptchaRef }) {
               </div>
             )}
           </div>
-          {/* Input địa chỉ ví */}
           <div className="relative flex items-center w-full sm:w-auto">
             <input
               type="text"
               placeholder="Search wallet (0x...)"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
-              className="bg-gray-900/50 text-white px-3 py-1.5 rounded-lg text-[10px] w-42 sm:w-64 border border-white/10 backdrop-blur-md focus:outline-none focus:ring-1 focus:ring-neon-blue/50 transition-colors duration-200 pr-8"
+              className="bg-black/60 backdrop-blur-md text-white px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs w-full sm:w-64 border border-white/10 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 pr-8"
               aria-label="Wallet address"
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -687,13 +701,13 @@ export default function TreemapTab({ recaptchaRef }) {
             />
             <button
               onClick={() => fetchTransactions(walletAddress)}
-              className="absolute right-1.5 text-white p-1 transition-colors duration-200"
+              className="absolute right-1.5 text-white p-1 transition-all duration-300 hover:bg-neon-blue/30 rounded"
               aria-label="Search wallet"
               disabled={loading}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 mr-2 md:mr-0"
+                className="h-4 sm:h-5 w-4 sm:w-5"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -706,172 +720,171 @@ export default function TreemapTab({ recaptchaRef }) {
         </div>
       </div>
 
-      
+
 
       {loading && <LoadingOverlay message={loadingMessage} />}
       {!loading && incomingData.length === 0 && outgoingData.length === 0 && walletInfo.address && (
-        <div className="text-center text-gray-400 text-sm p-4 bg-gray-900/30 rounded-2xl border border-white/10 backdrop-blur-lg shadow-glow-neon">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg"
+        >
           <p className="mb-2">No transactions found for this address on {mappedChains.find((c) => c.value === selectedChain)?.label || selectedChain}.</p>
           <p>Please verify the wallet address or try a different chain.</p>
-        </div>
+        </motion.div>
       )}
       {walletInfo.address && (
-        
-        <div className="relative w-full h-[calc(100vh)] overflow-hidden backdrop-blur-lg shadow-glow-neon">
-          <div className="flex gap-2 mb-2 mt-2 justify-center">
+  <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden bg-black/60 backdrop-blur-md border border-white/10 rounded-lg shadow-neon-sm">
+    <div className="flex gap-2 mb-2 mt-2 justify-center">
+      <motion.button
+        onClick={() => {
+          setOffset({ x: 0, y: 0 });
+          setZoom(1);
+        }}
+        className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        Reset View
+      </motion.button>
+      {(incomingData.length > nodePage * NODES_PER_PAGE || outgoingData.length > nodePage * NODES_PER_PAGE) && (
         <motion.button
-          onClick={() => {
-            setOffset({ x: 0, y: 0 });
-            setZoom(1);
-          }}
-          className="px-2 py-1 rounded-xl text-[9px] md:text-[10px] font-medium text-white border border-white/20 backdrop-blur-md hover:bg-white/10 transition-all duration-300"
+          onClick={handleLoadMore}
+          className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
-          Reset View
+          Load More
         </motion.button>
-        {(incomingData.length > nodePage * NODES_PER_PAGE || outgoingData.length > nodePage * NODES_PER_PAGE) && (
-          <motion.button
-            onClick={handleLoadMore}
-            className="px-4 py-1.5 rounded-full text-sm font-medium text-white border border-white/20 backdrop-blur-md hover:bg-white/10 transition-all duration-300"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            Load More
-          </motion.button>
-        )}
-      </div>
-          <div
-            className="relative w-full h-full"
-            style={{
-              touchAction: 'none',
-              transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-              transformOrigin: 'center',
-              width: `${canvasWidth}px`,
-              height: `${canvasHeight}px`,
-              minWidth: '100%',
-              minHeight: '100%',
-            }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onWheel={handleWheel}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
-            <svg ref={svgRef} className="absolute inset-0 pointer-events-none" style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}>
-              {incomingNodes.map((node, index) => (
-                <path
-                  key={`line-in-${index}`}
-                  d={`M${node.x + nodeWidth} ${node.y + nodeHeight / 2} C${node.x + nodeWidth + 50} ${node.y + nodeHeight / 2}, ${rootX - 50} ${rootY + nodeHeight / 2}, ${rootX} ${rootY + nodeHeight / 2}`}
-                  stroke="#00BFFF"
-                  strokeWidth="2"
-                  fill="none"
-                  strokeDasharray="5,5"
-                  className="transition-all duration-300 hover:stroke-neon-blue/80"
-                />
-              ))}
-              {outgoingNodes.map((node, index) => (
-                <path
-                  key={`line-out-${index}`}
-                  d={`M${rootX + nodeWidth + 60} ${rootY + nodeHeight / 2} C${rootX + nodeWidth + 80} ${rootY + nodeHeight / 2}, ${node.x - 50} ${node.y + nodeHeight / 2}, ${node.x} ${node.y + nodeHeight / 2}`}
-                  stroke="#EF4444"
-                  strokeWidth="2"
-                  fill="none"
-                  strokeDasharray="5,5"
-                  className="transition-all duration-300 hover:stroke-red-500/80"
-                />
-              ))}
-            </svg>
-
-            <div
-              className="absolute z-10 group"
-              style={{ left: `${rootX}px`, top: `${rootY}px` }}
-            >
-              <WalletNode
-                address={walletInfo.address}
-                nametag={walletInfo.nametag}
-                image={walletInfo.image}
-                chainLogo={walletInfo.chainLogo}
-                isRoot={true}
-                onSelect={handleSelectWallet}
-              />
-            </div>
-
-            {incomingNodes.map((node, index) => (
-              <div
-                key={`in-${index}`}
-                className="absolute group"
-                style={{ left: `${node.x}px`, top: `${node.y}px` }}
-              >
-                <WalletNode
-                  address={node.address}
-                  nametag={node.nametag}
-                  image={node.image}
-                  txHash={node.txHash}
-                  type={node.type}
-                  block_time={node.block_time}
-                  value={node.value}
-                  chainLogo={node.chainLogo}
-                  onSelect={handleSelectWallet}
-                />
-              </div>
-            ))}
-
-            {outgoingNodes.map((node, index) => (
-              <div
-                key={`out-${index}`}
-                className="absolute group"
-                style={{ left: `${node.x}px`, top: `${node.y}px` }}
-              >
-                <WalletNode
-                  address={node.address}
-                  nametag={node.nametag}
-                  image={node.image}
-                  txHash={node.txHash}
-                  type={node.type}
-                  block_time={node.block_time}
-                  value={node.value}
-                  chainLogo={node.chainLogo}
-                  onSelect={handleSelectWallet}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
       )}
+    </div>
+    <div
+      className="relative w-full h-full"
+      style={{
+        touchAction: 'none',
+        transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+        transformOrigin: 'center',
+        width: `${canvasWidth}px`,
+        height: `${canvasHeight}px`,
+        minWidth: '100%',
+        minHeight: '100%',
+      }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <svg ref={svgRef} className="absolute inset-0 pointer-events-none" style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}>
+        {incomingNodes.map((node, index) => (
+          <path
+            key={`line-in-${index}`}
+            d={`M${node.x + nodeWidth} ${node.y + nodeHeight / 2} C${node.x + nodeWidth + 50} ${node.y + nodeHeight / 2}, ${rootX - 50} ${rootY + nodeHeight / 2}, ${rootX} ${rootY + nodeHeight / 2}`}
+            stroke="#00BFFF"
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray="5,5"
+            className="transition-all duration-300 hover:stroke-neon-blue/80"
+          />
+        ))}
+        {outgoingNodes.map((node, index) => (
+          <path
+            key={`line-out-${index}`}
+            d={`M${rootX + nodeWidth + 60} ${rootY + nodeHeight / 2} C${rootX + nodeWidth + 80} ${rootY + nodeHeight / 2}, ${node.x - 50} ${node.y + nodeHeight / 2}, ${node.x} ${node.y + nodeHeight / 2}`}
+            stroke="#EF4444"
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray="5,5"
+            className="transition-all duration-300 hover:stroke-red-500/80"
+          />
+        ))}
+      </svg>
+      <div className="absolute z-10 group" style={{ left: `${rootX}px`, top: `${rootY}px` }}>
+        <WalletNode
+          address={walletInfo.address}
+          nametag={walletInfo.nametag}
+          image={walletInfo.image}
+          chainLogo={walletInfo.chainLogo}
+          isRoot={true}
+          onSelect={handleSelectWallet}
+          isMobile={isMobile}
+        />
+      </div>
+      {incomingNodes.map((node, index) => (
+        <div key={`in-${index}`} className="absolute group" style={{ left: `${node.x}px`, top: `${node.y}px` }}>
+          <WalletNode
+            address={node.address}
+            nametag={node.nametag}
+            image={node.image}
+            txHash={node.txHash}
+            type={node.type}
+            block_time={node.block_time}
+            value={node.value}
+            chainLogo={node.chainLogo}
+            onSelect={handleSelectWallet}
+            isMobile={isMobile}
+          />
+        </div>
+      ))}
+      {outgoingNodes.map((node, index) => (
+        <div key={`out-${index}`} className="absolute group" style={{ left: `${node.x}px`, top: `${node.y}px` }}>
+          <WalletNode
+            address={node.address}
+            nametag={node.nametag}
+            image={node.image}
+            txHash={node.txHash}
+            type={node.type}
+            block_time={node.block_time}
+            value={node.value}
+            chainLogo={node.chainLogo}
+            onSelect={handleSelectWallet}
+            isMobile={isMobile}
+          />
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
       <ToastContainer position="top-center" autoClose={5000} />
       <style jsx>{`
-      .hide-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .hide-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 3px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.3);
-      }
-      @media (max-width: 640px) {
-        .relative.w-full {
-          overflow: hidden;
-          -webkit-overflow-scrolling: auto;
-        }
-      }
-    `}</style>
+  .shadow-neon {
+    box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
+  }
+  .shadow-neon-lg {
+    box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+  .animate-pulse {
+    animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+`}</style>
     </motion.div>
   );
 }
