@@ -141,7 +141,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         const coingeckoChain = coingeckoChains.find(
           (cg) => CHAIN_MAPPING[cg.id]?.simChain === simChain.value
         );
-        const imageUrl = coingeckoChain?.image?.thumb || '/fallback-image.png';
+        const imageUrl = coingeckoChain?.image?.large || '/fallback-image.png';
         return {
           coingeckoId: coingeckoChain?.id || null,
           value: simChain.value,
@@ -1169,7 +1169,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           id: response.data.id,
           symbol: response.data.symbol,
           name: response.data.name,
-          image: response.data.image?.thumb,
+          image: response.data.image?.large,
           current_price: response.data.market_data?.current_price?.usd,
           market_cap: response.data.market_data?.market_cap?.usd,
           total_volume: response.data.market_data?.total_volume?.usd,
@@ -1496,7 +1496,7 @@ Use natural, professional tone with recent data.
           id: coin.id,
           name: coin.name,
           symbol: coin.symbol,
-          image: coin.thumb,
+          image: coin.large,
           market_cap_rank: coin.market_cap_rank,
         }));
         setSearchResults(results.slice(0, 10));

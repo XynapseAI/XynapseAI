@@ -157,7 +157,7 @@ export default function WatchlistsTab({ toast }) {
           shortName: coingeckoChain?.shortname || simChain.label.split(' ')[0],
           chainId: simChain.chainId,
           testnet: simChain.testnet || false,
-          image: coingeckoChain?.image?.thumb || simChain.image || '/icons/default.png',
+          image: coingeckoChain?.image?.large || simChain.image || '/icons/default.png',
         };
       });
 
@@ -528,8 +528,8 @@ export default function WatchlistsTab({ toast }) {
             <Image
               src={getPlatformImage(token.chain)}
               alt={`${token.chain} logo`}
-              width={isMobile ? 20 : 24}
-              height={isMobile ? 20 : 24}
+              width={isMobile ? 12 : 12}
+              height={isMobile ? 12 : 12}
               className="rounded-full"
               onError={(e) => (e.target.src = '/icons/default.png')}
             />
@@ -551,7 +551,7 @@ export default function WatchlistsTab({ toast }) {
             <div className="flex flex-col">
               <span>{tokenSymbol}</span>
               {token.price_usd != null && (
-                <span className="text-[8px] sm:text-[10px] text-gray-400">{formatPrice(token.price_usd)}</span>
+                <span className="text-[7px] sm:text-[10px] text-gray-400">{formatPrice(token.price_usd)}</span>
               )}
             </div>
           </div>
@@ -655,8 +655,8 @@ export default function WatchlistsTab({ toast }) {
             <Image
               src={getPlatformImage(tx.chain)}
               alt={`${tx.chain} logo`}
-              width={isMobile ? 20 : 24}
-              height={isMobile ? 20 : 24}
+              width={isMobile ? 12 : 12}
+              height={isMobile ? 12 : 12}
               className="rounded-full"
               onError={(e) => (e.target.src = '/icons/default.png')}
             />
@@ -767,7 +767,7 @@ export default function WatchlistsTab({ toast }) {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
-            className="text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 rounded-lg w-full sm:w-auto"
+            className="text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-1.5 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 w-1/2 sm:w-auto"
           >
             {watchlists.length === 0 ? (
               <option value="">No wallets added</option>
@@ -783,7 +783,7 @@ export default function WatchlistsTab({ toast }) {
             onClick={() => setShowAddModal(true)}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+            className="px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
           >
             Add +
           </motion.button>
@@ -792,7 +792,7 @@ export default function WatchlistsTab({ toast }) {
               onClick={() => handleRemoveWallet(selectedWallet.address)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-red-500/50 bg-gradient-to-r from-red-500/20 to-transparent rounded-lg backdrop-blur-md hover:bg-red-500/30 transition-all duration-300"
+              className="px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-red-500/50 bg-gradient-to-r from-red-500/20 to-transparent backdrop-blur-md hover:bg-red-500/30 transition-all duration-300"
             >
               Remove
             </motion.button>
@@ -809,7 +809,7 @@ export default function WatchlistsTab({ toast }) {
                 onClick={() => setActiveChain(chain)}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                className={`p-1 sm:p-1.5 border rounded-full transition-all duration-300 ${activeChain === chain
+                className={`p-1 sm:p-1.5 border rounded-sm transition-all duration-300 ${activeChain === chain
                   ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
                   : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
                   }`}
@@ -819,7 +819,7 @@ export default function WatchlistsTab({ toast }) {
                   alt={chain}
                   width={isMobile ? 20 : 24}
                   height={isMobile ? 20 : 24}
-                  className="rounded-full object-contain"
+                  className="rounded-sm object-contain"
                   onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
                 />
               </motion.button>
@@ -1176,129 +1176,128 @@ export default function WatchlistsTab({ toast }) {
 
       {/* Add Wallet Modal */}
       <AnimatePresence>
-  {showAddModal && (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="fixed inset-0 flex items-center justify-center z-50 bg-black/80 backdrop-blur-2xl font-jetbrains"
-      onClick={() => setShowAddModal(false)}
-    >
-      <motion.div
-        className="p-4 sm:p-6 max-w-[90%] sm:max-w-md w-full border border-white/10 rounded-xl bg-black/60 backdrop-blur-2xl shadow-neon-lg"
-        onClick={(e) => e.stopPropagation()}
-        initial={{ y: 20 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <motion.button
-          onClick={() => {
-            setShowAddModal(false);
-            setNewWalletName('');
-          }}
-          className="absolute top-4 right-4 text-white text-lg font-bold rounded-full w-10 h-10 flex items-center justify-center bg-black/60 border border-white/10 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
-          aria-label="Close modal"
-          whileHover={{ scale: 1.1, rotate: 90 }}
-          whileTap={{ scale: 0.9 }}
-        >
-          ✕
-        </motion.button>
-        <h4 className="text-[10px] sm:text-sm font-bold text-white mb-4 uppercase tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded flex items-center gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-            viewBox="0 0 24 24"
-            strokeWidth="2"
+        {showAddModal && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.4, ease: 'easeInOut' }}
+            className="fixed inset-0 flex items-center justify-center z-50 bg-black/80 backdrop-blur-2xl font-jetbrains"
+            onClick={() => setShowAddModal(false)}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-            />
-          </svg>
-          Add Wallet to Watchlist
-        </h4>
-        <div className="mb-4">
-          <label className="text-[10px] sm:text-xs text-gray-200 uppercase tracking-wider mb-1 block">
-            NAME
-          </label>
-          <input
-            type="text"
-            value={newWalletName}
-            onChange={(e) => setNewWalletName(e.target.value)}
-            placeholder="Enter wallet name (optional)"
-            className="w-full text-[9px] sm:text-[10px] px-3 sm:px-4 py-1 sm:py-1.5 mb-3 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300"
-          />
-          <label className="text-[10px] sm:text-xs text-gray-200 uppercase tracking-wider mb-1 block">
-            WALLET
-          </label>
-          <input
-            type="text"
-            value={newAddress}
-            onChange={(e) => setNewAddress(e.target.value)}
-            placeholder={`Enter wallet address (${newChainType === 'EVM' ? 'EVM' : 'Solana/Eclipse'})`}
-            className="w-full text-[9px] sm:text-[10px] px-3 sm:px-4 py-1 sm:py-1.5 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300"
-          />
-        </div>
-        <div className="flex w-full border-b border-white/10 mb-4 bg-black/60 backdrop-blur-md">
-          {['EVM', 'SVM'].map((type) => (
-            <motion.button
-              key={type}
-              onClick={() => setNewChainType(type)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className={`flex-1 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${
-                newChainType === type ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
-              } last:border-r-0`}
+            <motion.div
+              className="p-4 sm:p-6 max-w-[90%] sm:max-w-md w-full border border-white/10 rounded-xl bg-black/60 backdrop-blur-2xl shadow-neon-lg"
+              onClick={(e) => e.stopPropagation()}
+              initial={{ y: 20 }}
+              animate={{ y: 0 }}
+              transition={{ duration: 0.3 }}
             >
-              <span>{type}</span>
-              <div className="flex items-center">
-                {getChainLogos(type).map((chain, index) => (
-                  <Image
-                    key={chain}
-                    src={NATIVE_TOKEN_INFO[chain]?.logo || '/icons/default.png'}
-                    alt={`${chain} logo`}
-                    width={isMobile ? 18 : 22}
-                    height={isMobile ? 18 : 22}
-                    className="rounded-full"
-                    style={{ marginLeft: index > 0 ? '-9px' : '0', zIndex: 10 - index }}
-                    onError={(e) => (e.target.src = '/icons/default.png')}
+              <motion.button
+                onClick={() => {
+                  setShowAddModal(false);
+                  setNewWalletName('');
+                }}
+                className="absolute top-4 right-4 text-white text-lg font-bold rounded-full w-10 h-10 flex items-center justify-center bg-black/60 border border-white/10 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+                aria-label="Close modal"
+                whileHover={{ scale: 1.1, rotate: 90 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                ✕
+              </motion.button>
+              <h4 className="text-[10px] sm:text-sm font-bold text-white mb-4 uppercase tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                   />
-                ))}
-                <div className="flex items-center justify-center w-4 sm:w-5 h-4 sm:h-5 bg-neon-blue/50 rounded-full text-white text-[8px] sm:text-[10px] mr-6">
-                  +
-                </div>
+                </svg>
+                Add Wallet to Watchlist
+              </h4>
+              <div className="mb-4">
+                <label className="text-[10px] sm:text-xs text-gray-200 uppercase tracking-wider mb-1 block">
+                  NAME
+                </label>
+                <input
+                  type="text"
+                  value={newWalletName}
+                  onChange={(e) => setNewWalletName(e.target.value)}
+                  placeholder="Enter wallet name (optional)"
+                  className="w-full text-[9px] sm:text-[10px] px-3 sm:px-4 py-1 sm:py-1.5 mb-3 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300"
+                />
+                <label className="text-[10px] sm:text-xs text-gray-200 uppercase tracking-wider mb-1 block">
+                  WALLET
+                </label>
+                <input
+                  type="text"
+                  value={newAddress}
+                  onChange={(e) => setNewAddress(e.target.value)}
+                  placeholder={`Enter wallet address (${newChainType === 'EVM' ? 'EVM' : 'Solana/Eclipse'})`}
+                  className="w-full text-[9px] sm:text-[10px] px-3 sm:px-4 py-1 sm:py-1.5 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300"
+                />
               </div>
-            </motion.button>
-          ))}
-        </div>
-        <div className="flex justify-end gap-2 sm:gap-3 mt-4">
-          <motion.button
-            onClick={() => {
-              setShowAddModal(false);
-              setNewWalletName('');
-            }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="text-[10px] sm:text-xs font-medium text-gray-400 hover:text-white transition-all duration-300"
-          >
-            Cancel
-          </motion.button>
-          <motion.button
-            onClick={handleAddWallet}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
-          >
-            Add Wallet
-          </motion.button>
-        </div>
-        {error && <p className="text-[10px] sm:text-xs text-red-400 mt-3 bg-red-500/10 p-2 rounded">Error: {error}</p>}
-      </motion.div>
-    </motion.div>
-  )}
-</AnimatePresence>
+              <div className="flex w-full border-b border-white/10 mb-4 bg-black/60 backdrop-blur-md">
+                {['EVM', 'SVM'].map((type) => (
+                  <motion.button
+                    key={type}
+                    onClick={() => setNewChainType(type)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`flex-1 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${newChainType === type ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
+                      } last:border-r-0`}
+                  >
+                    <span>{type}</span>
+                    <div className="flex items-center">
+                      {getChainLogos(type).map((chain, index) => (
+                        <Image
+                          key={chain}
+                          src={NATIVE_TOKEN_INFO[chain]?.logo || '/icons/default.png'}
+                          alt={`${chain} logo`}
+                          width={isMobile ? 18 : 22}
+                          height={isMobile ? 18 : 22}
+                          className="rounded-full"
+                          style={{ marginLeft: index > 0 ? '-9px' : '0', zIndex: 10 - index }}
+                          onError={(e) => (e.target.src = '/icons/default.png')}
+                        />
+                      ))}
+                      <div className="flex items-center justify-center w-4 sm:w-5 h-4 sm:h-5 bg-neon-blue/50 rounded-full text-white text-[8px] sm:text-[10px] mr-6">
+                        +
+                      </div>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2 sm:gap-3 mt-4">
+                <motion.button
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setNewWalletName('');
+                  }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="text-[10px] sm:text-xs font-medium text-gray-400 hover:text-white transition-all duration-300"
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  onClick={handleAddWallet}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+                >
+                  Add Wallet
+                </motion.button>
+              </div>
+              {error && <p className="text-[10px] sm:text-xs text-red-400 mt-3 bg-red-500/10 p-2 rounded">Error: {error}</p>}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style jsx>{`
   .shadow-neon {
