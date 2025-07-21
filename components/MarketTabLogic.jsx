@@ -4,8 +4,8 @@ import { useSession } from 'next-auth/react';
 import debounce from 'lodash.debounce';
 import rateLimit from 'axios-rate-limit';
 import pLimit from 'p-limit';
-import { GECKOTERMINAL_CHAIN_MAPPING , SUPPORTED_CHAINS, CHAIN_MAPPING } from '../utils/constants';
-import btcNameTags from '../public/nametags/btc-top-holders.json';``
+import { GECKOTERMINAL_CHAIN_MAPPING, SUPPORTED_CHAINS, CHAIN_MAPPING } from '../utils/constants';
+import btcNameTags from '../public/nametags/btc-top-holders.json'; ``
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
   console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
@@ -87,6 +87,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const [blockchairRequestCount, setBlockchairRequestCount] = useState(0);
   const [lastBlockchairRequestTime, setLastBlockchairRequestTime] = useState(0);
   const blockchairCache = useRef({});
+  const [currency, setCurrency] = useState('usd'); // Add currency state
+  const [availableCurrencies] = useState(['usd', 'vnd', 'eth', 'btc', 'eur']); // Supported currencies
 
   const executeRecaptcha = useCallback(
     async (action, retryCount = 0) => {
@@ -374,9 +376,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           callback(null);
           return;
         }
-        const [coingeckoChainId, tokenAddress] = tokenId.split('/');
-        const chain = chains.find((c) => c.coingeckoId === coingeckoChainId);
-        const cacheKey = `${tokenId}-${days}`;
+        const cacheKey = `${tokenId}-${days}-${currency}`;
         const cached = priceHistoryCache[cacheKey];
         if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
           setPriceHistory(cached.data);
@@ -385,8 +385,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         }
         return new Promise(async (resolve, reject) => {
           try {
-            const response = await axios.get('/api/coingecko/history', {
-              params: { id: tokenId, vs_currency: 'usd', days },
+            const response = await axios.get('/api/coingecko/market_chart', {
+              params: { id: tokenId, days, currency },
               timeout: 30000,
             }).catch(async (error) => {
               if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
@@ -438,7 +438,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             const errorMessage =
               err.response?.status === 429
                 ? 'API rate limit reached. Please wait a minute and try again.'
-                : err.response?.data?.detail || `Failed to load price history: ${err.message}`;
+                : err.response?.status === 401
+                  ? 'Unable to fetch market data due to authentication issues. Please try again later.'
+                  : err.response?.data?.detail || `Failed to load price history: ${err.message}`;
             setError(errorMessage);
             toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
             reject(err);
@@ -449,7 +451,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
       500,
       { leading: false, trailing: true }
     ),
-    [chains, priceHistoryCache, setPriceHistory, setPriceHistoryCache, setError, toast]
+    [currency, chains, priceHistoryCache, setPriceHistory, setPriceHistoryCache, setError, toast]
   );
 
   const fetchPublicTreasuryData = useCallback(
@@ -1163,40 +1165,61 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             action: 'coin-details',
             id: token.id,
             recaptchaToken,
+            vs_currencies: availableCurrencies.join(','), // Fetch data for all supported currencies
           },
         });
+        const marketData = response.data.market_data || {};
         const fullToken = {
           id: response.data.id,
           symbol: response.data.symbol,
           name: response.data.name,
           image: response.data.image?.large,
-          current_price: response.data.market_data?.current_price?.usd,
-          market_cap: response.data.market_data?.market_cap?.usd,
-          total_volume: response.data.market_data?.total_volume?.usd,
-          high_24h: response.data.market_data?.high_24h?.usd,
-          low_24h: response.data.market_data?.low_24h?.usd,
-          price_change_percentage_24h: response.data.market_data?.price_change_percentage_24h,
-          price_change_24h: response.data.market_data?.price_change_24h?.usd,
-          market_cap_change_24h: response.data.market_data?.market_cap_change_24h?.usd,
-          market_cap_change_percentage_24h: response.data.market_data?.market_cap_change_percentage_24h,
-          circulating_supply: response.data.market_data?.circulating_supply,
-          total_supply: response.data.market_data?.total_supply,
-          max_supply: response.data.market_data?.max_supply,
-          fully_diluted_valuation: response.data.market_data?.fully_diluted_valuation?.usd,
-          ath: response.data.market_data?.ath?.usd,
-          ath_change_percentage: response.data.market_data?.ath_change_percentage?.usd,
-          ath_date: response.data.market_data?.ath_date?.usd,
-          atl: response.data.market_data?.atl?.usd,
-          atl_change_percentage: response.data.market_data?.atl_change_percentage?.usd,
-          atl_date: response.data.market_data?.atl_date?.usd,
-          roi: response.data.market_data?.roi || response.data.roi,
+          current_price: marketData.current_price || {},
+          market_cap: marketData.market_cap || {},
+          total_volume: marketData.total_volume || {},
+          high_24h: marketData.high_24h || {},
+          low_24h: marketData.low_24h || {},
+          price_change_percentage_1h_in_currency: marketData.price_change_percentage_1h_in_currency || {},
+          price_change_percentage_24h_in_currency: marketData.price_change_percentage_24h_in_currency || {},
+          price_change_percentage_7d_in_currency: marketData.price_change_percentage_7d_in_currency || {},
+          price_change_percentage_14d_in_currency: marketData.price_change_percentage_14d_in_currency || {},
+          price_change_percentage_30d_in_currency: marketData.price_change_percentage_30d_in_currency || {},
+          price_change_percentage_60d_in_currency: marketData.price_change_percentage_60d_in_currency || {},
+          price_change_percentage_90d_in_currency: marketData.price_change_percentage_90d_in_currency || {}, // Add 90d
+          price_change_percentage_1y_in_currency: marketData.price_change_percentage_1y_in_currency || {},
+          price_change_percentage_24h: marketData.price_change_percentage_24h,
+          price_change_24h: marketData.price_change_24h || {},
+          market_cap_change_24h: marketData.market_cap_change_24h || {},
+          market_cap_change_percentage_24h: marketData.market_cap_change_percentage_24h,
+          circulating_supply: marketData.circulating_supply,
+          total_supply: marketData.total_supply,
+          max_supply: marketData.max_supply,
+          fully_diluted_valuation: marketData.fully_diluted_valuation || {},
+          ath: marketData.ath || {},
+          ath_change_percentage: marketData.ath_change_percentage || {},
+          ath_date: marketData.ath_date || {},
+          atl: marketData.atl || {},
+          atl_change_percentage: marketData.atl_change_percentage || {},
+          atl_date: marketData.atl_date || {},
+          roi: marketData.roi || response.data.roi,
           last_updated: response.data.last_updated,
           market_cap_rank: response.data.market_cap_rank,
           platforms: response.data.platforms || {},
           detail_platforms: response.data.detail_platforms || {},
+          links: {
+            homepage: response.data.links?.homepage || [],
+            blockchain_site: response.data.links?.blockchain_site || [],
+            official_forum_url: response.data.links?.official_forum_url || [],
+            chat_url: response.data.links?.chat_url || [],
+            announcement_url: response.data.links?.announcement_url || [],
+            twitter_screen_name: response.data.links?.twitter_screen_name || '',
+            facebook_username: response.data.links?.facebook_username || '',
+            telegram_channel_identifier: response.data.links?.telegram_channel_identifier || '',
+            repos_url: response.data.links?.repos_url?.github || [],
+          },
         };
         setSelectedToken(fullToken);
-        setSelectedPair(`${fullToken.symbol?.toUpperCase()}/USD`);
+        setSelectedPair(`${fullToken.symbol?.toUpperCase()}/${currency.toUpperCase()}`);
         const { chain } = getDefaultChainAndAddress(fullToken, 'ethereum');
         setSelectedChain(chain || 'ethereum');
         setAnalysis(null);
@@ -1225,7 +1248,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         );
       }
     }, 500),
-    [timeRange, fetchPriceHistory, setSelectedToken, setSelectedPair, setSelectedChain, setAnalysis, setPrediction, setAnalysisLinks, setIsDropdownOpen, setOnChainData, setOnChainError, setError, executeRecaptcha, getDefaultChainAndAddress, chains]
+    [currency, availableCurrencies, timeRange, fetchPriceHistory, setSelectedToken, setSelectedPair, setSelectedChain, setAnalysis, setPrediction, setAnalysisLinks, setIsDropdownOpen, setOnChainData, setOnChainError, setError, executeRecaptcha, getDefaultChainAndAddress, chains]
   );
 
   const debouncedHandleAnalysis = useCallback(
@@ -1517,11 +1540,16 @@ Use natural, professional tone with recent data.
       if (document.visibilityState !== 'visible') return;
       try {
         const marketResponse = await coingeckoAxios.get('/api/coingecko', {
-          params: { start: 1, limit: tokensPerPage, convert: 'usd' },
+          params: { start: 1, limit: tokensPerPage, vs_currencies: availableCurrencies.join(',') }, // Fetch for all currencies
         });
         const tokensWithRoi = marketResponse.data.map((token) => ({
           ...token,
           roi: token.roi || null,
+          current_price: token.market_data?.current_price || {},
+          market_cap: token.market_data?.market_cap || {},
+          total_volume: token.market_data?.total_volume || {},
+          high_24h: token.market_data?.high_24h || {},
+          low_24h: token.market_data?.low_24h || {},
         }));
         setTokens(tokensWithRoi);
         if (!selectedToken && !lastFetchedTokenRef.current) {
@@ -1545,7 +1573,7 @@ Use natural, professional tone with recent data.
         setLoading(false);
       }
     }, 3000),
-    [selectedToken, debouncedHandleTokenSelect]
+    [selectedToken, debouncedHandleTokenSelect, availableCurrencies]
   );
 
   useEffect(() => {
@@ -1588,7 +1616,7 @@ Use natural, professional tone with recent data.
       clearInterval(interval);
       fetchPriceHistory.cancel && fetchPriceHistory.cancel();
     };
-  }, [selectedToken, timeRange, fetchPriceHistory]);
+  }, [selectedToken, timeRange, currency, fetchPriceHistory, setError]); // Removed session
 
   useEffect(() => {
     debouncedSearch(searchQuery);
@@ -1632,7 +1660,7 @@ Use natural, professional tone with recent data.
     };
   }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData, onChainData.topHolders.length]);
 
-    useEffect(() => {
+  useEffect(() => {
     prevTopHoldersRef.current = onChainData.topHolders;
   }, [onChainData.topHolders]);
 
@@ -1804,6 +1832,9 @@ Use natural, professional tone with recent data.
     setBlockchairRequestCount,
     lastBlockchairRequestTime,
     setLastBlockchairRequestTime,
+    currency, // Add currency
+    setCurrency, // Add setCurrency
+    availableCurrencies,
     // Constants
     SUPPORTED_CHAINS,
     WALLET_SEARCH_LIMIT,

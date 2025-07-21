@@ -1,4 +1,4 @@
-// pages/api/coingecko/info.js
+// pages/api/coingecko/market_chart.js
 import axios from 'axios';
 import rateLimit from 'express-rate-limit';
 import { query, validationResult } from 'express-validator';
@@ -34,13 +34,14 @@ axiosRetry(axios, {
 
 const validate = [
   query('id').notEmpty().isString().isLength({ max: 100 }).withMessage('Invalid token ID'),
-  query('vs_currencies').optional().isString().withMessage('vs_currencies must be a string'),
+  query('days').isNumeric().withMessage('Days must be a number'),
+  query('currency').isString().withMessage('Currency must be a string'),
 ];
 
 export default async function handler(req, res) {
   helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
-  logger.info(`Request to /api/coingecko/info from IP ${ip}, query: ${JSON.stringify(req.query)}`);
+  logger.info(`Request to /api/coingecko/market_chart from IP ${ip}, query: ${JSON.stringify(req.query)}`);
 
   if (req.method !== 'GET') {
     logger.warn(`Method not allowed: ${req.method}`);
@@ -63,7 +64,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
   }
 
-  const { id, vs_currencies = 'usd' } = req.query;
+  let { id, days, currency } = req.query;
+  // Adjust days to avoid hourly interval restriction
+  days = parseFloat(days) < 1 ? 1 : days;
 
   const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
   if (!COINGECKO_API_KEY) {
@@ -72,25 +75,40 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await axios.get(`https://api.coingecko.com/api/v3/coins/${id}`, {
+    const response = await axios.get(`https://api.coingecko.com/api/v3/coins/${id}/market_chart`, {
       params: {
-        localization: false,
-        tickers: false,
-        market_data: true,
-        community_data: false,
-        developer_data: false,
-        vs_currencies, // Include vs_currencies parameter
+        vs_currency: currency,
+        days: days,
       },
       headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
       timeout: 15000,
     });
 
-    logger.info(`Successfully fetched token info for id: ${id}`);
-    return res.status(200).json({ data: { [id]: response.data } });
+    const prices = response.data.prices;
+    if (!prices || !Array.isArray(prices) || prices.length === 0) {
+      logger.error(`Invalid or empty price data for id: ${id}, days: ${days}`);
+      return res.status(500).json({ detail: 'Invalid or empty price data' });
+    }
+
+    // For days=0.5, filter prices to the last 12 hours
+    if (parseFloat(req.query.days) === 0.5) {
+      const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
+      const filteredPrices = prices.filter(([timestamp]) => timestamp >= twelveHoursAgo);
+      const high = Math.max(...filteredPrices.map((price) => price[1]));
+      const low = Math.min(...filteredPrices.map((price) => price[1]));
+      return res.status(200).json({ prices: filteredPrices, high, low });
+    }
+
+    const high = Math.max(...prices.map((price) => price[1]));
+    const low = Math.min(...prices.map((price) => price[1]));
+
+    logger.info(`Successfully fetched market chart for id: ${id}, days: ${days}`);
+    return res.status(200).json({ prices, high, low });
   } catch (error) {
-    logger.error(`Error fetching token info: ${error.message}`, {
+    logger.error(`Error fetching market chart: ${error.message}`, {
       status: error.response?.status,
       data: error.response?.data,
+      url: `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=${currency}&days=${days}`,
     });
     const status = error.response?.status || 500;
     const detail =
@@ -100,7 +118,7 @@ export default async function handler(req, res) {
         ? 'CoinGecko API authentication failed. Please check your API key and try again later.'
         : status === 404
         ? `Token ID ${id} not found.`
-        : `Failed to fetch token information: ${error.message}`;
+        : `Failed to fetch market chart: ${error.message}`;
     return res.status(status).json({ detail });
   }
 }

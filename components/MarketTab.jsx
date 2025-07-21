@@ -25,7 +25,7 @@ const logger = {
   },
 };
 
-const formatPrice = (price) => {
+const formatPrice = (price, currency = 'usd') => {
   if (price == null || isNaN(price)) return 'N/A';
   let fractionDigits = 2;
   if (price < 0.0001) {
@@ -33,7 +33,7 @@ const formatPrice = (price) => {
   } else if (price < 0.01) {
     fractionDigits = 4;
   }
-  return `$${price.toLocaleString('en-US', {
+  return `${currency.toUpperCase()} ${price.toLocaleString('en-US', {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   })}`;
@@ -353,11 +353,11 @@ const WalletBalances = ({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains bg-black/80 backdrop-blur-2xl"
+      className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains bg-black/80 backdrop-blur-xs"
     >
       <div
         ref={walletBalancesRef}
-        className={`p-6 max-w-6xl w-[95%] rounded-xl relative max-h-[80vh] overflow-hidden custom-scrollbar border border-white/10 bg-black/60 backdrop-blur-2xl shadow-neon-lg`}
+        className={`p-6 max-w-6xl w-[95%] rounded-xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar border border-white/10 bg-black/60 backdrop-blur-2xl shadow-neon-lg`}
       >
         <div className="sticky top-0 z-10 p-3 bg-black/70 backdrop-blur-md">
           <div className="flex justify-between items-center mb-3">
@@ -656,13 +656,13 @@ const WalletBalances = ({
   return createPortal(overlayContent, document.body);
 };
 
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-black/80 p-2 rounded border border-white/20 text-gray-300 text-sm backdrop-blur-lg font-jetbrains">
         <p>{label}</p>
         <p>
-          Price: <span className="font-bold">{formatPrice(payload[0].value)}</span>
+          Price: <span className="font-bold">{formatPrice(payload[0].value, currency)}</span>
         </p>
       </div>
     );
@@ -671,6 +671,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const MarketTab = ({ recaptchaRef }) => {
+  const { data: session } = useSession();
   const {
     tokens,
     loading,
@@ -751,6 +752,9 @@ const MarketTab = ({ recaptchaRef }) => {
   const [showTrades, setShowTrades] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [selectedPool, setSelectedPool] = useState(null);
+  const [currency, setCurrency] = useState('usd'); // State for selected currency
+  const [highLowData, setHighLowData] = useState({ high: null, low: null, percentageChange: null });
+  const [availableCurrencies] = useState(['usd', 'vnd', 'eth', 'btc', 'eur']);
 
   const getPlatformImage = (chainValue) => {
     const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
@@ -923,23 +927,117 @@ const MarketTab = ({ recaptchaRef }) => {
   }, [setIsDropdownOpen]);
 
   useEffect(() => {
-    if (selectedToken && timeRange) {
-      logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange });
-      setIsChartLoading(true);
-      const { chain } = getAvailableChains().find((c) => c.value === selectedChain) || {};
-      const tokenId = chain && selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId]?.contract_address
-        ? `${chains.find((c) => c.value === chain)?.coingeckoId}/${selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId].contract_address}`
-        : selectedToken.id;
-      fetchPriceHistory(tokenId, timeRange, (err, data) => {
-        if (err) {
-          logger.error('Price history fetch failed:', { error: err.message });
-        } else {
-          logger.log('Price history fetch completed:', { tokenId: selectedToken.id, count: data?.length || 0 });
+  if (selectedToken && timeRange) {
+    logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange, currency });
+    setIsChartLoading(true);
+    const { chain } = getAvailableChains().find((c) => c.value === selectedChain) || {};
+    const tokenId = chain && selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId]?.contract_address
+      ? `${chains.find((c) => c.value === chain)?.coingeckoId}/${selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId].contract_address}`
+      : selectedToken.id;
+    fetchPriceHistory(tokenId, timeRange, currency, (err, data) => {
+      if (err) {
+        logger.error('Price history fetch failed:', { error: err.message });
+        toast.error(err.message, { position: 'top-center', autoClose: 3000 });
+      } else {
+        logger.log('Price history fetch completed:', { tokenId: selectedToken.id, count: data?.length || 0 });
+      }
+      setIsChartLoading(false);
+    });
+  }
+}, [selectedToken, timeRange, currency, selectedChain, fetchPriceHistory, getAvailableChains, chains]);
+
+  useEffect(() => {
+    if (!selectedToken) return;
+
+    const fetchHighLowData = async () => {
+      try {
+        // Map time ranges to CoinGecko percentage fields
+        const percentageFieldMap = {
+          '0.5': { currency: 'price_change_percentage_1h_in_currency', fallback: 'price_change_percentage_1h' },
+          '1': { currency: 'price_change_percentage_24h_in_currency', fallback: 'price_change_percentage_24h' },
+          '7': { currency: 'price_change_percentage_7d_in_currency', fallback: 'price_change_percentage_7d' },
+          '30': { currency: 'price_change_percentage_30d_in_currency', fallback: 'price_change_percentage_30d' },
+          '90': { currency: 'price_change_percentage_90d_in_currency', fallback: 'price_change_percentage_90d' },
+          '365': { currency: 'price_change_percentage_1y_in_currency', fallback: 'price_change_percentage_1y' },
+        };
+
+        const { currency: currencyField, fallback } = percentageFieldMap[timeRange] || {
+          currency: 'price_change_percentage_24h_in_currency',
+          fallback: 'price_change_percentage_24h',
+        };
+        // Prefer currency-specific field, fall back to top-level field
+        const percentageChange = timeRange === '0.5' ? 'N/A' : selectedToken[currencyField]?.[currency] ?? selectedToken[fallback] ?? 'N/A';
+        // Use 24h high/low for Token Info
+        const highLow = {
+          high: selectedToken.high_24h?.[currency] ?? 'N/A',
+          low: selectedToken.low_24h?.[currency] ?? 'N/A',
+        };
+
+        // Log for debugging
+        if (process.env.NODE_ENV === 'development') {
+          console.log('fetchHighLowData:', {
+            percentageField: currencyField,
+            fallbackField: fallback,
+            percentageChange,
+            currency,
+            high: highLow.high,
+            low: highLow.low,
+            selectedTokenPercentageFields: {
+              '1h': {
+                currency: selectedToken.price_change_percentage_1h_in_currency?.[currency],
+                fallback: selectedToken.price_change_percentage_1h,
+              },
+              '24h': {
+                currency: selectedToken.price_change_percentage_24h_in_currency?.[currency],
+                fallback: selectedToken.price_change_percentage_24h,
+              },
+              '7d': {
+                currency: selectedToken.price_change_percentage_7d_in_currency?.[currency],
+                fallback: selectedToken.price_change_percentage_7d,
+              },
+              '30d': {
+                currency: selectedToken.price_change_percentage_30d_in_currency?.[currency],
+                fallback: selectedToken.price_change_percentage_30d,
+              },
+              '90d': {
+                currency: selectedToken.price_change_percentage_90d_in_currency?.[currency],
+                fallback: selectedToken.price_change_percentage_90d,
+              },
+              '1y': {
+                currency: selectedToken.price_change_percentage_1y_in_currency?.[currency],
+                fallback: selectedToken.price_change_percentage_1y,
+              },
+            },
+          });
         }
+
+        setHighLowData({ high: highLow.high, low: highLow.low, percentageChange });
+
+        // Fetch price history for chart
+        setIsChartLoading(true);
+        const tokenId = selectedToken.id;
+        const days = timeRange === '0.5' ? 1 : timeRange === '1' ? 1 : timeRange === '7' ? 7 : timeRange === '30' ? 30 : timeRange === '90' ? 90 : 365;
+        await fetchPriceHistory(tokenId, days, (err) => {
+          if (err) {
+            logger.error('Price history fetch failed:', { error: err.message });
+            toast.error(err.message, { position: 'top-center', autoClose: 3000 });
+          }
+          setIsChartLoading(false);
+        });
+      } catch (error) {
+        logger.error('Error in fetchHighLowData:', { error: error.message });
+        setHighLowData({
+          high: selectedToken.high_24h?.[currency] ?? 'N/A',
+          low: selectedToken.low_24h?.[currency] ?? 'N/A',
+          percentageChange: 'N/A',
+        });
         setIsChartLoading(false);
-      });
-    }
-  }, [selectedToken, timeRange, selectedChain, fetchPriceHistory, getAvailableChains, chains]);
+        toast.error('Failed to fetch market data.', { position: 'top-center', autoClose: 3000 });
+      }
+    };
+
+    fetchHighLowData();
+  }, [selectedToken, timeRange, currency, setHighLowData, setIsChartLoading, fetchPriceHistory, toast, logger]);
 
   return (
     <motion.div
@@ -1103,7 +1201,7 @@ const MarketTab = ({ recaptchaRef }) => {
           >
             {/* Token Info */}
             <div
-              className={`border border-white/10 p-2 sm:p-4 rounded-lg min-h-[160px] sm:min-h-[150px] overflow-y-auto custom-scrollbar bg-black/60 backdrop-blur-2xl`}
+              className={`border border-white/10 p-2 sm:p-4 rounded-lg min-h-[200px] sm:min-h-[150px] overflow-y-auto custom-scrollbar bg-black/60 backdrop-blur-2xl relative`}
             >
               {selectedToken ? (
                 <div className="relative">
@@ -1192,24 +1290,33 @@ const MarketTab = ({ recaptchaRef }) => {
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
-                        <p className="text-base sm:text-lg font-bold text-white">{formatPrice(selectedToken.current_price)}</p>
+                        <p className="text-base sm:text-lg font-bold text-yellow">{formatPrice(selectedToken.current_price?.[currency], currency)}</p>
                         <span
-                          className={`text-xs sm:text-sm font-medium ${selectedToken.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'
+                          className={`text-[9px] sm:text-[10px] font-medium ${selectedToken.price_change_percentage_24h_in_currency?.[currency] >= 0 ? 'text-green-500' : 'text-red-500'
                             }`}
                         >
-                          {selectedToken.price_change_percentage_24h != null
-                            ? `${selectedToken.price_change_percentage_24h.toFixed(2)}% (24h)`
+                          {selectedToken.price_change_percentage_24h_in_currency?.[currency] != null
+                            ? `${selectedToken.price_change_percentage_24h_in_currency[currency].toFixed(2)}% (24h)`
                             : 'N/A'}
                         </span>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:gap-4 text-[10px] sm:text-xs text-gray-200">
-                      <p className="text-gray-400">
-                        24h High: <span className="text-green-500 font-bold">{formatPrice(selectedToken.high_24h)}</span>
-                      </p>
-                      <p className="text-gray-400">
-                        24h Low: <span className="text-red-500 font-bold">{formatPrice(selectedToken.low_24h)}</span>
-                      </p>
+                    <div className="flex justify-end items-end">
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="currency-select" className="text-[10px] sm:text-xs text-gray-500">Currency:</label>
+                        <select
+                          id="currency-select"
+                          value={currency}
+                          onChange={(e) => setCurrency(e.target.value)}
+                          className="text-white px-2 py-1 text-[10px] sm:text-xs border border-white/10 bg-black/60 backdrop-blur-md rounded-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50"
+                        >
+                          {availableCurrencies.map((curr) => (
+                            <option key={curr} value={curr}>
+                              {curr.toUpperCase()}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
@@ -1221,24 +1328,24 @@ const MarketTab = ({ recaptchaRef }) => {
                         <p className="text-gray-400">
                           Market Cap:{' '}
                           <span className="text-white font-semibold">
-                            {selectedToken.market_cap != null
-                              ? `$${selectedToken.market_cap.toLocaleString('en-US')}`
+                            {selectedToken.market_cap?.[currency] != null
+                              ? `${currency.toUpperCase()} ${selectedToken.market_cap[currency].toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
                         <p className="text-gray-400">
                           Fully Diluted Valuation:{' '}
                           <span className="text-white font-semibold">
-                            {selectedToken.fully_diluted_valuation != null
-                              ? `$${selectedToken.fully_diluted_valuation.toLocaleString('en-US')}`
+                            {selectedToken.fully_diluted_valuation?.[currency] != null
+                              ? `${currency.toUpperCase()} ${selectedToken.fully_diluted_valuation[currency].toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
                         <p className="text-gray-400">
                           24h Volume:{' '}
                           <span className="text-white font-semibold">
-                            {selectedToken.total_volume != null
-                              ? `$${selectedToken.total_volume.toLocaleString('en-US')}`
+                            {selectedToken.total_volume?.[currency] != null
+                              ? `${currency.toUpperCase()} ${selectedToken.total_volume[currency].toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
@@ -1284,15 +1391,15 @@ const MarketTab = ({ recaptchaRef }) => {
                           ATH:{' '}
                           <span
                             className={
-                              typeof selectedToken.ath === 'number'
-                                ? selectedToken.ath_change_percentage >= 0
+                              typeof selectedToken.ath?.[currency] === 'number'
+                                ? selectedToken.ath_change_percentage?.[currency] >= 0
                                   ? 'text-red-500'
                                   : 'text-green-500'
                                 : 'text-white'
                             }
                           >
-                            {typeof selectedToken.ath === 'number'
-                              ? `$${selectedToken.ath.toLocaleString('en-US')}`
+                            {typeof selectedToken.ath?.[currency] === 'number'
+                              ? `${currency.toUpperCase()} ${selectedToken.ath[currency].toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
@@ -1300,20 +1407,116 @@ const MarketTab = ({ recaptchaRef }) => {
                           ATL:{' '}
                           <span
                             className={
-                              typeof selectedToken.atl === 'number'
-                                ? selectedToken.atl_change_percentage >= 0
+                              typeof selectedToken.atl?.[currency] === 'number'
+                                ? selectedToken.atl_change_percentage?.[currency] >= 0
                                   ? 'text-red-500'
                                   : 'text-green-500'
                                 : 'text-white'
                             }
                           >
-                            {typeof selectedToken.atl === 'number'
-                              ? `$${selectedToken.atl.toLocaleString('en-US')}`
+                            {typeof selectedToken.atl?.[currency] === 'number'
+                              ? `${currency.toUpperCase()} ${selectedToken.atl[currency].toLocaleString('en-US')}`
                               : 'N/A'}
+                          </span>
+                        </p>
+                        <p className="text-gray-400">
+                          24H High:{' '}
+                          <span className="text-green-500 font-semibold">
+                            {formatPrice(highLowData.high, currency)}
+                          </span>
+                        </p>
+                        <p className="text-gray-400">
+                          24H Low:{' '}
+                          <span className="text-red-500 font-semibold">
+                            {formatPrice(highLowData.low, currency)}
                           </span>
                         </p>
                       </div>
                     </div>
+                  </div>
+                  {/* Social Links (Moved to bottom-right) */}
+                  <div className="absolute bottom-2 right-2 flex gap-2 social-links">
+                    {selectedToken.links?.twitter_screen_name && (
+                      <a
+                        href={`https://twitter.com/${selectedToken.links.twitter_screen_name}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-neon-blue hover:text-neon-blue/80"
+                        title="Twitter"
+                      >
+                        <img
+                          src="/logos/x.png" // Replace with actual Twitter logo path
+                          alt="Twitter"
+                          className="w-4 h-4"
+                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                        />
+                      </a>
+                    )}
+                    {selectedToken.links?.chat_url?.[0] && (
+                      <a
+                        href={selectedToken.links.chat_url[0]}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-neon-blue hover:text-neon-blue/80"
+                        title="Discord"
+                      >
+                        <img
+                          src="/logos/discord.png" // Replace with actual Discord logo path
+                          alt="Discord"
+                          className="w-4 h-4"
+                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                        />
+                      </a>
+                    )}
+                    {selectedToken.links?.homepage?.[0] && (
+                      <a
+                        href={selectedToken.links.homepage[0]}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-neon-blue hover:text-neon-blue/80"
+                        title="Website"
+                      >
+                        <img
+                          src="/logos/website.png" // Replace with actual Website logo path
+                          alt="Website"
+                          className="w-4 h-4"
+                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                        />
+                      </a>
+                    )}
+                    {selectedToken.links?.repos_url?.github?.[0] && (
+                      <a
+                        href={selectedToken.links.repos_url.github[0]}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-neon-blue hover:text-neon-blue/80"
+                        title="GitHub"
+                      >
+                        <img
+                          src="/logos/github.png" // Replace with actual GitHub logo path
+                          alt="GitHub"
+                          className="w-4 h-4"
+                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                        />
+                      </a>
+                    )}
+                    {/* Placeholder for Token Logo */}
+                    {selectedToken.image && (
+                      <a
+                        href={selectedToken.links?.homepage?.[0] || '#'} // Replace with actual token logo link when available
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-neon-blue hover:text-neon-blue/80"
+                        title="Token Logo"
+                      >
+                        <img
+                          src={selectedToken.image} // Use token image as placeholder
+                          alt={`${selectedToken.symbol} Logo`}
+                          className="w-5 h-5 rounded-full"
+                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                        />
+                      </a>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -1333,7 +1536,7 @@ const MarketTab = ({ recaptchaRef }) => {
 
             {/* Chart */}
             <div
-              className={`border border-white/10 p-2 sm:p-4 rounded-lg flex-1 min-h-[350px] sm:min-h-[300px] max-h-[250px] sm:max-h-[350px] bg-black/60 backdrop-blur-2xl shadow-neon-lg overflow-y-auto custom-scrollbar`}
+              className={`border border-white/10 p-2 sm:p-4 rounded-lg flex-1 min-h-[320px] sm:min-h-[300px] max-h-[250px] sm:max-h-[350px] bg-black/60 backdrop-blur-2xl shadow-neon-lg overflow-y-auto custom-scrollbar`}
             >
               <div className="flex justify-between items-center mb-2 sm:mb-4">
                 <div className="flex space-x-2">
@@ -1364,22 +1567,45 @@ const MarketTab = ({ recaptchaRef }) => {
                     Predict
                   </motion.button>
                 </div>
-                <div className="flex flex-wrap gap-1 sm:gap-1.5 mt-10 sm:mt-6">
-                  {['12H', '1D', '7D', '1M', '3M', '1Y'].map((range, idx) => (
-                    <motion.button
-                      key={range}
-                      onClick={() => setTimeRange(['0.5', '1', '7', '30', '90', '365'][idx])}
-                      className={`px-2 py-1 text-[8px] sm:text-[9px] transition-all duration-300 border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-sm ${timeRange === ['0.5', '1', '7', '30', '90', '365'][idx]
-                        ? 'bg-white text-black shadow-neon'
-                        : 'text-white hover:bg-neon-blue/30'
-                        }`}
-                      aria-label={`Select ${range} time range`}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {range}
-                    </motion.button>
-                  ))}
+                <div className="flex items-center gap-4 ml-4 sm:ml-[-2]">
+                  <div className="text-[8px] sm:text-xs text-gray-200">
+                    <p className="text-gray-400">
+                      Change:{' '}
+                      <span
+                        className={`font-bold ${highLowData.percentageChange !== 'N/A' && typeof highLowData.percentageChange === 'number'
+                          ? highLowData.percentageChange >= 0
+                            ? 'text-green-500'
+                            : 'text-red-500'
+                          : 'text-gray-200'
+                          }`}
+                      >
+                        {highLowData.percentageChange !== 'N/A' && typeof highLowData.percentageChange === 'number'
+                          ? `${highLowData.percentageChange >= 0 ? '+' : ''}${highLowData.percentageChange.toFixed(2)}% (${timeRange === '0.5' ? '1H' : timeRange === '1' ? '1D' : timeRange === '7' ? '7D' : timeRange === '30' ? '1M' : timeRange === '90' ? '3M' : '1Y'
+                          })`
+                          : 'N/A'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-1 sm:gap-1.5 mt-8">
+                    {['12H', '1D', '7D', '1M', '3M', '1Y'].map((range, idx) => (
+                      <motion.button
+                        key={range}
+                        onClick={() => setTimeRange(['0.5', '1', '7', '30', '90', '365'][idx])}
+                        className={`px-2 py-1 text-[8px] sm:text-[9px] transition-all duration-300 border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-sm ${timeRange === ['0.5', '1', '7', '30', '90', '365'][idx]
+                          ? 'bg-white text-black shadow-neon'
+                          : range === '12H'
+                            ? 'text-gray-400 cursor-not-allowed opacity-50'
+                            : 'text-white hover:bg-neon-blue/30'
+                          }`}
+                        aria-label={`Select ${range} time range`}
+                        disabled={range === '12H'}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        {range}
+                      </motion.button>
+                    ))}
+                  </div>
                 </div>
               </div>
               {isChartLoading ? (
@@ -1390,81 +1616,73 @@ const MarketTab = ({ recaptchaRef }) => {
                 </div>
               ) : priceHistory && priceHistory.length > 0 ? (
                 <div className="h-48 sm:h-58">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={priceHistory} margin={{ top: 10, right: 20, bottom: -20, left: 0 }}>
-                      <CartesianGrid stroke="#404040" strokeDasharray="4 4" opacity={0.3} />
-                      <XAxis
-                        dataKey="title"
-                        stroke="#FFFFFF"
-                        tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={70}
-                        interval={timeRange === '0.5' ? Math.floor(priceHistory.length / 12) : timeRange === '1' ? 0 : 'preserveStartEnd'}
-                      />
-                      <YAxis
-                        stroke="#FFFFFF"
-                        tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
-                        domain={[(dataMin) => dataMin * 0.99, (dataMax) => dataMax * 1.01]}
-                        width={isMobile ? 50 : 60}
-                        tickFormatter={(value) => {
-                          const minPrice = Math.min(...priceHistory.map((item) => item.price).filter((p) => p > 0));
-                          let fractionDigits = 2;
-                          if (minPrice < 0.0001) {
-                            fractionDigits = 6;
-                          } else if (minPrice < 0.01) {
-                            fractionDigits = 4;
-                          }
-                          return `$${value.toLocaleString('en-US', {
-                            minimumFractionDigits: fractionDigits,
-                            maximumFractionDigits: fractionDigits,
-                          })}`;
-                        }}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Area
-                        type="monotone"
-                        dataKey="price"
-                        stroke="#00BFFF"
-                        fill="url(#neonGradient)"
-                        strokeWidth={2}
-                        isAnimationActive={true}
-                        animationDuration={1000}
-                      />
-                      {priceHistory.length > 0 && (
-                        <ReferenceDot
-                          x={priceHistory[priceHistory.length - 1].title}
-                          y={priceHistory[priceHistory.length - 1].price}
-                          r={5}
-                          fill="#00BFFF"
-                          stroke="#FFFFFF"
-                          strokeWidth={2}
-                          className="animate-pulse"
-                        />
-                      )}
-                      <defs>
-                        <linearGradient id="neonGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#00BFFF" stopOpacity={0.5} />
-                          <stop offset="100%" stopColor="#00BFFF" stopOpacity={0.1} />
-                        </linearGradient>
-                      </defs>
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+  <ResponsiveContainer width="100%" height="100%">
+    <AreaChart data={priceHistory} margin={{ top: 10, right: 20, bottom: -20, left: 0 }}>
+      <CartesianGrid stroke="#FFFFFF" strokeDasharray="4 4" opacity={0.3} />
+      <XAxis dataKey="title" stroke="#FFFFFF" tick={false} hide={true} />
+      <YAxis
+        stroke="#FFFFFF"
+        tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
+        domain={[(dataMin) => dataMin * 0.99, (dataMax) => dataMax * 1.01]}
+        width={isMobile ? 50 : 60}
+        tickFormatter={(value) => {
+          const minPrice = Math.min(...priceHistory.map((item) => item.price).filter((p) => p > 0));
+          let fractionDigits = 2;
+          if (minPrice < 0.0001) {
+            fractionDigits = 6;
+          } else if (minPrice < 0.01) {
+            fractionDigits = 4;
+          }
+          return `${currency.toUpperCase()} ${value.toLocaleString('en-US', {
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits,
+          })}`;
+        }}
+      />
+      <Tooltip content={<CustomTooltip currency={currency} />} />
+      <Area
+        type="monotone"
+        dataKey="price"
+        stroke="#FFFFFF"
+        fill="url(#neonGradient)"
+        strokeWidth={2}
+        isAnimationActive={true}
+        animationDuration={1000}
+      />
+      {priceHistory.length > 0 && (
+        <ReferenceDot
+          x={priceHistory[priceHistory.length - 1].title}
+          y={priceHistory[priceHistory.length - 1].price}
+          r={5}
+          fill="#FFFFFF"
+          stroke="#00BFFF"
+          strokeWidth={2}
+          className="animate-pulse"
+        />
+      )}
+      <defs>
+        <linearGradient id="neonGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#00BFFF" stopOpacity={0.5} />
+          <stop offset="100%" stopColor="#00BFFF" stopOpacity={0.1} />
+        </linearGradient>
+      </defs>
+    </AreaChart>
+  </ResponsiveContainer>
+</div>
               ) : (
                 <p className="text-[10px] sm:text-xs text-gray-400 text-center flex-1">
                   {selectedToken ? 'No price data available for this token.' : 'Please select a token to view the chart.'}
                 </p>
               )}
               <div className="absolute top-1 right-1 flex items-center group p-2">
-                <img src="/logos/CG.png" alt="CG Logo" className="w-4 sm:w-4 h-4 sm:h-4 object-contain" />
-                <span
-                  className="absolute right-20 sm:right-20 text-[8px] sm:text-[9px] text-gray-200 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center"
-                >
-                  Data powered by
-                  <img src="/logos/CG_1.png" alt="CG_1 Logo" className="w-12 sm:w-12 h-12 sm:h-12 object-contain ml-2" />
-                </span>
-              </div>
+    <img src="/logos/CG.png" alt="CG Logo" className="w-4 sm:w-4 h-4 sm:h-4 object-contain" />
+    <span
+      className="absolute right-20 sm:right-20 text-[8px] sm:text-[9px] text-gray-200 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center"
+    >
+      Data powered by
+      <img src="/logos/CG_1.png" alt="CG_1 Logo" className="w-12 sm:w-12 h-12 sm:h-12 object-contain ml-2" />
+    </span>
+  </div>
             </div>
           </div>
           {/* Left Section: Top Holders, CEX, DEX */}
@@ -1486,7 +1704,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     whileHover={{ scale: 1 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    Top Holders
+                    TOP HOLDERS
                   </motion.button>
                   <motion.button
                     onClick={() => {
@@ -2280,39 +2498,176 @@ const MarketTab = ({ recaptchaRef }) => {
 
       {/* JSX Styles */}
       <style jsx>{`
-      .shadow-neon {
-        box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
-      }
-      .shadow-neon-lg {
-        box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
-      }
-      .custom-scrollbar::-webkit-scrollbar {
-        width: 4px;
-        height: 4px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 3px;
-      }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.4);
-      }
-      .animate-pulse {
-        animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
-      }
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
-      }
-    `}</style>
+  /* Base Neon Shadow for Futuristic Glow */
+  .shadow-neon {
+    box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.15);
+    transition: box-shadow 0.3s ease;
+  }
+
+  .shadow-neon-lg {
+    box-shadow: 0 0 12px rgba(0, 191, 255, 0.4), 0 0 24px rgba(0, 191, 255, 0.2);
+    transition: box-shadow 0.3s ease;
+  }
+
+  .shadow-neon:hover {
+    box-shadow: 0 0 12px rgba(0, 191, 255, 0.5), 0 0 20px rgba(0, 191, 255, 0.3);
+  }
+
+  /* Custom Scrollbar for Sleek Look */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 191, 255, 0.5);
+    border-radius: 3px;
+    transition: background 0.3s ease;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 191, 255, 0.8);
+  }
+
+  /* Pulse Animation for Loading States */
+  .animate-pulse {
+    animation: ${isMobile ? 'none' : 'pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+
+  /* Glassmorphism Background */
+  .glass-bg {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.7), rgba(20, 20, 20, 0.5));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* Button Hover Effects */
+  button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 191, 255, 0.4);
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(0, 191, 255, 0.2);
+  }
+
+  /* Table Styling */
+  table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+  }
+
+  th,
+  td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 12px;
+    transition: background 0.3s ease;
+  }
+
+  th {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.8), rgba(20, 20, 20, 0.6));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  tr:hover {
+    background: rgba(0, 191, 255, 0.1);
+  }
+
+  /* Input Styling */
+  input {
+    transition: all 0.3s ease;
+  }
+
+  input:focus {
+    box-shadow: 0 0 8px rgba(0, 191, 255, 0.4);
+    border-color: rgba(0, 191, 255, 0.6);
+  }
+
+  /* Modal Styling */
+  .modal-content {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.85), rgba(20, 20, 20, 0.65));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  /* Chart Styling */
+  .recharts-cartesian-grid line {
+    stroke: rgba(255, 255, 255, 0.1);
+  }
+
+  .recharts-axis line,
+  .recharts-axis text {
+    stroke: rgba(255, 255, 255, 0.8);
+    fill: rgba(255, 255, 255, 0.8);
+    font-size: ${isMobile ? '8px' : '10px'};
+  }
+
+  /* Neon Gradient for Chart Area */
+  .recharts-area {
+    fill: url(#neonGradient);
+    stroke: #00BFFF;
+    stroke-width: 2;
+  }
+
+  /* High/Low Container in Chart Section */
+  .high-low-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  /* Social Links */
+  .social-links {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    align-items: center;
+  }
+
+  .social-links a {
+    transition: color 0.3s ease;
+  }
+
+  .social-links a:hover {
+    color: rgba(0, 191, 255, 0.8);
+  }
+
+  .social-links img {
+    width: 1.25rem;
+    height: 1.25rem;
+    object-fit: contain;
+  }
+`}</style>
     </motion.div>
   );
 };

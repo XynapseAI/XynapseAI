@@ -1246,9 +1246,9 @@ export default function WatchlistsTab({ toast }) {
                   <motion.button
                     key={type}
                     onClick={() => setNewChainType(type)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className={`flex-1 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${newChainType === type ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
+                    whileHover={{ scale: 1 }}
+                    whileTap={{ scale: 1 }}
+                    className={`flex-1 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${newChainType === type ? 'bg-gray-400 text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
                       } last:border-r-0`}
                   >
                     <span>{type}</span>
@@ -1274,23 +1274,12 @@ export default function WatchlistsTab({ toast }) {
               </div>
               <div className="flex justify-end gap-2 sm:gap-3 mt-4">
                 <motion.button
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setNewWalletName('');
-                  }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="text-[10px] sm:text-xs font-medium text-gray-400 hover:text-white transition-all duration-300"
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
                   onClick={handleAddWallet}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-xs backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
                 >
-                  Add Wallet
+                  ADD WALLET
                 </motion.button>
               </div>
               {error && <p className="text-[10px] sm:text-xs text-red-400 mt-3 bg-red-500/10 p-2 rounded">Error: {error}</p>}
