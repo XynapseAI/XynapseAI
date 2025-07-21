@@ -358,6 +358,16 @@ const WalletBalances = ({
     });
   };
 
+  // Filter valid tokens for Portfolio tab
+  const validBalances = balances.filter((balance) =>
+    isValidToken({ image: balance.logo, symbol: balance.symbol })
+  );
+
+  // Filter valid transactions for Activity tab
+  const validTransactions = transactions?.filter((tx) =>
+    isValidToken({ image: tx.token_metadata?.logo, symbol: tx.token })
+  ) || [];
+
   const overlayContent = (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
@@ -447,7 +457,7 @@ const WalletBalances = ({
                 </div>
               ) : error ? (
                 <p className="text-sm text-red-400 text-center bg-red-500/10 p-3 rounded">Error: {error}</p>
-              ) : balances?.length > 0 ? (
+              ) : validBalances.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
                     <thead className="text-[10px] sm:text-[xs] sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md uppercase">
@@ -503,7 +513,7 @@ const WalletBalances = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {balances.map((balance, index) => (
+                      {validBalances.map((balance, index) => (
                         <tr
                           key={`${balance.chain}-${balance.address}-${index}`}
                           className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
@@ -560,7 +570,7 @@ const WalletBalances = ({
                   </table>
                 </div>
               ) : (
-                <p className="text-xs text-gray-400 text-center p-4">No balances found for this wallet.</p>
+                <p className="text-xs text-gray-400 text-center p-4">No valid balances found for this wallet.</p>
               )}
             </>
           )}
@@ -580,7 +590,7 @@ const WalletBalances = ({
                 </div>
               ) : transactionsError ? (
                 <p className="text-xs text-red-400 text-center bg-red-500/10 p-3 rounded">Error: {transactionsError}</p>
-              ) : transactions && transactions.length > 0 ? (
+              ) : validTransactions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
                     <thead className="text-[10px] sm:text-[xs] sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md uppercase">
@@ -653,7 +663,7 @@ const WalletBalances = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {transactions.map((tx, index) => {
+                      {validTransactions.map((tx, index) => {
                         const chainName = CHAIN_ID_TO_NAME[tx.chain] || tx.chain || 'ethereum';
                         const { txUrl, addressUrl } = getExplorerUrls(chainName, tx.hash, tx.type === 'receive' ? tx.from : tx.to);
                         const { text: displayAddress, image: addressImage } = truncateAddress(
@@ -685,7 +695,7 @@ const WalletBalances = ({
                                 <img
                                   src={getPlatformImage(tx.chain)}
                                   alt={`${chainName} logo`}
-                                  className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-1 top-[2px] sm:left-2 sm:top-[-1px]"
+                                  className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-1 top-[-2px] sm:left-2 sm:top-[-1px]"
                                   onError={(e) => {
                                     logger.error('Transaction chain logo failed to load:', {
                                       chain: tx.chain,
@@ -759,7 +769,7 @@ const WalletBalances = ({
                 </div>
               ) : (
                 !isLoadingTransactions && (
-                  <p className="text-xs text-gray-400 text-center p-4">No activity found for this address.</p>
+                  <p className="text-xs text-gray-400 text-center p-4">No valid activity found for this address.</p>
                 )
               )}
             </>
@@ -870,7 +880,7 @@ const MarketTab = ({ recaptchaRef }) => {
   const [selectedPool, setSelectedPool] = useState(null);
   const [currency, setCurrency] = useState('usd'); // State for selected currency
   const [highLowData, setHighLowData] = useState({ high: null, low: null, percentageChange: null });
-  const [availableCurrencies] = useState(['usd', 'vnd', 'eth', 'btc', 'eur']);
+  const [availableCurrencies] = useState(['usd', 'eth', 'btc', 'eur' ,'bnb','cny','gbp','hkd','idr','jpy','krw','kwd','mmk','mxn','myr','ngn','nok','nzd','pln','rub','sar','sek','sgd','sol','thb','try','twd','uah','vef', 'vnd','xag','xau']);
 
   const getPlatformImage = (chainValue) => {
     const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
@@ -1346,7 +1356,7 @@ const MarketTab = ({ recaptchaRef }) => {
                     </motion.button>
                     {isDropdownOpen && (
                       <div
-                        className={`absolute bg-black/60 backdrop-blur-2xl mt-2 w-full max-h-40 sm:max-h-48 overflow-y-auto custom-scrollbar border border-white/10 rounded-lg shadow-neon-sm`}
+                        className={`absolute bg-black/60 backdrop-blur-2xl mt-2 w-full max-h-40 sm:max-h-48 overflow-y-auto custom-scrollbar border border-white/10 rounded-lg shadow-neon-sm z-50`}
                       >
                         <input
                           type="text"
@@ -1429,7 +1439,7 @@ const MarketTab = ({ recaptchaRef }) => {
                           id="currency-select"
                           value={currency}
                           onChange={(e) => setCurrency(e.target.value)}
-                          className="text-white px-2 py-1 text-[10px] sm:text-xs border border-white/10 bg-black/60 backdrop-blur-md rounded-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50"
+                          className="text-white px-2 py-1 text-[10px] sm:text-xs border border-white/10 bg-black/60 backdrop-blur-2xl rounded-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 custom-scrollbar"
                         >
                           {availableCurrencies.map((curr) => (
                             <option key={curr} value={curr}>
@@ -1446,7 +1456,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         Market Stats
                       </h5>
                       <div className="grid grid-cols-1 gap-1 sm:gap-2 text-[8px] sm:text-[10px]">
-                        <p className="text-gray-400">
+                        <p className="text-gray-500">
                           Market Cap:{' '}
                           <span className="text-white font-semibold">
                             {selectedToken.market_cap?.[currency] != null
@@ -1454,7 +1464,7 @@ const MarketTab = ({ recaptchaRef }) => {
                               : 'N/A'}
                           </span>
                         </p>
-                        <p className="text-gray-400">
+                        <p className="text-gray-500">
                           Fully Diluted Valuation:{' '}
                           <span className="text-white font-semibold">
                             {selectedToken.fully_diluted_valuation?.[currency] != null
@@ -1462,7 +1472,7 @@ const MarketTab = ({ recaptchaRef }) => {
                               : 'N/A'}
                           </span>
                         </p>
-                        <p className="text-gray-400">
+                        <p className="text-gray-500">
                           24h Volume:{' '}
                           <span className="text-white font-semibold">
                             {selectedToken.total_volume?.[currency] != null
@@ -1477,7 +1487,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         Supply Stats
                       </h5>
                       <div className="grid grid-cols-1 gap-1 sm:gap-2 text-[8px] sm:text-[10px]">
-                        <p className="text-gray-400">
+                        <p className="text-gray-500">
                           Circulating Supply:{' '}
                           <span className="text-white font-semibold">
                             {selectedToken.circulating_supply != null
@@ -1485,7 +1495,7 @@ const MarketTab = ({ recaptchaRef }) => {
                               : 'N/A'}
                           </span>
                         </p>
-                        <p className="text-gray-400">
+                        <p className="text-gray-500">
                           Total Supply:{' '}
                           <span className="text-white font-semibold">
                             {selectedToken.total_supply != null
@@ -1493,7 +1503,7 @@ const MarketTab = ({ recaptchaRef }) => {
                               : 'N/A'}
                           </span>
                         </p>
-                        <p className="text-gray-400">
+                        <p className="text-gray-500">
                           Max Supply:{' '}
                           <span className="text-white font-semibold">
                             {selectedToken.max_supply != null
@@ -1508,7 +1518,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         All-Time Stats
                       </h5>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2 text-[8px] sm:text-[10px]">
-                        <p className="text-gray-400">
+                        <p className="text-gray-500">
                           ATH:{' '}
                           <span
                             className={
@@ -1524,7 +1534,7 @@ const MarketTab = ({ recaptchaRef }) => {
                               : 'N/A'}
                           </span>
                         </p>
-                        <p className="text-gray-400">
+                        <p className="text-gray-500">
                           ATL:{' '}
                           <span
                             className={
@@ -1540,13 +1550,13 @@ const MarketTab = ({ recaptchaRef }) => {
                               : 'N/A'}
                           </span>
                         </p>
-                        <p className="text-gray-400">
+                        <p className="text-gray-500">
                           24H High:{' '}
                           <span className="text-green-500 font-semibold">
                             {formatPrice(highLowData.high, currency)}
                           </span>
                         </p>
-                        <p className="text-gray-400">
+                        <p className="text-gray-500">
                           24H Low:{' '}
                           <span className="text-red-500 font-semibold">
                             {formatPrice(highLowData.low, currency)}
@@ -1673,7 +1683,7 @@ const MarketTab = ({ recaptchaRef }) => {
                 </div>
                 <div className="flex items-center gap-4 ml-4 sm:ml-[-2]">
                   <div className="text-[8px] sm:text-xs text-gray-200">
-                    <p className="text-gray-400">
+                    <p className="text-gray-500">
                       Change:{' '}
                       <span
                         className={`font-bold ${highLowData.percentageChange !== 'N/A' && typeof highLowData.percentageChange === 'number'
