@@ -201,8 +201,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
                   <motion.button
                     onClick={() => handleTabClick(tab.id)}
                     onMouseEnter={handleMouseEnter}
-                    className={`group w-1/3 text-left px-2 py-1 md:py-2 text-[10px] md:text-xs font-medium transition-all duration-300 bg-black/80 text-white backdrop-blur-md ${
-                      activeTab === tab.id ? 'bg-gray-500 text-black' : ''
+                    className={`group w-1/3 text-left px-2 py-1 md:py-2 text-[10px] md:text-xs font-medium transition-all duration-300 bg-galaxy/90 text-white backdrop-blur-md uppercase ${
+                      activeTab === tab.id ? 'bg-gradient-to-r from-neon-blue/30 to-transparent text-black' : ''
                     }`}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}

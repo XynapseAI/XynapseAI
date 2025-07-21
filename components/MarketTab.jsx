@@ -25,6 +25,17 @@ const logger = {
   },
 };
 
+const isValidToken = (token) => {
+  if (!token.image || token.image === '') return false;
+  const invalidNamePatterns = [
+    /https?:\/\//i, // Matches URLs
+    /<[^>]+>/, // Matches HTML tags
+    /[\n\r\t]/, // Matches newlines or tabs
+    /[^a-zA-Z0-9\s\-$]/, // Matches non-alphanumeric characters except spaces, $, and -
+  ];
+  return !invalidNamePatterns.some((pattern) => pattern.test(token.name || token.symbol));
+};
+
 const formatPrice = (price, currency = 'usd') => {
   if (price == null || isNaN(price)) return 'N/A';
   let fractionDigits = 2;
@@ -439,8 +450,57 @@ const WalletBalances = ({
               ) : balances?.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
-                    <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md">
-                      {/* Giữ nguyên phần thead như cũ */}
+                    <thead className="text-[10px] sm:text-[xs] sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md uppercase">
+                      <tr>
+                        <th className="px-2 py-2 text-white text-left font-medium w-[40%]">
+                          <div className="flex items-center gap-2">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
+                              />
+                            </svg>
+                            Token
+                          </div>
+                        </th>
+                        <th className="px-2 py-2 text-white text-left font-medium w-[30%]">
+                          <div className="flex items-center gap-2">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 sm:h-5 w-4 sm:w-5 fill-neon-blue"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z"
+                              />
+                            </svg>
+                            Amount
+                          </div>
+                        </th>
+                        <th className="px-2 py-2 text-white text-left font-medium w-[30%]">
+                          <div className="flex items-center gap-2">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5"
+                              />
+                            </svg>
+                            Value (USD)
+                          </div>
+                        </th>
+                      </tr>
                     </thead>
                     <tbody>
                       {balances.map((balance, index) => (
@@ -448,30 +508,13 @@ const WalletBalances = ({
                           key={`${balance.chain}-${balance.address}-${index}`}
                           className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
                         >
-                          <td className="px-2 py-2 text-gray-200 text-xs">
-                            <div className="flex flex-col items-center">
-                              <img
-                                src={getPlatformImage(balance.chain)}
-                                alt={`${balance.chain} logo`}
-                                className="w-3 h-3 sm:w-5 sm:h-5 rounded-full flex-shrink-0"
-                                onError={(e) => {
-                                  logger.error('Platform logo failed to load:', {
-                                    chain: balance.chain,
-                                    src: getPlatformImage(balance.chain),
-                                  });
-                                  e.target.src = '/fallback-image.png';
-                                }}
-                              />
-                              <span className="text-[8px] sm:text-[10px] text-gray-400">{getChainLabel(balance.chain)}</span>
-                            </div>
-                          </td>
                           <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs">
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 relative">
                               {balance.logo && (
                                 <img
                                   src={balance.logo}
                                   alt={`${balance.symbol} logo`}
-                                  className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
+                                  className="w-4 h-4 sm:w-6 sm:h-6 rounded-full flex-shrink-0"
                                   onError={(e) => {
                                     logger.error('Token logo failed to load:', {
                                       symbol: balance.symbol,
@@ -481,8 +524,20 @@ const WalletBalances = ({
                                   }}
                                 />
                               )}
-                              <div className="text-[9px] sm:text-[10px] flex flex-col items-start">
-                                <span>{balance.symbol || 'Unknown'} {balance.address === 'native' ? '(Native)' : ''}</span>
+                              <img
+                                src={getPlatformImage(balance.chain)}
+                                alt={`${balance.chain} logo`}
+                                className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-1 top-[2px] sm:left-2 sm:top-[2px]"
+                                onError={(e) => {
+                                  logger.error('Platform logo failed to load:', {
+                                    chain: balance.chain,
+                                    src: getPlatformImage(balance.chain),
+                                  });
+                                  e.target.src = '/fallback-image.png';
+                                }}
+                              />
+                              <div className="text-[9px] sm:text-[10px] flex flex-col items-start pl-4 sm:pl-5">
+                                <span>{balance.symbol || 'Unknown'} {balance.address === 'native' ? '' : ''}</span>
                                 {balance.price_usd != null && (
                                   <span className="text-[8px] sm:text-[10px] text-gray-400">{formatPrice(balance.price_usd)}</span>
                                 )}
@@ -528,8 +583,74 @@ const WalletBalances = ({
               ) : transactions && transactions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
-                    <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md">
-                      {/* Giữ nguyên phần thead như cũ */}
+                    <thead className="text-[10px] sm:text-[xs] sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md uppercase">
+                      <tr>
+                        <th className="px-2 py-2 text-white text-left font-medium w-[25%]">
+                          <div className="flex items-center gap-2">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
+                              />
+                            </svg>
+                            Token
+                          </div>
+                        </th>
+                        <th className="px-2 py-2 text-white text-left font-medium w-[25%]">
+                          <div className="flex items-center gap-2">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                              />
+                            </svg>
+                            Address
+                          </div>
+                        </th>
+                        <th className="px-2 py-2 text-white text-left font-medium w-[20%]">
+                          <div className="flex items-center gap-2">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 sm:h-5 w-4 sm:w-5 fill-neon-blue"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z"
+                              />
+                            </svg>
+                            Value
+                          </div>
+                        </th>
+                        <th className="px-2 py-2 text-white text-center font-medium w-[30%]">
+                          <div className="flex items-center justify-center gap-2">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            Tx/Time
+                          </div>
+                        </th>
+                      </tr>
                     </thead>
                     <tbody>
                       {transactions.map((tx, index) => {
@@ -545,31 +666,13 @@ const WalletBalances = ({
                             key={`${tx.chain}-${tx.hash}-${index}`}
                             className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
                           >
-                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}>
-                              <div className="flex flex-col items-center">
-                                <img
-                                  src={getPlatformImage(tx.chain)}
-                                  alt={`${chainName} logo`}
-                                  className={`rounded-full flex-shrink-0 object-contain ${isMobile ? 'w-3 h-3' : 'w-5 h-5'}`}
-                                  onError={(e) => {
-                                    logger.error('Transaction chain logo failed to load:', {
-                                      chain: tx.chain,
-                                      chainName,
-                                      src: getPlatformImage(tx.chain),
-                                    });
-                                    e.target.src = '/fallback-image.png';
-                                  }}
-                                />
-                                <span className="text-[8px] sm:text-[10px] text-gray-400">{getChainLabel(tx.chain)}</span>
-                              </div>
-                            </td>
-                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
-                              <div className="flex items-center space-x-2">
+                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
+                              <div className="flex items-center space-x-2 relative">
                                 {tx.token_metadata?.logo && (
                                   <img
                                     src={tx.token_metadata.logo}
                                     alt={`${tx.token} logo`}
-                                    className={`rounded-full flex-shrink-0 object-contain ${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
+                                    className="w-4 h-4 sm:w-6 sm:h-6 rounded-full flex-shrink-0"
                                     onError={(e) => {
                                       logger.error('Token logo failed to load:', {
                                         symbol: tx.token,
@@ -579,10 +682,23 @@ const WalletBalances = ({
                                     }}
                                   />
                                 )}
-                                <span>{tx.token || 'Unknown'}</span>
+                                <img
+                                  src={getPlatformImage(tx.chain)}
+                                  alt={`${chainName} logo`}
+                                  className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-1 top-[2px] sm:left-2 sm:top-[-1px]"
+                                  onError={(e) => {
+                                    logger.error('Transaction chain logo failed to load:', {
+                                      chain: tx.chain,
+                                      chainName,
+                                      src: getPlatformImage(tx.chain),
+                                    });
+                                    e.target.src = '/fallback-image.png';
+                                  }}
+                                />
+                                <span className="pl-4 sm:pl-5">{tx.token || 'Unknown'}</span>
                               </div>
                             </td>
-                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
                               <div className="flex flex-col items-center space-y-1">
                                 <span
                                   className={`inline-flex px-1.5 py-0.5 rounded-lg text-[7px] sm:text-[8px] font-medium flex-shrink-0 ${tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'}`}
@@ -594,7 +710,7 @@ const WalletBalances = ({
                                     <img
                                       src={addressImage}
                                       alt={`${displayAddress} logo`}
-                                      className={`rounded-full flex-shrink-0 object-contain ${isMobile ? 'w-2 h-2' : 'w-4 h-4'}`}
+                                      className="w-2 h-2 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
                                       onError={(e) => {
                                         logger.error('Address name tag image failed to load:', {
                                           address: tx.type === 'receive' ? tx.from : tx.to,
@@ -608,7 +724,7 @@ const WalletBalances = ({
                                     href={addressUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-[8px] sm:text[xs] text-neon-blue hover:underline"
+                                    className="text-[8px] sm:text-xs text-neon-blue hover:underline"
                                     title={tx.type === 'receive' ? tx.from : tx.to}
                                     onClick={() => handleAddressClick(tx.type === 'receive' ? tx.from : tx.to)}
                                   >
@@ -617,7 +733,7 @@ const WalletBalances = ({
                                 </div>
                               </div>
                             </td>
-                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
+                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
                               {formatNumber(tx.value)}
                             </td>
                             <td className={`px-2 py-2 text-gray-200 text-[8px] sm:text-xs text-center ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
@@ -626,7 +742,7 @@ const WalletBalances = ({
                                   <img
                                     src="/logos/etherscan-logo.png"
                                     alt="Etherscan"
-                                    className={`flex-shrink-0 object-contain ${isMobile ? 'w-3 h-3' : 'w-4 h-4'}`}
+                                    className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 object-contain"
                                     onError={(e) => (e.target.src = '/fallback-image.png')}
                                   />
                                 </a>
@@ -659,7 +775,7 @@ const WalletBalances = ({
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-black/80 p-2 rounded border border-white/20 text-gray-300 text-sm backdrop-blur-lg font-jetbrains">
+      <div className="bg-black/80 p-2 rounded border border-white/20 text-white text-sm backdrop-blur-lg font-jetbrains">
         <p>{label}</p>
         <p>
           Price: <span className="font-bold">{formatPrice(payload[0].value, currency)}</span>
@@ -927,24 +1043,24 @@ const MarketTab = ({ recaptchaRef }) => {
   }, [setIsDropdownOpen]);
 
   useEffect(() => {
-  if (selectedToken && timeRange) {
-    logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange, currency });
-    setIsChartLoading(true);
-    const { chain } = getAvailableChains().find((c) => c.value === selectedChain) || {};
-    const tokenId = chain && selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId]?.contract_address
-      ? `${chains.find((c) => c.value === chain)?.coingeckoId}/${selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId].contract_address}`
-      : selectedToken.id;
-    fetchPriceHistory(tokenId, timeRange, currency, (err, data) => {
-      if (err) {
-        logger.error('Price history fetch failed:', { error: err.message });
-        toast.error(err.message, { position: 'top-center', autoClose: 3000 });
-      } else {
-        logger.log('Price history fetch completed:', { tokenId: selectedToken.id, count: data?.length || 0 });
-      }
-      setIsChartLoading(false);
-    });
-  }
-}, [selectedToken, timeRange, currency, selectedChain, fetchPriceHistory, getAvailableChains, chains]);
+    if (selectedToken && timeRange) {
+      logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange, currency });
+      setIsChartLoading(true);
+      const { chain } = getAvailableChains().find((c) => c.value === selectedChain) || {};
+      const tokenId = chain && selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId]?.contract_address
+        ? `${chains.find((c) => c.value === chain)?.coingeckoId}/${selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId].contract_address}`
+        : selectedToken.id;
+      fetchPriceHistory(tokenId, timeRange, currency, (err, data) => {
+        if (err) {
+          logger.error('Price history fetch failed:', { error: err.message });
+          toast.error(err.message, { position: 'top-center', autoClose: 3000 });
+        } else {
+          logger.log('Price history fetch completed:', { tokenId: selectedToken.id, count: data?.length || 0 });
+        }
+        setIsChartLoading(false);
+      });
+    }
+  }, [selectedToken, timeRange, currency, selectedChain, fetchPriceHistory, getAvailableChains, chains]);
 
   useEffect(() => {
     if (!selectedToken) return;
@@ -1242,24 +1358,29 @@ const MarketTab = ({ recaptchaRef }) => {
                           className={`text-white px-3 py-1 sm:py-1.5 w-full text-[8px] sm:text-[10px] border-b border-white/10 bg-black/60 backdrop-blur-md focus:outline-none rounded-t-lg`}
                         />
                         <div className="p-2">
-                          {(searchQuery ? searchResults : tokens.slice(0, 30)).map((token) => (
-                            <motion.button
-                              key={token.id}
-                              onClick={() => debouncedHandleTokenSelect(token)}
-                              className="flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/20 text-white text-[8px] sm:text-[10px] transition-all duration-300 rounded"
-                              whileHover={{ scale: 1 }}
-                            >
-                              {token.image && (
-                                <img
-                                  src={token.image}
-                                  alt={`${token.symbol} logo`}
-                                  className="w-4 sm:w-5 h-4 sm:h-5 rounded-full mr-2"
-                                  onError={(e) => (e.target.src = '/fallback-image.png')}
-                                />
-                              )}
-                              {token.name} ({token.symbol?.toUpperCase() || 'Token'})
-                            </motion.button>
-                          ))}
+                          {(searchQuery ? searchResults : tokens.slice(0, 30))
+                            .filter(isValidToken) // Apply the filter
+                            .map((token) => (
+                              <motion.button
+                                key={token.id}
+                                onClick={() => debouncedHandleTokenSelect(token)}
+                                className="flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/20 text-white text-[8px] sm:text-[10px] transition-all duration-300 rounded"
+                                whileHover={{ scale: 1 }}
+                              >
+                                {token.image && (
+                                  <img
+                                    src={token.image}
+                                    alt={`${token.symbol} logo`}
+                                    className="w-4 sm:w-5 h-4 sm:h-5 rounded-full mr-2"
+                                    onError={(e) => (e.target.src = '/fallback-image.png')}
+                                  />
+                                )}
+                                {token.name} ({token.symbol?.toUpperCase() || 'Token'})
+                              </motion.button>
+                            ))}
+                          {(searchQuery ? searchResults : tokens.slice(0, 30)).filter(isValidToken).length === 0 && (
+                            <p className="text-[8px] sm:text-[10px] text-gray-400 text-center p-2">No valid tokens found.</p>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1447,7 +1568,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         <img
                           src="/logos/x.png" // Replace with actual Twitter logo path
                           alt="Twitter"
-                          className="w-4 h-4"
+                          className="w-3 h-3"
                           onError={(e) => (e.target.src = '/fallback-image.png')}
                         />
                       </a>
@@ -1463,7 +1584,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         <img
                           src="/logos/discord.png" // Replace with actual Discord logo path
                           alt="Discord"
-                          className="w-4 h-4"
+                          className="w-3 h-3"
                           onError={(e) => (e.target.src = '/fallback-image.png')}
                         />
                       </a>
@@ -1479,7 +1600,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         <img
                           src="/logos/website.png" // Replace with actual Website logo path
                           alt="Website"
-                          className="w-4 h-4"
+                          className="w-3 h-3"
                           onError={(e) => (e.target.src = '/fallback-image.png')}
                         />
                       </a>
@@ -1495,24 +1616,7 @@ const MarketTab = ({ recaptchaRef }) => {
                         <img
                           src="/logos/github.png" // Replace with actual GitHub logo path
                           alt="GitHub"
-                          className="w-4 h-4"
-                          onError={(e) => (e.target.src = '/fallback-image.png')}
-                        />
-                      </a>
-                    )}
-                    {/* Placeholder for Token Logo */}
-                    {selectedToken.image && (
-                      <a
-                        href={selectedToken.links?.homepage?.[0] || '#'} // Replace with actual token logo link when available
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-neon-blue hover:text-neon-blue/80"
-                        title="Token Logo"
-                      >
-                        <img
-                          src={selectedToken.image} // Use token image as placeholder
-                          alt={`${selectedToken.symbol} Logo`}
-                          className="w-5 h-5 rounded-full"
+                          className="w-3 h-3"
                           onError={(e) => (e.target.src = '/fallback-image.png')}
                         />
                       </a>
@@ -1616,73 +1720,74 @@ const MarketTab = ({ recaptchaRef }) => {
                 </div>
               ) : priceHistory && priceHistory.length > 0 ? (
                 <div className="h-48 sm:h-58">
-  <ResponsiveContainer width="100%" height="100%">
-    <AreaChart data={priceHistory} margin={{ top: 10, right: 20, bottom: -20, left: 0 }}>
-      <CartesianGrid stroke="#FFFFFF" strokeDasharray="4 4" opacity={0.3} />
-      <XAxis dataKey="title" stroke="#FFFFFF" tick={false} hide={true} />
-      <YAxis
-        stroke="#FFFFFF"
-        tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
-        domain={[(dataMin) => dataMin * 0.99, (dataMax) => dataMax * 1.01]}
-        width={isMobile ? 50 : 60}
-        tickFormatter={(value) => {
-          const minPrice = Math.min(...priceHistory.map((item) => item.price).filter((p) => p > 0));
-          let fractionDigits = 2;
-          if (minPrice < 0.0001) {
-            fractionDigits = 6;
-          } else if (minPrice < 0.01) {
-            fractionDigits = 4;
-          }
-          return `${currency.toUpperCase()} ${value.toLocaleString('en-US', {
-            minimumFractionDigits: fractionDigits,
-            maximumFractionDigits: fractionDigits,
-          })}`;
-        }}
-      />
-      <Tooltip content={<CustomTooltip currency={currency} />} />
-      <Area
-        type="monotone"
-        dataKey="price"
-        stroke="#FFFFFF"
-        fill="url(#neonGradient)"
-        strokeWidth={2}
-        isAnimationActive={true}
-        animationDuration={1000}
-      />
-      {priceHistory.length > 0 && (
-        <ReferenceDot
-          x={priceHistory[priceHistory.length - 1].title}
-          y={priceHistory[priceHistory.length - 1].price}
-          r={5}
-          fill="#FFFFFF"
-          stroke="#00BFFF"
-          strokeWidth={2}
-          className="animate-pulse"
-        />
-      )}
-      <defs>
-        <linearGradient id="neonGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#00BFFF" stopOpacity={0.5} />
-          <stop offset="100%" stopColor="#00BFFF" stopOpacity={0.1} />
-        </linearGradient>
-      </defs>
-    </AreaChart>
-  </ResponsiveContainer>
-</div>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={priceHistory} margin={{ top: 10, right: 15, bottom: 0, left: isMobile ? 0 : 10 }}>
+                      <CartesianGrid stroke="#FFFFFF" strokeDasharray="4 4" opacity={0.3} />
+                      <XAxis dataKey="title" stroke="#FFFFFF" tick={false} hide={true} />
+                      <YAxis
+                        stroke="#FFFFFF"
+                        tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
+                        domain={[(dataMin) => dataMin * 0.99, (dataMax) => dataMax * 1.01]}
+                        width={isMobile ? 50 : 60}
+                        tickCount={10} // Increased to show more price segments
+                        tickFormatter={(value) => {
+                          const minPrice = Math.min(...priceHistory.map((item) => item.price).filter((p) => p > 0));
+                          let fractionDigits = 2;
+                          if (minPrice < 0.0001) {
+                            fractionDigits = 6;
+                          } else if (minPrice < 0.01) {
+                            fractionDigits = 4;
+                          }
+                          return `${currency.toUpperCase()} ${value.toLocaleString('en-US', {
+                            minimumFractionDigits: fractionDigits,
+                            maximumFractionDigits: fractionDigits,
+                          })}`;
+                        }}
+                      />
+                      <Tooltip content={<CustomTooltip currency={currency} />} />
+                      <Area
+                        type="monotone"
+                        dataKey="price"
+                        stroke="#FFFFFF"
+                        fill="url(#neonGradient)"
+                        strokeWidth={2}
+                        isAnimationActive={true}
+                        animationDuration={1000}
+                      />
+                      {priceHistory.length > 0 && (
+                        <ReferenceDot
+                          x={priceHistory[priceHistory.length - 1].title}
+                          y={priceHistory[priceHistory.length - 1].price}
+                          r={6}
+                          fill="#FFFFFF"
+                          stroke="#00BFFF"
+                          strokeWidth={2}
+                          className="animate-pulse"
+                        />
+                      )}
+                      <defs>
+                        <linearGradient id="neonGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#00BFFF" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="#00BFFF" stopOpacity={0.1} />
+                        </linearGradient>
+                      </defs>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               ) : (
                 <p className="text-[10px] sm:text-xs text-gray-400 text-center flex-1">
                   {selectedToken ? 'No price data available for this token.' : 'Please select a token to view the chart.'}
                 </p>
               )}
               <div className="absolute top-1 right-1 flex items-center group p-2">
-    <img src="/logos/CG.png" alt="CG Logo" className="w-4 sm:w-4 h-4 sm:h-4 object-contain" />
-    <span
-      className="absolute right-20 sm:right-20 text-[8px] sm:text-[9px] text-gray-200 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center"
-    >
-      Data powered by
-      <img src="/logos/CG_1.png" alt="CG_1 Logo" className="w-12 sm:w-12 h-12 sm:h-12 object-contain ml-2" />
-    </span>
-  </div>
+                <img src="/logos/CG.png" alt="CG Logo" className="w-4 sm:w-4 h-4 sm:h-4 object-contain" />
+                <span
+                  className="absolute right-20 sm:right-20 text-[8px] sm:text-[9px] text-gray-200 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center"
+                >
+                  Data powered by
+                  <img src="/logos/CG_1.png" alt="CG_1 Logo" className="w-12 sm:w-12 h-12 sm:h-12 object-contain ml-2" />
+                </span>
+              </div>
             </div>
           </div>
           {/* Left Section: Top Holders, CEX, DEX */}
