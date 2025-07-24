@@ -1,0 +1,65 @@
+/* app/dashboard/page.module.css */
+.container {
+  /* Add any specific styles for the main container if needed */
+}
+
+.shadow-glow-neon {
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3), 0 0 16px rgba(255, 255, 255, 0.1);
+}
+
+.shadow-glow-neon-red {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.3), 0 0 16px rgba(239, 68, 68, 0.1);
+}
+
+.stars-background {
+  /* Additional styles for the background container if needed */
+}
+
+.stars-layer-1,
+.stars-layer-2,
+.stars-layer-3 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.stars-layer-1 {
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 1200 800' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='200' cy='100' r='2' fill='rgba(255,255,255,0.4)'/%3E%3Ccircle cx='300' cy='600' r='1' fill='rgba(255,255,255,0.3)'/%3E%3Ccircle cx='500' cy='300' r='1.5' fill='rgba(255,255,255,0.5)'/%3E%3Ccircle cx='800' cy='500' r='2' fill='rgba(255,255,255,0.4)'/%3E%3Ccircle cx='1000' cy='200' r='1' fill='rgba(255,255,255,0.3)'/%3E%3C/svg%3E");
+  animation: moveStars 100s linear infinite;
+}
+
+.stars-layer-2 {
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 1200 800' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='150' cy='400' r='1.5' fill='rgba(255,255,255,0.5)'/%3E%3Ccircle cx='400' cy='200' r='2' fill='rgba(255,255,255,0.4)'/%3E%3Ccircle cx='600' cy='700' r='1' fill='rgba(255,255,255,0.3)'/%3E%3Ccircle cx='900' cy='300' r='1.5' fill='rgba(255,255,255,0.5)'/%3E%3C/svg%3E");
+  animation: moveStars 150s linear infinite;
+}
+
+.stars-layer-3 {
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 1200 800' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='250' cy='500' r='1' fill='rgba(255,255,255,0.3)'/%3E%3Ccircle cx='450' cy='100' r='1.5' fill='rgba(255,255,255,0.5)'/%3E%3Ccircle cx='700' cy='400' r='2' fill='rgba(255,255,255,0.4)'/%3E%3Ccircle cx='1100' cy='600' r='1' fill='rgba(255,255,255,0.3)'/%3E%3C/svg%3E");
+  animation: moveStars 200s linear infinite;
+}
+
+@keyframes moveStars {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-1000px);
+  }
+}
+
+.grecaptcha-badge {
+  visibility: hidden !important;
+}
+
+@media (max-width: 640px) {
+  .text-3xl {
+    font-size: 1.5rem;
+  }
+  .text-2xl {
+    font-size: 1.25rem;
+  }
+}

@@ -1,22 +1,20 @@
-// pages/_app.jsx
-import '../styles/globals.css';
+'use client';
+
+import { SessionProvider } from 'next-auth/react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { SessionProvider } from 'next-auth/react';
 import { config } from '../lib/wagmiConfig';
 
 const queryClient = new QueryClient();
 
-function MyApp({ Component, pageProps: { session, ...pageProps } }) {
+export default function ClientProviders({ children }) {
   return (
-    <SessionProvider session={session}>
+    <SessionProvider>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          <Component {...pageProps} />
+          {children}
         </QueryClientProvider>
       </WagmiProvider>
     </SessionProvider>
   );
 }
-
-export default MyApp;

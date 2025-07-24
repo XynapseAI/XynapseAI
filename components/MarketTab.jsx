@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
@@ -796,7 +798,7 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
   return null;
 };
 
-const MarketTab = ({ recaptchaRef }) => {
+const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
   const { data: session } = useSession();
   const {
     tokens,
@@ -847,6 +849,7 @@ const MarketTab = ({ recaptchaRef }) => {
     handleAddressClick,
     getAvailableChains,
     chains,
+    setSelectedToken, // Add this to the destructured props
     setSelectedWallet,
     setWalletBalances,
     setTransactions,
@@ -878,9 +881,50 @@ const MarketTab = ({ recaptchaRef }) => {
   const [showTrades, setShowTrades] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [selectedPool, setSelectedPool] = useState(null);
-  const [currency, setCurrency] = useState('usd'); // State for selected currency
+  const [currency, setCurrency] = useState('usd');
   const [highLowData, setHighLowData] = useState({ high: null, low: null, percentageChange: null });
-  const [availableCurrencies] = useState(['usd', 'eth', 'btc', 'eur' ,'bnb','cny','gbp','hkd','idr','jpy','krw','kwd','mmk','mxn','myr','ngn','nok','nzd','pln','rub','sar','sek','sgd','sol','thb','try','twd','uah','vef', 'vnd','xag','xau']);
+  const [availableCurrencies] = useState([
+    'usd', 'eth', 'btc', 'eur', 'bnb', 'cny', 'gbp', 'hkd', 'idr', 'jpy',
+    'krw', 'kwd', 'mmk', 'mxn', 'myr', 'ngn', 'nok', 'nzd', 'pln', 'rub',
+    'sar', 'sek', 'sgd', 'sol', 'thb', 'try', 'twd', 'uah', 'vef', 'vnd',
+    'xag', 'xau'
+  ]);
+
+  useEffect(() => {
+    if (initialTokenSlug) {
+      const fetchTokenBySlug = async () => {
+        setIsChartLoading(true);
+        try {
+          const response = await fetch(`/api/coingecko/token/${initialTokenSlug}`, {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.detail || 'Failed to fetch token data');
+          }
+          setSelectedToken(result.data);
+          logger.log('Fetched token by slug:', { slug: initialTokenSlug, token: result.data });
+        } catch (err) {
+          logger.error('Error fetching token by slug:', { slug: initialTokenSlug, error: err.message });
+          toast.error(`Failed to load token: ${err.message}`, { position: 'top-center', autoClose: 3000 });
+        } finally {
+          setIsChartLoading(false);
+        }
+      };
+      fetchTokenBySlug();
+    }
+  }, [initialTokenSlug, setSelectedToken]);
+
+  // Handle token selection with URL update
+  const handleTokenSelect = (token) => {
+    debouncedHandleTokenSelect(token);
+    if (onTokenSelect && token.id) {
+      onTokenSelect(token.id);
+    }
+  };
 
   const getPlatformImage = (chainValue) => {
     const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
@@ -1028,7 +1072,7 @@ const MarketTab = ({ recaptchaRef }) => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 640);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile); // Fixed cleanup
   }, []);
 
   useEffect(() => {
@@ -1053,31 +1097,28 @@ const MarketTab = ({ recaptchaRef }) => {
   }, [setIsDropdownOpen]);
 
   useEffect(() => {
-    if (selectedToken && timeRange) {
-      logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange, currency });
-      setIsChartLoading(true);
-      const { chain } = getAvailableChains().find((c) => c.value === selectedChain) || {};
-      const tokenId = chain && selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId]?.contract_address
-        ? `${chains.find((c) => c.value === chain)?.coingeckoId}/${selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId].contract_address}`
-        : selectedToken.id;
-      fetchPriceHistory(tokenId, timeRange, currency, (err, data) => {
-        if (err) {
-          logger.error('Price history fetch failed:', { error: err.message });
-          toast.error(err.message, { position: 'top-center', autoClose: 3000 });
-        } else {
-          logger.log('Price history fetch completed:', { tokenId: selectedToken.id, count: data?.length || 0 });
-        }
-        setIsChartLoading(false);
-      });
-    }
-  }, [selectedToken, timeRange, currency, selectedChain, fetchPriceHistory, getAvailableChains, chains]);
+  if (selectedToken && timeRange) {
+    logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange });
+    setIsChartLoading(true);
+    const { chain } = getAvailableChains().find((c) => c.value === selectedChain) || {};
+    const tokenId = chain && selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId]?.contract_address
+      ? `${chains.find((c) => c.value === chain)?.coingeckoId}/${selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId].contract_address}`
+      : selectedToken.id;
+    fetchPriceHistory(tokenId, timeRange, (err, data) => {
+      if (err) {
+        logger.error('Price history fetch failed:', { error: err.message });
+        toast.error(err.message, { position: 'top-center', autoClose: 3000 });
+      }
+      setIsChartLoading(false);
+    });
+  }
+}, [selectedToken, timeRange, selectedChain, fetchPriceHistory, getAvailableChains, chains]);
 
   useEffect(() => {
     if (!selectedToken) return;
 
     const fetchHighLowData = async () => {
       try {
-        // Map time ranges to CoinGecko percentage fields
         const percentageFieldMap = {
           '0.5': { currency: 'price_change_percentage_1h_in_currency', fallback: 'price_change_percentage_1h' },
           '1': { currency: 'price_change_percentage_24h_in_currency', fallback: 'price_change_percentage_24h' },
@@ -1091,15 +1132,12 @@ const MarketTab = ({ recaptchaRef }) => {
           currency: 'price_change_percentage_24h_in_currency',
           fallback: 'price_change_percentage_24h',
         };
-        // Prefer currency-specific field, fall back to top-level field
         const percentageChange = timeRange === '0.5' ? 'N/A' : selectedToken[currencyField]?.[currency] ?? selectedToken[fallback] ?? 'N/A';
-        // Use 24h high/low for Token Info
         const highLow = {
           high: selectedToken.high_24h?.[currency] ?? 'N/A',
           low: selectedToken.low_24h?.[currency] ?? 'N/A',
         };
 
-        // Log for debugging
         if (process.env.NODE_ENV === 'development') {
           console.log('fetchHighLowData:', {
             percentageField: currencyField,
@@ -1139,17 +1177,16 @@ const MarketTab = ({ recaptchaRef }) => {
 
         setHighLowData({ high: highLow.high, low: highLow.low, percentageChange });
 
-        // Fetch price history for chart
         setIsChartLoading(true);
         const tokenId = selectedToken.id;
         const days = timeRange === '0.5' ? 1 : timeRange === '1' ? 1 : timeRange === '7' ? 7 : timeRange === '30' ? 30 : timeRange === '90' ? 90 : 365;
-        await fetchPriceHistory(tokenId, days, (err) => {
-          if (err) {
-            logger.error('Price history fetch failed:', { error: err.message });
-            toast.error(err.message, { position: 'top-center', autoClose: 3000 });
-          }
-          setIsChartLoading(false);
-        });
+        await fetchPriceHistory(tokenId, days, (err, data) => {
+  if (err) {
+    logger.error('Price history fetch failed:', { error: err.message });
+    toast.error(err.message, { position: 'top-center', autoClose: 3000 });
+  }
+  setIsChartLoading(false);
+});
       } catch (error) {
         logger.error('Error in fetchHighLowData:', { error: error.message });
         setHighLowData({
@@ -1163,7 +1200,7 @@ const MarketTab = ({ recaptchaRef }) => {
     };
 
     fetchHighLowData();
-  }, [selectedToken, timeRange, currency, setHighLowData, setIsChartLoading, fetchPriceHistory, toast, logger]);
+  }, [selectedToken, timeRange, currency, fetchPriceHistory]);
 
   return (
     <motion.div
@@ -1372,21 +1409,21 @@ const MarketTab = ({ recaptchaRef }) => {
                             .filter(isValidToken) // Apply the filter
                             .map((token) => (
                               <motion.button
-                                key={token.id}
-                                onClick={() => debouncedHandleTokenSelect(token)}
-                                className="flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/20 text-white text-[8px] sm:text-[10px] transition-all duration-300 rounded"
-                                whileHover={{ scale: 1 }}
-                              >
-                                {token.image && (
-                                  <img
-                                    src={token.image}
-                                    alt={`${token.symbol} logo`}
-                                    className="w-4 sm:w-5 h-4 sm:h-5 rounded-full mr-2"
-                                    onError={(e) => (e.target.src = '/fallback-image.png')}
-                                  />
-                                )}
-                                {token.name} ({token.symbol?.toUpperCase() || 'Token'})
-                              </motion.button>
+    key={token.id}
+    onClick={() => handleTokenSelect(token)} // Use the new handleTokenSelect
+    className="flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/20 text-white text-[8px] sm:text-[10px] transition-all duration-300 rounded"
+    whileHover={{ scale: 1 }}
+  >
+    {token.image && (
+      <img
+        src={token.image}
+        alt={`${token.symbol} logo`}
+        className="w-4 sm:w-5 h-4 sm:h-5 rounded-full mr-2"
+        onError={(e) => (e.target.src = '/fallback-image.png')}
+      />
+    )}
+    {token.name} ({token.symbol?.toUpperCase() || 'Token'})
+  </motion.button>
                             ))}
                           {(searchQuery ? searchResults : tokens.slice(0, 30)).filter(isValidToken).length === 0 && (
                             <p className="text-[8px] sm:text-[10px] text-gray-400 text-center p-2">No valid tokens found.</p>

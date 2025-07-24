@@ -4,6 +4,8 @@ import { query, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
+import { createClient } from 'redis';
+import Bottleneck from 'bottleneck'; // Thêm Bottleneck
 
 const logger = winston.createLogger({
   level: 'info',
@@ -29,6 +31,23 @@ axiosRetry(axios, {
   retries: 3,
   retryDelay: (retryCount) => retryCount * 1000,
   retryCondition: (error) => error.response?.status === 429,
+});
+
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379',
+});
+redisClient.on('error', (err) => logger.error('Redis Client Error', err));
+await redisClient.connect();
+
+// Cấu hình Bottleneck
+const limiterBottleneck = new Bottleneck({
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 1,
+  minTime: process.env.NODE_ENV === 'production' ? 200 : 2000,
+});
+
+// Bọc axios.get trong Bottleneck
+const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
+  return await axios.get(url, config);
 });
 
 const validate = [
@@ -81,7 +100,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ detail: 'Validation failed', errors: errors.array() });
   }
 
-  const { action, ids, convert, limit, start, query, id } = req.query;
+  const { action, ids, convert, limit, start, query, id, tokenType } = req.query;
 
   const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
   if (!COINGECKO_API_KEY) {
@@ -89,21 +108,44 @@ export default async function handler(req, res) {
     return res.status(500).json({ detail: 'Server configuration error: Missing COINGECKO_API_KEY' });
   }
 
-  if (!axios || typeof axios.get !== 'function') {
-    logger.error('Axios is not properly initialized');
-    return res.status(500).json({ detail: 'Server error: Axios not initialized' });
-  }
-
   try {
-    if (action === 'list-all') {
-      logger.warn(`Request to disabled endpoint`);
-      return res.status(404).json({ detail: 'Endpoint disabled' });
+    if (action === 'public-treasury') {
+      if (!tokenType) {
+        logger.warn(`Missing tokenType parameter`);
+        return res.status(400).json({ detail: 'Missing tokenType parameter' });
+      }
+      const cacheKey = `coingecko_public_treasury_${tokenType}`;
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        logger.info(`Returning cached public treasury data for ${tokenType}`);
+        return res.status(200).json({ success: true, data: JSON.parse(cachedData) });
+      }
+
+      const response = await fetchWithRateLimit(
+        `https://api.coingecko.com/api/v3/companies/public_treasury/${tokenType}`,
+        {
+          headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
+          timeout: 15000,
+        }
+      );
+
+      const data = response.data || { companies: [] };
+      await redisClient.setEx(cacheKey, 12 * 3600, JSON.stringify(data)); // Cache 12 giờ
+      logger.info(`Successfully fetched and cached public treasury data for ${tokenType}`);
+      return res.status(200).json({ success: true, data });
     } else if (action === 'market-info') {
       if (!ids) {
         logger.warn(`Missing ids parameter`);
         return res.status(400).json({ detail: 'Missing ids parameter' });
       }
-      const response = await axios.get('https://api.coingecko.com/api/v3/coins/markets', {
+      const cacheKey = `coingecko_market_info_${ids}_${convert || 'usd'}`;
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        logger.info(`Returning cached market info for ids: ${ids}`);
+        return res.status(200).json(JSON.parse(cachedData));
+      }
+
+      const response = await fetchWithRateLimit('https://api.coingecko.com/api/v3/coins/markets', {
         params: {
           vs_currency: convert || 'usd',
           ids: ids,
@@ -116,52 +158,65 @@ export default async function handler(req, res) {
         headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
         timeout: 15000,
       });
-      logger.info(`Successfully fetched market data for ids: ${ids}`);
+
+      await redisClient.setEx(cacheKey, 12 * 3600, JSON.stringify(response.data)); // Cache 12 giờ
+      logger.info(`Successfully fetched and cached market data for ids: ${ids}`);
       return res.status(200).json(response.data);
     } else if (action === 'search') {
       if (!query) {
         logger.warn(`Missing query parameter`);
         return res.status(400).json({ detail: 'Missing query parameter' });
       }
-      const response = await axios.get('https://api.coingecko.com/api/v3/search', {
+      const cacheKey = `coingecko_search_${query}`;
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        logger.info(`Returning cached search data for query: ${query}`);
+        return res.status(200).json(JSON.parse(cachedData));
+      }
+
+      const response = await fetchWithRateLimit('https://api.coingecko.com/api/v3/search', {
         params: { query },
         headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
         timeout: 15000,
       });
+
+      await redisClient.setEx(cacheKey, 12 * 3600, JSON.stringify(response.data.coins)); // Cache 12 giờ
       logger.info(`Search successful for query: ${query}, results: ${response.data.coins.length}`);
       return res.status(200).json(response.data.coins);
-    } else if (action === 'public-treasury') {
-      if (!tokenType) {
-        logger.warn(`Missing tokenType parameter`);
-        return res.status(400).json({ detail: 'Missing tokenType parameter' });
-      }
-      const response = await axios.get(
-        `https://api.coingecko.com/api/v3/companies/public_treasury/${tokenType}`,
-        {
-          headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
-          timeout: 15000,
-        }
-      );
-      logger.info(`Successfully fetched public treasury data for ${tokenType}`);
-      return res.status(200).json(response.data);
     } else if (action === 'tickers') {
       if (!id) {
         logger.warn(`Missing id parameter`);
         return res.status(400).json({ detail: 'Missing id parameter' });
       }
-      const response = await axios.get(`https://api.coingecko.com/api/v3/coins/${id}/tickers`, {
+      const cacheKey = `coingecko_tickers_${id}`;
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        logger.info(`Returning cached ticker data for id: ${id}`);
+        return res.status(200).json(JSON.parse(cachedData));
+      }
+
+      const response = await fetchWithRateLimit(`https://api.coingecko.com/api/v3/coins/${id}/tickers`, {
         params: { include_exchange_logo: true },
         headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
         timeout: 15000,
       });
-      logger.info(`Successfully fetched ticker data for id: ${id}, count: ${response.data.tickers.length}`);
+
+      await redisClient.setEx(cacheKey, 12 * 3600, JSON.stringify(response.data)); // Cache 12 giờ
+      logger.info(`Successfully fetched and cached ticker data for id: ${id}, count: ${response.data.tickers.length}`);
       return res.status(200).json(response.data);
     } else if (action === 'coin-details') {
       if (!id) {
         logger.warn(`Missing id parameter`);
         return res.status(400).json({ detail: 'Missing id parameter' });
       }
-      const response = await axios.get(`https://api.coingecko.com/api/v3/coins/${id}`, {
+      const cacheKey = `coingecko_coin_details_${id}`;
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        logger.info(`Returning cached coin details for id: ${id}`);
+        return res.status(200).json(JSON.parse(cachedData));
+      }
+
+      const response = await fetchWithRateLimit(`https://api.coingecko.com/api/v3/coins/${id}`, {
         params: {
           localization: false,
           tickers: false,
@@ -173,10 +228,19 @@ export default async function handler(req, res) {
         headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
         timeout: 15000,
       });
-      logger.info(`Successfully fetched coin details for id: ${id}`);
+
+      await redisClient.setEx(cacheKey, 12 * 3600, JSON.stringify(response.data)); // Cache 12 giờ
+      logger.info(`Successfully fetched and cached coin details for id: ${id}`);
       return res.status(200).json(response.data);
     } else {
-      const response = await axios.get('https://api.coingecko.com/api/v3/coins/markets', {
+      const cacheKey = `coingecko_default_markets_${convert || 'usd'}_${start || 1}_${limit || 30}`;
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        logger.info(`Returning cached default market data`);
+        return res.status(200).json(JSON.parse(cachedData));
+      }
+
+      const response = await fetchWithRateLimit('https://api.coingecko.com/api/v3/coins/markets', {
         params: {
           vs_currency: convert || 'usd',
           order: 'market_cap_desc',
@@ -188,7 +252,9 @@ export default async function handler(req, res) {
         headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
         timeout: 15000,
       });
-      logger.info(`Successfully fetched default market data, count: ${response.data.length}`);
+
+      await redisClient.setEx(cacheKey, 12 * 3600, JSON.stringify(response.data)); // Cache 12 giờ
+      logger.info(`Successfully fetched and cached default market data, count: ${response.data.length}`);
       return res.status(200).json(response.data);
     }
   } catch (error) {
@@ -199,10 +265,10 @@ export default async function handler(req, res) {
     const status = error.response?.status || 500;
     const detail =
       status === 429
-        ? 'CoinGecko API rate limit exceeded, please try again later.'
+        ? 'Please wait a moment and try again.'
         : status === 404
         ? 'Requested data not found.'
-        : 'Failed to fetch market data.';
-    return res.status(status).json({ detail });
+        : `Failed to fetch market data: ${error.message}`;
+    return res.status(status).json({ success: false, detail });
   }
 }

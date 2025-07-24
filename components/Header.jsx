@@ -1,4 +1,6 @@
 // components/Header.jsx
+'use client';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { Power } from 'lucide-react';

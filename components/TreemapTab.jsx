@@ -1,5 +1,9 @@
+// components/TreemapTab.jsx
+'use client';
+
 import { useState, useEffect, useRef, memo } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { isAddress } from 'ethers';
 import { motion } from 'framer-motion';
 import throttle from 'lodash.throttle';
@@ -10,7 +14,6 @@ import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 import { chains, mapCoinGeckoChains, getPlatformImage, getExplorerUrls } from '../utils/constants';
 import axios from 'axios';
-
 
 const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, value, chainLogo, isRoot = false, onSelect, isMobile }) => {
   const truncateAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -78,7 +81,9 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
           )}
           <span className="font-bold">{nametag !== 'Unknown' ? nametag : 'No Nametag'}</span>
         </div>
-        <p><strong>Address:</strong> {truncateAddress(address)}</p>
+        <p>
+          <strong>Address:</strong> {truncateAddress(address)}
+        </p>
         {txHash && (
           <p>
             <strong>Tx Hash:</strong>{' '}
@@ -125,12 +130,19 @@ const LoadingOverlay = ({ message }) => {
 const CACHE_TTL = 3600000;
 const NODES_PER_PAGE = 50;
 
-export default function TreemapTab({ recaptchaRef }) {
+export default function TreemapTab({ initialChain = 'ethereum', initialAddress = '', recaptchaRef }) {
   const { data: session, status } = useSession();
-  const [walletAddress, setWalletAddress] = useState('');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [walletAddress, setWalletAddress] = useState(initialAddress);
   const [incomingData, setIncomingData] = useState([]);
   const [outgoingData, setOutgoingData] = useState([]);
-  const [walletInfo, setWalletInfo] = useState({ address: '', nametag: 'Unknown', image: '/icons/default.png', chainLogo: '/icons/default.png' });
+  const [walletInfo, setWalletInfo] = useState({
+    address: '',
+    nametag: 'Unknown',
+    image: '/icons/default.png',
+    chainLogo: '/icons/default.png',
+  });
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [isDragging, setIsDragging] = useState(false);
@@ -138,7 +150,7 @@ export default function TreemapTab({ recaptchaRef }) {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [nodePage, setNodePage] = useState(1);
-  const [selectedChain, setSelectedChain] = useState('ethereum');
+  const [selectedChain, setSelectedChain] = useState(initialChain);
   const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [coingeckoChains, setCoingeckoChains] = useState([]);
@@ -149,6 +161,29 @@ export default function TreemapTab({ recaptchaRef }) {
   const [selectedLimit, setSelectedLimit] = useState(100);
   const [isLimitDropdownOpen, setIsLimitDropdownOpen] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+
+  // Update URL when chain or address changes
+  const updateUrl = (chain, address) => {
+    const newParams = new URLSearchParams();
+    newParams.set('chain', chain);
+    if (address) {
+      newParams.set('address', address);
+    }
+    router.push(`/treemap?${newParams.toString()}`, { shallow: true });
+  };
+
+  // Sync selectedChain and walletAddress with URL
+  useEffect(() => {
+    const chainFromUrl = searchParams.get('chain') || initialChain;
+    const addressFromUrl = searchParams.get('address') || initialAddress;
+    if (chains.some((c) => c.value === chainFromUrl)) {
+      setSelectedChain(chainFromUrl);
+    }
+    if (addressFromUrl && isAddress(addressFromUrl)) {
+      setWalletAddress(addressFromUrl);
+      fetchTransactions(addressFromUrl);
+    }
+  }, [searchParams, initialChain, initialAddress]);
 
   useEffect(() => {
     if (session?.user) {
@@ -247,6 +282,7 @@ export default function TreemapTab({ recaptchaRef }) {
       setNodePage(1);
       setOffset({ x: 0, y: 0 });
       setZoom(1);
+      updateUrl(selectedChain, address);
       return;
     }
 
@@ -291,6 +327,7 @@ export default function TreemapTab({ recaptchaRef }) {
           setNodePage(1);
           setOffset({ x: 0, y: 0 });
           setZoom(1);
+          updateUrl(selectedChain, address);
           setLoading(false);
           return;
         }
@@ -324,10 +361,13 @@ export default function TreemapTab({ recaptchaRef }) {
       }));
 
       if (incoming.length === 0 && outgoing.length === 0) {
-        toast.info(`No transactions found for this address on ${chains.find((c) => c.value === selectedChain)?.label || selectedChain}. Please verify the address or try another chain.`, {
-          position: 'top-center',
-          autoClose: 5000,
-        });
+        toast.info(
+          `No transactions found for this address on ${chains.find((c) => c.value === selectedChain)?.label || selectedChain}. Please verify the address or try another chain.`,
+          {
+            position: 'top-center',
+            autoClose: 5000,
+          }
+        );
       }
 
       setCachedData(address, selectedChain, { incoming, outgoing, wallet: result.wallet });
@@ -340,6 +380,7 @@ export default function TreemapTab({ recaptchaRef }) {
       setNodePage(1);
       setOffset({ x: 0, y: 0 });
       setZoom(1);
+      updateUrl(selectedChain, address);
     } catch (err) {
       toast.error(`Error: ${err.message}`, {
         position: 'top-center',
@@ -601,9 +642,14 @@ export default function TreemapTab({ recaptchaRef }) {
                           console.log(`Selected chain: ${chain.value}, image: ${chain.image}`);
                           setSelectedChain(chain.value);
                           setIsChainDropdownOpen(false);
+                          updateUrl(chain.value, walletAddress);
+                          if (walletAddress) {
+                            fetchTransactions(walletAddress);
+                          }
                         }}
-                        className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/30 rounded-md text-white font-medium text-[10px] sm:text-xs transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
+                        className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/30 rounded-md text-white font-medium text-[10px] sm:text-xs transition-all duration-300 relative ${
+                          !isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
                       >
                         <Image
                           src={chain.image}
@@ -662,8 +708,9 @@ export default function TreemapTab({ recaptchaRef }) {
                         fetchTransactions(walletAddress);
                       }
                     }}
-                    className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/30 rounded-md text-white font-medium text-[10px] sm:text-xs transition-all duration-300 relative ${!isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
+                    className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/30 rounded-md text-white font-medium text-[10px] sm:text-xs transition-all duration-300 relative ${
+                      !isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                   >
                     {limit}
                     {!isPremium && limit > 100 && (
@@ -720,8 +767,6 @@ export default function TreemapTab({ recaptchaRef }) {
         </div>
       </div>
 
-
-
       {loading && <LoadingOverlay message={loadingMessage} />}
       {!loading && incomingData.length === 0 && outgoingData.length === 0 && walletInfo.address && (
         <motion.div
@@ -735,156 +780,155 @@ export default function TreemapTab({ recaptchaRef }) {
         </motion.div>
       )}
       {walletInfo.address && (
-  <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden bg-black/60 backdrop-blur-md border border-white/10 rounded-lg shadow-neon-sm">
-    <div className="flex gap-2 mb-2 mt-2 justify-center">
-      <motion.button
-        onClick={() => {
-          setOffset({ x: 0, y: 0 });
-          setZoom(1);
-        }}
-        className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-      >
-        Reset View
-      </motion.button>
-      {(incomingData.length > nodePage * NODES_PER_PAGE || outgoingData.length > nodePage * NODES_PER_PAGE) && (
-        <motion.button
-          onClick={handleLoadMore}
-          className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Load More
-        </motion.button>
+        <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden bg-black/60 backdrop-blur-md border border-white/10 rounded-lg shadow-neon-sm">
+          <div className="flex gap-2 mb-2 mt-2 justify-center">
+            <motion.button
+              onClick={() => {
+                setOffset({ x: 0, y: 0 });
+                setZoom(1);
+              }}
+              className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Reset View
+            </motion.button>
+            {(incomingData.length > nodePage * NODES_PER_PAGE || outgoingData.length > nodePage * NODES_PER_PAGE) && (
+              <motion.button
+                onClick={handleLoadMore}
+                className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Load More
+              </motion.button>
+            )}
+          </div>
+          <div
+            className="relative w-full h-full"
+            style={{
+              touchAction: 'none',
+              transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+              transformOrigin: 'center',
+              width: `${canvasWidth}px`,
+              height: `${canvasHeight}px`,
+              minWidth: '100%',
+              minHeight: '100%',
+            }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onWheel={handleWheel}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            <svg ref={svgRef} className="absolute inset-0 pointer-events-none" style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}>
+              {incomingNodes.map((node, index) => (
+                <path
+                  key={`line-in-${index}`}
+                  d={`M${node.x + nodeWidth} ${node.y + nodeHeight / 2} C${node.x + nodeWidth + 50} ${node.y + nodeHeight / 2}, ${rootX - 50} ${rootY + nodeHeight / 2}, ${rootX} ${rootY + nodeHeight / 2}`}
+                  stroke="#00BFFF"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeDasharray="5,5"
+                  className="transition-all duration-300 hover:stroke-neon-blue/80"
+                />
+              ))}
+              {outgoingNodes.map((node, index) => (
+                <path
+                  key={`line-out-${index}`}
+                  d={`M${rootX + nodeWidth + 60} ${rootY + nodeHeight / 2} C${rootX + nodeWidth + 80} ${rootY + nodeHeight / 2}, ${node.x - 50} ${node.y + nodeHeight / 2}, ${node.x} ${node.y + nodeHeight / 2}`}
+                  stroke="#EF4444"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeDasharray="5,5"
+                  className="transition-all duration-300 hover:stroke-red-500/80"
+                />
+              ))}
+            </svg>
+            <div className="absolute z-10 group" style={{ left: `${rootX}px`, top: `${rootY}px` }}>
+              <WalletNode
+                address={walletInfo.address}
+                nametag={walletInfo.nametag}
+                image={walletInfo.image}
+                chainLogo={walletInfo.chainLogo}
+                isRoot={true}
+                onSelect={handleSelectWallet}
+                isMobile={isMobile}
+              />
+            </div>
+            {incomingNodes.map((node, index) => (
+              <div key={`in-${index}`} className="absolute group" style={{ left: `${node.x}px`, top: `${node.y}px` }}>
+                <WalletNode
+                  address={node.address}
+                  nametag={node.nametag}
+                  image={node.image}
+                  txHash={node.txHash}
+                  type={node.type}
+                  block_time={node.block_time}
+                  value={node.value}
+                  chainLogo={node.chainLogo}
+                  onSelect={handleSelectWallet}
+                  isMobile={isMobile}
+                />
+              </div>
+            ))}
+            {outgoingNodes.map((node, index) => (
+              <div key={`out-${index}`} className="absolute group" style={{ left: `${node.x}px`, top: `${node.y}px` }}>
+                <WalletNode
+                  address={node.address}
+                  nametag={node.nametag}
+                  image={node.image}
+                  txHash={node.txHash}
+                  type={node.type}
+                  block_time={node.block_time}
+                  value={node.value}
+                  chainLogo={node.chainLogo}
+                  onSelect={handleSelectWallet}
+                  isMobile={isMobile}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
       )}
-    </div>
-    <div
-      className="relative w-full h-full"
-      style={{
-        touchAction: 'none',
-        transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-        transformOrigin: 'center',
-        width: `${canvasWidth}px`,
-        height: `${canvasHeight}px`,
-        minWidth: '100%',
-        minHeight: '100%',
-      }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      <svg ref={svgRef} className="absolute inset-0 pointer-events-none" style={{ width: `${canvasWidth}px`, height: `${canvasHeight}px` }}>
-        {incomingNodes.map((node, index) => (
-          <path
-            key={`line-in-${index}`}
-            d={`M${node.x + nodeWidth} ${node.y + nodeHeight / 2} C${node.x + nodeWidth + 50} ${node.y + nodeHeight / 2}, ${rootX - 50} ${rootY + nodeHeight / 2}, ${rootX} ${rootY + nodeHeight / 2}`}
-            stroke="#00BFFF"
-            strokeWidth="2"
-            fill="none"
-            strokeDasharray="5,5"
-            className="transition-all duration-300 hover:stroke-neon-blue/80"
-          />
-        ))}
-        {outgoingNodes.map((node, index) => (
-          <path
-            key={`line-out-${index}`}
-            d={`M${rootX + nodeWidth + 60} ${rootY + nodeHeight / 2} C${rootX + nodeWidth + 80} ${rootY + nodeHeight / 2}, ${node.x - 50} ${node.y + nodeHeight / 2}, ${node.x} ${node.y + nodeHeight / 2}`}
-            stroke="#EF4444"
-            strokeWidth="2"
-            fill="none"
-            strokeDasharray="5,5"
-            className="transition-all duration-300 hover:stroke-red-500/80"
-          />
-        ))}
-      </svg>
-      <div className="absolute z-10 group" style={{ left: `${rootX}px`, top: `${rootY}px` }}>
-        <WalletNode
-          address={walletInfo.address}
-          nametag={walletInfo.nametag}
-          image={walletInfo.image}
-          chainLogo={walletInfo.chainLogo}
-          isRoot={true}
-          onSelect={handleSelectWallet}
-          isMobile={isMobile}
-        />
-      </div>
-      {incomingNodes.map((node, index) => (
-        <div key={`in-${index}`} className="absolute group" style={{ left: `${node.x}px`, top: `${node.y}px` }}>
-          <WalletNode
-            address={node.address}
-            nametag={node.nametag}
-            image={node.image}
-            txHash={node.txHash}
-            type={node.type}
-            block_time={node.block_time}
-            value={node.value}
-            chainLogo={node.chainLogo}
-            onSelect={handleSelectWallet}
-            isMobile={isMobile}
-          />
-        </div>
-      ))}
-      {outgoingNodes.map((node, index) => (
-        <div key={`out-${index}`} className="absolute group" style={{ left: `${node.x}px`, top: `${node.y}px` }}>
-          <WalletNode
-            address={node.address}
-            nametag={node.nametag}
-            image={node.image}
-            txHash={node.txHash}
-            type={node.type}
-            block_time={node.block_time}
-            value={node.value}
-            chainLogo={node.chainLogo}
-            onSelect={handleSelectWallet}
-            isMobile={isMobile}
-          />
-        </div>
-      ))}
-    </div>
-  </div>
-)}
 
-      <ToastContainer position="top-center" autoClose={5000} />
       <style jsx>{`
-  .shadow-neon {
-    box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
-  }
-  .shadow-neon-lg {
-    box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
-  }
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.4);
-  }
-  .animate-pulse {
-    animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
-  }
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
-  }
-`}</style>
+        .shadow-neon {
+          box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
+        }
+        .shadow-neon-lg {
+          box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+          height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.4);
+        }
+        .animate-pulse {
+          animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+        }
+        @keyframes pulse {
+          0%,
+          100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+        }
+      `}</style>
     </motion.div>
   );
 }

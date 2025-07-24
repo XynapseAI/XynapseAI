@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
@@ -469,6 +471,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         setIsLoadingOnChain(true);
         setOnChainError(null);
 
+        // Check cache
         if (
           blockchairCache.current[cacheKey] &&
           Date.now() - blockchairCache.current[cacheKey].timestamp < CACHE_DURATION
@@ -500,85 +503,86 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           return;
         }
 
-        blockchairRequestTracker.set(userId, {
-          count: userRequests.count + 1,
-          lastReset: userRequests.lastReset,
-        });
-        setBlockchairRequestCount((prev) => prev + 1);
-
         try {
           const recaptchaToken = await executeRecaptcha('blockchair_top_holders');
+          blockchairRequestTracker.set(userId, {
+            count: userRequests.count + 1,
+            lastReset: userRequests.lastReset,
+          });
+          setBlockchairRequestCount((prev) => prev + 1);
+
+          // Fetch Blockchair data
           let topHolders = [];
-
-          const blockchairResponse = await axios.post(
-            '/api/blockchair',
-            { chain, limit: 100 },
-            {
-              headers: {
-                'Content-Type': 'application/json',
-                ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-                'x-recaptcha-token': recaptchaToken,
-              },
-              timeout: 15000,
-            }
-          );
-
-          if (!blockchairResponse.data.success || !Array.isArray(blockchairResponse.data.data)) {
-            throw new Error(
-              blockchairResponse.data.detail || `Failed to fetch top holders for ${chain} from Blockchair`
+          try {
+            const blockchairResponse = await axios.post(
+              '/api/blockchair',
+              { chain, limit: 100 },
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+                  'x-recaptcha-token': recaptchaToken,
+                },
+                timeout: 15000,
+              }
             );
+
+            if (!blockchairResponse.data.success || !Array.isArray(blockchairResponse.data.data)) {
+              throw new Error(blockchairResponse.data.detail || `No top holders data for ${chain} from Blockchair`);
+            }
+
+            topHolders = blockchairResponse.data.data.map((holder) => ({
+              address: holder.address,
+              balance: parseFloat(holder.balance) || 0,
+              share: parseFloat(holder.share) || 0,
+              nameTag: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
+              image: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.image || null,
+              source: 'Blockchair',
+            }));
+          } catch (blockchairError) {
+            console.warn(`Blockchair fetch failed for ${chain}:`, blockchairError);
+            // Continue to try CoinGecko if Blockchair fails
           }
 
-          topHolders = blockchairResponse.data.data.map((holder) => {
-            const normalizedAddress = holder.address.toLowerCase();
-            const nameTagData = btcNameTags[normalizedAddress]?.Labels?.bitcoin || {};
-            return {
-              address: holder.address,
-              balance: parseFloat(holder.balance),
-              share: parseFloat(holder.share) || 0,
-              nameTag: nameTagData['Name Tag'] || null,
-              image: nameTagData.image || null,
-              source: 'Blockchair',
-            };
-          });
-
-          if (chain === 'bitcoin') {
+          // Fetch CoinGecko public treasury data for Bitcoin and Ethereum
+          if (['bitcoin', 'ethereum'].includes(chain)) {
             try {
-              const coingeckoResponse = await coingeckoAxios.get(
-                'https://api.coingecko.com/api/v3/companies/public_treasury/bitcoin',
-                {
-                  headers: {
-                    accept: 'application/json',
-                    ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
-                  },
-                  timeout: 10000,
-                }
-              );
-
-              const treasuryData = coingeckoResponse.data.companies.map((company) => {
-                const address = company.address || company.name;
-                const normalizedAddress = address.toLowerCase();
-                const nameTagData = btcNameTags[normalizedAddress]?.Labels?.bitcoin || {};
-                return {
-                  address,
-                  balance: parseFloat(company.total_holdings || 0),
-                  share: 0,
-                  nameTag: nameTagData['Name Tag'] || company.name || null,
-                  image: nameTagData.image || '/icons/default.png',
-                  source: 'CoinGecko',
-                };
+              const coingeckoResponse = await coingeckoAxios.get('/api/coingecko', {
+                params: { action: 'public-treasury', tokenType: chain },
+                headers: {
+                  ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+                },
+                timeout: 10000,
               });
 
-              const uniqueAddresses = new Set(topHolders.map((holder) => holder.address.toLowerCase()));
-              const mergedHolders = [
-                ...topHolders,
-                ...treasuryData.filter((company) => !uniqueAddresses.has(company.address.toLowerCase())),
-              ];
+              if (coingeckoResponse.data.success && Array.isArray(coingeckoResponse.data.data?.companies)) {
+                const treasuryData = coingeckoResponse.data.data.companies.map((company) => ({
+                  address: company.address || company.name || 'Unknown',
+                  balance: parseFloat(company.total_holdings) || 0,
+                  share: parseFloat(company.total_value_usd) / (company.total_holdings || 1) || 0,
+                  nameTag: company.name || null,
+                  image: null,
+                  source: 'CoinGecko',
+                }));
 
-              topHolders = mergedHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
+                const uniqueAddresses = new Set(topHolders.map((holder) => holder.address.toLowerCase()));
+                const mergedHolders = [
+                  ...topHolders,
+                  ...treasuryData.filter((company) => !uniqueAddresses.has(company.address.toLowerCase())),
+                ];
+
+                topHolders = mergedHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
+              } else {
+                console.warn(`No valid CoinGecko treasury data for ${chain}:`, coingeckoResponse.data);
+              }
             } catch (coingeckoError) {
+              console.warn(`Failed to fetch CoinGecko treasury data for ${chain}:`, coingeckoError);
               // Continue with Blockchair data if CoinGecko fails
             }
+          }
+
+          if (topHolders.length === 0) {
+            throw new Error(`No top holders data available for ${chain}`);
           }
 
           blockchairCache.current[cacheKey] = { data: topHolders, timestamp: Date.now() };
@@ -587,14 +591,16 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             topHolders,
           }));
         } catch (error) {
-          setOnChainError(error.response?.data?.detail || `Failed to fetch top holders for ${chain}`);
+          const errorMessage =
+            error.response?.status === 429
+              ? 'API rate limit exceeded. Please try again later.'
+              : error.response?.data?.detail || `Failed to fetch top holders for ${chain}`;
+          setOnChainError(errorMessage);
           if (retryCount < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)));
             fetchPublicTreasuryData(tokenSymbol, retryCount + 1);
           } else {
-            toast.error(`Failed to fetch top holders for ${chain}`, {
-              position: 'top-center',
-              autoClose: 5000,
-            });
+            toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           }
         } finally {
           setIsLoadingOnChain(false);
@@ -667,11 +673,21 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const fetchOnChainData = useCallback(
     debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount = 0) => {
       if (
-        (action === 'top-holders' && (!chain || !tokenAddress)) ||
-        ((action === 'wallet-balances' || action === 'transactions') && !address) ||
+        (action === 'top-holders' && (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/))) ||
+        ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) ||
         (typeof document !== 'undefined' && document.visibilityState !== 'visible')
       ) {
-        const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address}`;
+        const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address || tokenAddress}`;
+        setOnChainError(errorMessage);
+        setIsLoadingOnChain(false);
+        setIsLoadingWalletBalances(false);
+        setIsLoadingTransactions(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
+
+      if (status !== 'authenticated') {
+        const errorMessage = 'Please log in to access on-chain data.';
         setOnChainError(errorMessage);
         setIsLoadingOnChain(false);
         setIsLoadingWalletBalances(false);
@@ -689,52 +705,33 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         return;
       }
 
-      if ((action === 'wallet-balances' || action === 'transactions') && status !== 'authenticated') {
-        const errorMessage = 'Please log in to access wallet data.';
-        setOnChainError(errorMessage);
+      const cacheKey = `onchain-${simChain}-${tokenAddress}-${action}`;
+      if (
+        blockchairCache.current[cacheKey] &&
+        Date.now() - blockchairCache.current[cacheKey].timestamp < CACHE_DURATION
+      ) {
+        setOnChainData((prev) => ({
+          ...prev,
+          topHolders: blockchairCache.current[cacheKey].data,
+        }));
         setIsLoadingOnChain(false);
-        setIsLoadingWalletBalances(false);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         return;
       }
-
-      if ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) {
-        const errorMessage = 'Wallet address must be a valid EVM address.';
-        if (action === 'wallet-balances') {
-          setWalletBalancesError(errorMessage);
-        } else {
-          setTransactionsError(errorMessage);
-        }
-        setIsLoadingOnChain(false);
-        setIsLoadingWalletBalances(false);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
-
-      const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-      const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}${apiBaseUrl}/sim`;
 
       setIsLoadingOnChain(true);
-      if (action === 'wallet-balances') {
-        setIsLoadingWalletBalances(true);
-      } else if (action === 'transactions') {
-        setIsLoadingTransactions(true);
-      }
+      if (action === 'wallet-balances') setIsLoadingWalletBalances(true);
+      else if (action === 'transactions') setIsLoadingTransactions(true);
 
       try {
+        const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}/api/sim`;
         const payload = {
           action,
           recaptchaToken,
+          chain: simChain,
+          tokenAddress,
+          ...(decimalPlace != null && { decimalPlace: Number(decimalPlace) }),
+          ...(address && { address }),
         };
-        if (action === 'top-holders') {
-          payload.chain = simChain;
-          payload.tokenAddress = tokenAddress;
-          if (decimalPlace != null) payload.decimalPlace = Number(decimalPlace);
-        } else if (action === 'wallet-balances' || action === 'transactions') {
-          payload.address = address;
-        }
 
         const response = await axios.post(apiUrl, payload, {
           headers: {
@@ -742,13 +739,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             'Content-Type': 'application/json',
           },
           timeout: 30000,
-        }).catch(async (error) => {
-          if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
-            const delay = Math.pow(2, retryCount) * 1000;
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            return fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount + 1);
-          }
-          throw error;
         });
 
         if (!response.data.success) {
@@ -756,66 +746,32 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         }
 
         if (action === 'top-holders') {
+          const topHolders = response.data.data || [];
+          blockchairCache.current[cacheKey] = { data: topHolders, timestamp: Date.now() };
           setOnChainData((prev) => ({
             ...prev,
-            topHolders: response.data.data || [],
+            topHolders,
           }));
         } else if (action === 'wallet-balances') {
-          const balances = response.data.data || [];
-          setWalletBalances(balances);
+          setWalletBalances(response.data.data || []);
         } else if (action === 'transactions') {
-          const transactions = response.data.data || [];
-          setTransactions(transactions);
-          if (session?.user?.id) {
-            try {
-              await axios.post(
-                '/api/wallet-history',
-                {
-                  uid: session.user.id,
-                  walletAddress: address,
-                  action: 'transactions',
-                  data: transactions,
-                },
-                {
-                  headers: {
-                    Authorization: `Bearer ${session.accessToken}`,
-                  },
-                  timeout: 15000,
-                }
-              );
-            } catch (historyError) {
-              // Handle error silently
-            }
-          }
+          setTransactions(response.data.data || []);
         }
       } catch (error) {
         const errorMessage =
-          error.response?.status === 401
-            ? 'Unauthorized: Please log in again.'
-            : error.response?.status === 429
-              ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
-              : error.response?.status === 503
-                ? 'Service temporarily unavailable. Please try again later.'
-                : error.response?.data?.errors
-                  ? `Validation errors: ${error.response.data.errors?.map((e) => e.msg).join(', ')}`
-                  : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
-        if (action === 'wallet-balances') {
-          setWalletBalancesError(errorMessage);
-          setWalletBalances([]);
-        } else if (action === 'transactions') {
-          setTransactionsError(errorMessage);
-          setTransactions([]);
-        } else {
-          setOnChainError(errorMessage);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          error.response?.status === 429
+            ? 'Too many requests. Please try again later.'
+            : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
+        setOnChainError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        if (retryCount < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)));
+          fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount + 1);
         }
       } finally {
         setIsLoadingOnChain(false);
-        if (action === 'wallet-balances') {
-          setIsLoadingWalletBalances(false);
-        } else if (action === 'transactions') {
-          setIsLoadingTransactions(false);
-        }
+        if (action === 'wallet-balances') setIsLoadingWalletBalances(false);
+        else if (action === 'transactions') setIsLoadingTransactions(false);
       }
     }, 500),
     [chains, status, session?.accessToken, toast]
@@ -1758,6 +1714,7 @@ Use natural, professional tone with recent data.
     loading,
     error,
     selectedToken,
+    setSelectedToken,
     selectedPair,
     selectedChain,
     analysis,

@@ -1,13 +1,19 @@
+// components/WatchlistsTab.jsx
+'use client';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { isAddress } from 'ethers';
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { SUPPORTED_CHAINS, CHAIN_MAPPING, CHAIN_ID_TO_NAME, CHAIN_EXPLORER_MAP } from '../utils/constants';
 import { formatDistanceToNow } from 'date-fns';
+import { debounce } from 'lodash';
 
 // Utility functions (unchanged)
 const formatPrice = (price) => {
@@ -97,17 +103,30 @@ const SkeletonLoader = ({ isMobile }) => {
 };
 
 // Tooltip Component with Glassmorphism (unchanged)
-const Tooltip = ({ children, text }) => (
-  <div className="relative group">
-    {children}
-    <div className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[8px] sm:text-[10px] py-1 sm:py-2 px-2 sm:px-3 rounded-lg shadow-neon z-20 -top-8 sm:-top-10 left-1/2 -translate-x-1/2 whitespace-nowrap font-jetbrains transition-all duration-300">
-      {text}
+const Tooltip = ({ children, text }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  return (
+    <div
+      className="relative group"
+      onMouseEnter={() => setIsVisible(true)}
+      onMouseLeave={() => setIsVisible(false)}
+      onTouchStart={() => setIsVisible(true)}
+      onTouchEnd={() => setTimeout(() => setIsVisible(false), 2000)}
+    >
+      {children}
+      <div
+        className={`absolute ${isVisible ? 'block' : 'hidden'} bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[10px] sm:text-[12px] py-1 sm:py-2 px-2 sm:px-3 rounded-lg shadow-neon z-20 -top-8 sm:-top-10 left-1/2 -translate-x-1/2 whitespace-nowrap font-jetbrains transition-all duration-300`}
+      >
+        {text}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
-export default function WatchlistsTab({ toast }) {
+export default function WatchlistsTab({ initialTab = 'token', initialAddress = null, toast }) {
   const { data: session } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640);
   const [watchlists, setWatchlists] = useState([]);
   const [selectedWallet, setSelectedWallet] = useState(null);
@@ -123,7 +142,7 @@ export default function WatchlistsTab({ toast }) {
   });
   const [activeChainType, setActiveChainType] = useState('EVM');
   const [activeChain, setActiveChain] = useState(null);
-  const [activeTab, setActiveTab] = useState('TOKEN');
+  const [activeTab, setActiveTab] = useState(initialTab.toUpperCase());
   const [balances, setBalances] = useState([]);
   const [collectibles, setCollectibles] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -145,18 +164,77 @@ export default function WatchlistsTab({ toast }) {
   const EVM_LOGOS = ['ethereum', 'base', 'bnb'];
   const SVM_LOGOS = ['solana', 'eclipse'];
 
-  // Fetch supported chains (unchanged)
-  const fetchSupportedChains = useCallback(async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/coingecko/chains`, {
-        timeout: 15000,
-      });
+  // Handle URL updates when selecting wallet or switching tabs
+  const updateUrl = useCallback(
+    (tab, address) => {
+      const newParams = new URLSearchParams();
+      newParams.set('tab', tab.toLowerCase());
+      if (address) {
+        newParams.set('address', address);
+      }
+      router.push(`/watchlist?${newParams.toString()}`, { shallow: true });
+    },
+    [router]
+  );
 
-      const coingeckoChains = response.data.success ? response.data.data : [];
+  // Sync activeTab and selectedWallet with URL
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab')?.toUpperCase() || initialTab.toUpperCase();
+    const addressFromUrl = searchParams.get('address') || initialAddress;
+    if (['TOKEN', 'NFT', 'ACTIVITY'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+    if (addressFromUrl && watchlists.some((w) => w.address === addressFromUrl)) {
+      const wallet = watchlists.find((w) => w.address === addressFromUrl);
+      setSelectedWallet(wallet || null);
+      setActiveChainType(wallet?.chainType || 'EVM');
+    } else if (watchlists.length > 0 && !selectedWallet) {
+      setSelectedWallet(watchlists[0]);
+      setActiveChainType(watchlists[0].chainType);
+      updateUrl(tabFromUrl.toLowerCase(), watchlists[0].address);
+    }
+  }, [searchParams, initialTab, initialAddress, watchlists, updateUrl]);
+
+  // Handle Escape key for modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && showAddModal) {
+        setShowAddModal(false);
+        setNewWalletName('');
+        setNewAddress('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showAddModal]);
+
+  const { data: supportedChains, isLoading: chainsLoading } = useQuery({
+    queryKey: ['supportedChains'],
+    queryFn: async () => {
+      const response = await axios.get(`${API_BASE_URL}/coingecko/chains`, { timeout: 15000 });
+      if (!response.data.success) throw new Error('Failed to load supported chains');
+      return response.data.data;
+    },
+    onError: (error) => {
+      toast.error('Failed to load supported chains', { position: 'top-center', autoClose: 5000 });
+      setChains(
+        SUPPORTED_CHAINS.map((chain) => ({
+          coingeckoId: Object.keys(CHAIN_MAPPING).find((key) => CHAIN_MAPPING[key].simChain === chain.value) || null,
+          value: chain.value,
+          label: chain.label,
+          shortName: chain.label.split(' ')[0],
+          chainId: chain.chainId,
+          testnet: chain.testnet || false,
+          image: chain.image || '/icons/default.png',
+        }))
+      );
+    },
+  });
+
+  useEffect(() => {
+    if (supportedChains) {
       const mappedChains = SUPPORTED_CHAINS.map((simChain) => {
-        const coingeckoChain = coingeckoChains.find(
-          (cg) => CHAIN_MAPPING[cg.id]?.simChain === simChain.value
-        );
+        const coingeckoChain = supportedChains.find((cg) => CHAIN_MAPPING[cg.id]?.simChain === simChain.value);
         return {
           coingeckoId: coingeckoChain?.id || null,
           value: simChain.value,
@@ -167,26 +245,9 @@ export default function WatchlistsTab({ toast }) {
           image: coingeckoChain?.image?.large || simChain.image || '/icons/default.png',
         };
       });
-
       setChains(mappedChains);
-    } catch (error) {
-      console.error('Failed to fetch supported chains:', error);
-      setChains(
-        SUPPORTED_CHAINS.map((chain) => ({
-          coingeckoId: Object.keys(CHAIN_MAPPING).find(
-            (key) => CHAIN_MAPPING[key].simChain === chain.value
-          ) || null,
-          value: chain.value,
-          label: chain.label,
-          shortName: chain.label.split(' ')[0],
-          chainId: chain.chainId,
-          testnet: chain.testnet || false,
-          image: chain.image || '/icons/default.png',
-        }))
-      );
-      toast.error('Failed to load supported chains', { position: 'top-center', autoClose: 5000 });
     }
-  }, [toast]);
+  }, [supportedChains]);
 
   // Handle window resize (unchanged)
   useEffect(() => {
@@ -196,151 +257,152 @@ export default function WatchlistsTab({ toast }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch chains on mount (unchanged)
-  useEffect(() => {
-    fetchSupportedChains();
-  }, [fetchSupportedChains]);
-
   const isValidSolanaAddress = useCallback((address) => {
     return address && address.length === 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
   }, []);
 
   // Fetch data (unchanged)
-  const fetchData = useCallback(
-    async (action) => {
-      if (!selectedWallet) {
-        const errorMsg = 'No wallet selected.';
-        setError(errorMsg);
-        toast.error(errorMsg, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
-      setLoadingStates((prev) => ({ ...prev, [action]: true }));
-      setError(null);
-      try {
-        const isValidEVM = isAddress(selectedWallet.address);
-        const isValidSVM = isValidSolanaAddress(selectedWallet.address);
-        if (!isValidEVM && !isValidSVM) {
-          throw new Error('Invalid wallet address format.');
-        }
+  const fetchDataQuery = async (action, address, chainType) => {
+    const isValidEVM = isAddress(address);
+    const payload = {
+      action,
+      address,
+      ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
+      limit: 500,
+    };
+    const response = await axios.post(`${API_BASE_URL}/sim`, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+      },
+      withCredentials: true,
+      timeout: 30000,
+    });
+    if (!response.data.success) throw new Error(response.data.detail || `Failed to load ${action} data`);
+    return response.data.data;
+  };
 
-        const payload = {
-          action,
-          address: selectedWallet.address,
-          ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
-          limit: 500,
-        };
-
-        const response = await axios.post(`${API_BASE_URL}/sim`, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-            ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-          },
-          withCredentials: true,
-          timeout: 30000,
-        });
-
-        if (!response.data.success) {
-          throw new Error(response.data.detail || `Failed to load ${action} data.`);
-        }
-
-        if (action === 'wallet-balances') {
-          const balancesData = response.data.data || [];
-          setBalances(balancesData);
-          const chainsWithData = [...new Set(balancesData.map((b) => CHAIN_ID_TO_NAME[b.chain] || b.chain))];
-          setChainsWithAssets(chainsWithData);
-          // Only set activeChain if it's not explicitly set to null (i.e., "ALL" is selected)
-          if (activeChain === undefined && chainsWithData.length > 0) {
-            setActiveChain(chainsWithData[0]);
-          }
-        } else if (action === 'collectibles') {
-          const collectiblesData = response.data.data || [];
-          setCollectibles(collectiblesData);
-        } else if (action === 'transactions') {
-          const transactionsData = response.data.data.map((tx) => ({
-            ...tx,
-            chain: CHAIN_ID_TO_NAME[tx.chain] || tx.chain,
-          })) || [];
-          setTransactions(transactionsData);
-        }
-      } catch (err) {
-        const errorMessage =
-          err.response?.status === 401
-            ? 'Unauthorized: Please log in again.'
-            : err.response?.status === 429
-              ? 'Too many requests. Please try again later.'
-              : err.response?.data?.detail || `Failed to load ${action} data: ${err.message}`;
-        setError(errorMessage);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        if (action === 'wallet-balances') setBalances([]);
-        else if (action === 'collectibles') setCollectibles([]);
-        else if (action === 'transactions') setTransactions([]);
-      } finally {
-        setLoadingStates((prev) => ({ ...prev, [action]: false }));
-      }
+  const { data: balancesData, isLoading: balancesLoading } = useQuery({
+    queryKey: ['wallet-balances', selectedWallet?.address],
+    queryFn: () => fetchDataQuery('wallet-balances', selectedWallet?.address, activeChainType),
+    enabled: !!selectedWallet,
+    onError: (error) => {
+      const errorMessage = error.response?.status === 401 ? 'Unauthorized: Please log in again.' : error.message;
+      setError(errorMessage);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      setBalances([]);
     },
-    [selectedWallet, session, isValidSolanaAddress, activeChain, toast]
-  );
+  });
 
-  // Fetch token info (unchanged)
+  const { data: collectiblesData, isLoading: collectiblesLoading } = useQuery({
+    queryKey: ['collectibles', selectedWallet?.address],
+    queryFn: () => fetchDataQuery('collectibles', selectedWallet?.address, activeChainType),
+    enabled: !!selectedWallet,
+    onError: (error) => {
+      const errorMessage = error.response?.status === 401 ? 'Unauthorized: Please log in again.' : error.message;
+      setError(errorMessage);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      setCollectibles([]);
+    },
+  });
+
+  const { data: transactionsData, isLoading: transactionsLoading } = useQuery({
+    queryKey: ['transactions', selectedWallet?.address],
+    queryFn: () => fetchDataQuery('transactions', selectedWallet?.address, activeChainType),
+    enabled: !!selectedWallet,
+    onError: (error) => {
+      const errorMessage = error.response?.status === 401 ? 'Unauthorized: Please log in again.' : error.message;
+      setError(errorMessage);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      setTransactions([]);
+    },
+  });
+
   useEffect(() => {
-    if (!selectedWallet || balances.length === 0) return;
-    async function fetchTokenInfo() {
-      setLoadingStates((prev) => ({ ...prev, loading: true }));
-      try {
-        const tokenAddresses = balances
-          .filter((b) => b.address !== 'native')
-          .map((b) => ({ address: b.address, chain: b.chain }))
-          .slice(0, 10);
-        const tokenInfoData = {};
-        for (const { address, chain } of tokenAddresses) {
-          const isValidEVM = isAddress(address);
-          const isValidSVM = isValidSolanaAddress(address);
-          if (!isValidEVM && !isValidSVM) {
-            continue;
-          }
-          try {
-            const payload = {
-              action: 'wallet-balances',
-              address,
-              ...(isValidEVM ? { chain_ids: CHAIN_MAPPING[chain]?.chainId || '' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
-              limit: 1,
-              metadata: 'logo',
-            };
-            const response = await axios.post(`${API_BASE_URL}/sim`, payload, {
-              headers: {
-                'Content-Type': 'application/json',
-                ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-              },
-              timeout: 10000,
-            });
-            if (response.data.success && response.data.data.length > 0) {
-              const tokenData = response.data.data[0];
-              tokenInfoData[address] = [
-                {
-                  chain,
-                  symbol: tokenData.symbol || 'Unknown',
-                  logo: tokenData.logo || '/fallback-image.png',
-                  name: tokenData.name || 'Unknown Token',
-                },
-              ];
-            }
-          } catch (err) {
-            console.error(`Error fetching token info for ${address} on ${chain}:`, err);
-          }
-        }
-        setTokenInfo(tokenInfoData);
-      } catch (err) {
-        const errorMessage = err.response?.data?.detail || `Failed to load token info: ${err.message}`;
-        setError(errorMessage);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      } finally {
-        setLoadingStates((prev) => ({ ...prev, loading: false }));
+    if (balancesData) {
+      setBalances(balancesData);
+      const chainsWithData = [...new Set(balancesData.map((b) => CHAIN_ID_TO_NAME[b.chain] || b.chain))];
+      setChainsWithAssets(chainsWithData);
+      if (activeChain === undefined && chainsWithData.length > 0) {
+        setActiveChain(chainsWithData[0]);
       }
     }
-    fetchTokenInfo();
-  }, [balances, session, toast, isValidSolanaAddress]);
+    if (collectiblesData) setCollectibles(collectiblesData);
+    if (transactionsData) {
+      setTransactions(
+        transactionsData.map((tx) => ({
+          ...tx,
+          chain: CHAIN_ID_TO_NAME[tx.chain] || tx.chain,
+        }))
+      );
+    }
+    setLoadingStates({
+      loading: chainsLoading,
+      balances: balancesLoading,
+      collectibles: collectiblesLoading,
+      transactions: transactionsLoading,
+    });
+  }, [balancesData, collectiblesData, transactionsData, chainsLoading, balancesLoading, collectiblesLoading, transactionsLoading]);
 
-  // Load watchlists (unchanged)
+  // Fetch token info (unchanged)
+  const { data: tokenInfoData, isLoading: tokenInfoLoading } = useQuery({
+    queryKey: ['tokenInfo', balances.map((b) => b.address)],
+    queryFn: async () => {
+      const tokenAddresses = balances
+        .filter((b) => b.address !== 'native')
+        .map((b) => ({ address: b.address, chain: b.chain }))
+        .slice(0, 10);
+      const tokenInfoData = {};
+      for (const { address, chain } of tokenAddresses) {
+        const isValidEVM = isAddress(address);
+        const isValidSVM = isValidSolanaAddress(address);
+        if (!isValidEVM && !isValidSVM) continue;
+        try {
+          const payload = {
+            action: 'wallet-balances',
+            address,
+            ...(isValidEVM ? { chain_ids: CHAIN_MAPPING[chain]?.chainId || '' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
+            limit: 1,
+            metadata: 'logo',
+          };
+          const response = await axios.post(`${API_BASE_URL}/sim`, payload, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+            },
+            timeout: 10000,
+          });
+          if (response.data.success && response.data.data.length > 0) {
+            const tokenData = response.data.data[0];
+            tokenInfoData[address] = [
+              {
+                chain,
+                symbol: tokenData.symbol || 'Unknown',
+                logo: tokenData.logo || '/fallback-image.png',
+                name: tokenData.name || 'Unknown Token',
+              },
+            ];
+          }
+        } catch (err) {
+          console.error(`Error fetching token info for ${address} on ${chain}:`, err);
+        }
+      }
+      return tokenInfoData;
+    },
+    enabled: !!selectedWallet && balances.length > 0,
+    onError: (error) => {
+      const errorMessage = error.response?.data?.detail || `Failed to load token info: ${error.message}`;
+      setError(errorMessage);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+    },
+  });
+
+  useEffect(() => {
+    if (tokenInfoData) setTokenInfo(tokenInfoData);
+    setLoadingStates((prev) => ({ ...prev, loading: tokenInfoLoading }));
+  }, [tokenInfoData, tokenInfoLoading]);
+
+  // Load watchlists
   useEffect(() => {
     if (!session?.user?.id) return;
     async function fetchWatchlists() {
@@ -360,9 +422,13 @@ export default function WatchlistsTab({ toast }) {
             chainType: isAddress(item.wallet_address) ? 'EVM' : isValidSolanaAddress(item.wallet_address) ? 'SVM' : 'EVM',
           }));
           setWatchlists(watchlistsData);
+          // Select wallet based on initialAddress or first wallet
           if (watchlistsData.length > 0) {
-            setSelectedWallet(watchlistsData[0]);
-            setActiveChainType(watchlistsData[0].chainType);
+            const walletToSelect =
+              watchlistsData.find((w) => w.address === initialAddress) || watchlistsData[0];
+            setSelectedWallet(walletToSelect);
+            setActiveChainType(walletToSelect?.chainType || 'EVM');
+            updateUrl(activeTab.toLowerCase(), walletToSelect.address);
           }
         } else {
           setError('Failed to load watchlists.');
@@ -378,17 +444,9 @@ export default function WatchlistsTab({ toast }) {
       }
     }
     fetchWatchlists();
-  }, [session, toast, isValidSolanaAddress]);
+  }, [session, isValidSolanaAddress, initialAddress, activeTab, updateUrl]);
 
-  // Fetch balances, collectibles, and transactions (unchanged)
-  useEffect(() => {
-    if (!selectedWallet) return;
-    fetchData('wallet-balances');
-    fetchData('collectibles');
-    fetchData('transactions');
-  }, [selectedWallet, fetchData]);
-
-  // Add new wallet (unchanged)
+  // Add new wallet
   const handleAddWallet = async () => {
     if (!newAddress) {
       setError('Please enter a wallet address.');
@@ -413,7 +471,7 @@ export default function WatchlistsTab({ toast }) {
         {
           action: 'add',
           wallet_address: isValidEVM ? newAddress.toLowerCase() : newAddress,
-          name: newWalletName || 'Unnamed Wallet'
+          name: newWalletName || 'Unnamed Wallet',
         },
         {
           headers: {
@@ -430,16 +488,18 @@ export default function WatchlistsTab({ toast }) {
           chainType: isValidEVM ? 'EVM' : 'SVM',
         }));
         setWatchlists(updatedWatchlists);
-        setSelectedWallet({
+        const newWallet = {
           address: isValidEVM ? newAddress.toLowerCase() : newAddress,
           name: newWalletName || 'Unnamed Wallet',
-          chainType: newChainType
-        });
+          chainType: newChainType,
+        };
+        setSelectedWallet(newWallet);
         setActiveChainType(newChainType);
         setShowAddModal(false);
         setNewAddress('');
         setNewWalletName('');
         setError(null);
+        updateUrl(activeTab.toLowerCase(), newWallet.address);
         toast.success('Wallet added successfully.', { position: 'top-center', autoClose: 5000 });
       } else {
         setError(response.data.detail || 'Failed to add wallet.');
@@ -452,7 +512,7 @@ export default function WatchlistsTab({ toast }) {
     }
   };
 
-  // Remove wallet (unchanged)
+  // Remove wallet
   const handleRemoveWallet = async (walletAddress) => {
     try {
       const response = await axios.post(
@@ -474,13 +534,15 @@ export default function WatchlistsTab({ toast }) {
         }));
         setWatchlists(updatedWatchlists);
         if (selectedWallet?.address === walletAddress) {
-          setSelectedWallet(updatedWatchlists[0] || null);
-          setActiveChainType(updatedWatchlists[0]?.chainType || 'EVM');
+          const newWallet = updatedWatchlists[0] || null;
+          setSelectedWallet(newWallet);
+          setActiveChainType(newWallet?.chainType || 'EVM');
           setBalances([]);
           setCollectibles([]);
           setTransactions([]);
           setTokenInfo({});
           setActiveChain(null);
+          updateUrl(activeTab.toLowerCase(), newWallet?.address || null);
         }
         setError(null);
         toast.success('Wallet removed successfully.', { position: 'top-center', autoClose: 5000 });
@@ -589,12 +651,14 @@ export default function WatchlistsTab({ toast }) {
     );
   };
 
-  // Render NFT Row (Modified for Grid Layout)
   const renderNFTRow = useMemo(
     () => (nft) => {
-      const logoUrl = nft.token_metadata?.logo && !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') && nft.token_metadata.logo !== '/fallback-image.png'
-        ? nft.token_metadata.logo
-        : null;
+      const logoUrl =
+        nft.token_metadata?.logo &&
+        !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') &&
+        nft.token_metadata.logo !== '/fallback-image.png'
+          ? nft.token_metadata.logo
+          : null;
       if (!logoUrl) {
         return null;
       }
@@ -635,7 +699,6 @@ export default function WatchlistsTab({ toast }) {
     [isMobile]
   );
 
-  // Render Transaction Row
   const renderTransactionRow = (tx, index) => {
     const transactionKey = tx.hash || `tx-${index}`;
     const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address);
@@ -643,8 +706,8 @@ export default function WatchlistsTab({ toast }) {
     const tokenLogo = isSVM
       ? NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png'
       : tx.token_metadata?.logo && !tx.token_metadata.logo.includes('scontent.xx.fbcdn.net')
-        ? tx.token_metadata.logo
-        : NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png';
+      ? tx.token_metadata.logo
+      : NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png';
     const tokenSymbol = tx.token || 'Unknown';
     const addressToShow = tx.type === 'receive' ? tx.from : tx.to;
     const { text: displayAddress, image: addressImage } = truncateAddress(addressToShow, nameTags);
@@ -684,8 +747,9 @@ export default function WatchlistsTab({ toast }) {
         <td className={`px-2 py-2 text-gray-200 text-[10px] sm:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
           <div className="flex flex-col items-center gap-1">
             <span
-              className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'
-                }`}
+              className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${
+                tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'
+              }`}
             >
               {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
             </span>
@@ -713,9 +777,7 @@ export default function WatchlistsTab({ toast }) {
           </div>
         </td>
         <td className={`px-2 py-2 text-gray-200 text-[10px] sm:text-xs ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
-          {tx.value
-            ? `${Number(tx.value).toLocaleString('en-US', { maximumFractionDigits: 6 })}`
-            : 'N/A'}
+          {tx.value ? `${Number(tx.value).toLocaleString('en-US', { maximumFractionDigits: 6 })}` : 'N/A'}
         </td>
         <td className={`px-2 py-2 text-gray-200 text-[10px] sm:text-xs text-center ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
           <div className="flex flex-col items-center gap-0.5">
@@ -740,28 +802,38 @@ export default function WatchlistsTab({ toast }) {
 
   // Filter data based on activeChain
   const filteredBalances = useMemo(() => {
-    return balances.filter((b) => {
-      if (activeChain === null) return true; // Show all when activeChain is null
-      return b.chain === activeChain;
-    }).filter((b) => {
-      const tokenInfoData = tokenInfo[b.address] || [];
-      const tokenDetails = tokenInfoData.find((t) => t.chain === b.chain) || {};
-      const isNative = b.address === 'native' && NATIVE_TOKEN_INFO[b.chain];
-      const hasValidLogo =
-        isNative ||
-        (b.logo && !b.logo.includes('scontent.xx.fbcdn.net') && b.logo !== '/fallback-image.png') ||
-        (tokenDetails.logo && !tokenDetails.logo.includes('scontent.xx.fbcdn.net') && tokenDetails.logo !== '/fallback-image.png');
-      return hasValidLogo;
-    });
+    return balances
+      .filter((b) => {
+        if (activeChain === null) return true; // Show all when activeChain is null
+        return b.chain === activeChain;
+      })
+      .filter((b) => {
+        const tokenInfoData = tokenInfo[b.address] || [];
+        const tokenDetails = tokenInfoData.find((t) => t.chain === b.chain) || {};
+        const isNative = b.address === 'native' && NATIVE_TOKEN_INFO[b.chain];
+        const hasValidLogo =
+          isNative ||
+          (b.logo && !b.logo.includes('scontent.xx.fbcdn.net') && b.logo !== '/fallback-image.png') ||
+          (tokenDetails.logo &&
+            !tokenDetails.logo.includes('scontent.xx.fbcdn.net') &&
+            tokenDetails.logo !== '/fallback-image.png');
+        return hasValidLogo;
+      });
   }, [balances, activeChain, tokenInfo]);
 
   const filteredCollectibles = useMemo(() => {
-    return collectibles.filter((nft) => {
-      if (activeChain === null) return true; // Show all when activeChain is null
-      return nft.chain === activeChain;
-    }).filter((nft) => {
-      return nft.token_metadata?.logo && !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') && nft.token_metadata.logo !== '/fallback-image.png';
-    });
+    return collectibles
+      .filter((nft) => {
+        if (activeChain === null) return true; // Show all when activeChain is null
+        return nft.chain === activeChain;
+      })
+      .filter((nft) => {
+        return (
+          nft.token_metadata?.logo &&
+          !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') &&
+          nft.token_metadata.logo !== '/fallback-image.png'
+        );
+      });
   }, [collectibles, activeChain]);
 
   const filteredTransactions = useMemo(() => {
@@ -787,54 +859,54 @@ export default function WatchlistsTab({ toast }) {
             Watchlist
           </h3>
           <div className="flex items-center justify-end gap-2 sm:gap-3 mt-8 sm:mt-2">
-          <motion.select
-            value={selectedWallet?.address || ''}
-            onChange={(e) => {
-              const wallet = watchlists.find((w) => w.address === e.target.value);
-              setSelectedWallet(wallet || null);
-              setBalances([]);
-              setCollectibles([]);
-              setTransactions([]);
-              setTokenInfo({});
-              setActiveChain(null);
-              setActiveChainType(wallet?.chainType || 'EVM');
-              setCurrentPage({ TOKEN: 1, NFT: 1, ACTIVITY: 1 }); // Reset pagination
-            }}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-            className="text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-1.5 border border-white/10 bg-black/60 backdrop-blur-mdFREQUENTLY ASKED QUESTIONS
-            md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 w-1/2 sm:w-auto"
-          >
-            {watchlists.length === 0 ? (
-              <option value="">No wallets added</option>
-            ) : (
-              watchlists.map((wallet) => (
-                <option key={wallet.address} value={wallet.address}>
-                  {wallet.name} ({truncateAddress(wallet.address, nameTags).text})
-                </option>
-              ))
-            )}
-          </motion.select>
-          <motion.button
-            onClick={() => setShowAddModal(true)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
-          >
-            Add +
-          </motion.button>
-          {selectedWallet && (
+            <motion.select
+              value={selectedWallet?.address || ''}
+              onChange={(e) => {
+                const wallet = watchlists.find((w) => w.address === e.target.value);
+                setSelectedWallet(wallet || null);
+                setBalances([]);
+                setCollectibles([]);
+                setTransactions([]);
+                setTokenInfo({});
+                setActiveChain(null);
+                setActiveChainType(wallet?.chainType || 'EVM');
+                setCurrentPage({ TOKEN: 1, NFT: 1, ACTIVITY: 1 }); // Reset pagination
+                updateUrl(activeTab.toLowerCase(), wallet?.address || null);
+              }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-1.5 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 w-1/2 sm:w-auto"
+            >
+              {watchlists.length === 0 ? (
+                <option value="">No wallets added</option>
+              ) : (
+                watchlists.map((wallet) => (
+                  <option key={wallet.address} value={wallet.address}>
+                    {wallet.name} ({truncateAddress(wallet.address, nameTags).text})
+                  </option>
+                ))
+              )}
+            </motion.select>
             <motion.button
-              onClick={() => handleRemoveWallet(selectedWallet.address)}
+              onClick={() => setShowAddModal(true)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-red-500/50 bg-gradient-to-r from-red-500/20 to-transparent backdrop-blur-md hover:bg-red-500/30 transition-all duration-300"
+              className="px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
             >
-              Remove
+              Add +
             </motion.button>
-          )}
-        </div>
+            {selectedWallet && (
+              <motion.button
+                onClick={() => handleRemoveWallet(selectedWallet.address)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-red-500/50 bg-gradient-to-r from-red-500/20 to-transparent backdrop-blur-md hover:bg-red-500/30 transition-all duration-300"
+              >
+                Remove
+              </motion.button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -846,10 +918,11 @@ export default function WatchlistsTab({ toast }) {
               onClick={() => setActiveChain(null)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`px-2 sm:px-3 py-1 sm:py-1.5 border rounded-sm transition-all duration-300 text-[10px] sm:text-xs font-medium text-white ${activeChain === null
-                ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
-                : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
-                }`}
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 border rounded-sm transition-all duration-300 text-[10px] sm:text-xs font-medium text-white ${
+                activeChain === null
+                  ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
+                  : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
+              }`}
             >
               ALL
             </motion.button>
@@ -860,10 +933,11 @@ export default function WatchlistsTab({ toast }) {
                 onClick={() => setActiveChain(chain)}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                className={`p-1 sm:p-1.5 border rounded-sm transition-all duration-300 ${activeChain === chain
-                  ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
-                  : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
-                  }`}
+                className={`p-1 sm:p-1.5 border rounded-sm transition-all duration-300 ${
+                  activeChain === chain
+                    ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
+                    : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
+                }`}
               >
                 <Image
                   src={getPlatformImage(chain)}
@@ -886,11 +960,13 @@ export default function WatchlistsTab({ toast }) {
             onClick={() => {
               setActiveTab(tab);
               setCurrentPage((prev) => ({ ...prev, [tab]: 1 })); // Reset to first page when switching tabs
+              updateUrl(tab.toLowerCase(), selectedWallet?.address || null);
             }}
             whileHover={{ scale: 1 }}
             whileTap={{ scale: 0.95 }}
-            className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${activeTab === tab ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
-              } last:border-r-0`}
+            className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${
+              activeTab === tab ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
+            } last:border-r-0`}
           >
             {tab}
           </motion.button>
@@ -907,8 +983,9 @@ export default function WatchlistsTab({ toast }) {
                 disabled={currentPage.TOKEN === 1}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.TOKEN === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                  } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                  currentPage.TOKEN === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                } transition-all duration-300 rounded`}
               >
                 &lt;
               </motion.button>
@@ -920,8 +997,9 @@ export default function WatchlistsTab({ toast }) {
                 disabled={currentPage.TOKEN === getTotalPages(filteredBalances)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.TOKEN === getTotalPages(filteredBalances) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                  } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                  currentPage.TOKEN === getTotalPages(filteredBalances) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                } transition-all duration-300 rounded`}
               >
                 &gt;
               </motion.button>
@@ -934,8 +1012,9 @@ export default function WatchlistsTab({ toast }) {
                 disabled={currentPage.NFT === 1}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.NFT === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                  } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                  currentPage.NFT === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                } transition-all duration-300 rounded`}
               >
                 &lt;
               </motion.button>
@@ -947,8 +1026,9 @@ export default function WatchlistsTab({ toast }) {
                 disabled={currentPage.NFT === getTotalPages(filteredCollectibles)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.NFT === getTotalPages(filteredCollectibles) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                  } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                  currentPage.NFT === getTotalPages(filteredCollectibles) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                } transition-all duration-300 rounded`}
               >
                 &gt;
               </motion.button>
@@ -961,8 +1041,9 @@ export default function WatchlistsTab({ toast }) {
                 disabled={currentPage.ACTIVITY === 1}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.ACTIVITY === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                  } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                  currentPage.ACTIVITY === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                } transition-all duration-300 rounded`}
               >
                 &lt;
               </motion.button>
@@ -974,8 +1055,9 @@ export default function WatchlistsTab({ toast }) {
                 disabled={currentPage.ACTIVITY === getTotalPages(filteredTransactions)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.ACTIVITY === getTotalPages(filteredTransactions) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                  } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                  currentPage.ACTIVITY === getTotalPages(filteredTransactions) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                } transition-all duration-300 rounded`}
               >
                 &gt;
               </motion.button>
@@ -1000,7 +1082,7 @@ export default function WatchlistsTab({ toast }) {
       <div className="flex flex-col h-full">
         <div
           className="flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-lg bg-black/60 backdrop-blur-2xl shadow-neon-sm"
-          style={{ maxHeight: isMobile ? 'calc(100vh - 18rem)' : 'calc(100vh - 18rem)' }} // Adjusted maxHeight
+          style={{ maxHeight: isMobile ? 'calc(100vh - 18rem)' : 'calc(100vh - 18rem)' }}
         >
           {loadingStates.loading || loadingStates.balances || loadingStates.collectibles || loadingStates.transactions ? (
             <SkeletonLoader isMobile={isMobile} />
@@ -1012,7 +1094,11 @@ export default function WatchlistsTab({ toast }) {
                     <table className="w-full table-fixed text-[10px] sm:text-xs">
                       <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
                         <tr>
-                          <th className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                          <th
+                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
+                              isMobile ? 'w-[30%]' : 'w-[30%]'
+                            }`}
+                          >
                             <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1029,7 +1115,11 @@ export default function WatchlistsTab({ toast }) {
                               Token
                             </div>
                           </th>
-                          <th className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${isMobile ? 'w-[35%]' : 'w-[35%]'}`}>
+                          <th
+                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
+                              isMobile ? 'w-[35%]' : 'w-[35%]'
+                            }`}
+                          >
                             <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1046,7 +1136,11 @@ export default function WatchlistsTab({ toast }) {
                               Balance
                             </div>
                           </th>
-                          <th className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${isMobile ? 'w-[35%]' : 'w-[35%]'}`}>
+                          <th
+                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
+                              isMobile ? 'w-[35%]' : 'w-[35%]'
+                            }`}
+                          >
                             <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1054,20 +1148,14 @@ export default function WatchlistsTab({ toast }) {
                                 viewBox="0 0 24 24"
                                 strokeWidth="2"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5"
-                                />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5" />
                               </svg>
                               Value
                             </div>
                           </th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {getPaginatedData(filteredBalances, 'TOKEN').map(renderTokenRow)}
-                      </tbody>
+                      <tbody>{getPaginatedData(filteredBalances, 'TOKEN').map(renderTokenRow)}</tbody>
                     </table>
                   ) : (
                     <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
@@ -1095,7 +1183,11 @@ export default function WatchlistsTab({ toast }) {
                     <table className="w-full table-fixed text-[10px] sm:text-xs">
                       <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
                         <tr>
-                          <th className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
+                          <th
+                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
+                              isMobile ? 'w-[25%]' : 'w-[25%]'
+                            }`}
+                          >
                             <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1112,7 +1204,11 @@ export default function WatchlistsTab({ toast }) {
                               Token
                             </div>
                           </th>
-                          <th className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                          <th
+                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
+                              isMobile ? 'w-[30%]' : 'w-[30%]'
+                            }`}
+                          >
                             <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1129,7 +1225,11 @@ export default function WatchlistsTab({ toast }) {
                               Address
                             </div>
                           </th>
-                          <th className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
+                          <th
+                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
+                              isMobile ? 'w-[25%]' : 'w-[25%]'
+                            }`}
+                          >
                             <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1146,7 +1246,11 @@ export default function WatchlistsTab({ toast }) {
                               Value
                             </div>
                           </th>
-                          <th className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-center font-medium ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
+                          <th
+                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-center font-medium ${
+                              isMobile ? 'w-[20%]' : 'w-[20%]'
+                            }`}
+                          >
                             <div className="flex items-center justify-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -1165,9 +1269,7 @@ export default function WatchlistsTab({ toast }) {
                           </th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {getPaginatedData(filteredTransactions, 'ACTIVITY').map(renderTransactionRow)}
-                      </tbody>
+                      <tbody>{getPaginatedData(filteredTransactions, 'ACTIVITY').map(renderTransactionRow)}</tbody>
                     </table>
                   ) : (
                     <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
@@ -1222,18 +1324,12 @@ export default function WatchlistsTab({ toast }) {
                   viewBox="0 0 24 24"
                   strokeWidth="2"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
                 Add Wallet to Watchlist
               </h4>
               <div className="mb-4">
-                <label className="text-[10px] sm:text-xs text-gray-200 uppercase tracking-wider mb-1 block">
-                  NAME
-                </label>
+                <label className="text-[10px] sm:text-xs text-gray-200 uppercase tracking-wider mb-1 block">NAME</label>
                 <input
                   type="text"
                   value={newWalletName}
@@ -1241,9 +1337,7 @@ export default function WatchlistsTab({ toast }) {
                   placeholder="Enter wallet name (optional)"
                   className="w-full text-[9px] sm:text-[10px] px-3 sm:px-4 py-1 sm:py-1.5 mb-3 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300"
                 />
-                <label className="text-[10px] sm:text-xs text-gray-200 uppercase tracking-wider mb-1 block">
-                  WALLET
-                </label>
+                <label className="text-[10px] sm:text-xs text-gray-200 uppercase tracking-wider mb-1 block">WALLET</label>
                 <input
                   type="text"
                   value={newAddress}
@@ -1259,8 +1353,9 @@ export default function WatchlistsTab({ toast }) {
                     onClick={() => setNewChainType(type)}
                     whileHover={{ scale: 1 }}
                     whileTap={{ scale: 1 }}
-                    className={`flex-1 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${newChainType === type ? 'bg-gray-400 text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
-                      } last:border-r-0`}
+                    className={`flex-1 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${
+                      newChainType === type ? 'bg-gray-400 text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
+                    } last:border-r-0`}
                   >
                     <span>{type}</span>
                     <div className="flex items-center">
@@ -1276,9 +1371,7 @@ export default function WatchlistsTab({ toast }) {
                           onError={(e) => (e.target.src = '/icons/default.png')}
                         />
                       ))}
-                      <div className="flex items-center justify-center w-4 sm:w-5 h-4 sm:h-5 bg-neon-blue/50 rounded-full text-white text-[8px] sm:text-[10px] mr-6">
-                        +
-                      </div>
+                      <div className="flex items-center justify-center w-4 sm:w-5 h-4 sm:h-5 bg-neon-blue/50 rounded-full text-white text-[8px] sm:text-[10px] mr-6">+</div>
                     </div>
                   </motion.button>
                 ))}
@@ -1293,7 +1386,9 @@ export default function WatchlistsTab({ toast }) {
                   ADD WALLET
                 </motion.button>
               </div>
-              {error && <p className="text-[10px] sm:text-xs text-red-400 mt-3 bg-red-500/10 p-2 rounded">Error: {error}</p>}
+              {error && (
+                <p className="text-[10px] sm:text-xs text-red-400 mt-3 bg-red-500/10 p-2 rounded">Error: {error}</p>
+              )}
             </motion.div>
           </motion.div>
         )}

@@ -1,5 +1,3 @@
-'use client';
-
 export default function MatrixHoverEffect({ text, hoverColor = '#00BFFF' }) {
   const handleMouseEnter = (e) => {
     const container = e.currentTarget.querySelector('.matrix-text');
