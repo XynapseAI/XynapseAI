@@ -1113,7 +1113,34 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   }, [selectedToken, chains]);
 
   const debouncedHandleTokenSelect = useCallback(
-    debounce(async (token) => {
+    debounce(async (token, initialTokenData = null) => {
+      if (initialTokenData && initialTokenData.id === token.id) {
+        // Use server-side data if available
+        setSelectedToken(initialTokenData);
+        setSelectedPair(`${initialTokenData.symbol?.toUpperCase()}/${currency.toUpperCase()}`);
+        const { chain } = getDefaultChainAndAddress(initialTokenData, 'ethereum');
+        setSelectedChain(chain || 'ethereum');
+        setAnalysis(null);
+        setPrediction(null);
+        setAnalysisLinks([]);
+        setIsDropdownOpen(false);
+        setOnChainData({ topHolders: [], whaleActivity: [] });
+        setOnChainError(null);
+
+        const days = timeRange || '1';
+        fetchPriceHistory(token.id, days, (err, data) => {
+          if (err) {
+            setError(
+              err.response?.status === 429
+                ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
+                : err.response?.data?.detail || 'Failed to load price history.'
+            );
+          }
+        });
+        return;
+      }
+
+      // Existing API call logic for when initial data is not available
       try {
         const recaptchaToken = await executeRecaptcha('coin_details');
         const response = await axios.get('/api/coingecko', {
@@ -1121,7 +1148,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             action: 'coin-details',
             id: token.id,
             recaptchaToken,
-            vs_currencies: availableCurrencies.join(','), // Fetch data for all supported currencies
+            vs_currencies: availableCurrencies.join(','),
           },
         });
         const marketData = response.data.market_data || {};
@@ -1186,8 +1213,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         setOnChainError(null);
 
         const days = timeRange || '1';
-        const tokenId = fullToken.id;
-        fetchPriceHistory(tokenId, days, (err, data) => {
+        fetchPriceHistory(token.id, days, (err, data) => {
           if (err) {
             setError(
               err.response?.status === 429
@@ -1203,7 +1229,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             : error.response?.data?.detail || 'Failed to load token details.'
         );
       }
-    }, 500),
+    }, 300), // Reduced debounce delay
     [currency, availableCurrencies, timeRange, fetchPriceHistory, setSelectedToken, setSelectedPair, setSelectedChain, setAnalysis, setPrediction, setAnalysisLinks, setIsDropdownOpen, setOnChainData, setOnChainError, setError, executeRecaptcha, getDefaultChainAndAddress, chains]
   );
 

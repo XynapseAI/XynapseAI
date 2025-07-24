@@ -3,6 +3,9 @@ import { revalidateTokenPath } from './actions';
 import TokenPageClient from '../../../components/TokenPageClient';
 import connectRedis from '../../../lib/redis';
 import Bottleneck from 'bottleneck';
+import {SUPPORTED_CHAINS } from '../../../utils/constants';
+
+
 
 // Cấu hình Bottleneck
 const limiterBottleneck = new Bottleneck({
@@ -49,14 +52,37 @@ async function getRedisClient() {
   return redisClient;
 }
 
-async function fetchTopHolders(slug, chain = 'ethereum') {
-  const cacheKey = `top-holders_${slug}_${chain}`;
+async function fetchTopHolders(slug, tokenData) {
+  const cacheKey = `top-holders_${slug}_ethereum`; // Default to ethereum
   try {
     const client = await getRedisClient();
     const cachedData = await client.get(cacheKey);
     if (cachedData) {
       console.log(`Cache hit for top holders: ${cacheKey}`);
       return JSON.parse(cachedData);
+    }
+
+    // Determine the correct chain
+    let chain = 'ethereum'; // Default chain
+    const normalizedPlatforms = tokenData?.detail_platforms
+      ? Object.keys(tokenData.detail_platforms).reduce((acc, cgId) => {
+          const chainData = SUPPORTED_CHAINS.find((c) => c.coingeckoId === cgId);
+          if (chainData && tokenData.detail_platforms[cgId].contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+            acc[chainData.value] = {
+              address: tokenData.detail_platforms[cgId].contract_address,
+              decimal_place: Number(tokenData.detail_platforms[cgId].decimal_place) || 18,
+            };
+          }
+          return acc;
+        }, {})
+      : {};
+
+    const availableChains = SUPPORTED_CHAINS.filter(
+      (c) => normalizedPlatforms[c.value] && (process.env.NODE_ENV === 'development' || !c.testnet)
+    );
+
+    if (availableChains.length > 0) {
+      chain = availableChains[0].value; // Use the first available chain
     }
 
     const normalizedChain = ['bitcoin', 'ethereum'].includes(slug.toLowerCase()) ? slug.toLowerCase() : chain;
@@ -91,14 +117,17 @@ async function fetchTopHolders(slug, chain = 'ethereum') {
         return result;
       }
     } else {
-      const response = await fetchWithRateLimit(`${apiBaseUrl}/api/top-holders?slug=${slug}&chain=${chain}`, {
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        cache: 'force-cache',
-        next: { revalidate: 300 },
-      });
+      const response = await fetchWithRateLimit(
+        `${apiBaseUrl}/api/top-holders?slug=${slug}&chain=${normalizedChain}`,
+        {
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          cache: 'force-cache',
+          next: { revalidate: 300 },
+        }
+      );
       data = response;
-      console.log(`Top holders response for ${slug} on ${chain}:`, data);
+      console.log(`Top holders response for ${slug} on ${normalizedChain}:`, data);
       if (data?.success) {
         await client.setEx(cacheKey, 12 * 3600, JSON.stringify(data));
         return data;
@@ -149,13 +178,28 @@ export async function generateMetadata({ params }) {
     description: `Explore market data and insights for ${tokenData.name || capitalizedSlug} on our crypto dashboard.`,
     keywords: `${slug}, ${tokenData.symbol?.toUpperCase() || 'token'}, cryptocurrency, market data, blockchain`,
     robots: 'index, follow',
+    other: {
+      // Preload critical resources with correct 'as' attributes
+      'preload': [
+        {
+          href: '/_next/static/chunks/webpack.js',
+          as: 'script',
+          fetchPriority: 'low',
+        },
+        {
+          href: '/_next/static/css/app/layout.css',
+          as: 'style',
+          fetchPriority: 'low',
+        },
+      ],
+    },
   };
 }
 
 export default async function TokenPage({ params }) {
   const { slug } = await params;
   const tokenData = await fetchTokenData(slug);
-  const topHolders = await fetchTopHolders(slug, tokenData?.symbol?.toLowerCase() || 'ethereum');
+  const topHolders = await fetchTopHolders(slug, tokenData);
 
   if (!tokenData) {
     return (

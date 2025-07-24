@@ -10,7 +10,7 @@ import ReCAPTCHA from 'react-google-recaptcha';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 
-export default function TokenPageClient({ initialTokenSlug }) {
+export default function TokenPageClient({ initialTokenSlug, initialTokenData, initialTopHolders }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const recaptchaRef = useRef(null);
@@ -21,6 +21,8 @@ export default function TokenPageClient({ initialTokenSlug }) {
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/signin');
+    } else {
+      setLoading(false); // Complete loading once session is confirmed
     }
   }, [status, router]);
 
@@ -43,14 +45,10 @@ export default function TokenPageClient({ initialTokenSlug }) {
       });
       return;
     }
-    router.push(`/token/${newSlug}`, undefined, { shallow: true });
+    setLoading(true); // Show loading state during navigation
+    router.push(`/token/${newSlug}`, { scroll: false });
     setActiveTab('market');
   };
-
-  useEffect(() => {
-    // Simulate loading completion after initial render
-    setLoading(false);
-  }, []);
 
   if (status === 'loading' || !initialTokenSlug || loading) {
     return (
@@ -79,6 +77,8 @@ export default function TokenPageClient({ initialTokenSlug }) {
           <MarketTab
             recaptchaRef={recaptchaRef}
             initialTokenSlug={initialTokenSlug}
+            initialTokenData={initialTokenData}
+            initialTopHolders={initialTopHolders}
             onTokenSelect={handleNavigateToToken}
           />
         </motion.div>
