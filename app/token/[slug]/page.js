@@ -46,11 +46,11 @@ async function fetchTokenData(slug) {
     });
 
     if (!response || !response.success || !response.data) {
-      console.error(`Invalid response for ${slug}:`, response);
+      console.error(`Invalid resp onse for ${slug}:`, response);
       return null;
     }
 
-    await redisClient.setEx(cacheKey, 7200, JSON.stringify(response));
+    await redisClient.setEx(cacheKey, 60, JSON.stringify(response));
     return response;
   } catch (error) {
     console.error(`Error fetching token data for slug ${slug}:`, error);

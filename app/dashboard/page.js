@@ -382,7 +382,7 @@ export default function Dashboard() {
               recaptchaRef={recaptchaRef}
             />
           )}
-          {activeTab === 'treemap' && <TreemapTab recaptchaRef={recaptchaRef} onTokenSelect={handleNavigateToToken} />}
+          {activeTab === 'treemap' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
           {activeTab === 'watchlists' && <WatchlistsTab toast={toast} />}
         </motion.div>
       </main>

@@ -1,7 +1,9 @@
 // app/treemap/page.js
 import TreemapTab from '../../components/TreemapTab';
 
-// Disable static generation for now to avoid prerendering issues
+// Disable static generation for dynamic routes with searchParams
+export const dynamic = 'force-dynamic';
+
 export async function generateStaticParams() {
   const supportedChains = ['ethereum', 'bsc', 'polygon', 'optimism', 'arbitrum'];
   const popularAddresses = [
@@ -15,21 +17,26 @@ export async function generateStaticParams() {
 
 // Server-side metadata for SEO
 export async function generateMetadata({ searchParams }) {
-  const address = searchParams.address || 'unknown';
-  const chain = searchParams.chain || 'ethereum';
+  const params = await searchParams; // Await searchParams
+  const chain = (params?.chain || 'ethereum').toLowerCase();
+  const address = params?.address || 'unknown';
+  const supportedChains = ['ethereum', 'bsc', 'polygon', 'optimism', 'arbitrum'];
+  const validChain = supportedChains.includes(chain) ? chain : 'ethereum';
   const truncatedAddress = address.length > 10 ? `${address.slice(0, 6)}...${address.slice(-4)}` : address;
-  const capitalizedChain = chain.charAt(0).toUpperCase() + chain.slice(1);
+  const capitalizedChain = validChain.charAt(0).toUpperCase() + validChain.slice(1);
+
   return {
     title: `Transaction Treemap for Wallet ${truncatedAddress} on ${capitalizedChain}`,
     description: `Explore the transaction treemap for wallet ${truncatedAddress} on ${capitalizedChain}.`,
-    keywords: `wallet, treemap, transactions, ${chain}, cryptocurrency, blockchain`,
+    keywords: `wallet, treemap, transactions, ${validChain}, cryptocurrency, blockchain`,
   };
 }
 
 // Server Component
-export default function TreemapPage({ searchParams }) {
-  console.log('TreemapPage props:', { searchParams }); // Debug log
-  const initialChain = searchParams.chain || 'ethereum';
-  const initialAddress = searchParams.address || '';
+export default async function TreemapPage({ searchParams }) {
+  const params = await searchParams; // Await searchParams
+  console.log('TreemapPage props:', { params }); // Debug log
+  const initialChain = (params?.chain || 'ethereum').toLowerCase();
+  const initialAddress = params?.address || '';
   return <TreemapTab initialChain={initialChain} initialAddress={initialAddress} />;
 }

@@ -107,7 +107,6 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
   );
 });
 
-// LoadingOverlay component
 const LoadingOverlay = ({ message }) => {
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/80 backdrop-blur-xs">
@@ -126,11 +125,10 @@ const LoadingOverlay = ({ message }) => {
   );
 };
 
-// Cache TTL (1 hour = 3600000 ms)
 const CACHE_TTL = 3600000;
 const NODES_PER_PAGE = 50;
 
-export default function TreemapTab({ initialChain = 'ethereum', initialAddress = '', recaptchaRef }) {
+export default function TreemapTab({ initialChain = 'ethereum', initialAddress = '' }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -162,13 +160,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [isLimitDropdownOpen, setIsLimitDropdownOpen] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
 
-  // Đảm bảo biến môi trường được thiết lập
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
   if (!process.env.NEXT_PUBLIC_API_BASE_URL && process.env.NODE_ENV === 'production') {
     console.warn('NEXT_PUBLIC_API_BASE_URL is not set, defaulting to http://localhost:3000');
   }
 
-  // Update URL when chain or address changes
   const updateUrl = (chain, address) => {
     const newParams = new URLSearchParams();
     newParams.set('chain', chain);
@@ -178,7 +174,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     router.push(`/treemap?${newParams.toString()}`, { shallow: true });
   };
 
-  // Sync selectedChain and walletAddress with URL
   useEffect(() => {
     const chainFromUrl = searchParams.get('chain') || initialChain;
     const addressFromUrl = searchParams.get('address') || initialAddress;
@@ -197,7 +192,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }
   }, [session]);
 
-  // Fetch CoinGecko chains
   useEffect(() => {
     const fetchCoingeckoChains = async () => {
       try {
@@ -224,7 +218,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     fetchCoingeckoChains();
   }, [apiBaseUrl]);
 
-  // Generate HMAC signature
   const generateHmacSignature = (payload) => {
     try {
       const hmacSecret = process.env.HMAC_SECRET || '88583e5e555aaeb3d9b3b0cafbd1e609f5a7ff96548caa71c8eda0783d66b1f1';
@@ -238,7 +231,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }
   };
 
-  // Cache handling
   const getCachedData = (address, chain, limit) => {
     try {
       const cacheKey = `wallet_transactions_${chain}_${address.toLowerCase()}_${limit}`;
@@ -297,10 +289,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     setLoadingMessage(`Fetching transactions from ${chains.find((c) => c.value === selectedChain)?.label || 'blockchain'}...`);
 
     try {
-      if (!recaptchaRef.current) {
-        throw new Error('reCAPTCHA not initialized.');
-      }
-      const recaptchaToken = await recaptchaRef.current.executeAsync();
       const payload = {
         wallet_address: address,
         chain: selectedChain,
@@ -316,7 +304,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Recaptcha-Token': recaptchaToken,
           'x-api-key': session?.user?.apiKey || 'default-api-key',
           'x-hmac-signature': signature,
         },
@@ -398,7 +385,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     } finally {
       setLoading(false);
       setLoadingMessage('');
-      if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   };
 

@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { key, action, ttl = 2 * 60 * 60 } = req.body;
+const { key, action, ttl = 60 } = req.body; // 60s
 
   let client;
   try {

@@ -120,7 +120,7 @@ export default async function handler(req, res) {
       detail_platforms: response.data.detail_platforms || {},
     };
 
-    await redisClient.setEx(cacheKey, 7200, JSON.stringify(tokenData));
+    await redisClient.setEx(cacheKey, 60, JSON.stringify(tokenData));
     logger.info(`Successfully fetched token data for ${slug}`, {
       id: tokenData.id,
       name: tokenData.name,

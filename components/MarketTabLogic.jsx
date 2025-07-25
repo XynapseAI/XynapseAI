@@ -13,7 +13,7 @@ import useSWR from 'swr';
 const fetcher = (url, params) => axios.get(url, { params }).then((res) => res.data);
 
 // Cache duration
-const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 giờ
+const CACHE_DURATION = 60 * 1000; // 1 minute
 
 const getCachedData = async (key, fetchFn, ttl = CACHE_DURATION) => {
   try {
@@ -120,6 +120,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const blockchairCache = useRef({});
   const [currency, setCurrency] = useState('usd'); // Add currency state
   const [availableCurrencies] = useState(['usd', 'vnd', 'eth', 'btc', 'eur']); // Supported currencies
+
+  const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
   const executeRecaptcha = useCallback(
     async (action, retryCount = 0) => {
@@ -1476,53 +1478,55 @@ Use natural, professional tone with recent data.
   );
 
   const debouncedSearch = useCallback(
-    debounce((query) => {
-      if (!query) {
-        setSearchResults([]);
-        return;
-      }
-      const { data, error } = useSWR(
-        ['/api/coingecko', { action: 'search', query }],
-        ([url, params]) => fetcher(url, params),
-        {
-          revalidateOnFocus: false,
-          revalidateOnReconnect: false,
-          onSuccess: (data) => {
-            const results = data.map((coin) => ({
-              id: coin.id,
-              name: coin.name,
-              symbol: coin.symbol,
-              image: coin.large,
-              market_cap_rank: coin.market_cap_rank,
-            }));
-            setSearchResults(results.slice(0, 10));
-          },
-          onError: (err) => {
-            setError(
-              err.response?.status === 429
-                ? 'API rate limit reached. Please wait a minute and try again.'
-                : err.response?.data?.detail || 'Failed to search coins.'
-            );
-            setSearchResults([]);
-          },
-        }
+  debounce((query) => {
+    if (!query) {
+      setSearchResults([]);
+    }
+  }, 300),
+  []
+);
+
+const { data: searchData, error: searchError } = useSWR(
+  searchQuery ? ['/api/coingecko', { action: 'search', query: searchQuery }] : null,
+  ([url, params]) => fetcher(url, params),
+  {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    onSuccess: (data) => {
+      const results = data.map((coin) => ({
+        id: coin.id,
+        name: coin.name,
+        symbol: coin.symbol,
+        image: coin.large,
+        market_cap_rank: coin.market_cap_rank,
+      }));
+      setSearchResults(results.slice(0, 10));
+    },
+    onError: (err) => {
+      setError(
+        err.response?.status === 429
+          ? 'API rate limit reached. Please wait a minute and try again.'
+          : err.response?.data?.detail || 'Failed to search coins.'
       );
-    }, 300),
-    []
-  );
+      setSearchResults([]);
+    },
+  }
+);
+
+useEffect(() => {
+  debouncedSearch(searchQuery);
+}, [searchQuery, debouncedSearch]);
 
   // Thay thế hàm fetchMarketData và phần useEffect liên quan
   const { data: marketData, error: marketError } = useSWR(
     ['/api/coingecko', { start: 1, limit: tokensPerPage, vs_currencies: availableCurrencies.join(',') }],
     ([url, params]) => fetcher(url, params),
     {
-      refreshInterval: typeof document !== 'undefined' && document.visibilityState === 'visible' ? 10 * 60 * 1000 : 0,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-    }
+    refreshInterval: typeof document !== 'undefined' && document.visibilityState === 'visible' ? 30 * 1000 : 0, // Revalidate mỗi 30 giây
+    revalidateOnFocus: true, // Revalidate khi người dùng quay lại tab
+    revalidateOnReconnect: true, // Revalidate khi kết nối mạng được khôi phục
+  }
   );
-
-  const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
   useEffect(() => {
     if (marketError) {

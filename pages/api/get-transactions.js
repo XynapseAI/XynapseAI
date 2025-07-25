@@ -1,3 +1,4 @@
+// pages/api/get-transactions.js
 import { query } from '../../utils/postgres.js';
 import { isAddress } from 'ethers';
 import pkg from '../../utils/logger.cjs';
@@ -8,12 +9,10 @@ import helmet from 'helmet';
 import { body, validationResult } from 'express-validator';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
-import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
 
 const { logger } = pkg;
 const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
 
-// Định nghĩa SUPPORTED_CHAINS trước validateInput
 const SUPPORTED_CHAINS = {
   '1': { name: 'ethereum', explorer: 'Etherscan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'ethereum' },
   '56': { name: 'bsc', explorer: 'BscScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'binance-smart-chain' },
@@ -31,7 +30,6 @@ const SUPPORTED_CHAINS = {
   'tron': { name: 'tron', explorer: 'TronScan', apiUrl: 'https://api.tronscan.org/api', apiKey: process.env.TRONSCAN_API_KEY, coingeckoId: 'tron' },
 };
 
-// Khai báo validateInput sau SUPPORTED_CHAINS
 const validateInput = [
   body('wallet_address').isString().notEmpty().withMessage('Wallet address is required'),
   body('chain').isString().isIn(Object.keys(SUPPORTED_CHAINS)).withMessage('Invalid chain'),
@@ -39,8 +37,8 @@ const validateInput = [
 ];
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 phút
-  max: 100, // Giới hạn 100 request mỗi IP
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit to 100 requests per IP
   message: { error: 'Too many requests, please try again later.' },
   keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown',
   trustProxy: true,
@@ -59,7 +57,7 @@ async function checkIp(ip) {
     return true;
   } catch (error) {
     logger.error(`IP check failed: ${error.message}`);
-    return true; // Không chặn nếu kiểm tra thất bại
+    return true; // Allow if IP check fails
   }
 }
 
@@ -274,13 +272,13 @@ export default async function handler(req, res) {
   helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
 
-  // Kiểm tra IP
+  // Check IP
   if (!(await checkIp(ip))) {
     logger.warn(`Access denied: Suspicious IP address ${ip}`);
     return res.status(403).json({ error: 'Access denied: Suspicious IP address.' });
   }
 
-  // Kiểm tra rate limiting
+  // Check rate limiting
   try {
     await new Promise((resolve, reject) => {
       limiter(req, res, (err) => (err ? reject(err) : resolve()));
@@ -290,13 +288,13 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many requests, please try again later.' });
   }
 
-  // Kiểm tra phương thức HTTP
+  // Check HTTP method
   if (req.method !== 'POST') {
     logger.error(`Method not allowed: ${req.method}`, { ip });
     return res.status(405).json({ error: 'Method not allowed. Only POST is supported.' });
   }
 
-  // Kiểm tra đầu vào
+  // Validate input
   await Promise.all(validateInput.map(validation => validation.run(req)));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -304,26 +302,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid input data', errors: errors.array() });
   }
 
-  // Kiểm tra reCAPTCHA
-  const recaptchaToken = req.headers['x-recaptcha-token'];
-  if (!recaptchaToken) {
-    logger.error('Missing X-Recaptcha-Token header', { ip });
-    return res.status(400).json({ error: 'Missing reCAPTCHA token in header' });
-  }
-  try {
-    const { score } = await verifyRecaptcha(recaptchaToken, 'get_transactions', ip);
-    if (score < 0.2) {
-      logger.error(`reCAPTCHA score too low: ${score}`, { ip });
-      return res.status(403).json({ error: 'reCAPTCHA verification failed: Suspicious activity detected' });
-    }
-  } catch (error) {
-    logger.error(`reCAPTCHA verification failed: ${error.message}`, { stack: error.stack, ip });
-    return res.status(403).json({ error: `reCAPTCHA verification failed: ${error.message}` });
-  }
-
   const { wallet_address, chain, limit = 100 } = req.body;
 
-  // Kiểm tra địa chỉ ví
+  // Validate wallet address
   const isValidAddress = ['solana', 'tron'].includes(chain)
     ? /^[A-Za-z0-9]{32,44}$/.test(wallet_address)
     : isAddress(wallet_address);
@@ -341,26 +322,26 @@ export default async function handler(req, res) {
   const signature = req.headers['x-hmac-signature'];
 
   try {
-    // Kiểm tra API key
+    // Verify API key
     const { isValid, isPremium } = await verifyApiKey(apiKey, req, res);
     if (!isValid) {
       logger.error(`Invalid API key: ${apiKey}`, { ip });
       return res.status(401).json({ error: 'Unauthorized: Invalid API key.' });
     }
 
-    // Kiểm tra HMAC signature
+    // Verify HMAC signature
     if (!signature || !(await verifyHmacSignature(req.body, signature, HMAC_SECRET))) {
       logger.warn(`Unauthorized: Invalid HMAC signature for wallet ${lowerWalletAddress}`, { ip });
       return res.status(401).json({ error: 'Unauthorized: Invalid HMAC signature.' });
     }
 
-    // Kiểm tra quyền Premium
+    // Check Premium status
     if (!isPremium && chain !== '1') {
       logger.warn(`Non-Premium user attempted to access chain ${chain}`, { ip });
       return res.status(403).json({ error: 'Premium account required to access chains other than Ethereum.' });
     }
 
-    // Kiểm tra limit
+    // Validate limit
     const validLimits = [100, 200, 300, 500];
     const selectedLimit = validLimits.includes(Number(limit)) ? Number(limit) : 100;
     if (!isPremium && selectedLimit > 100) {
