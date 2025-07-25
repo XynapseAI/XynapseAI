@@ -3,11 +3,7 @@ import { revalidateTokenPath } from './actions';
 import TokenPageClient from '../../../components/TokenPageClient';
 import connectRedis from '../../../lib/redis';
 import Bottleneck from 'bottleneck';
-import {SUPPORTED_CHAINS } from '../../../utils/constants';
 
-
-
-// Cấu hình Bottleneck
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 1,
   minTime: process.env.NODE_ENV === 'production' ? 200 : 1000,
@@ -15,9 +11,15 @@ const limiterBottleneck = new Bottleneck({
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   try {
-    const response = await fetch(url, config);
+    const response = await fetch(url, {
+      ...config,
+      headers: {
+        ...config.headers,
+        'x-cg-demo-api-key': process.env.COINGECKO_API_KEY || '',
+      },
+    });
     if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}`);
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
     }
     return response.json();
   } catch (error) {
@@ -27,14 +29,28 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
 });
 
 async function fetchTokenData(slug) {
+  let redisClient;
   try {
-    const response = await fetchWithRateLimit(`https://api.coingecko.com/api/v3/coins/${slug}`, {
-      headers: {
-        'x-cg-demo-api-key': process.env.COINGECKO_API_KEY,
-      },
-      cache: 'force-cache',
-      next: { revalidate: 300 },
+    redisClient = await connectRedis();
+    const cacheKey = `token-full-${slug}-1-usd`;
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      console.log(`Cache hit for token ${slug}`);
+      return JSON.parse(cached);
+    }
+
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+    const response = await fetchWithRateLimit(`${apiBaseUrl}/api/coingecko/token/${slug}`, {
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
     });
+
+    if (!response || !response.success || !response.data) {
+      console.error(`Invalid response for ${slug}:`, response);
+      return null;
+    }
+
+    await redisClient.setEx(cacheKey, 7200, JSON.stringify(response));
     return response;
   } catch (error) {
     console.error(`Error fetching token data for slug ${slug}:`, error);
@@ -42,166 +58,76 @@ async function fetchTokenData(slug) {
   }
 }
 
-let redisClient;
-
-async function getRedisClient() {
-  if (!redisClient || !redisClient.isOpen) {
-    redisClient = await connectRedis();
-    redisClient.on('error', (err) => console.error('Redis Client Error:', err));
-  }
-  return redisClient;
-}
-
-async function fetchTopHolders(slug, tokenData) {
-  const cacheKey = `top-holders_${slug}_ethereum`; // Default to ethereum
-  try {
-    const client = await getRedisClient();
-    const cachedData = await client.get(cacheKey);
-    if (cachedData) {
-      console.log(`Cache hit for top holders: ${cacheKey}`);
-      return JSON.parse(cachedData);
-    }
-
-    // Determine the correct chain
-    let chain = 'ethereum'; // Default chain
-    const normalizedPlatforms = tokenData?.detail_platforms
-      ? Object.keys(tokenData.detail_platforms).reduce((acc, cgId) => {
-          const chainData = SUPPORTED_CHAINS.find((c) => c.coingeckoId === cgId);
-          if (chainData && tokenData.detail_platforms[cgId].contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
-            acc[chainData.value] = {
-              address: tokenData.detail_platforms[cgId].contract_address,
-              decimal_place: Number(tokenData.detail_platforms[cgId].decimal_place) || 18,
-            };
-          }
-          return acc;
-        }, {})
-      : {};
-
-    const availableChains = SUPPORTED_CHAINS.filter(
-      (c) => normalizedPlatforms[c.value] && (process.env.NODE_ENV === 'development' || !c.testnet)
-    );
-
-    if (availableChains.length > 0) {
-      chain = availableChains[0].value; // Use the first available chain
-    }
-
-    const normalizedChain = ['bitcoin', 'ethereum'].includes(slug.toLowerCase()) ? slug.toLowerCase() : chain;
-    console.log(`Fetching top holders for slug: ${slug}, chain: ${normalizedChain}`);
-
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://your-production-api.com';
-    let data;
-    if (['bitcoin', 'ethereum'].includes(normalizedChain)) {
-      const response = await fetchWithRateLimit(
-        `${apiBaseUrl}/api/coingecko?action=public-treasury&tokenType=${normalizedChain}`,
-        {
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          cache: 'force-cache',
-          next: { revalidate: 300 },
-        }
-      );
-      data = response;
-      console.log(`CoinGecko treasury response for ${normalizedChain}:`, data);
-      if (data?.success && data.data?.companies) {
-        const topHolders = data.data.companies.map((company) => ({
-          address: company.address || company.name || 'Unknown',
-          balance: parseFloat(company.total_holdings) || 0,
-          share: parseFloat(company.total_value_usd) / (company.total_holdings || 1) || 0,
-          nameTag: company.name || null,
-          image: null,
-          source: 'CoinGecko',
-        }));
-        const result = { success: true, topHolders };
-        await client.setEx(cacheKey, 12 * 3600, JSON.stringify(result));
-        console.log(`Cached top holders for ${cacheKey}:`, result);
-        return result;
-      }
-    } else {
-      const response = await fetchWithRateLimit(
-        `${apiBaseUrl}/api/top-holders?slug=${slug}&chain=${normalizedChain}`,
-        {
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          cache: 'force-cache',
-          next: { revalidate: 300 },
-        }
-      );
-      data = response;
-      console.log(`Top holders response for ${slug} on ${normalizedChain}:`, data);
-      if (data?.success) {
-        await client.setEx(cacheKey, 12 * 3600, JSON.stringify(data));
-        return data;
-      }
-    }
-    return { topHolders: [], success: false, error: data?.detail || 'No top holders data' };
-  } catch (error) {
-    console.error(`Error fetching top holders for ${slug} on ${chain}:`, error);
-    return { topHolders: [], success: false, error: error.message };
-  }
-}
-
 export async function generateStaticParams() {
   try {
     const response = await fetchWithRateLimit('https://api.coingecko.com/api/v3/coins/list', {
       headers: {
-        'x-cg-demo-api-key': process.env.COINGECKO_API_KEY,
+        'Content-Type': 'application/json',
+        'x-cg-demo-api-key': process.env.COINGECKO_API_KEY || '',
       },
       cache: 'force-cache',
       next: { revalidate: 86400 },
     });
-    const tokens = await response;
-    return tokens ? tokens.slice(0, 10).map((token) => ({
+
+    if (!response) {
+      console.error('Failed to fetch token list from CoinGecko');
+      return [{ slug: 'bitcoin' }, { slug: 'ethereum' }, { slug: 'tether' }, { slug: 'chainlink' }];
+    }
+
+    const tokens = response;
+    const topTokens = tokens.slice(0, 100);
+
+    const redisClient = await connectRedis();
+    await Promise.all(
+      topTokens.slice(0, 20).map(async (token) => {
+        const cacheKey = `token-full-${token.id}-1-usd`;
+        const cached = await redisClient.get(cacheKey);
+        if (!cached) {
+          const data = await fetchTokenData(token.id);
+          if (data) {
+            await redisClient.setEx(cacheKey, 7200, JSON.stringify(data));
+          }
+        }
+      })
+    );
+
+    return topTokens.map((token) => ({
       slug: token.id,
-    })) : [];
+    }));
   } catch (error) {
     console.error('Error in generateStaticParams:', error);
-    return [];
+    return [{ slug: 'bitcoin' }, { slug: 'ethereum' }, { slug: 'tether' }, { slug: 'chainlink' }];
   }
 }
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const tokenData = await fetchTokenData(slug);
-  const capitalizedSlug = slug.charAt(0).toUpperCase() + slug.slice(1);
+  const data = await fetchTokenData(slug);
+  const tokenData = data?.data;
 
   if (!tokenData) {
     return {
-      title: 'Token Not Found | Crypto Dashboard',
+      title: 'Token Not Found | Xynapse Dashboard',
       description: 'The requested token could not be found.',
       keywords: 'cryptocurrency, market data, blockchain',
       robots: 'noindex',
     };
   }
 
+  const capitalizedSlug = slug.charAt(0).toUpperCase() + slug.slice(1);
   return {
-    title: `${tokenData.name || capitalizedSlug} | Crypto Dashboard`,
+    title: `${tokenData.name || capitalizedSlug}`,
     description: `Explore market data and insights for ${tokenData.name || capitalizedSlug} on our crypto dashboard.`,
     keywords: `${slug}, ${tokenData.symbol?.toUpperCase() || 'token'}, cryptocurrency, market data, blockchain`,
     robots: 'index, follow',
-    other: {
-      // Preload critical resources with correct 'as' attributes
-      'preload': [
-        {
-          href: '/_next/static/chunks/webpack.js',
-          as: 'script',
-          fetchPriority: 'low',
-        },
-        {
-          href: '/_next/static/css/app/layout.css',
-          as: 'style',
-          fetchPriority: 'low',
-        },
-      ],
-    },
   };
 }
 
 export default async function TokenPage({ params }) {
   const { slug } = await params;
-  const tokenData = await fetchTokenData(slug);
-  const topHolders = await fetchTopHolders(slug, tokenData);
+  const data = await fetchTokenData(slug);
 
-  if (!tokenData) {
+  if (!data?.data) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white font-jetbrains">
         <div className="text-center">
@@ -219,7 +145,14 @@ export default async function TokenPage({ params }) {
     await revalidateTokenPath(slug);
   }
 
-  return <TokenPageClient initialTokenSlug={slug} initialTokenData={tokenData} initialTopHolders={topHolders} />;
+  return (
+    <TokenPageClient
+      initialTokenSlug={slug}
+      initialTokenData={data.data}
+      initialTopHolders={data.topHolders || []}
+      initialPriceHistory={data.priceHistory || []}
+    />
+  );
 }
 
 export const revalidate = 300;

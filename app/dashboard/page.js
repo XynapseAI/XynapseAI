@@ -392,7 +392,7 @@ export default function Dashboard() {
         size="invisible"
         badge="bottomright"
       />
-      <p className="text-[14px] text-gray-600 ml-2">
+      <p className="text-[8px] text-gray-600 ml-2">
         Protected by reCAPTCHA. See{' '}
         <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
           Privacy Policy

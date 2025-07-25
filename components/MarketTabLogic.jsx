@@ -7,7 +7,35 @@ import debounce from 'lodash.debounce';
 import rateLimit from 'axios-rate-limit';
 import pLimit from 'p-limit';
 import { GECKOTERMINAL_CHAIN_MAPPING, SUPPORTED_CHAINS, CHAIN_MAPPING } from '../utils/constants';
-import btcNameTags from '../public/nametags/btc-top-holders.json'; ``
+import btcNameTags from '../public/nametags/btc-top-holders.json';
+import useSWR from 'swr';
+
+const fetcher = (url, params) => axios.get(url, { params }).then((res) => res.data);
+
+// Cache duration
+const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 giờ
+
+const getCachedData = async (key, fetchFn, ttl = CACHE_DURATION) => {
+  try {
+    // Kiểm tra cache từ API
+    const cacheResponse = await axios.post('/api/cache', { key, action: 'get' });
+    if (cacheResponse.data.data) {
+      console.log(`Cache hit for ${key}`);
+      return cacheResponse.data.data;
+    }
+
+    // Nếu không có cache, gọi fetchFn để lấy dữ liệu
+    const data = await fetchFn();
+    if (data) {
+      await axios.post('/api/cache', { key, action: 'set', data, ttl });
+      console.log(`Cached data for ${key}`);
+    }
+    return data;
+  } catch (error) {
+    console.error(`Cache error for ${key}:`, error);
+    return await fetchFn(); // Fallback về fetchFn nếu có lỗi
+  }
+};
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
   console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
@@ -28,19 +56,20 @@ const coingeckoAxios = rateLimit(axios.create(), {
 });
 
 const COINGECKO_API_KEY = process.env.NEXT_PUBLIC_COINGECKO_API_KEY || '';
-const CACHE_DURATION = 5 * 60 * 1000;
 const NAME_TAG_CACHE_DURATION = 24 * 60 * 60 * 1000;
 const WALLET_SEARCH_LIMIT = 5;
 const WALLET_SEARCH_WINDOW = 60 * 1000;
 const tokensPerPage = 20;
 
-export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
+export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initialTokenData }) => {
   const { data: session, status } = useSession();
   const [tokens, setTokens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedToken, setSelectedToken] = useState(null);
-  const [selectedPair, setSelectedPair] = useState('BTC/USD');
+  const [selectedToken, setSelectedToken] = useState(initialTokenData || null);
+  const [selectedPair, setSelectedPair] = useState(
+    initialTokenData ? `${initialTokenData.symbol?.toUpperCase()}/USD` : 'BTC/USD'
+  );
   const [selectedChain, setSelectedChain] = useState('ethereum');
   const [analysis, setAnalysis] = useState(null);
   const [prediction, setPrediction] = useState(null);
@@ -74,9 +103,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   const [dailyMarketInteractions, setDailyMarketInteractions] = useState(0);
   const [tickerCache, setTickerCache] = useState({});
   const [nameTags, setNameTags] = useState({});
+  const lastFetchedTokenRef = useRef(initialTokenSlug || null);
   const [isLoadingNameTags, setIsLoadingNameTags] = useState(false);
   const nameTagsRef = useRef({});
-  const lastFetchedTokenRef = useRef(null);
   const prevTopHoldersRef = useRef([]);
   const prevAvailableChainsRef = useRef([]);
   const [chains, setChains] = useState([]);
@@ -176,46 +205,43 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
     }
   }, [toast]);
 
-  const fetchPoolTokenMetadata = useCallback(async (chain, poolAddress, retryCount = 0) => {
-    const cacheKey = `pool-${GECKOTERMINAL_CHAIN_MAPPING[chain]}-${poolAddress}`;
-    if (tickerCache[cacheKey] && Date.now() - tickerCache[cacheKey].timestamp < CACHE_DURATION) {
-      return tickerCache[cacheKey].data;
-    }
+  const fetchPoolTokenMetadata = useCallback(
+    async (chain, poolAddress, retryCount = 0) => {
+      const cacheKey = `pool-${GECKOTERMINAL_CHAIN_MAPPING[chain]}-${poolAddress}`;
+      try {
+        const fetchFn = async () => {
+          const response = await coingeckoAxios.get(
+            `https://api.geckoterminal.com/api/v2/networks/${GECKOTERMINAL_CHAIN_MAPPING[chain]}/pools/${poolAddress}/info`,
+            {
+              headers: { accept: 'application/json' },
+              timeout: 10000,
+            }
+          );
 
-    try {
-      const response = await coingeckoAxios.get(
-        `https://api.geckoterminal.com/api/v2/networks/${GECKOTERMINAL_CHAIN_MAPPING[chain]}/pools/${poolAddress}/info`,
-        {
-          headers: { accept: 'application/json' },
-          timeout: 10000,
-        }
-      );
-
-      const tokenData = response.data.data || [];
-      const poolTokens = tokenData.reduce((acc, token) => {
-        acc[token.attributes.address] = {
-          symbol: token.attributes.symbol,
-          image_url: token.attributes.image_url,
-          transaction_score: token.attributes.gt_score_details?.transaction || 0,
-          holders: token.attributes.holders || {},
+          const tokenData = response.data.data || [];
+          return tokenData.reduce((acc, token) => {
+            acc[token.attributes.address] = {
+              symbol: token.attributes.symbol,
+              image_url: token.attributes.image_url,
+              transaction_score: token.attributes.gt_score_details?.transaction || 0,
+              holders: token.attributes.holders || {},
+            };
+            return acc;
+          }, {});
         };
-        return acc;
-      }, {});
 
-      setTickerCache((prev) => ({
-        ...prev,
-        [cacheKey]: { data: poolTokens, timestamp: Date.now() },
-      }));
-      return poolTokens;
-    } catch (error) {
-      if (retryCount < 3 && error.response?.status === 429) {
-        const delay = Math.pow(2, retryCount) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        return fetchPoolTokenMetadata(chain, poolAddress, retryCount + 1);
+        return await getCachedData(cacheKey, fetchFn);
+      } catch (error) {
+        if (retryCount < 3 && error.response?.status === 429) {
+          const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff với jitter
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          return fetchPoolTokenMetadata(chain, poolAddress, retryCount + 1);
+        }
+        return {};
       }
-      return {};
-    }
-  }, [tickerCache, setTickerCache]);
+    },
+    []
+  );
 
   const fetchNameTag = useCallback(
     async (address) => {
@@ -373,30 +399,17 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
 
   const fetchPriceHistory = useCallback(
     debounce(
-      (tokenId, days, callback, retryCount = 0) => {
+      async (tokenId, days, callback, retryCount = 0) => {
         if (document.visibilityState !== 'visible') {
           callback(null);
           return;
         }
-        const cacheKey = `${tokenId}-${days}-${currency}`;
-        const cached = priceHistoryCache[cacheKey];
-        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-          setPriceHistory(cached.data);
-          callback(null, cached.data);
-          return;
-        }
-        return new Promise(async (resolve, reject) => {
-          try {
+        const cacheKey = `price-history-${tokenId}-${days}-${currency}`;
+        try {
+          const fetchFn = async () => {
             const response = await axios.get('/api/coingecko/market_chart', {
               params: { id: tokenId, days, currency },
               timeout: 30000,
-            }).catch(async (error) => {
-              if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 503 || error.code === 'ECONNABORTED')) {
-                const delay = Math.pow(2, retryCount) * 1000;
-                await new Promise((resolve) => setTimeout(resolve, delay));
-                return fetchPriceHistory(tokenId, days, callback, retryCount + 1);
-              }
-              throw error;
             });
 
             if (!response.data?.prices || !Array.isArray(response.data.prices) || response.data.prices.length === 0) {
@@ -429,31 +442,33 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
               ),
             }));
 
-            setPriceHistoryCache((prev) => ({
-              ...prev,
-              [cacheKey]: { data: priceData, timestamp: Date.now() },
-            }));
-            setPriceHistory(priceData);
-            resolve(priceData);
-            callback(null, priceData);
-          } catch (err) {
-            const errorMessage =
-              err.response?.status === 429
-                ? 'API rate limit reached. Please wait a minute and try again.'
-                : err.response?.status === 401
-                  ? 'Unable to fetch market data due to authentication issues. Please try again later.'
-                  : err.response?.data?.detail || `Failed to load price history: ${err.message}`;
-            setError(errorMessage);
-            toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-            reject(err);
-            callback(err);
+            return priceData;
+          };
+
+          const priceData = await getCachedData(cacheKey, fetchFn);
+          setPriceHistory(priceData);
+          callback(null, priceData);
+        } catch (err) {
+          if (retryCount < 3 && (err.response?.status === 429 || err.response?.status === 503 || err.code === 'ECONNABORTED')) {
+            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff với jitter
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return fetchPriceHistory(tokenId, days, callback, retryCount + 1);
           }
-        });
+          const errorMessage =
+            err.response?.status === 429
+              ? 'API rate limit reached. Please wait a minute and try again.'
+              : err.response?.status === 401
+                ? 'Unable to fetch market data due to authentication issues. Please try again later.'
+                : err.response?.data?.detail || `Failed to load price history: ${err.message}`;
+          setError(errorMessage);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          callback(err);
+        }
       },
-      500,
+      300,
       { leading: false, trailing: true }
     ),
-    [currency, chains, priceHistoryCache, setPriceHistory, setPriceHistoryCache, setError, toast]
+    [currency, chains, setPriceHistory, setError, toast]
   );
 
   const fetchPublicTreasuryData = useCallback(
@@ -470,19 +485,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         const cacheKey = `blockchair-${chain}-top-holders`;
         setIsLoadingOnChain(true);
         setOnChainError(null);
-
-        // Check cache
-        if (
-          blockchairCache.current[cacheKey] &&
-          Date.now() - blockchairCache.current[cacheKey].timestamp < CACHE_DURATION
-        ) {
-          setOnChainData((prev) => ({
-            ...prev,
-            topHolders: blockchairCache.current[cacheKey].data,
-          }));
-          setIsLoadingOnChain(false);
-          return;
-        }
 
         const userId = session?.user?.id || 'anonymous';
         const now = Date.now();
@@ -504,88 +506,84 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         }
 
         try {
-          const recaptchaToken = await executeRecaptcha('blockchair_top_holders');
-          blockchairRequestTracker.set(userId, {
-            count: userRequests.count + 1,
-            lastReset: userRequests.lastReset,
-          });
-          setBlockchairRequestCount((prev) => prev + 1);
+          const fetchFn = async () => {
+            const recaptchaToken = await executeRecaptcha('blockchair_top_holders');
+            blockchairRequestTracker.set(userId, {
+              count: userRequests.count + 1,
+              lastReset: userRequests.lastReset,
+            });
+            setBlockchairRequestCount((prev) => prev + 1);
 
-          // Fetch Blockchair data
-          let topHolders = [];
-          try {
-            const blockchairResponse = await axios.post(
-              '/api/blockchair',
-              { chain, limit: 100 },
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-                  'x-recaptcha-token': recaptchaToken,
-                },
-                timeout: 15000,
-              }
-            );
-
-            if (!blockchairResponse.data.success || !Array.isArray(blockchairResponse.data.data)) {
-              throw new Error(blockchairResponse.data.detail || `No top holders data for ${chain} from Blockchair`);
-            }
-
-            topHolders = blockchairResponse.data.data.map((holder) => ({
-              address: holder.address,
-              balance: parseFloat(holder.balance) || 0,
-              share: parseFloat(holder.share) || 0,
-              nameTag: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
-              image: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.image || null,
-              source: 'Blockchair',
-            }));
-          } catch (blockchairError) {
-            console.warn(`Blockchair fetch failed for ${chain}:`, blockchairError);
-            // Continue to try CoinGecko if Blockchair fails
-          }
-
-          // Fetch CoinGecko public treasury data for Bitcoin and Ethereum
-          if (['bitcoin', 'ethereum'].includes(chain)) {
+            let topHolders = [];
             try {
-              const coingeckoResponse = await coingeckoAxios.get('/api/coingecko', {
-                params: { action: 'public-treasury', tokenType: chain },
-                headers: {
-                  ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-                },
-                timeout: 10000,
-              });
+              const blockchairResponse = await axios.post(
+                '/api/blockchair',
+                { chain, limit: 100 },
+                {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+                    'x-recaptcha-token': recaptchaToken,
+                  },
+                  timeout: 15000,
+                }
+              );
 
-              if (coingeckoResponse.data.success && Array.isArray(coingeckoResponse.data.data?.companies)) {
-                const treasuryData = coingeckoResponse.data.data.companies.map((company) => ({
-                  address: company.address || company.name || 'Unknown',
-                  balance: parseFloat(company.total_holdings) || 0,
-                  share: parseFloat(company.total_value_usd) / (company.total_holdings || 1) || 0,
-                  nameTag: company.name || null,
-                  image: null,
-                  source: 'CoinGecko',
-                }));
-
-                const uniqueAddresses = new Set(topHolders.map((holder) => holder.address.toLowerCase()));
-                const mergedHolders = [
-                  ...topHolders,
-                  ...treasuryData.filter((company) => !uniqueAddresses.has(company.address.toLowerCase())),
-                ];
-
-                topHolders = mergedHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
-              } else {
-                console.warn(`No valid CoinGecko treasury data for ${chain}:`, coingeckoResponse.data);
+              if (!blockchairResponse.data.success || !Array.isArray(blockchairResponse.data.data)) {
+                throw new Error(blockchairResponse.data.detail || `No top holders data for ${chain} from Blockchair`);
               }
-            } catch (coingeckoError) {
-              console.warn(`Failed to fetch CoinGecko treasury data for ${chain}:`, coingeckoError);
-              // Continue with Blockchair data if CoinGecko fails
+
+              topHolders = blockchairResponse.data.data.map((holder) => ({
+                address: holder.address,
+                balance: parseFloat(holder.balance) || 0,
+                share: parseFloat(holder.share) || 0,
+                nameTag: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
+                image: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.image || null,
+                source: 'Blockchair',
+              }));
+            } catch (blockchairError) {
+              console.warn(`Blockchair fetch failed for ${chain}:`, blockchairError);
             }
-          }
 
-          if (topHolders.length === 0) {
-            throw new Error(`No top holders data available for ${chain}`);
-          }
+            if (['bitcoin', 'ethereum'].includes(chain)) {
+              try {
+                const coingeckoResponse = await coingeckoAxios.get('/api/coingecko', {
+                  params: { action: 'public-treasury', tokenType: chain },
+                  headers: {
+                    ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+                  },
+                  timeout: 10000,
+                });
 
-          blockchairCache.current[cacheKey] = { data: topHolders, timestamp: Date.now() };
+                if (coingeckoResponse.data.success && Array.isArray(coingeckoResponse.data.data?.companies)) {
+                  const treasuryData = coingeckoResponse.data.data.companies.map((company) => ({
+                    address: company.address || company.name || 'Unknown',
+                    balance: parseFloat(company.total_holdings) || 0,
+                    share: parseFloat(company.total_value_usd) / (company.total_holdings || 1) || 0,
+                    nameTag: company.name || null,
+                    image: null,
+                    source: 'CoinGecko',
+                  }));
+
+                  const uniqueAddresses = new Set(topHolders.map((holder) => holder.address.toLowerCase()));
+                  topHolders = [
+                    ...topHolders,
+                    ...treasuryData.filter((company) => !uniqueAddresses.has(company.address.toLowerCase())),
+                  ].sort((a, b) => b.balance - a.balance).slice(0, 100);
+                }
+              } catch (coingeckoError) {
+                console.warn(`Failed to fetch CoinGecko treasury data for ${chain}:`, coingeckoError);
+              }
+            }
+
+            if (topHolders.length === 0) {
+              throw new Error(`No top holders data available for ${chain}`);
+            }
+
+            return topHolders;
+          };
+
+          const topHolders = await getCachedData(cacheKey, fetchFn);
           setOnChainData((prev) => ({
             ...prev,
             topHolders,
@@ -596,8 +594,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
               ? 'API rate limit exceeded. Please try again later.'
               : error.response?.data?.detail || `Failed to fetch top holders for ${chain}`;
           setOnChainError(errorMessage);
-          if (retryCount < 2) {
-            await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)));
+          if (retryCount < 3) {
+            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff với jitter
+            await new Promise((resolve) => setTimeout(resolve, delay));
             fetchPublicTreasuryData(tokenSymbol, retryCount + 1);
           } else {
             toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
@@ -609,329 +608,309 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           }
         }
       },
-      500,
+      300,
       { leading: false, trailing: true }
     ),
     [toast, executeRecaptcha, session]
   );
 
   const fetchTickerData = useCallback(
-    debounce(async (tokenId, retryCount = 0) => {
-      if (!tokenId || document.visibilityState !== 'visible') return;
-      const cacheKey = tokenId;
-      if (tickerCache[cacheKey] && Date.now() - tickerCache[cacheKey].timestamp < CACHE_DURATION) {
-        setTickerData(tickerCache[cacheKey].data);
-        return;
-      }
+    debounce(
+      async (tokenId, retryCount = 0) => {
+        if (!tokenId || document.visibilityState !== 'visible') return;
+        const cacheKey = `ticker-${tokenId}`;
+        setIsLoadingTickers(true);
+        setTickerError(null);
+        try {
+          const fetchFn = async () => {
+            let response;
+            const params = { include_exchange_logo: true };
+            if (process.env.NODE_ENV === 'development') {
+              response = await coingeckoAxios.get(`https://api.coingecko.com/api/v3/coins/${tokenId}/tickers`, {
+                params,
+                headers: {
+                  accept: 'application/json',
+                  ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
+                },
+                timeout: 15000,
+              });
+            } else {
+              response = await axios.get('/api/coingecko', {
+                params: {
+                  action: 'tickers',
+                  id: tokenId,
+                  include_exchange_logo: true,
+                },
+                timeout: 15000,
+              });
+            }
+            return response.data.tickers || [];
+          };
 
-      setIsLoadingTickers(true);
-      setTickerError(null);
-      try {
-        let response;
-        const params = { include_exchange_logo: true };
-        if (process.env.NODE_ENV === 'development') {
-          response = await coingeckoAxios.get(`https://api.coingecko.com/api/v3/coins/${tokenId}/tickers`, {
-            params,
-            headers: {
-              accept: 'application/json',
-              ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
-            },
-            timeout: 15000,
-          });
-        } else {
-          response = await axios.get('/api/coingecko', {
-            params: {
-              action: 'tickers',
-              id: tokenId,
-              include_exchange_logo: true,
-            },
-            timeout: 15000,
-          });
+          const tickers = await getCachedData(cacheKey, fetchFn);
+          setTickerData(tickers);
+        } catch (error) {
+          const errorMessage =
+            error.response?.status === 429
+              ? 'CoinGecko API rate limit exceeded. Please try again later.'
+              : error.response?.status === 404
+                ? `Ticker data not found for ${tokenId}.`
+                : error.response?.data?.detail || `Failed to load ticker data for ${tokenId}.`;
+          setTickerError(errorMessage);
+        } finally {
+          setIsLoadingTickers(false);
         }
-
-        const tickers = response.data.tickers || [];
-        setTickerCache((prev) => ({
-          ...prev,
-          [cacheKey]: { data: tickers, timestamp: Date.now() },
-        }));
-        setTickerData(tickers);
-      } catch (error) {
-        const errorMessage =
-          error.response?.status === 429
-            ? 'CoinGecko API rate limit exceeded. Please try again later.'
-            : error.response?.status === 404
-              ? `Ticker data not found for ${tokenId}.`
-              : error.response?.data?.detail || `Failed to load ticker data for ${tokenId}.`;
-        setTickerError(errorMessage);
-      } finally {
-        setIsLoadingTickers(false);
-      }
-    }, 500),
+      },
+      300
+    ),
     [COINGECKO_API_KEY]
   );
 
   const fetchOnChainData = useCallback(
-    debounce(async (chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount = 0) => {
-      if (
-        (action === 'top-holders' && (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/))) ||
-        ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) ||
-        (typeof document !== 'undefined' && document.visibilityState !== 'visible')
-      ) {
-        const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address || tokenAddress}`;
-        setOnChainError(errorMessage);
-        setIsLoadingOnChain(false);
-        setIsLoadingWalletBalances(false);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
-
-      if (status !== 'authenticated') {
-        const errorMessage = 'Please log in to access on-chain data.';
-        setOnChainError(errorMessage);
-        setIsLoadingOnChain(false);
-        setIsLoadingWalletBalances(false);
-        setIsLoadingTransactions(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
-
-      const simChain = chains.find((c) => c.value === chain)?.value;
-      if (!simChain && action === 'top-holders') {
-        const errorMessage = `Invalid chain: ${chain}`;
-        setOnChainError(errorMessage);
-        setIsLoadingOnChain(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
-
-      const cacheKey = `onchain-${simChain}-${tokenAddress}-${action}`;
-      if (
-        blockchairCache.current[cacheKey] &&
-        Date.now() - blockchairCache.current[cacheKey].timestamp < CACHE_DURATION
-      ) {
-        setOnChainData((prev) => ({
-          ...prev,
-          topHolders: blockchairCache.current[cacheKey].data,
-        }));
-        setIsLoadingOnChain(false);
-        return;
-      }
-
-      setIsLoadingOnChain(true);
-      if (action === 'wallet-balances') setIsLoadingWalletBalances(true);
-      else if (action === 'transactions') setIsLoadingTransactions(true);
-
-      try {
-        const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}/api/sim`;
-        const payload = {
-          action,
-          recaptchaToken,
-          chain: simChain,
-          tokenAddress,
-          ...(decimalPlace != null && { decimalPlace: Number(decimalPlace) }),
-          ...(address && { address }),
-        };
-
-        const response = await axios.post(apiUrl, payload, {
-          headers: {
-            Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000,
-        });
-
-        if (!response.data.success) {
-          throw new Error(response.data.detail || `Failed to fetch ${action} data`);
+    debounce(
+      async (chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount = 0) => {
+        if (
+          (action === 'top-holders' && (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/))) ||
+          ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) ||
+          (typeof document !== 'undefined' && document.visibilityState !== 'visible')
+        ) {
+          const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address || tokenAddress}`;
+          setOnChainError(errorMessage);
+          setIsLoadingOnChain(false);
+          setIsLoadingWalletBalances(false);
+          setIsLoadingTransactions(false);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          return;
         }
 
-        if (action === 'top-holders') {
-          const topHolders = response.data.data || [];
-          blockchairCache.current[cacheKey] = { data: topHolders, timestamp: Date.now() };
-          setOnChainData((prev) => ({
-            ...prev,
-            topHolders,
-          }));
-        } else if (action === 'wallet-balances') {
-          setWalletBalances(response.data.data || []);
-        } else if (action === 'transactions') {
-          setTransactions(response.data.data || []);
+        if (status !== 'authenticated') {
+          const errorMessage = 'Please log in to access on-chain data.';
+          setOnChainError(errorMessage);
+          setIsLoadingOnChain(false);
+          setIsLoadingWalletBalances(false);
+          setIsLoadingTransactions(false);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          return;
         }
-      } catch (error) {
-        const errorMessage =
-          error.response?.status === 429
-            ? 'Too many requests. Please try again later.'
-            : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
-        setOnChainError(errorMessage);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        if (retryCount < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)));
-          fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount + 1);
+
+        const simChain = chains.find((c) => c.value === chain)?.value;
+        if (!simChain && action === 'top-holders') {
+          const errorMessage = `Invalid chain: ${chain}`;
+          setOnChainError(errorMessage);
+          setIsLoadingOnChain(false);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          return;
         }
-      } finally {
-        setIsLoadingOnChain(false);
-        if (action === 'wallet-balances') setIsLoadingWalletBalances(false);
-        else if (action === 'transactions') setIsLoadingTransactions(false);
-      }
-    }, 500),
+
+        const cacheKey = `onchain-${simChain}-${tokenAddress}-${action}`;
+        setIsLoadingOnChain(true);
+        if (action === 'wallet-balances') setIsLoadingWalletBalances(true);
+        else if (action === 'transactions') setIsLoadingTransactions(true);
+
+        try {
+          const fetchFn = async () => {
+            const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}/api/sim`;
+            const payload = {
+              action,
+              recaptchaToken,
+              chain: simChain,
+              tokenAddress,
+              ...(decimalPlace != null && { decimalPlace: Number(decimalPlace) }),
+              ...(address && { address }),
+            };
+
+            const response = await axios.post(apiUrl, payload, {
+              headers: {
+                Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+                'Content-Type': 'application/json',
+              },
+              timeout: 30000,
+            });
+
+            if (!response.data.success) {
+              throw new Error(response.data.detail || `Failed to fetch ${action} data`);
+            }
+
+            return response.data.data || [];
+          };
+
+          const data = await getCachedData(cacheKey, fetchFn);
+          if (action === 'top-holders') {
+            setOnChainData((prev) => ({
+              ...prev,
+              topHolders: data,
+            }));
+          } else if (action === 'wallet-balances') {
+            setWalletBalances(data);
+          } else if (action === 'transactions') {
+            setTransactions(data);
+          }
+        } catch (error) {
+          const errorMessage =
+            error.response?.status === 429
+              ? 'Too many requests. Please try again later.'
+              : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
+          setOnChainError(errorMessage);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          if (retryCount < 3) {
+            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff với jitter
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount + 1);
+          }
+        } finally {
+          setIsLoadingOnChain(false);
+          if (action === 'wallet-balances') setIsLoadingWalletBalances(false);
+          else if (action === 'transactions') setIsLoadingTransactions(false);
+        }
+      },
+      300
+    ),
     [chains, status, session?.accessToken, toast]
   );
 
   const fetchDexData = useCallback(
-    debounce(async (chain, tokenAddress, retryCount = 0) => {
-      if (status !== 'authenticated') {
-        const errorMessage = 'Please log in to access DEX data.';
-        setDexError(errorMessage);
-        setIsLoadingDex(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
+    debounce(
+      async (chain, tokenAddress, retryCount = 0) => {
+        if (status !== 'authenticated') {
+          const errorMessage = 'Please log in to access DEX data.';
+          setDexError(errorMessage);
+          setIsLoadingDex(false);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          return;
+        }
 
-      if (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
-        const errorMessage = 'Invalid chain or token address for DEX data';
-        setDexError(errorMessage);
-        setIsLoadingDex(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
+        if (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+          const errorMessage = 'Invalid chain or token address for DEX data';
+          setDexError(errorMessage);
+          setIsLoadingDex(false);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          return;
+        }
 
-      const geckoChain = GECKOTERMINAL_CHAIN_MAPPING[chain];
-      if (!geckoChain) {
-        const errorMessage = `Unsupported chain for DEX data: ${chain}`;
-        setDexError(errorMessage);
-        setIsLoadingDex(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      }
+        const geckoChain = GECKOTERMINAL_CHAIN_MAPPING[chain];
+        if (!geckoChain) {
+          const errorMessage = `Unsupported chain for DEX data: ${chain}`;
+          setDexError(errorMessage);
+          setIsLoadingDex(false);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          return;
+        }
 
-      const userId = session?.user?.id || 'anonymous';
-      const now = Date.now();
-      const userRequests = dexRequestTracker.get(userId) || { count: 0, lastReset: now };
+        const userId = session?.user?.id || 'anonymous';
+        const now = Date.now();
+        const userRequests = dexRequestTracker.get(userId) || { count: 0, lastReset: now };
 
-      if (now - userRequests.lastReset >= DEX_REQUEST_WINDOW) {
-        dexRequestTracker.set(userId, { count: 1, lastReset: now });
-        setDexRequestCount(1);
-        setLastDexRequestTime(now);
-      } else if (userRequests.count >= DEX_REQUEST_LIMIT) {
-        const errorMessage = 'Too many DEX requests. Please wait a minute and try again.';
-        setDexError(errorMessage);
-        setIsLoadingDex(false);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        return;
-      } else {
-        dexRequestTracker.set(userId, { count: userRequests.count + 1, lastReset: userRequests.lastReset });
-        setDexRequestCount((prev) => prev + 1);
-      }
+        if (now - userRequests.lastReset >= DEX_REQUEST_WINDOW) {
+          dexRequestTracker.set(userId, { count: 1, lastReset: now });
+          setDexRequestCount(1);
+          setLastDexRequestTime(now);
+        } else if (userRequests.count >= DEX_REQUEST_LIMIT) {
+          const errorMessage = 'Too many DEX requests. Please wait a minute and try again.';
+          setDexError(errorMessage);
+          setIsLoadingDex(false);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          return;
+        } else {
+          dexRequestTracker.set(userId, { count: userRequests.count + 1, lastReset: userRequests.lastReset });
+          setDexRequestCount((prev) => prev + 1);
+        }
 
-      const cacheKey = `${geckoChain}-${tokenAddress}`;
-      const cached = tickerCache[cacheKey];
-      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-        setDexData(cached.data);
-        setLastDexFetchTime(cached.timestamp);
-        setIsLoadingDex(false);
-        return;
-      }
+        const cacheKey = `dex-${geckoChain}-${tokenAddress}`;
+        setIsLoadingDex(true);
+        setDexError(null);
 
-      setIsLoadingDex(true);
-      setDexError(null);
-
-      try {
-        const poolResponse = await coingeckoAxios.get(
-          `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/tokens/${tokenAddress}/pools?page=1&bypassCache=true`,
-          {
-            headers: { accept: 'application/json' },
-            timeout: 10000,
-          }
-        ).catch(async (error) => {
-          if (retryCount < 3 && error.response?.status === 429) {
-            const delay = Math.pow(2, retryCount) * 1000;
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            return fetchDexData(chain, tokenAddress, retryCount + 1);
-          }
-          throw error;
-        });
-
-        let pools = poolResponse.data?.data || [];
-        pools.sort((a, b) => parseFloat(b.attributes.volume_usd.h24) - parseFloat(a.attributes.volume_usd.h24));
-        const topPools = pools.slice(0, 5);
-
-        const tradePromises = topPools.map((pool) =>
-          limit(() =>
-            coingeckoAxios.get(
-              `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/pools/${pool.attributes.address}/trades?trade_volume_in_usd_greater_than=100`,
+        try {
+          const fetchFn = async () => {
+            const poolResponse = await coingeckoAxios.get(
+              `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/tokens/${tokenAddress}/pools?page=1&bypassCache=true`,
               {
                 headers: { accept: 'application/json' },
                 timeout: 10000,
               }
-            ).then((response) => ({
-              status: 'fulfilled',
-              poolAddress: pool.attributes.address,
-              poolName: pool.attributes.name,
-              data: response.data?.data || [],
-            })).catch((error) => ({
-              status: 'rejected',
-              poolAddress: pool.attributes.address,
-              poolName: pool.attributes.name,
-              error: {
-                message: error.message,
-                status: error.response?.status,
-                safeMessage: error.response?.status === 429 ? 'Rate limit exceeded' : 'Failed to fetch trades',
-              },
-            }))
-          )
-        );
-
-        const tradeResults = await Promise.allSettled(tradePromises);
-        const trades = tradeResults.reduce((acc, result) => {
-          if (result.status === 'fulfilled') {
-            return acc.concat(
-              result.value.data.map((trade) => ({
-                ...trade.attributes,
-                pool_name: result.value.poolName,
-                pool_address: result.value.poolAddress,
-              }))
             );
-          }
-          return acc;
-        }, []);
 
-        const validTrades = trades.filter((trade) => {
-          const isValid = trade.pool_address && typeof trade.pool_address === 'string' && trade.pool_address.match(/^0x[a-fA-F0-9]{40}$/);
-          return isValid;
-        });
+            let pools = poolResponse.data?.data || [];
+            pools.sort((a, b) => parseFloat(b.attributes.volume_usd.h24) - parseFloat(a.attributes.volume_usd.h24));
+            const topPools = pools.slice(0, 5);
 
-        const poolTokenPromises = topPools.map((pool) =>
-          limit(() => fetchPoolTokenMetadata(chain, pool.attributes.address))
-        );
-        const poolTokenResults = await Promise.allSettled(poolTokenPromises);
-        const poolTokens = poolTokenResults.reduce((acc, result, index) => {
-          if (result.status === 'fulfilled' && Object.keys(result.value).length > 0) {
-            acc[topPools[index].attributes.address] = result.value;
-          }
-          return acc;
-        }, {});
+            const tradePromises = topPools.map((pool) =>
+              limit(() =>
+                coingeckoAxios.get(
+                  `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/pools/${pool.attributes.address}/trades?trade_volume_in_usd_greater_than=100`,
+                  {
+                    headers: { accept: 'application/json' },
+                    timeout: 10000,
+                  }
+                ).then((response) => ({
+                  status: 'fulfilled',
+                  poolAddress: pool.attributes.address,
+                  poolName: pool.attributes.name,
+                  data: response.data?.data || [],
+                })).catch((error) => ({
+                  status: 'rejected',
+                  poolAddress: pool.attributes.address,
+                  poolName: pool.attributes.name,
+                  error: {
+                    message: error.message,
+                    status: error.response?.status,
+                    safeMessage: error.response?.status === 429 ? 'Rate limit exceeded' : 'Failed to fetch trades',
+                  },
+                }))
+              )
+            );
 
-        const dexData = { pools: topPools, trades: validTrades, poolTokens };
-        setTickerCache((prev) => ({
-          ...prev,
-          [cacheKey]: { data: dexData, timestamp: Date.now() },
-        }));
-        setDexData(dexData);
-        setLastDexFetchTime(Date.now());
-      } catch (error) {
-        const safeErrorMessage =
-          error.response?.status === 429
-            ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
-            : error.response?.status === 404
-              ? `No DEX data found for token ${tokenAddress} on ${chain}.`
-              : 'Failed to load DEX data.';
-        setDexError(safeErrorMessage);
-        toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
-      } finally {
-        setIsLoadingDex(false);
-      }
-    }, 500),
-    [toast, tickerCache, setTickerCache, status, session]
+            const tradeResults = await Promise.allSettled(tradePromises);
+            const trades = tradeResults.reduce((acc, result) => {
+              if (result.status === 'fulfilled') {
+                return acc.concat(
+                  result.value.data.map((trade) => ({
+                    ...trade.attributes,
+                    pool_name: result.value.poolName,
+                    pool_address: result.value.poolAddress,
+                  }))
+                );
+              }
+              return acc;
+            }, []);
+
+            const validTrades = trades.filter((trade) => {
+              const isValid = trade.pool_address && typeof trade.pool_address === 'string' && trade.pool_address.match(/^0x[a-fA-F0-9]{40}$/);
+              return isValid;
+            });
+
+            const poolTokenPromises = topPools.map((pool) =>
+              limit(() => fetchPoolTokenMetadata(chain, pool.attributes.address))
+            );
+            const poolTokenResults = await Promise.allSettled(poolTokenPromises);
+            const poolTokens = poolTokenResults.reduce((acc, result, index) => {
+              if (result.status === 'fulfilled' && Object.keys(result.value).length > 0) {
+                acc[topPools[index].attributes.address] = result.value;
+              }
+              return acc;
+            }, {});
+
+            return { pools: topPools, trades: validTrades, poolTokens };
+          };
+
+          const dexData = await getCachedData(cacheKey, fetchFn);
+          setDexData(dexData);
+          setLastDexFetchTime(Date.now());
+        } catch (error) {
+          const safeErrorMessage =
+            error.response?.status === 429
+              ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
+              : error.response?.status === 404
+                ? `No DEX data found for token ${tokenAddress} on ${chain}.`
+                : 'Failed to load DEX data.';
+          setDexError(safeErrorMessage);
+          toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
+        } finally {
+          setIsLoadingDex(false);
+        }
+      },
+      300
+    ),
+    [toast, status, session]
   );
 
   const handleAddressClick = useCallback(
@@ -1113,9 +1092,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
   }, [selectedToken, chains]);
 
   const debouncedHandleTokenSelect = useCallback(
-    debounce(async (token, initialTokenData = null) => {
+    debounce(async (token, initialTokenData = null, onTokenSelect = null) => {
+      console.log('Selecting token:', token.id, 'Initial token data:', initialTokenData?.id);
       if (initialTokenData && initialTokenData.id === token.id) {
-        // Use server-side data if available
         setSelectedToken(initialTokenData);
         setSelectedPair(`${initialTokenData.symbol?.toUpperCase()}/${currency.toUpperCase()}`);
         const { chain } = getDefaultChainAndAddress(initialTokenData, 'ethereum');
@@ -1126,6 +1105,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         setIsDropdownOpen(false);
         setOnChainData({ topHolders: [], whaleActivity: [] });
         setOnChainError(null);
+        lastFetchedTokenRef.current = initialTokenSlug;
+        console.log('lastFetchedTokenRef set to:', lastFetchedTokenRef.current);
 
         const days = timeRange || '1';
         fetchPriceHistory(token.id, days, (err, data) => {
@@ -1137,10 +1118,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             );
           }
         });
+        if (onTokenSelect) {
+          onTokenSelect(token.id);
+        }
         return;
       }
 
-      // Existing API call logic for when initial data is not available
       try {
         const recaptchaToken = await executeRecaptcha('coin_details');
         const response = await axios.get('/api/coingecko', {
@@ -1168,7 +1151,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
           price_change_percentage_14d_in_currency: marketData.price_change_percentage_14d_in_currency || {},
           price_change_percentage_30d_in_currency: marketData.price_change_percentage_30d_in_currency || {},
           price_change_percentage_60d_in_currency: marketData.price_change_percentage_60d_in_currency || {},
-          price_change_percentage_90d_in_currency: marketData.price_change_percentage_90d_in_currency || {}, // Add 90d
+          price_change_percentage_90d_in_currency: marketData.price_change_percentage_90d_in_currency || {},
           price_change_percentage_1y_in_currency: marketData.price_change_percentage_1y_in_currency || {},
           price_change_percentage_24h: marketData.price_change_percentage_24h,
           price_change_24h: marketData.price_change_24h || {},
@@ -1211,6 +1194,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
         setIsDropdownOpen(false);
         setOnChainData({ topHolders: [], whaleActivity: [] });
         setOnChainError(null);
+        lastFetchedTokenRef.current = token.id; // Đảm bảo đặt đúng token.id
+        console.log('lastFetchedTokenRef set to:', lastFetchedTokenRef.current);
 
         const days = timeRange || '1';
         fetchPriceHistory(token.id, days, (err, data) => {
@@ -1222,15 +1207,18 @@ export const useMarketTabLogic = ({ recaptchaRef, toast }) => {
             );
           }
         });
+        if (onTokenSelect) {
+          onTokenSelect(token.id);
+        }
       } catch (error) {
         setError(
-          error.response?.status === 429
+          err.response?.status === 429
             ? 'CoinGecko rate limit reached. Please wait a minute and try again.'
-            : error.response?.data?.detail || 'Failed to load token details.'
+            : err.response?.data?.detail || 'Failed to load token details.'
         );
       }
-    }, 300), // Reduced debounce delay
-    [currency, availableCurrencies, timeRange, fetchPriceHistory, setSelectedToken, setSelectedPair, setSelectedChain, setAnalysis, setPrediction, setAnalysisLinks, setIsDropdownOpen, setOnChainData, setOnChainError, setError, executeRecaptcha, getDefaultChainAndAddress, chains]
+    }, 300),
+    [currency, availableCurrencies, timeRange, fetchPriceHistory, setSelectedToken, setSelectedPair, setSelectedChain, setAnalysis, setPrediction, setAnalysisLinks, setIsDropdownOpen, setOnChainData, setOnChainError, setError, executeRecaptcha, getDefaultChainAndAddress, initialTokenSlug]
   );
 
   const debouncedHandleAnalysis = useCallback(
@@ -1488,84 +1476,96 @@ Use natural, professional tone with recent data.
   );
 
   const debouncedSearch = useCallback(
-    debounce(async (query) => {
+    debounce((query) => {
       if (!query) {
         setSearchResults([]);
         return;
       }
-      try {
-        const response = await axios.get('/api/coingecko', {
-          params: { action: 'search', query },
-        });
-        const results = response.data.map((coin) => ({
-          id: coin.id,
-          name: coin.name,
-          symbol: coin.symbol,
-          image: coin.large,
-          market_cap_rank: coin.market_cap_rank,
-        }));
-        setSearchResults(results.slice(0, 10));
-      } catch (error) {
-        setError(
-          error.response?.status === 429
-            ? 'API rate limit reached. Please wait a minute and try again.'
-            : error.response?.data?.detail || 'Failed to search coins.'
-        );
-        setSearchResults([]);
-      }
-    }, 500),
+      const { data, error } = useSWR(
+        ['/api/coingecko', { action: 'search', query }],
+        ([url, params]) => fetcher(url, params),
+        {
+          revalidateOnFocus: false,
+          revalidateOnReconnect: false,
+          onSuccess: (data) => {
+            const results = data.map((coin) => ({
+              id: coin.id,
+              name: coin.name,
+              symbol: coin.symbol,
+              image: coin.large,
+              market_cap_rank: coin.market_cap_rank,
+            }));
+            setSearchResults(results.slice(0, 10));
+          },
+          onError: (err) => {
+            setError(
+              err.response?.status === 429
+                ? 'API rate limit reached. Please wait a minute and try again.'
+                : err.response?.data?.detail || 'Failed to search coins.'
+            );
+            setSearchResults([]);
+          },
+        }
+      );
+    }, 300),
     []
   );
 
-  const fetchMarketData = useCallback(
-    debounce(async (retryCount = 0) => {
-      if (document.visibilityState !== 'visible') return;
-      try {
-        const marketResponse = await coingeckoAxios.get('/api/coingecko', {
-          params: { start: 1, limit: tokensPerPage, vs_currencies: availableCurrencies.join(',') }, // Fetch for all currencies
-        });
-        const tokensWithRoi = marketResponse.data.map((token) => ({
-          ...token,
-          roi: token.roi || null,
-          current_price: token.market_data?.current_price || {},
-          market_cap: token.market_data?.market_cap || {},
-          total_volume: token.market_data?.total_volume || {},
-          high_24h: token.market_data?.high_24h || {},
-          low_24h: token.market_data?.low_24h || {},
-        }));
-        setTokens(tokensWithRoi);
-        if (!selectedToken && !lastFetchedTokenRef.current) {
-          const btc = tokensWithRoi.find((token) => token.id === 'bitcoin');
-          if (btc) {
-            debouncedHandleTokenSelect(btc);
-          }
-        }
-        setLoading(false);
-      } catch (error) {
-        if (error.response?.status === 429 && retryCount < 3) {
-          const delay = Math.pow(2, retryCount) * 1000;
-          setTimeout(() => fetchMarketData(retryCount + 1), delay);
-          return;
-        }
-        setError(
-          error.response?.status === 429
-            ? 'API rate limit reached. Please wait a minute and try again.'
-            : error.response?.data?.error || 'Failed to load market data.'
-        );
-        setLoading(false);
-      }
-    }, 3000),
-    [selectedToken, debouncedHandleTokenSelect, availableCurrencies]
+  // Thay thế hàm fetchMarketData và phần useEffect liên quan
+  const { data: marketData, error: marketError } = useSWR(
+    ['/api/coingecko', { start: 1, limit: tokensPerPage, vs_currencies: availableCurrencies.join(',') }],
+    ([url, params]) => fetcher(url, params),
+    {
+      refreshInterval: typeof document !== 'undefined' && document.visibilityState === 'visible' ? 10 * 60 * 1000 : 0,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+    }
   );
 
+  const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
+
   useEffect(() => {
-    fetchMarketData();
-    const interval = setInterval(fetchMarketData, 10 * 60 * 1000);
-    return () => {
-      clearInterval(interval);
-      fetchMarketData.cancel();
-    };
-  }, [fetchMarketData]);
+    if (marketError) {
+      const errorMessage =
+        marketError.response?.status === 429
+          ? 'API rate limit reached. Please wait a minute and try again.'
+          : marketError.response?.data?.error || 'Failed to load market data.';
+      setError(errorMessage);
+      setLoading(false);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 3000 });
+    } else if (marketData) {
+      const tokensWithRoi = marketData.map((token) => ({
+        id: token.id,
+        symbol: token.symbol,
+        name: token.name,
+        image: token.image,
+        roi: token.roi || null,
+        current_price: { usd: token.current_price },
+        market_cap: { usd: token.market_cap },
+        total_volume: { usd: token.total_volume },
+        high_24h: { usd: token.high_24h },
+        low_24h: { usd: token.low_24h },
+        price_change_percentage_24h: token.price_change_percentage_24h,
+        market_cap_rank: token.market_cap_rank,
+      }));
+      setTokens(tokensWithRoi);
+
+      // Chỉ chọn Bitcoin nếu không có token được chọn và đây là lần tải đầu tiên
+       if (
+      !initialTokenSlug &&
+      !initialTokenData &&
+      !selectedToken &&
+      !lastFetchedTokenRef.current &&
+      !isTokenPage // Không chọn Bitcoin nếu đang ở trang /token/[slug]
+    ) {
+      const btc = tokensWithRoi.find((token) => token.id === 'bitcoin');
+      if (btc) {
+        debouncedHandleTokenSelect(btc, null);
+      }
+    }
+    setLoading(false);
+  }
+}, [marketData, marketError, initialTokenSlug, initialTokenData, selectedToken, debouncedHandleTokenSelect, toast]);
 
   useEffect(() => {
     fetchSupportedChains();
@@ -1620,7 +1620,7 @@ Use natural, professional tone with recent data.
     }
 
     setIsLoadingOnChain(true);
-    setOnChainData((prevAscent) => ({ ...prevAscent, topHolders: [] }));
+    setOnChainData((prev) => ({ ...prev, topHolders: [] }));
 
     if (isNonEvmChain) {
       lastFetchedTokenRef.current = tokenKey;
@@ -1637,10 +1637,11 @@ Use natural, professional tone with recent data.
     }
 
     return () => {
-      fetchPublicTreasuryData.cancel();
-      fetchOnChainData.cancel();
+      if (fetchPublicTreasuryData.cancel) fetchPublicTreasuryData.cancel();
+      if (fetchOnChainData.cancel) fetchOnChainData.cancel();
     };
   }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData, onChainData.topHolders.length]);
+
 
   useEffect(() => {
     prevTopHoldersRef.current = onChainData.topHolders;
@@ -1825,6 +1826,7 @@ Use natural, professional tone with recent data.
     BLOCKCHAIR_REQUEST_LIMIT,
     BLOCKCHAIR_REQUEST_WINDOW,
     NON_EVM_CHAINS,
+    lastFetchedTokenRef,
     // Refs
     lastFetchedTokenRef,
     prevTopHoldersRef,

@@ -162,6 +162,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [isLimitDropdownOpen, setIsLimitDropdownOpen] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
 
+  // Đảm bảo biến môi trường được thiết lập
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+  if (!process.env.NEXT_PUBLIC_API_BASE_URL && process.env.NODE_ENV === 'production') {
+    console.warn('NEXT_PUBLIC_API_BASE_URL is not set, defaulting to http://localhost:3000');
+  }
+
   // Update URL when chain or address changes
   const updateUrl = (chain, address) => {
     const newParams = new URLSearchParams();
@@ -195,7 +201,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   useEffect(() => {
     const fetchCoingeckoChains = async () => {
       try {
-        const response = await axios.get('/api/coingecko/chains');
+        console.log('Fetching CoinGecko chains from:', `${apiBaseUrl}/api/coingecko/chains`);
+        const response = await axios.get(`${apiBaseUrl}/api/coingecko/chains`);
         if (response.data.success) {
           setCoingeckoChains(response.data.data);
           console.log('Fetched CoinGecko chains:', response.data.data.slice(0, 5));
@@ -215,7 +222,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
     };
     fetchCoingeckoChains();
-  }, []);
+  }, [apiBaseUrl]);
 
   // Generate HMAC signature
   const generateHmacSignature = (payload) => {
@@ -304,7 +311,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         throw new Error('Unable to generate HMAC signature.');
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/get-transactions`, {
+      console.log('Fetching transactions from:', `${apiBaseUrl}/api/get-transactions`);
+      const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -418,7 +426,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => document.addEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSelectWallet = (address) => {

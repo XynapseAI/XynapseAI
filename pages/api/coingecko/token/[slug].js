@@ -1,16 +1,8 @@
-import { createClient } from 'redis';
+// pages/api/coingecko/token/[slug].js
 import axios from 'axios';
-import rateLimit from 'express-rate-limit';
+import connectRedis from '../../../../lib/redis';
+import Bottleneck from 'bottleneck';
 import winston from 'winston';
-import helmet from 'helmet';
-import axiosRetry from 'axios-retry';
-import Bottleneck from 'bottleneck'; // Thêm Bottleneck
-
-// Cấu hình Bottleneck để giới hạn yêu cầu API
-const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 1, // 5 yêu cầu đồng thời trong production, 1 trong development
-  minTime: process.env.NODE_ENV === 'production' ? 200 : 2000, // 0.2s (300 req/phút) trong production, 2s (30 req/phút) trong development
-});
 
 const logger = winston.createLogger({
   level: 'info',
@@ -21,85 +13,77 @@ const logger = winston.createLogger({
   ],
 });
 
-const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20,
-  message: { error: 'Too many requests, please try again later.' },
-  keyGenerator: (req) => {
-    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
-    return ip;
-  },
-  trustProxy: true,
+const limiterBottleneck = new Bottleneck({
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 1,
+  minTime: process.env.NODE_ENV === 'production' ? 200 : 2000,
 });
 
-axiosRetry(axios, {
-  retries: 3,
-  retryDelay: (retryCount) => retryCount * 1000,
-  retryCondition: (error) => error.response?.status === 429,
-});
-
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-});
-redisClient.on('error', (err) => logger.error('Redis Client Error', err));
-await redisClient.connect();
-
-// Bọc axios.get trong Bottleneck
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
-  return await axios.get(url, config);
+  try {
+    const response = await axios.get(url, {
+      ...config,
+      headers: {
+        ...config.headers,
+        'x-cg-demo-api-key': process.env.COINGECKO_API_KEY || '',
+      },
+    });
+    return response;
+  } catch (error) {
+    if (error.response?.status === 429 && config.retryCount < 3) {
+      const delay = Math.pow(2, config.retryCount) * 1000 + Math.random() * 100;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return fetchWithRateLimit(url, { ...config, retryCount: config.retryCount + 1 });
+    }
+    throw error;
+  }
 });
 
 export default async function handler(req, res) {
-  helmet()(req, res, () => {});
+  const { slug } = req.query;
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
-  logger.info(`Request to /api/coingecko/token/${req.query.slug} from IP ${ip}`);
-
-  try {
-    await new Promise((resolve, reject) => {
-      limiter(req, res, (err) => (err ? reject(err) : resolve()));
-    });
-  } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`);
-    return res.status(429).json({ detail: 'Too many requests, please try again later.' });
-  }
+  logger.info(`Request to /api/coingecko/token/${slug} from IP ${ip}`);
 
   if (req.method !== 'GET') {
     logger.warn(`Method not allowed: ${req.method}`);
-    return res.status(405).json({ detail: 'Method not allowed' });
+    return res.status(405).json({ success: false, detail: 'Method not allowed' });
   }
 
-  const { slug } = req.query;
   if (!slug || typeof slug !== 'string') {
     logger.warn('Invalid slug provided');
-    return res.status(400).json({ detail: 'Invalid token slug' });
+    return res.status(400).json({ success: false, detail: 'Invalid token slug' });
   }
 
-  const cacheKey = `coingecko_token_${slug}`;
-  const cachedData = await redisClient.get(cacheKey);
-  if (cachedData) {
-    logger.info('Returning cached token data', { slug });
-    return res.status(200).json({ success: true, data: JSON.parse(cachedData) });
-  }
-
-  const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
-  if (!COINGECKO_API_KEY) {
-    logger.error('COINGECKO_API_KEY is not configured');
-    return res.status(500).json({ detail: 'Server configuration error: Missing COINGECKO_API_KEY' });
-  }
-
+  let redisClient;
   try {
-    const response = await fetchWithRateLimit(`https://api.coingecko.com/api/v3/coins/${slug}`, {
-      headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
-      timeout: 15000,
-      params: {
-        localization: false,
-        tickers: true,
-        market_data: true,
-        community_data: false,
-        developer_data: false,
-        sparkline: false,
-      },
-    });
+    redisClient = await connectRedis();
+    const cacheKey = `coingecko_token_${slug}`;
+    const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) {
+      logger.info('Returning cached token data', { slug });
+      return res.status(200).json({ success: true, data: JSON.parse(cachedData) });
+    }
+
+    const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
+    if (!COINGECKO_API_KEY) {
+      logger.error('COINGECKO_API_KEY is not configured');
+      return res.status(500).json({ success: false, detail: 'Server configuration error: Missing COINGECKO_API_KEY' });
+    }
+
+    const response = await fetchWithRateLimit(
+      `https://api.coingecko.com/api/v3/coins/${slug}`,
+      {
+        timeout: 15000,
+        params: {
+          localization: false,
+          tickers: true,
+          market_data: true,
+          community_data: false,
+          developer_data: false,
+          sparkline: false,
+        },
+        retryCount: 0,
+      }
+    );
 
     const tokenData = {
       id: response.data.id,
@@ -109,24 +93,24 @@ export default async function handler(req, res) {
       current_price: response.data.market_data?.current_price || {},
       market_cap: response.data.market_data?.market_cap || {},
       market_cap_rank: response.data.market_data?.market_cap_rank || null,
-      fully_diluted_valuation: response.data.market_data?.fully_diluted_valuation || {},
+      fully_diluted_valuation: response.data.market_data?.fully_diluted_valuation || null,
       total_volume: response.data.market_data?.total_volume || {},
       high_24h: response.data.market_data?.high_24h || {},
-      low_24h: response.data.market_data?.low_24h || {},
-      price_change_percentage_1h_in_currency: response.data.market_data?.price_change_percentage_1h_in_currency || {},
-      price_change_percentage_24h_in_currency: response.data.market_data?.price_change_percentage_24h_in_currency || {},
-      price_change_percentage_7d_in_currency: response.data.market_data?.price_change_percentage_7d_in_currency || {},
-      price_change_percentage_30d_in_currency: response.data.market_data?.price_change_percentage_30d_in_currency || {},
-      price_change_percentage_90d_in_currency: response.data.market_data?.price_change_percentage_90d_in_currency || {},
-      price_change_percentage_1y_in_currency: response.data.market_data?.price_change_percentage_1y_in_currency || {},
+      low_24h: response.data.market_data?.low_24h || null,
+      price_change_percentage_1h_in_currency: response.data.market_data?.price_change_percentage_1h_in_currency || null,
+      price_change_percentage_24h_in_currency: response.data.market_data?.price_change_percentage_24h_in_currency || null,
+      price_change_percentage_7d_in_currency: response.data.market_data?.price_change_percentage_7d_in_currency || null,
+      price_change_percentage_30d_in_currency: response.data.market_data?.price_change_percentage_30d_in_currency || null,
+      price_change_percentage_90d_in_currency: response.data.market_data?.price_change_percentage_90d_in_currency || null,
+      price_change_percentage_1y_in_currency: response.data.market_data?.price_change_percentage_1y_in_currency || null,
       price_change_percentage_24h: response.data.market_data?.price_change_percentage_24h || null,
       circulating_supply: response.data.market_data?.circulating_supply || null,
       total_supply: response.data.market_data?.total_supply || null,
       max_supply: response.data.market_data?.max_supply || null,
-      ath: response.data.market_data?.ath || {},
-      ath_change_percentage: response.data.market_data?.ath_change_percentage || {},
-      atl: response.data.market_data?.atl || {},
-      atl_change_percentage: response.data.market_data?.atl_change_percentage || {},
+      ath: response.data.market_data?.ath || null,
+      ath_change_percentage: response.data.market_data?.ath_change_percentage || null,
+      atl: response.data.market_data?.atl || null,
+      atl_change_percentage: response.data.market_data?.atl_change_percentage || null,
       links: {
         homepage: response.data.links?.homepage || [],
         twitter_screen_name: response.data.links?.twitter_screen_name || null,
@@ -136,7 +120,7 @@ export default async function handler(req, res) {
       detail_platforms: response.data.detail_platforms || {},
     };
 
-    await redisClient.setEx(cacheKey, 12 * 3600, JSON.stringify(tokenData)); // Cache 12 giờ
+    await redisClient.setEx(cacheKey, 7200, JSON.stringify(tokenData));
     logger.info(`Successfully fetched token data for ${slug}`, {
       id: tokenData.id,
       name: tokenData.name,
@@ -147,22 +131,23 @@ export default async function handler(req, res) {
     logger.error(`Error fetching token data for ${slug}: ${error.message}`, {
       status: error.response?.status,
       data: error.response?.data,
+      stack: error.stack,
     });
     const status = error.response?.status || 500;
     const detail =
       status === 429
         ? 'Please wait a moment and try again.'
         : status === 404
-        ? 'Token not found'
+        ? `Token with slug ${slug} could not be found`
         : `Failed to fetch token data: ${error.message}`;
-    return res.status(status).json({ detail });
+    return res.status(status).json({ success: false, detail });
+  } finally {
+    if (redisClient?.isOpen) {
+      try {
+        await redisClient.quit();
+      } catch (quitError) {
+        logger.error(`Error closing Redis connection: ${quitError.message}`);
+      }
+    }
   }
 }
-
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10kb',
-    },
-  },
-};
