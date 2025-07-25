@@ -307,9 +307,7 @@ const WalletBalances = ({
   isMobile,
 }) => {
   const walletBalancesRef = useRef(null);
-  const [activeTab, setActiveTab] = useState('portfolio');
-
-  useEffect(() => {
+  const [activeTab, setActiveTab] = useState('portfolio'); useEffect(() => {
     const handleClickOutside = (event) => {
       if (walletBalancesRef.current && !walletBalancesRef.current.contains(event.target)) {
         onClose();
@@ -318,6 +316,8 @@ const WalletBalances = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
+
+
 
   useEffect(() => {
     if (
@@ -333,42 +333,30 @@ const WalletBalances = ({
     return () => {
       fetchTransactions.cancel && fetchTransactions.cancel();
     };
-  }, [activeTab, transactions, isLoadingTransactions, transactionsError, fetchTransactions, walletAddress]);
-
-  if (!walletAddress) return null;
-
-  const getPlatformImage = (chainValue) => {
+  }, [activeTab, transactions, isLoadingTransactions, transactionsError, fetchTransactions, walletAddress]); if (!walletAddress) return null; const getPlatformImage = (chainValue) => {
     const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
     const chain = chains.find((c) => c.value === chainName);
     const imageUrl = chain?.image || '/fallback-image.png';
     logger.log('getPlatformImage:', { chainValue, chainName, imageUrl, found: !!chain });
     return imageUrl;
-  };
-
-  const getChainLabel = (chainValue) => {
+  }; const getChainLabel = (chainValue) => {
     const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
     return chains.find((c) => c.value === chainName)?.label || chainName;
-  };
-
-  const { text: displayWalletAddress, image: walletImage } = truncateAddress(walletAddress, nameTags);
-
-  const formatNumber = (value, decimals = 6) => {
+  }; const { text: displayWalletAddress, image: walletImage } = truncateAddress(walletAddress, nameTags); const formatNumber = (value, decimals = 6) => {
     if (value == null || isNaN(value)) return 'N/A';
     return Number(value).toLocaleString('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
-  };
-
-  // Filter valid tokens for Portfolio tab
+  };  // Filter valid tokens for Portfolio tab
   const validBalances = balances.filter((balance) =>
     isValidToken({ image: balance.logo, symbol: balance.symbol })
-  );
-
-  // Filter valid transactions for Activity tab
+  );  // Filter valid transactions for Activity tab
   const validTransactions = transactions?.filter((tx) =>
     isValidToken({ image: tx.token_metadata?.logo, symbol: tx.token })
   ) || [];
+
+
 
   const overlayContent = (
     <motion.div
@@ -442,36 +430,26 @@ const WalletBalances = ({
             </motion.button>
           </div>
         </div>
+
+
         <div className="overflow-y-auto max-h-[calc(80vh-100px)] rounded-lg custom-scrollbar">
           {activeTab === 'portfolio' && (
             <>
               {isLoading ? (
-                <div className="space-y-2 sm:space-y-3 p-4 sm:p-3">
+                <div className="space-y-3 p-4">
                   {[...Array(5)].map((_, index) => (
-                    <div key={index} className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-4 sm:w-6 h-4 sm:h-6 rounded-full bg-gray-700/50 animate-pulse"></div>
-                      <div className="flex-1 space-y-1">
-                        <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse"></div>
-                        <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse w-3/4"></div>
+                    <div key={index} className="flex items-center gap-4">
+                      <div className="w-8 h-8 bg-gray-700/50 rounded-full animate-pulse"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-gray-700/50 rounded animate-pulse"></div>
+                        <div className="h-4 bg-gray-700/50 rounded animate-pulse w-3/4"></div>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : error.message ? (
-                <p className="text-sm text-red-400 text-center bg-red-500/10 p-3 rounded">{error.message}</p>
-              ) : validBalances.length === 0 ? (
-                <div className="space-y-2 sm:space-y-3 p-4 sm:p-3">
-                  {[...Array(5)].map((_, index) => (
-                    <div key={index} className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-4 sm:w-6 h-4 sm:h-6 rounded-full bg-gray-700/50 animate-pulse"></div>
-                      <div className="flex-1 space-y-1">
-                        <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse"></div>
-                        <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse w-3/4"></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+              ) : error ? (
+                <p className="text-sm text-red-400 text-center bg-red-500/10 p-3 rounded">Error: {error}</p>
+              ) : validBalances.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
                     <thead className="text-[10px] sm:text-[xs] sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md uppercase">
@@ -485,10 +463,9 @@ const WalletBalances = ({
                               strokeWidth="2"
                             >
                               <path
-                                stroke
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"
+                                d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
                               />
                             </svg>
                             Token
@@ -511,12 +488,12 @@ const WalletBalances = ({
                         <th className="px-2 py-2 text-white text-left font-medium w-[30%]">
                           <div className="flex items-center gap-2">
                             <svg
+                              xmlns="http://www.w3.org/2000/svg"
                               className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
                               viewBox="0 0 24 24"
                               strokeWidth="2"
                             >
                               <path
-                                stroke
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5"
@@ -531,19 +508,19 @@ const WalletBalances = ({
                       {validBalances.map((balance, index) => (
                         <tr
                           key={`${balance.chain}-${balance.address}-${index}`}
-                          className="border-t border-gray-700/10 hover:bg-gray-700/10 transition-all duration-300"
+                          className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
                         >
                           <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs">
                             <div className="flex items-center space-x-2 relative">
                               {balance.logo && (
                                 <img
                                   src={balance.logo}
-                                  alt={`${balance.symbol} logo.png`}
-                                  className="w-4 sm:w-6 h-4 sm:h-6 rounded-full flex-shrink-0"
+                                  alt={`${balance.symbol} logo`}
+                                  className="w-4 h-4 sm:w-6 sm:h-6 rounded-full flex-shrink-0"
                                   onError={(e) => {
-                                    console.error('Token logo failed to load:', {
-                                      symbol: balance.symbol, // Sửa Symbol thành symbol
-                                      src: balance.logo, // Sửa { balance.logo } thành balance.logo
+                                    logger.error('Token logo failed to load:', {
+                                      symbol: balance.symbol,
+                                      src: balance.logo,
                                     });
                                     e.target.src = '/fallback-image.png';
                                   }}
@@ -552,17 +529,17 @@ const WalletBalances = ({
                               <img
                                 src={getPlatformImage(balance.chain)}
                                 alt={`${balance.chain} logo`}
-                                className="w-2 sm:w-3 h-2 sm:h-3 rounded-full absolute left-2 top-[2px] sm:left-3 sm:top-[3px]"
+                                className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-1 top-[2px] sm:left-2 sm:top-[2px]"
                                 onError={(e) => {
-                                  console.error('Platform logo failed to load:', {
+                                  logger.error('Platform logo failed to load:', {
                                     chain: balance.chain,
-                                    src: getPlatformImage(balance.chain), // Sửa cú pháp
+                                    src: getPlatformImage(balance.chain),
                                   });
                                   e.target.src = '/fallback-image.png';
                                 }}
                               />
-                              <div className="text-[9px] sm:text-[10px] flex flex-col items-start pl-2 sm:pl-3">
-                                <span>{balance.symbol || 'Unknown'} {balance.address === '0x0' ? '' : ''}</span>
+                              <div className="text-[9px] sm:text-[10px] flex flex-col items-start pl-4 sm:pl-5">
+                                <span>{balance.symbol || 'Unknown'} {balance.address === 'native' ? '' : ''}</span>
                                 {balance.price_usd != null && (
                                   <span className="text-[8px] sm:text-[10px] text-gray-400">{formatPrice(balance.price_usd)}</span>
                                 )}
@@ -571,12 +548,12 @@ const WalletBalances = ({
                           </td>
                           <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs">
                             {balance.amount != null
-                              ? balance.amount.toFixed(2).toLocaleString('en-US')
+                              ? balance.amount.toLocaleString('en-US', { maximumFractionDigits: 2 })
                               : 'N/A'}
                           </td>
                           <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs">
                             {balance.value_usd != null
-                              ? `$${balance.value_usd.toFixed(2).toLocaleString('en-US')}`
+                              ? `$${balance.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
                               : 'N/A'}
                           </td>
                         </tr>
@@ -584,38 +561,30 @@ const WalletBalances = ({
                     </tbody>
                   </table>
                 </div>
+              ) : (
+                <p className="text-xs text-gray-400 text-center p-4">No valid balances found for this wallet.</p>
               )}
             </>
           )}
+
+
           {activeTab === 'activity' && (
             <>
               {isLoadingTransactions ? (
-                <div className="space-y-2 sm:space-y-3 p-4 sm:p-3">
+                <div className="space-y-3 p-4">
                   {[...Array(5)].map((_, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="w-4 sm:w-6 h-4 sm:h-6 rounded-full bg-gray-700/50 animate-pulse"></div>
+                    <div key={index} className="flex items-center gap-4">
+                      <div className="w-8 h-8 bg-gray-700/50 rounded-full animate-pulse"></div>
                       <div className="flex-1 space-y-2">
-                        <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse"></div>
-                        <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse w-3/4"></div>
+                        <div className="h-4 bg-gray-700/50 rounded animate-pulse"></div>
+                        <div className="h-4 bg-gray-700/50 rounded animate-pulse w-3/4"></div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : transactionsError ? (
-                <p className="text-xs text-red-400 sm:text-sm text-center bg-red-500/10 p-2 rounded">{transactionsError}</p>
-              ) : validTransactions.length === 0 ? (
-                <div className="space-y-2 sm:space-y-3 p-4 sm:p-3">
-                  {[...Array(5)].map((_, index) => (
-                    <div key={index} className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-4 sm:w-6 h-4 sm:h-6 rounded-full bg-gray-700/50 animate-pulse"></div>
-                      <div className="flex-1 space-y-1">
-                        <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse"></div>
-                        <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse w-3/4"></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+                <p className="text-xs text-red-400 text-center bg-red-500/10 p-3 rounded">Error: {transactionsError}</p>
+              ) : validTransactions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
                     <thead className="text-[10px] sm:text-[xs] sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md uppercase">
@@ -629,10 +598,9 @@ const WalletBalances = ({
                               strokeWidth="2"
                             >
                               <path
-                                stroke
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"
+                                d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
                               />
                             </svg>
                             Token
@@ -647,7 +615,6 @@ const WalletBalances = ({
                               strokeWidth="2"
                             >
                               <path
-                                stroke
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
@@ -679,7 +646,6 @@ const WalletBalances = ({
                               strokeWidth="2"
                             >
                               <path
-                                stroke
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
@@ -697,12 +663,10 @@ const WalletBalances = ({
                         const { text: displayAddress, image: addressImage } = truncateAddress(
                           tx.type === 'receive' ? tx.from : tx.to,
                           nameTags
-                        );
-
-                        return (
+                        ); return (
                           <tr
                             key={`${tx.chain}-${tx.hash}-${index}`}
-                            className="border-t border-gray-700/10 hover:bg-gray-700/10 transition-all duration-300"
+                            className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
                           >
                             <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
                               <div className="flex items-center space-x-2 relative">
@@ -710,50 +674,49 @@ const WalletBalances = ({
                                   <img
                                     src={tx.token_metadata.logo}
                                     alt={`${tx.token} logo`}
-                                    className="w-4 sm:w-6 h-4 sm:h-6 rounded-full flex-shrink-0"
+                                    className="w-4 h-4 sm:w-6 sm:h-6 rounded-full flex-shrink-0"
                                     onError={(e) => {
-                                      console.error('Token logo failed to load:', {
+                                      logger.error('Token logo failed to load:', {
                                         symbol: tx.token,
                                         src: tx.token_metadata.logo,
                                       });
-                                      e.target.src = '/fallback-image.jpg';
+                                      e.target.src = '/fallback-image.png';
                                     }}
                                   />
                                 )}
                                 <img
                                   src={getPlatformImage(tx.chain)}
                                   alt={`${chainName} logo`}
-                                  className="w-2 sm:w-3 rounded-full absolute left-0 top-[-2px] sm:left-2 sm:top-[-1px]"
+                                  className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-1 top-[-2px] sm:left-2 sm:top-[-1px]"
                                   onError={(e) => {
-                                    console.error('Transaction chain logo failed to load:', {
+                                    logger.error('Transaction chain logo failed to load:', {
                                       chain: tx.chain,
-                                      chainName: chainName, // Sửa chainName: src thành chainName
-                                      src: getPlatformImage(tx.chain), // Sửa cú pháp src
+                                      chainName,
+                                      src: getPlatformImage(tx.chain),
                                     });
-                                    e.target.src = '/fallback-image.jpg';
+                                    e.target.src = '/fallback-image.png';
                                   }}
                                 />
-                                <span className="pl-2">{tx.token || 'N/A'}</span>
+                                <span className="pl-4 sm:pl-5">{tx.token || 'Unknown'}</span>
                               </div>
                             </td>
-                            <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs w-[25%]">
+                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
                               <div className="flex flex-col items-center space-y-1">
                                 <span
-                                  className={`inline-block px-2 py-1 rounded-full text-[7px] sm:text-[8px] font-medium flex-shrink-0 ${tx.type === 'receive' ? 'bg-green-500/20 text-green-600' : 'bg-blue-500/20 text-blue-600'
-                                    }`}
+                                  className={`inline-flex px-1.5 py-0.5 rounded-lg text-[7px] sm:text-[8px] font-medium flex-shrink-0 ${tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'}`}
                                 >
-                                  {tx.type.charAt(0).toUpperCase() + tx.type.substring(1)}
+                                  {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
                                 </span>
-                                <div className="flex items-center justify-center space-x-1">
+                                <div className="flex items-center justify-center space-x-2">
                                   {addressImage && (
                                     <img
                                       src={addressImage}
                                       alt={`${displayAddress} logo`}
-                                      className="w-2 sm:w-4 h-2 sm:h-4 rounded-full flex-shrink-0"
+                                      className="w-2 h-2 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
                                       onError={(e) => {
-                                        console.error('Address name tag image failed:', {
-                                          address: displayAddress, // Sửa address: { displayAddress } thành address
-                                          src: addressImage, // Sửa src: { addressImage } thành src
+                                        logger.error('Address name tag image failed to load:', {
+                                          address: tx.type === 'receive' ? tx.from : tx.to,
+                                          src: addressImage,
                                         });
                                         e.target.src = '/icons/default.png';
                                       }}
@@ -763,8 +726,8 @@ const WalletBalances = ({
                                     href={addressUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-[8px] sm:text-xs text-neon-blue-500 hover:underline"
-                                    title={tx.type === 'receive' ? 'From' : 'To'}
+                                    className="text-[8px] sm:text-xs text-neon-blue hover:underline"
+                                    title={tx.type === 'receive' ? tx.from : tx.to}
                                     onClick={() => handleAddressClick(tx.type === 'receive' ? tx.from : tx.to)}
                                   >
                                     {displayAddress}
@@ -772,16 +735,16 @@ const WalletBalances = ({
                                 </div>
                               </div>
                             </td>
-                            <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs w-[20%]">
+                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
                               {formatNumber(tx.value)}
                             </td>
-                            <td className="px-2 py-2 text-gray-200 text-[8px] sm:text-xs text-center">
+                            <td className={`px-2 py-2 text-gray-200 text-[8px] sm:text-xs text-center ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
                               <div className="flex flex-col items-center gap-0.5">
                                 <a href={txUrl} target="_blank" rel="noreferrer" className="flex-shrink-0">
                                   <img
                                     src="/logos/etherscan-logo.png"
                                     alt="Etherscan"
-                                    className="w-3 sm:w-4 h-3 sm:h-4 sm:object-fill"
+                                    className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 object-contain"
                                     onError={(e) => (e.target.src = '/fallback-image.png')}
                                   />
                                 </a>
@@ -796,16 +759,19 @@ const WalletBalances = ({
                     </tbody>
                   </table>
                 </div>
+              ) : (
+                !isLoadingTransactions && (
+                  <p className="text-xs text-gray-400 text-center p-4">No valid activity found for this address.</p>
+                )
               )}
             </>
           )}
         </div>
       </div>
-    </motion.div>
-  );
-
-  return createPortal(overlayContent, document.body);
+    </motion.div>); return createPortal(overlayContent, document.body);
 };
+
+
 
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
@@ -1724,155 +1690,151 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
 
             {/* Chart */}
             <div
-  className="border border-white/10 p-2 sm:p-4 rounded-lg flex-1 min-h-[320px] sm:min-h-[300px] max-h-[250px] sm:max-h-[350px] bg-black/60 backdrop-blur-2xl shadow-neon-lg overflow-y-auto custom-scrollbar"
->
-  <div className="flex flex-col items-center mb-2 sm:mb-4">
-    <div className="flex flex-col sm:flex-row justify-between items-center w-full max-w-[90%] sm:max-w-[600px] gap-2 sm:gap-4">
-      <div className="flex space-x-2 mb-2 sm:mb-0 justify-start sm:justify-center w-full sm:w-auto">
-        <motion.button
-          onClick={debouncedHandleAnalysis}
-          className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-sm ${
-            selectedToken && dailyMarketInteractions < 5
-              ? 'text-white hover:bg-neon-blue/30'
-              : 'text-gray-400 cursor-not-allowed opacity-50'
-          }`}
-          disabled={!selectedToken || dailyMarketInteractions >= 5}
-          aria-label="Analyze token"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Analyze
-        </motion.button>
-        <motion.button
-          onClick={debouncedHandlePrediction}
-          className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border border-neon-blue/50 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-sm ${
-            selectedToken && dailyMarketInteractions < 5
-              ? 'text-neon-blue hover:bg-neon-blue/30'
-              : 'text-gray-400 cursor-not-allowed opacity-50'
-          }`}
-          disabled={!selectedToken || dailyMarketInteractions >= 5}
-          aria-label="Predict token price"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          Predict
-        </motion.button>
-      </div>
-      <div className="flex items-center justify-center gap-2 sm:gap-4 mt-0 sm:mt-4">
-        <div className="text-[8px] sm:text-[9px] text-gray-200">
-          <p className="text-gray-500 text-center">
-            Change:{' '}
-            <span
-              className={`font-bold ${
-                highLowData.percentageChange !== 'N/A' && typeof highLowData.percentageChange === 'number'
-                  ? highLowData.percentageChange >= 0
-                    ? 'text-green-500'
-                    : 'text-red-500'
-                  : 'text-gray-200'
-              }`}
+              className="border border-white/10 p-2 sm:p-4 rounded-lg flex-1 min-h-[320px] sm:min-h-[300px] max-h-[250px] sm:max-h-[350px] bg-black/60 backdrop-blur-2xl shadow-neon-lg overflow-y-auto custom-scrollbar"
             >
-              {highLowData.percentageChange !== 'N/A' && typeof highLowData.percentageChange === 'number'
-                ? `${highLowData.percentageChange >= 0 ? '+' : ''}${highLowData.percentageChange.toFixed(2)}% (${
-                    timeRange === '0.5' ? '1H' : timeRange === '1' ? '1D' : timeRange === '7' ? '7D' : timeRange === '30' ? '1M' : timeRange === '90' ? '3M' : '1Y'
-                  })`
-                : 'N/A'}
-            </span>
-          </p>
-        </div>
-        <div className="flex items-center gap-1 sm:gap-1.5">
-          <select
-            value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value)}
-            className="text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[8px] sm:text-[9px] border border-white/10 bg-black/60 backdrop-blur-2xl rounded-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 custom-scrollbar"
-          >
-            {['1D', '7D', '1M', '3M', '1Y'].map((range, idx) => (
-              <option key={range} value={['1', '7', '30', '90', '365'][idx]}>
-                {range}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-    </div>
-  </div>
-  {isChartLoading ? (
-    <div className="space-y-2 sm:space-y-3 p-2 sm:p-4">
-      {[...Array(5)].map((_, index) => (
-        <div key={index} className="h-6 sm:h-8 bg-gray-700/50 rounded animate-pulse"></div>
-      ))}
-    </div>
-  ) : priceHistory && priceHistory.length > 0 ? (
-    <div className="h-48 sm:h-58">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={priceHistory} margin={{ top: 10, right: 15, bottom: 0, left: isMobile ? 0 : 10 }}>
-          <CartesianGrid stroke="#FFFFFF" strokeDasharray="4 4" opacity={0.3} />
-          <XAxis dataKey="title" stroke="#FFFFFF" tick={false} hide={true} />
-          <YAxis
-            stroke="#FFFFFF"
-            tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
-            domain={[(dataMin) => dataMin * 0.99, (dataMax) => dataMax * 1.01]}
-            width={isMobile ? 50 : 60}
-            tickCount={10}
-            tickFormatter={(value) => {
-              const minPrice = Math.min(...priceHistory.map((item) => item.price).filter((p) => p > 0));
-              let fractionDigits = 2;
-              if (minPrice < 0.0001) {
-                fractionDigits = 6;
-              } else if (minPrice < 0.01) {
-                fractionDigits = 4;
-              }
-              return `${currency.toUpperCase()} ${value.toLocaleString('en-US', {
-                minimumFractionDigits: fractionDigits,
-                maximumFractionDigits: fractionDigits,
-              })}`;
-            }}
-          />
-          <Tooltip content={<CustomTooltip currency={currency} />} />
-          <Area
-            type="monotone"
-            dataKey="price"
-            stroke="#FFFFFF"
-            fill="url(#neonGradient)"
-            strokeWidth={2}
-            isAnimationActive={true}
-            animationDuration={1000}
-          />
-          {priceHistory.length > 0 && (
-            <ReferenceDot
-              x={priceHistory[priceHistory.length - 1].title}
-              y={priceHistory[priceHistory.length - 1].price}
-              r={6}
-              fill="#FFFFFF"
-              stroke="#00BFFF"
-              strokeWidth={2}
-              className="animate-pulse"
-            />
-          )}
-          <defs>
-            <linearGradient id="neonGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#00BFFF" stopOpacity={0.5} />
-              <stop offset="100%" stopColor="#00BFFF" stopOpacity={0.1} />
-            </linearGradient>
-          </defs>
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  ) : (
-    <p className="text-[10px] sm:text-xs text-gray-400 text-center flex-1">
-      {selectedToken ? 'No price data available for this token.' : 'Please select a token to view the chart.'}
-    </p>
-  )}
-  <div className="absolute top-1 right-1 flex items-center group p-2">
-    <img src="/logos/CG.png" alt="CG Logo" className="w-4 sm:w-4 h-4 sm:h-4 object-contain" />
-    <span
-      className="absolute right-20 sm:right-20 text-[8px] sm:text-[9px] text-gray-200 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center"
-    >
-      Data powered by
-      <img src="/logos/CG_1.png" alt="CG_1 Logo" className="w-12 sm:w-12 h-12 sm:h-12 object-contain ml-2" />
-    </span>
-  </div>
-</div>
-</div>
+              <div className="flex flex-col items-center mb-2 sm:mb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-center w-full max-w-[90%] sm:max-w-[600px] gap-2 sm:gap-4">
+                  <div className="flex space-x-2 mb-2 sm:mb-0 justify-start sm:justify-center w-full sm:w-auto">
+                    <motion.button
+                      onClick={debouncedHandleAnalysis}
+                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-sm ${selectedToken && dailyMarketInteractions < 5
+                        ? 'text-white hover:bg-neon-blue/30'
+                        : 'text-gray-400 cursor-not-allowed opacity-50'
+                        }`}
+                      disabled={!selectedToken || dailyMarketInteractions >= 5}
+                      aria-label="Analyze token"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      Analyze
+                    </motion.button>
+                    <motion.button
+                      onClick={debouncedHandlePrediction}
+                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border border-neon-blue/50 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-sm ${selectedToken && dailyMarketInteractions < 5
+                        ? 'text-neon-blue hover:bg-neon-blue/30'
+                        : 'text-gray-400 cursor-not-allowed opacity-50'
+                        }`}
+                      disabled={!selectedToken || dailyMarketInteractions >= 5}
+                      aria-label="Predict token price"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      Predict
+                    </motion.button>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 sm:gap-4 mt-0 sm:mt-4">
+                    <div className="text-[8px] sm:text-[9px] text-gray-200">
+                      <p className="text-gray-500 text-center">
+                        Change:{' '}
+                        <span
+                          className={`font-bold ${highLowData.percentageChange !== 'N/A' && typeof highLowData.percentageChange === 'number'
+                            ? highLowData.percentageChange >= 0
+                              ? 'text-green-500'
+                              : 'text-red-500'
+                            : 'text-gray-200'
+                            }`}
+                        >
+                          {highLowData.percentageChange !== 'N/A' && typeof highLowData.percentageChange === 'number'
+                            ? `${highLowData.percentageChange >= 0 ? '+' : ''}${highLowData.percentageChange.toFixed(2)}% (${timeRange === '0.5' ? '1H' : timeRange === '1' ? '1D' : timeRange === '7' ? '7D' : timeRange === '30' ? '1M' : timeRange === '90' ? '3M' : '1Y'
+                            })`
+                            : 'N/A'}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <select
+                        value={timeRange}
+                        onChange={(e) => setTimeRange(e.target.value)}
+                        className="text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[8px] sm:text-[9px] border border-white/10 bg-black/60 backdrop-blur-2xl rounded-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 custom-scrollbar"
+                      >
+                        {['1D', '7D', '1M', '3M', '1Y'].map((range, idx) => (
+                          <option key={range} value={['1', '7', '30', '90', '365'][idx]}>
+                            {range}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {isChartLoading ? (
+                <div className="space-y-2 sm:space-y-3 p-2 sm:p-4">
+                  {[...Array(5)].map((_, index) => (
+                    <div key={index} className="h-6 sm:h-8 bg-gray-700/50 rounded animate-pulse"></div>
+                  ))}
+                </div>
+              ) : priceHistory && priceHistory.length > 0 ? (
+                <div className="h-48 sm:h-58">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={priceHistory} margin={{ top: 10, right: 15, bottom: 0, left: isMobile ? 0 : 10 }}>
+                      <CartesianGrid stroke="#FFFFFF" strokeDasharray="4 4" opacity={0.3} />
+                      <XAxis dataKey="title" stroke="#FFFFFF" tick={false} hide={true} />
+                      <YAxis
+                        stroke="#FFFFFF"
+                        tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
+                        domain={[(dataMin) => dataMin * 0.99, (dataMax) => dataMax * 1.01]}
+                        width={isMobile ? 50 : 60}
+                        tickCount={10}
+                        tickFormatter={(value) => {
+                          const minPrice = Math.min(...priceHistory.map((item) => item.price).filter((p) => p > 0));
+                          let fractionDigits = 2;
+                          if (minPrice < 0.0001) {
+                            fractionDigits = 6;
+                          } else if (minPrice < 0.01) {
+                            fractionDigits = 4;
+                          }
+                          return `${currency.toUpperCase()} ${value.toLocaleString('en-US', {
+                            minimumFractionDigits: fractionDigits,
+                            maximumFractionDigits: fractionDigits,
+                          })}`;
+                        }}
+                      />
+                      <Tooltip content={<CustomTooltip currency={currency} />} />
+                      <Area
+                        type="monotone"
+                        dataKey="price"
+                        stroke="#FFFFFF"
+                        fill="url(#neonGradient)"
+                        strokeWidth={2}
+                        isAnimationActive={true}
+                        animationDuration={1000}
+                      />
+                      {priceHistory.length > 0 && (
+                        <ReferenceDot
+                          x={priceHistory[priceHistory.length - 1].title}
+                          y={priceHistory[priceHistory.length - 1].price}
+                          r={6}
+                          fill="#FFFFFF"
+                          stroke="#00BFFF"
+                          strokeWidth={2}
+                          className="animate-pulse"
+                        />
+                      )}
+                      <defs>
+                        <linearGradient id="neonGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#00BFFF" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="#00BFFF" stopOpacity={0.1} />
+                        </linearGradient>
+                      </defs>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-[10px] sm:text-xs text-gray-400 text-center flex-1">
+                  {selectedToken ? 'No price data available for this token.' : 'Please select a token to view the chart.'}
+                </p>
+              )}
+              <div className="absolute top-1 right-1 flex items-center group p-2">
+                <img src="/logos/CG.png" alt="CG Logo" className="w-4 sm:w-4 h-4 sm:h-4 object-contain" />
+                <span
+                  className="absolute right-20 sm:right-20 text-[8px] sm:text-[9px] text-gray-200 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center"
+                >
+                  Data powered by
+                  <img src="/logos/CG_1.png" alt="CG_1 Logo" className="w-12 sm:w-12 h-12 sm:h-12 object-contain ml-2" />
+                </span>
+              </div>
+            </div>
+          </div>
           {/* Left Section: Top Holders, CEX, DEX */}
           <div
             className={`flex flex-col border border-white/10 max-h-[50vh] min-h-[80vh] sm:max-h-[calc(100%-3rem)] overflow-y-auto custom-scrollbar bg-black/60 backdrop-blur-2xl shadow-neon-sm`}
@@ -1933,6 +1895,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                   </div>
                 )}
 
+
+
                 {/* Top Holders Tab */}
                 {activeMarketTab === 'holders' && (
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -1945,7 +1909,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                           <img
                             src={selectedToken.image}
                             alt={`${selectedToken.symbol} logo`}
-                            className="w-4 sm:w-5 h-auto rounded-full"
+                            className="w-4 sm:w-5 h-4 sm:h-5 rounded-full"
                             onError={(e) => {
                               logger.error('Token logo failed to load:', {
                                 symbol: selectedToken.symbol,
@@ -1958,21 +1922,23 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                         {selectedToken.symbol?.toUpperCase()} Holders
                       </h4>
                     </div>
-                    {isLoadingOnChain || (!onChainData.topHolders && !onChainError) ? (
-                      <div className="space-y-2 sm:space-y-3 p-4 sm:p-6">
+                    {isLoadingOnChain ? (
+                      <div className="space-y-2 sm:space-y-3 p-2 sm:p-4">
                         {[...Array(5)].map((_, index) => (
-                          <div key={index} className="flex items-center gap-2 sm:gap-3">
-                            <div className="w-4 sm:w-6 h-4 sm:h-6 bg-gray-700/40 rounded-full animate-pulse"></div>
-                            <div className="flex-1 space-y-1">
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse"></div>
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse w-3/4"></div>
+                          <div key={index} className="flex items-center gap-2 sm:gap-4">
+                            <div className="w-6 sm:w-8 h-6 sm:h-8 bg-gray-700/50 rounded-full animate-pulse"></div>
+                            <div className="flex-1 space-y-1 sm:space-y-2">
+                              <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse"></div>
+                              <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse w-3/4"></div>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                       <table className="w-full text-[10px] sm:text-xs">
-                        <thead className={`sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md`}>
+                        <thead
+                          className={`sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md`}
+                        >
                           <tr>
                             <th className="px-2 sm:px-3 py-1 sm:py-2 text-white text-left font-medium min-w-[150px] sm:min-w-[200px]">
                               <div className="flex items-center gap-2">
@@ -2072,39 +2038,27 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                         </tbody>
                       </table>
                     ) : (
-                      <div className="space-y-2 sm:space-y-3 p-4 sm:p-6">
-                        {[...Array(5)].map((_, index) => (
-                          <div key={index} className="flex items-center gap-2 sm:gap-3">
-                            <div className="w-4 sm:w-6 h-4 sm:h-6 bg-gray-700/40 rounded-full animate-pulse"></div>
-                            <div className="flex-1 space-y-1">
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse"></div>
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse w-3/4"></div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
+                        {isLoadingOnChain
+                          ? 'Loading top holders data...'
+                          : NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
+                            ? `No public treasury data available for ${selectedToken?.symbol?.toUpperCase() || 'selected token'}.`
+                            : `No top holders data available for ${selectedToken?.symbol?.toUpperCase() || 'selected token'
+                            } on ${chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.`}
+                      </p>
                     )}
                   </div>
                 )}
 
+
+
                 {/* CEX Tab */}
                 {activeMarketTab === 'cex' && (
                   <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar smooth-scroll">
-                    {tickerError ? (
+                    {tickerError && (
                       <p className="text-[10px] sm:text-xs text-red-500 text-center p-2 sm:p-4 bg-red-500/10 rounded">{tickerError}</p>
-                    ) : isLoadingTickers || (!tickerData.length && !tickerError) ? (
-                      <div className="space-y-2 sm:space-y-3 p-4 sm:p-6">
-                        {[...Array(5)].map((_, index) => (
-                          <div key={index} className="flex items-center gap-2 sm:gap-3">
-                            <div className="w-4 sm:w-6 h-4 sm:h-6 bg-gray-700/40 rounded-full animate-pulse"></div>
-                            <div className="flex-1 space-y-1">
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse"></div>
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse w-3/4"></div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : tickerData.length > 0 ? (
+                    )}
+                    {!isLoadingTickers && !tickerError && tickerData.length > 0 ? (
                       <div className="table-container">
                         <table className="w-full text-[10px] sm:text-xs">
                           <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
@@ -2256,41 +2210,30 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                         </table>
                       </div>
                     ) : (
-                      <div className="space-y-2 sm:space-y-3 p-4 sm:p-6">
-                        {[...Array(5)].map((_, index) => (
-                          <div key={index} className="flex items-center gap-2 sm:gap-3">
-                            <div className="w-4 sm:w-6 h-4 sm:h-6 bg-gray-700/40 rounded-full animate-pulse"></div>
-                            <div className="flex-1 space-y-1">
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse"></div>
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse w-3/4"></div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      !isLoadingTickers && (
+                        <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
+                          {selectedToken
+                            ? `No CEX data available for ${selectedToken.symbol?.toUpperCase() || 'selected token'}.`
+                            : 'Please select a token to view CEX data.'}
+                        </p>
+                      )
                     )}
                   </div>
                 )}
 
+
+
                 {/* DEX Tab */}
                 {activeMarketTab === 'dex' && (
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    {dexError ? (
+                    {dexError && (
                       <p className="text-[10px] sm:text-xs text-red-500 text-center p-2 sm:p-4 bg-red-500/10 rounded">{dexError}</p>
-                    ) : isLoadingDex || (!dexData.trades.length && !dexError) ? (
-                      <div className="space-y-2 sm:space-y-3 p-4 sm:p-6">
-                        {[...Array(5)].map((_, index) => (
-                          <div key={index} className="flex items-center gap-2 sm:gap-3">
-                            <div className="w-4 sm:w-6 h-4 sm:h-6 bg-gray-700/40 rounded-full animate-pulse"></div>
-                            <div className="flex-1 space-y-1">
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse"></div>
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse w-3/4"></div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : dexData.trades.length > 0 ? (
+                    )}
+                    {!isLoadingDex && !dexError && dexData.trades.length > 0 ? (
                       <table className="w-full text-[10px] sm:text-xs">
-                        <thead className={`sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md`}>
+                        <thead
+                          className={`sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md`}
+                        >
                           <tr>
                             <th className="px-2 sm:px-3 py-1 sm:py-2 text-white text-left font-medium w-[60px] sm:w-[70px]">
                               <div className="flex items-center gap-2">
@@ -2371,7 +2314,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                                   <path
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
-                                    d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4-4z"
+                                    d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
                                   />
                                 </svg>
                                 Value
@@ -2381,17 +2324,24 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                               <div className="flex items-center justify-center gap-2">
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue"
+                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="2"
                                 >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  />
                                 </svg>
                                 Tx/Time
                               </div>
                             </th>
-                            <th className="px-2 sm:px-3 py-1 sm:py-2 text-white text-left font-medium w-[70px]">
+                            <th className="px-2 sm:px-3 py-1 sm:py-2 text-white text-left font-medium w-[70px] sm:w-[80px]">
                               <div className="flex items-center gap-2">
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue"
+                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
                                   viewBox="0 0 24 24"
                                   strokeWidth="2"
                                 >
@@ -2408,7 +2358,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                               key={`${trade.tx_hash}-${index}`}
                               className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
                             >
-                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[40px] sm:w-[50px]">
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[60px] sm:w-[70px]">
                                 <div className="flex items-center gap-2">
                                   {selectedToken?.image && (
                                     <img
@@ -2523,23 +2473,27 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                                   <span className="truncate">
                                     ${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
                                       minimumFractionDigits: 0,
-                                      maximumFractionDigits: 6,
+                                      maximumFractionDigits: 0,
                                     })}
                                   </span>
                                   <span
-                                    className={`inline-block px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] font-medium flex-shrink-0 ${trade.kind === 'buy' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}
+                                    className={`inline-block px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] font-medium flex-shrink-0 ${trade.kind === 'buy' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
+                                      }`}
                                   >
-                                    ${trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
+                                    {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
                                   </span>
                                 </div>
                               </td>
                               <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[80px] sm:w-[100px]">
                                 <div className="flex flex-col gap-0.5">
                                   <span className="truncate">
-                                    ${parseFloat(trade.kind === 'sell' ? trade.from_token_amount : trade.to_token_amount || 0).toLocaleString('en-US', {
-                                      maximumFractionDigits: 2,
-                                    })}
-                                    ${(() => {
+                                    {parseFloat(trade.kind === 'sell' ? trade.from_token_amount : trade.to_token_amount || 0).toLocaleString(
+                                      'en-US',
+                                      {
+                                        maximumFractionDigits: 2,
+                                      }
+                                    )}{' '}
+                                    {(() => {
                                       const tokenAddress =
                                         trade.kind === 'sell' ? trade.from_token_address : trade.to_token_address;
                                       return tokenAddress.toLowerCase() ===
@@ -2547,7 +2501,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                                           chains.find((c) => c.value === selectedChain)?.coingeckoId
                                         ]?.contract_address?.toLowerCase()
                                         ? selectedToken?.symbol?.toUpperCase()
-                                        : 'Unknown';
+                                        : 'Token';
                                     })()}
                                   </span>
                                 </div>
@@ -2562,27 +2516,30 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                                     className="flex-shrink-0"
                                   >
                                     <img
-                                      src="/logos/etherscan.jpg"
+                                      src="/logos/etherscan-logo.png"
                                       alt="Etherscan"
                                       className="w-3 sm:w-4 h-3 sm:h-4"
-                                      onError={(e) => (e.target.src = '/fallback-image.jpg')}
+                                      onError={(e) => (e.target.src = '/fallback-image.png')}
                                     />
                                   </a>
                                   <span className="truncate text-[10px] sm:text-xs text-center">
-                                    ${formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}
+                                    {formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}
                                   </span>
                                 </div>
                               </td>
-                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[70px]">
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[70px] sm:w-[80px]">
                                 <motion.button
                                   onClick={() => trade.pool_address && handlePoolClick(trade.pool_address)}
                                   className="flex items-center gap-2 text-[10px] sm:text-xs text-neon-blue hover:underline truncate max-w-[40px] sm:max-w-[50px]"
-                                  title="${dexData.pools.find((p) => p.attributes.address === trade.pool_address)?.attributes.name || 'View Pool Details'}"
+                                  title={
+                                    dexData.pools.find((p) => p.attributes.address === trade.pool_address)?.attributes
+                                      .name || 'View Pool Details'
+                                  }
                                   disabled={!trade.pool_address || !dexData.poolTokens[trade.pool_address]}
                                   whileHover={{ scale: 1.1 }}
                                   whileTap={{ scale: 0.9 }}
                                 >
-                                  ${(() => {
+                                  {(() => {
                                     const poolTokens =
                                       trade.pool_address && typeof trade.pool_address === 'string'
                                         ? dexData.poolTokens[trade.pool_address] || {}
@@ -2596,14 +2553,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                                           src={token1.image_url}
                                           alt={`${token1.symbol} logo`}
                                           className="w-3 sm:w-4 h-3 sm:h-4 rounded-full flex-shrink-0"
-                                          onError={(e) => (e.target.src = '/fallback-image.jpg')}
+                                          onError={(e) => (e.target.src = '/fallback-image.png')}
                                         />
                                         <span>/</span>
                                         <img
                                           src={token2.image_url}
                                           alt={`${token2.symbol} logo`}
                                           className="w-3 sm:w-4 h-3 sm:h-4 rounded-full flex-shrink-0"
-                                          onError={(e) => (e.target.src = '/fallback-image.jpg')}
+                                          onError={(e) => (e.target.src = '/fallback-image.png')}
                                         />
                                       </>
                                     ) : (
@@ -2617,17 +2574,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                         </tbody>
                       </table>
                     ) : (
-                      <div className="space-y-2 sm:space-y-3 p-4 sm:p-6">
-                        {[...Array(5)].map((_, index) => (
-                          <div key={index} className="flex items-center gap-2 sm:gap-3">
-                            <div className="w-4 sm:w-6 h-4 sm:h-6 bg-gray-700/40 rounded-full animate-pulse"></div>
-                            <div className="flex-1 space-y-1">
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse"></div>
-                              <div className="h-3 sm:h-4 bg-gray-700/40 rounded animate-pulse w-3/4"></div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      !isLoadingDex && (
+                        <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
+                          No DEX data available for {selectedToken?.symbol?.toUpperCase() || 'selected token'} on{' '}
+                          {chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.
+                        </p>
+                      )
                     )}
                   </div>
                 )}
@@ -2638,6 +2590,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
               </p>
             )}
           </div>
+
+
 
           {/* Additional Components */}
           <WalletBalances
