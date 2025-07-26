@@ -2,6 +2,7 @@
 import WatchlistsTab from '../../components/WatchlistsTab';
 import { toast } from 'react-toastify';
 
+// Hàm tạo static params (giữ nguyên)
 export async function generateStaticParams() {
   try {
     const popularAddresses = [
@@ -12,8 +13,8 @@ export async function generateStaticParams() {
     const params = popularAddresses.flatMap((address) =>
       tabs.map((tab) => ({
         query: { tab, address },
-      })
-    ));
+      }))
+    );
     return params;
   } catch (error) {
     console.error('Error in generateStaticParams:', error);
@@ -23,8 +24,8 @@ export async function generateStaticParams() {
 
 // Server-side metadata for SEO
 export async function generateMetadata({ searchParams }) {
-  const address = searchParams.address || 'unknown';
-  const tab = searchParams.tab || 'token';
+  const params = await searchParams; // Await searchParams
+  const { address = 'unknown', tab = 'token' } = params;
   const capitalizedTab = tab.charAt(0).toUpperCase() + tab.slice(1);
   const truncatedAddress = address.length > 10 ? `${address.slice(0, 6)}...${address.slice(-4)}` : address;
   return {
@@ -36,8 +37,8 @@ export async function generateMetadata({ searchParams }) {
 }
 
 // Server Component
-export default function WatchlistPage({ searchParams }) {
-  const initialTab = searchParams.tab || 'token';
-  const initialAddress = searchParams.address || null;
-  return <WatchlistsTab initialTab={initialTab} initialAddress={initialAddress} toast={toast} />;
+export default async function WatchlistPage({ searchParams }) {
+  const params = await searchParams; // Await searchParams
+  const { tab = 'token', address = null } = params;
+  return <WatchlistsTab initialTab={tab} initialAddress={address} toast={toast} />;
 }

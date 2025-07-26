@@ -2,9 +2,10 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
+import axiosRetry from 'axios-retry';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -13,7 +14,15 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { SUPPORTED_CHAINS, CHAIN_MAPPING, CHAIN_ID_TO_NAME, CHAIN_EXPLORER_MAP } from '../utils/constants';
 import { formatDistanceToNow } from 'date-fns';
-import { debounce } from 'lodash';
+import useSWR from 'swr';
+import { cacheData, getCachedData, clearCache } from '../utils/indexedDB';
+import debounce from 'lodash/debounce';
+
+axiosRetry(axios, {
+  retries: 3, // Thử lại 3 lần
+  retryDelay: (retryCount) => retryCount * 1000, // Delay 1s, 2s, 3s
+  retryCondition: (error) => error.code === 'ECONNABORTED' || error.response?.status >= 500, // Retry khi timeout hoặc lỗi server
+});
 
 // Utility functions (unchanged)
 const formatPrice = (price) => {
@@ -72,27 +81,21 @@ const SkeletonLoader = ({ isMobile }) => {
   const skeletonRows = Array(5).fill(null);
   return (
     <div className="w-full p-2 sm:p-4">
-      <table className="w-full table-fixed text-[10px] sm:text-xs">
+      <table className="w-full text-[10px] sm:text-xs">
         <tbody>
           {skeletonRows.map((_, index) => (
             <tr key={index} className="border-t border-white/10">
-              <td className={`px-2 py-2 ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}>
+              <td className="px-2 sm:px-4 py-2 text-center">
                 <div className="flex flex-col items-center gap-1">
                   <div className="w-5 sm:w-6 h-5 sm:h-6 bg-gray-700/50 rounded-full animate-pulse"></div>
                   <div className="w-10 sm:w-12 h-2 bg-gray-700/50 rounded animate-pulse"></div>
                 </div>
               </td>
-              <td className={`px-2 py-2 ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
-                <div className="flex items-center gap-2">
-                  <div className="w-5 sm:w-6 h-5 sm:h-6 bg-gray-700/50 rounded-full animate-pulse"></div>
-                  <div className="w-16 sm:w-20 h-3 bg-gray-700/50 rounded animate-pulse"></div>
-                </div>
+              <td className="px-2 sm:px-4 py-2 text-center">
+                <div className="w-16 sm:w-20 h-3 bg-gray-700/50 rounded animate-pulse mx-auto"></div>
               </td>
-              <td className={`px-2 py-2 ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
-                <div className="w-12 sm:w-16 h-3 bg-gray-700/50 rounded animate-pulse"></div>
-              </td>
-              <td className={`px-2 py-2 ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
-                <div className="w-20 sm:w-24 h-3 bg-gray-700/50 rounded animate-pulse"></div>
+              <td className="px-2 sm:px-4 py-2 text-center">
+                <div className="w-20 sm:w-24 h-3 bg-gray-700/50 rounded animate-pulse mx-auto"></div>
               </td>
             </tr>
           ))}
@@ -101,6 +104,7 @@ const SkeletonLoader = ({ isMobile }) => {
     </div>
   );
 };
+
 
 // Tooltip Component with Glassmorphism (unchanged)
 const Tooltip = ({ children, text }) => {
@@ -159,41 +163,53 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
   });
   const itemsPerPage = 50;
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
   const SUPPORTED_SVM_CHAINS = ['solana', 'eclipse'];
   const EVM_LOGOS = ['ethereum', 'base', 'bnb'];
   const SVM_LOGOS = ['solana', 'eclipse'];
 
+  const stableWatchlists = useMemo(() => watchlists, [watchlists]);
+
   // Handle URL updates when selecting wallet or switching tabs
-  const updateUrl = useCallback(
-    (tab, address) => {
-      const newParams = new URLSearchParams();
-      newParams.set('tab', tab.toLowerCase());
-      if (address) {
-        newParams.set('address', address);
-      }
-      router.push(`/watchlist?${newParams.toString()}`, { shallow: true });
-    },
-    [router]
-  );
+  const updateUrl = useCallback((tab, address) => {
+    const newParams = new URLSearchParams();
+    newParams.set('tab', tab.toLowerCase());
+    if (address) {
+      newParams.set('address', address);
+    }
+    router.push(`/watchlist?${newParams.toString()}`, { shallow: true });
+  }, [router]);
+
+  const handleTabClick = (tab) => {
+    setActiveTab(tab);
+    setCurrentPage((prev) => ({ ...prev, [tab]: 1 }));
+    updateUrl(tab.toLowerCase(), selectedWallet?.address || null);
+  };
 
   // Sync activeTab and selectedWallet with URL
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab')?.toUpperCase() || initialTab.toUpperCase();
     const addressFromUrl = searchParams.get('address') || initialAddress;
-    if (['TOKEN', 'NFT', 'ACTIVITY'].includes(tabFromUrl)) {
+
+    if (['TOKEN', 'NFT', 'ACTIVITY'].includes(tabFromUrl) && tabFromUrl !== activeTab) {
       setActiveTab(tabFromUrl);
+      setCurrentPage((prev) => ({ ...prev, [tabFromUrl]: 1 }));
     }
-    if (addressFromUrl && watchlists.some((w) => w.address === addressFromUrl)) {
-      const wallet = watchlists.find((w) => w.address === addressFromUrl);
-      setSelectedWallet(wallet || null);
-      setActiveChainType(wallet?.chainType || 'EVM');
-    } else if (watchlists.length > 0 && !selectedWallet) {
-      setSelectedWallet(watchlists[0]);
-      setActiveChainType(watchlists[0].chainType);
-      updateUrl(tabFromUrl.toLowerCase(), watchlists[0].address);
+
+    if (addressFromUrl && stableWatchlists.some((w) => w.address === addressFromUrl)) {
+      const wallet = stableWatchlists.find((w) => w.address === addressFromUrl);
+      if (wallet && wallet.address !== selectedWallet?.address) {
+        setSelectedWallet(wallet);
+        setActiveChainType(wallet.chainType || 'EVM');
+      }
+    } else if (stableWatchlists.length > 0 && !selectedWallet) {
+      const wallet = stableWatchlists[0];
+      setSelectedWallet(wallet);
+      setActiveChainType(wallet.chainType || 'EVM');
+      updateUrl(activeTab.toLowerCase(), wallet.address);
     }
-  }, [searchParams, initialTab, initialAddress, watchlists, updateUrl]);
+  }, [searchParams, initialTab, initialAddress, stableWatchlists, selectedWallet, updateUrl, activeTab]);
+
 
   // Handle Escape key for modal
   useEffect(() => {
@@ -211,7 +227,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
   const { data: supportedChains, isLoading: chainsLoading } = useQuery({
     queryKey: ['supportedChains'],
     queryFn: async () => {
-      const response = await axios.get(`${API_BASE_URL}/coingecko/chains`, { timeout: 15000 });
+      const response = await axios.get(`${API_BASE_URL}/api/coingecko/chains`, { timeout: 15000 });
       if (!response.data.success) throw new Error('Failed to load supported chains');
       return response.data.data;
     },
@@ -264,59 +280,93 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
   // Fetch data (unchanged)
   const fetchDataQuery = async (action, address, chainType) => {
     const isValidEVM = isAddress(address);
+    const cacheKey = `${action}-${address}-${chainType}`;
+    let cachedData = null;
+
+    try {
+      cachedData = await getCachedData(cacheKey);
+      if (cachedData) {
+        console.log(`Using cached data for ${cacheKey}`);
+        return cachedData;
+      }
+    } catch (error) {
+      console.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, error);
+    }
+
     const payload = {
       action,
       address,
       ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
       limit: 500,
     };
-    const response = await axios.post(`${API_BASE_URL}/sim`, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-      },
-      withCredentials: true,
-      timeout: 30000,
-    });
-    if (!response.data.success) throw new Error(response.data.detail || `Failed to load ${action} data`);
-    return response.data.data;
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/sim`, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+        },
+        withCredentials: true,
+        timeout: 30000,
+      });
+
+      if (!response.data.success) throw new Error(response.data.detail || `Failed to load ${action} data`);
+
+      try {
+        await cacheData(cacheKey, response.data.data);
+      } catch (cacheError) {
+        console.warn(`Failed to cache data for ${cacheKey}`, cacheError);
+      }
+      return response.data.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`);
+    }
   };
 
-  const { data: balancesData, isLoading: balancesLoading } = useQuery({
-    queryKey: ['wallet-balances', selectedWallet?.address],
-    queryFn: () => fetchDataQuery('wallet-balances', selectedWallet?.address, activeChainType),
-    enabled: !!selectedWallet,
-    onError: (error) => {
-      const errorMessage = error.response?.status === 401 ? 'Unauthorized: Please log in again.' : error.message;
-      setError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      setBalances([]);
-    },
-  });
+  const { data: balancesData, error: balancesError, isValidating: balancesValidating } = useSWR(
+    selectedWallet ? ['wallet-balances', selectedWallet.address, activeChainType] : null,
+    () => fetchDataQuery('wallet-balances', selectedWallet.address, activeChainType),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      refreshInterval: 15 * 60 * 1000,
+      dedupingInterval: 30 * 1000,
+    }
+  );
 
-  const { data: collectiblesData, isLoading: collectiblesLoading } = useQuery({
-    queryKey: ['collectibles', selectedWallet?.address],
-    queryFn: () => fetchDataQuery('collectibles', selectedWallet?.address, activeChainType),
-    enabled: !!selectedWallet,
-    onError: (error) => {
-      const errorMessage = error.response?.status === 401 ? 'Unauthorized: Please log in again.' : error.message;
-      setError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      setCollectibles([]);
-    },
-  });
+  const { data: collectiblesData, error: collectiblesError, isValidating: collectiblesValidating } = useSWR(
+    selectedWallet ? ['collectibles', selectedWallet.address, activeChainType] : null,
+    () => fetchDataQuery('collectibles', selectedWallet.address, activeChainType),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      refreshInterval: 15 * 60 * 1000,
+      dedupingInterval: 30 * 1000,
+    }
+  );
 
-  const { data: transactionsData, isLoading: transactionsLoading } = useQuery({
-    queryKey: ['transactions', selectedWallet?.address],
-    queryFn: () => fetchDataQuery('transactions', selectedWallet?.address, activeChainType),
-    enabled: !!selectedWallet,
-    onError: (error) => {
-      const errorMessage = error.response?.status === 401 ? 'Unauthorized: Please log in again.' : error.message;
+  const { data: transactionsData, error: transactionsError, isValidating: transactionsValidating } = useSWR(
+    selectedWallet ? ['transactions', selectedWallet.address, activeChainType] : null,
+    () => fetchDataQuery('transactions', selectedWallet.address, activeChainType),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      refreshInterval: 15 * 60 * 1000,
+      dedupingInterval: 30 * 1000,
+    }
+  );
+
+  useEffect(() => {
+    if (balancesError || collectiblesError || transactionsError) {
+      const errorMessage =
+        balancesError?.message || collectiblesError?.message || transactionsError?.message || 'Failed to load data';
       setError(errorMessage);
       toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      setTransactions([]);
-    },
-  });
+      if (balancesError) setBalances([]);
+      if (collectiblesError) setCollectibles([]);
+      if (transactionsError) setTransactions([]);
+    }
+  }, [balancesError, collectiblesError, transactionsError, toast]);
 
   useEffect(() => {
     if (balancesData) {
@@ -338,25 +388,36 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
     }
     setLoadingStates({
       loading: chainsLoading,
-      balances: balancesLoading,
-      collectibles: collectiblesLoading,
-      transactions: transactionsLoading,
+      balances: balancesValidating,
+      collectibles: collectiblesValidating,
+      transactions: transactionsValidating,
     });
-  }, [balancesData, collectiblesData, transactionsData, chainsLoading, balancesLoading, collectiblesLoading, transactionsLoading]);
+  }, [balancesData, collectiblesData, transactionsData, chainsLoading, balancesValidating, collectiblesValidating, transactionsValidating]);
 
   // Fetch token info (unchanged)
-  const { data: tokenInfoData, isLoading: tokenInfoLoading } = useQuery({
-    queryKey: ['tokenInfo', balances.map((b) => b.address)],
-    queryFn: async () => {
+  const { data: tokenInfoData, error: tokenInfoError, isValidating: tokenInfoValidating } = useSWR(
+    selectedWallet && balances.length > 0 ? ['tokenInfo', balances.map((b) => b.address)] : null,
+    async () => {
       const tokenAddresses = balances
         .filter((b) => b.address !== 'native')
         .map((b) => ({ address: b.address, chain: b.chain }))
-        .slice(0, 10);
+        .slice(0, 5);
       const tokenInfoData = {};
       for (const { address, chain } of tokenAddresses) {
         const isValidEVM = isAddress(address);
         const isValidSVM = isValidSolanaAddress(address);
         if (!isValidEVM && !isValidSVM) continue;
+        const cacheKey = `tokenInfo-${address}-${chain}`;
+        let cachedData = null;
+        try {
+          cachedData = await getCachedData(cacheKey);
+          if (cachedData) {
+            tokenInfoData[address] = cachedData;
+            continue;
+          }
+        } catch (error) {
+          console.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, error);
+        }
         try {
           const payload = {
             action: 'wallet-balances',
@@ -365,16 +426,16 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
             limit: 1,
             metadata: 'logo',
           };
-          const response = await axios.post(`${API_BASE_URL}/sim`, payload, {
+          const response = await axios.post(`${API_BASE_URL}/api/sim`, payload, {
             headers: {
               'Content-Type': 'application/json',
               ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
             },
-            timeout: 10000,
+            timeout: 30000,
           });
           if (response.data.success && response.data.data.length > 0) {
             const tokenData = response.data.data[0];
-            tokenInfoData[address] = [
+            const tokenInfo = [
               {
                 chain,
                 symbol: tokenData.symbol || 'Unknown',
@@ -382,53 +443,94 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                 name: tokenData.name || 'Unknown Token',
               },
             ];
+            tokenInfoData[address] = tokenInfo;
+            try {
+              await cacheData(cacheKey, tokenInfo);
+            } catch (cacheError) {
+              console.warn(`Failed to cache data for ${cacheKey}`, cacheError);
+            }
           }
         } catch (err) {
           console.error(`Error fetching token info for ${address} on ${chain}:`, err);
+          tokenInfoData[address] = [
+            {
+              chain,
+              symbol: 'Unknown',
+              logo: '/fallback-image.png',
+              name: 'Unknown Token',
+            },
+          ];
         }
       }
       return tokenInfoData;
     },
-    enabled: !!selectedWallet && balances.length > 0,
-    onError: (error) => {
-      const errorMessage = error.response?.data?.detail || `Failed to load token info: ${error.message}`;
-      setError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-    },
-  });
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      refreshInterval: 15 * 60 * 1000,
+      dedupingInterval: 30 * 1000,
+    }
+  );
 
   useEffect(() => {
+    if (tokenInfoError) {
+      const errorMessage = tokenInfoError.message || 'Failed to load token info';
+      setError(errorMessage);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+    }
     if (tokenInfoData) setTokenInfo(tokenInfoData);
-    setLoadingStates((prev) => ({ ...prev, loading: tokenInfoLoading }));
-  }, [tokenInfoData, tokenInfoLoading]);
+    setLoadingStates((prev) => ({ ...prev, loading: tokenInfoValidating }));
+  }, [tokenInfoData, tokenInfoError, tokenInfoValidating, toast]);
+
 
   // Load watchlists
   useEffect(() => {
     if (!session?.user?.id) return;
+
     async function fetchWatchlists() {
+      const cacheKey = `watchlists-${session.user.id}`;
+      const cachedData = await getCachedData(cacheKey);
+      if (cachedData) {
+        setWatchlists(cachedData);
+        if (cachedData.length > 0) {
+          const walletToSelect = cachedData.find((w) => w.address === initialAddress) || cachedData[0];
+          setSelectedWallet(walletToSelect);
+          setActiveChainType(walletToSelect?.chainType || 'EVM');
+          const currentTab = searchParams.get('tab')?.toLowerCase() || initialTab.toLowerCase();
+          if (currentTab !== activeTab.toLowerCase()) {
+            updateUrl(activeTab.toLowerCase(), walletToSelect.address);
+          }
+        }
+        return;
+      }
+
       setLoadingStates((prev) => ({ ...prev, loading: true }));
       try {
-        const response = await axios.get(`${API_BASE_URL}/watchlists`, {
+        const response = await axios.get(`${API_BASE_URL}/api/watchlists`, {
           headers: {
             'Content-Type': 'application/json',
             ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
           },
           withCredentials: true,
         });
+        console.log('API /api/watchlists response:', response.data);
         if (response.data.success) {
           const watchlistsData = response.data.data.map((item) => ({
             address: item.wallet_address,
             name: item.name,
             chainType: isAddress(item.wallet_address) ? 'EVM' : isValidSolanaAddress(item.wallet_address) ? 'SVM' : 'EVM',
           }));
+          await cacheData(cacheKey, watchlistsData);
+          console.log('Watchlists cached:', watchlistsData);
           setWatchlists(watchlistsData);
-          // Select wallet based on initialAddress or first wallet
           if (watchlistsData.length > 0) {
-            const walletToSelect =
-              watchlistsData.find((w) => w.address === initialAddress) || watchlistsData[0];
+            const walletToSelect = watchlistsData.find((w) => w.address === initialAddress) || watchlistsData[0];
             setSelectedWallet(walletToSelect);
             setActiveChainType(walletToSelect?.chainType || 'EVM');
-            updateUrl(activeTab.toLowerCase(), walletToSelect.address);
+            const currentTab = searchParams.get('tab')?.toLowerCase() || initialTab.toLowerCase();
+            if (currentTab !== activeTab.toLowerCase()) {
+              updateUrl(activeTab.toLowerCase(), walletToSelect.address);
+            }
           }
         } else {
           setError('Failed to load watchlists.');
@@ -436,6 +538,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
         }
       } catch (err) {
         const errorMessage = err.response?.data?.detail || `Failed to load watchlists: ${err.message}`;
+        console.error('Error fetching watchlists:', err);
         setError(errorMessage);
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         setWatchlists([]);
@@ -443,6 +546,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
         setLoadingStates((prev) => ({ ...prev, loading: false }));
       }
     }
+
     fetchWatchlists();
   }, [session, isValidSolanaAddress, initialAddress, activeTab, updateUrl]);
 
@@ -467,7 +571,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
     }
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/watchlists`,
+        `${API_BASE_URL}/api/watchlists`,
         {
           action: 'add',
           wallet_address: isValidEVM ? newAddress.toLowerCase() : newAddress,
@@ -516,7 +620,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
   const handleRemoveWallet = async (walletAddress) => {
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/watchlists`,
+        `${API_BASE_URL}/api/watchlists`,
         { action: 'remove', wallet_address: walletAddress.toLowerCase() },
         {
           headers: {
@@ -584,221 +688,228 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
   };
 
   const renderTokenRow = (token) => {
-    const tokenInfoData = tokenInfo[token.address] || [];
-    const tokenDetails = tokenInfoData.find((t) => t.chain === token.chain) || {};
-    let logoUrl = '/icons/default.png';
-    let tokenName = token.name || token.symbol || tokenDetails.name || tokenDetails.symbol || 'Unknown';
-    let tokenSymbol = token.symbol || tokenDetails.symbol || 'Unknown';
+  const tokenInfoData = tokenInfo[token.address] || [];
+  const tokenDetails = tokenInfoData.find((t) => t.chain === token.chain) || {};
+  let logoUrl = '/icons/default.png';
+  let tokenName = token.name || token.symbol || tokenDetails.name || tokenDetails.symbol || 'Unknown';
+  let tokenSymbol = token.symbol || tokenDetails.symbol || 'Unknown';
 
-    if (token.address === 'native' && NATIVE_TOKEN_INFO[token.chain]) {
-      logoUrl = NATIVE_TOKEN_INFO[token.chain].logo;
-      tokenName = NATIVE_TOKEN_INFO[token.chain].name;
-      tokenSymbol = NATIVE_TOKEN_INFO[token.chain].symbol;
-    } else if (token.logo && !token.logo.includes('scontent.xx.fbcdn.net') && token.logo !== '/fallback-image.png') {
-      logoUrl = token.logo;
-    } else if (tokenDetails.logo && !tokenDetails.logo.includes('scontent.xx.fbcdn.net') && tokenDetails.logo !== '/fallback-image.png') {
-      logoUrl = tokenDetails.logo;
-    } else {
-      return null;
-    }
+  if (token.address === 'native' && NATIVE_TOKEN_INFO[token.chain]) {
+    logoUrl = NATIVE_TOKEN_INFO[token.chain].logo;
+    tokenName = NATIVE_TOKEN_INFO[token.chain].name;
+    tokenSymbol = NATIVE_TOKEN_INFO[token.chain].symbol;
+  } else if (token.logo && !token.logo.includes('scontent.xx.fbcdn.net') && token.logo !== '/fallback-image.png') {
+    logoUrl = token.logo;
+  } else if (tokenDetails.logo && !tokenDetails.logo.includes('scontent.xx.fbcdn.net') && tokenDetails.logo !== '/fallback-image.png') {
+    logoUrl = tokenDetails.logo;
+  } else {
+    return null;
+  }
 
-    return (
-      <motion.tr
-        key={`${token.chain}-${token.address}`}
-        className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-      >
-        <td className={`px-2 py-2 text-gray-200 text-[10px] sm:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
-          <div className="flex items-center gap-2 relative">
-            <div className="relative">
-              <Image
-                src={logoUrl}
-                alt={`${tokenSymbol} logo`}
-                width={isMobile ? 24 : 28}
-                height={isMobile ? 24 : 28}
-                className="rounded-full"
-                onError={(e) => (e.target.src = '/icons/default.png')}
-              />
-              <Image
-                src={getPlatformImage(token.chain)}
-                alt={`${token.chain} logo`}
-                width={isMobile ? 12 : 14}
-                height={isMobile ? 12 : 14}
-                className="rounded-full absolute top-0 right-0"
-                style={{ transform: 'translate(25%, -25%)' }}
-                onError={(e) => (e.target.src = '/icons/default.png')}
-              />
-            </div>
-            <div className="flex flex-col">
-              <span>{tokenSymbol}</span>
-              {token.price_usd != null && (
-                <span className="text-[7px] sm:text-[10px] text-gray-400">{formatPrice(token.price_usd)}</span>
-              )}
-            </div>
-          </div>
-        </td>
-        <td className={`px-2 py-2 text-gray-200 text-[10px] sm:text-xs ${isMobile ? 'w-[35%]' : 'w-[35%]'}`}>
-          {formatBalance(token.amount)}
-        </td>
-        <td className={`px-2 py-2 text-gray-200 text-[10px] sm:text-xs ${isMobile ? 'w-[35%]' : 'w-[35%]'}`}>
-          {token.value_usd != null
-            ? `$${token.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-            : 'N/A'}
-        </td>
-      </motion.tr>
-    );
-  };
-
-  const renderNFTRow = useMemo(
-    () => (nft) => {
-      const logoUrl =
-        nft.token_metadata?.logo &&
-        !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') &&
-        nft.token_metadata.logo !== '/fallback-image.png'
-          ? nft.token_metadata.logo
-          : null;
-      if (!logoUrl) {
-        return null;
-      }
-      return (
-        <motion.div
-          key={`${nft.chain}-${nft.contract_address}-${nft.token_id}`}
-          className="flex flex-col items-center p-1 sm:p-2 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
-          <div className="relative w-full aspect-square">
+  return (
+    <motion.tr
+      key={`${token.chain}-${token.address}`}
+      className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.1 }}
+    >
+      <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        <div className="flex items-center justify-center gap-2 relative">
+          <div className="relative flex-shrink-0">
             <Image
               src={logoUrl}
-              alt={`${nft.name || 'Unknown'} logo`}
-              layout="fill"
-              objectFit="cover"
-              className="rounded-lg"
+              alt={`${tokenSymbol} logo`}
+              width={isMobile ? 24 : 28}
+              height={isMobile ? 24 : 28}
+              className="rounded-full"
+              style={{ width: 'auto', height: 'auto' }}
               onError={(e) => (e.target.src = '/icons/default.png')}
             />
             <Image
-              src={getPlatformImage(nft.chain)}
-              alt={`${nft.chain} logo`}
+              src={getPlatformImage(token.chain)}
+              alt={`${token.chain} logo`}
               width={isMobile ? 12 : 14}
               height={isMobile ? 12 : 14}
-              className="rounded-full absolute top-1 right-1"
+              className="rounded-full absolute top-0 right-0"
+              style={{ transform: 'translate(25%, -25%)', width: 'auto', height: 'auto' }}
               onError={(e) => (e.target.src = '/icons/default.png')}
             />
           </div>
-          <div className="mt-1 w-full text-center">
-            <span className="text-[8px] sm:text-[10px] text-gray-200 font-medium">{nft.name || 'Unknown'}</span>
-            <div className="text-[7px] sm:text-[9px] text-gray-400">ID: {nft.token_id}</div>
-            <div className="text-[7px] sm:text-[9px] text-gray-400">Balance: {nft.balance || 1}</div>
+          <div className="flex flex-col items-center">
+            <span>{tokenSymbol}</span>
+            {token.price_usd != null && (
+              <span className="text-[7px] sm:text-[10px] text-gray-400">{formatPrice(token.price_usd)}</span>
+            )}
           </div>
-        </motion.div>
-      );
-    },
-    [isMobile]
+        </div>
+      </td>
+      <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        {formatBalance(token.amount)}
+      </td>
+      <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        {token.value_usd != null
+          ? `$${token.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+          : 'N/A'}
+      </td>
+    </motion.tr>
   );
+};
 
-  const renderTransactionRow = (tx, index) => {
-    const transactionKey = tx.hash || `tx-${index}`;
-    const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address);
-    const isSVM = SUPPORTED_SVM_CHAINS.includes(tx.chain);
-    const tokenLogo = isSVM
-      ? NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png'
-      : tx.token_metadata?.logo && !tx.token_metadata.logo.includes('scontent.xx.fbcdn.net')
-      ? tx.token_metadata.logo
-      : NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png';
-    const tokenSymbol = tx.token || 'Unknown';
-    const addressToShow = tx.type === 'receive' ? tx.from : tx.to;
-    const { text: displayAddress, image: addressImage } = truncateAddress(addressToShow, nameTags);
-
+const renderNFTRow = useMemo(
+  () => (nft) => {
+    const logoUrl =
+      nft.token_metadata?.logo &&
+      !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') &&
+      nft.token_metadata.logo !== '/fallback-image.png'
+        ? nft.token_metadata.logo
+        : null;
+    if (!logoUrl) {
+      return null;
+    }
     return (
-      <motion.tr
-        key={`${tx.chain}-${transactionKey}-${index}`}
-        className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
+      <motion.div
+        key={`${nft.chain}-${nft.contract_address}-${nft.token_id}`}
+        className="flex flex-col items-center p-2 sm:p-3 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 hover:bg-neon-blue/20 transition-all duration-300"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
-        <td className={`px-2 py-2 text-gray-200 text-[10px] sm:text-xs ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
-          <div className="flex items-center gap-2 relative">
-            <div className="relative">
-              <Image
-                src={tokenLogo}
-                alt={`${tokenSymbol} logo`}
-                width={isMobile ? 24 : 28}
-                height={isMobile ? 24 : 28}
-                className="rounded-full"
-                onError={(e) => (e.target.src = '/icons/default.png')}
-              />
-              <Image
-                src={getPlatformImage(tx.chain)}
-                alt={`${tx.chain} logo`}
-                width={isMobile ? 12 : 14}
-                height={isMobile ? 12 : 14}
-                className="rounded-full absolute top-0 right-0"
-                style={{ transform: 'translate(25%, -25%)' }}
-                onError={(e) => (e.target.src = '/icons/default.png')}
-              />
-            </div>
-            <span>{tokenSymbol}</span>
+        <div className="relative w-full aspect-square">
+          <Image
+            src={logoUrl}
+            alt={`${nft.name || 'Unknown'} logo`}
+            objectFit="cover"
+            width={isMobile ? 120 : 200}
+            height={isMobile ? 120 : 200}
+            className="rounded-lg"
+            style={{ width: '100%', height: 'auto' }}
+            onError={(e) => (e.target.src = '/icons/default.png')}
+          />
+          <Image
+            src={getPlatformImage(nft.chain)}
+            alt={`${nft.chain} logo`}
+            width={isMobile ? 12 : 14}
+            height={isMobile ? 12 : 14}
+            className="rounded-full absolute top-1 right-1"
+            style={{ width: 'auto', height: 'auto' }}
+            onError={(e) => (e.target.src = '/icons/default.png')}
+          />
+        </div>
+        <div className="mt-1 w-full text-center">
+          <span className="text-[8px] sm:text-[10px] text-gray-200 font-medium">{nft.name || 'Unknown'}</span>
+          <div className="text-[7px] sm:text-[9px] text-gray-400">ID: {nft.token_id}</div>
+          <div className="text-[7px] sm:text-[9px] text-gray-400">Balance: {nft.balance || 1}</div>
+        </div>
+      </motion.div>
+    );
+  },
+  [isMobile]
+);
+
+const renderTransactionRow = (tx, index) => {
+  const transactionKey = tx.hash || `tx-${index}`;
+  const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address);
+  const isSVM = SUPPORTED_SVM_CHAINS.includes(tx.chain);
+  const tokenLogo = isSVM
+    ? NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png'
+    : tx.token_metadata?.logo && !tx.token_metadata.logo.includes('scontent.xx.fbcdn.net')
+      ? tx.token_metadata.logo
+      : NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png';
+  const tokenSymbol = tx.token || 'Unknown';
+  const addressToShow = tx.type === 'receive' ? tx.from : tx.to;
+  const { text: displayAddress, image: addressImage } = truncateAddress(addressToShow, nameTags);
+
+  return (
+    <motion.tr
+      key={`${tx.chain}-${transactionKey}-${index}`}
+      className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.1 }}
+    >
+      <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        <div className="flex items-center justify-center gap-2 relative">
+          <div className="relative flex-shrink-0">
+            <Image
+              src={tokenLogo}
+              alt={`${tokenSymbol} logo`}
+              width={isMobile ? 24 : 28}
+              height={isMobile ? 24 : 28}
+              className="rounded-full"
+              style={{ width: 'auto', height: 'auto' }}
+              onError={(e) => (e.target.src = '/icons/default.png')}
+            />
+            <Image
+              src={getPlatformImage(tx.chain)}
+              alt={`${tx.chain} logo`}
+              width={isMobile ? 12 : 14}
+              height={isMobile ? 12 : 14}
+              className="rounded-full absolute top-0 right-0"
+              style={{ transform: 'translate(25%, -25%)', width: 'auto', height: 'auto' }}
+              onError={(e) => (e.target.src = '/icons/default.png')}
+            />
           </div>
-        </td>
-        <td className={`px-2 py-2 text-gray-200 text-[10px] sm:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
-          <div className="flex flex-col items-center gap-1">
-            <span
-              className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${
-                tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'
-              }`}
-            >
-              {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
-            </span>
-            <div className="flex items-center gap-2">
-              {addressImage && (
-                <Image
-                  src={addressImage}
-                  alt={`${displayAddress} logo`}
-                  width={isMobile ? 12 : 16}
-                  height={isMobile ? 12 : 16}
-                  className="rounded-full"
-                  onError={(e) => (e.target.src = '/icons/default.png')}
-                />
-              )}
-              <a
-                href={addressUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-neon-blue hover:underline"
-                title={addressToShow}
-              >
-                {displayAddress}
-              </a>
-            </div>
-          </div>
-        </td>
-        <td className={`px-2 py-2 text-gray-200 text-[10px] sm:text-xs ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
-          {tx.value ? `${Number(tx.value).toLocaleString('en-US', { maximumFractionDigits: 6 })}` : 'N/A'}
-        </td>
-        <td className={`px-2 py-2 text-gray-200 text-[10px] sm:text-xs text-center ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
-          <div className="flex flex-col items-center gap-0.5">
-            <a href={txUrl} target="_blank" rel="noopener noreferrer">
+          <span>{tokenSymbol}</span>
+        </div>
+      </td>
+      <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        <div className="flex flex-col items-center gap-1">
+          <span
+            className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${
+              tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'
+            }`}
+          >
+            {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
+          </span>
+          <div className="flex items-center justify-center gap-2">
+            {addressImage && (
               <Image
-                src="/logos/etherscan-logo.png"
-                alt="Etherscan"
+                src={addressImage}
+                alt={`${displayAddress} logo`}
                 width={isMobile ? 12 : 16}
                 height={isMobile ? 12 : 16}
                 className="rounded-full"
-                onError={(e) => (e.target.src = '/fallback-image.png')}
+                style={{ width: 'auto', height: 'auto' }}
+                onError={(e) => (e.target.src = '/icons/default.png')}
               />
+            )}
+            <a
+              href={addressUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-neon-blue hover:underline truncate"
+              title={addressToShow}
+            >
+              {displayAddress}
             </a>
-            <span className="text-[8px] sm:text-[10px] text-gray-400">
-              {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
-            </span>
           </div>
-        </td>
-      </motion.tr>
-    );
-  };
+        </div>
+      </td>
+      <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        {tx.value ? `${Number(tx.value).toLocaleString('en-US', { maximumFractionDigits: 6 })}` : 'N/A'}
+      </td>
+      <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        <div className="flex flex-col items-center gap-0.5">
+          <a href={txUrl} target="_blank" rel="noopener noreferrer">
+            <Image
+              src="/logos/etherscan-logo.png"
+              alt="Etherscan"
+              width={isMobile ? 12 : 16}
+              height={isMobile ? 12 : 16}
+              className="rounded-full"
+              style={{ width: 'auto', height: 'auto' }}
+              onError={(e) => (e.target.src = '/fallback-image.png')}
+            />
+          </a>
+          <span className="text-[8px] sm:text-[10px] text-gray-400">
+            {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
+          </span>
+        </div>
+      </td>
+    </motion.tr>
+  );
+};
 
   // Filter data based on activeChain
   const filteredBalances = useMemo(() => {
@@ -848,7 +959,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] rounded-xl border border-white/10 bg-black/60 backdrop-blur-2xl shadow-neon-lg ${isMobile ? '' : ''}`}
+      className={`font-jetbrains w-full max-w-9xl mx-auto mt-2 p-2 -max-h-[calc(100vh-6rem)] bg-black/60 backdrop-blur-2xl shadow-neon-lg ${isMobile ? '' : ''}`}
     >
       <ToastContainer position="top-center" autoClose={5000} theme="dark" />
 
@@ -876,7 +987,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.3 }}
-              className="text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-1.5 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 w-1/2 sm:w-auto"
+              className="text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-1.5 border-2 border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 w-1/2 sm:w-auto"
             >
               {watchlists.length === 0 ? (
                 <option value="">No wallets added</option>
@@ -918,11 +1029,10 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
               onClick={() => setActiveChain(null)}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`px-2 sm:px-3 py-1 sm:py-1.5 border rounded-sm transition-all duration-300 text-[10px] sm:text-xs font-medium text-white ${
-                activeChain === null
-                  ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
-                  : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
-              }`}
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 border rounded-sm transition-all duration-300 text-[10px] sm:text-xs font-medium text-white ${activeChain === null
+                ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
+                : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
+                }`}
             >
               ALL
             </motion.button>
@@ -933,11 +1043,10 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                 onClick={() => setActiveChain(chain)}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                className={`p-1 sm:p-1.5 border rounded-sm transition-all duration-300 ${
-                  activeChain === chain
-                    ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
-                    : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
-                }`}
+                className={`p-1 sm:p-1.5 border rounded-sm transition-all duration-300 ${activeChain === chain
+                  ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
+                  : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
+                  }`}
               >
                 <Image
                   src={getPlatformImage(chain)}
@@ -945,6 +1054,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                   width={isMobile ? 20 : 24}
                   height={isMobile ? 20 : 24}
                   className="rounded-sm object-contain"
+                  style={{ width: 'auto', height: 'auto' }}
                   onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
                 />
               </motion.button>
@@ -957,16 +1067,11 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
         {['TOKEN', 'NFT', 'ACTIVITY'].map((tab) => (
           <motion.button
             key={tab}
-            onClick={() => {
-              setActiveTab(tab);
-              setCurrentPage((prev) => ({ ...prev, [tab]: 1 })); // Reset to first page when switching tabs
-              updateUrl(tab.toLowerCase(), selectedWallet?.address || null);
-            }}
+            onClick={() => handleTabClick(tab)}
             whileHover={{ scale: 1 }}
             whileTap={{ scale: 0.95 }}
-            className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${
-              activeTab === tab ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
-            } last:border-r-0`}
+            className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${activeTab === tab ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
+              } last:border-r-0`}
           >
             {tab}
           </motion.button>
@@ -975,7 +1080,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
 
       {/* Pagination Controls */}
       {selectedWallet && (
-        <div className="flex justify-end bg-black/60 backdrop-blur-md border border-white/10 rounded-lg">
+        <div className="flex justify-end bg-black/60 backdrop-blur-md mb-2">
           {activeTab === 'TOKEN' && filteredBalances.length > itemsPerPage && (
             <div className="flex items-center gap-2 sm:gap-4">
               <motion.button
@@ -983,9 +1088,8 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                 disabled={currentPage.TOKEN === 1}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                  currentPage.TOKEN === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.TOKEN === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  } transition-all duration-300 rounded`}
               >
                 &lt;
               </motion.button>
@@ -997,9 +1101,8 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                 disabled={currentPage.TOKEN === getTotalPages(filteredBalances)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                  currentPage.TOKEN === getTotalPages(filteredBalances) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.TOKEN === getTotalPages(filteredBalances) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  } transition-all duration-300 rounded`}
               >
                 &gt;
               </motion.button>
@@ -1012,9 +1115,8 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                 disabled={currentPage.NFT === 1}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                  currentPage.NFT === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.NFT === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  } transition-all duration-300 rounded`}
               >
                 &lt;
               </motion.button>
@@ -1026,9 +1128,8 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                 disabled={currentPage.NFT === getTotalPages(filteredCollectibles)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                  currentPage.NFT === getTotalPages(filteredCollectibles) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.NFT === getTotalPages(filteredCollectibles) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  } transition-all duration-300 rounded`}
               >
                 &gt;
               </motion.button>
@@ -1041,9 +1142,8 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                 disabled={currentPage.ACTIVITY === 1}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                  currentPage.ACTIVITY === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.ACTIVITY === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  } transition-all duration-300 rounded`}
               >
                 &lt;
               </motion.button>
@@ -1055,9 +1155,8 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                 disabled={currentPage.ACTIVITY === getTotalPages(filteredTransactions)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                  currentPage.ACTIVITY === getTotalPages(filteredTransactions) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                } transition-all duration-300 rounded`}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.ACTIVITY === getTotalPages(filteredTransactions) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  } transition-all duration-300 rounded`}
               >
                 &gt;
               </motion.button>
@@ -1080,212 +1179,184 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
 
       {/* Data Table */}
       <div className="flex flex-col h-full">
-        <div
-          className="flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-lg bg-black/60 backdrop-blur-2xl shadow-neon-sm"
-          style={{ maxHeight: isMobile ? 'calc(100vh - 18rem)' : 'calc(100vh - 18rem)' }}
-        >
-          {loadingStates.loading || loadingStates.balances || loadingStates.collectibles || loadingStates.transactions ? (
-            <SkeletonLoader isMobile={isMobile} />
-          ) : selectedWallet ? (
-            <div className="relative overflow-x-auto">
-              {activeTab === 'TOKEN' && (
-                <>
-                  {filteredBalances.length > 0 ? (
-                    <table className="w-full table-fixed text-[10px] sm:text-xs">
-                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
-                        <tr>
-                          <th
-                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
-                              isMobile ? 'w-[30%]' : 'w-[30%]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                viewBox="0 0 24 24"
-                                strokeWidth="2"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
-                                />
-                              </svg>
-                              Token
-                            </div>
-                          </th>
-                          <th
-                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
-                              isMobile ? 'w-[35%]' : 'w-[35%]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                viewBox="0 0 24 24"
-                                strokeWidth="2"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
-                                />
-                              </svg>
-                              Balance
-                            </div>
-                          </th>
-                          <th
-                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
-                              isMobile ? 'w-[35%]' : 'w-[35%]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                viewBox="0 0 24 24"
-                                strokeWidth="2"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5" />
-                              </svg>
-                              Value
-                            </div>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>{getPaginatedData(filteredBalances, 'TOKEN').map(renderTokenRow)}</tbody>
-                    </table>
-                  ) : (
-                    <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
-                      No balances found for this wallet.
-                    </p>
-                  )}
-                </>
-              )}
-              {activeTab === 'NFT' && (
-                <>
-                  {filteredCollectibles.length > 0 ? (
-                    <div className={`grid ${isMobile ? 'grid-cols-3' : 'grid-cols-5'} gap-1 sm:gap-2 p-1 sm:p-2`}>
-                      {getPaginatedData(filteredCollectibles, 'NFT').map(renderNFTRow)}
-                    </div>
-                  ) : (
-                    <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
-                      No NFTs found for this wallet.
-                    </p>
-                  )}
-                </>
-              )}
-              {activeTab === 'ACTIVITY' && (
-                <>
-                  {filteredTransactions.length > 0 ? (
-                    <table className="w-full table-fixed text-[10px] sm:text-xs">
-                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
-                        <tr>
-                          <th
-                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
-                              isMobile ? 'w-[25%]' : 'w-[25%]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                viewBox="0 0 24 24"
-                                strokeWidth="2"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
-                                />
-                              </svg>
-                              Token
-                            </div>
-                          </th>
-                          <th
-                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
-                              isMobile ? 'w-[30%]' : 'w-[30%]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                viewBox="0 0 24 24"
-                                strokeWidth="2"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                                />
-                              </svg>
-                              Address
-                            </div>
-                          </th>
-                          <th
-                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-left font-medium ${
-                              isMobile ? 'w-[25%]' : 'w-[25%]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                viewBox="0 0 24 24"
-                                strokeWidth="2"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
-                                />
-                              </svg>
-                              Value
-                            </div>
-                          </th>
-                          <th
-                            className={`px-2 sm:px-3 py-1 sm:py-1.5 text-white text-center font-medium ${
-                              isMobile ? 'w-[20%]' : 'w-[20%]'
-                            }`}
-                          >
-                            <div className="flex items-center justify-center gap-2">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                viewBox="0 0 24 24"
-                                strokeWidth="2"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              </svg>
-                              Time
-                            </div>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>{getPaginatedData(filteredTransactions, 'ACTIVITY').map(renderTransactionRow)}</tbody>
-                    </table>
-                  ) : (
-                    <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
-                      No transactions found for this wallet.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
-              Please select a wallet to view data.
-            </div>
-          )}
-        </div>
+  <div
+    className="flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-lg bg-black/60 backdrop-blur-2xl shadow-neon-sm"
+    style={{ maxHeight: isMobile ? 'calc(100vh - 18rem)' : 'calc(100vh - 18rem)' }}
+  >
+    {loadingStates.loading || loadingStates.balances || loadingStates.collectibles || loadingStates.transactions ? (
+      <SkeletonLoader isMobile={isMobile} />
+    ) : selectedWallet ? (
+      <div className="relative overflow-x-auto">
+        {activeTab === 'TOKEN' && (
+          <>
+            {filteredBalances.length > 0 ? (
+              <table className="w-full text-[10px] sm:text-xs">
+                <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
+                  <tr>
+                    <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
+                          />
+                        </svg>
+                        Token
+                      </div>
+                    </th>
+                    <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
+                          />
+                        </svg>
+                        Balance
+                      </div>
+                    </th>
+                    <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="2"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5" />
+                        </svg>
+                        Value
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>{getPaginatedData(filteredBalances, 'TOKEN').map(renderTokenRow)}</tbody>
+              </table>
+            ) : (
+              <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
+                No balances found for this wallet.
+              </p>
+            )}
+          </>
+        )}
+        {activeTab === 'NFT' && (
+          <>
+            {filteredCollectibles.length > 0 ? (
+              <div className={`grid ${isMobile ? 'grid-cols-2 gap-2' : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3'} p-2 sm:p-3`}>
+                {getPaginatedData(filteredCollectibles, 'NFT').map(renderNFTRow)}
+              </div>
+            ) : (
+              <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
+                No NFTs found for this wallet.
+              </p>
+            )}
+          </>
+        )}
+        {activeTab === 'ACTIVITY' && (
+          <>
+            {filteredTransactions.length > 0 ? (
+              <table className="w-full text-[10px] sm:text-xs">
+                <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
+                  <tr>
+                    <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
+                          />
+                        </svg>
+                        Token
+                      </div>
+                    </th>
+                    <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                          />
+                        </svg>
+                        Address
+                      </div>
+                    </th>
+                    <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
+                          />
+                        </svg>
+                        Value
+                      </div>
+                    </th>
+                    <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                          viewBox="0 0 24 24"
+                          strokeWidth="2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        Time
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>{getPaginatedData(filteredTransactions, 'ACTIVITY').map(renderTransactionRow)}</tbody>
+              </table>
+            ) : (
+              <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
+                No transactions found for this wallet.
+              </p>
+            )}
+          </>
+        )}
       </div>
+    ) : (
+      <div className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
+        Please select a wallet to view data.
+      </div>
+    )}
+  </div>
+</div>
 
       {/* Add Wallet Modal */}
       <AnimatePresence>
@@ -1353,9 +1424,8 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                     onClick={() => setNewChainType(type)}
                     whileHover={{ scale: 1 }}
                     whileTap={{ scale: 1 }}
-                    className={`flex-1 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${
-                      newChainType === type ? 'bg-gray-400 text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
-                    } last:border-r-0`}
+                    className={`flex-1 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${newChainType === type ? 'bg-gray-400 text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
+                      } last:border-r-0`}
                   >
                     <span>{type}</span>
                     <div className="flex items-center">
@@ -1367,7 +1437,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                           width={isMobile ? 18 : 22}
                           height={isMobile ? 18 : 22}
                           className="rounded-full"
-                          style={{ marginLeft: index > 0 ? '-9px' : '0', zIndex: 10 - index }}
+                          style={{ marginLeft: index > 0 ? '-9px' : '0', zIndex: 10 - index, width: 'auto', height: 'auto' }}
                           onError={(e) => (e.target.src = '/icons/default.png')}
                         />
                       ))}
@@ -1395,39 +1465,67 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
       </AnimatePresence>
 
       <style jsx>{`
-        .shadow-neon {
-          box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
-        }
-        .shadow-neon-lg {
-          box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.4);
-        }
-        .animate-pulse {
-          animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
-        }
-        @keyframes pulse {
-          0%,
-          100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-        }
-      `}</style>
+  .shadow-neon {
+    box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
+  }
+  .shadow-neon-lg {
+    box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+  .animate-pulse {
+    animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+  /* Ensure tables are responsive */
+  table {
+    table-layout: auto;
+    width: 100%;
+  }
+  th, td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  @media (max-width: 640px) {
+    table {
+      font-size: 9px;
+    }
+    th, td {
+      padding: 0.5rem;
+    }
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+  }
+  @media (min-width: 641px) and (max-width: 1024px) {
+    .grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+  }
+`}</style>
     </motion.div>
   );
 }

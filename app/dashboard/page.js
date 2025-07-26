@@ -48,7 +48,7 @@ export default function Dashboard() {
       setLoading(true);
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
         const response = await fetch('/api/connect-data', {
           headers: {
             'Content-Type': 'application/json',
@@ -98,7 +98,7 @@ export default function Dashboard() {
         if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
         const response = await fetch(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
           method: 'GET',
           headers: {

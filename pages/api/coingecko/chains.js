@@ -4,6 +4,7 @@ import winston from 'winston';
 import helmet from 'helmet';
 import axiosRetry from 'axios-retry';
 import NodeCache from 'node-cache';
+import cors from 'cors'; // Add CORS import
 
 const logger = winston.createLogger({
   level: 'info',
@@ -25,6 +26,14 @@ const limiter = rateLimit({
   trustProxy: true,
 });
 
+// Configure CORS to allow requests from the frontend origin
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' ? 'https://yourdomain.com' : 'http://localhost:3000',
+  credentials: true, // Allow cookies to be sent
+  methods: ['GET', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 axiosRetry(axios, {
   retries: 3,
   retryDelay: (retryCount) => retryCount * 1000,
@@ -34,6 +43,11 @@ axiosRetry(axios, {
 const cache = new NodeCache({ stdTTL: 1800 }); // Cache for 30 minutes
 
 export default async function handler(req, res) {
+  // Apply CORS middleware
+  await new Promise((resolve, reject) => {
+    cors(corsOptions)(req, res, (err) => (err ? reject(err) : resolve()));
+  });
+
   helmet()(req, res, () => {});
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
   logger.info(`Request to /api/coingecko/chains from IP ${ip}`);
@@ -78,7 +92,7 @@ export default async function handler(req, res) {
       id: chain.id,
       name: chain.name,
       chainId: chain.chain_identifier,
-      shortname: chain.shortname || chain.name, // Use lowercase 'shortname' to match API
+      shortname: chain.shortname || chain.name,
       image: chain.image || { thumb: '/fallback-image.png', small: '/fallback-image.png', large: '/fallback-image.png' },
     }));
 

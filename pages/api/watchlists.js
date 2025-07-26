@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
 import { isAddress } from 'ethers';
+import cors from 'cors'; // Add CORS import
 
 const logger = winston.createLogger({
   level: 'info',
@@ -23,6 +24,14 @@ const limiter = rateLimit({
   keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown',
   trustProxy: true,
 });
+
+// Configure CORS to allow requests from the frontend origin
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' ? 'https://yourdomain.com' : 'http://localhost:3000',
+  credentials: true, // Allow cookies to be sent
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
 
 const isValidSolanaAddress = (address) => {
   return address && address.length === 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
@@ -68,6 +77,11 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  // Apply CORS middleware
+  await new Promise((resolve, reject) => {
+    cors(corsOptions)(req, res, (err) => (err ? reject(err) : resolve()));
+  });
+
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown';
   logger.info(`Request to ${req.url} from IP ${ip}, method: ${req.method}, body: ${JSON.stringify(req.body)}`);
 
