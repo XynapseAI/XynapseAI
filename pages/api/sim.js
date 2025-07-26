@@ -430,7 +430,7 @@ export default async function handler(req, res) {
           let value = '0';
           let type = 'Unknown';
           const fromAddress = tx.from || tx.address || 'Unknown';
-          let tokenSymbol = tx.chain === 'solana' ? 'SOL' : 'ECL';
+          let tokenSymbol = tx.chain === 'solana' ? 'SOL' : 'ETH';
           let tokenLogo = NATIVE_TOKEN_METADATA[tx.chain]?.logo || null;
           let tokenName = NATIVE_TOKEN_METADATA[tx.chain]?.name || 'Unknown';
 
