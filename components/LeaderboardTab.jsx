@@ -104,7 +104,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         }
         if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
 
-        const userResponse = await axios.get(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
+        const userResponse = await axios.get(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
           headers: {
             'X-Recaptcha-Token': recaptchaToken,
           },

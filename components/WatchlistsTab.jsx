@@ -987,7 +987,7 @@ const renderTransactionRow = (tx, index) => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.3 }}
-              className="text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-1.5 border-2 border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 w-1/2 sm:w-auto"
+              className="text-[10px] sm:text-xs px-2 sm:px-3 py-1.5 sm:py-1.5 border-2 border-white/10 rounded-xl bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 w-1/2 sm:w-auto"
             >
               {watchlists.length === 0 ? (
                 <option value="">No wallets added</option>
@@ -1001,18 +1001,18 @@ const renderTransactionRow = (tx, index) => {
             </motion.select>
             <motion.button
               onClick={() => setShowAddModal(true)}
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.95 }}
-              className="px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+              className="px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium text-black border border-white/10 rounded-xl bg-white backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
             >
               Add +
             </motion.button>
             {selectedWallet && (
               <motion.button
                 onClick={() => handleRemoveWallet(selectedWallet.address)}
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-red-500/50 bg-gradient-to-r from-red-500/20 to-transparent backdrop-blur-md hover:bg-red-500/30 transition-all duration-300"
+                className="px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium text-red-500/80  border border-red-500/80 rounded-xl backdrop-blur-md hover:bg-red-500/30 transition-all duration-300"
               >
                 Remove
               </motion.button>
@@ -1027,10 +1027,10 @@ const renderTransactionRow = (tx, index) => {
           <Tooltip text="All Chains">
             <motion.button
               onClick={() => setActiveChain(null)}
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.95 }}
-              className={`px-2 sm:px-3 py-1 sm:py-1.5 border rounded-sm transition-all duration-300 text-[10px] sm:text-xs font-medium text-white ${activeChain === null
-                ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
+              className={`px-2 sm:px-3 py-1.5 sm:py-1.5 border rounded-sm transition-all duration-300 text-[10px] sm:text-xs font-medium text-white ${activeChain === null
+                ? 'border-white bg-neon-blue/20 shadow-neon'
                 : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
                 }`}
             >
@@ -1041,7 +1041,7 @@ const renderTransactionRow = (tx, index) => {
             <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
               <motion.button
                 onClick={() => setActiveChain(chain)}
-                whileHover={{ scale: 1.1 }}
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.95 }}
                 className={`p-1 sm:p-1.5 border rounded-sm transition-all duration-300 ${activeChain === chain
                   ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
@@ -1070,7 +1070,7 @@ const renderTransactionRow = (tx, index) => {
             onClick={() => handleTabClick(tab)}
             whileHover={{ scale: 1 }}
             whileTap={{ scale: 0.95 }}
-            className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${activeTab === tab ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
+            className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 ${activeTab === tab ? 'border-b-2 border-white text-white shadow-neon' : 'text-white hover:bg-neon-blue/10'
               } last:border-r-0`}
           >
             {tab}
@@ -1086,7 +1086,7 @@ const renderTransactionRow = (tx, index) => {
               <motion.button
                 onClick={() => handlePageChange('TOKEN', currentPage.TOKEN - 1)}
                 disabled={currentPage.TOKEN === 1}
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.95 }}
                 className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.TOKEN === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
                   } transition-all duration-300 rounded`}
@@ -1099,7 +1099,7 @@ const renderTransactionRow = (tx, index) => {
               <motion.button
                 onClick={() => handlePageChange('TOKEN', currentPage.TOKEN + 1)}
                 disabled={currentPage.TOKEN === getTotalPages(filteredBalances)}
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.95 }}
                 className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.TOKEN === getTotalPages(filteredBalances) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
                   } transition-all duration-300 rounded`}
@@ -1113,7 +1113,7 @@ const renderTransactionRow = (tx, index) => {
               <motion.button
                 onClick={() => handlePageChange('NFT', currentPage.NFT - 1)}
                 disabled={currentPage.NFT === 1}
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.95 }}
                 className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.NFT === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
                   } transition-all duration-300 rounded`}
@@ -1126,7 +1126,7 @@ const renderTransactionRow = (tx, index) => {
               <motion.button
                 onClick={() => handlePageChange('NFT', currentPage.NFT + 1)}
                 disabled={currentPage.NFT === getTotalPages(filteredCollectibles)}
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.95 }}
                 className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.NFT === getTotalPages(filteredCollectibles) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
                   } transition-all duration-300 rounded`}
@@ -1140,7 +1140,7 @@ const renderTransactionRow = (tx, index) => {
               <motion.button
                 onClick={() => handlePageChange('ACTIVITY', currentPage.ACTIVITY - 1)}
                 disabled={currentPage.ACTIVITY === 1}
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.95 }}
                 className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.ACTIVITY === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
                   } transition-all duration-300 rounded`}
@@ -1153,7 +1153,7 @@ const renderTransactionRow = (tx, index) => {
               <motion.button
                 onClick={() => handlePageChange('ACTIVITY', currentPage.ACTIVITY + 1)}
                 disabled={currentPage.ACTIVITY === getTotalPages(filteredTransactions)}
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.95 }}
                 className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.ACTIVITY === getTotalPages(filteredTransactions) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
                   } transition-all duration-300 rounded`}
@@ -1370,7 +1370,7 @@ const renderTransactionRow = (tx, index) => {
             onClick={() => setShowAddModal(false)}
           >
             <motion.div
-              className="p-4 sm:p-6 max-w-[90%] sm:max-w-md w-full border border-white/10 rounded-xl bg-black/60 backdrop-blur-2xl shadow-neon-lg"
+              className="p-4 sm:p-6 max-w-[90%] sm:max-w-md w-full border-2 border-white/10 rounded-xl bg-black/60 backdrop-blur-2xl shadow-neon-lg"
               onClick={(e) => e.stopPropagation()}
               initial={{ y: 20 }}
               animate={{ y: 0 }}
@@ -1383,7 +1383,7 @@ const renderTransactionRow = (tx, index) => {
                 }}
                 className="absolute top-4 right-4 text-white text-lg font-bold rounded-full w-10 h-10 flex items-center justify-center bg-black/60 border border-white/10 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
                 aria-label="Close modal"
-                whileHover={{ scale: 1.1, rotate: 90 }}
+                whileHover={{ scale: 1, rotate: 90 }}
                 whileTap={{ scale: 0.95 }}
               >
                 ✕
@@ -1417,15 +1417,15 @@ const renderTransactionRow = (tx, index) => {
                   className="w-full text-[9px] sm:text-[10px] px-3 sm:px-4 py-1 sm:py-1.5 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300"
                 />
               </div>
-              <div className="flex w-full border-b border-white/10 mb-4 bg-black/60 backdrop-blur-md">
+              <div className="flex w-full mb-4 bg-black/60 backdrop-blur-md">
                 {['EVM', 'SVM'].map((type) => (
                   <motion.button
                     key={type}
                     onClick={() => setNewChainType(type)}
                     whileHover={{ scale: 1 }}
                     whileTap={{ scale: 1 }}
-                    className={`flex-1 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${newChainType === type ? 'bg-gray-400 text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
-                      } last:border-r-0`}
+                    className={`flex-1 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-all duration-300 border border-white rounded-xl m-2 ${newChainType === type ? 'text-white bg-gray-300 shadow-neon' : 'text-white'
+                      }`}
                   >
                     <span>{type}</span>
                     <div className="flex items-center">
@@ -1449,11 +1449,11 @@ const renderTransactionRow = (tx, index) => {
               <div className="flex justify-end gap-2 sm:gap-3 mt-4">
                 <motion.button
                   onClick={handleAddWallet}
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={{ scale: 1 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-xs backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-black border border-white/10 bg-white rounded-xl backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
                 >
-                  ADD WALLET
+                  ADD +
                 </motion.button>
               </div>
               {error && (

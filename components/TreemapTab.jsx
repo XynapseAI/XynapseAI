@@ -574,7 +574,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] rounded-xl border border-white/10 bg-black/60 backdrop-blur-2xl shadow-neon-lg ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
+      className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] rounded-xl bg-black/60 backdrop-blur-2xl shadow-neon-lg ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
     >
       <ToastContainer position="top-center" autoClose={5000} theme="dark" />
       <div className="mb-2 sm:mb-3 border-b border-white/10 pb-2">
@@ -599,7 +599,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           <div className="relative" ref={chainDropdownRef}>
             <button
               onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-              className="text-white px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 flex items-center gap-2 text-[10px] sm:text-xs"
+              className="text-white px-3 sm:px-4 py-1 sm:py-1.5 rounded-xl border-2 border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 flex items-center gap-2 text-[10px] sm:text-xs"
               aria-label="Select chain"
             >
               <Image
@@ -607,7 +607,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 alt={`${mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
                 width={isMobile ? 16 : 20}
                 height={isMobile ? 16 : 20}
-                className="rounded-full"
+                className="rounded-lg"
                 onError={() => console.log(`Failed to load chain image: ${getPlatformImage(selectedChain, coingeckoChains)} for chain: ${selectedChain}`)}
               />
               <span className="font-medium">
@@ -650,7 +650,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                           alt={`${chain.label} logo`}
                           width={isMobile ? 16 : 20}
                           height={isMobile ? 16 : 20}
-                          className="mr-2 rounded-full"
+                          className="mr-2 rounded-lg"
                           onError={() => console.log(`Failed to load chain image: ${chain.image} for chain: ${chain.value}`)}
                         />
                         {chain.label}
@@ -661,7 +661,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                               alt="Premium required"
                               width={isMobile ? 10 : 12}
                               height={isMobile ? 10 : 12}
-                              className="opacity-80"
+                              className="opacity-100"
                             />
                             <span className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[8px] sm:text-[10px] rounded p-1 -top-5 right-0">
                               Premium required
@@ -677,7 +677,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           <div className="relative" ref={limitDropdownRef}>
             <button
               onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
-              className="text-white px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 flex items-center gap-2 text-[10px] sm:text-xs"
+              className="text-white px-3 sm:px-4 py-1 sm:py-1.5 rounded-xl border-2 border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 flex items-center gap-2 text-[10px] sm:text-xs"
               aria-label="Select transaction limit"
             >
               <span className="font-medium">Txh: {selectedLimit}</span>
@@ -732,7 +732,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               placeholder="Search wallet (0x...)"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
-              className="bg-black/60 backdrop-blur-md text-white px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs w-full sm:w-64 border border-white/10 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 pr-8"
+              className="bg-black/60 backdrop-blur-md text-white px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs w-full sm:w-64 border-2 border-white/10 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 pr-8"
               aria-label="Wallet address"
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -742,7 +742,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             />
             <button
               onClick={() => fetchTransactions(walletAddress)}
-              className="absolute right-1.5 text-white p-1 transition-all duration-300 hover:bg-neon-blue/30 rounded"
+              className="absolute right-1.5 text-white p-1 transition-all duration-300 rounded"
               aria-label="Search wallet"
               disabled={loading}
             >

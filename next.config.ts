@@ -1,9 +1,20 @@
-// next.config.ts
 /** @type {import('next').NextConfig} */
-export default {
+const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['ipfs.io', 'pbs.twimg.com', 'localhost' , 'lh3.googleusercontent.com', 'api.dune.com' , 's2.coinmarketcap.com' , 'assets.coingecko.com', 'api.sim.dune.com' , 'gateway.irys.xyz' , 'cdn.dexscreener.com' , 'scontent.xx.fbcdn.net'],
+    domains: [
+      'ipfs.io',
+      'pbs.twimg.com',
+      'localhost',
+      'lh3.googleusercontent.com',
+      'api.dune.com',
+      's2.coinmarketcap.com',
+      'assets.coingecko.com',
+      'api.sim.dune.com',
+      'gateway.irys.xyz',
+      'cdn.dexscreener.com',
+      'scontent.xx.fbcdn.net',
+    ],
     remotePatterns: [
       {
         protocol: 'https',
@@ -23,5 +34,7 @@ export default {
         destination: '/',
       },
     ];
-  },
+  }
 };
+
+export default nextConfig;

@@ -99,7 +99,7 @@ export default function Dashboard() {
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000);
-        const response = await fetch(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
+        const response = await fetch(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -145,7 +145,7 @@ export default function Dashboard() {
       const signature = await signMessageAsync({ message });
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const response = await fetch(`${API_BASE_URL}/verify-wallet`, {
+      const response = await fetch(`${API_BASE_URL}/api/verify-wallet`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -206,7 +206,7 @@ export default function Dashboard() {
       const recaptchaToken = await recaptchaRef.current.executeAsync();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const response = await fetch(`${API_BASE_URL}/analyze-tweets`, {
+      const response = await fetch(`${API_BASE_URL}/api/analyze-tweets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

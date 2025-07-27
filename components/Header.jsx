@@ -206,10 +206,10 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
                     className={`group w-1/3 text-left px-2 py-1 md:py-2 text-[10px] md:text-xs font-medium transition-all duration-300 bg-galaxy/90 text-white backdrop-blur-md uppercase ${
                       activeTab === tab.id ? 'bg-gradient-to-r from-neon-blue/30 to-transparent text-black' : ''
                     }`}
-                    whileHover={{ scale: 1.03 }}
+                    whileHover={{ scale: 1 }}
                     whileTap={{ scale: 0.97 }}
                   >
-                    <span className="matrix-text inline-block underline underline-offset-2">
+                    <span className="matrix-text">
                       {renderMatrixText(tab.label)}
                     </span>
                   </motion.button>

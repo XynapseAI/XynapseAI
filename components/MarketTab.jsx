@@ -261,47 +261,6 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile }) => {
   );
 };
 
-// LoadingOverlay component
-const LoadingOverlay = ({ loadingStates = {}, isMobile }) => {
-  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
-
-  const messages = [
-    ...(loadingStates.loading ? ['Loading market data...'] : []),
-    ...(loadingStates.isChartLoading ? ['Loading chart data...'] : []),
-    ...(loadingStates.isLoadingOnChain ? ['Loading on-chain data...'] : []),
-    ...(loadingStates.isAnalyzing ? ['Analyzing token...'] : []),
-    ...(loadingStates.isPredicting ? ['Predicting price trend...'] : []),
-  ].filter(Boolean);
-
-  useEffect(() => {
-    if (messages.length === 0) return;
-
-    const interval = setInterval(() => {
-      setCurrentMessageIndex((prevIndex) => (prevIndex + 1) % messages.length);
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [messages.length]);
-
-  if (messages.length === 0) return null;
-
-  return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/80 backdrop-blur-xs">
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 border-4 border-gray-700 border-t-neon-blue rounded-full animate-spin"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-neon-blue/50 to-transparent rounded-full animate-pulse"></div>
-          <img
-            src="/logos/logo-scan.png"
-            alt="Loading Logo"
-            className="absolute inset-0 w-8 h-8 m-2 object-contain"
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const WalletBalances = ({
   balances,
   walletAddress,
@@ -432,14 +391,14 @@ const WalletBalances = ({
           <div className="flex space-x-2 mb-3">
             <motion.button
               onClick={() => setActiveTab('portfolio')}
-              className={`px-2 py-1 sm:px-4 sm:py-1.5 rounded-sm text-[10px] sm:text-xs font-medium transition-all duration-300 border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${activeTab === 'portfolio' ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-white/20'}`}
+              className={`px-2 py-1 sm:px-4 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 border-2 border-white/10 ${activeTab === 'portfolio' ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-white/20'}`}
               whileHover={{ scale: 1 }}
             >
               Portfolio
             </motion.button>
             <motion.button
               onClick={() => setActiveTab('activity')}
-              className={`px-4 py-1.5 rounded-sm text-xs font-medium transition-all duration-300 border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${activeTab === 'activity' ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-white/20'}`}
+              className={`px-4 py-1.5 rounded-xl text-xs font-medium transition-all duration-300 border-2 border-white/10 ${activeTab === 'activity' ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-white/20'}`}
               whileHover={{ scale: 1 }}
             >
               Activity
@@ -776,9 +735,7 @@ const WalletBalances = ({
                   </table>
                 </div>
               ) : (
-                !isLoadingTransactions && (
-                  <p className="text-xs text-gray-400 text-center p-4">No valid activity found for this address.</p>
-                )
+                !isLoadingTransactions
               )}
             </>
           )}
@@ -1233,7 +1190,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
             <div className="relative flex-1" ref={chainDropdownRef}>
               <motion.button
                 onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-                className={`text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-2 border border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 rounded-sm w-full ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-2 border-2 border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 rounded-xl w-full ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
                 disabled={['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) || !selectedToken}
                 aria-label="Select chain"
                 whileHover={{ scale: 1 }}
@@ -1301,7 +1258,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
               )}
             </div>
             {/* Currency Select */}
-            <div className="relative flex-1">
+            {/* <div className="relative flex-1">
               <select
                 id="currency-select"
                 value={currency}
@@ -1314,7 +1271,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                   </option>
                 ))}
               </select>
-            </div>
+            </div> */}
             {/* Search Wallet */}
             <div className="relative flex items-center flex-[2]">
               <input
@@ -1322,7 +1279,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                 placeholder="Search wallet (0x...)"
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
-                className="text-white px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs w-full border border-white/10 bg-black/60 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 rounded-sm pr-8 sm:pr-10"
+                className="text-white px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs w-full border-2 border-white/10 bg-black/60 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 rounded-xl pr-8 sm:pr-10"
                 aria-label="Wallet address"
                 onKeyPress={(e) => {
                   if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -1357,18 +1314,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
         </div>
       </div>
 
-      <LoadingOverlay
-        loadingStates={{
-          loading,
-          isLoadingDex,
-          isChartLoading,
-          isLoadingOnChain,
-          isAnalyzing,
-          isPredicting,
-        }}
-        isMobile={isMobile}
-      />
-
       {error && (
         <p className="text-[10px] sm:text-xs text-red-500 text-center p-2 sm:p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
           Error: {error}
@@ -1387,10 +1332,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
             >
               {selectedToken ? (
                 <div className="relative">
-                  <div className="absolute top-2 right-2 w-32 sm:w-40" ref={dropdownRef}>
+                  <div className="absolute top-1 right-1 w-32 sm:w-40" ref={dropdownRef}>
                     <motion.button
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                      className={`text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs flex items-center w-full border border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 rounded-sm`}
+                      className={`text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs flex items-center w-full border-2 border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 rounded-xl`}
                       aria-label="Select token"
                       whileHover={{ scale: 1 }}
                       whileTap={{ scale: 0.95 }}
@@ -1495,7 +1440,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                           id="currency-select"
                           value={currency}
                           onChange={(e) => setCurrency(e.target.value)}
-                          className="text-white px-2 py-1 text-[10px] sm:text-xs border border-white/10 bg-black/60 backdrop-blur-2xl rounded-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 custom-scrollbar"
+                          className="text-white px-2 py-1 text-[10px] sm:text-xs border-2 border-white/10 bg-black/60 backdrop-blur-2xl rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 custom-scrollbar"
                         >
                           {availableCurrencies.map((curr) => (
                             <option key={curr} value={curr}>
@@ -1703,32 +1648,32 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                   <div className="flex space-x-2 mb-2 sm:mb-0 justify-start sm:justify-center w-full sm:w-auto">
                     <motion.button
                       onClick={debouncedHandleAnalysis}
-                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-sm ${selectedToken && dailyMarketInteractions < 5
-                        ? 'text-white hover:bg-neon-blue/30'
+                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border border-white rounded-xl ${selectedToken && dailyMarketInteractions < 5
+                        ? 'text-white'
                         : 'text-gray-400 cursor-not-allowed opacity-50'
                         }`}
                       disabled={!selectedToken || dailyMarketInteractions >= 5}
                       aria-label="Analyze token"
-                      whileHover={{ scale: 1.05 }}
+                      whileHover={{ scale: 1 }}
                       whileTap={{ scale: 0.95 }}
                     >
                       Analyze
                     </motion.button>
                     <motion.button
                       onClick={debouncedHandlePrediction}
-                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border border-neon-blue/50 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-sm ${selectedToken && dailyMarketInteractions < 5
-                        ? 'text-neon-blue hover:bg-neon-blue/30'
+                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border border-neon-blue/50 bg-white rounded-xl ${selectedToken && dailyMarketInteractions < 5
+                        ? 'text-black'
                         : 'text-gray-400 cursor-not-allowed opacity-50'
                         }`}
                       disabled={!selectedToken || dailyMarketInteractions >= 5}
                       aria-label="Predict token price"
-                      whileHover={{ scale: 1.05 }}
+                      whileHover={{ scale: 1 }}
                       whileTap={{ scale: 0.95 }}
                     >
                       Predict
                     </motion.button>
                   </div>
-                  <div className="flex items-center justify-center gap-2 sm:gap-4 mt-0 sm:mt-4">
+                  <div className="flex items-center justify-center gap-2 sm:gap-4 mt-2 sm:mt-6">
                     <div className="text-[8px] sm:text-[9px] text-gray-200">
                       <p className="text-gray-500 text-center">
                         Change:{' '}
@@ -1751,7 +1696,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                       <select
                         value={timeRange}
                         onChange={(e) => setTimeRange(e.target.value)}
-                        className="text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[8px] sm:text-[9px] border border-white/10 bg-black/60 backdrop-blur-2xl rounded-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 custom-scrollbar"
+                        className="text-white p-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[8px] sm:text-[9px] border-2 border-white/10 bg-black/60 backdrop-blur-2xl rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 custom-scrollbar"
                       >
                         {['1D', '7D', '1M', '3M', '1Y'].map((range, idx) => (
                           <option key={range} value={['1', '7', '30', '90', '365'][idx]}>
@@ -1769,7 +1714,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                 <div className="h-48 sm:h-58">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={priceHistory} margin={{ top: 10, right: 15, bottom: 0, left: isMobile ? 0 : 10 }}>
-                      <CartesianGrid stroke="#FFFFFF" strokeDasharray="4 4" opacity={0.3} />
                       <XAxis dataKey="title" stroke="#FFFFFF" tick={false} hide={true} />
                       <YAxis
                         stroke="#FFFFFF"
@@ -1805,9 +1749,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                         <ReferenceDot
                           x={priceHistory[priceHistory.length - 1].title}
                           y={priceHistory[priceHistory.length - 1].price}
-                          r={6}
+                          r={4}
                           fill="#FFFFFF"
-                          stroke="#00BFFF"
+                          stroke="#FFFFFF"
                           strokeWidth={2}
                           className="animate-pulse"
                         />
@@ -1851,10 +1795,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                       setActiveMarketTab('holders');
                       setShowTrades(false);
                     }}
-                    className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${activeMarketTab === 'holders' ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
+                    className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-500 ease-in-out ${activeMarketTab === 'holders' ? 'border-b-2 border-white' : 'text-white hover:bg-neon-blue/30'
                       }`}
-                    whileHover={{ scale: 1 }}
+                    whileHover={{ scale: 1.05 }} // Tăng nhẹ scale khi hover
                     whileTap={{ scale: 0.95 }}
+                    transition={{ duration: 0.5, ease: 'easeInOut' }} // Thêm transition cho motion
                   >
                     TOP HOLDERS
                   </motion.button>
@@ -1863,25 +1808,27 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                       setActiveMarketTab('cex');
                       setShowTrades(false);
                     }}
-                    className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 border-r border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent ${activeMarketTab === 'cex' ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
+                    className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-500 ease-in-out ${activeMarketTab === 'cex' ? 'border-b-2 border-white' : 'text-white hover:bg-neon-blue/30'
                       }`}
-                    whileHover={{ scale: 1 }}
+                    whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
+                    transition={{ duration: 0.5, ease: 'easeInOut' }}
                   >
                     CEX
                   </motion.button>
                   <motion.button
                     onClick={handleDexTabClick}
-                    className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 bg-gradient-to-r from-neon-blue/30 to-transparent ${activeMarketTab === 'dex' ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-neon-blue/30'
+                    className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-500 ease-in-out ${activeMarketTab === 'dex' ? 'border-b-2 border-white' : 'text-white hover:bg-neon-blue/30'
                       }`}
-                    whileHover={{ scale: 1 }}
+                    whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
+                    transition={{ duration: 0.5, ease: 'easeInOut' }}
                   >
                     DEX
                   </motion.button>
                 </div>
                 {activeMarketTab === 'dex' && (
-                  <div className="flex justify-end p-2 sm:p-3 text-[10px] sm:text-xs text-gray-400">
+                  <div className="flex justify-end p-2 sm:p-3 text-[8px] sm:text-[9px] text-gray-400">
                     <span className="flex flex-col items-end">
                       <span>Last Updated</span>
                       <span>
@@ -1896,8 +1843,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                     </span>
                   </div>
                 )}
-
-
 
                 {/* Top Holders Tab */}
                 {activeMarketTab === 'holders' && (
@@ -2357,217 +2302,217 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                               transition={{ duration: 0.3, ease: 'easeOut', delay: index * 0.05 }}
                               className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
                             >
-                                <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[60px] sm:w-[70px]">
-                                  <div className="flex items-center gap-2">
-                                    {selectedToken?.image && (
-                                      <img
-                                        src={selectedToken.image}
-                                        alt={`${selectedToken.symbol} logo`}
-                                        className="w-4 sm:w-5 h-4 sm:h-5 rounded-full flex-shrink-0"
-                                        onError={(e) => (e.target.src = '/fallback-image.png')}
-                                      />
-                                    )}
-                                    <span className="truncate">
-                                      {(() => {
-                                        const tokenAddress =
-                                          trade.kind === 'sell' ? trade.from_token_address : trade.to_token_address;
-                                        return tokenAddress.toLowerCase() ===
-                                          selectedToken?.detail_platforms?.[
-                                            chains.find((c) => c.value === selectedChain)?.coingeckoId
-                                          ]?.contract_address?.toLowerCase()
-                                          ? selectedToken?.symbol?.toUpperCase()
-                                          : 'Token';
-                                      })()}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px]">
-                                  <div className="flex items-center gap-2">
-                                    <a
-                                      href={getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address).addressUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-neon-blue hover:underline truncate cursor-pointer"
-                                      title={trade.tx_from_address}
-                                    >
-                                      {(() => {
-                                        if (!trade.tx_from_address || typeof trade.tx_from_address !== 'string') return 'N/A';
-                                        return `${trade.tx_from_address.slice(0, 6)}...${trade.tx_from_address.slice(-4)}`;
-                                      })()}
-                                    </a>
-                                    {trade.tx_from_address && typeof trade.tx_from_address === 'string' && (
-                                      <motion.button
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(trade.tx_from_address);
-                                          toast.success('Address copied!', { autoClose: 2000 });
-                                        }}
-                                        className="text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0"
-                                        title="Copy address"
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.9 }}
-                                      >
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="w-3 sm:w-4 h-3 sm:h-4"
-                                          fill="none"
-                                          viewBox="0 0 24 24"
-                                          stroke="currentColor"
-                                          strokeWidth={2}
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                          />
-                                        </svg>
-                                      </motion.button>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px]">
-                                  <div className="flex items-center gap-2">
-                                    <a
-                                      href={getExplorerUrls(selectedChain, trade.tx_hash, trade.to_token_address).addressUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-neon-blue hover:underline truncate cursor-pointer"
-                                      title={trade.to_token_address}
-                                    >
-                                      {(() => {
-                                        if (!trade.to_token_address || typeof trade.to_token_address !== 'string') return 'N/A';
-                                        return `${trade.to_token_address.slice(0, 6)}...${trade.to_token_address.slice(-4)}`;
-                                      })()}
-                                    </a>
-                                    {trade.to_token_address && typeof trade.to_token_address === 'string' && (
-                                      <motion.button
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(trade.to_token_address);
-                                          toast.success('Address copied!', { autoClose: 2000 });
-                                        }}
-                                        className="text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0"
-                                        title="Copy address"
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.9 }}
-                                      >
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="w-3 sm:w-4 h-3 sm:h-4"
-                                          fill="none"
-                                          viewBox="0 0 24 24"
-                                          stroke="currentColor"
-                                          strokeWidth={2}
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                          />
-                                        </svg>
-                                      </motion.button>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[80px] sm:w-[100px]">
-                                  <div className="flex items-center gap-2">
-                                    <span className="truncate">
-                                      ${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
-                                        minimumFractionDigits: 0,
-                                        maximumFractionDigits: 0,
-                                      })}
-                                    </span>
-                                    <span
-                                      className={`inline-block px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] font-medium flex-shrink-0 ${trade.kind === 'buy' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
-                                        }`}
-                                    >
-                                      {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[80px] sm:w-[100px]">
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="truncate">
-                                      {parseFloat(trade.kind === 'sell' ? trade.from_token_amount : trade.to_token_amount || 0).toLocaleString(
-                                        'en-US',
-                                        {
-                                          maximumFractionDigits: 2,
-                                        }
-                                      )}{' '}
-                                      {(() => {
-                                        const tokenAddress =
-                                          trade.kind === 'sell' ? trade.from_token_address : trade.to_token_address;
-                                        return tokenAddress.toLowerCase() ===
-                                          selectedToken?.detail_platforms?.[
-                                            chains.find((c) => c.value === selectedChain)?.coingeckoId
-                                          ]?.contract_address?.toLowerCase()
-                                          ? selectedToken?.symbol?.toUpperCase()
-                                          : 'Token';
-                                      })()}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px] text-center">
-                                  <div className="flex flex-col gap-0.5 items-center">
-                                    <a
-                                      href={getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address).txUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      title={trade.tx_hash}
-                                      className="flex-shrink-0"
-                                    >
-                                      <img
-                                        src="/logos/etherscan-logo.png"
-                                        alt="Etherscan"
-                                        className="w-3 sm:w-4 h-3 sm:h-4"
-                                        onError={(e) => (e.target.src = '/fallback-image.png')}
-                                      />
-                                    </a>
-                                    <span className="truncate text-[10px] sm:text-xs text-center">
-                                      {formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[70px] sm:w-[80px]">
-                                  <motion.button
-                                    onClick={() => trade.pool_address && handlePoolClick(trade.pool_address)}
-                                    className="flex items-center gap-2 text-[10px] sm:text-xs text-neon-blue hover:underline truncate max-w-[40px] sm:max-w-[50px]"
-                                    title={
-                                      dexData.pools.find((p) => p.attributes.address === trade.pool_address)?.attributes
-                                        .name || 'View Pool Details'
-                                    }
-                                    disabled={!trade.pool_address || !dexData.poolTokens[trade.pool_address]}
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[60px] sm:w-[70px]">
+                                <div className="flex items-center gap-2">
+                                  {selectedToken?.image && (
+                                    <img
+                                      src={selectedToken.image}
+                                      alt={`${selectedToken.symbol} logo`}
+                                      className="w-4 sm:w-5 h-4 sm:h-5 rounded-full flex-shrink-0"
+                                      onError={(e) => (e.target.src = '/fallback-image.png')}
+                                    />
+                                  )}
+                                  <span className="truncate">
+                                    {(() => {
+                                      const tokenAddress =
+                                        trade.kind === 'sell' ? trade.from_token_address : trade.to_token_address;
+                                      return tokenAddress.toLowerCase() ===
+                                        selectedToken?.detail_platforms?.[
+                                          chains.find((c) => c.value === selectedChain)?.coingeckoId
+                                        ]?.contract_address?.toLowerCase()
+                                        ? selectedToken?.symbol?.toUpperCase()
+                                        : 'Token';
+                                    })()}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px]">
+                                <div className="flex items-center gap-2">
+                                  <a
+                                    href={getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address).addressUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-neon-blue hover:underline truncate cursor-pointer"
+                                    title={trade.tx_from_address}
                                   >
                                     {(() => {
-                                      const poolTokens =
-                                        trade.pool_address && typeof trade.pool_address === 'string'
-                                          ? dexData.poolTokens[trade.pool_address] || {}
-                                          : {};
-                                      const tokenAddresses = Object.keys(poolTokens);
-                                      const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null;
-                                      const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null;
-                                      return token1 && token2 ? (
-                                        <>
-                                          <img
-                                            src={token1.image_url}
-                                            alt={`${token1.symbol} logo`}
-                                            className="w-3 sm:w-4 h-3 sm:h-4 rounded-full flex-shrink-0"
-                                            onError={(e) => (e.target.src = '/fallback-image.png')}
-                                          />
-                                          <span>/</span>
-                                          <img
-                                            src={token2.image_url}
-                                            alt={`${token2.symbol} logo`}
-                                            className="w-3 sm:w-4 h-3 sm:h-4 rounded-full flex-shrink-0"
-                                            onError={(e) => (e.target.src = '/fallback-image.png')}
-                                          />
-                                        </>
-                                      ) : (
-                                        'N/A'
-                                      );
+                                      if (!trade.tx_from_address || typeof trade.tx_from_address !== 'string') return 'N/A';
+                                      return `${trade.tx_from_address.slice(0, 6)}...${trade.tx_from_address.slice(-4)}`;
                                     })()}
-                                  </motion.button>
-                                </td>
+                                  </a>
+                                  {trade.tx_from_address && typeof trade.tx_from_address === 'string' && (
+                                    <motion.button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(trade.tx_from_address);
+                                        toast.success('Address copied!', { autoClose: 2000 });
+                                      }}
+                                      className="text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0"
+                                      title="Copy address"
+                                      whileHover={{ scale: 1.1 }}
+                                      whileTap={{ scale: 0.9 }}
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="w-3 sm:w-4 h-3 sm:h-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth={2}
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                        />
+                                      </svg>
+                                    </motion.button>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px]">
+                                <div className="flex items-center gap-2">
+                                  <a
+                                    href={getExplorerUrls(selectedChain, trade.tx_hash, trade.to_token_address).addressUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-neon-blue hover:underline truncate cursor-pointer"
+                                    title={trade.to_token_address}
+                                  >
+                                    {(() => {
+                                      if (!trade.to_token_address || typeof trade.to_token_address !== 'string') return 'N/A';
+                                      return `${trade.to_token_address.slice(0, 6)}...${trade.to_token_address.slice(-4)}`;
+                                    })()}
+                                  </a>
+                                  {trade.to_token_address && typeof trade.to_token_address === 'string' && (
+                                    <motion.button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(trade.to_token_address);
+                                        toast.success('Address copied!', { autoClose: 2000 });
+                                      }}
+                                      className="text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0"
+                                      title="Copy address"
+                                      whileHover={{ scale: 1.1 }}
+                                      whileTap={{ scale: 0.9 }}
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="w-3 sm:w-4 h-3 sm:h-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth={2}
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                        />
+                                      </svg>
+                                    </motion.button>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[80px] sm:w-[100px]">
+                                <div className="flex items-center gap-2">
+                                  <span className="truncate">
+                                    ${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 0,
+                                    })}
+                                  </span>
+                                  <span
+                                    className={`inline-block px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] font-medium flex-shrink-0 ${trade.kind === 'buy' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
+                                      }`}
+                                  >
+                                    {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[80px] sm:w-[100px]">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="truncate">
+                                    {parseFloat(trade.kind === 'sell' ? trade.from_token_amount : trade.to_token_amount || 0).toLocaleString(
+                                      'en-US',
+                                      {
+                                        maximumFractionDigits: 2,
+                                      }
+                                    )}{' '}
+                                    {(() => {
+                                      const tokenAddress =
+                                        trade.kind === 'sell' ? trade.from_token_address : trade.to_token_address;
+                                      return tokenAddress.toLowerCase() ===
+                                        selectedToken?.detail_platforms?.[
+                                          chains.find((c) => c.value === selectedChain)?.coingeckoId
+                                        ]?.contract_address?.toLowerCase()
+                                        ? selectedToken?.symbol?.toUpperCase()
+                                        : 'Token';
+                                    })()}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px] text-center">
+                                <div className="flex flex-col gap-0.5 items-center">
+                                  <a
+                                    href={getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address).txUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title={trade.tx_hash}
+                                    className="flex-shrink-0"
+                                  >
+                                    <img
+                                      src="/logos/etherscan-logo.png"
+                                      alt="Etherscan"
+                                      className="w-3 sm:w-4 h-3 sm:h-4"
+                                      onError={(e) => (e.target.src = '/fallback-image.png')}
+                                    />
+                                  </a>
+                                  <span className="truncate text-[10px] sm:text-xs text-center">
+                                    {formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[70px] sm:w-[80px]">
+                                <motion.button
+                                  onClick={() => trade.pool_address && handlePoolClick(trade.pool_address)}
+                                  className="flex items-center gap-2 text-[10px] sm:text-xs text-neon-blue hover:underline truncate max-w-[40px] sm:max-w-[50px]"
+                                  title={
+                                    dexData.pools.find((p) => p.attributes.address === trade.pool_address)?.attributes
+                                      .name || 'View Pool Details'
+                                  }
+                                  disabled={!trade.pool_address || !dexData.poolTokens[trade.pool_address]}
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                >
+                                  {(() => {
+                                    const poolTokens =
+                                      trade.pool_address && typeof trade.pool_address === 'string'
+                                        ? dexData.poolTokens[trade.pool_address] || {}
+                                        : {};
+                                    const tokenAddresses = Object.keys(poolTokens);
+                                    const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null;
+                                    const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null;
+                                    return token1 && token2 ? (
+                                      <>
+                                        <img
+                                          src={token1.image_url}
+                                          alt={`${token1.symbol} logo`}
+                                          className="w-3 sm:w-4 h-3 sm:h-4 rounded-full flex-shrink-0"
+                                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                                        />
+                                        <span>/</span>
+                                        <img
+                                          src={token2.image_url}
+                                          alt={`${token2.symbol} logo`}
+                                          className="w-3 sm:w-4 h-3 sm:h-4 rounded-full flex-shrink-0"
+                                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                                        />
+                                      </>
+                                    ) : (
+                                      'N/A'
+                                    );
+                                  })()}
+                                </motion.button>
+                              </td>
                             </motion.tr>
                           ))}
                         </tbody>

@@ -442,42 +442,48 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   );
 
   const fetchPriceHistory = useCallback(
-    debounce(
-      async (tokenId, days, callback, retryCount = 0) => {
-        if (document.visibilityState !== 'visible') {
-          callback(null);
-          return;
-        }
-        const cacheKey = `price-history-${tokenId}-${days}-${currency}`;
-        try {
-          const fetchFn = async () => {
-            const response = await axios.get('/api/coingecko/market_chart', {
-              params: { id: tokenId, days, currency },
-              timeout: 30000,
-            });
+  debounce(
+    async (tokenId, days, callback, retryCount = 0) => {
+      if (document.visibilityState !== 'visible') {
+        callback(null);
+        return;
+      }
+      const cacheKey = `price-history-${tokenId}-${days}-${currency}`;
+      try {
+        const fetchFn = async () => {
+          const response = await axios.get('/api/coingecko/market_chart', {
+            params: { id: tokenId, days, currency },
+            timeout: 30000,
+          });
 
-            if (!response.data?.prices || !Array.isArray(response.data.prices) || response.data.prices.length === 0) {
-              throw new Error('Invalid or empty price history data');
-            }
+          if (!response.data?.prices || !Array.isArray(response.data.prices) || response.data.prices.length === 0) {
+            throw new Error('Invalid or empty price history data');
+          }
 
-            const prices = response.data.prices.map(([, price]) => price).filter((p) => p > 0);
-            const minPrice = prices.length > 0 ? Math.min(...prices) : 0.01;
-            let fractionDigits = 2;
-            if (minPrice < 0.0001) {
-              fractionDigits = 6;
-            } else if (minPrice < 0.01) {
-              fractionDigits = 4;
-            }
+          // Log raw API data for debugging
+          console.log('Raw API prices:', response.data.prices);
 
-            const priceData = response.data.prices.map(([timestamp, price]) => ({
-              title: new Date(timestamp).toLocaleString('en-GB', {
-                day: '2-digit',
-                month: '2-digit',
-                year: '2-digit',
-                hour: days === '0.5' || days === '1' ? '2-digit' : undefined,
-                minute: days === '0.5' ? '2-digit' : undefined,
-                hour12: false,
-              }),
+          // Validate timestamps
+          const invalidTimestamps = response.data.prices.filter(([timestamp, price]) =>
+            typeof timestamp !== 'number' || isNaN(timestamp) || typeof price !== 'number' || isNaN(price)
+          );
+          if (invalidTimestamps.length > 0) {
+            console.warn('Invalid timestamps in API response:', invalidTimestamps);
+          }
+
+          const prices = response.data.prices.map(([, price]) => price).filter((p) => p > 0);
+          const minPrice = prices.length > 0 ? Math.min(...prices) : 0.01;
+          let fractionDigits = 2;
+          if (minPrice < 0.0001) {
+            fractionDigits = 6;
+          } else if (minPrice < 0.01) {
+            fractionDigits = 4;
+          }
+
+          const priceData = response.data.prices
+            .filter(([timestamp]) => typeof timestamp === 'number' && !isNaN(timestamp))
+            .map(([timestamp, price]) => ({
+              title: new Date(timestamp).toISOString(), // Use ISO string
               price: parseFloat(
                 price.toLocaleString('en-US', {
                   minimumFractionDigits: fractionDigits,
@@ -486,34 +492,38 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               ),
             }));
 
-            return priceData;
-          };
-
-          const priceData = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.PRICE);
-          setPriceHistory(priceData);
-          callback(null, priceData);
-        } catch (err) {
-          if (retryCount < 3 && (err.response?.status === 429 || err.response?.status === 503 || err.code === 'ECONNABORTED')) {
-            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff với jitter
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            return fetchPriceHistory(tokenId, days, callback, retryCount + 1);
+          if (priceData.length === 0) {
+            throw new Error('No valid price data after filtering');
           }
-          const errorMessage =
-            err.response?.status === 429
-              ? 'API rate limit reached. Please wait a minute and try again.'
-              : err.response?.status === 401
-                ? 'Unable to fetch market data due to authentication issues. Please try again later.'
-                : err.response?.data?.detail || `Failed to load price history: ${err.message}`;
-          setError(errorMessage);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-          callback(err);
+
+          return priceData;
+        };
+
+        const priceData = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.PRICE);
+        setPriceHistory(priceData);
+        callback(null, priceData);
+      } catch (err) {
+        if (retryCount < 3 && (err.response?.status === 429 || err.response?.status === 503 || err.code === 'ECONNABORTED')) {
+          const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          return fetchPriceHistory(tokenId, days, callback, retryCount + 1);
         }
-      },
-      300,
-      { leading: false, trailing: true }
-    ),
-    [currency, chains, setPriceHistory, setError, toast]
-  );
+        const errorMessage =
+          err.response?.status === 429
+            ? 'API rate limit reached. Please wait a minute and try again.'
+            : err.response?.status === 401
+              ? 'Unable to fetch market data due to authentication issues. Please try again later.'
+              : err.response?.data?.detail || `Failed to load price history: ${err.message}`;
+        setError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        callback(err);
+      }
+    },
+    300,
+    { leading: false, trailing: true }
+  ),
+  [currency, chains, setPriceHistory, setError, toast]
+);
 
   const fetchPublicTreasuryData = useCallback(
     debounce(
