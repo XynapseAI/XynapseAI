@@ -5,6 +5,147 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Thêm các kiểu từ <style jsx> */
+.animate-marquee-right-to-left {
+  display: flex;
+  animation: marquee-right-to-left 20s linear infinite;
+}
+
+.animate-reverse-marquee {
+  display: flex;
+  animation: reverse-marquee 20s linear infinite;
+}
+
+@keyframes marquee-right-to-left {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes reverse-marquee {
+  0% {
+    transform: translateX(-50%);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.shadow-glow-neon {
+  box-shadow: 0 0 10px rgba(0, 191, 255, 0.3), 0 0 20px rgba(0, 191, 255, 0.2);
+}
+
+.shadow-neon-blue:hover {
+  box-shadow: 0 0 15px rgba(0, 191, 255, 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.prose-invert h1 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  text-transform: uppercase;
+}
+
+.prose-invert h2 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.prose-invert h3 {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.prose-invert p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.prose-invert ul {
+  list-style-type: disc;
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.prose-invert li {
+  margin-bottom: 0.5rem;
+}
+
+.prose-invert strong {
+  font-weight: bold;
+}
+
+.prose-invert em {
+  font-style: italic;
+}
+
+.prose-invert table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+.prose-invert th,
+.prose-invert td {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.prose-invert th {
+  background-color: rgba(255, 255, 255, 0.05);
+  font-weight: bold;
+}
+
+@media (max-width: 640px) {
+  .w-48 {
+    width: 6rem;
+  }
+
+  .h-16 {
+    height: 2.5rem;
+  }
+
+  .mx-10 {
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+
+  .text-2xl {
+    font-size: 1.5rem;
+  }
+
+  .text-base {
+    font-size: 0.875rem;
+  }
+}
+
 html,
 body,
 h1,
@@ -41,6 +182,126 @@ button:hover {
   background-size: 150px 150px;
 }
 
+/* Stars and Comets */
+.star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.8), 0 0 10px rgba(255, 255, 255, 0.5);
+  /* Base glow */
+}
+
+/* Starburst effect with radial rays */
+.star::before,
+.star::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  /* Semi-transparent white for rays */
+  transform-origin: center;
+}
+
+/* Horizontal ray */
+.star::before {
+  width: 8px;
+  /* Length of the ray */
+  height: 1px;
+  /* Thin ray */
+  transform: translate(-50%, -50%) rotate(0deg);
+  /* Horizontal */
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+  /* Glow around ray */
+}
+
+/* Vertical ray */
+.star::after {
+  width: 8px;
+  /* Length of the ray */
+  height: 1px;
+  /* Thin ray */
+  transform: translate(-50%, -50%) rotate(90deg);
+  /* Vertical */
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+  /* Glow around ray */
+}
+
+/* Optional: Diagonal rays for a more star-like effect */
+.star-container {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+}
+
+.star-container::before,
+.star-container::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  /* Slightly fainter diagonal rays */
+  width: 6px;
+  /* Slightly shorter */
+  height: 1px;
+  transform-origin: center;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.4);
+}
+
+.star-container::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+  /* Diagonal ray */
+}
+
+.star-container::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+  /* Diagonal ray */
+}
+
+
+.comet-container {
+  position: absolute;
+  pointer-events: none;
+  /* Đảm bảo sao băng không chặn các sự kiện chuột */
+  transform-origin: center center;
+  /* Đảm bảo xoay quanh tâm */
+}
+
+.comet-head {
+  width: 3px;
+  /* Kích thước đầu sao băng nhỏ hơn */
+  height: 3px;
+  background-color: #ffffff;
+  /* Màu trắng sáng đậm */
+  border-radius: 50%;
+  box-shadow: 0 0 8px 4px rgba(255, 255, 255, 0.9);
+  /* Hiệu ứng phát sáng trắng */
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+}
+
+.comet-tail {
+  width: 2px;
+  height: 80px;
+  background: linear-gradient(to bottom,
+      rgba(255, 255, 255, 0.6),
+      /* Đuôi màu trắng */
+      rgba(255, 255, 255, 0));
+  position: absolute;
+  top: 1.5px;
+  /* Đặt đuôi ngay dưới tâm của đầu */
+  left: 0.5px;
+  /* Căn giữa theo chiều ngang của đầu */
+  transform-origin: top center;
+  z-index: 1;
+}
+
+/* Các kiểu khác từ globals.css */
 .animate-text {
   display: inline-block;
   overflow: hidden;
@@ -58,6 +319,7 @@ button:hover {
     opacity: 0;
     transform: translateY(-50px);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0);
@@ -202,14 +464,29 @@ button:hover {
 }
 
 @keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 @keyframes blink {
-  0% { opacity: 1; }
-  50% { opacity: 0.3; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 .blinking-dot {
@@ -229,24 +506,31 @@ button:hover {
   display: none !important;
 }
 
-th, td {
-  min-width: 100px; /* Adjust as needed */
+th,
+td {
+  min-width: 100px;
+  /* Adjust as needed */
 }
 
 @keyframes flash {
-  0% { background-color: rgba(255, 255, 255, 0.2); }
-  100% { background-color: transparent; }
+  0% {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+
+  100% {
+    background-color: transparent;
+  }
 }
+
 .animate-flash {
   animation: flash 1s ease-out;
 }
 
 /* === CSS for Scan Loading Effect === */
-
 .scanner-container {
-  position: relative; 
-  overflow: hidden;  
-  border-radius: 50%; 
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
 }
 
 .scanner-container::before {
@@ -257,15 +541,13 @@ th, td {
   width: 100%;
   height: 100%;
   z-index: 10;
-  background: linear-gradient(
-    to right, 
-    transparent 0%, 
-    rgba(255, 255, 255, 0.05) 45%,
-    rgba(255, 255, 255, 0.3) 50%,  
-    rgba(255, 255, 255, 0.05) 55%,
-    transparent 100%
-  );
-  
+  background: linear-gradient(to right,
+      transparent 0%,
+      rgba(255, 255, 255, 0.05) 45%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0.05) 55%,
+      transparent 100%);
+
   transform: translateX(-100%);
 }
 
@@ -273,6 +555,7 @@ th, td {
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
@@ -282,25 +565,23 @@ th, td {
   0% {
     transform: translateY(-100%);
   }
+
   100% {
     transform: translateY(100%);
   }
 }
-
 
 .scanner-container.horizontal::before {
   animation: scan-horizontal 1.5s infinite linear;
 }
 
 .scanner-container.vertical::before {
-  background: linear-gradient(
-    to bottom, 
-    transparent 0%, 
-    rgba(255, 255, 255, 0.05) 45%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0.05) 55%,
-    transparent 100%
-  );
+  background: linear-gradient(to bottom,
+      transparent 0%,
+      rgba(255, 255, 255, 0.05) 45%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0.05) 55%,
+      transparent 100%);
   animation: scan-vertical 1.5s infinite linear;
 }
 
@@ -309,6 +590,7 @@ th, td {
   0% {
     transform: translateX(100%);
   }
+
   100% {
     transform: translateX(-100%);
   }
@@ -319,81 +601,8 @@ th, td {
   animation: ticker 20s linear infinite;
 }
 
-@keyframes comet-spin {
-    0% {
-      transform: rotate(0deg) translateX(30px) scale(1); /* Điều chỉnh bán kính và kích thước ban đầu */
-      opacity: 1;
-      filter: brightness(1.5);
-    }
-    25% {
-      transform: rotate(90deg) translateX(30px) scale(0.8);
-      opacity: 0.8;
-      filter: brightness(1.2);
-    }
-    50% {
-      transform: rotate(180deg) translateX(30px) scale(0.6);
-      opacity: 0.6;
-      filter: brightness(1);
-    }
-    75% {
-      transform: rotate(270deg) translateX(30px) scale(0.4);
-      opacity: 0.4;
-      filter: brightness(0.8);
-    }
-    100% {
-      transform: rotate(360deg) translateX(30px) scale(1);
-      opacity: 1;
-      filter: brightness(1.5);
-    }
-  }
-  .animate-comet-spin {
-    animation: comet-spin 2s linear infinite; /* Điều chỉnh thời gian và kiểu animation */
-    transform-origin: center center; /* Đảm bảo xoay quanh tâm */
-  }
-
-  @keyframes spin-slow {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* globals.css */
-:root {
-  --neon-blue: #00BFFF;
-  --black: #0A0A0A;
-  --white: #F5F5F5;
-  --gray-200: #E5E5E5;
-  --gray-400: #A0A0A0;
-  --gray-700: #404040;
-}
-
-body {
-  background: var(--black);
-  color: var(--white);
-  font-family: 'JetBrains Mono', monospace;
-  overscroll-behavior: none;
-}
-
-a {
-  color: var(--neon-blue);
-  transition: color 0.3s ease;
-}
-
-a:hover {
-  color: #4DD0FF;
-}
-
-/* Smooth transitions for interactive elements */
-button, a, input, select {
-  transition: all 0.3s ease;
-}
-
-/* Enhanced focus states */
-:focus-visible {
-  outline: 2px solid var(--neon-blue);
-  outline-offset: 2px;
-}
-
 @media (max-width: 640px) {
+
   html,
   body,
   h1,

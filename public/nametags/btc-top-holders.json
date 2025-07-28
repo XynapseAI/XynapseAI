@@ -226,7 +226,7 @@
         "Name Tag": "Kraken Cold wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "http://icons/kraken.png"
+        "image": "/icons/kraken.png"
       }
     }
   },

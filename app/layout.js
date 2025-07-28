@@ -1,19 +1,6 @@
 // app/layout.js
-import { Inter, JetBrains_Mono } from 'next/font/google';
 import '../styles/globals.css';
 import ClientProviders from './ClientProviders';
-
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-inter',
-});
-
-const jetBrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-jetbrains-mono',
-});
 
 export const metadata = {
   title: {
@@ -23,12 +10,6 @@ export const metadata = {
   description: 'Explore the ultimate AI-powered crypto market analytics platform.',
 };
 
-export const viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-};
 
 function hasCircularReference(obj, seen = new WeakSet()) {
   if (typeof obj !== 'object' || obj === null) return false;
@@ -51,7 +32,7 @@ export default function RootLayout({ children }) {
 
   return (
     <html lang="en">
-      <body className={`bg-black text-white ${inter.variable} ${jetBrainsMono.variable}`}>
+      <body className={`bg-black text-white`}>
         <ClientProviders>{children}</ClientProviders>
       </body>
     </html>

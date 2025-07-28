@@ -16,6 +16,8 @@
     "@pinata/sdk": "^2.1.0",
     "@pixi/filter-displacement": "^7.4.3",
     "@prisma/client": "^6.9.0",
+    "@privy-io/react-auth": "^2.20.0",
+    "@privy-io/server-auth": "^1.28.8",
     "@radix-ui/react-slot": "^1.2.3",
     "@react-three/drei": "^10.1.2",
     "@react-three/fiber": "^9.1.2",
