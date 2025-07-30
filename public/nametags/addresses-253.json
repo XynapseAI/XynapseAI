@@ -6,7 +6,7 @@
         "Name Tag": "Multichain Hack Alert 2061",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -481,7 +481,7 @@
         "Name Tag": "Multichain Hack Alert 1779",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -2660,7 +2660,7 @@
         "Name Tag": "Balancer: COVER/ETH 90/10",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -2747,14 +2747,14 @@
       "proxy-contract": {
         "Name Tag": "Synthetix: Proxy sTRX Token",
         "Description": "A proxy contract acts as an eternal storage and will DELEGATECALL to the logic contract, which processes the data.",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       },
       "synthetix": {
         "Name Tag": "Synthetix: Proxy sTRX Token",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
         "Token Name": "Synth sTRX (sTRX)",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -2845,7 +2845,7 @@
         "Name Tag": "Balancer: DAI/USDC/sUSD 25/50/25 #2",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -4506,7 +4506,7 @@
         "Name Tag": "Multichain Hack Alert 2275",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -4561,7 +4561,7 @@
         "Name Tag": "Balancer: Pool 311",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -4834,7 +4834,7 @@
         "Name Tag": "Balancer: BAL/UNI 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -6189,7 +6189,7 @@
         "Name Tag": "Balancer: aDAI/aUSDC 50/50 #3",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -6361,7 +6361,7 @@
         "Name Tag": "Multichain Hack Alert 1851",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -6524,7 +6524,7 @@
         "Name Tag": "Multichain Hack Alert 2969",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -6667,7 +6667,7 @@
         "Name Tag": "Multichain Hack Alert 2995",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -6793,7 +6793,7 @@
         "Name Tag": "Balancer: KIWI/DUST 13/87",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -8741,7 +8741,7 @@
         "Name Tag": "Multichain Hack Alert 1625",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -9025,7 +9025,7 @@
         "Name Tag": "Multichain Hack Alert 2302",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -9774,7 +9774,7 @@
         "Name Tag": "Multichain Hack Alert 885",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },

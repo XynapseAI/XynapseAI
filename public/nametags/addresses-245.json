@@ -1354,7 +1354,7 @@
         "Name Tag": "Balancer: ETH/MKR 25/75 #2",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -1422,7 +1422,7 @@
         "Name Tag": "Multichain Hack Alert 1344",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -1691,7 +1691,7 @@
         "Name Tag": "Balancer: Pool 451",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -1971,7 +1971,7 @@
         "Name Tag": "Synthetix: protocolDAO",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -2012,7 +2012,7 @@
         "Name Tag": "Balancer: JRT/ETH 80/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -2173,7 +2173,7 @@
         "Name Tag": "Multichain Hack Alert 1031",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -2266,7 +2266,7 @@
         "Name Tag": "Multichain Hack Alert 3188",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -2597,7 +2597,7 @@
         "Name Tag": "Balancer: ETH/SALT 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -3081,7 +3081,7 @@
         "Name Tag": "Multichain Hack Alert 2332",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -3113,13 +3113,13 @@
         "Name Tag": "Synthetix: Old Issuer 4",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       },
       "synthetix": {
         "Name Tag": "Synthetix: Old Issuer 4",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Legacy",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -3412,7 +3412,7 @@
         "Name Tag": "Balancer: OCEAN/ETH/WBTC 20/40/40",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -4045,7 +4045,7 @@
         "Name Tag": "Multichain Hack Alert 3067",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -4261,7 +4261,7 @@
         "Name Tag": "Multichain Hack Alert 461",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -4471,7 +4471,7 @@
         "Name Tag": "Balancer: Pool 469",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -5150,7 +5150,7 @@
         "Name Tag": "Multichain Hack Alert 1462",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -5205,7 +5205,7 @@
         "Name Tag": "Balancer: YFII/YFI/YFFI 33.33/33.33/33.33",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -5426,7 +5426,7 @@
         "Name Tag": "Balancer: PCT/ETH 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -6168,7 +6168,7 @@
         "Name Tag": "Balancer: KODA418701/NFTFY 75/25",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -6236,7 +6236,7 @@
         "Name Tag": "Multichain Hack Alert 1855",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -6355,7 +6355,7 @@
         "Name Tag": "Synthetix: Grants Council",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -6647,7 +6647,7 @@
         "Name Tag": "Balancer: sUSD/DZAR/USDC/DAI 25/25/25/25 #4",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -6723,7 +6723,7 @@
         "Name Tag": "Multichain Hack Alert 2112",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -7555,7 +7555,7 @@
         "Name Tag": "Balancer: AUC/ETH 70/30 #2",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -8626,7 +8626,7 @@
         "Name Tag": "Multichain Hack Alert 1695",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -8706,13 +8706,13 @@
         "Name Tag": "Synthetix: Old Fee Pool",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       },
       "synthetix": {
         "Name Tag": "Synthetix: Old Fee Pool",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Legacy",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -9399,7 +9399,7 @@
         "Name Tag": "Multichain Hack Alert 2010",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },

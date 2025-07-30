@@ -309,14 +309,14 @@
       "proxy-contract": {
         "Name Tag": "Synthetix: Proxy sAUD Token",
         "Description": "A proxy contract acts as an eternal storage and will DELEGATECALL to the logic contract, which processes the data.",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       },
       "synthetix": {
         "Name Tag": "Synthetix: Proxy sAUD Token",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
         "Token Name": "Synth sAUD (sAUD)",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -539,7 +539,7 @@
         "Name Tag": "Multichain Hack Alert 905",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -675,7 +675,7 @@
         "Name Tag": "Multichain Hack Alert 471",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -908,7 +908,7 @@
         "Name Tag": "Multichain Hack Alert 2060",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -1228,7 +1228,7 @@
         "Name Tag": "Multichain Hack Alert 593",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -1519,7 +1519,7 @@
         "Name Tag": "Multichain Hack Alert 1198",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -2498,7 +2498,7 @@
         "Name Tag": "Balancer: ETH/AL 5/95",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -3076,7 +3076,7 @@
         "Name Tag": "Multichain Hack Alert 2731",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -3416,7 +3416,7 @@
         "Name Tag": "Balancer: XZAR/USDC/ETH 47.7/14.4/37.9",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -3516,7 +3516,7 @@
         "Name Tag": "Balancer: YFL/USDC 80/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -3633,7 +3633,7 @@
         "Name Tag": "Multichain Hack Alert 3170",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -4373,14 +4373,14 @@
       "proxy-contract": {
         "Name Tag": "Synthetix: Proxy iEOS Token",
         "Description": "A proxy contract acts as an eternal storage and will DELEGATECALL to the logic contract, which processes the data.",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       },
       "synthetix": {
         "Name Tag": "Synthetix: Proxy iEOS Token",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
         "Token Name": "Synth iEOS (iEOS)",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -4421,7 +4421,7 @@
         "Name Tag": "Multichain Hack Alert 2807",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -5109,7 +5109,7 @@
         "Name Tag": "Balancer: BAL/MLN 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -5581,7 +5581,7 @@
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Others",
         "Token Name": "Synth sFB (sFB)",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -5995,7 +5995,7 @@
         "Name Tag": "Balancer: USDC/GUSD/sUSD/ETH 50/24/24/2",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -6659,7 +6659,7 @@
         "Name Tag": "Multichain Hack Alert 435",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -7195,7 +7195,7 @@
         "Name Tag": "Synthetix: sDEFI",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -7521,13 +7521,13 @@
         "Name Tag": "Synthetix: Old Synth iETH 4",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       },
       "synthetix": {
         "Name Tag": "Synthetix: Old Synth iETH 4",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Legacy",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -7695,7 +7695,7 @@
         "Name Tag": "Balancer: PERP/USDC 80/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -7946,7 +7946,7 @@
         "Name Tag": "Multichain Hack Alert 2346",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -8386,7 +8386,7 @@
         "Name Tag": "Multichain Hack Alert 2289",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -8470,7 +8470,7 @@
         "Name Tag": "Multichain Hack Alert 2943",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -8514,7 +8514,7 @@
         "Name Tag": "Multichain Hack Alert 1289",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },

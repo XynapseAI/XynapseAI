@@ -123,7 +123,7 @@
         "Name Tag": "Multichain Hack Alert 1414",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -477,7 +477,7 @@
         "Name Tag": "Balancer: VTT/ETH 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -1882,12 +1882,12 @@
       "bridge": {
         "Name Tag": "Multichain: Syscoin Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       },
       "multichain": {
         "Name Tag": "Multichain: Syscoin Bridge",
         "Description": "Multichain is a trustless protocol to bridge assets between heterogenous Layer-1 and Layer-2 platforms.",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -2070,7 +2070,7 @@
         "Name Tag": "Multichain Hack Alert 3220",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -2119,7 +2119,7 @@
         "Name Tag": "Balancer: MLN/GVT/ETH 33.33/33.33/33.33 #2",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -3085,7 +3085,7 @@
         "Name Tag": "Multichain Hack Alert 3183",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -3440,7 +3440,7 @@
         "Name Tag": "Multichain Hack Alert 2592",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -3667,7 +3667,7 @@
         "Name Tag": "Balancer: USD++/cUSDT 50/50 #2",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -4429,7 +4429,7 @@
         "Name Tag": "Balancer: USDTHEDGE/USDTBEAR 50/50 #12",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -5459,7 +5459,7 @@
         "Name Tag": "Multichain Hack Alert 2425",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -5582,7 +5582,7 @@
         "Name Tag": "Multichain Hack Alert 757",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -5981,7 +5981,7 @@
         "Name Tag": "Multichain Hack Alert 1341",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -6166,7 +6166,7 @@
         "Name Tag": "Balancer: KNC/USDC 66.67/33.33 #2",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -6752,7 +6752,7 @@
         "Name Tag": "Synthetix: Synth sFTSE",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -7686,7 +7686,7 @@
         "Name Tag": "Balancer: ANT/USDC/ANC 25/25/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -7979,7 +7979,7 @@
         "Name Tag": "Balancer: UNI/USDC 60/40",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -8161,7 +8161,7 @@
         "Name Tag": "Balancer: SNX/ETH/xSNXa 25/25/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -8253,7 +8253,7 @@
         "Name Tag": "Balancer: MARK/USDC 80/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -8313,7 +8313,7 @@
         "Name Tag": "Balancer: KP3R/XOR/DMG/BAL 30/30/30/10",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -8426,7 +8426,7 @@
         "Name Tag": "Multichain Hack Alert 2496",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -9036,7 +9036,7 @@
         "Name Tag": "Multichain Hack Alert 1016",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -9077,7 +9077,7 @@
         "Name Tag": "Balancer: UNI-V2/UNI-V2 50/50 #2",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -9198,7 +9198,7 @@
         "Name Tag": "Multichain Hack Alert 2783",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -9530,7 +9530,7 @@
         "Name Tag": "Balancer: ETH/USDC 80/20 #6",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -9589,7 +9589,7 @@
         "Name Tag": "Balancer: Pool 361",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -9847,7 +9847,7 @@
         "Name Tag": "Multichain Hack Alert 1304",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },

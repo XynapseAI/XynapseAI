@@ -600,7 +600,7 @@
         "Name Tag": "MakerDAO",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/makerdao.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -655,7 +655,7 @@
         "Name Tag": "Ethena: Coinbase Web3 Wallet 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/ethena.png"
+        "image": "/icons/coinbase.png"
       }
     }
   },

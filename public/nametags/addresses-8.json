@@ -1139,7 +1139,7 @@
         "Name Tag": "Multichain Hack Alert 1799",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -1292,7 +1292,7 @@
         "Name Tag": "Multichain Hack Alert 2018",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -1586,7 +1586,7 @@
         "Name Tag": "Balancer: LINK/BAL/TRB/QSP 18.21/5.28/3.64/72.86",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -2157,7 +2157,7 @@
         "Name Tag": "Multichain Hack Alert 3090",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -3260,7 +3260,7 @@
         "Name Tag": "Balancer: WBTC/USDC/ETH/DPI 25/25/25/25",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -3353,7 +3353,7 @@
         "Name Tag": "Multichain Hack Alert 1275",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -5311,7 +5311,7 @@
         "Name Tag": "Multichain Hack Alert 2905",
         "Description": "The owners of these address are urged to take action immediately.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/multichain.png"
       }
     }
   },
@@ -5874,7 +5874,7 @@
         "Name Tag": "Balancer: Pool 332",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -6487,7 +6487,7 @@
         "Name Tag": "Balancer: DAI/USDC/ETH/WBTC 35/35/15/15",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -6514,7 +6514,7 @@
         "Name Tag": "Balancer: DPI/ETH 80/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -7143,7 +7143,7 @@
         "Name Tag": "Balancer: DOV/DAI 97.5/2.5",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -7208,7 +7208,7 @@
         "Name Tag": "Balancer: ALEPH/ETH/DAI 75.4/12.36/12.24 #2",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -8033,7 +8033,7 @@
         "Name Tag": "Balancer: WBTC/renBTC 50/50 #10",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -8073,7 +8073,7 @@
         "Name Tag": "Balancer: DAI/USDC/BAL/MATIC 53/5/35/7",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -8389,7 +8389,7 @@
         "Name Tag": "Balancer: TRB/OGN 97.4/2.6",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -8641,7 +8641,7 @@
       "enzyme-finance": {
         "Name Tag": "Enzyme Finance: Synthetix Adapter",
         "Description": "Enzyme is a decentralised on-chain asset management infrastructure. It provides an easy and cost-effective way to build, scale & monetise investment strategies in crypto.",
-        "image": "/icons/default.png"
+        "image": "/icons/synthetix.png"
       }
     }
   },
@@ -8671,7 +8671,7 @@
         "Name Tag": "Balancer: LINK/SNX/ETH 40/40/20 #2",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },
@@ -8693,7 +8693,7 @@
         "Name Tag": "Balancer: tDAO/tusd 66.67/33.33",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/balancer.png"
       }
     }
   },

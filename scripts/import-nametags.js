@@ -39,7 +39,6 @@ async function readJsonFiles(directoryPath) {
     logger.info(`Reading JSON files from directory: ${directoryPath}`);
     console.log(`Reading JSON files from directory: ${directoryPath}`);
 
-    // Read all files in the directory
     const files = await fs.readdir(directoryPath);
     const jsonFiles = files.filter(file => file.endsWith('.json'));
 
@@ -81,6 +80,7 @@ async function importNametags(directoryPath) {
   console.log('Starting nametag import process...');
   const jsonDataArray = await readJsonFiles(directoryPath);
   let totalImported = 0;
+  let totalUpdated = 0; // Thêm biến để đếm số bản ghi được cập nhật
   let totalSkipped = 0;
   let totalNoNameTag = 0;
 
@@ -121,11 +121,16 @@ async function importNametags(directoryPath) {
       console.log(`Processing address ${normalizedAddress}: ${nametagData.name}`);
 
       try {
-        await withRetry(() =>
+        const result = await withRetry(() =>
           query(
             `INSERT INTO nametags (address, nametag, image, description, subcategory)
              VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (address) DO NOTHING`,
+             ON CONFLICT (address) DO UPDATE
+             SET nametag = EXCLUDED.nametag,
+                 image = EXCLUDED.image,
+                 description = EXCLUDED.description,
+                 subcategory = EXCLUDED.subcategory
+             RETURNING CASE WHEN xmax = 0 THEN 'inserted' ELSE 'updated' END AS action`,
             [
               normalizedAddress,
               nametagData.name,
@@ -135,21 +140,28 @@ async function importNametags(directoryPath) {
             ]
           )
         );
-        totalImported++;
-        logger.info(`Imported nametag for ${normalizedAddress}: ${nametagData.name}`);
-        console.log(`Imported nametag for ${normalizedAddress}: ${JSON.stringify(nametagData)}`);
+
+        if (result.rows[0].action === 'inserted') {
+          totalImported++;
+          logger.info(`Imported nametag for ${normalizedAddress}: ${nametagData.name}`);
+          console.log(`Imported nametag for ${normalizedAddress}: ${JSON.stringify(nametagData)}`);
+        } else {
+          totalUpdated++;
+          logger.info(`Updated nametag for ${normalizedAddress}: ${nametagData.name}`);
+          console.log(`Updated nametag for ${normalizedAddress}: ${JSON.stringify(nametagData)}`);
+        }
       } catch (error) {
-        logger.error(`Error importing nametag for ${normalizedAddress}: ${error.message}`, { stack: error.stack });
-        console.error(`Error importing nametag for ${normalizedAddress}: ${error.message}`);
+        logger.error(`Error importing/updating nametag for ${normalizedAddress}: ${error.message}`, { stack: error.stack });
+        console.error(`Error importing/updating nametag for ${normalizedAddress}: ${error.message}`);
       }
     }
   }
 
   logger.info(
-    `Import completed: ${totalImported} nametags imported, ${totalSkipped} skipped (invalid addresses), ${totalNoNameTag} skipped (no Name Tag).`
+    `Import completed: ${totalImported} nametags imported, ${totalUpdated} updated, ${totalSkipped} skipped (invalid addresses), ${totalNoNameTag} skipped (no Name Tag).`
   );
   console.log(
-    `Import completed: ${totalImported} imported, ${totalSkipped} skipped (invalid addresses), ${totalNoNameTag} skipped (no Name Tag).`
+    `Import completed: ${totalImported} imported, ${totalUpdated} updated, ${totalSkipped} skipped (invalid addresses), ${totalNoNameTag} skipped (no Name Tag).`
   );
 }
 

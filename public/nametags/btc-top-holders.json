@@ -28,7 +28,7 @@
         "Name Tag": "MT Gox Hacker",
         "Description": "The pseudonymous creator of Bitcoin.",
         "Subcategory": "Historical",
-        "image": "/icons/mtgox.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -127,7 +127,7 @@
         "Name Tag": "Gemini Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/gemini.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -138,7 +138,7 @@
         "Name Tag": "Coincheck Hot Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/coincheck.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -171,7 +171,7 @@
         "Name Tag": "UK - Governmemt",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/uk.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -182,7 +182,7 @@
         "Name Tag": "Bitmex Cold Walet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/bitmex.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -248,7 +248,7 @@
         "Name Tag": "VanEck wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/vaneck.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -259,7 +259,7 @@
         "Name Tag": "BitMex Cold wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/bitmex.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -336,7 +336,7 @@
         "Name Tag": "MT Gox Cold wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/mtgox.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -358,7 +358,7 @@
         "Name Tag": "MicroStrategy Inc.",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/microstrategy.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -369,7 +369,7 @@
         "Name Tag": "Marathon Digital Holdings",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/marathon.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -380,7 +380,7 @@
         "Name Tag": "Riot Platforms, Inc",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/riot.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -391,7 +391,7 @@
         "Name Tag": "Galaxy Digital Holdings",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/galaxy.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -402,7 +402,7 @@
         "Name Tag": "Tesla, Inc.",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/tesla.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -413,29 +413,7 @@
         "Name Tag": "Hut 8 Mining Corp",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/hut8.png"
-      }
-    }
-  },
-  "3mgeafwu1hksnz5zs8qf61zw18xrp5pgd": {
-    "Address": "3mgeafwu1hksnz5zs8qf61zw18xrp5pgd",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Gemini Cold Wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/gemini.png"
-      }
-    }
-  },
-  "3lquu4v9z6knch71j7kbj8gpeagu1fw6a": {
-    "Address": "3lquu4v9z6knch71j7kbj8gpeagu1fw6a",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Binance Cold Wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -446,7 +424,7 @@
         "Name Tag": "Deribit Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/deribit.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -457,7 +435,7 @@
         "Name Tag": "Revolut Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/revolut.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -479,7 +457,7 @@
         "Name Tag": "Bitthumb Hot Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/bitthumb.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -490,7 +468,7 @@
         "Name Tag": "MT Gox wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/mtgox.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -512,7 +490,7 @@
         "Name Tag": "River Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/river.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -534,7 +512,7 @@
         "Name Tag": "Paxos Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/paxos.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -545,7 +523,7 @@
         "Name Tag": "Gemini Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/gemini.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -556,7 +534,7 @@
         "Name Tag": "Bitbank Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/bitbank.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -611,18 +589,7 @@
         "Name Tag": "MT Gox Cold wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/mtgox.png"
-      }
-    }
-  },
-  "1q8qr5k32heximqnr6kj6fmmjn5fmwhdv9": {
-    "Address": "1q8qr5k32heximqnr6kj6fmmjn5fmwhdv9",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Binance Pool wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -776,7 +743,7 @@
         "Name Tag": "MaskEX Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/upbit.png"
+        "image": "/icons/default.png"
       }
     }
   },
@@ -798,7 +765,7 @@
         "Name Tag": "Satoshi Nakamoto",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/satoshi.png"
+        "image": "/icons/default.png"
       }
     }
   }
