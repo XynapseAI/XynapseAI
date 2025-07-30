@@ -64,6 +64,7 @@ const cors = Cors({
             process.env.NEXT_PUBLIC_APP_URL,
             'http://localhost:3000',
             'https://xynapse-ai.vercel.app',
+            'https://xynapseai.net',
         ].filter(Boolean);
         logger.info(`CORS check: Origin ${origin || 'undefined'}, Allowed origins: ${allowedOrigins}`);
         if (!origin || allowedOrigins.includes(origin)) {
