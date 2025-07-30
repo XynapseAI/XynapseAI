@@ -1,9 +1,12 @@
-import { query } from '../../utils/postgres.js';
+// app/api/connect-data/route.js
+import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
 import rateLimit from 'express-rate-limit';
 import winston from 'winston';
 import helmet from 'helmet';
+
+const prisma = new PrismaClient();
 
 const logger = winston.createLogger({
   level: 'info',
@@ -16,7 +19,7 @@ const logger = winston.createLogger({
 });
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: { error: 'Too many requests, please try again later.' },
   keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown',
@@ -58,62 +61,47 @@ export default async function handler(req, res) {
 
   try {
     logger.info(`Fetching connect-data for user: ${session.user.id}`, { ip });
-    let creatorsResult, aiRankResult, rankingsResult;
-    try {
-      [creatorsResult, aiRankResult, rankingsResult] = await Promise.all([
-        query(
-          `SELECT id, twitter_handle, twitter_pfp, tweet_points, tier 
-           FROM users 
-           WHERE tweet_points > 0 
-           ORDER BY tweet_points DESC 
-           LIMIT 10`
-        ),
-        query(
-          `SELECT id, twitter_handle, twitter_pfp, ai_points, tier 
-           FROM users 
-           WHERE ai_points > 0 
-           ORDER BY ai_points DESC 
-           LIMIT 10`
-        ),
-        query(
-          `SELECT id, twitter_handle, twitter_pfp, points, tier 
-           FROM users 
-           WHERE points > 0 
-           ORDER BY points DESC 
-           LIMIT 100`
-        ),
-      ]);
-    } catch (error) {
-      if (error.message.includes('relation "users" does not exist')) {
-        logger.error(`Table users does not exist`, { ip });
-        return res.status(500).json({ detail: 'Server error: Table users does not exist' });
-      }
-      throw error;
-    }
-
-    const creators = creatorsResult.rows.map((row) => ({
-      id: row.id,
-      twitterHandle: row.twitter_handle,
-      twitterPFP: row.twitter_pfp,
-      tweetPoints: row.tweet_points,
-      tier: row.tier,
-    }));
-
-    const aiRank = aiRankResult.rows.map((row) => ({
-      id: row.id,
-      twitterHandle: row.twitter_handle,
-      twitterPFP: row.twitter_pfp,
-      aiPoints: row.ai_points,
-      tier: row.tier,
-    }));
-
-    const rankings = rankingsResult.rows.map((row) => ({
-      id: row.id,
-      twitterHandle: row.twitter_handle,
-      twitterPFP: row.twitter_pfp,
-      points: row.points,
-      tier: row.tier,
-    }));
+    const [creators, aiRank, rankings] = await Promise.all([
+      prisma.users.findMany({
+        where: { tweet_points: { gt: 0 } }, // Changed from tweetPoints
+        orderBy: { tweet_points: 'desc' }, // Changed from tweetPoints
+        take: 10,
+        select: {
+          id: true,
+          email: true,
+          profile_picture: true, // Changed from profilePicture
+          google_name: true, // Changed from googleName
+          tweet_points: true, // Changed from tweetPoints
+          tier: true,
+        },
+      }),
+      prisma.users.findMany({
+        where: { ai_points: { gt: 0 } }, // Changed from aiPoints
+        orderBy: { ai_points: 'desc' }, // Changed from aiPoints
+        take: 10,
+        select: {
+          id: true,
+          email: true,
+          profile_picture: true, // Changed from profilePicture
+          google_name: true, // Changed from googleName
+          ai_points: true, // Changed from aiPoints
+          tier: true,
+        },
+      }),
+      prisma.users.findMany({
+        where: { points: { gt: 0 } },
+        orderBy: { points: 'desc' },
+        take: 100,
+        select: {
+          id: true,
+          email: true,
+          profile_picture: true, // Changed from profilePicture
+          google_name: true, // Changed from googleName
+          points: true,
+          tier: true,
+        },
+      }),
+    ]);
 
     logger.info('Fetched connect-data successfully', {
       creatorsCount: creators.length,
@@ -125,8 +113,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      creators: creators.map((user) => ({ ...user, isCreator: true, points: user.tweetPoints })),
-      aiRank: aiRank.map((user) => ({ ...user, isAiRank: true, points: user.aiPoints })),
+      creators: creators.map((user) => ({ ...user, isCreator: true, points: user.tweet_points })), // Changed from tweetPoints
+      aiRank: aiRank.map((user) => ({ ...user, isAiRank: true, points: user.ai_points })), // Changed from aiPoints
       rankings,
     });
   } catch (error) {

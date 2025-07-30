@@ -1,4 +1,5 @@
-import { query } from '../../utils/postgres.js';
+// app/api/user/route.js
+import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth].js';
 import { verifyRecaptcha } from '../../utils/verifyRecaptcha.js';
@@ -6,6 +7,8 @@ import rateLimit from 'express-rate-limit';
 import { body, query as expressQuery, validationResult } from 'express-validator';
 import winston from 'winston';
 import helmet from 'helmet';
+
+const prisma = new PrismaClient();
 
 const logger = winston.createLogger({
   level: 'info',
@@ -18,7 +21,7 @@ const logger = winston.createLogger({
 });
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 200,
   message: { error: 'Too many requests, please try again later.' },
   keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.headers['x-real-ip'] || 'unknown',
@@ -27,8 +30,11 @@ const limiter = rateLimit({
 
 const validatePost = [
   body('id').isString().isLength({ max: 100 }).withMessage('Invalid ID'),
-  body('twitterHandle').isString().isLength({ max: 15 }).withMessage('Invalid Twitter handle'),
-  body('twitterPFP').optional().isString().isURL().withMessage('Invalid profile picture URL'),
+  body('email').isEmail().withMessage('Invalid email'),
+  body('profilePicture').optional().isString().isURL().withMessage('Invalid profile picture URL'),
+  body('googleId').optional().isString().isLength({ max: 100 }).withMessage('Invalid Google ID'),
+  body('googleName').optional().isString().isLength({ max: 255 }).withMessage('Invalid Google name'),
+  body('emailVerified').optional().isBoolean().withMessage('Invalid email verified status'),
 ];
 
 const validateGet = [
@@ -58,7 +64,6 @@ export default async function handler(req, res) {
   }
 
   const session = await getServerSession(req, res, authOptions);
-  logger.debug(`Session: ${JSON.stringify(session)}`);
   if (!session || !session.user?.id) {
     logger.warn('Session not authenticated or missing user ID', { ip, session });
     return res.status(401).json({ detail: 'Not authenticated' });
@@ -74,7 +79,6 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const recaptchaToken = req.headers['x-recaptcha-token'];
-      logger.debug(`reCAPTCHA token: ${recaptchaToken ? recaptchaToken.substring(0, 8) + '...' : 'missing'}`);
       if (!recaptchaToken) {
         logger.error('Missing X-Recaptcha-Token header', { ip });
         return res.status(400).json({ detail: 'Missing reCAPTCHA token in header' });
@@ -100,125 +104,81 @@ export default async function handler(req, res) {
       }
 
       const { uid } = req.query;
-      logger.info(`Fetching user data for UID: ${uid}`, { ip });
       if (!uid || uid !== session.user.id) {
         logger.warn(`Access denied: uid=${uid}, sessionUserId=${session.user.id}`, { ip });
         return res.status(403).json({ detail: 'Access denied: Invalid UID' });
       }
 
-      if (typeof uid !== 'string' || uid === 'uid') {
-        logger.error('Invalid or tampered UID', { uid, ip });
-        return res.status(400).json({ detail: 'Invalid UID' });
+      const user = await prisma.users.findUnique({
+        where: { id: uid },
+      });
+
+      if (!user) {
+        logger.error(`User not found: ${uid}`, { ip });
+        return res.status(404).json({ detail: 'User not found' });
       }
 
-      try {
-        const result = await query(`SELECT * FROM users WHERE id = $1`, [uid]);
-        if (result.rows.length === 0) {
-          logger.error(`User not found: ${uid}`, { ip });
-          return res.status(404).json({ detail: 'User not found' });
-        }
-
-        const user = result.rows[0];
-        logger.info(`Fetched user data for UID: ${uid}`, { ip });
-        return res.status(200).json({
-          success: true,
-          user: {
-            id: user.id,
-            twitterHandle: user.twitter_handle || '',
-            twitterPFP: user.twitter_pfp || '',
-            points: user.points || 0,
-            tweetPoints: user.tweet_points || 0,
-            aiPoints: user.ai_points || 0,
-            taskPoints: user.task_points || 0,
-            isCreator: user.is_creator || false,
-            isAiRank: user.is_ai_rank || false,
-            tier: user.tier || 'Basic',
-            is_premium: user.is_premium || false, // Add is_premium to response
-            walletAddress: user.wallet_address || null,
-            lastConnected: user.last_connected ? new Date(user.last_connected) : null,
-          },
-        });
-      } catch (dbError) {
-        logger.error(`Database query error: ${dbError.message}`, { stack: dbError.stack, ip });
-        if (dbError.message.includes('relation "users" does not exist')) {
-          return res.status(500).json({ detail: 'Server error: Table users does not exist' });
-        }
-        throw dbError;
-      }
+      logger.info(`Fetched user data for UID: ${uid}`, { ip });
+      return res.status(200).json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email || '',
+          googleId: user.google_id || null,
+          profilePicture: user.profile_picture || '',
+          googleName: user.google_name || '',
+          emailVerified: user.email_verified || false,
+          points: user.points || 0,
+          tweetPoints: user.tweet_points || 0,
+          aiPoints: user.ai_points || 0,
+          taskPoints: user.task_points || 0,
+          isCreator: user.is_creator || false,
+          isAiRank: user.is_ai_rank || false,
+          tier: user.tier || 'Basic',
+          isPremium: user.is_premium || false,
+          walletAddress: user.wallet_address || null,
+          lastConnected: user.last_connected ? new Date(user.last_connected) : null,
+        },
+      });
     } else if (req.method === 'POST') {
       if (session.user.id !== req.body.id) {
         logger.warn(`Unauthorized: uid=${req.body.id}, sessionUserId=${session.user.id}`, { ip });
         return res.status(401).json({ detail: 'Unauthorized' });
       }
 
-      const { id, twitterHandle, twitterPFP } = req.body;
+      const { id, email, profilePicture, googleId, googleName, emailVerified } = req.body;
       const userData = {
-        twitter_handle: twitterHandle,
-        twitter_pfp: twitterPFP,
-        twitter_connected: true,
-        last_connected: new Date(),
+        email,
+        googleId: googleId || null,
+        profilePicture: profilePicture || '',
+        googleName: googleName || '',
+        emailVerified: emailVerified || false,
+        connected: true,
+        lastConnected: new Date(),
         points: 0,
-        tweet_points: 0,
-        ai_points: 0,
-        task_points: 0,
-        is_creator: false,
-        is_ai_rank: false,
+        tweetPoints: 0,
+        aiPoints: 0,
+        taskPoints: 0,
+        isCreator: false,
+        isAiRank: false,
         tier: 'Basic',
-        is_plus: false,
-        isPremium: response.data.user.is_premium || false,
-        tier: response.data.user.is_premium ? 'Premium' : 'Basic',
+        isPlus: false,
+        isPremium: false,
       };
 
-      try {
-        await query(
-          `INSERT INTO users (
-            id, twitter_handle, twitter_pfp, twitter_connected, 
-            points, tweet_points, ai_points, task_points, 
-            is_creator, is_ai_rank, tier, is_plus, created_at, last_connected
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-          ON CONFLICT (id) DO UPDATE SET
-            twitter_handle = EXCLUDED.twitter_handle,
-            twitter_pfp = EXCLUDED.twitter_pfp,
-            twitter_connected = EXCLUDED.twitter_connected,
-            last_connected = EXCLUDED.last_connected,
-            points = EXCLUDED.points,
-            tweet_points = EXCLUDED.tweet_points,
-            ai_points = EXCLUDED.ai_points,
-            task_points = EXCLUDED.task_points,
-            is_creator = EXCLUDED.is_creator,
-            is_ai_rank = EXCLUDED.is_ai_rank,
-            tier = EXCLUDED.tier,
-            is_plus = EXCLUDED.is_plus,
-            updated_at = CURRENT_TIMESTAMP`,
-          [
-            id,
-            userData.twitter_handle,
-            userData.twitter_pfp,
-            userData.twitter_connected,
-            userData.points,
-            userData.tweet_points,
-            userData.ai_points,
-            userData.task_points,
-            userData.is_creator,
-            userData.is_ai_rank,
-            userData.tier,
-            userData.is_plus,
-            new Date(),
-            userData.last_connected,
-          ]
-        );
+      const updatedUser = await prisma.users.upsert({
+        where: { id },
+        update: userData,
+        create: {
+          ...userData,
+          id,
+          createdAt: new Date(),
+          apiKey: crypto.randomBytes(32).toString('hex'),
+        },
+      });
 
-        const result = await query(`SELECT * FROM users WHERE id = $1`, [id]);
-        const updatedUser = result.rows[0];
-        logger.info(`User created/updated: ${id}`, { ip });
-        return res.status(200).json({ success: true, user: { id, ...updatedUser } });
-      } catch (dbError) {
-        logger.error(`Database query error: ${dbError.message}`, { stack: dbError.stack, ip });
-        if (dbError.message.includes('relation "users" does not exist')) {
-          return res.status(500).json({ detail: 'Server error: Table users does not exist' });
-        }
-        throw dbError;
-      }
+      logger.info(`User created/updated: ${id}`, { ip });
+      return res.status(200).json({ success: true, user: updatedUser });
     } else {
       logger.warn(`Method not allowed: ${req.method}`, { ip });
       return res.status(405).json({ detail: 'Method not allowed' });

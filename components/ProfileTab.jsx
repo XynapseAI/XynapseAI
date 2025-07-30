@@ -3,8 +3,7 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useSession } from 'next-auth/react';
-import { signOut } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { ethers } from 'ethers';
 import Image from 'next/image';
 
@@ -85,8 +84,8 @@ export default function ProfileTab({ recaptchaRef }) {
         }
         const user = {
           ...response.data.user,
-          isPremium: response.data.user.is_premium || false,
-          tier: response.data.user.is_premium ? 'Premium' : 'Basic',
+          isPremium: response.data.user.isPremium || false,
+          tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
         };
         console.log('User Data:', user);
         setUserData(user);
@@ -197,7 +196,7 @@ export default function ProfileTab({ recaptchaRef }) {
     }
   };
 
-  const handleDisconnectTwitter = async () => {
+  const handleSignOut = async () => {
     try {
       await signOut({ redirect: false });
       setUserData(null);
@@ -206,8 +205,8 @@ export default function ProfileTab({ recaptchaRef }) {
       localStorage.removeItem('csrfToken');
       window.location.href = '/auth/signin';
     } catch (err) {
-      console.error('Twitter disconnection error:', err);
-      setError('Unable to disconnect Twitter');
+      console.error('Sign out error:', err);
+      setError('Unable to sign out');
     }
   };
 
@@ -269,7 +268,7 @@ export default function ProfileTab({ recaptchaRef }) {
       transition={{ duration: 0.5, ease: 'easeOut' }}
       className="font-jetbrains w-full max-w-10xl mx-auto bg-galaxy backdrop-blur-lg p-4 md:p-6 shadow-glow-neon h-[calc(100vh)] overflow-y-auto custom-scrollbar"
     >
-      <div className="w-full h-full p-4 md:p-6 backdrop-blur-md ">
+      <div className="w-full h-full p-4 md:p-6 backdrop-blur-md">
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -299,31 +298,31 @@ export default function ProfileTab({ recaptchaRef }) {
         )}
         {userData && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {/* Twitter (X) Card */}
+            {/* Google Account Card */}
             <motion.div
               className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-900/50 backdrop-blur-lg shadow-glow-neon hover:bg-gray-900/70"
               whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.98 }}
             >
-              <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Twitter (X)</h3>
+              <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Google Account</h3>
               <div className="flex items-center mb-6">
                 <Image
-                  src={userData.twitterPFP || '/default-avatar.png'}
-                  alt={userData.twitterHandle}
+                  src={userData.profilePicture || '/default-avatar.png'}
+                  alt={userData.googleName || 'Google User'}
                   width={48}
                   height={48}
                   className="rounded-xl border border-white/20 mr-3"
-                  onError={() => console.log(`Failed to load Twitter PFP: ${userData.twitterPFP}`)}
+                  onError={() => console.log(`Failed to load Google profile picture: ${userData.profilePicture}`)}
                 />
-                <span className="text-[9px] md:text-xs text-white truncate">{userData.twitterHandle || 'Not connected'}</span>
+                <span className="text-[9px] md:text-xs text-white truncate">{userData.googleName || userData.email}</span>
               </div>
               <motion.button
-                onClick={handleDisconnectTwitter}
+                onClick={handleSignOut}
                 className="w-full px-3 py-1.5 rounded-lg text-[9px] md:text-xs font-medium text-red-400 border border-red-500/50 backdrop-blur-md hover:bg-red-500/20 hover:shadow-glow-neon-red transition-all duration-300"
                 whileHover={{ scale: 1 }}
                 whileTap={{ scale: 0.95 }}
               >
-                Disconnect Twitter
+                Sign Out
               </motion.button>
             </motion.div>
             {/* Wallet Card */}
@@ -337,10 +336,11 @@ export default function ProfileTab({ recaptchaRef }) {
               <motion.button
                 onClick={handleConnectWallet}
                 disabled={isConnectingWallet || userData.walletAddress}
-                className={`w-full px-3 py-1.5 rounded-lg text-[9px] md:text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${isConnectingWallet || userData.walletAddress
+                className={`w-full px-3 py-1.5 rounded-lg text-[9px] md:text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
+                  isConnectingWallet || userData.walletAddress
                     ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
                     : 'text-white hover:bg-white/20 hover:shadow-glow-neon'
-                  }`}
+                }`}
                 whileHover={{ scale: isConnectingWallet || userData.walletAddress ? 1 : 1 }}
                 whileTap={{ scale: isConnectingWallet || userData.walletAddress ? 1 : 0.95 }}
               >
@@ -350,10 +350,11 @@ export default function ProfileTab({ recaptchaRef }) {
                 <motion.button
                   onClick={handleDisconnectWallet}
                   disabled={isDisconnectingWallet}
-                  className={`w-full mt-2 px-3 py-1.5 rounded-lg text-[9px] md:text-xs font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${isDisconnectingWallet
+                  className={`w-full mt-2 px-3 py-1.5 rounded-lg text-[9px] md:text-xs font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${
+                    isDisconnectingWallet
                       ? 'text-white/50 cursor-not-allowed opacity-50'
                       : 'text-red-400 hover:bg-red-500/20 hover:shadow-glow-neon-red'
-                    }`}
+                  }`}
                   whileHover={{ scale: isDisconnectingWallet ? 1 : 1 }}
                   whileTap={{ scale: isDisconnectingWallet ? 1 : 0.95 }}
                 >
@@ -381,21 +382,22 @@ export default function ProfileTab({ recaptchaRef }) {
             </motion.div>
             {/* Tier Card */}
             <motion.div
-              className={`min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border ${userData.isPremium ? 'border-yellow-400/50 shadow-glow-neon-yellow' : 'border-white/10 shadow-glow-neon'
-                } bg-gray-900/50 backdrop-blur-lg hover:bg-gray-900/70`}
+              className={`min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border ${
+                userData.isPremium ? 'border-yellow-400/50 shadow-glow-neon-yellow' : 'border-white/10 shadow-glow-neon'
+              } bg-gray-900/50 backdrop-blur-lg hover:bg-gray-900/70`}
               whileHover={{ scale: 1 }}
               whileTap={{ scale: 0.98 }}
             >
               <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Account</h3>
               <p
-                className={`text-xl md:text-2xl font-bold text-center mb-6 ${userData.isPremium ? 'text-yellow-400' : 'text-white'
-                  }`}
+                className={`text-xl md:text-2xl font-bold text-center mb-6 ${userData.isPremium ? 'text-yellow-400' : 'text-white'}`}
               >
-                {userData.isPremium ? 'Premium' : 'Basic'}
+                {userData.tier || 'Basic'}
               </p>
               <div
-                className={`w-full h-2 rounded-b-lg ${userData.isPremium ? 'bg-gradient-to-r from-yellow-400/50 to-yellow-600/50' : 'bg-gradient-to-r from-white/50 to-gray-400/50'
-                  }`}
+                className={`w-full h-2 rounded-b-lg ${
+                  userData.isPremium ? 'bg-gradient-to-r from-yellow-400/50 to-yellow-600/50' : 'bg-gradient-to-r from-white/50 to-gray-400/50'
+                }`}
               ></div>
             </motion.div>
           </div>

@@ -11,6 +11,7 @@ import MatrixHoverEffect from '../components/MatrixHoverEffect';
 import { TermsOfServiceContent } from '../components/TermsOfService';
 import { PrivacyPolicyContent } from '../components/PrivacyPolicy';
 import TypingEffect from '../components/TypingEffect';
+import Image from 'next/image';
 
 gsap.registerPlugin(ScrollTrigger, MotionPathPlugin);
 
@@ -183,6 +184,7 @@ export default function Home() {
           ease: 'power3.out',
         }, isMobile ? 0.6 : 1);
 
+      // Inside the useEffect hook, within initAnimation function
       if (starsRef.current) {
         starsRef.current.innerHTML = ''; // Clear previous stars and comets
 
@@ -191,134 +193,129 @@ export default function Home() {
             left: `${gsap.utils.random(0, 100)}%`,
             top: `${gsap.utils.random(0, 100)}%`,
             opacity: gsap.utils.random(0.3, 0.9),
-            duration: gsap.utils.random(50, 100), // Random duration for varied speeds
+            duration: gsap.utils.random(50, 100),
             ease: 'power1.inOut',
             onComplete: () => {
-              animateStar(star); // Call itself to loop the animation
+              animateStar(star);
             },
           });
         };
 
-        // Stars
+        // Stars (unchanged)
         const numStars = isMobile ? 5 : 8;
         for (let i = 0; i < numStars; i++) {
           const star = document.createElement('div');
           star.className = 'star';
-          // Set initial random position and opacity
           gsap.set(star, {
             left: `${Math.random() * 100}%`,
             top: `${Math.random() * 100}%`,
             opacity: gsap.utils.random(0.3, 0.9),
           });
           starsRef.current.appendChild(star);
-          animateStar(star); // Start continuous animation for each star
+          animateStar(star);
         }
 
+        // Meteors (replacing comets)
+        const createMeteor = () => {
+          console.log('Creating new meteor...');
+          const meteorContainer = document.createElement('div');
+          meteorContainer.className = 'meteor-container';
+          starsRef.current.appendChild(meteorContainer);
 
-        // Comets (shooting stars)
-        const createComet = () => {
-          const cometContainer = document.createElement('div');
-          cometContainer.className = 'comet-container';
-          starsRef.current.appendChild(cometContainer);
+          const meteorHead = document.createElement('div');
+          meteorHead.className = 'meteor-head';
+          meteorContainer.appendChild(meteorHead);
 
-          const cometHead = document.createElement('div');
-          cometHead.className = 'comet-head';
-          cometContainer.appendChild(cometHead);
+          const meteorTail = document.createElement('div');
+          meteorTail.className = 'meteor-tail';
+          meteorContainer.appendChild(meteorTail);
 
-          const cometTail = document.createElement('div');
-          cometTail.className = 'comet-tail';
-          cometContainer.appendChild(cometTail);
+          // Randomize starting position (top corners)
+          const isFromRight = Math.random() > 0.5;
+          const startX = isFromRight
+            ? gsap.utils.random(70, 90) // Top-right corner
+            : gsap.utils.random(10, 30); // Top-left corner
+          const startY = -10; // Start above viewport
+          const endX = isFromRight
+            ? gsap.utils.random(10, 30) // Bottom-left corner
+            : gsap.utils.random(70, 90); // Bottom-right corner
+          const endY = 110; // End below viewport
 
-          let startX, startY, endX, endY;
-          const direction = Math.random();
-
-          if (direction < 0.25) { // Top-left to Bottom-right
-            startX = Math.random() * 20;
-            startY = -10;
-            endX = Math.random() * 20 + 80;
-            endY = 110;
-          } else if (direction < 0.5) { // Top-right to Bottom-left
-            startX = Math.random() * 20 + 80;
-            startY = -10;
-            endX = Math.random() * 20;
-            endY = 110;
-          } else if (direction < 0.75) { // Bottom-left to Top-right
-            startX = Math.random() * 20;
-            startY = 110;
-            endX = Math.random() * 20 + 80;
-            endY = -10;
-          } else { // Bottom-right to Top-left
-            startX = Math.random() * 20 + 80;
-            startY = 110;
-            endX = Math.random() * 20;
-            endY = -10;
-          }
-
-          const duration = gsap.utils.random(2.5, 5); // Random duration for comets
-
+          // Calculate angle for rotation
           const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI + 90;
 
-          gsap.set(cometContainer, {
+          gsap.set(meteorContainer, {
             x: `${startX}vw`,
             y: `${startY}vh`,
             rotation: angle,
             opacity: 0,
             scale: 1,
-            zIndex: 10,
+            zIndex: 5,
           });
 
-          const cometTl = gsap.timeline({
+          const duration = gsap.utils.random(3, 5); // Slower duration (3–5 seconds)
+
+          const meteorTl = gsap.timeline({
             onComplete: () => {
-              cometContainer.remove();
-              // Schedule the next comet after a random delay
-              activeCometTimeout = setTimeout(createComet, gsap.utils.random(1000, 5000)); // Random delay between 5 to 15 seconds
+              console.log('Meteor animation completed, removing...');
+              meteorContainer.remove();
+              activeCometTimeout = setTimeout(createMeteor, gsap.utils.random(10000, 20000));
             },
           });
 
-          cometTl
-            .to(cometContainer, {
+          meteorTl
+            .to(meteorContainer, {
               opacity: 1,
               duration: duration * 0.2,
               ease: 'power1.out',
             })
-            .to(cometContainer, {
-              motionPath: {
-                path: [
-                  { x: `${startX}vw`, y: `${startY}vh` },
-                  { x: `${endX}vw`, y: `${endY}vh` },
-                ],
-                curviness: 0.5,
+            .to(
+              meteorContainer,
+              {
+                motionPath: {
+                  path: [
+                    { x: `${startX}vw`, y: `${startY}vh` },
+                    { x: `${endX}vw`, y: `${endY}vh` },
+                  ],
+                  curviness: 0.3,
+                },
+                opacity: 0,
+                duration: duration * 0.8,
+                ease: 'power1.in',
               },
-              opacity: 0,
-              duration: duration * 0.8,
-              ease: 'power1.in',
-            }, `<${duration * 0.8}`)
+              `<${duration * 0.2}`
+            )
             .fromTo(
-              cometTail,
+              meteorTail,
               { scaleY: 0, opacity: 0 },
               {
                 scaleY: 1,
-                opacity: 1,
+                opacity: 0.8,
                 duration: duration * 0.3,
                 ease: 'power1.out',
               },
               `<0`
             )
             .to(
-              cometTail,
+              meteorTail,
               {
                 scaleY: 0,
                 opacity: 0,
                 duration: duration * 0.7,
                 ease: 'power1.in',
               },
-              `>0.1`
+              `>-0.1`
             );
+
+          return meteorTl;
         };
 
-        // Initialize the first comet
-        if (!activeCometTimeout) { // Prevent multiple calls on resize
-          activeCometTimeout = setTimeout(createComet, gsap.utils.random(1000, 5000)); // Initial delay for the first comet
+        // Initialize the first meteor
+        if (!activeCometTimeout) {
+          activeCometTimeout = setTimeout(() => {
+            console.log('Initializing first meteor...');
+            createMeteor();
+          }, gsap.utils.random(1000, 5000));
         }
       }
 
@@ -423,13 +420,32 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-black text-white overflow-x-hidden font-jetbrains">
       {/* Header */}
       <header className="w-full py-1 px-6 flex justify-between items-center bg-gray-900/50 backdrop-blur-lg border-b border-white/10 z-50 sticky top-0">
-        <img src="/logos/logo-landscape.png" alt="Xynapse Logo" className="h-12 sm:h-14" />
+        <Image
+          src="/logos/logo-landscape.png"
+          alt="Xynapse Logo"
+          width={120} // Approximate width for h-12 (48px) to h-14 (56px)
+          height={56}
+          className="h-12 sm:h-14 w-auto"
+          priority // Add priority for above-the-fold image
+        />
         <div className="flex items-center gap-4">
           <Link href="https://x.com" className="transition-all duration-300">
-            <img src="/logos/x.png" alt="X Logo" className="h-5 sm:h-6" />
+            <Image
+              src="/logos/x.png"
+              alt="X Logo"
+              width={24} // Approximate width for h-5 (20px) to h-6 (24px)
+              height={24}
+              className="h-5 sm:h-6 w-auto"
+            />
           </Link>
           <span>
-            <img src="/logos/discord.png" alt="Discord Logo" className="h-5 sm:h-6 opacity-50" />
+            <Image
+              src="/logos/discord.png"
+              alt="Discord Logo"
+              width={24}
+              height={24}
+              className="h-5 sm:h-6 w-auto opacity-50"
+            />
           </span>
           <Link
             href="/dashboard"
@@ -475,16 +491,18 @@ export default function Home() {
 
       {/* Trusted By */}
       <section className="py-12 bg-gray-900/20">
-        <p className="text-center text-gray-500 text-1xl sm:text-2xl font-bold mb-8 uppercase">
+        <p className="text-center text-gray-500 text-1xl sm:text-1xl font-bold mb-8 uppercase">
           Trusted by Top Crypto Innovators
         </p>
         <div className="w-full overflow-hidden">
           <div className="flex animate-marquee-right-to-left">
             {[...trustedByLogos, ...trustedByLogos].map((logo, index) => (
-              <img
+              <Image
                 key={`trusted-${index}`}
                 src={logo}
                 alt="Trusted By Logo"
+                width={64} // Approximate width for h-12 (48px) to h-16 (64px)
+                height={64}
                 className="h-12 sm:h-16 mx-4 sm:mx-6 opacity-80 hover:opacity-100 transition-opacity duration-300 object-contain"
               />
             ))}
@@ -502,17 +520,19 @@ export default function Home() {
             <motion.div
               key={index}
               ref={ref}
-              className="absolute bg-tech backdrop-blur-md border border-white/10 rounded-xl shadow-card flex flex-row items-center justify-between p-6 w-full max-w-4xl"
+              className="absolute bg-gradient-to-br from-gray-900 via-black to-gray-800 backdrop-blur-md border-2 border-white/20 rounded-xl shadow-card flex flex-row items-center justify-between p-6 w-full max-w-4xl sm:h-[300px] h-[240px]"
             >
-              <div className="flex-1 p-4">
-                <h3 className="text-xl font-bold text-white mb-4">{cardData[index].title}</h3>
-                <p className="text-sm text-gray-500">{cardData[index].description}</p>
+              <div className="flex-1 p-4 w-2/4"> {/* Tăng chiều ngang phần text từ w-3/4 thành w-4/5 */}
+                <h3 className="text-xl sm:text-xl font-bold text-white mb-4">{cardData[index].title}</h3>
+                <p className="text-xs sm:text-xs text-gray-500">{cardData[index].description}</p>
               </div>
-              <div className="flex-1">
-                <img
+              <div className="flex-none w-1/5">
+                <Image
                   src={cardData[index].image}
                   alt={cardData[index].title}
-                  className="w-3/4 h-auto object-contain rounded-lg ml-8"
+                  width={100}
+                  height={100}
+                  className="w-full h-auto object-contain rounded-lg ml-2"
                 />
               </div>
             </motion.div>
@@ -530,10 +550,10 @@ export default function Home() {
         </p>
         <div className="w-[90%] flex flex-row flex-wrap justify-center gap-4">
           {[
-            { img: '/logos/icon1.png', text: 'Real-Time Token Tracking' },
-            { img: '/logos/icon2.png', text: 'AI-Powered Predictions' },
-            { img: '/logos/icon3.png', text: 'Social Sentiment Analysis' },
-            { img: '/logos/icon4.png', text: 'Top Holder Insights' },
+            { image: '/logos/icon1.png', text: 'Real-Time Token Tracking' },
+            { image: '/logos/icon2.png', text: 'AI-Powered Predictions' },
+            { image: '/logos/icon3.png', text: 'Social Sentiment Analysis' },
+            { image: '/logos/icon4.png', text: 'Top Holder Insights' },
           ].map((item, index) => (
             <motion.div
               key={index}
@@ -541,7 +561,13 @@ export default function Home() {
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.95 }}
             >
-              <img src={item.img} alt={item.text} className="h-12 sm:h-14 mb-4 object-contain" />
+              <Image
+                src={item.image}
+                alt={item.text}
+                width={56} // Approximate width for h-12 (48px) to h-14 (56px)
+                height={56}
+                className="h-12 sm:h-14 mb-4 object-contain"
+              />
               <p className="text-[10px] sm:text-sm text-white text-center">{item.text}</p>
             </motion.div>
           ))}
@@ -560,9 +586,11 @@ export default function Home() {
           >
             <div className="relative w-full h-[300px] sm:h-[400px]">
               <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
-                <img
+                <Image
                   src="/logos/bitcoin.png"
                   alt="Bitcoin Logo"
+                  width={40} // Approximate width for w-8 (32px) to w-10 (40px)
+                  height={40}
                   className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
                 />
                 <div className="flex flex-col">
@@ -597,7 +625,7 @@ export default function Home() {
           >
             <h3 className="text-2xl sm:text-3xl font-bold text-white mb-6 uppercase">Our Vision</h3>
             <ul className="space-y-4">
-              <li ref={text1Ref} className="text-sm sm:text-base text-gray-500 flex items-start">
+              <li ref={text1Ref} className="text-xs sm:text-base text-gray-500 flex items-start">
                 <span className="text-neon-blue mr-2">•</span> Democratize crypto market intelligence with AI-driven insights.
               </li>
               <li ref={text2Ref} className="text-sm sm:text-base text-gray-500 flex items-start">
@@ -653,30 +681,36 @@ export default function Home() {
           <div className="absolute inset-y-0 right-0 w-24 sm:w-32 bg-gradient-to-l from-black to-transparent z-10"></div>
           <div className="flex animate-marquee-right-to-left">
             {[...row1Logos, ...row1Logos].map((logo, index) => (
-              <img
+              <Image
                 key={`row1-${index}`}
                 src={logo}
                 alt="Partner Logo"
+                width={80} // Approximate width for h-20 (80px)
+                height={80}
                 className="h-20 mx-6 sm:mx-8 opacity-90 hover:opacity-100 transition-opacity duration-200 object-contain"
               />
             ))}
           </div>
           <div className="flex animate-reverse-marquee mt-6">
             {[...row2Logos, ...row2Logos].map((logo, index) => (
-              <img
+              <Image
                 key={`row2-${index}`}
                 src={logo}
                 alt="Partner Logo"
+                width={80}
+                height={80}
                 className="h-20 mx-6 sm:mx-8 opacity-90 hover:opacity-100 transition-opacity duration-200 object-contain"
               />
             ))}
           </div>
           <div className="flex animate-marquee-right-to-left mt-6">
             {[...row3Logos, ...row3Logos].map((logo, index) => (
-              <img
+              <Image
                 key={`row3-${index}`}
                 src={logo}
                 alt="Partner Logo"
+                width={80}
+                height={80}
                 className="h-20 mx-6 sm:mx-8 opacity-90 hover:opacity-100 transition-opacity duration-200 object-contain"
               />
             ))}
@@ -686,12 +720,21 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="py-12 bg-gray-900/50 backdrop-blur-lg border-t border-white/20 relative">
-        <div className="w-[90%] max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-start gap-8">
+        <div className="w-[90%] max-w-10xl mx-auto flex flex-col gap-2">
+          {/* Top Section: Logo (Top-Left) */}
           <div className="flex flex-col items-start">
-            <img src="/logos/logo-landscape.png" alt="Xynapse Logo" className="h-12 sm:h-14 mb-4" />
-            <p className="text-[10px] text-gray-500">Xynapse Analytics © 2025</p>
+            <Image
+              src="/logos/logo-landscape.png"
+              alt="Xynapse Logo"
+              width={120}
+              height={56}
+              className="h-12 sm:h-14 w-auto"
+            />
+            <p className="text-[9px] sm:text-[10px] text-gray-500">Xynapse Analytics © 2025</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center flex-1">
+
+          {/* Navigation Links (Centered) */}
+          <div className="w-full flex flex-col items-center grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
             {[
               {
                 title: 'Product',
@@ -706,13 +749,13 @@ export default function Home() {
                 links: ['About', 'Careers', 'Contact'],
               },
             ].map((col, index) => (
-              <div key={index} className="flex flex-col items-center">
-                <h3 className="text-lg font-bold text-white mb-3 uppercase">{col.title}</h3>
+              <div key={index} className="flex flex-col items-center mt-0 sm:mt-10">
+                <h3 className="text-sm sm:text-lg font-bold text-white mb-3 uppercase">{col.title}</h3>
                 {col.links.map((link) => (
                   <Link
                     key={link}
                     href={`/${link.toLowerCase()}`}
-                    className="text-sm text-gray-500 mb-2 transition-all duration-300 hover:text-neon-blue"
+                    className="text-[10px] sm:text-xs text-gray-500 mb-2 transition-all duration-300 hover:text-neon-blue"
                   >
                     <MatrixHoverEffect text={link} hoverColor="#00BFFF" />
                   </Link>
@@ -720,34 +763,50 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <div className="flex flex-col items-end">
-            <div className="flex gap-4 mb-4">
+
+          {/* Social Links and Terms/Privacy (Centered) */}
+          <div className="flex flex-col items-center gap-4 mt-4">
+            <div className="flex gap-4">
               <Link href="https://x.com">
-                <img src="/logos/x.png" alt="X" className="h-5 sm:h-6" />
+                <Image
+                  src="/logos/x.png"
+                  alt="X"
+                  width={24}
+                  height={24}
+                  className="h-5 sm:h-6 w-auto"
+                />
               </Link>
               <span>
-                <img src="/logos/discord.png" alt="Discord Logo" className="h-5 sm:h-6 opacity-50" />
+                <Image
+                  src="/logos/discord.png"
+                  alt="Discord Logo"
+                  width={24}
+                  height={24}
+                  className="h-5 sm:h-6 w-auto opacity-50"
+                />
               </span>
             </div>
             <div className="flex gap-4">
               <button
                 onClick={() => openModal('terms')}
-                className="text-[10px] text-gray-500 transition-all duration-300 hover:text-neon-blue"
+                className="text-[10px] sm:text-xs text-gray-500 transition-all duration-300 hover:text-neon-blue"
               >
                 <MatrixHoverEffect text="Terms" hoverColor="#00BFFF" />
               </button>
               <button
                 onClick={() => openModal('privacy')}
-                className="text-[10px] text-gray-500 transition-all duration-300 hover:text-neon-blue"
+                className="text-[10px] sm:text-xs text-gray-500 transition-all duration-300 hover:text-neon-blue"
               >
                 <MatrixHoverEffect text="Privacy" hoverColor="#00BFFF" />
               </button>
             </div>
           </div>
+
+          {/* Copyright (Bottom-Centered) */}
+          <p className="text-center text-[10px] sm:text-sm text-gray-500 mt-4">
+            Copyright © 2025 Xynapse Analytics. All rights reserved.
+          </p>
         </div>
-        <p className="text-center text-[10px] text-gray-500 mt-8">
-          Copyright © 2025 Xynapse Analytics. All rights reserved.
-        </p>
       </footer>
 
       {/* Modal for Terms and Privacy */}

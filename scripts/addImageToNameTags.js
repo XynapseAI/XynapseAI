@@ -46,7 +46,10 @@ const keywordToImage = {
   ethena: 'ethena.png',
   sui: 'sui.png',
   crypto: 'crypto.png',
-  hyperliquid: 'hyperliquid.png'
+  hyperliquid: 'hyperliquid.png',
+  balancer: 'balancer.png',
+  multichain: 'multichain.png',
+  synthetix: 'synthetix.png',
 };
 
 const getImageFromNameTag = (nameTag = '') => {
