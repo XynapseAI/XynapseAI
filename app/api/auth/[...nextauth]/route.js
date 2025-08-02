@@ -41,6 +41,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
+  'https://xynapse-ai.vercel.app',
 ];
 
 const transporter = createTransport({
@@ -193,15 +194,18 @@ const rateLimitedHandler = (handler) =>
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const origin = request.headers.get('origin');
 
-    // Check CORS
+    // Logging chi tiết hơn để xác định nguồn gốc yêu cầu
+    logger.info(`Request to /api/auth/[...nextauth] from IP ${ip}, Origin: ${origin || 'null'}`);
+
+    // Cho phép Origin: null trong môi trường phát triển
     if (!origin && process.env.NODE_ENV === 'development') {
       logger.warn(`Origin is null, allowing in development mode`, { ip });
     } else if (!origin || !allowedOrigins.includes(origin)) {
-      logger.error(`CORS error: Origin ${origin || 'null'} not allowed`, { allowedOrigins });
+      logger.error(`CORS error: Origin ${origin || 'null'} not allowed`, { allowedOrigins, ip });
       return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
     }
 
-    // Check Redis-based rate limit
+    // Kiểm tra rate limit
     try {
       await checkRateLimit(ip);
     } catch (err) {
@@ -209,11 +213,14 @@ const rateLimitedHandler = (handler) =>
       return NextResponse.json({ detail: err.message }, { status: 429 });
     }
 
-    // Proceed with the original handler
+    // Tiến hành xử lý yêu cầu
     const response = await handler(request, ...args);
 
-    // Add CORS headers to the response
-    response.headers.set('Access-Control-Allow-Origin', process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (origin || 'http://localhost:3000'));
+    // Thêm CORS headers vào phản hồi
+    response.headers.set(
+      'Access-Control-Allow-Origin',
+      process.env.NODE_ENV === 'development' ? (origin || 'http://localhost:3000') : origin
+    );
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token');
     response.headers.set('Access-Control-Allow-Credentials', 'true');

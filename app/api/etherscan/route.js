@@ -1,3 +1,4 @@
+// app/api/etherscan/route.js
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
@@ -51,6 +52,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://xynapse-ai.vercel.app',
   'https://xynapseai.net',
+  'https://www.xynapseai.net', // Thêm để nhất quán với /api/auth/[...nextauth]
 ].filter(Boolean);
 
 const bodySchema = z.object({
@@ -78,11 +80,13 @@ const ETHERSCAN_API_URLS = {
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const startTime = Date.now();
-  logger.info(`Request to /api/etherscan from IP ${ip}`);
+  logger.info(`Request to /api/etherscan from IP ${ip}, Origin: ${request.headers.get('origin') || 'null'}`);
 
   const origin = request.headers.get('origin');
-  if (!origin || !allowedOrigins.includes(origin)) {
-    logger.error(`CORS error: Origin ${origin} not allowed`, { allowedOrigins });
+  if (!origin && process.env.NODE_ENV === 'development') {
+    logger.warn(`Origin is null, allowing in development mode`, { ip });
+  } else if (!origin || !allowedOrigins.includes(origin)) {
+    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`, { allowedOrigins, ip });
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
   }
 
@@ -227,7 +231,7 @@ export async function POST(request) {
         headers: {
           'Content-Type': 'application/json',
           'Content-Security-Policy': "default-src 'self'",
-          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Origin': process.env.NODE_ENV === 'development' ? (origin || 'http://localhost:3000') : origin,
           'Access-Control-Allow-Methods': 'POST',
           'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Internal-Token',
         },
