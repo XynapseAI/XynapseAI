@@ -222,9 +222,9 @@ export default function Home() {
           meteorContainer.className = 'meteor-container';
           starsRef.current.appendChild(meteorContainer);
 
-          const meteorHead = document.createElement('div');
-          meteorHead.className = 'meteor-head';
-          meteorContainer.appendChild(meteorHead);
+          // const meteorHead = document.createElement('div');
+          // meteorHead.className = 'meteor-head';
+          // meteorContainer.appendChild(meteorHead);
 
           const meteorTail = document.createElement('div');
           meteorTail.className = 'meteor-tail';

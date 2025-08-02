@@ -236,7 +236,7 @@ export default function Dashboard() {
             await recaptchaRef.current.reset();
             recaptchaToken = await Promise.race([
               recaptchaRef.current.executeAsync(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 60000)),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
             ]);
             if (recaptchaToken) break;
           } catch (err) {

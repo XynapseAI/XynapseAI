@@ -1,46 +1,66 @@
 // utils/indexedDB.js
+'use client';
+
 import { get, set, del } from 'idb-keyval';
+import { z } from 'zod';
+import { logger } from './clientLogger';
 
-export const cacheData = async (key, data, ttl = 60 * 60 * 1000) => { // Tăng TTL lên 1 giờ
+const cacheSchema = z.object({
+  key: z.string().min(1, 'Cache key must be a non-empty string'),
+  data: z.any(),
+  ttl: z.number().int().min(0, 'TTL must be a non-negative integer').default(60 * 60 * 1000),
+});
+
+export async function cacheData(key, data, ttl = 60 * 60 * 1000) {
   try {
-    const cacheEntry = {
-      data,
-      timestamp: Date.now(),
-      ttl,
-    };
+    cacheSchema.parse({ key, data, ttl });
+
+    const cacheEntry = { data, timestamp: Date.now(), ttl };
     await set(key, cacheEntry);
-    console.log(`Cached data for key: ${key}`, cacheEntry);
+    logger.info(`Cached data in IndexedDB for key: ${key}`, { ttl });
   } catch (error) {
-    console.error(`Error caching data for key: ${key}`, error);
+    logger.error(`Error caching data for key: ${key}`, {
+      error: error.message,
+    });
+    throw error;
   }
-};
+}
 
-export const getCachedData = async (key) => {
+export async function getCachedData(key) {
   try {
+    cacheSchema.shape.key.parse(key);
+
     const cacheEntry = await get(key);
     if (!cacheEntry) {
-      console.log(`No cache found for key: ${key}`);
+      logger.info(`No cache found in IndexedDB for key: ${key}`);
       return null;
     }
     const { data, timestamp, ttl } = cacheEntry;
     if (Date.now() - timestamp > ttl) {
       await del(key);
-      console.log(`Cache expired for key: ${key}`);
+      logger.info(`Cache expired in IndexedDB for key: ${key}`);
       return null;
     }
-    console.log(`Retrieved cache for key: ${key}`, data);
+    logger.info(`Retrieved cache from IndexedDB for key: ${key}`);
     return data;
   } catch (error) {
-    console.error(`Error retrieving cache for key: ${key}`, error);
+    logger.error(`Error retrieving cache for key: ${key}`, {
+      error: error.message,
+    });
     return null;
   }
-};
+}
 
-export const clearCache = async (key) => {
+export async function clearCache(key) {
   try {
+    cacheSchema.shape.key.parse(key);
+
     await del(key);
-    console.log(`Cleared cache for key: ${key}`);
+    logger.info(`Cleared cache in IndexedDB for key: ${key}`);
   } catch (error) {
-    console.error(`Error clearing cache for key: ${key}`, error);
+    logger.error(`Error clearing cache for key: ${key}`, {
+      error: error.message,
+    });
+    throw error;
   }
-};
+}

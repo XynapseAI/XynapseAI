@@ -6,9 +6,8 @@ import axios from 'axios';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
-// LoadingOverlay component (adapted from MarketTab)
 const LoadingOverlay = ({ loadingStates = {}, isMobile }) => {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
@@ -33,7 +32,7 @@ const LoadingOverlay = ({ loadingStates = {}, isMobile }) => {
       isMobile ? 'bg-gray-900/70' : 'bg-gray-900/30 backdrop-blur-lg'
     }`}>
       <div className="flex flex-col items-center gap-3">
-        <div className="relative w-8 h-8"> {/* Smaller size for LoadingOverlay */}
+        <div className="relative w-8 h-8">
           <div className={`absolute inset-0 border-2 rounded-full animate-spin ${
             isMobile ? 'border-gray-400 border-t-white' : 'border-neon-blue/50 border-t-white'
           }`}></div>
@@ -61,9 +60,8 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
   const [rankings, setRankings] = useState([]);
   const [creators, setCreators] = useState([]);
   const [aiRank, setAiRank] = useState([]);
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640); // Add isMobile state
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640);
 
-  // Handle window resize to update isMobile
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 640);
@@ -73,7 +71,6 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Use topPlayers prop instead of refetching /api/connect-data
   useEffect(() => {
     if (topPlayers) {
       setRankings(topPlayers.rankings || []);
@@ -82,31 +79,37 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
     }
   }, [topPlayers]);
 
-  // Fetch user data
   useEffect(() => {
     async function fetchUserData() {
       if (status !== 'authenticated' || !session?.user?.id) return;
       try {
         if (!recaptchaRef.current) throw new Error('reCAPTCHA not ready');
-        let recaptchaToken = null;
-        for (let attempt = 1; attempt <= 5; attempt++) {
-          try {
-            await recaptchaRef.current.reset();
-            recaptchaToken = await Promise.race([
-              recaptchaRef.current.executeAsync({ action: 'get_user' }),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 60000)),
-            ]);
-            if (recaptchaToken) break;
-          } catch (err) {
-            if (attempt === 5) throw new Error('Failed to generate reCAPTCHA token after 5 attempts');
-            await new Promise((resolve) => setTimeout(resolve, 3000));
+        let recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : null;
+        if (process.env.NODE_ENV !== 'development') {
+          for (let attempt = 1; attempt <= 5; attempt++) {
+            try {
+              await recaptchaRef.current.reset();
+              recaptchaToken = await Promise.race([
+                recaptchaRef.current.executeAsync({ action: 'get_user' }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)),
+              ]);
+              if (recaptchaToken) break;
+            } catch (err) {
+              console.error(`Error generating reCAPTCHA token (attempt ${attempt})`, err.message);
+              if (attempt === 5) throw new Error('Failed to generate reCAPTCHA token after 5 attempts');
+              await new Promise((resolve) => setTimeout(resolve, 3000));
+            }
           }
         }
         if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
 
-        const userResponse = await axios.get(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+        console.log('Session CSRF Token:', session.csrfToken);
+
+        const userResponse = await axios.get(`${API_BASE_URL}/api/user`, {
+          params: { uid: session.user.id },
           headers: {
             'X-Recaptcha-Token': recaptchaToken,
+            'X-CSRF-Token': session.csrfToken || '',
           },
           withCredentials: true,
         });
@@ -114,8 +117,9 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
           throw new Error(userResponse.data.detail || 'Failed to fetch user information');
         }
         setUserInfo(userResponse.data.user);
+        console.log('User data fetched successfully in LeaderboardTab', userResponse.data.user);
       } catch (err) {
-        console.error('Error fetching user data:', err.response?.data || err.message);
+        console.error('Error fetching user data in LeaderboardTab:', err.response?.data || err.message);
         setUserInfo(null);
         setTabError(`Failed to load user information: ${err.response?.data?.detail || err.message}`);
       }
@@ -123,7 +127,6 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
     fetchUserData();
   }, [status, session, recaptchaRef]);
 
-  // Sync propError to tabError
   useEffect(() => {
     setTabError(propError);
   }, [propError]);
@@ -145,7 +148,7 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
     return (
       <motion.a
         key={user.id}
-        href={`https://x.com/${user.twitterHandle}`}
+        href={`https://x.com/${user.twitterHandle || 'unknown'}`}
         target="_blank"
         rel="noopener noreferrer"
         className={`grid grid-cols-12 gap-1 p-1 rounded-xl font-jetbrains transition-all duration-300 border border-white/10 ${
@@ -154,23 +157,22 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
         whileHover={{ scale: 1 }}
         whileTap={{ scale: 0.98 }}
       >
-        {/* Sliding underline effect on hover */}
         <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-neon-blue transform scale-x-0 origin-left transition-transform duration-300 group-hover:scale-x-100`} />
         <div className="col-span-2 text-[9px] md:text-[10px] text-white flex items-center ml-2">{rank}</div>
         <div className="col-span-6 flex items-center">
           <Image
-            src={user.twitterPFP && user.twitterPFP.startsWith('http') ? user.twitterPFP : '/default-avatar.png'}
-            alt={user.twitterHandle || 'User Avatar'}
+            src={user.profile_picture && user.profile_picture.startsWith('http') ? user.profile_picture : '/default-avatar.png'}
+            alt={user.google_name || 'User Avatar'}
             width={24}
             height={24}
             className="rounded-xl border border-white/20 mr-2 object-cover"
             onError={(e) => {
-              console.log(`Failed to load Twitter PFP: ${user.twitterPFP}`);
+              console.log(`Failed to load profile picture: ${user.profile_picture}`);
               e.target.src = '/default-avatar.png';
             }}
           />
           <span className="font-jetbrains text-[9px] md:text-[10px] text-white truncate flex items-center">
-            {user.twitterHandle || 'Anonymous'}
+            {user.google_name || 'Anonymous'}
             {isCurrentUser && (
               <span className={`ml-2 text-[8px] md:text-[9px] font-medium text-neon-blue px-1.5 py-0.5 rounded-full border border-neon-blue/50 ${
                 isMobile ? 'bg-gray-900' : 'bg-gray-900/80 backdrop-blur-md'
@@ -210,6 +212,12 @@ export default function LeaderboardTab({ topPlayers, loading, error: propError, 
             }`}
           >
             Error: {tabError || propError}
+            <button
+              onClick={() => window.location.reload()}
+              className="ml-4 px-2 py-1 bg-neon-blue text-black rounded"
+            >
+              Retry
+            </button>
           </motion.div>
         )}
         {!loading && !(tabError || propError) && rankings.length === 0 && (

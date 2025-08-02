@@ -1,7 +1,7 @@
 // app/token/[slug]/page.js
 import { revalidateTokenPath } from './actions';
 import TokenPageClient from '../../../components/TokenPageClient';
-import connectRedis from '../../../lib/redis';
+import { getRedisClient } from '../../../lib/redis'; // Updated import
 import Bottleneck from 'bottleneck';
 
 const limiterBottleneck = new Bottleneck({
@@ -31,7 +31,7 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
 async function fetchTokenData(slug) {
   let redisClient;
   try {
-    redisClient = await connectRedis();
+    redisClient = await getRedisClient(); // Updated to getRedisClient
     const cacheKey = `token-full-${slug}-1-usd`;
     const cached = await redisClient.get(cacheKey);
     if (cached) {
@@ -46,7 +46,7 @@ async function fetchTokenData(slug) {
     });
 
     if (!response || !response.success || !response.data) {
-      console.error(`Invalid resp onse for ${slug}:`, response);
+      console.error(`Invalid response for ${slug}:`, response);
       return null;
     }
 
@@ -77,7 +77,7 @@ export async function generateStaticParams() {
     const tokens = response;
     const topTokens = tokens.slice(0, 100);
 
-    const redisClient = await connectRedis();
+    const redisClient = await getRedisClient(); // Updated to getRedisClient
     await Promise.all(
       topTokens.slice(0, 20).map(async (token) => {
         const cacheKey = `token-full-${token.id}-1-usd`;
@@ -101,7 +101,7 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }) {
-  const { slug } = await params;
+  const { slug } = await params; // Await params
   const data = await fetchTokenData(slug);
   const tokenData = data?.data;
 
@@ -124,7 +124,7 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function TokenPage({ params }) {
-  const { slug } = await params;
+  const { slug } = await params; // Await params
   const data = await fetchTokenData(slug);
 
   if (!data?.data) {

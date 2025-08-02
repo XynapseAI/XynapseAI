@@ -1189,13 +1189,16 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
             {/* Select Chain */}
             <div className="relative flex-1" ref={chainDropdownRef}>
               <motion.button
-                onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-                className={`text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-2 border-2 border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 rounded-xl w-full ${['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={['bitcoin', 'ethereum'].includes(selectedToken?.id.toLowerCase()) || !selectedToken}
-                aria-label="Select chain"
-                whileHover={{ scale: 1 }}
-                whileTap={{ scale: 0.95 }}
-              >
+  onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
+  className={`text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-2 border-2 border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 rounded-xl w-full ${
+    selectedToken?.id && ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase())
+      ? 'opacity-50 cursor-not-allowed'
+      : ''
+  }`}
+  disabled={!selectedToken || (selectedToken.id && ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()))}
+  aria-label="Select chain"
+  whileHover={{ scale: 1 }}
+>
                 {selectedChain ? (
                   <>
                     <img

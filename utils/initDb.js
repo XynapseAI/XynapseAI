@@ -1,8 +1,6 @@
 // utils/initDb.js
 import { query } from './postgres.js';
-import pkg from './logger.cjs';
-
-const { logger } = pkg;
+import { logger } from '../utils/serverLogger.js';
 
 export async function initializeDatabase() {
   try {

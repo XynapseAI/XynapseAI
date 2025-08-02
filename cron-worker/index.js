@@ -2,7 +2,7 @@
 import 'dotenv/config';
 import { getHighVolumeWallets } from '../lib/analysisStorage.js';
 import { loadAllNametags } from '../lib/nametags.js';
-import pkg from '../utils/logger.cjs';
+import { logger } from '../utils/serverLogger.js';
 import { query } from '../utils/postgres.js';
 import axios from 'axios';
 import fs from 'fs/promises';
@@ -12,7 +12,6 @@ import path from 'path';
 import crypto from 'crypto';
 import { initializeDatabase } from '../utils/initDb.js';
 
-const { logger } = pkg;
 const ANALYZE_WALLETS_API_URL = process.env.ANALYZE_WALLETS_API_URL || (process.env.NEXTAUTH_URL || 'http://localhost:3000') + '/api/analyze-wallets';
 const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH
   ? path.resolve(process.env.WALLET_FILE_PATH)

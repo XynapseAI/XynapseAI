@@ -1,5 +1,6 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
     domains: [
@@ -23,6 +24,24 @@ const nextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
+          },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,OPTIONS' },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token',
+          },
+        ],
+      },
+    ]
+  },
   async rewrites() {
     return [
       {
@@ -33,8 +52,28 @@ const nextConfig = {
         source: '/terms-of-service',
         destination: '/',
       },
-    ];
-  }
-};
+    ]
+  },
+  webpack: (config, options) => {
+    if (options.isServer) {
+      // Handle Node.js built-in modules for server-side code
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'node:crypto': 'crypto',
+        'node:fs': 'fs',
+        'node:path': 'path',
+      }
+    } else {
+      // Avoid including Node.js built-in modules in client-side bundle
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        crypto: false,
+        fs: false,
+        path: false,
+      }
+    }
+    return config
+  },
+}
 
-export default nextConfig;
+export default nextConfig
