@@ -41,6 +41,7 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [lastAnalysisSuccess, setLastAnalysisSuccess] = useState(false);
   const [providers, setProviders] = useState(null);
   const [email, setEmail] = useState('');
