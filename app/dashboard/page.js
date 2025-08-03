@@ -56,19 +56,48 @@ export default function Dashboard() {
 
   // Fetch providers for sign-in options
   useEffect(() => {
-  async function fetchProviders() {
-    try {
-      const response = await getProviders();
-      setProviders(response);
-      logger.info('Providers fetched successfully');
-    } catch (err) {
-      logger.error('Error fetching providers:', err.message);
-      setError('Failed to fetch providers. Please try again.');
+    async function fetchProviders() {
+      try {
+        const response = await getProviders();
+        setProviders(response);
+        logger.info('Providers fetched successfully');
+      } catch (err) {
+        logger.error('Error fetching providers:', err.message);
+        setError('Failed to fetch providers. Please try again.');
+      }
     }
-  }
-  fetchProviders();
-}, []);
+    fetchProviders();
+  }, []);
 
+
+  useEffect(() => {
+    if (!isMounted || status !== 'authenticated') {
+      logger.info('Skipping fetchCsrfToken: not mounted or not authenticated', { isMounted, status });
+      return;
+    }
+
+    async function fetchCsrfToken() {
+      try {
+        logger.info('Fetching CSRF token', { userId: session?.user?.id });
+        const response = await fetch(`${API_BASE_URL}/api/csrf-token`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || 'Failed to fetch CSRF token');
+        await update({ csrfToken: result.csrfToken }); // Cập nhật session với CSRF token
+        logger.info('CSRF token fetched successfully', { csrfToken: result.csrfToken.substring(0, 8) + '...' });
+      } catch (err) {
+        logger.error('Error fetching CSRF token:', err.message, { stack: err.stack });
+        setError(`Failed to fetch CSRF token: ${err.message}`);
+      }
+    }
+
+    fetchCsrfToken();
+  }, [isMounted, status, update]);
 
   // Shooting Star Effect
   useEffect(() => {
@@ -191,8 +220,8 @@ export default function Dashboard() {
   }, [isMounted, status]);
 
   useEffect(() => {
-    if (!isMounted || status !== 'authenticated') {
-      logger.info('Skipping fetchTopPlayers: not mounted or not authenticated', { isMounted, status });
+    if (!isMounted || status !== 'authenticated' || !session?.csrfToken) {
+      logger.info('Skipping fetchTopPlayers: not mounted, not authenticated, or no CSRF token', { isMounted, status, hasCsrfToken: !!session?.csrfToken });
       return;
     }
     async function fetchTopPlayers() {
@@ -243,10 +272,11 @@ export default function Dashboard() {
   }, [isMounted, status, session]);
 
   useEffect(() => {
-    if (!isMounted || !session?.user?.id) {
-      logger.warn('Skipping user data fetch: not mounted or no session user ID', {
+    if (!isMounted || !session?.user?.id || !session?.csrfToken) {
+      logger.warn('Skipping user data fetch: not mounted, no session user ID, or no CSRF token', {
         isMounted,
         sessionUserId: session?.user?.id,
+        hasCsrfToken: !!session?.csrfToken,
       });
       setLoading(false);
       return;
@@ -360,17 +390,17 @@ export default function Dashboard() {
   };
 
   const handleSignOut = async () => {
-  try {
-    await signOut({ callbackUrl: '/' });
-    if (isConnected) disconnect();
-    setUserData(null);
-    setError(null);
-    logger.info('User signed out successfully');
-  } catch (error) {
-    logger.error('Sign out error:', error.message);
-    setError('Failed to sign out. Please try again.');
-  }
-};
+    try {
+      await signOut({ callbackUrl: '/' });
+      if (isConnected) disconnect();
+      setUserData(null);
+      setError(null);
+      logger.info('User signed out successfully');
+    } catch (error) {
+      logger.error('Sign out error:', error.message);
+      setError('Failed to sign out. Please try again.');
+    }
+  };
 
   const handleAnalyzeTweets = async () => {
     if (isAnalyzing) return;
