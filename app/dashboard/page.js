@@ -22,7 +22,6 @@ import styles from './page.module.css';
 import Image from 'next/image';
 import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
-import { logger } from '../../utils/clientLogger';
 
 // Register GSAP plugins
 gsap.registerPlugin(MotionPathPlugin);
@@ -51,199 +50,155 @@ export default function Dashboard() {
 
   useEffect(() => {
     setIsMounted(true);
-    logger.info('Dashboard component mounted', { status, session: !!session });
   }, []);
 
   // Fetch providers for sign-in options
   useEffect(() => {
     async function fetchProviders() {
-      try {
-        const response = await getProviders();
-        setProviders(response);
-        logger.info('Providers fetched successfully');
-      } catch (err) {
-        logger.error('Error fetching providers:', err.message);
-        setError('Failed to fetch providers. Please try again.');
-      }
+      const response = await getProviders();
+      setProviders(response);
     }
     fetchProviders();
   }, []);
 
-
-  useEffect(() => {
-    if (!isMounted || status !== 'authenticated') {
-      logger.info('Skipping fetchCsrfToken: not mounted or not authenticated', { isMounted, status });
-      return;
-    }
-
-    async function fetchCsrfToken() {
-      try {
-        logger.info('Fetching CSRF token', { userId: session?.user?.id });
-        const response = await fetch(`${API_BASE_URL}/api/csrf-token`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.detail || 'Failed to fetch CSRF token');
-        await update({ csrfToken: result.csrfToken }); // Cập nhật session với CSRF token
-        logger.info('CSRF token fetched successfully', { csrfToken: result.csrfToken.substring(0, 8) + '...' });
-      } catch (err) {
-        logger.error('Error fetching CSRF token:', err.message, { stack: err.stack });
-        setError(`Failed to fetch CSRF token: ${err.message}`);
-      }
-    }
-
-    fetchCsrfToken();
-  }, [isMounted, status, update]);
-
   // Shooting Star Effect
   useEffect(() => {
-    if (!isMounted || status === 'authenticated' || !starsBackgroundRef.current) {
-      console.log('Meteor effect not started: ', { isMounted, status, hasRef: !!starsBackgroundRef.current });
-      return;
-    }
+  if (!isMounted || status === 'authenticated' || !starsBackgroundRef.current) {
+    console.log('Meteor effect not started: ', { isMounted, status, hasRef: !!starsBackgroundRef.current });
+    return;
+  }
 
-    console.log('Starting meteor effect...');
+  console.log('Starting meteor effect...');
 
-    let meteorTimeout;
+  let meteorTimeout;
 
-    const createMeteor = () => {
-      console.log('Creating new meteor...');
-      const meteorContainer = document.createElement('div');
-      meteorContainer.className = styles['meteor-container'];
-      starsBackgroundRef.current.appendChild(meteorContainer);
+  const createMeteor = () => {
+    console.log('Creating new meteor...');
+    const meteorContainer = document.createElement('div');
+    meteorContainer.className = styles['meteor-container'];
+    starsBackgroundRef.current.appendChild(meteorContainer);
 
-      const meteorHead = document.createElement('div');
-      meteorHead.className = styles['meteor-head'];
-      meteorContainer.appendChild(meteorHead);
+    const meteorHead = document.createElement('div');
+    meteorHead.className = styles['meteor-head'];
+    meteorContainer.appendChild(meteorHead);
 
-      const meteorTail = document.createElement('div');
-      meteorTail.className = styles['meteor-tail'];
-      meteorContainer.appendChild(meteorTail);
+    const meteorTail = document.createElement('div');
+    meteorTail.className = styles['meteor-tail'];
+    meteorContainer.appendChild(meteorTail);
 
-      // Randomize starting position (top corners)
-      const isFromRight = Math.random() > 0.5; // 50% chance to start from right
-      const startX = isFromRight
-        ? gsap.utils.random(70, 90) // Top-right corner (70–90% of viewport width)
-        : gsap.utils.random(10, 30); // Top-left corner (10–30% of viewport width)
-      const startY = -10; // Start above viewport
-      const endX = isFromRight
-        ? gsap.utils.random(10, 30) // Bottom-left corner
-        : gsap.utils.random(70, 90); // Bottom-right corner
-      const endY = 110; // End below viewport
+    // Randomize starting position (top corners)
+    const isFromRight = Math.random() > 0.5; // 50% chance to start from right
+    const startX = isFromRight
+      ? gsap.utils.random(70, 90) // Top-right corner (70–90% of viewport width)
+      : gsap.utils.random(10, 30); // Top-left corner (10–30% of viewport width)
+    const startY = -10; // Start above viewport
+    const endX = isFromRight
+      ? gsap.utils.random(10, 30) // Bottom-left corner
+      : gsap.utils.random(70, 90); // Bottom-right corner
+    const endY = 110; // End below viewport
 
-      // Calculate angle for rotation
-      const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI + 90;
+    // Calculate angle for rotation
+    const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI + 90;
 
-      gsap.set(meteorContainer, {
-        x: `${startX}vw`,
-        y: `${startY}vh`,
-        rotation: angle,
-        opacity: 0,
-        scale: 1,
-        zIndex: 5,
-      });
+    gsap.set(meteorContainer, {
+      x: `${startX}vw`,
+      y: `${startY}vh`,
+      rotation: angle,
+      opacity: 0,
+      scale: 1,
+      zIndex: 5,
+    });
 
-      const duration = gsap.utils.random(3, 5); // Slower duration (3–5 seconds)
+    const duration = gsap.utils.random(3, 5); // Slower duration (3–5 seconds)
 
-      const meteorTl = gsap.timeline({
-        onComplete: () => {
-          console.log('Meteor animation completed, removing...');
-          meteorContainer.remove();
-          meteorTimeout = setTimeout(createMeteor, gsap.utils.random(10000, 20000));
+    const meteorTl = gsap.timeline({
+      onComplete: () => {
+        console.log('Meteor animation completed, removing...');
+        meteorContainer.remove();
+        meteorTimeout = setTimeout(createMeteor, gsap.utils.random(10000, 20000));
+      },
+    });
+
+    meteorTl
+      .to(meteorContainer, {
+        opacity: 1,
+        duration: duration * 0.2,
+        ease: 'power1.out',
+      })
+      .to(
+        meteorContainer,
+        {
+          motionPath: {
+            path: [
+              { x: `${startX}vw`, y: `${startY}vh` },
+              { x: `${endX}vw`, y: `${endY}vh` },
+            ],
+            curviness: 0.3,
+          },
+          opacity: 0,
+          duration: duration * 0.8,
+          ease: 'power1.in',
         },
-      });
-
-      meteorTl
-        .to(meteorContainer, {
-          opacity: 1,
-          duration: duration * 0.2,
+        `<${duration * 0.2}`
+      )
+      .fromTo(
+        meteorTail,
+        { scaleY: 0, opacity: 0 },
+        {
+          scaleY: 1,
+          opacity: 0.8,
+          duration: duration * 0.3,
           ease: 'power1.out',
-        })
-        .to(
-          meteorContainer,
-          {
-            motionPath: {
-              path: [
-                { x: `${startX}vw`, y: `${startY}vh` },
-                { x: `${endX}vw`, y: `${endY}vh` },
-              ],
-              curviness: 0.3,
-            },
-            opacity: 0,
-            duration: duration * 0.8,
-            ease: 'power1.in',
-          },
-          `<${duration * 0.2}`
-        )
-        .fromTo(
-          meteorTail,
-          { scaleY: 0, opacity: 0 },
-          {
-            scaleY: 1,
-            opacity: 0.8,
-            duration: duration * 0.3,
-            ease: 'power1.out',
-          },
-          `<0`
-        )
-        .to(
-          meteorTail,
-          {
-            scaleY: 0,
-            opacity: 0,
-            duration: duration * 0.7,
-            ease: 'power1.in',
-          },
-          `>-0.1`
-        );
+        },
+        `<0`
+      )
+      .to(
+        meteorTail,
+        {
+          scaleY: 0,
+          opacity: 0,
+          duration: duration * 0.7,
+          ease: 'power1.in',
+        },
+        `>-0.1`
+      );
 
-      return meteorTl;
-    };
+    return meteorTl;
+  };
 
-    // Start first meteor after initial delay
-    meteorTimeout = setTimeout(() => {
-      console.log('Initializing first meteor...');
-      createMeteor();
-    }, gsap.utils.random(1000, 5000));
+  // Start first meteor after initial delay
+  meteorTimeout = setTimeout(() => {
+    console.log('Initializing first meteor...');
+    createMeteor();
+  }, gsap.utils.random(1000, 5000));
 
-    return () => {
-      console.log('Cleaning up meteor effect...');
-      clearTimeout(meteorTimeout);
-      if (starsBackgroundRef.current) {
-        starsBackgroundRef.current.querySelectorAll(`.${styles['meteor-container']}`).forEach(el => el.remove());
-      }
-    };
-  }, [isMounted, status]);
+  return () => {
+    console.log('Cleaning up meteor effect...');
+    clearTimeout(meteorTimeout);
+    if (starsBackgroundRef.current) {
+      starsBackgroundRef.current.querySelectorAll(`.${styles['meteor-container']}`).forEach(el => el.remove());
+    }
+  };
+}, [isMounted, status]);
 
   useEffect(() => {
-    if (!isMounted || status !== 'authenticated' || !session?.csrfToken) {
-      logger.info('Skipping fetchTopPlayers: not mounted, not authenticated, or no CSRF token', { isMounted, status, hasCsrfToken: !!session?.csrfToken });
-      return;
-    }
+    if (!isMounted || status !== 'authenticated') return;
     async function fetchTopPlayers() {
       setLoading(true);
       try {
-        logger.info('Fetching leaderboard data', { userId: session?.user?.id });
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000);
         const response = await fetch(`${API_BASE_URL}/api/connect-data`, {
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': session?.csrfToken || '',
+            'X-CSRF-Token': session.csrfToken || '',
           },
           credentials: 'include',
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
-        if (!response.ok) {
-          const result = await response.json();
-          throw new Error(result.detail || 'Failed to fetch leaderboard data');
-        }
         const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || 'Failed to fetch leaderboard data');
         setTopPlayers({
           rankings: result.rankings || [],
           creators: result.creators.map(player => ({
@@ -259,9 +214,8 @@ export default function Dashboard() {
             googleName: player.google_name,
           })),
         });
-        logger.info('Leaderboard data fetched successfully');
       } catch (err) {
-        logger.error('Error fetching leaderboard data:', err.message, { stack: err.stack });
+        console.error('Error fetching leaderboard data:', err);
         setError(`Failed to fetch leaderboard data: ${err.message}`);
         setTopPlayers({ rankings: [], creators: [], aiRank: [] });
       } finally {
@@ -269,25 +223,14 @@ export default function Dashboard() {
       }
     }
     fetchTopPlayers();
-  }, [isMounted, status, session]);
+  }, [isMounted, status]);
 
   useEffect(() => {
-    if (!isMounted || !session?.user?.id || !session?.csrfToken) {
-      logger.warn('Skipping user data fetch: not mounted, no session user ID, or no CSRF token', {
-        isMounted,
-        sessionUserId: session?.user?.id,
-        hasCsrfToken: !!session?.csrfToken,
-      });
-      setLoading(false);
-      return;
-    }
+    if (!isMounted || !session?.user?.id) return;
     async function initUserData() {
       setLoading(true);
       try {
-        logger.info('Fetching user data', { userId: session.user.id });
-        if (!recaptchaRef.current) {
-          throw new Error('reCAPTCHA not initialized');
-        }
+        if (!recaptchaRef.current) throw new Error('reCAPTCHA not initialized');
         let recaptchaToken = null;
         for (let attempt = 1; attempt <= 5; attempt++) {
           try {
@@ -296,15 +239,14 @@ export default function Dashboard() {
               recaptchaRef.current.executeAsync(),
               new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
             ]);
-            logger.info('reCAPTCHA token generated', { attempt });
-            break;
+            if (recaptchaToken) break;
           } catch (err) {
-            logger.warn(`reCAPTCHA attempt ${attempt} failed: ${err.message}`);
+            console.error('Error generating reCAPTCHA token:', err);
             if (attempt === 5) throw new Error('Failed to generate reCAPTCHA token after 5 attempts');
             await new Promise(resolve => setTimeout(resolve, 3000));
           }
         }
-        if (!recaptchaToken) throw new Error('No reCAPTCHA token generated');
+        if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000);
@@ -313,7 +255,6 @@ export default function Dashboard() {
           headers: {
             'Content-Type': 'application/json',
             'X-Recaptcha-Token': recaptchaToken,
-            'X-CSRF-Token': session?.csrfToken || '',
           },
           credentials: 'include',
           signal: controller.signal,
@@ -321,6 +262,9 @@ export default function Dashboard() {
         clearTimeout(timeoutId);
         const result = await response.json();
         if (!response.ok) {
+          if (result.detail?.includes('User not found')) {
+            throw new Error('HTTP 404: User not found');
+          }
           throw new Error(`${result.detail || 'Unknown error'}${result.errors ? `: ${result.errors.map(e => e.msg).join(', ')}` : ''} (HTTP ${response.status})`);
         }
         setUserData({
@@ -330,14 +274,14 @@ export default function Dashboard() {
           tweetPoints: result.user.tweet_points,
           aiPoints: result.user.ai_points,
         });
-        logger.info('User data fetched successfully', { userId: session.user.id });
       } catch (err) {
-        logger.error('Error fetching user data:', err.message, { stack: err.stack });
+        console.error('Error fetching user data:', err);
         if (err.message.includes('HTTP 404')) {
-          setError('User not found. Please sign out and sign in again.');
+          setError('User not found. Please sign in again.');
           await signOut({ redirect: false });
           router.push('/auth/signin');
         } else {
+          setUserData(null);
           setError(`Failed to fetch user data: ${err.message}. Please try refreshing or contact support.`);
         }
       } finally {
@@ -395,10 +339,9 @@ export default function Dashboard() {
       if (isConnected) disconnect();
       setUserData(null);
       setError(null);
-      logger.info('User signed out successfully');
     } catch (error) {
-      logger.error('Sign out error:', error.message);
-      setError('Failed to sign out. Please try again.');
+      console.error('Sign out error:', error);
+      setError('Failed to sign out.');
     }
   };
 
@@ -467,147 +410,147 @@ export default function Dashboard() {
 
 
   if (status === 'unauthenticated') {
-    return (
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.8, ease: 'easeOut' }}
+      className={`h-screen w-screen flex items-center justify-center bg-black text-white overflow-hidden font-jetbrains relative ${styles['container']}`}
+    >
+      {/* Animated Background with Stars */}
       <motion.div
+        ref={starsBackgroundRef}
+        className={`absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-800 ${styles['stars-background']}`}
+        animate={{
+          background: [
+            'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(17, 24, 39, 0.9))',
+            'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(0, 191, 255, 0.1))',
+            'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(17, 24, 39, 0.9))',
+          ],
+        }}
+        transition={{ duration: 15, repeat: Infinity, repeatType: 'reverse' }}
+      >
+        <div className={styles['stars-layer-1']} />
+        <div className={styles['stars-layer-2']} />
+        <div className={styles['stars-layer-3']} />
+      </motion.div>
+
+      {/* Logo in Top-Left Corner */}
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className={`absolute top-2 left-2 z-20 ${styles['logo-container']}`}
+      >
+        <Image
+          src="/logos/logo-landscape.png"
+          alt="Xynapse Logo"
+          width={120}
+          height={56}
+          className="h-10 sm:h-12 w-auto object-contain"
+          priority
+        />
+      </motion.div>
+
+      {/* Login Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className={`relative z-10 bg-gray-900/30 backdrop-blur-lg p-6 md:p-10 rounded-2xl border border-white/10 ${styles['shadow-glow-neon']} max-w-md w-full mx-4 flex flex-col items-center`}
+      >
+        <motion.h1
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="text-2xl md:text-3xl font-bold text-white uppercase mb-2 text-center"
+        >
+          Sign In
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="text-xs md:text-xs text-gray-400 mb-8 text-center"
+        >
+          Sign in with Google or Email to access your dashboard.
+        </motion.p>
+        <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Enter your email"
+            className={`w-full px-4 py-3 bg-gray-800/50 border border-white/10 rounded-full text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-blue ${styles['input-glow']}`}
+            required
+          />
+          <button
+            type="submit"
+            className={`w-full px-4 py-3 bg-neon-blue text-black rounded-full text-sm font-medium uppercase transition-all duration-300 hover:bg-neon-blue/80 ${styles['button-glow']}`}
+          >
+            <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
+          </button>
+        </form>
+        <div className="flex items-center justify-center my-4 w-full">
+          <span className="text-gray-500 text-sm uppercase">OR</span>
+        </div>
+        {providers?.google && (
+          <button
+            onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+            className={`w-full px-4 py-3 bg-gray-800/50 border border-white/20 rounded-full text-white text-sm font-medium uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:bg-gray-700/50 ${styles['button-glow']}`}
+          >
+            <Image
+              src="/logos/google.png"
+              alt="Google Logo"
+              width={20}
+              height={20}
+              className="w-5 h-5 object-contain mr-2"
+            />
+            <MatrixHoverEffect text="Sign in with Google" hoverColor="#00BFFF" />
+          </button>
+        )}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className={`mt-6 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center ${styles['shadow-glow-neon-red']}`}
+          >
+            Error: {error}
+          </motion.div>
+        )}
+      </motion.div>
+
+      {/* reCAPTCHA Notice */}
+      <motion.p
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, ease: 'easeOut' }}
-        className={`h-screen w-screen flex items-center justify-center bg-black text-white overflow-hidden font-jetbrains relative ${styles['container']}`}
+        transition={{ duration: 0.5, delay: 0.5 }}
+        className="absolute bottom-2 left-2 text-[8px] text-gray-600 z-10"
       >
-        {/* Animated Background with Stars */}
-        <motion.div
-          ref={starsBackgroundRef}
-          className={`absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-800 ${styles['stars-background']}`}
-          animate={{
-            background: [
-              'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(17, 24, 39, 0.9))',
-              'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(0, 191, 255, 0.1))',
-              'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(17, 24, 39, 0.9))',
-            ],
-          }}
-          transition={{ duration: 15, repeat: Infinity, repeatType: 'reverse' }}
+        Protected by reCAPTCHA. See{' '}
+        <a
+          href="https://policies.google.com/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-neon-blue hover:underline"
         >
-          <div className={styles['stars-layer-1']} />
-          <div className={styles['stars-layer-2']} />
-          <div className={styles['stars-layer-3']} />
-        </motion.div>
-
-        {/* Logo in Top-Left Corner */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className={`absolute top-2 left-2 z-20 ${styles['logo-container']}`}
+          Privacy Policy
+        </a>{' '}
+        &{' '}
+        <a
+          href="https://policies.google.com/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-neon-blue hover:underline"
         >
-          <Image
-            src="/logos/logo-landscape.png"
-            alt="Xynapse Logo"
-            width={120}
-            height={56}
-            className="h-10 sm:h-12 w-auto object-contain"
-            priority
-          />
-        </motion.div>
-
-        {/* Login Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: 'easeOut' }}
-          className={`relative z-10 bg-gray-900/30 backdrop-blur-lg p-6 md:p-10 rounded-2xl border border-white/10 ${styles['shadow-glow-neon']} max-w-md w-full mx-4 flex flex-col items-center`}
-        >
-          <motion.h1
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-2xl md:text-3xl font-bold text-white uppercase mb-2 text-center"
-          >
-            Sign In
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="text-xs md:text-xs text-gray-400 mb-8 text-center"
-          >
-            Sign in with Google or Email to access your dashboard.
-          </motion.p>
-          <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              className={`w-full px-4 py-3 bg-gray-800/50 border border-white/10 rounded-full text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-blue ${styles['input-glow']}`}
-              required
-            />
-            <button
-              type="submit"
-              className={`w-full px-4 py-3 bg-neon-blue text-black rounded-full text-sm font-medium uppercase transition-all duration-300 hover:bg-neon-blue/80 ${styles['button-glow']}`}
-            >
-              <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
-            </button>
-          </form>
-          <div className="flex items-center justify-center my-4 w-full">
-            <span className="text-gray-500 text-sm uppercase">OR</span>
-          </div>
-          {providers?.google && (
-            <button
-              onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
-              className={`w-full px-4 py-3 bg-gray-800/50 border border-white/20 rounded-full text-white text-sm font-medium uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:bg-gray-700/50 ${styles['button-glow']}`}
-            >
-              <Image
-                src="/logos/google.png"
-                alt="Google Logo"
-                width={20}
-                height={20}
-                className="w-5 h-5 object-contain mr-2"
-              />
-              <MatrixHoverEffect text="Sign in with Google" hoverColor="#00BFFF" />
-            </button>
-          )}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-              className={`mt-6 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center ${styles['shadow-glow-neon-red']}`}
-            >
-              Error: {error}
-            </motion.div>
-          )}
-        </motion.div>
-
-        {/* reCAPTCHA Notice */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="absolute bottom-2 left-2 text-[8px] text-gray-600 z-10"
-        >
-          Protected by reCAPTCHA. See{' '}
-          <a
-            href="https://policies.google.com/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-neon-blue hover:underline"
-          >
-            Privacy Policy
-          </a>{' '}
-          &{' '}
-          <a
-            href="https://policies.google.com/terms"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-neon-blue hover:underline"
-          >
-            Terms
-          </a>{' '}
-          of Google.
-        </motion.p>
-      </motion.div>
-    );
-  }
+          Terms
+        </a>{' '}
+        of Google.
+      </motion.p>
+    </motion.div>
+  );
+}
 
   return (
     <div className="h-screen w-screen bg-black text-white overflow-x-hidden flex flex-col">
