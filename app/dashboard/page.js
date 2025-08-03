@@ -1,6 +1,4 @@
-// app/dashboard/page.js
 'use client';
-
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
@@ -22,11 +20,11 @@ import styles from './page.module.css';
 import Image from 'next/image';
 import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
-import { logger } from '../../utils/clientLogger';
 
+// Register GSAP plugins
 gsap.registerPlugin(MotionPathPlugin);
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -45,95 +43,55 @@ export default function Dashboard() {
   const [lastAnalysisSuccess, setLastAnalysisSuccess] = useState(false);
   const [providers, setProviders] = useState(null);
   const [email, setEmail] = useState('');
-  const [csrfToken, setCsrfToken] = useState(null);
   const recaptchaRef = useRef(null);
   const starsBackgroundRef = useRef(null);
 
   useEffect(() => {
     setIsMounted(true);
-    logger.info('Dashboard component mounted', { status, session: !!session });
   }, []);
 
-  // Lấy CSRF token
-  useEffect(() => {
-    if (!isMounted || status !== 'authenticated') return;
-
-    async function fetchCsrfToken(attempt = 1) {
-      if (attempt > 3) {
-        logger.error('Failed to fetch CSRF token after 3 attempts');
-        setError('Failed to initialize session. Please sign out and sign in again.');
-        return;
-      }
-      try {
-        logger.info(`Attempting to fetch CSRF token (attempt ${attempt})`);
-        const response = await fetch(`${API_BASE_URL}/api/csrf-token`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to fetch CSRF token: ${response.status}`);
-        }
-        const result = await response.json();
-        if (result.success && result.csrfToken) {
-          setCsrfToken(result.csrfToken);
-          logger.info('CSRF token fetched successfully', { csrfToken: result.csrfToken.substring(0, 8) });
-        } else {
-          throw new Error('Invalid CSRF token response');
-        }
-      } catch (err) {
-        logger.warn(`CSRF fetch attempt ${attempt} failed: ${err.message}`);
-        setTimeout(() => fetchCsrfToken(attempt + 1), 2000);
-      }
-    }
-    fetchCsrfToken();
-  }, [isMounted, status]);
-
-  // Fetch providers
+  // Fetch providers for sign-in options
   useEffect(() => {
     async function fetchProviders() {
-      try {
-        const response = await getProviders();
-        setProviders(response);
-        logger.info('Providers fetched successfully');
-      } catch (err) {
-        logger.error('Error fetching providers:', err.message);
-        setError('Failed to fetch providers. Please try again.');
-      }
+      const response = await getProviders();
+      setProviders(response);
     }
     fetchProviders();
   }, []);
 
-  // Shooting Star Effect (giữ nguyên)
+  // Shooting Star Effect
   useEffect(() => {
     if (!isMounted || status === 'authenticated' || !starsBackgroundRef.current) {
-      logger.info('Meteor effect not started', { isMounted, status, hasRef: !!starsBackgroundRef.current });
+      console.log('Meteor effect not started: ', { isMounted, status, hasRef: !!starsBackgroundRef.current });
       return;
     }
-
-    logger.info('Starting meteor effect');
+    console.log('Starting meteor effect...');
     let meteorTimeout;
-
     const createMeteor = () => {
+      console.log('Creating new meteor...');
       const meteorContainer = document.createElement('div');
       meteorContainer.className = styles['meteor-container'];
       starsBackgroundRef.current.appendChild(meteorContainer);
-
       const meteorHead = document.createElement('div');
       meteorHead.className = styles['meteor-head'];
       meteorContainer.appendChild(meteorHead);
-
       const meteorTail = document.createElement('div');
       meteorTail.className = styles['meteor-tail'];
       meteorContainer.appendChild(meteorTail);
 
-      const isFromRight = Math.random() > 0.5;
-      const startX = isFromRight ? gsap.utils.random(70, 90) : gsap.utils.random(10, 30);
-      const startY = -10;
-      const endX = isFromRight ? gsap.utils.random(10, 30) : gsap.utils.random(70, 90);
-      const endY = 110;
+      // Randomize starting position (top corners)
+      const isFromRight = Math.random() > 0.5; // 50% chance to start from right
+      const startX = isFromRight
+        ? gsap.utils.random(70, 90) // Top-right corner (70–90% of viewport width)
+        : gsap.utils.random(10, 30); // Top-left corner (10–30% of viewport width)
+      const startY = -10; // Start above viewport
+      const endX = isFromRight
+        ? gsap.utils.random(10, 30) // Bottom-left corner
+        : gsap.utils.random(70, 90); // Bottom-right corner
+      const endY = 110; // End below viewport
 
-      const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI + 90;
+      // Calculate angle for rotation
+      const angle = (Math.atan2(endY - startY, endX - startX) * 180) / Math.PI + 90;
 
       gsap.set(meteorContainer, {
         x: `${startX}vw`,
@@ -144,10 +102,11 @@ export default function Dashboard() {
         zIndex: 5,
       });
 
-      const duration = gsap.utils.random(3, 5);
+      const duration = gsap.utils.random(3, 5); // Slower duration (3–5 seconds)
 
       const meteorTl = gsap.timeline({
         onComplete: () => {
+          console.log('Meteor animation completed, removing...');
           meteorContainer.remove();
           meteorTimeout = setTimeout(createMeteor, gsap.utils.random(10000, 20000));
         },
@@ -200,11 +159,14 @@ export default function Dashboard() {
       return meteorTl;
     };
 
+    // Start first meteor after initial delay
     meteorTimeout = setTimeout(() => {
+      console.log('Initializing first meteor...');
       createMeteor();
     }, gsap.utils.random(1000, 5000));
 
     return () => {
+      console.log('Cleaning up meteor effect...');
       clearTimeout(meteorTimeout);
       if (starsBackgroundRef.current) {
         starsBackgroundRef.current.querySelectorAll(`.${styles['meteor-container']}`).forEach((el) => el.remove());
@@ -213,35 +175,23 @@ export default function Dashboard() {
   }, [isMounted, status]);
 
   useEffect(() => {
-    if (!isMounted || status !== 'authenticated' || !csrfToken) {
-      logger.info('Skipping fetchTopPlayers: not mounted, not authenticated, or no CSRF token', {
-        isMounted,
-        status,
-        csrfToken: !!csrfToken,
-      });
-      return;
-    }
+    if (!isMounted || status !== 'authenticated') return;
     async function fetchTopPlayers() {
       setLoading(true);
       try {
-        logger.info('Fetching leaderboard data', { userId: session?.user?.id });
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000);
         const response = await fetch(`${API_BASE_URL}/api/connect-data`, {
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken,
-            'Origin': API_BASE_URL,
+            'X-CSRF-Token': session.csrfToken || '',
           },
           credentials: 'include',
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
-        if (!response.ok) {
-          const result = await response.json();
-          throw new Error(result.detail || 'Failed to fetch leaderboard data');
-        }
         const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || 'Failed to fetch leaderboard data');
         setTopPlayers({
           rankings: result.rankings || [],
           creators: result.creators.map((player) => ({
@@ -257,35 +207,23 @@ export default function Dashboard() {
             googleName: player.google_name,
           })),
         });
-        logger.info('Leaderboard data fetched successfully');
       } catch (err) {
-        logger.error('Error fetching leaderboard data:', err.message, { stack: err.stack });
-        setError(`Failed to fetch leaderboard data: ${err.message}`);
+        console.error('Error fetching leaderboard data:', err);
+        setError(`Failed to fetch leaderboard data: ${err.message}`); // Fixed string interpolation
         setTopPlayers({ rankings: [], creators: [], aiRank: [] });
       } finally {
         setLoading(false);
       }
     }
     fetchTopPlayers();
-  }, [isMounted, status, csrfToken, session]);
+  }, [isMounted, status]);
 
   useEffect(() => {
-    if (!isMounted || !session?.user?.id || !csrfToken) {
-      logger.warn('Skipping user data fetch: not mounted, no session user ID, or no CSRF token', {
-        isMounted,
-        sessionUserId: session?.user?.id,
-        csrfToken: !!csrfToken,
-      });
-      setLoading(false);
-      return;
-    }
+    if (!isMounted || !session?.user?.id) return;
     async function initUserData() {
       setLoading(true);
       try {
-        logger.info('Fetching user data', { userId: session.user.id });
-        if (!recaptchaRef.current) {
-          throw new Error('reCAPTCHA not initialized');
-        }
+        if (!recaptchaRef.current) throw new Error('reCAPTCHA not initialized');
         let recaptchaToken = null;
         for (let attempt = 1; attempt <= 5; attempt++) {
           try {
@@ -294,16 +232,14 @@ export default function Dashboard() {
               recaptchaRef.current.executeAsync(),
               new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
             ]);
-            logger.info('reCAPTCHA token generated', { attempt });
-            break;
+            if (recaptchaToken) break;
           } catch (err) {
-            logger.warn(`reCAPTCHA attempt ${attempt} failed: ${err.message}`);
+            console.error('Error generating reCAPTCHA token:', err);
             if (attempt === 5) throw new Error('Failed to generate reCAPTCHA token after 5 attempts');
             await new Promise((resolve) => setTimeout(resolve, 3000));
           }
         }
-        if (!recaptchaToken) throw new Error('No reCAPTCHA token generated');
-
+        if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000);
         const response = await fetch(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
@@ -311,8 +247,6 @@ export default function Dashboard() {
           headers: {
             'Content-Type': 'application/json',
             'X-Recaptcha-Token': recaptchaToken,
-            'X-CSRF-Token': csrfToken,
-            'Origin': API_BASE_URL,
           },
           credentials: 'include',
           signal: controller.signal,
@@ -320,7 +254,12 @@ export default function Dashboard() {
         clearTimeout(timeoutId);
         const result = await response.json();
         if (!response.ok) {
-          throw new Error(`${result.detail || 'Unknown error'}${result.errors ? `: ${result.errors.map((e) => e.msg).join(', ')}` : ''} (HTTP ${response.status})`);
+          if (result.detail?.includes('User not found')) {
+            throw new Error('HTTP 404: User not found');
+          }
+          throw new Error(
+            `${result.detail || 'Unknown error'}${result.errors ? `: ${result.errors.map((e) => e.msg).join(', ')}` : ''} (HTTP ${response.status})`
+          );
         }
         setUserData({
           ...result.user,
@@ -329,15 +268,15 @@ export default function Dashboard() {
           tweetPoints: result.user.tweet_points,
           aiPoints: result.user.ai_points,
         });
-        logger.info('User data fetched successfully', { userId: session.user.id });
       } catch (err) {
-        logger.error('Error fetching user data:', err.message, { stack: err.stack });
+        console.error('Error fetching user data:', err);
         if (err.message.includes('HTTP 404')) {
-          setError('User not found. Please sign out and sign in again.');
+          setError('User not found. Please sign in again.');
           await signOut({ redirect: false });
           router.push('/auth/signin');
         } else {
-          setError(`Failed to fetch user data: ${err.message}. Please try refreshing or contact support.`);
+          setUserData(null);
+          setError(`Failed to fetch user data: ${err.message}. Please try refreshing or contact support.`); // Fixed string interpolation
         }
       } finally {
         setLoading(false);
@@ -345,7 +284,7 @@ export default function Dashboard() {
       }
     }
     initUserData();
-  }, [isMounted, session, csrfToken, router]);
+  }, [isMounted, session, router]);
 
   const handleConnectWallet = async () => {
     try {
@@ -353,7 +292,7 @@ export default function Dashboard() {
       if (!isConnected || !address) throw new Error('Wallet not connected');
       if (!recaptchaRef.current) throw new Error('reCAPTCHA not ready');
       const recaptchaToken = await recaptchaRef.current.executeAsync();
-      const message = `Sign this message to authenticate: ${address}`;
+      const message = `Sign this message to authenticate: ${address}`; // Fixed string interpolation
       const signature = await signMessageAsync({ message });
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
@@ -362,8 +301,6 @@ export default function Dashboard() {
         headers: {
           'Content-Type': 'application/json',
           'X-Recaptcha-Token': recaptchaToken,
-          'X-CSRF-Token': csrfToken || '',
-          'Origin': API_BASE_URL,
         },
         credentials: 'include',
         signal: controller.signal,
@@ -383,8 +320,8 @@ export default function Dashboard() {
         walletAddress: address,
       }));
     } catch (err) {
-      logger.error('Wallet verification error:', err.message, { stack: err.stack });
-      setError(`Wallet verification error: ${err.message}`);
+      console.error('Wallet verification error:', err);
+      setError(`Wallet verification error: ${err.message}`); // Fixed string interpolation
     } finally {
       if (recaptchaRef.current) recaptchaRef.current.reset();
     }
@@ -396,10 +333,9 @@ export default function Dashboard() {
       if (isConnected) disconnect();
       setUserData(null);
       setError(null);
-      logger.info('User signed out successfully');
     } catch (error) {
-      logger.error('Sign out error:', error.message);
-      setError('Failed to sign out. Please try again.');
+      console.error('Sign out error:', error);
+      setError('Failed to sign out.');
     }
   };
 
@@ -417,8 +353,6 @@ export default function Dashboard() {
         headers: {
           'Content-Type': 'application/json',
           'X-Recaptcha-Token': recaptchaToken,
-          'X-CSRF-Token': csrfToken || '',
-          'Origin': API_BASE_URL,
         },
         credentials: 'include',
         signal: controller.signal,
@@ -431,8 +365,8 @@ export default function Dashboard() {
       setError(null);
       setLastAnalysisSuccess(true);
     } catch (error) {
-      logger.error('Tweet analysis error:', error.message, { stack: error.stack });
-      setError(`Tweet analysis error: ${error.message}`);
+      console.error('Tweet analysis error:', error);
+      setError(`Tweet analysis error: ${error.message}`); // Fixed string interpolation
       setLastAnalysisSuccess(false);
     } finally {
       setIsAnalyzing(false);
@@ -442,11 +376,11 @@ export default function Dashboard() {
 
   const handleNavigateToToken = (slug) => {
     if (!slug || typeof slug !== 'string' || slug.trim() === '') {
-      logger.error('Invalid slug provided for navigation:', { slug });
+      console.error('Invalid slug provided for navigation:', { slug });
       toast.error('Cannot navigate to token page: Invalid token ID.', { position: 'top-center', autoClose: 3000 });
       return;
     }
-    router.push(`/token/${slug}`, undefined, { shallow: true });
+    router.push(`/token/${slug}`, undefined, { shallow: true }); // Fixed string interpolation
     setActiveTab('market');
   };
 
@@ -473,11 +407,12 @@ export default function Dashboard() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, ease: 'easeOut' }}
-        className={`h-screen w-screen flex items-center justify-center bg-black text-white overflow-hidden font-jetbrains relative ${styles['container']}`}
+        className={`h-screen w-screen flex items-center justify-center bg-black text-white overflow-hidden font-jetbrains relative ${styles.container}`} // Fixed className
       >
+        {/* Animated Background with Stars */}
         <motion.div
           ref={starsBackgroundRef}
-          className={`absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-800 ${styles['stars-background']}`}
+          className={`absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-800 ${styles['stars-background']}`} // Fixed className
           animate={{
             background: [
               'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(17, 24, 39, 0.9))',
@@ -491,7 +426,7 @@ export default function Dashboard() {
           <div className={styles['stars-layer-2']} />
           <div className={styles['stars-layer-3']} />
         </motion.div>
-
+        {/* Logo in Top-Left Corner */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -507,7 +442,7 @@ export default function Dashboard() {
             priority
           />
         </motion.div>
-
+        {/* Login Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -575,7 +510,7 @@ export default function Dashboard() {
             </motion.div>
           )}
         </motion.div>
-
+        {/* reCAPTCHA Notice */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

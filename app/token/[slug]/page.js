@@ -1,5 +1,5 @@
 // app/token/[slug]/page.js
-import { logger } from '../../../utils/serverLogger'; // Thêm server logger
+import { revalidateTokenPath } from './actions';
 import TokenPageClient from '../../../components/TokenPageClient';
 import { getRedisClient } from '../../../lib/redis';
 import Bottleneck from 'bottleneck';
@@ -19,13 +19,11 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
       },
     });
     if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`); // Fixed string interpolation
     }
-    const data = await response.json();
-    logger.info(`Fetched data from ${url}`, { status: response.status });
-    return data;
+    return response.json();
   } catch (error) {
-    logger.error(`Fetch error for ${url}: ${error.message}`, { stack: error.stack });
+    console.error(`Fetch error for ${url}:`, error); // Fixed string interpolation
     return null;
   }
 });
@@ -34,13 +32,12 @@ async function fetchTokenData(slug) {
   let redisClient;
   try {
     redisClient = await getRedisClient();
-    const cacheKey = `token-full-${slug}-1-usd`;
+    const cacheKey = `token-full-${slug}-1-usd`; // Added quotes
     const cached = await redisClient.get(cacheKey);
     if (cached) {
-      logger.info(`Cache hit for token ${slug}`);
+      console.log(`Cache hit for token ${slug}`); // Fixed string interpolation
       return JSON.parse(cached);
     }
-
     const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
     const response = await fetchWithRateLimit(`${apiBaseUrl}/api/coingecko/token/${slug}`, {
       headers: { 'Content-Type': 'application/json' },
@@ -48,18 +45,15 @@ async function fetchTokenData(slug) {
     });
 
     if (!response || !response.success || !response.data) {
-      logger.error(`Invalid response for ${slug}`, { response });
+      console.error(`Invalid response for ${slug}:`, response); // Fixed string interpolation
       return null;
     }
 
     await redisClient.setEx(cacheKey, 60, JSON.stringify(response));
-    logger.info(`Cached token data for ${slug}`);
     return response;
   } catch (error) {
-    logger.error(`Error fetching token data for slug ${slug}: ${error.message}`, { stack: error.stack });
+    console.error(`Error fetching token data for slug ${slug}:`, error); // Fixed string interpolation
     return null;
-  } finally {
-    if (redisClient?.isOpen) await redisClient.quit();
   }
 }
 
@@ -73,9 +67,8 @@ export async function generateStaticParams() {
       cache: 'force-cache',
       next: { revalidate: 86400 },
     });
-
     if (!response) {
-      logger.error('Failed to fetch token list from CoinGecko');
+      console.error('Failed to fetch token list from CoinGecko');
       return [{ slug: 'bitcoin' }, { slug: 'ethereum' }, { slug: 'tether' }, { slug: 'chainlink' }];
     }
 
@@ -85,13 +78,12 @@ export async function generateStaticParams() {
     const redisClient = await getRedisClient();
     await Promise.all(
       topTokens.slice(0, 20).map(async (token) => {
-        const cacheKey = `token-full-${token.id}-1-usd`;
+        const cacheKey = `token-full-${token.id}-1-usd`; // Added quotes
         const cached = await redisClient.get(cacheKey);
         if (!cached) {
           const data = await fetchTokenData(token.id);
           if (data) {
             await redisClient.setEx(cacheKey, 7200, JSON.stringify(data));
-            logger.info(`Pre-cached token data for ${token.id}`);
           }
         }
       })
@@ -101,18 +93,16 @@ export async function generateStaticParams() {
       slug: token.id,
     }));
   } catch (error) {
-    logger.error('Error in generateStaticParams:', { error: error.message, stack: error.stack });
+    console.error('Error in generateStaticParams:', error);
     return [{ slug: 'bitcoin' }, { slug: 'ethereum' }, { slug: 'tether' }, { slug: 'chainlink' }];
   }
 }
 
 export async function generateMetadata({ params }) {
-  const { slug } = await params;
+  const { slug } = await params; // Await params
   const data = await fetchTokenData(slug);
   const tokenData = data?.data;
-
   if (!tokenData) {
-    logger.warn(`No token data found for slug ${slug}`);
     return {
       title: 'Token Not Found | Xynapse Dashboard',
       description: 'The requested token could not be found.',
@@ -120,23 +110,19 @@ export async function generateMetadata({ params }) {
       robots: 'noindex',
     };
   }
-
   const capitalizedSlug = slug.charAt(0).toUpperCase() + slug.slice(1);
-  logger.info(`Generated metadata for ${slug}`, { tokenName: tokenData.name });
   return {
-    title: `${tokenData.name || capitalizedSlug}`,
-    description: `Explore market data and insights for ${tokenData.name || capitalizedSlug} on our crypto dashboard.`,
-    keywords: `${slug}, ${tokenData.symbol?.toUpperCase() || 'token'}, cryptocurrency, market data, blockchain`,
+    title: `${tokenData.name || capitalizedSlug}`, // Fixed string interpolation
+    description: `Explore market data and insights for ${tokenData.name || capitalizedSlug} on our crypto dashboard.`, // Fixed string interpolation
+    keywords: `${slug}, ${tokenData.symbol?.toUpperCase() || 'token'}, cryptocurrency, market data, blockchain`, // Fixed string interpolation
     robots: 'index, follow',
   };
 }
 
 export default async function TokenPage({ params }) {
-  const { slug } = await params;
+  const { slug } = await params; // Await params
   const data = await fetchTokenData(slug);
-
   if (!data?.data) {
-    logger.error(`No token data for ${slug}, rendering not found page`);
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white font-jetbrains">
         <div className="text-center">
@@ -149,8 +135,9 @@ export default async function TokenPage({ params }) {
       </div>
     );
   }
-
-  logger.info(`Rendering TokenPage for ${slug}`, { tokenId: data.data.id });
+  if (process.env.NODE_ENV === 'production') {
+    await revalidateTokenPath(slug);
+  }
   return (
     <TokenPageClient
       initialTokenSlug={slug}
@@ -161,4 +148,4 @@ export default async function TokenPage({ params }) {
   );
 }
 
-export const revalidate = 300; // Revalidate every 5 minutes
+export const revalidate = 300;

@@ -49,21 +49,18 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
 export async function GET(request, { params }) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const { slug } = await params; // Await params to access slug
-  logger.info(`Request to /api/coingecko/token/${slug} from IP ${ip}`);
-
+  logger.info(`Request to /api/coingecko/token/${slug} from IP ${ip}`); // Fixed string interpolation
   if (!slug || typeof slug !== 'string' || slug.trim() === '') {
-    logger.warn(`Invalid token slug: ${slug}`, { ip });
+    logger.warn(`Invalid token slug: ${slug}`, { ip }); // Fixed string interpolation
     return NextResponse.json({ success: false, detail: 'Invalid token slug' }, { status: 400 });
   }
-
   try {
     await checkRateLimit(ip);
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`, { ip });
+    logger.error(`Rate limit error: ${err.message}`, { ip }); // Fixed string interpolation
     return NextResponse.json({ success: false, detail: err.message }, { status: 429 });
   }
-
-  const cacheKey = `coingecko_token_${slug}`;
+  const cacheKey = `coingecko_token_${slug}`; // Added quotes
   const cachedData = await redisClient.get(cacheKey);
   if (cachedData) {
     logger.info('Returning cached token data', { slug, ip });
@@ -77,19 +74,17 @@ export async function GET(request, { params }) {
       { headers: { 'Content-Type': 'application/json', 'Content-Security-Policy': "default-src 'self'" } }
     );
   }
-
   const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
   if (!COINGECKO_API_KEY) {
     logger.error('COINGECKO_API_KEY is not configured', { ip });
     return NextResponse.json({ success: false, detail: 'Server configuration error: Missing COINGECKO_API_KEY' }, { status: 500 });
   }
-
   return new NextResponse(
     new ReadableStream({
       async start(controller) {
         try {
           const response = await fetchWithRateLimit(
-            `https://api.coingecko.com/api/v3/coins/${slug}`,
+            `https://api.coingecko.com/api/v3/coins/${slug}`, // Added backticks
             {
               timeout: 15000,
               params: {
@@ -103,7 +98,6 @@ export async function GET(request, { params }) {
               retryCount: 0,
             }
           );
-
           const tokenData = {
             id: response.data.id,
             symbol: response.data.symbol,

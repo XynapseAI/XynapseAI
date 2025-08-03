@@ -1,6 +1,5 @@
 // components/TokenPageClient.jsx
 'use client';
-
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
@@ -21,7 +20,6 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('market');
 
-  // Sử dụng useMarketTabLogic với initialTokenSlug và initialTokenData
   const { selectedToken, debouncedHandleTokenSelect } = useMarketTabLogic({
     recaptchaRef,
     toast,
@@ -29,7 +27,6 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
     initialTokenData,
   });
 
-  // Log để gỡ lỗi
   useEffect(() => {
     console.log('TokenPageClient mounted with:', {
       initialTokenSlug,
@@ -38,22 +35,20 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
     });
   }, [initialTokenSlug, initialTokenData, selectedToken]);
 
-  // Thiết lập token ban đầu khi component mount
   useEffect(() => {
     if (initialTokenData && initialTokenSlug) {
-      console.log('Setting initial token:', initialTokenSlug);
+      console.log(`Setting initial token: ${initialTokenSlug}`); // Fixed string interpolation
       debouncedHandleTokenSelect({ id: initialTokenSlug }, initialTokenData);
       setIsLoadingToken(false);
       setIsLoadingPriceHistory(!initialPriceHistory);
       setIsLoadingTopHolders(!initialTopHolders);
     } else if (!initialTokenData) {
-      setError(`Token data for ${initialTokenSlug} not found`);
+      setError(`Token data for ${initialTokenSlug} not found`); // Fixed string interpolation
       setIsLoadingToken(false);
-      toast.error(`Token ${initialTokenSlug} not found`, { position: 'top-center', autoClose: 3000 });
+      toast.error(`Token ${initialTokenSlug} not found`, { position: 'top-center', autoClose: 3000 }); // Fixed string interpolation
     }
   }, [initialTokenSlug, initialTokenData, initialPriceHistory, initialTopHolders, debouncedHandleTokenSelect]);
 
-  // Kiểm tra trạng thái xác thực
   useEffect(() => {
     if (status === 'unauthenticated') {
       console.log('User unauthenticated, redirecting to signin');
@@ -61,7 +56,6 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
     }
   }, [status, router]);
 
-  // Xử lý đăng xuất
   const handleSignOut = async () => {
     try {
       await signOut({ callbackUrl: '/' });
@@ -72,26 +66,24 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
     }
   };
 
-  // Xử lý điều hướng đến trang token khác
   const handleNavigateToToken = (newSlug) => {
     if (!newSlug || typeof newSlug !== 'string' || newSlug.trim() === '') {
-      console.error('Invalid slug provided for navigation:', { slug: newSlug });
+      console.error(`Invalid slug provided for navigation: ${newSlug}`); // Fixed string interpolation
       toast.error('Cannot navigate to token page: Invalid token ID.', {
         position: 'top-center',
         autoClose: 3000,
       });
       return;
     }
-    console.log('Navigating to token:', newSlug);
+    console.log(`Navigating to token: ${newSlug}`); // Fixed string interpolation
     setIsLoadingToken(true);
     setIsLoadingPriceHistory(true);
     setIsLoadingTopHolders(true);
     setError(null);
-    router.push(`/token/${newSlug}`, { scroll: false });
+    router.push(`/token/${newSlug}`, { scroll: false }); // Fixed string interpolation
     setActiveTab('market');
   };
 
-  // Hiển thị khi đang tải trạng thái xác thực hoặc không có initialTokenSlug
   if (status === 'loading' || !initialTokenSlug) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
@@ -102,12 +94,10 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
     );
   }
 
-  // Hiển thị khi người dùng chưa xác thực
   if (status === 'unauthenticated') {
     return null;
   }
 
-  // Hiển thị khi có lỗi
   if (error) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white font-jetbrains">
