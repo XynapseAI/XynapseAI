@@ -20,8 +20,7 @@ const allowedOrigins = [
   'http://localhost:3000/api',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
-  'https://xynapse-pqbhgqyvd-xynapse-projects.vercel.app',
-  'https://*.vercel.app', // Cho phép tất cả subdomains của Vercel
+  'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter((v, i, a) => a.indexOf(v) === i);
 
 // Hàm kiểm tra Origin/Referer
