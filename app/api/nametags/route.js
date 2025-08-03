@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
 import { getRedisClient } from '../../../lib/redis';
-import { auth } from '../auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { query } from '../../../utils/postgres';
 import { isAddress } from 'ethers';
 import { getNametagsBatch, addNametag } from '../../../lib/nametags';

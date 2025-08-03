@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { auth } from '../auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';

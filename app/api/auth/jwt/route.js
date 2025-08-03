@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { auth } from '../[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { logger } from '../../../../utils/serverLogger';
 import { createClient } from 'redis';
 

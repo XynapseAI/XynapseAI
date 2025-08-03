@@ -6,7 +6,7 @@ import { query } from '../../../utils/postgres';
 import { isAddress } from 'ethers';
 import crypto from 'crypto';
 import axios from 'axios';
-import { auth } from '../auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 
 const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
 redisClient.on('error', (err) => logger.error('Redis Client Error', err));

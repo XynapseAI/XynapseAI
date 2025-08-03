@@ -1,6 +1,6 @@
 // app/api/verify-task/route.js
 import { query } from '../../../utils/postgres.js';
-import { auth } from '../auth/[...nextauth]/route.js';
+import { auth } from '@/lib/auth';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha.js';
 import TwitterApi from 'twitter-api-v2';
 import rateLimit from 'express-rate-limit';

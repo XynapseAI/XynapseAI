@@ -2,7 +2,7 @@
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import winston from 'winston';
-import { auth } from '../auth/[...nextauth]/route.js';
+import { auth } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 
 const logger = winston.createLogger({

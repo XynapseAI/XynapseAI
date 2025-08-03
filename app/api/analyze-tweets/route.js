@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
 import { query } from '../../../utils/postgres';
-import { auth } from '../auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
 import axios from 'axios';
 import Bottleneck from 'bottleneck';

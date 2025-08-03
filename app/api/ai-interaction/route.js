@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from 'redis';
 import { query } from '../../../utils/postgres';
-import { auth } from '../auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
 import axios from 'axios';
 import Bottleneck from 'bottleneck';

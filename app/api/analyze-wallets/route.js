@@ -5,7 +5,7 @@ import { query } from '../../../utils/postgres.js';
 import axios from 'axios';
 import { isAddress } from 'ethers';
 import { detectLargeFlow } from '../../../lib/detectLargeFlow.js';
-import { auth } from '../auth/[...nextauth]/route.js';
+import { auth } from '@/lib/auth';
 import { logger } from '../../../utils/serverLogger.js';
 import fs from 'fs/promises';
 import crypto from 'crypto';

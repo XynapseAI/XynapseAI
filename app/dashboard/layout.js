@@ -1,5 +1,5 @@
 // app/dashboard/layout.js
-import { auth } from '../api/auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 

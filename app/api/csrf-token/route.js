@@ -1,6 +1,6 @@
 // app/api/csrf-token/route.js
 import { NextResponse } from 'next/server';
-import { auth } from '../auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
 import { randomBytes } from 'crypto';

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { logger } from '../../../utils/serverLogger';
 import axiosRetry from 'axios-retry';
 import { isAddress } from 'ethers';
-import { auth } from '../auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { createClient } from 'redis';
 
 axiosRetry(axios, {

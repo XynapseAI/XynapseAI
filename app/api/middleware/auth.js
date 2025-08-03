@@ -1,4 +1,4 @@
-import { auth } from '../auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { logger } from '../../../utils/serverLogger';
 import { NextResponse } from 'next/server';
 

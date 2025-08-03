@@ -1,7 +1,7 @@
 // app/api/grok/route.js
 import { braveSearch } from '../../../utils/braveSearch.js';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha.js';
-import { auth } from '../auth/[...nextauth]/route.js';
+import { auth } from '@/lib/auth';
 import axios from 'axios';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';

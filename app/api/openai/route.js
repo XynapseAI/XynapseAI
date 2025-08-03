@@ -1,7 +1,7 @@
 // app/api/openai/route.js
 import axios from 'axios';
 import { braveSearch } from '../../../utils/braveSearch.js';
-import { auth } from '../auth/[...nextauth]/route.js';
+import { auth } from '@/lib/auth';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha.js';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';

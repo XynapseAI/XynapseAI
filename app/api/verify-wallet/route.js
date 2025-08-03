@@ -4,7 +4,7 @@ import { logger } from '../../../utils/serverLogger';;
 import { createClient } from 'redis';
 import { query } from '../../../utils/postgres';
 import { ethers } from 'ethers';
-import { auth } from '../auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
 import jwt from 'jsonwebtoken';
 
