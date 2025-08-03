@@ -1,7 +1,7 @@
 // app/token/[slug]/page.js
-import { revalidateTokenPath } from './actions';
+import { logger } from '../../../utils/serverLogger'; // Thêm server logger
 import TokenPageClient from '../../../components/TokenPageClient';
-import { getRedisClient } from '../../../lib/redis'; // Updated import
+import { getRedisClient } from '../../../lib/redis';
 import Bottleneck from 'bottleneck';
 
 const limiterBottleneck = new Bottleneck({
@@ -21,9 +21,11 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
     if (!response.ok) {
       throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
     }
-    return response.json();
+    const data = await response.json();
+    logger.info(`Fetched data from ${url}`, { status: response.status });
+    return data;
   } catch (error) {
-    console.error(`Fetch error for ${url}:`, error);
+    logger.error(`Fetch error for ${url}: ${error.message}`, { stack: error.stack });
     return null;
   }
 });
@@ -31,11 +33,11 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
 async function fetchTokenData(slug) {
   let redisClient;
   try {
-    redisClient = await getRedisClient(); // Updated to getRedisClient
+    redisClient = await getRedisClient();
     const cacheKey = `token-full-${slug}-1-usd`;
     const cached = await redisClient.get(cacheKey);
     if (cached) {
-      console.log(`Cache hit for token ${slug}`);
+      logger.info(`Cache hit for token ${slug}`);
       return JSON.parse(cached);
     }
 
@@ -46,15 +48,18 @@ async function fetchTokenData(slug) {
     });
 
     if (!response || !response.success || !response.data) {
-      console.error(`Invalid response for ${slug}:`, response);
+      logger.error(`Invalid response for ${slug}`, { response });
       return null;
     }
 
     await redisClient.setEx(cacheKey, 60, JSON.stringify(response));
+    logger.info(`Cached token data for ${slug}`);
     return response;
   } catch (error) {
-    console.error(`Error fetching token data for slug ${slug}:`, error);
+    logger.error(`Error fetching token data for slug ${slug}: ${error.message}`, { stack: error.stack });
     return null;
+  } finally {
+    if (redisClient?.isOpen) await redisClient.quit();
   }
 }
 
@@ -70,14 +75,14 @@ export async function generateStaticParams() {
     });
 
     if (!response) {
-      console.error('Failed to fetch token list from CoinGecko');
+      logger.error('Failed to fetch token list from CoinGecko');
       return [{ slug: 'bitcoin' }, { slug: 'ethereum' }, { slug: 'tether' }, { slug: 'chainlink' }];
     }
 
     const tokens = response;
     const topTokens = tokens.slice(0, 100);
 
-    const redisClient = await getRedisClient(); // Updated to getRedisClient
+    const redisClient = await getRedisClient();
     await Promise.all(
       topTokens.slice(0, 20).map(async (token) => {
         const cacheKey = `token-full-${token.id}-1-usd`;
@@ -86,6 +91,7 @@ export async function generateStaticParams() {
           const data = await fetchTokenData(token.id);
           if (data) {
             await redisClient.setEx(cacheKey, 7200, JSON.stringify(data));
+            logger.info(`Pre-cached token data for ${token.id}`);
           }
         }
       })
@@ -95,17 +101,18 @@ export async function generateStaticParams() {
       slug: token.id,
     }));
   } catch (error) {
-    console.error('Error in generateStaticParams:', error);
+    logger.error('Error in generateStaticParams:', { error: error.message, stack: error.stack });
     return [{ slug: 'bitcoin' }, { slug: 'ethereum' }, { slug: 'tether' }, { slug: 'chainlink' }];
   }
 }
 
 export async function generateMetadata({ params }) {
-  const { slug } = await params; // Await params
+  const { slug } = await params;
   const data = await fetchTokenData(slug);
   const tokenData = data?.data;
 
   if (!tokenData) {
+    logger.warn(`No token data found for slug ${slug}`);
     return {
       title: 'Token Not Found | Xynapse Dashboard',
       description: 'The requested token could not be found.',
@@ -115,6 +122,7 @@ export async function generateMetadata({ params }) {
   }
 
   const capitalizedSlug = slug.charAt(0).toUpperCase() + slug.slice(1);
+  logger.info(`Generated metadata for ${slug}`, { tokenName: tokenData.name });
   return {
     title: `${tokenData.name || capitalizedSlug}`,
     description: `Explore market data and insights for ${tokenData.name || capitalizedSlug} on our crypto dashboard.`,
@@ -124,10 +132,11 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function TokenPage({ params }) {
-  const { slug } = await params; // Await params
+  const { slug } = await params;
   const data = await fetchTokenData(slug);
 
   if (!data?.data) {
+    logger.error(`No token data for ${slug}, rendering not found page`);
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white font-jetbrains">
         <div className="text-center">
@@ -141,10 +150,7 @@ export default async function TokenPage({ params }) {
     );
   }
 
-  if (process.env.NODE_ENV === 'production') {
-    await revalidateTokenPath(slug);
-  }
-
+  logger.info(`Rendering TokenPage for ${slug}`, { tokenId: data.data.id });
   return (
     <TokenPageClient
       initialTokenSlug={slug}
@@ -155,4 +161,4 @@ export default async function TokenPage({ params }) {
   );
 }
 
-export const revalidate = 300;
+export const revalidate = 300; // Revalidate every 5 minutes
