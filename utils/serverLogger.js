@@ -1,4 +1,3 @@
-// utils/serverLogger.js
 import winston from 'winston';
 import path from 'path';
 import fs from 'fs/promises';
@@ -7,7 +6,7 @@ import fs from 'fs/promises';
 const isVercel = process.env.VERCEL === '1';
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Xác định thư mục log (local hoặc /tmp)
+// Xác định thư mục log
 const logsDir = isVercel ? '/tmp/logs' : path.join(process.cwd(), 'logs');
 
 // Hàm đảm bảo thư mục log tồn tại
@@ -15,10 +14,13 @@ const ensureLogDir = async (dir) => {
   try {
     await fs.mkdir(dir, { recursive: true });
     console.log(`Log directory ensured: ${dir}`);
+    return true;
   } catch (error) {
     if (error.code !== 'EEXIST') {
       console.error(`Failed to create log directory ${dir}: ${error.message}`);
+      return false;
     }
+    return true; // Thư mục đã tồn tại, không cần xử lý thêm
   }
 };
 
@@ -32,38 +34,7 @@ const transports = [
   }),
 ];
 
-// Chỉ thêm file transport khi không chạy trong môi trường Vercel
-if (!isVercel) {
-  await ensureLogDir(logsDir);
-  transports.push(
-    new winston.transports.File({
-      filename: path.join(logsDir, 'error.log'),
-      level: 'error',
-    }),
-    new winston.transports.File({
-      filename: path.join(logsDir, 'combined.log'),
-    })
-  );
-} else if (isProduction) {
-  // Nếu muốn ghi file log tạm trong /tmp trên Vercel, bật đoạn này:
-  try {
-    await ensureLogDir(logsDir);
-    transports.push(
-      new winston.transports.File({
-        filename: path.join(logsDir, 'error.log'),
-        level: 'error',
-      }),
-      new winston.transports.File({
-        filename: path.join(logsDir, 'combined.log'),
-      })
-    );
-    console.log(`File transports added for directory: ${logsDir}`);
-  } catch (error) {
-    console.error(`Failed to add file transports: ${error.message}`);
-  }
-}
-
-// Tạo logger
+// Khởi tạo logger
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -78,10 +49,53 @@ const logger = winston.createLogger({
   transports,
 });
 
-logger.info(
-  `Server logger initialized in ${
-    isVercel ? 'Vercel (console only or /tmp)' : 'Local'
-  } mode`
-);
+// Thêm file transports dựa trên môi trường
+(async () => {
+  if (!isVercel) {
+    // Môi trường local: Ghi log vào ./logs
+    const logDirCreated = await ensureLogDir(logsDir);
+    if (logDirCreated) {
+      transports.push(
+        new winston.transports.File({
+          filename: path.join(logsDir, 'error.log'),
+          level: 'error',
+        }),
+        new winston.transports.File({
+          filename: path.join(logsDir, 'combined.log'),
+        })
+      );
+      logger.info(`File transports added for directory: ${logsDir}`);
+    } else {
+      logger.warn('File transports not added due to directory creation failure');
+    }
+  } else if (isProduction) {
+    // Môi trường Vercel: Chỉ ghi log vào console (hoặc tùy chọn ghi vào /tmp/logs)
+    // Nếu muốn ghi vào /tmp/logs, bỏ comment đoạn code dưới đây
+    /*
+    const logDirCreated = await ensureLogDir(logsDir);
+    if (logDirCreated) {
+      transports.push(
+        new winston.transports.File({
+          filename: path.join(logsDir, 'error.log'),
+          level: 'error',
+        }),
+        new winston.transports.File({
+          filename: path.join(logsDir, 'combined.log'),
+        })
+      );
+      logger.info(`File transports added for directory: ${logsDir}`);
+    } else {
+      logger.warn('File transports not added due to directory creation failure on Vercel');
+    }
+    */
+    logger.info('File transports skipped on Vercel; using console only');
+  }
+
+  logger.info(
+    `Server logger initialized in ${
+      isVercel ? 'Vercel (console only)' : 'Local'
+    } mode`
+  );
+})();
 
 export { logger };
