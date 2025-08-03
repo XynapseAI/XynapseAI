@@ -53,9 +53,10 @@ export async function GET(request) {
   const allowedOrigins = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
     'http://localhost:3000',
-    'http://localhost:3000/api',
-    'https://xynapseai.net',
-    'https://www.xynapseai.net',
+  'http://localhost:3000/api',
+  'https://xynapseai.net',
+  'https://www.xynapseai.net',
+  'https://xynapse-g7n959r6s-xynapse-projects.vercel.app',
   ];
   if (!origin && process.env.NODE_ENV === 'development') {
     logger.warn(`Origin is null, allowing in development mode`, { ip });

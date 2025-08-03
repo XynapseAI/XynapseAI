@@ -1,17 +1,7 @@
 // utils/verifyRecaptcha.js
 import axios from 'axios';
-import winston from 'winston';
+import { logger } from './serverLogger';
 import Bottleneck from 'bottleneck';
-
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-  transports: [
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-    new winston.transports.Console({ format: winston.format.simple() }),
-  ],
-});
 
 const limiter = new Bottleneck({
   maxConcurrent: 5,

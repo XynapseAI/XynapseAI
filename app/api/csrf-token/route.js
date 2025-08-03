@@ -36,6 +36,7 @@ const allowedOrigins = [
   'http://localhost:3000/api',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
+  'https://xynapse-g7n959r6s-xynapse-projects.vercel.app',
 ];
 
 export async function GET(request) {

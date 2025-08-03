@@ -35,6 +35,7 @@ const limiter = new Bottleneck({ maxConcurrent: 5, minTime: 200 });
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   'http://localhost:3000',
+  'http://localhost:3000/api',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-g7n959r6s-xynapse-projects.vercel.app',
