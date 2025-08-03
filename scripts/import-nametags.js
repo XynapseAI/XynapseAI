@@ -2,7 +2,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { query } from '../utils/postgres.js';
-import { logger } from '../utils/logger.cjs';
+import { logger } from '../serverLogger';
 import { isAddress } from 'ethers';
 import { fileURLToPath } from 'url';
 
