@@ -36,6 +36,7 @@ const allowedOrigins = [
   "https://xynapseai.net",
   "https://www.xynapseai.net",
   "https://xynapse-ai.vercel.app",
+  "https://xynapse-ai-xynapse-projects.vercel.app",
 ].filter((v, i, a) => a.indexOf(v) === i);
 
 const rateLimitedHandler = (handler) =>
@@ -47,16 +48,25 @@ const rateLimitedHandler = (handler) =>
     logger.info(`Auth Request: IP=${ip}, Origin=${origin || "null"}, Referer=${referer || "null"}`);
 
     let isAllowed = false;
+
+    // Nếu Origin có trong danh sách
     if (origin && allowedOrigins.includes(origin)) {
       isAllowed = true;
-    } else if (!origin && referer) {
+    }
+    // Nếu không có Origin nhưng có Referer
+    else if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (allowedOrigins.includes(refOrigin)) isAllowed = true;
+    }
+    // Nếu cả Origin và Referer đều null => Đây là SSR hoặc NextAuth nội bộ → Cho phép
+    else if (!origin && !referer) {
+      isAllowed = true;
     }
 
     if (!isAllowed) {
       return NextResponse.json({ detail: "CORS Not Allowed" }, { status: 403 });
     }
+
 
     try {
       await checkRateLimit(ip);
