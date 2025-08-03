@@ -191,6 +191,7 @@ export default function Dashboard() {
         const response = await fetch(`${API_BASE_URL}/api/connect-data`, {
           headers: {
             'Content-Type': 'application/json',
+            'X-CSRF-Token': session.csrfToken || '',
           },
           credentials: 'include',
           signal: controller.signal,

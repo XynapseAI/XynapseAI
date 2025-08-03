@@ -42,7 +42,7 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-ai.vercel.app',
-];
+].filter((origin, index, self) => self.indexOf(origin) === index); // Loại bỏ trùng lặp
 
 const transporter = createTransport({
   host: process.env.EMAIL_SERVER_HOST,
@@ -193,14 +193,28 @@ const rateLimitedHandler = (handler) =>
   limiter.wrap(async (request, ...args) => {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
     const origin = request.headers.get('origin');
+    const referer = request.headers.get('referer');
 
-    // Logging chi tiết hơn để xác định nguồn gốc yêu cầu
-    logger.info(`Request to /api/auth/[...nextauth] from IP ${ip}, Origin: ${origin || 'null'}`);
+    logger.info(`Request to /api/auth/[...nextauth] from IP ${ip}, Origin: ${origin || 'null'}, Referer: ${referer || 'null'}`);
 
-    // Cho phép Origin: null trong môi trường phát triển
+    // Cho phép Origin: null trong môi trường phát triển hoặc khi referer hợp lệ
+    let isOriginAllowed = false;
     if (!origin && process.env.NODE_ENV === 'development') {
       logger.warn(`Origin is null, allowing in development mode`, { ip });
-    } else if (!origin || !allowedOrigins.includes(origin)) {
+      isOriginAllowed = true;
+    } else if (origin && allowedOrigins.includes(origin)) {
+      isOriginAllowed = true;
+    } else if (!origin && referer) {
+      // Kiểm tra referer nếu origin là null
+      const refererUrl = new URL(referer);
+      const refererOrigin = refererUrl.origin;
+      if (allowedOrigins.includes(refererOrigin)) {
+        logger.info(`Allowing request with null Origin but valid Referer: ${refererOrigin}`, { ip });
+        isOriginAllowed = true;
+      }
+    }
+
+    if (!isOriginAllowed) {
       logger.error(`CORS error: Origin ${origin || 'null'} not allowed`, { allowedOrigins, ip });
       return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
     }
@@ -219,10 +233,10 @@ const rateLimitedHandler = (handler) =>
     // Thêm CORS headers vào phản hồi
     response.headers.set(
       'Access-Control-Allow-Origin',
-      process.env.NODE_ENV === 'development' ? (origin || 'http://localhost:3000') : origin
+      process.env.NODE_ENV === 'development' ? (origin || 'http://localhost:3000') : (origin || referer ? new URL(referer).origin : 'https://xynapseai.net')
     );
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token, X-Recaptcha-Token');
     response.headers.set('Access-Control-Allow-Credentials', 'true');
 
     return response;
