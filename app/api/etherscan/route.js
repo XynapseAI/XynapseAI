@@ -53,6 +53,8 @@ const allowedOrigins = [
   'https://xynapse-ai.vercel.app',
   'https://xynapseai.net',
   'https://www.xynapseai.net', // Thêm để nhất quán với /api/auth/[...nextauth]
+  'https://xynapse-ai.vercel.app', 
+  'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean);
 
 const bodySchema = z.object({

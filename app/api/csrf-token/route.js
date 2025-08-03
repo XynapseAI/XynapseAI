@@ -21,6 +21,7 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
+  'https://xynapse-ai.vercel.app', 
 ].filter((v, i, a) => a.indexOf(v) === i);
 
 // Hàm kiểm tra Origin/Referer

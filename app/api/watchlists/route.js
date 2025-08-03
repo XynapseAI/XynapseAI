@@ -49,6 +49,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
+  'https://xynapse-ai.vercel.app', 
+  'https://xynapse-ai-xynapse-projects.vercel.app',
 ];
 
 async function checkCSRF(request, session) {

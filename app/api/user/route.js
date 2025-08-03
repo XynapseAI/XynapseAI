@@ -15,57 +15,6 @@ const redisClient = createClient({
 redisClient.on('error', (err) => logger.error('Redis Client Error', err));
 await redisClient.connect();
 
-// Danh sách các origin được phép
-const allowedOrigins = [
-  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  'http://localhost:3000',
-  'http://localhost:3000/api',
-  'https://xynapseai.net',
-  'https://www.xynapseai.net',
-  'https://xynapse-ai-xynapse-projects.vercel.app',
-].filter((v, i, a) => a.indexOf(v) === i);
-
-// Hàm kiểm tra Origin/Referer
-function isAllowedOrigin(origin, referer) {
-  try {
-    // 1. Nếu có Origin và hợp lệ
-    if (origin) {
-      if (allowedOrigins.includes(origin)) {
-        logger.info('Origin allowed', { origin, referer });
-        return true;
-      }
-      const hostname = new URL(origin).hostname;
-      if (hostname.endsWith('.vercel.app')) {
-        logger.info('Vercel domain allowed', { origin, referer });
-        return true;
-      }
-    }
-    // 2. Nếu Origin null nhưng Referer hợp lệ
-    if (!origin && referer) {
-      const refOrigin = new URL(referer).origin;
-      if (allowedOrigins.includes(refOrigin)) {
-        logger.info('Referer origin allowed', { origin, referer, refOrigin });
-        return true;
-      }
-      const hostname = new URL(refOrigin).hostname;
-      if (hostname.endsWith('.vercel.app')) {
-        logger.info('Vercel referer domain allowed', { origin, referer, refOrigin });
-        return true;
-      }
-    }
-    // 3. Nếu cả Origin và Referer null (SSR hoặc internal)
-    if (!origin && !referer) {
-      logger.info('Allowing internal/SSR request');
-      return true;
-    }
-    logger.error('CORS blocked', { origin, referer });
-    return false;
-  } catch (error) {
-    logger.error('Error in isAllowedOrigin', { error: error.message, origin, referer });
-    return false;
-  }
-}
-
 async function checkRateLimit(ip) {
   const key = `rate_limit:user:${ip}`;
   const requests = await redisClient.get(key) || 0;
@@ -114,16 +63,8 @@ const postSchema = z.object({
 
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
   const params = Object.fromEntries(request.nextUrl.searchParams);
-  logger.info(`Request to /api/user from IP ${ip}, query: ${JSON.stringify(params)}`, { origin, referer });
-
-  // Kiểm tra CORS
-  if (!isAllowedOrigin(origin, referer)) {
-    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`, { allowedOrigins });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
-  }
+  logger.info(`Request to /api/user from IP ${ip}, query: ${JSON.stringify(params)}`);
 
   try {
     await checkRateLimit(ip);
@@ -194,7 +135,7 @@ export async function GET(request) {
         headers: {
           'Content-Type': 'application/json',
           'Content-Security-Policy': "default-src 'self'",
-          'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+          'Access-Control-Allow-Origin': process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (request.headers.get('origin') || 'http://localhost:3000'),
           'Access-Control-Allow-Methods': 'GET, POST',
           'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
           'Access-Control-Allow-Credentials': 'true',
@@ -239,7 +180,7 @@ export async function GET(request) {
       headers: {
         'Content-Type': 'application/json',
         'Content-Security-Policy': "default-src 'self'",
-        'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        'Access-Control-Allow-Origin': process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (request.headers.get('origin') || 'http://localhost:3000'),
         'Access-Control-Allow-Methods': 'GET, POST',
         'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
         'Access-Control-Allow-Credentials': 'true',
@@ -255,15 +196,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-  logger.info(`Request to /api/user from IP ${ip}`, { origin, referer });
-
-  // Kiểm tra CORS
-  if (!isAllowedOrigin(origin, referer)) {
-    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`, { allowedOrigins });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
-  }
+  logger.info(`Request to /api/user from IP ${ip}`);
 
   try {
     await checkRateLimit(ip);
@@ -340,7 +273,7 @@ export async function POST(request) {
     return NextResponse.json({ success: true, user: updatedUser }, {
       headers: {
         'Content-Security-Policy': "default-src 'self'",
-        'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        'Access-Control-Allow-Origin': process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (request.headers.get('origin') || 'http://localhost:3000'),
         'Access-Control-Allow-Methods': 'GET, POST',
         'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
         'Access-Control-Allow-Credentials': 'true',

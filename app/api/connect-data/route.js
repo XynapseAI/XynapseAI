@@ -57,6 +57,7 @@ export async function GET(request) {
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
+  'https://xynapse-ai.vercel.app', 
   ];
   if (!origin && process.env.NODE_ENV === 'development') {
     logger.warn(`Origin is null, allowing in development mode`, { ip });

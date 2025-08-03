@@ -17,7 +17,7 @@ async function checkRateLimit(userId) {
   const key = `rate_limit:dex:${userId || 'anonymous'}`;
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
-  if (requests >= 50) {
+  if (requests >= 100) {
     throw new Error('Too many DEX requests for this user. Please try again later.');
   }
   await redisClient.multi()
@@ -41,6 +41,8 @@ const allowedOrigins = [
   'https://xynapse-ai.vercel.app',
   'https://app.xynapseai.net',
   'https://xynapseai.net',
+  'https://xynapse-ai.vercel.app', 
+  'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean);
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
