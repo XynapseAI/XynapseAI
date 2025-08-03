@@ -56,18 +56,19 @@ export default function Dashboard() {
 
   // Fetch providers for sign-in options
   useEffect(() => {
-    async function fetchProviders() {
-      try {
-        const response = await getProviders();
-        setProviders(response);
-        logger.info('Providers fetched successfully');
-      } catch (err) {
-        logger.error('Error fetching providers:', err.message);
-        setError('Failed to fetch providers');
-      }
+  async function fetchProviders() {
+    try {
+      const response = await getProviders();
+      setProviders(response);
+      logger.info('Providers fetched successfully');
+    } catch (err) {
+      logger.error('Error fetching providers:', err.message);
+      setError('Failed to fetch providers. Please try again.');
     }
-    fetchProviders();
-  }, []);
+  }
+  fetchProviders();
+}, []);
+
 
   // Shooting Star Effect
   useEffect(() => {
@@ -359,16 +360,17 @@ export default function Dashboard() {
   };
 
   const handleSignOut = async () => {
-    try {
-      await signOut({ callbackUrl: '/' });
-      if (isConnected) disconnect();
-      setUserData(null);
-      setError(null);
-    } catch (error) {
-      console.error('Sign out error:', error);
-      setError('Failed to sign out.');
-    }
-  };
+  try {
+    await signOut({ callbackUrl: '/' });
+    if (isConnected) disconnect();
+    setUserData(null);
+    setError(null);
+    logger.info('User signed out successfully');
+  } catch (error) {
+    logger.error('Sign out error:', error.message);
+    setError('Failed to sign out. Please try again.');
+  }
+};
 
   const handleAnalyzeTweets = async () => {
     if (isAnalyzing) return;
