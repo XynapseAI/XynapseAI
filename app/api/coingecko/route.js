@@ -48,14 +48,12 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:coingecko:${ip}`;
   const requests = parseInt(await redisClient.get(key)) || 0;
   const windowMs = 60 * 1000;
-  if (requests >= 50) {
+  if (requests >= 30) { // Giảm giới hạn từ 50 xuống 30 để an toàn
+    logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`, { ip });
     throw new Error('Too many requests, please try again later.');
   }
-  await redisClient
-    .multi()
-    .incr(key)
-    .expire(key, windowMs / 1000)
-    .exec();
+  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  logger.info(`Rate limit check for IP ${ip}: ${requests + 1}/30`, { ip });
 }
 
 export async function GET(request) {
@@ -72,6 +70,12 @@ export async function GET(request) {
 
   const { action = 'market-info', ids, vs_currencies = 'usd', limit, start, query, id, tokenType } = params;
   logger.info(`Parsed action: ${action}, tokenType: ${tokenType}`);
+
+  // Validate parameters
+  if (['tickers', 'coin-details'].includes(action) && !id) {
+    logger.warn(`Missing id parameter`, { ip });
+    return NextResponse.json({ success: false, detail: 'Missing id parameter' }, { status: 400 });
+  }
 
   // Validate parameters
   if (action === 'public-treasury' && !tokenType) {
@@ -91,7 +95,7 @@ export async function GET(request) {
     return NextResponse.json({ success: false, detail: 'Missing query parameter' }, { status: 400 });
   }
 
-  const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
+    const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
   if (!COINGECKO_API_KEY) {
     logger.error('COINGECKO_API_KEY is not configured', { ip });
     return NextResponse.json({ success: false, detail: 'Server configuration error: Missing COINGECKO_API_KEY' }, { status: 500 });
@@ -216,8 +220,8 @@ export async function GET(request) {
             cacheKey = `coingecko_tickers_${id}`;
             const cachedData = await redisClient.get(cacheKey);
             if (cachedData) {
-              logger.info(`Returning cached ticker data for id: ${id}`, { ip });
-              controller.enqueue(new TextEncoder().encode(JSON.stringify(JSON.parse(cachedData))));
+              logger.info(`Cache hit for ticker data: ${id}`, { ip });
+              controller.enqueue(new TextEncoder().encode(cachedData));
               controller.close();
               return;
             }
@@ -225,11 +229,17 @@ export async function GET(request) {
             const response = await fetchWithRateLimit(`https://api.coingecko.com/api/v3/coins/${id}/tickers`, {
               params: { include_exchange_logo: true },
               headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
-              timeout: 15000,
+              timeout: 10000, // Giảm timeout xuống 10s
             });
             data = response.data;
-            await redisClient.setEx(cacheKey, 12 * 3600, JSON.stringify({ success: true, data }));
-            logger.info(`Successfully fetched and cached ticker data for id: ${id}, count: ${data.tickers.length}`, { ip });
+            if (!data.tickers || !Array.isArray(data.tickers)) {
+              logger.warn(`Invalid ticker data for ${id}`, { ip });
+              controller.enqueue(JSON.stringify({ success: false, detail: `No valid ticker data for ${id}` }));
+              controller.close();
+              return;
+            }
+            await redisClient.setEx(cacheKey, 5 * 60, JSON.stringify({ success: true, data })); // Cache 5 phút
+            logger.info(`Successfully fetched and cached ticker data for ${id}, count: ${data.tickers.length}`, { ip });
           } else if (action === 'coin-details') {
             cacheKey = `coingecko_coin_details_${id}`;
             const cachedData = await redisClient.get(cacheKey);
@@ -251,7 +261,7 @@ export async function GET(request) {
                 vs_currency: selectedCurrency,
               },
               headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
-              timeout: 15000,
+              timeout: 10000,
             });
             data = response.data;
             await redisClient.setEx(cacheKey, 12 * 3600, JSON.stringify({ success: true, data }));

@@ -35,6 +35,7 @@ const CACHE_DURATIONS = {
   TRANSACTIONS: 10 * 1000, // 10s for transaction history
   DEFI_POOL: 30 * 1000, // 30s for DeFi pool data
   DEFAULT: 60 * 1000, // 1 minute for other data
+  TICKERS: 5 * 60 * 1000,
 };
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
@@ -725,56 +726,78 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   );
 
   const fetchTickerData = useCallback(
-    debounce(
-      async (tokenId, retryCount = 0) => {
-        if (!tokenId || document.visibilityState !== 'visible') return;
-        const cacheKey = `ticker-${tokenId}`;
-        setIsLoadingTickers(true);
-        setTickerError(null);
-        try {
-          const fetchFn = async () => {
-            let response;
-            const params = { include_exchange_logo: true };
-            if (process.env.NODE_ENV === 'development') {
-              response = await coingeckoAxios.get(`https://api.coingecko.com/api/v3/coins/${tokenId}/tickers`, {
-                params,
-                headers: {
-                  accept: 'application/json',
-                  ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
-                },
-                timeout: 15000,
-              });
-            } else {
-              response = await axios.get('/api/coingecko', {
-                params: {
-                  action: 'tickers',
-                  id: tokenId,
-                  include_exchange_logo: true,
-                },
-                timeout: 15000,
-              });
-            }
-            return response.data.tickers || [];
-          };
+  debounce(
+    async (tokenId, retryCount = 0) => {
+      if (!tokenId || document.visibilityState !== 'visible') return;
+      const cacheKey = `ticker-${tokenId}`;
+      setIsLoadingTickers(true);
+      setTickerError(null);
+      try {
+        const fetchFn = async () => {
+          let response;
+          const params = { include_exchange_logo: true };
+          console.log(`Bắt đầu lấy ticker data cho ${tokenId} (lần thử ${retryCount + 1})`);
+          if (process.env.NODE_ENV === 'development') {
+            response = await coingeckoAxios.get(`https://api.coingecko.com/api/v3/coins/${tokenId}/tickers`, {
+              params,
+              headers: {
+                accept: 'application/json',
+                ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
+              },
+              timeout: 10000, // Giảm timeout xuống 10s
+            });
+          } else {
+            response = await axios.get('/api/coingecko', {
+              params: {
+                action: 'tickers',
+                id: tokenId,
+                include_exchange_logo: true,
+              },
+              timeout: 10000,
+            });
+          }
+          if (!response.data?.tickers || !Array.isArray(response.data.tickers)) {
+            throw new Error(`Invalid ticker data for ${tokenId}`);
+          }
+          console.log(`Ticker data nhận được cho ${tokenId}:`, response.data.tickers.length);
+          return response.data.tickers;
+        };
 
-          const tickers = await getCachedData(cacheKey, fetchFn);
-          setTickerData(tickers);
-        } catch (error) {
-          const errorMessage =
-            error.response?.status === 429
-              ? 'CoinGecko API rate limit exceeded. Please try again later.'
-              : error.response?.status === 404
-                ? `Ticker data not found for ${tokenId}.`
-                : error.response?.data?.detail || `Failed to load ticker data for ${tokenId}.`;
-          setTickerError(errorMessage);
-        } finally {
-          setIsLoadingTickers(false);
+        const tickers = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TICKERS);
+        setTickerData(tickers);
+        setTickerError(null);
+        toast.success(`Tải dữ liệu CEX cho ${tokenId} thành công!`, { position: 'top-center', autoClose: 3000 });
+      } catch (error) {
+        console.error(`Lỗi khi lấy ticker data cho ${tokenId} (lần thử ${retryCount + 1}):`, {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message,
+        });
+        if (retryCount < 3 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) {
+          const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+          console.log(`Thử lại sau ${delay}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          return fetchTickerData(tokenId, retryCount + 1);
         }
-      },
-      300
-    ),
-    [COINGECKO_API_KEY]
-  );
+        const errorMessage =
+          error.response?.status === 429
+            ? 'CoinGecko API rate limit exceeded. Vui lòng thử lại sau vài phút.'
+            : error.response?.status === 404
+              ? `Không tìm thấy dữ liệu CEX cho ${tokenId}.`
+              : error.response?.status === 500
+                ? 'Lỗi server khi lấy dữ liệu CEX. Vui lòng thử lại sau.'
+                : error.response?.data?.detail || `Không thể tải dữ liệu CEX cho ${tokenId}: ${error.message}`;
+        setTickerError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      } finally {
+        setIsLoadingTickers(false);
+        console.log(`Hoàn tất fetchTickerData cho ${tokenId}, isLoadingTickers: false`);
+      }
+    },
+    300
+  ),
+  [COINGECKO_API_KEY, toast]
+);
 
   const fetchOnChainData = useCallback(
     debounce(
