@@ -197,7 +197,7 @@ export const authOptions = {
         token.apiKey = rows[0].api_key;
         token.isPremium = rows[0].is_premium;
       }
-      token.csrfToken = randomBytes(32).toString('hex');
+      token.csrfToken = token.csrfToken || randomBytes(32).toString('hex'); // Đảm bảo luôn có csrfToken
       return token;
     },
     async session({ session, token }) {
@@ -207,7 +207,7 @@ export const authOptions = {
       session.user.googleName = token.googleName;
       session.user.apiKey = token.apiKey;
       session.user.isPremium = token.isPremium || false;
-      session.csrfToken = token.csrfToken;
+      session.csrfToken = token.csrfToken; // Đảm bảo lưu csrfToken vào session
       return session;
     },
   },

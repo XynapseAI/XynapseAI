@@ -54,17 +54,21 @@ async function checkCSRF(request, session) {
   logger.info('Kiểm tra CSRF', {
     receivedToken: csrfToken,
     sessionToken: session?.csrfToken,
+    userId: session?.user?.id,
   });
   if (process.env.NODE_ENV === 'development') {
     logger.info('Bỏ qua kiểm tra CSRF trong chế độ phát triển');
     return true;
   }
   if (!csrfToken || !session?.csrfToken || csrfToken !== session.csrfToken) {
-    logger.warn(`Kiểm tra CSRF thất bại: Token CSRF không hợp lệ: ${csrfToken || 'none'}`, {
+    logger.warn(`Kiểm tra CSRF thất bại: Token CSRF không hợp lệ`, {
+      receivedToken: csrfToken || 'none',
+      sessionToken: session?.csrfToken || 'none',
       ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
     });
     return false;
   }
+  logger.info('Kiểm tra CSRF thành công', { userId: session.user.id });
   return true;
 }
 

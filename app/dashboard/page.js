@@ -74,7 +74,8 @@ export default function Dashboard() {
       setIsFetchingCsrf(true);
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // Giảm timeout xuống 10 giây
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // Giảm timeout xuống 5 giây
+        console.log('Bắt đầu lấy CSRF token...');
         const response = await fetch(`${API_BASE_URL}/api/csrf-token`, {
           method: 'GET',
           headers: {
@@ -84,25 +85,24 @@ export default function Dashboard() {
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
+        console.log('Phản hồi từ /api/csrf-token:', response.status, response.statusText);
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || 'Không thể lấy CSRF token');
         setCsrfToken(result.csrfToken);
-        if (!session?.csrfToken) {
-          try {
-            await update({ csrfToken: result.csrfToken });
-            console.log('CSRF token fetched and session updated:', result.csrfToken);
-          } catch (updateError) {
-            console.error('Lỗi khi cập nhật session:', updateError);
-            setError(`Không thể cập nhật session: ${updateError.message}. Vui lòng làm mới trang.`);
-          }
-        } else {
-          console.log('CSRF token already exists in session:', result.csrfToken);
+        try {
+          await update({ csrfToken: result.csrfToken });
+          console.log('CSRF token fetched and session updated:', result.csrfToken);
+        } catch (updateError) {
+          console.error('Lỗi khi cập nhật session:', updateError);
+          setError(`Không thể cập nhật session: ${updateError.message}. Vui lòng làm mới trang.`);
         }
       } catch (err) {
         console.error('Lỗi khi lấy CSRF token:', err);
         setError(`Không thể lấy CSRF token: ${err.message}. Vui lòng làm mới trang hoặc liên hệ hỗ trợ.`);
+        setCsrfToken(null); // Đặt lại csrfToken để thử lại
       } finally {
         setIsFetchingCsrf(false);
+        console.log('Hoàn tất fetchCsrfToken, isFetchingCsrf:', false);
       }
     }
     fetchCsrfToken();
@@ -168,12 +168,12 @@ export default function Dashboard() {
       try {
         if (!recaptchaRef.current) throw new Error('reCAPTCHA chưa được khởi tạo');
         let recaptchaToken = null;
-        for (let attempt = 1; attempt <= 3; attempt++) { // Giảm số lần thử reCAPTCHA
+        for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             await recaptchaRef.current.reset();
             recaptchaToken = await Promise.race([
               recaptchaRef.current.executeAsync(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA hết thời gian')), 10000)),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA hết thời gian')), 5000)),
             ]);
             if (recaptchaToken) break;
           } catch (err) {
@@ -183,21 +183,40 @@ export default function Dashboard() {
           }
         }
         if (!recaptchaToken) throw new Error('Không thể tạo reCAPTCHA token');
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // Giảm timeout xuống 10 giây
-        console.log('Bắt đầu lấy dữ liệu user...', { uid: session.user.id, csrfToken });
-        const response = await fetch(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Recaptcha-Token': recaptchaToken,
-            'X-CSRF-Token': csrfToken || '',
-          },
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        console.log('Phản hồi từ /api/user:', response.status, response.statusText);
+
+        // Retry logic cho yêu cầu /api/user
+        let response;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // Giảm timeout xuống 5 giây
+            console.log('Bắt đầu lấy dữ liệu user (lần thử', attempt, ')...', { uid: session.user.id, csrfToken });
+            response = await fetch(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Recaptcha-Token': recaptchaToken,
+                'X-CSRF-Token': csrfToken || '',
+              },
+              credentials: 'include',
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+            console.log('Phản hồi từ /api/user:', response.status, response.statusText);
+            if (response.ok) break;
+            if (response.status === 403 && attempt < 3) {
+              console.log('CSRF không hợp lệ, thử lại với CSRF token mới...');
+              await fetchCsrfToken(); // Thử lấy CSRF token mới
+            } else {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+          } catch (err) {
+            console.error('Lỗi khi lấy dữ liệu user (lần thử', attempt, '):', err);
+            if (attempt === 3) throw err;
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+        }
+
         const result = await response.json();
         if (!response.ok) {
           if (result.detail?.includes('User not found')) {
@@ -215,7 +234,8 @@ export default function Dashboard() {
           tweetPoints: result.user.tweet_points,
           aiPoints: result.user.ai_points,
         });
-        setError(null); // Xóa lỗi nếu thành công
+        setError(null);
+        toast.success('Tải dữ liệu người dùng thành công!', { position: 'top-center' });
       } catch (err) {
         console.error('Lỗi khi lấy dữ liệu người dùng:', err);
         if (err.message.includes('HTTP 404')) {
@@ -225,6 +245,7 @@ export default function Dashboard() {
         } else {
           setUserData(null);
           setError(`Không thể lấy dữ liệu người dùng: ${err.message}. Vui lòng làm mới trang hoặc liên hệ hỗ trợ.`);
+          toast.error(`Lỗi: ${err.message}`, { position: 'top-center' });
         }
       } finally {
         setLoading(false);
