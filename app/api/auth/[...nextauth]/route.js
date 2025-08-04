@@ -22,7 +22,7 @@ async function checkRateLimit(ip) {
   const client = await getRedisClient();
   const key = `rate_limit:auth:${ip}`;
   const windowMs = parseInt(process.env.AUTH_RATE_LIMIT_WINDOW || 60 * 1000);
-  const maxRequests = parseInt(process.env.AUTH_RATE_LIMIT_MAX || 10);
+  const maxRequests = parseInt(process.env.AUTH_RATE_LIMIT_MAX || 20);
 
   const requests = (await client.get(key)) || 0;
   if (requests >= maxRequests) throw new Error("Too many requests, slow down!");
