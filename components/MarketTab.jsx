@@ -406,7 +406,6 @@ const WalletBalances = ({
           </div>
         </div>
 
-
         <div className="overflow-y-auto max-h-[calc(80vh-100px)] rounded-lg custom-scrollbar">
           {activeTab === 'portfolio' && (
             <>
@@ -513,10 +512,12 @@ const WalletBalances = ({
                                   e.target.src = '/fallback-image.png';
                                 }}
                               />
-                              <div className="text-[9px] sm:text-[10px] flex flex-col items-start pl-6 sm:pl-7">
+                              <div className="text-[9px] sm:text-[10px] flex flex-col items-start pl-4 sm:pl-5">
                                 <span>{balance.symbol || 'Unknown'} {balance.address === 'native' ? '' : ''}</span>
                                 {balance.price_usd != null && (
-                                  <span className="text-[8px] sm:text-[10px] text-gray-400">{formatPrice(balance.price_usd)}</span>
+                                  <span className="text-[8px] sm:text-[10px] text-gray-400">
+                                    {balance.price_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -542,7 +543,6 @@ const WalletBalances = ({
             </>
           )}
 
-
           {activeTab === 'activity' && (
             <>
               {isLoadingTransactions ? (
@@ -564,7 +564,7 @@ const WalletBalances = ({
                   <table className="w-full table-fixed">
                     <thead className="text-[10px] sm:text-[xs] sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md uppercase">
                       <tr>
-                        <th className="px-2 py-2 text-white text-left font-medium w-[15%]">
+                        <th className="px-2 py-2 text-white text-left font-medium w-[10%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -581,7 +581,7 @@ const WalletBalances = ({
                             Token
                           </div>
                         </th>
-                        <th className="px-2 py-2 text-white text-left font-medium w-[30%]">
+                        <th className="px-2 py-2 text-white text-left font-medium w-[35%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -598,7 +598,7 @@ const WalletBalances = ({
                             Address
                           </div>
                         </th>
-                        <th className="px-2 py-2 text-white text-left font-medium w-[25%]">
+                        <th className="px-2 py-2 text-white text-left font-medium w-[30%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -612,7 +612,7 @@ const WalletBalances = ({
                             Value
                           </div>
                         </th>
-                        <th className="px-2 py-2 text-white text-center font-medium w-[30%]">
+                        <th className="px-2 py-2 text-white text-center font-medium w-[35%]">
                           <div className="flex items-center justify-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -644,7 +644,7 @@ const WalletBalances = ({
                             key={`${tx.chain}-${tx.hash}-${index}`}
                             className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
                           >
-                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
+                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[10%]' : 'w-[10%]'}`}>
                               <div className="flex flex-col items-start space-y-1 relative">
                                 {tx.token_metadata?.logo && (
                                   <img
@@ -663,7 +663,7 @@ const WalletBalances = ({
                                 <img
                                   src={getPlatformImage(tx.chain)}
                                   alt={`${chainName} logo`}
-                                  className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-3 top-[2px] sm:left-4 sm:top-[2px]"
+                                  className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-3 top-[-6px] sm:left-4 sm:top-[2px]"
                                   onError={(e) => {
                                     logger.error('Transaction chain logo failed to load:', {
                                       chain: tx.chain,
@@ -673,10 +673,10 @@ const WalletBalances = ({
                                     e.target.src = '/fallback-image.png';
                                   }}
                                 />
-                                <span className="pl-6 sm:pl-7 text-[8px] sm:text-[10px]">{tx.token || 'Unknown'}</span>
+                                <span className="pl-4 sm:pl-5 text-[8px] sm:text-[10px]">{tx.token || 'Unknown'}</span>
                               </div>
                             </td>
-                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[35%]' : 'w-[35%]'}`}>
                               <div className="flex flex-col items-center space-y-1">
                                 <span
                                   className={`inline-flex px-1.5 py-0.5 rounded-lg text-[7px] sm:text-[8px] font-medium flex-shrink-0 ${tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'}`}
@@ -711,10 +711,10 @@ const WalletBalances = ({
                                 </div>
                               </div>
                             </td>
-                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
+                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
                               {formatNumber(tx.value)}
                             </td>
-                            <td className={`px-2 py-2 text-gray-200 text-[8px] sm:text-xs text-center ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
+                            <td className={`px-2 py-2 text-gray-200 text-[8px] sm:text-xs text-center ${isMobile ? 'w-[35%]' : 'w-[35%]'}`}>
                               <div className="flex flex-col items-center gap-0.5">
                                 <a href={txUrl} target="_blank" rel="noreferrer" className="flex-shrink-0">
                                   <img
@@ -742,7 +742,10 @@ const WalletBalances = ({
           )}
         </div>
       </div>
-    </motion.div>); return createPortal(overlayContent, document.body);
+    </motion.div>
+  );
+
+  return createPortal(overlayContent, document.body);
 };
 
 

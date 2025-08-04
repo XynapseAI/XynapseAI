@@ -720,86 +720,74 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   );
 
   const fetchTickerData = useCallback(
-  debounce(
-    async (tokenId, retryCount = 0) => {
-      if (!tokenId || document.visibilityState !== 'visible') return;
-      const cacheKey = `ticker-${tokenId}`;
-      setIsLoadingTickers(true);
-      setTickerError(null);
-      setTickerData([]); // Initialize as empty array
-      try {
-        const fetchFn = async () => {
-          let response;
-          const params = { include_exchange_logo: true };
-          console.log(`Starting fetch ticker data for ${tokenId} (attempt ${retryCount + 1})`);
-          if (process.env.NODE_ENV === 'development') {
-            response = await coingeckoAxios.get(`https://api.coingecko.com/api/v3/coins/${tokenId}/tickers`, {
-              params,
-              headers: {
-                accept: 'application/json',
-                ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
-              },
-              timeout: 15000,
-            });
-            console.log(`Raw CoinGecko response for ${tokenId} tickers:`, JSON.stringify(response.data, null, 2));
-            // Handle direct CoinGecko response
-            if (!response.data || !Array.isArray(response.data.tickers)) {
-              throw new Error(`Invalid or missing ticker data from CoinGecko for ${tokenId}: ${JSON.stringify(response.data)}`);
-            }
-            return response.data.tickers;
-          } else {
-            response = await axios.get('/api/coingecko', {
-              params: {
-                action: 'tickers',
-                id: tokenId,
-                include_exchange_logo: true,
-              },
-              timeout: 15000,
-            });
-            console.log(`Raw API response for ${tokenId} tickers:`, JSON.stringify(response.data, null, 2));
-            if (!response.data.success || !Array.isArray(response.data.data?.tickers)) {
-              throw new Error(`Invalid or missing ticker data from server for ${tokenId}: ${JSON.stringify(response.data)}`);
-            }
-            return response.data.data.tickers;
-          }
-        };
-
-        const tickers = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TICKERS);
-        setTickerData(tickers || []);
+    debounce(
+      async (tokenId, retryCount = 0) => {
+        if (!tokenId || document.visibilityState !== 'visible') return;
+        const cacheKey = `ticker-${tokenId}`;
+        setIsLoadingTickers(true);
         setTickerError(null);
-        toast.success(`Successfully loaded CEX data for ${tokenId}!`, { position: 'top-center', autoClose: 3000 });
-      } catch (error) {
-        console.error(`Error fetching ticker data for ${tokenId} (attempt ${retryCount + 1}):`, {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-        });
-        if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 404 || error.code === 'ECONNABORTED')) {
-          const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
-          console.log(`Retrying after ${delay}ms...`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          return fetchTickerData(tokenId, retryCount + 1);
+        setTickerData([]); // Initialize as empty array
+        try {
+          const fetchFn = async () => {
+            let response;
+            const params = { include_exchange_logo: true };
+            if (process.env.NODE_ENV === 'development') {
+              response = await coingeckoAxios.get(`https://api.coingecko.com/api/v3/coins/${tokenId}/tickers`, {
+                params,
+                headers: {
+                  accept: 'application/json',
+                  ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
+                },
+                timeout: 15000,
+              });
+              // Handle direct CoinGecko response
+              if (!response.data || !Array.isArray(response.data.tickers)) {
+                throw new Error(`Invalid or missing ticker data from CoinGecko for ${tokenId}: ${JSON.stringify(response.data)}`);
+              }
+              return response.data.tickers;
+            } else {
+              response = await axios.get('/api/coingecko', {
+                params: {
+                  action: 'tickers',
+                  id: tokenId,
+                  include_exchange_logo: true,
+                },
+                timeout: 15000,
+              });
+              if (!response.data.success || !Array.isArray(response.data.data?.tickers)) {
+                throw new Error(`Invalid or missing ticker data from server for ${tokenId}: ${JSON.stringify(response.data)}`);
+              }
+              return response.data.data.tickers;
+            }
+          };
+
+          const tickers = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TICKERS);
+          setTickerData(tickers || []);
+          setTickerError(null);
+        } catch (error) {
+          if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 404 || error.code === 'ECONNABORTED')) {
+            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return fetchTickerData(tokenId, retryCount + 1);
+          }
+          const errorMessage =
+            error.response?.status === 429
+              ? 'CoinGecko API rate limit exceeded. Please try again in a few minutes.'
+              : error.response?.status === 404
+                ? `No CEX data found for ${tokenId}.`
+                : error.response?.status === 500
+                  ? 'Server error while fetching CEX data. Please try again later.'
+                  : error.response?.data?.detail || `Failed to load CEX data for ${tokenId}: ${error.message}`;
+          setTickerError(errorMessage);
+          setTickerData([]); // Ensure empty array on error
+        } finally {
+          setIsLoadingTickers(false);
         }
-        const errorMessage =
-          error.response?.status === 429
-            ? 'CoinGecko API rate limit exceeded. Please try again in a few minutes.'
-            : error.response?.status === 404
-              ? `No CEX data found for ${tokenId}.`
-              : error.response?.status === 500
-                ? 'Server error while fetching CEX data. Please try again later.'
-                : error.response?.data?.detail || `Failed to load CEX data for ${tokenId}: ${error.message}`;
-        setTickerError(errorMessage);
-        setTickerData([]); // Ensure empty array on error
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      } finally {
-        setIsLoadingTickers(false);
-        console.log(`Completed fetchTickerData for ${tokenId}, isLoadingTickers: false`);
-      }
-    },
-    300
-  ),
-  [COINGECKO_API_KEY, toast]
-);
+      },
+      300
+    ),
+    [COINGECKO_API_KEY]
+  );
 
   const fetchOnChainData = useCallback(
     debounce(
