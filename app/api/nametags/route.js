@@ -8,41 +8,77 @@ import { query } from '../../../utils/postgres';
 import { isAddress } from 'ethers';
 import { getNametagsBatch, addNametag } from '../../../lib/nametags';
 
-async function checkRateLimit(ip) {
-  const redisClient = await getRedisClient();
-  const key = `rate_limit:nametags:${ip}`;
-  const requests = parseInt(await redisClient.get(key)) || 0;
-  const windowMs = 60 * 1000;
-  if (requests >= 500) {
-    throw new Error('Too many requests. Please try again later.');
-  }
-  await redisClient
-    .multi()
-    .incr(key)
-    .expire(key, windowMs / 1000)
-    .exec();
-}
-
+// List of allowed origins for CORS
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
   'http://localhost:3000',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
-  'https://xynapse-ai.vercel.app', 
+  'https://xynapse-ai.vercel.app',
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://postgres-production-e852c.up.railway.app',
   'https://xynapseai-production.up.railway.app',
-];
+].filter((v, i, a) => a.indexOf(v) === i);
 
-async function checkCSRF(request) {
-  const origin = request.headers.get('origin') || request.headers.get('referer')?.split('/').slice(0, 3).join('/');
-  if (!origin || !allowedOrigins.some((allowed) => origin.startsWith(allowed))) {
-    logger.warn(`Invalid or missing Origin/Referer header: ${origin}`);
-    return false;
+// Rate limiting with Redis
+async function checkRateLimit(ip) {
+  try {
+    const redisClient = await getRedisClient();
+    const key = `rate_limit:nametags:${ip}`;
+    const requests = parseInt(await redisClient.get(key)) || 0;
+    const windowMs = 60 * 1000; // 1 minute window
+    if (requests >= 500) {
+      logger.warn(`Rate limit exceeded for IP ${ip}`);
+      throw new Error('Too many requests. Please try again later.');
+    }
+    await redisClient
+      .multi()
+      .incr(key)
+      .expire(key, windowMs / 1000)
+      .exec();
+  } catch (err) {
+    logger.error(`Redis error in rate limiting: ${err.message}`, { stack: err.stack });
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('Bypassing rate limiting in development due to Redis error');
+      return; // Allow in development
+    }
+    throw err;
   }
-  return true;
 }
 
+// Enhanced CSRF check with Vercel subdomain support
+async function checkCSRF(request) {
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  try {
+    if (origin && allowedOrigins.includes(origin)) {
+      logger.info('Origin allowed', { origin, referer });
+      return true;
+    }
+    if (origin && new URL(origin).hostname.endsWith('.vercel.app')) {
+      logger.info('Vercel domain allowed', { origin, referer });
+      return true;
+    }
+    if (!origin && referer) {
+      const refOrigin = new URL(referer).origin;
+      if (allowedOrigins.includes(refOrigin) || new URL(refOrigin).hostname.endsWith('.vercel.app')) {
+        logger.info('Referer origin allowed', { origin, referer, refOrigin });
+        return true;
+      }
+    }
+    if (!origin && !referer && process.env.NODE_ENV !== 'production') {
+      logger.info('Allowing internal/SSR request or development mode');
+      return true;
+    }
+    logger.warn(`Invalid or missing Origin/Referer header: ${origin || 'none'}`, { referer });
+    return false;
+  } catch (error) {
+    logger.error('Error in checkCSRF', { error: error.message, origin, referer });
+    return false;
+  }
+}
+
+// Check admin status for PUT/PATCH requests
 async function checkAdminStatus(uid) {
   if (!uid) return false;
   try {
@@ -55,6 +91,7 @@ async function checkAdminStatus(uid) {
   }
 }
 
+// Fetch wallet analysis data
 async function getWalletAnalysis(address) {
   try {
     const result = await query(
@@ -70,6 +107,7 @@ async function getWalletAnalysis(address) {
   }
 }
 
+// Validation schemas
 const getSchema = z.object({
   address: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Invalid EVM address' }),
 });
@@ -104,19 +142,39 @@ const putSchema = z.object({
     ),
 });
 
+// GET handler
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  logger.info(`GET request to /api/nametags from IP ${ip}`);
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  logger.info(`GET request to /api/nametags from IP ${ip}`, { origin, referer });
 
   if (!(await checkCSRF(request))) {
-    return NextResponse.json({ error: 'Invalid or missing Origin/Referer header.' }, { status: 403 });
+    logger.error(`CORS error: Origin ${origin || 'null'} or Referer ${referer || 'null'} not allowed`);
+    return NextResponse.json(
+      { error: 'Invalid or missing Origin/Referer header.' },
+      {
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Security-Policy': "default-src 'self'",
+          'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH',
+          'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key, X-Hmac-Signature',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      }
+    );
   }
 
   try {
     await checkRateLimit(ip);
   } catch (err) {
     logger.warn(`Rate limit exceeded for nametags API: ${err.message}`);
-    return NextResponse.json({ success: false, detail: err.message }, { status: 429 });
+    return NextResponse.json(
+      { success: false, detail: err.message },
+      { status: 429, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   let parsedParams;
@@ -124,13 +182,19 @@ export async function GET(request) {
     parsedParams = getSchema.parse(Object.fromEntries(request.nextUrl.searchParams));
   } catch (err) {
     logger.warn(`Validation error: ${err.message}`, { ip });
-    return NextResponse.json({ detail: 'Validation failed', errors: err.errors }, { status: 400 });
+    return NextResponse.json(
+      { detail: 'Validation failed', errors: err.errors },
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   const { address } = parsedParams;
   if (!address) {
     logger.warn('GET request without address is not supported');
-    return NextResponse.json({ success: false, detail: 'Address is required for GET request' }, { status: 400 });
+    return NextResponse.json(
+      { success: false, detail: 'Address is required for GET request' },
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   const normalizedAddress = address.toLowerCase();
@@ -157,35 +221,68 @@ export async function GET(request) {
 
     if (nametag && nametag.name !== 'Unknown') {
       logger.info(`Nametag found for address ${normalizedAddress}: ${nametag.name}`);
-      return NextResponse.json({ success: true, data: { [normalizedAddress]: responseData } }, { status: 200 });
+      return NextResponse.json(
+        { success: true, data: { [normalizedAddress]: responseData } },
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Security-Policy': "default-src 'self'",
+            'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH',
+            'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key, X-Hmac-Signature',
+            'Access-Control-Allow-Credentials': 'true',
+          },
+        }
+      );
     }
     logger.info(`Nametag not found for address: ${normalizedAddress}`);
     return NextResponse.json(
       { success: false, detail: `Nametag not found for address ${normalizedAddress}` },
-      { status: 404 }
+      { status: 404, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     logger.error(`Error fetching nametag for ${normalizedAddress}: ${error.message}`, { stack: error.stack });
     return NextResponse.json(
       { success: false, detail: `Failed to fetch nametag: ${error.message}` },
-      { status: 500 }
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }
 
+// POST handler
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  logger.info(`POST request to /api/nametags from IP ${ip}`);
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  logger.info(`POST request to /api/nametags from IP ${ip}`, { origin, referer });
 
   if (!(await checkCSRF(request))) {
-    return NextResponse.json({ error: 'Invalid or missing Origin/Referer header.' }, { status: 403 });
+    logger.error(`CORS error: Origin ${origin || 'null'} or Referer ${referer || 'null'} not allowed`);
+    return NextResponse.json(
+      { error: 'Invalid or missing Origin/Referer header.' },
+      {
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Security-Policy': "default-src 'self'",
+          'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH',
+          'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key, X-Hmac-Signature',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      }
+    );
   }
 
   try {
     await checkRateLimit(ip);
   } catch (err) {
     logger.warn(`Rate limit exceeded for nametags API: ${err.message}`);
-    return NextResponse.json({ success: false, detail: err.message }, { status: 429 });
+    return NextResponse.json(
+      { success: false, detail: err.message },
+      { status: 429, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   let body;
@@ -193,7 +290,10 @@ export async function POST(request) {
     body = await request.json();
   } catch (err) {
     logger.warn(`Invalid JSON body: ${err.message}`, { ip });
-    return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json(
+      { detail: 'Invalid JSON body' },
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   let parsedBody;
@@ -201,7 +301,10 @@ export async function POST(request) {
     parsedBody = postSchema.parse(body);
   } catch (err) {
     logger.warn(`Validation error: ${err.message}`, { ip });
-    return NextResponse.json({ detail: 'Validation failed', errors: err.errors }, { status: 400 });
+    return NextResponse.json(
+      { detail: 'Validation failed', errors: err.errors },
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   const { addresses } = parsedBody;
@@ -238,42 +341,78 @@ export async function POST(request) {
         data: result,
         metadata: { requested: normalizedAddresses.length, found: Object.keys(result).length },
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Security-Policy': "default-src 'self'",
+          'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH',
+          'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key, X-Hmac-Signature',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      }
     );
   } catch (error) {
     logger.error(`Error fetching batch nametags: ${error.message}`, { stack: error.stack });
     return NextResponse.json(
       { success: false, detail: `Failed to fetch nametags: ${error.message}` },
-      { status: 500 }
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }
 
+// PUT handler
 export async function PUT(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  logger.info(`PUT request to /api/nametags from IP ${ip}`);
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  logger.info(`PUT request to /api/nametags from IP ${ip}`, { origin, referer });
 
   if (!(await checkCSRF(request))) {
-    return NextResponse.json({ error: 'Invalid or missing Origin/Referer header.' }, { status: 403 });
+    logger.error(`CORS error: Origin ${origin || 'null'} or Referer ${referer || 'null'} not allowed`);
+    return NextResponse.json(
+      { error: 'Invalid or missing Origin/Referer header.' },
+      {
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Security-Policy': "default-src 'self'",
+          'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH',
+          'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key, X-Hmac-Signature',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      }
+    );
   }
 
   try {
     await checkRateLimit(ip);
   } catch (err) {
     logger.warn(`Rate limit exceeded for nametags API: ${err.message}`);
-    return NextResponse.json({ success: false, detail: err.message }, { status: 429 });
+    return NextResponse.json(
+      { success: false, detail: err.message },
+      { status: 429, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   const session = await auth();
   if (!session) {
     logger.warn('Unauthorized access attempt to nametags API (no session for PUT)');
-    return NextResponse.json({ success: false, detail: 'Unauthorized: Please log in.' }, { status: 401 });
+    return NextResponse.json(
+      { success: false, detail: 'Unauthorized: Please log in.' },
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   const isAdminUser = await checkAdminStatus(session.user.id);
   if (!isAdminUser) {
     logger.warn(`Forbidden access attempt to nametags API by non-admin user: ${session.user.id}`);
-    return NextResponse.json({ success: false, detail: 'Forbidden: Admin access required.' }, { status: 403 });
+    return NextResponse.json(
+      { success: false, detail: 'Forbidden: Admin access required.' },
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   let body;
@@ -281,7 +420,10 @@ export async function PUT(request) {
     body = await request.json();
   } catch (err) {
     logger.warn(`Invalid JSON body: ${err.message}`, { ip });
-    return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json(
+      { detail: 'Invalid JSON body' },
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   let parsedBody;
@@ -289,7 +431,10 @@ export async function PUT(request) {
     parsedBody = putSchema.parse(body);
   } catch (err) {
     logger.warn(`Validation error: ${err.message}`, { ip });
-    return NextResponse.json({ detail: 'Validation failed', errors: err.errors }, { status: 400 });
+    return NextResponse.json(
+      { detail: 'Validation failed', errors: err.errors },
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   const { address, labels } = parsedBody;
@@ -308,17 +453,28 @@ export async function PUT(request) {
         detail: `Nametag for ${address} successfully added/updated.`,
         data: { address, labels: normalizedLabels },
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Security-Policy': "default-src 'self'",
+          'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'),
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH',
+          'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key, X-Hmac-Signature',
+          'Access-Control-Allow-Credentials': 'true',
+        },
+      }
     );
   } catch (error) {
     logger.error(`Failed to add/update nametag for ${address}: ${error.message}`, { stack: error.stack });
     return NextResponse.json(
       { success: false, detail: `Failed to add/update nametag: ${error.message}` },
-      { status: 500 }
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }
 
+// PATCH handler (reuses PUT logic)
 export async function PATCH(request) {
-  return PUT(request); // Reuse PUT logic for PATCH
+  return PUT(request);
 }

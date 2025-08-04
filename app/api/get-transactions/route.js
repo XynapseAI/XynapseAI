@@ -137,6 +137,7 @@ async function getChainLogo(coingeckoId) {
 
 async function getNametagsBatch(addresses) {
   const uniqueAddresses = [...new Set(addresses.map(addr => addr.toLowerCase()).filter(isAddress))];
+  logger.info(`Fetching nametags for ${uniqueAddresses.length} addresses`, { addresses: uniqueAddresses.slice(0, 5) });
   const nametags = {};
   if (uniqueAddresses.length === 0) {
     logger.info('No valid addresses provided for nametag fetch.');
@@ -146,9 +147,11 @@ async function getNametagsBatch(addresses) {
     const batchSize = 100;
     for (let i = 0; i < uniqueAddresses.length; i += batchSize) {
       const batchAddresses = uniqueAddresses.slice(i, i + batchSize);
+      logger.info(`Querying nametags for batch: ${batchAddresses.length} addresses`);
       const result = await withRetry(() =>
         query(`SELECT address, nametag, image FROM nametags WHERE address = ANY($1)`, [batchAddresses])
       );
+      logger.info(`Received ${result.rows.length} nametags for batch`);
       result.rows.forEach(row => {
         const nametag = row.nametag || 'Unknown';
         let image = row.image || '/icons/default.png';
@@ -179,17 +182,17 @@ async function getNametagsBatch(addresses) {
     logger.info(`Fetched ${Object.keys(nametags).length} nametags, Unknown: ${Object.values(nametags).filter(tag => tag.name === 'Unknown').length}`);
     return nametags;
   } catch (error) {
-    logger.error(`Error fetching nametags: ${error.message}`, { stack: error.stack });
-    return uniqueAddresses.reduce((acc, addr) => ({
-      ...acc,
-      [addr]: {
+    logger.error(`Error fetching nametags: ${error.message}`, { stack: error.stack, addresses: uniqueAddresses.slice(0, 5) });
+    uniqueAddresses.forEach(addr => {
+      nametags[addr] = {
         address: addr,
         name: 'Unknown',
         image: '/icons/default.png',
         description: '',
         subcategory: 'Others',
-      },
-    }), {});
+      };
+    });
+    return nametags;
   }
 }
 
