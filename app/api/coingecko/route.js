@@ -76,8 +76,6 @@ export async function GET(request) {
     logger.warn(`Missing id parameter`, { ip });
     return NextResponse.json({ success: false, detail: 'Missing id parameter' }, { status: 400 });
   }
-
-  // Validate parameters
   if (action === 'public-treasury' && !tokenType) {
     logger.warn(`Missing tokenType parameter`, { ip });
     return NextResponse.json({ success: false, detail: 'Missing tokenType parameter' }, { status: 400 });
@@ -220,25 +218,37 @@ export async function GET(request) {
             cacheKey = `coingecko_tickers_${id}`;
             const cachedData = await redisClient.get(cacheKey);
             if (cachedData) {
-              logger.info(`Cache hit for ticker data: ${id}`, { ip });
-              controller.enqueue(new TextEncoder().encode(cachedData));
-              controller.close();
-              return;
+              const parsedCache = JSON.parse(cachedData);
+              if (parsedCache.success && Array.isArray(parsedCache.data?.tickers)) {
+                logger.info(`Cache hit for ticker data: ${id}`, { ip });
+                controller.enqueue(new TextEncoder().encode(JSON.stringify(parsedCache)));
+                controller.close();
+                return;
+              } else {
+                logger.warn(`Invalid cached ticker data for ${id}, fetching fresh data`, { ip });
+              }
             }
 
             const response = await fetchWithRateLimit(`https://api.coingecko.com/api/v3/coins/${id}/tickers`, {
               params: { include_exchange_logo: true },
               headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
-              timeout: 10000, // Giảm timeout xuống 10s
+              timeout: 15000, // Increase timeout to 15s
             });
-            data = response.data;
-            if (!data.tickers || !Array.isArray(data.tickers)) {
-              logger.warn(`Invalid ticker data for ${id}`, { ip });
-              controller.enqueue(JSON.stringify({ success: false, detail: `No valid ticker data for ${id}` }));
+            logger.info(`Raw CoinGecko response for tickers ${id}:`, JSON.stringify(response.data, null, 2));
+            if (!response.data || !Array.isArray(response.data.tickers)) {
+              logger.warn(`No valid tickers for ${id}: ${JSON.stringify(response.data)}`, { ip });
+              controller.enqueue(
+                JSON.stringify({
+                  success: false,
+                  detail: `No valid ticker data for ${id}`,
+                  data: { tickers: [] },
+                })
+              );
               controller.close();
               return;
             }
-            await redisClient.setEx(cacheKey, 5 * 60, JSON.stringify({ success: true, data })); // Cache 5 phút
+            data = { tickers: response.data.tickers };
+            await redisClient.setEx(cacheKey, 5 * 60, JSON.stringify({ success: true, data }));
             logger.info(`Successfully fetched and cached ticker data for ${id}, count: ${data.tickers.length}`, { ip });
           } else if (action === 'coin-details') {
             cacheKey = `coingecko_coin_details_${id}`;
@@ -306,10 +316,11 @@ export async function GET(request) {
               JSON.stringify({
                 success: false,
                 detail: error.response?.status === 429
-                  ? 'Please wait a moment and try again.'
+                  ? 'CoinGecko API rate limit exceeded. Please try again in a few minutes.'
                   : error.response?.status === 404
-                    ? 'Requested data not found.'
-                    : `Failed to fetch market data: ${error.response?.data?.error || error.message}`,
+                    ? `No data found for ${id}.`
+                    : `Failed to fetch data: ${error.response?.data?.error || error.message}`,
+                data: { tickers: [] }, // Ensure safe default
               })
             )
           );
