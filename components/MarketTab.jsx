@@ -429,7 +429,7 @@ const WalletBalances = ({
                   <table className="w-full table-fixed">
                     <thead className="text-[10px] sm:text-[xs] sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md uppercase">
                       <tr>
-                        <th className="px-2 py-2 text-white text-left font-medium w-[40%]">
+                        <th className="px-2 py-2 text-white text-left font-medium w-[30%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -446,7 +446,7 @@ const WalletBalances = ({
                             Token
                           </div>
                         </th>
-                        <th className="px-2 py-2 text-white text-left font-medium w-[30%]">
+                        <th className="px-2 py-2 text-white text-left font-medium w-[35%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -460,7 +460,7 @@ const WalletBalances = ({
                             Amount
                           </div>
                         </th>
-                        <th className="px-2 py-2 text-white text-left font-medium w-[30%]">
+                        <th className="px-2 py-2 text-white text-left font-medium w-[35%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -486,7 +486,7 @@ const WalletBalances = ({
                           className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
                         >
                           <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs">
-                            <div className="flex items-center space-x-2 relative">
+                            <div className="flex items-center space-x-1 relative">
                               {balance.logo && (
                                 <img
                                   src={balance.logo}
@@ -504,7 +504,7 @@ const WalletBalances = ({
                               <img
                                 src={getPlatformImage(balance.chain)}
                                 alt={`${balance.chain} logo`}
-                                className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-1 top-[2px] sm:left-2 sm:top-[2px]"
+                                className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-3 top-[2px] sm:left-4 sm:top-[2px]"
                                 onError={(e) => {
                                   logger.error('Platform logo failed to load:', {
                                     chain: balance.chain,
@@ -513,7 +513,7 @@ const WalletBalances = ({
                                   e.target.src = '/fallback-image.png';
                                 }}
                               />
-                              <div className="text-[9px] sm:text-[10px] flex flex-col items-start pl-4 sm:pl-5">
+                              <div className="text-[9px] sm:text-[10px] flex flex-col items-start pl-6 sm:pl-7">
                                 <span>{balance.symbol || 'Unknown'} {balance.address === 'native' ? '' : ''}</span>
                                 {balance.price_usd != null && (
                                   <span className="text-[8px] sm:text-[10px] text-gray-400">{formatPrice(balance.price_usd)}</span>
@@ -564,7 +564,7 @@ const WalletBalances = ({
                   <table className="w-full table-fixed">
                     <thead className="text-[10px] sm:text-[xs] sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md uppercase">
                       <tr>
-                        <th className="px-2 py-2 text-white text-left font-medium w-[25%]">
+                        <th className="px-2 py-2 text-white text-left font-medium w-[15%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -581,7 +581,7 @@ const WalletBalances = ({
                             Token
                           </div>
                         </th>
-                        <th className="px-2 py-2 text-white text-left font-medium w-[25%]">
+                        <th className="px-2 py-2 text-white text-left font-medium w-[30%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -598,7 +598,7 @@ const WalletBalances = ({
                             Address
                           </div>
                         </th>
-                        <th className="px-2 py-2 text-white text-left font-medium w-[20%]">
+                        <th className="px-2 py-2 text-white text-left font-medium w-[25%]">
                           <div className="flex items-center gap-2">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -638,13 +638,14 @@ const WalletBalances = ({
                         const { text: displayAddress, image: addressImage } = truncateAddress(
                           tx.type === 'receive' ? tx.from : tx.to,
                           nameTags
-                        ); return (
+                        );
+                        return (
                           <tr
                             key={`${tx.chain}-${tx.hash}-${index}`}
                             className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
                           >
-                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
-                              <div className="flex items-center space-x-2 relative">
+                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[15%]' : 'w-[15%]'}`}>
+                              <div className="flex flex-col items-start space-y-1 relative">
                                 {tx.token_metadata?.logo && (
                                   <img
                                     src={tx.token_metadata.logo}
@@ -662,7 +663,7 @@ const WalletBalances = ({
                                 <img
                                   src={getPlatformImage(tx.chain)}
                                   alt={`${chainName} logo`}
-                                  className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-1 top-[-2px] sm:left-2 sm:top-[-1px]"
+                                  className="w-2 h-2 sm:w-3 sm:h-3 rounded-full absolute left-3 top-[2px] sm:left-4 sm:top-[2px]"
                                   onError={(e) => {
                                     logger.error('Transaction chain logo failed to load:', {
                                       chain: tx.chain,
@@ -672,10 +673,10 @@ const WalletBalances = ({
                                     e.target.src = '/fallback-image.png';
                                   }}
                                 />
-                                <span className="pl-4 sm:pl-5">{tx.token || 'Unknown'}</span>
+                                <span className="pl-6 sm:pl-7 text-[8px] sm:text-[10px]">{tx.token || 'Unknown'}</span>
                               </div>
                             </td>
-                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
+                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
                               <div className="flex flex-col items-center space-y-1">
                                 <span
                                   className={`inline-flex px-1.5 py-0.5 rounded-lg text-[7px] sm:text-[8px] font-medium flex-shrink-0 ${tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'}`}
@@ -710,7 +711,7 @@ const WalletBalances = ({
                                 </div>
                               </div>
                             </td>
-                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[20%]' : 'w-[20%]'}`}>
+                            <td className={`px-2 py-2 text-gray-200 text-[9px] sm:text-xs ${isMobile ? 'w-[25%]' : 'w-[25%]'}`}>
                               {formatNumber(tx.value)}
                             </td>
                             <td className={`px-2 py-2 text-gray-200 text-[8px] sm:text-xs text-center ${isMobile ? 'w-[30%]' : 'w-[30%]'}`}>
@@ -1189,16 +1190,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
             {/* Select Chain */}
             <div className="relative flex-1" ref={chainDropdownRef}>
               <motion.button
-  onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-  className={`text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-2 border-2 border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 rounded-xl w-full ${
-    selectedToken?.id && ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase())
-      ? 'opacity-50 cursor-not-allowed'
-      : ''
-  }`}
-  disabled={!selectedToken || (selectedToken.id && ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()))}
-  aria-label="Select chain"
-  whileHover={{ scale: 1 }}
->
+                onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
+                className={`text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-2 border-2 border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 rounded-xl w-full ${selectedToken?.id && ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase())
+                  ? 'opacity-50 cursor-not-allowed'
+                  : ''
+                  }`}
+                disabled={!selectedToken || (selectedToken.id && ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()))}
+                aria-label="Select chain"
+                whileHover={{ scale: 1 }}
+              >
                 {selectedChain ? (
                   <>
                     <img

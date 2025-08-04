@@ -20,7 +20,7 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:cache:${ip}`;
   const requests = parseInt(await redisClient.get(key)) || 0;
   const windowMs = 60 * 1000;
-  if (requests >= 100) {
+  if (requests >= 150) {
     throw new Error('Too many requests, please try again later.');
   }
   await redisClient.multi()
