@@ -40,13 +40,16 @@ const customAdapter = {
     return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
   },
   async createUser(data) {
-    const id = data.id || uuidv4();
+    const id = data.google_id || data.id || uuidv4();
     logger.info('Creating user', { id, email: data.email });
     const { rows } = await query(
       `INSERT INTO users (id,email,google_id,google_name,email_verified,profile_picture,
          connected,last_connected,points,tweet_points,ai_points,task_points,is_creator,
          is_ai_rank,tier,is_plus,is_premium,api_key,created_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+       ON CONFLICT (google_id) DO UPDATE SET
+         email=$2,google_name=$4,email_verified=$5,profile_picture=$6,connected=$7,
+         last_connected=$8,updated_at=$19
        RETURNING *`,
       [
         id, data.email, data.google_id || null, data.google_name || null,
@@ -55,6 +58,7 @@ const customAdapter = {
         randomBytes(32).toString('hex'), new Date(),
       ]
     );
+    logger.info('User created', { id, email: data.email, rowCount: rows.length });
     return { ...rows[0], id: rows[0].id.toString() };
   },
   async updateUser(data) {
@@ -69,6 +73,7 @@ const customAdapter = {
         new Date(), new Date(),
       ]
     );
+    logger.info('User updated', { id: data.id, rowCount: rows.length });
     return { ...rows[0], id: rows[0].id.toString() };
   },
   async createVerificationToken({ identifier, expires, token }) {
@@ -99,7 +104,7 @@ export const authOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
-          prompt: 'consent', // Force consent screen for testing
+          prompt: 'consent',
           access_type: 'offline',
           response_type: 'code',
         },
@@ -151,18 +156,28 @@ export const authOptions = {
           return false;
         }
 
-        await query(
+        // Kiểm tra người dùng đã tồn tại với google_id
+        const existingUser = await query(`SELECT id FROM users WHERE google_id=$1`, [googleId]);
+        if (existingUser.rows[0]) {
+          userId = existingUser.rows[0].id;
+        }
+
+        const result = await query(
           `INSERT INTO users (id,email,google_id,google_name,email_verified,profile_picture,
              connected,last_connected,points,tweet_points,ai_points,task_points,is_creator,is_ai_rank,
              tier,is_plus,is_premium,api_key,created_at)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
-           ON CONFLICT (email) DO UPDATE SET google_id=$3,google_name=$4,email_verified=$5,
-             profile_picture=$6,connected=$7,last_connected=$8,updated_at=$19`,
+           ON CONFLICT (google_id) DO UPDATE SET
+             email=$2,google_name=$4,email_verified=$5,profile_picture=$6,connected=$7,
+             last_connected=$8,updated_at=$19
+           RETURNING *`,
           [
             userId, email, googleId, googleName, verified, profilePic, true, new Date(),
             0, 0, 0, 0, false, false, 'Basic', false, false, randomBytes(32).toString('hex'), new Date(),
           ]
         );
+
+        logger.info('User insert/update result', { userId, email, rowCount: result.rowCount });
 
         if (account.provider === 'google') {
           await query(
@@ -197,7 +212,7 @@ export const authOptions = {
         token.apiKey = rows[0].api_key;
         token.isPremium = rows[0].is_premium;
       }
-      token.csrfToken = token.csrfToken || randomBytes(32).toString('hex'); // Đảm bảo luôn có csrfToken
+      token.csrfToken = token.csrfToken || randomBytes(32).toString('hex');
       return token;
     },
     async session({ session, token }) {
@@ -207,7 +222,7 @@ export const authOptions = {
       session.user.googleName = token.googleName;
       session.user.apiKey = token.apiKey;
       session.user.isPremium = token.isPremium || false;
-      session.csrfToken = token.csrfToken; // Đảm bảo lưu csrfToken vào session
+      session.csrfToken = token.csrfToken;
       return session;
     },
   },

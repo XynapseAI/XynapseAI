@@ -37,31 +37,60 @@ const allowedOrigins = [
   "http://localhost:3000",
   "https://xynapseai.net",
   "https://www.xynapseai.net",
-  'https://xynapse-ai.vercel.app', 
-  'https://xynapse-ai-xynapse-projects.vercel.app',
+  "https://xynapse-ai.vercel.app",
+  "https://xynapse-ai-xynapse-projects.vercel.app",
+  "https://*.xynapseai.net",
 ].filter((v, i, a) => a.indexOf(v) === i);
 
 // Function kiểm tra Origin / Referer
-function isAllowedOrigin(origin, referer) {
+function isAllowedOrigin(origin, referer, pathname) {
+  logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
   try {
+    // Cho phép yêu cầu callback từ Google OAuth
+    if (pathname.includes('/api/auth/callback/google') && referer && referer.startsWith('https://accounts.google.com/')) {
+      logger.info('Allowing Google OAuth callback', { referer });
+      return true;
+    }
+
     // 1. Nếu có Origin và hợp lệ
     if (origin) {
-      if (allowedOrigins.includes(origin)) return true;
+      if (allowedOrigins.includes(origin)) {
+        logger.info('Origin allowed', { origin });
+        return true;
+      }
       const hostname = new URL(origin).hostname;
-      if (hostname.endsWith(".vercel.app")) return true;
+      if (hostname.endsWith(".vercel.app") || hostname.endsWith("xynapseai.net")) {
+        logger.info('Dynamic domain allowed', { origin, hostname });
+        return true;
+      }
     }
     // 2. Nếu Origin null nhưng Referer hợp lệ
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
-      if (allowedOrigins.includes(refOrigin)) return true;
+      if (allowedOrigins.includes(refOrigin)) {
+        logger.info('Referer origin allowed', { referer, refOrigin });
+        return true;
+      }
       const hostname = new URL(refOrigin).hostname;
-      if (hostname.endsWith(".vercel.app")) return true;
+      if (hostname.endsWith(".vercel.app") || hostname.endsWith("xynapseai.net")) {
+        logger.info('Referer dynamic domain allowed', { referer, hostname });
+        return true;
+      }
     }
     // 3. Nếu cả Origin và Referer null (SSR hoặc internal)
-    if (!origin && !referer) return true;
-
+    if (!origin && !referer) {
+      logger.info('Allowing internal/SSR request');
+      return true;
+    }
+    // 4. Cho phép trong môi trường phát triển nếu Origin null
+    if (!origin && process.env.NODE_ENV === 'development') {
+      logger.warn('Origin is null, allowing in development mode');
+      return true;
+    }
+    logger.error('CORS blocked', { origin, referer, pathname });
     return false;
-  } catch {
+  } catch (err) {
+    logger.error('Error in isAllowedOrigin', { error: err.message, origin, referer, pathname });
     return false;
   }
 }
@@ -72,11 +101,12 @@ const rateLimitedHandler = (handler) =>
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const origin = req.headers.get("origin");
     const referer = req.headers.get("referer");
+    const pathname = req.nextUrl.pathname;
 
-    logger.info(`Auth Request: IP=${ip}, Origin=${origin || "null"}, Referer=${referer || "null"}`);
+    logger.info(`Auth Request: IP=${ip}, Origin=${origin || "null"}, Referer=${referer || "null"}, Pathname=${pathname}`);
 
-    if (!isAllowedOrigin(origin, referer)) {
-      logger.error(`CORS blocked: Origin=${origin || "null"}, Referer=${referer || "null"}`);
+    if (!isAllowedOrigin(origin, referer, pathname)) {
+      logger.error(`CORS blocked: Origin=${origin || "null"}, Referer=${referer || "null"}, Pathname=${pathname}`);
       return NextResponse.json({ detail: "CORS Not Allowed" }, { status: 403 });
     }
 
@@ -87,7 +117,7 @@ const rateLimitedHandler = (handler) =>
     }
 
     const res = await handler(req, ...args);
-    const allowOrigin = origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL);
+    const allowOrigin = origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000");
     res.headers.set("Access-Control-Allow-Origin", allowOrigin);
     res.headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
     res.headers.set("Access-Control-Allow-Headers", "Content-Type,X-CSRF-Token");

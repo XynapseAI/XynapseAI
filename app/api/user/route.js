@@ -1,4 +1,3 @@
-// app\api\user\route.js
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';
@@ -82,29 +81,31 @@ function isAllowedOrigin(origin, referer) {
     'https://www.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
+    'https://*.xynapseai.net', // Thêm wildcard cho subdomain
   ].filter((v, i, a) => a.indexOf(v) === i);
 
+  logger.info('Checking origin', { origin, referer, allowedOrigins });
   try {
     if (origin) {
       if (allowedOrigins.includes(origin)) {
-        logger.info('Origin allowed', { origin, referer });
+        logger.info('Origin allowed', { origin });
         return true;
       }
       const hostname = new URL(origin).hostname;
-      if (hostname.endsWith('.vercel.app')) {
-        logger.info('Vercel domain allowed', { origin, referer });
+      if (hostname.endsWith('.vercel.app') || hostname.endsWith('xynapseai.net')) {
+        logger.info('Dynamic domain allowed', { origin, hostname });
         return true;
       }
     }
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (allowedOrigins.includes(refOrigin)) {
-        logger.info('Referer origin allowed', { origin, referer, refOrigin });
+        logger.info('Referer origin allowed', { referer, refOrigin });
         return true;
       }
       const hostname = new URL(refOrigin).hostname;
-      if (hostname.endsWith('.vercel.app')) {
-        logger.info('Vercel referer domain allowed', { origin, referer, refOrigin });
+      if (hostname.endsWith('.vercel.app') || hostname.endsWith('xynapseai.net')) {
+        logger.info('Referer dynamic domain allowed', { referer, hostname });
         return true;
       }
     }

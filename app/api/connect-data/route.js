@@ -74,29 +74,31 @@ function isAllowedOrigin(origin, referer) {
     'https://www.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
+    'https://*.xynapseai.net', // Thêm wildcard cho subdomain
   ].filter((v, i, a) => a.indexOf(v) === i);
 
+  logger.info('Checking origin', { origin, referer, allowedOrigins });
   try {
     if (origin) {
       if (allowedOrigins.includes(origin)) {
-        logger.info('Origin được phép', { origin, referer });
+        logger.info('Origin được phép', { origin });
         return true;
       }
       const hostname = new URL(origin).hostname;
-      if (hostname.endsWith('.vercel.app')) {
-        logger.info('Domain Vercel được phép', { origin, referer });
+      if (hostname.endsWith('.vercel.app') || hostname.endsWith('xynapseai.net')) {
+        logger.info('Domain động được phép', { origin, hostname });
         return true;
       }
     }
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (allowedOrigins.includes(refOrigin)) {
-        logger.info('Referer origin được phép', { origin, referer, refOrigin });
+        logger.info('Referer origin được phép', { referer, refOrigin });
         return true;
       }
       const hostname = new URL(refOrigin).hostname;
-      if (hostname.endsWith('.vercel.app')) {
-        logger.info('Referer domain Vercel được phép', { origin, referer, refOrigin });
+      if (hostname.endsWith('.vercel.app') || hostname.endsWith('xynapseai.net')) {
+        logger.info('Referer domain động được phép', { referer, hostname });
         return true;
       }
     }
