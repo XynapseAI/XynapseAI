@@ -2,10 +2,10 @@
 'use client';
 
 import { useState, useEffect, useRef, memo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { isAddress } from 'ethers';
-import { motion } from 'framer-motion';
 import throttle from 'lodash.throttle';
 import crypto from 'crypto-js';
 import { ToastContainer, toast } from 'react-toastify';
@@ -107,23 +107,31 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
   );
 });
 
-const LoadingOverlay = ({ message }) => {
-  return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/80 backdrop-blur-xs">
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 border-4 border-gray-700 border-t-neon-blue rounded-full animate-spin"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-neon-blue/50 to-transparent rounded-full animate-pulse"></div>
-          <img
-            src="/logos/logo-scan.png"
-            alt="Loading Logo"
-            className="absolute inset-0 w-8 h-8 m-2 object-contain"
-          />
+const LoadingOverlay = ({ isLoading, message = 'Processing...', isMobile }) => (
+  <AnimatePresence>
+    {isLoading && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className={`fixed inset-0 flex items-center justify-center z-50 ${
+          isMobile ? 'bg-black/80' : 'bg-black/80 backdrop-blur-2xl'
+        }`}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative w-8 h-8">
+            <div
+              className={`absolute inset-0 border-2 rounded-full animate-spin bg-black/80 ${
+                isMobile ? 'border-white/50 border-t-white' : 'border-black/80 border-t-white'
+              }`}
+            ></div>
+          </div>
+          <p className="text-[10px] sm:text-xs text-gray-200 font-medium">{message}</p>
         </div>
-      </div>
-    </div>
-  );
-};
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 
 const CACHE_TTL = 3600000;
 const NODES_PER_PAGE = 50;

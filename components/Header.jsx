@@ -12,9 +12,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
   const tabs = [
     { id: 'market', label: 'Market' },
     { id: 'ai', label: 'AI' },
-    { id: 'point', label: 'Point' },
-    { id: 'leaderboard', label: 'Leaderboard' },
-    { id: 'task', label: 'Task' },
     { id: 'profile', label: 'Profile' },
     { id: 'treemap', label: 'Treemap' },
     { id: 'watchlists', label: 'Watchlists' },

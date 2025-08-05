@@ -4,10 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { signIn, signOut, useSession, getProviders } from 'next-auth/react';
 import Header from '../../components/Header';
-import LeaderboardTab from '../../components/LeaderboardTab';
-import PointTab from '../../components/PointTab';
 import AITab from '../../components/AITab';
-import TaskTab from '../../components/TaskTab';
 import ProfileTab from '../../components/ProfileTab';
 import MarketTab from '../../components/MarketTab';
 import TreemapTab from '../../components/TreemapTab';
@@ -33,6 +30,7 @@ export default function Dashboard() {
   const { signMessageAsync } = useSignMessage();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('profile');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [topPlayers, setTopPlayers] = useState({ rankings: [], creators: [], aiRank: [] });
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -300,6 +298,7 @@ export default function Dashboard() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAnalyzeTweets = async () => {
     if (isAnalyzing) return;
     setIsAnalyzing(true);
@@ -515,25 +514,6 @@ export default function Dashboard() {
         >
           {activeTab === 'market' && <MarketTab recaptchaRef={recaptchaRef} onTokenSelect={handleNavigateToToken} />}
           {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
-          {activeTab === 'leaderboard' && (
-            <LeaderboardTab
-              topPlayers={topPlayers}
-              loading={loading}
-              error={error}
-              recaptchaRef={recaptchaRef}
-            />
-          )}
-          {activeTab === 'point' && (
-            <PointTab
-              userData={userData}
-              loading={loading}
-              error={error}
-              handleAnalyzeTweets={handleAnalyzeTweets}
-              isAnalyzing={isAnalyzing}
-              recaptchaRef={recaptchaRef}
-            />
-          )}
-          {activeTab === 'task' && <TaskTab recaptchaRef={recaptchaRef} />}
           {activeTab === 'profile' && (
             <ProfileTab
               userData={userData}

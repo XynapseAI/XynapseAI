@@ -1,48 +1,66 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { logger } from '../../../utils/serverLogger';
-import { createClient } from 'redis';
-import { query } from '../../../utils/postgres';
+import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';
+import { logger } from '../../../utils/serverLogger';
+import { getRedisClient } from '../../../lib/redis';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
+import { RateLimiterRedis } from 'rate-limiter-flexible';
 
-const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-redisClient.on('error', (err) => logger.error('Redis Client Error', err));
-await redisClient.connect();
+// Hàm chuyển đổi BigInt thành chuỗi
+const serializeBigInt = (obj) => {
+  return JSON.parse(
+    JSON.stringify(obj, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    )
+  );
+};
 
-async function checkRateLimit(ip) {
-  const key = `rate_limit:point_history:${ip}`;
-  const requests = await redisClient.get(key) || 0;
-  const windowMs = 60 * 1000;
-  if (requests >= 50) {
-    throw new Error('Quá nhiều yêu cầu, vui lòng thử lại sau.');
-  }
-  await redisClient.multi()
-    .incr(key)
-    .expire(key, windowMs / 1000)
-    .exec();
-}
-
-const querySchema = z.object({
-  uid: z.string().max(100, 'UID không hợp lệ'),
+const prisma = new PrismaClient({
+  errorFormat: 'minimal',
+  datasources: { db: { url: process.env.DATABASE_URL } },
 });
 
-async function verifyCsrfToken(request, session) {
+async function withRetry(fn, retries = 3, delay = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      logger.warn(`Database connection failed, retrying after ${delay}ms`, { attempt: i + 1 });
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+const rateLimiter = new RateLimiterRedis({
+  storeClient: await getRedisClient(),
+  keyPrefix: 'rate_limit:point-history',
+  points: 200, // Tăng giới hạn lên 200 requests
+  duration: 15 * 60, // 15 phút
+});
+
+async function checkRateLimit(ip) {
+  try {
+    await rateLimiter.consume(ip);
+  } catch (err) {
+    // Tính thời gian còn lại cho đến khi rate limit được reset
+    const msBeforeReset = err.msBeforeNext || 15 * 60 * 1000; // Fallback về duration
+    return NextResponse.json(
+      { detail: 'Too many requests, please try again later.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil(msBeforeReset / 1000).toString(), // Giây cho đến khi reset
+        },
+      }
+    );
+  }
+}
+
+async function checkCSRF(request, session) {
   const csrfToken = request.headers.get('x-csrf-token');
-  logger.info('Kiểm tra CSRF', {
-    receivedToken: csrfToken,
-    sessionToken: session?.csrfToken,
-  });
-  if (process.env.NODE_ENV === 'development') {
-    logger.info('Bỏ qua kiểm tra CSRF trong chế độ phát triển');
-    return true;
-  }
-  if (!csrfToken || !session?.csrfToken || csrfToken !== session.csrfToken) {
-    logger.warn(`CSRF check failed: Invalid CSRF token: ${csrfToken || 'none'}`, {
-      ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
-    });
-    return false;
-  }
+  if (process.env.NODE_ENV === 'development') return true;
+  if (!csrfToken || !session?.csrfToken || csrfToken !== session.csrfToken) return false;
   return true;
 }
 
@@ -58,43 +76,14 @@ function isAllowedOrigin(origin, referer) {
     'https://*.xynapseai.net',
   ].filter((v, i, a) => a.indexOf(v) === i);
 
-  logger.info('Checking origin', { origin, referer, allowedOrigins });
   try {
-    if (origin) {
-      if (allowedOrigins.includes(origin)) {
-        logger.info('Origin được phép', { origin });
-        return true;
-      }
-      const hostname = new URL(origin).hostname;
-      if (hostname.endsWith('.vercel.app') || hostname.endsWith('xynapseai.net')) {
-        logger.info('Domain động được phép', { origin, hostname });
-        return true;
-      }
-    }
-    if (!origin && referer) {
-      const refOrigin = new URL(referer).origin;
-      if (allowedOrigins.includes(refOrigin)) {
-        logger.info('Referer origin được phép', { referer, refOrigin });
-        return true;
-      }
-      const hostname = new URL(refOrigin).hostname;
-      if (hostname.endsWith('.vercel.app') || hostname.endsWith('xynapseai.net')) {
-        logger.info('Referer domain động được phép', { referer, hostname });
-        return true;
-      }
-    }
-    if (!origin && !referer) {
-      logger.info('Cho phép yêu cầu nội bộ/SSR');
-      return true;
-    }
-    if (!origin && process.env.NODE_ENV === 'development') {
-      logger.warn('Origin là null, cho phép trong chế độ phát triển');
-      return true;
-    }
-    logger.error('Bị chặn bởi CORS', { origin, referer });
+    if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.match(/(\.vercel\.app|xynapseai\.net)$/))) return true;
+    if (!origin && referer && allowedOrigins.includes(new URL(referer).origin)) return true;
+    if (!origin && !referer) return true;
+    if (!origin && process.env.NODE_ENV === 'development') return true;
     return false;
   } catch (error) {
-    logger.error('Lỗi trong isAllowedOrigin', { error: error.message, origin, referer });
+    logger.error('Error in isAllowedOrigin', { error: error.message, origin, referer });
     return false;
   }
 }
@@ -103,163 +92,96 @@ export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
-  logger.info(`Yêu cầu tới /api/point-history từ IP ${ip}, query: ${JSON.stringify(Object.fromEntries(request.nextUrl.searchParams))}`, { origin, referer });
+  logger.info(`Request to /api/point-history from IP ${ip}`, { origin, referer });
 
   if (!isAllowedOrigin(origin, referer)) {
-    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`, { allowedOrigins });
+    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
   }
 
-  try {
-    await checkRateLimit(ip);
-  } catch (err) {
-    logger.error(`Lỗi giới hạn yêu cầu: ${err.message}`, { ip });
-    return NextResponse.json({ detail: err.message }, { status: 429 });
-  }
-
-  const session = await auth();
-  if (!session || !session.user?.id) {
-    logger.warn('Chưa đăng nhập hoặc thiếu UID', { ip });
-    return NextResponse.json({ detail: 'Chưa đăng nhập.' }, { status: 401 });
-  }
-
-  if (!(await verifyCsrfToken(request, session))) {
-    return NextResponse.json({ detail: 'CSRF check không hợp lệ.' }, { status: 403 });
-  }
-
-  let parsedQuery;
-  try {
-    parsedQuery = querySchema.parse(Object.fromEntries(request.nextUrl.searchParams));
-  } catch (err) {
-    logger.warn(`Lỗi xác thực: ${err.message}`, { ip });
-    return NextResponse.json({ detail: 'Xác thực thất bại', errors: err.errors }, { status: 400 });
-  }
-
-  const { uid } = parsedQuery;
-  if (uid !== session.user.id) {
-    logger.warn(`Truy cập bị từ chối: uid=${uid}, sessionUserId=${session.user.id}`, { ip });
-    return NextResponse.json({ detail: 'Truy cập bị từ chối: UID không hợp lệ' }, { status: 403 });
-  }
+  const rateLimitResponse = await checkRateLimit(ip);
+  if (rateLimitResponse) return rateLimitResponse;
 
   const recaptchaToken = request.headers.get('x-recaptcha-token');
   if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
-    logger.error('Thiếu header X-Recaptcha-Token', { ip });
-    return NextResponse.json({ detail: 'Thiếu token reCAPTCHA trong header' }, { status: 400 });
+    logger.error('Missing X-Recaptcha-Token header', { ip });
+    return NextResponse.json({ detail: 'Missing reCAPTCHA token in header' }, { status: 400 });
   }
 
   if (process.env.NODE_ENV !== 'development') {
     try {
       const { score } = await verifyRecaptcha(recaptchaToken, 'get_point_history', ip);
-      logger.info('Xác minh reCAPTCHA thành công cho get_point_history', { token: recaptchaToken.substring(0, 8) + '...', score, ip });
+      logger.info('reCAPTCHA verification successful for point-history', { token: recaptchaToken.substring(0, 8) + '...', score, ip });
     } catch (error) {
-      logger.error(`Xác minh reCAPTCHA thất bại: ${error.message}`, { ip, stack: error.stack });
-      return NextResponse.json({ detail: `Xác minh reCAPTCHA thất bại: ${error.message}` }, { status: 403 });
+      logger.error(`reCAPTCHA verification failed: ${error.message}`, { token: recaptchaToken.substring(0, 8) + '...', ip });
+      return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403 });
     }
   } else if (recaptchaToken === 'development-token') {
-    logger.info('Bỏ qua reCAPTCHA trong chế độ phát triển', { ip });
+    logger.info('Skipping reCAPTCHA in development mode', { ip });
   }
 
+  const session = await auth();
+  if (!session || !session.user?.id) {
+    logger.warn('Session not authenticated or missing user ID', { ip, session });
+    return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
+  }
+
+  if (!(await checkCSRF(request, session))) {
+    return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403 });
+  }
+
+  const redisClient = await getRedisClient();
   try {
-    const cacheKey = `point-history:${uid}`;
+    const cacheKey = `point-history:${session.user.id}`;
     const cached = await redisClient.get(cacheKey);
     if (cached) {
-      logger.info(`Cache hit for point-history user ${uid}`, { ip });
+      logger.info(`Cache hit for point-history user ${session.user.id}`, { ip });
       return NextResponse.json(JSON.parse(cached), {
         headers: {
           'Content-Type': 'application/json',
-          'Content-Security-Policy': "default-src 'self'",
+          'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self' https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net",
           'Access-Control-Allow-Origin': origin && isAllowedOrigin(origin, referer) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
           'Access-Control-Allow-Methods': 'GET',
-          'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token, X-Recaptcha-Token',
+          'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
           'Access-Control-Allow-Credentials': 'true',
         },
       });
     }
 
-    const userResult = await Promise.race([
-      query(
-        `SELECT points, tweet_points, ai_points, task_points 
-         FROM users 
-         WHERE id = $1`,
-        [uid]
-      ),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Database query timeout')), 10000)),
-    ]);
+    const history = await withRetry(() =>
+      prisma.pointHistory.findMany({
+        where: { userId: session.user.id },
+        orderBy: { date: 'desc' },
+        take: 100,
+        select: {
+          id: true,
+          userId: true,
+          taskPoints: true,
+          date: true,
+        },
+      })
+    );
 
-    if (userResult.rows.length === 0) {
-      logger.error(`Không tìm thấy người dùng: ${uid}`, { ip });
-      return NextResponse.json(
-        { detail: 'Không tìm thấy người dùng' },
-        {
-          status: 404,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': origin && isAllowedOrigin(origin, referer) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-            'Access-Control-Allow-Methods': 'GET',
-            'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token, X-Recaptcha-Token',
-            'Access-Control-Allow-Credentials': 'true',
-          },
-        }
-      );
-    }
-    const user = userResult.rows[0];
+    const serializedHistory = serializeBigInt(history);
+    const data = { success: true, history: serializedHistory };
 
-    const historyResult = await Promise.race([
-      query(
-        `SELECT date, interaction_type, count, points
-         FROM daily_ai_interactions
-         WHERE uid = $1
-         ORDER BY date DESC
-         LIMIT 10`,
-        [uid]
-      ),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Database query timeout')), 10000)),
-    ]);
-
-    const history = historyResult.rows.map((row) => ({
-      date: row.date.toISOString().split('T')[0],
-      interactionType: row.interaction_type,
-      tweetPoints: user.tweet_points || 0,
-      aiPoints: row.points || 0,
-      taskPoints: user.task_points || 0,
-      totalPoints: (user.tweet_points || 0) + (row.points || 0) + (user.task_points || 0),
-    }));
-
-    const data = { success: true, history };
     await redisClient.setEx(cacheKey, 300, JSON.stringify(data));
-    logger.info(`Fetched and cached ${history.length} point history entries for user: ${uid}`, { ip });
+    logger.info('Fetched and cached point-history successfully', { historyCount: history.length, userId: session.user.id, ip });
 
     return NextResponse.json(data, {
       headers: {
         'Content-Type': 'application/json',
-        'Content-Security-Policy': "default-src 'self'",
+        'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self' https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net",
         'Access-Control-Allow-Origin': origin && isAllowedOrigin(origin, referer) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
         'Access-Control-Allow-Methods': 'GET',
-        'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token, X-Recaptcha-Token',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
         'Access-Control-Allow-Credentials': 'true',
       },
     });
   } catch (error) {
-    logger.error(`Error fetching point history: ${error.message}`, { stack: error.stack, ip, uid });
-    return NextResponse.json(
-      {
-        detail:
-          error.message.includes('relation "users" does not exist')
-            ? 'Lỗi server: Bảng users không tồn tại'
-            : error.message.includes('relation "daily_ai_interactions" does not exist')
-            ? 'Lỗi server: Bảng daily_ai_interactions không tồn tại'
-            : `Lỗi khi lấy lịch sử điểm: ${error.message}`,
-      },
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': origin && isAllowedOrigin(origin, referer) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-          'Access-Control-Allow-Methods': 'GET',
-          'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token, X-Recaptcha-Token',
-          'Access-Control-Allow-Credentials': 'true',
-        },
-      }
-    );
+    logger.error('Error fetching point-history', { message: error.message, stack: error.stack, userId: session.user.id, ip });
+    return NextResponse.json({ detail: `Error fetching point history: ${error.message}` }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }

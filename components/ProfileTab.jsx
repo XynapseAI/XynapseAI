@@ -1,123 +1,266 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
-import { ethers } from 'ethers';
 import Image from 'next/image';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ethers } from 'ethers';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { cacheData, getCachedData, clearCache } from '../utils/indexedDB';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+
+const LoadingOverlay = ({ isLoading, message = 'Processing...', isMobile }) => (
+  <AnimatePresence>
+    {isLoading && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className={`fixed inset-0 flex items-center justify-center z-50 ${
+          isMobile ? 'bg-black/80' : 'bg-black/80 backdrop-blur-2xl'
+        }`}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative w-8 h-8">
+            <div
+              className={`absolute inset-0 border-2 rounded-full animate-spin bg-black/80 ${
+                isMobile ? 'border-white/50 border-t-white' : 'border-black/80 border-t-white'
+              }`}
+            ></div>
+          </div>
+          <p className="text-[10px] sm:text-xs text-gray-200 font-medium">{message}</p>
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 
 export default function ProfileTab({ recaptchaRef }) {
   const { data: session, status } = useSession();
-  const [userData, setUserData] = useState(null);
-  const [error, setError] = useState(null);
-  const [isConnectingWallet, setIsConnectingWallet] = useState(false);
-  const [isDisconnectingWallet, setIsDisconnectingWallet] = useState(false);
-  const [csrfToken, setCsrfToken] = useState(null);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640);
+  const [activeTab, setActiveTab] = useState('tasks');
+  const [currentPage, setCurrentPage] = useState({ tasks: 1, leaderboard: 1, points: 1 });
+  const itemsPerPage = 10;
 
+  // Handle responsive design
   useEffect(() => {
-    async function fetchCsrfToken() {
-      let attempts = 0;
-      const maxAttempts = 3;
-      while (attempts < maxAttempts) {
-        try {
-          const response = await axios.get('/api/csrf-token', { withCredentials: true });
-          const csrf = response.data.csrfToken;
-          if (!csrf) throw new Error('Empty CSRF token received');
-          setCsrfToken(csrf);
-          localStorage.setItem('csrfToken', csrf);
-          setError(null);
-          return;
-        } catch (err) {
-          attempts++;
-          if (attempts === maxAttempts) {
-            setError(`Failed to fetch CSRF token after ${maxAttempts} attempts: ${err.message}`);
-          }
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
-      }
-    }
+    const handleResize = () => setIsMobile(window.innerWidth <= 640);
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-    if (status === 'authenticated') {
-      fetchCsrfToken();
-    }
-  }, [status]);
-
-  const executeRecaptcha = async (action) => {
-    if (!recaptchaRef.current) {
-      throw new Error('reCAPTCHA not initialized');
-    }
-    for (let attempt = 1; attempt <= 5; attempt++) {
+  // Execute reCAPTCHA
+  const executeRecaptcha = useCallback(
+    async (action, retries = 4) => {
+      if (process.env.NODE_ENV === 'development') return 'development-token';
+      if (!recaptchaRef.current) throw new Error('reCAPTCHA not initialized');
       try {
         await recaptchaRef.current.reset();
-        const token = await recaptchaRef.current.executeAsync({ action });
+        const token = await Promise.race([
+          recaptchaRef.current.executeAsync({ action }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)),
+        ]);
         if (!token) throw new Error('Empty reCAPTCHA token');
         return token;
-      } catch (err) {
-        if (attempt === 5) throw new Error(`Failed to generate reCAPTCHA token for ${action} after 5 attempts: ${err.message}`);
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-      }
-    }
-    throw new Error(`Unable to generate reCAPTCHA token for ${action}`);
-  };
-
-  useEffect(() => {
-    async function fetchUserData() {
-      if (status !== 'authenticated' || !session?.user?.id || !csrfToken) {
-        return;
-      }
-      try {
-        const token = await executeRecaptcha('get_user');
-        const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
-          headers: {
-            'x-csrf-token': csrfToken,
-            'X-Recaptcha-Token': token,
-          },
-          withCredentials: true,
-        });
-        if (!response.data.success) {
-          throw new Error(
-            response.data.detail ||
-            response.data.errors?.map((e) => e.msg).join(', ') ||
-            'Unable to fetch user data'
-          );
+      } catch (error) {
+        if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          return executeRecaptcha(action, retries - 1);
         }
-        const user = {
-          ...response.data.user,
-          isPremium: response.data.user.isPremium || false,
-          tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
-        };
-        console.log('User Data:', user);
-        setUserData(user);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching user data:', err);
-        if (err.response?.status === 404) {
-          setError('User not found. Signing out...');
-          await signOut({ redirect: false });
-          window.location.href = '/auth/signin';
-        } else if (err.response?.status === 403) {
-          setError(`Access denied: ${err.response?.data?.detail || 'Invalid CSRF or reCAPTCHA. Please try again.'}`);
-        } else {
-          setError(`Unable to load profile: ${err.message}`);
-        }
+        throw new Error(`reCAPTCHA failed after ${5 - retries} attempts: ${error.message}`);
       }
-    }
-    fetchUserData();
-  }, [status, session?.user?.id, csrfToken]);
+    },
+    [recaptchaRef]
+  );
 
-  const handleConnectWallet = async () => {
-    if (!window.ethereum) {
-      setError('Please install MetaMask.');
-      return;
-    }
-    if (!csrfToken) {
-      setError('CSRF token not fetched');
-      return;
-    }
-    setIsConnectingWallet(true);
-    setError(null);
-    try {
+  // Fetch CSRF Token
+  const { data: csrfToken, isLoading: csrfLoading } = useQuery({
+    queryKey: ['csrfToken'],
+    queryFn: async () => {
+      const response = await axios.get('/api/csrf-token', { withCredentials: true });
+      if (!response.data.csrfToken) throw new Error('Empty CSRF token received');
+      return response.data.csrfToken;
+    },
+    retry: 3,
+    retryDelay: 2000,
+    enabled: status === 'authenticated',
+    onSuccess: (csrf) => localStorage.setItem('csrfToken', csrf),
+  });
+
+  // Fetch User Data
+  const { data: userData, isLoading: userLoading, error: userError } = useQuery({
+    queryKey: ['userData', session?.user?.id, csrfToken],
+    queryFn: async () => {
+      const cacheKey = `userData-${session.user.id}`;
+      const cached = await getCachedData(cacheKey);
+      if (cached) return cached;
+
+      const token = await executeRecaptcha('get_user');
+      const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+        headers: {
+          'x-csrf-token': csrfToken,
+          'X-Recaptcha-Token': token,
+        },
+        withCredentials: true,
+      });
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to fetch user data');
+      const user = {
+        ...response.data.user,
+        isPremium: response.data.user.isPremium || false,
+        tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
+      };
+      await cacheData(cacheKey, user, 5 * 60 * 1000); // Cache for 5 minutes
+      return user;
+    },
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    staleTime: 5 * 60 * 1000,
+    onError: async (err) => {
+      if (err.response?.status === 404) {
+        await signOut({ redirect: false });
+        window.location.href = '/auth/signin';
+      }
+    },
+  });
+
+  // Fetch Tasks
+  const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
+    queryKey: ['tasks', session?.user?.id, csrfToken],
+    queryFn: async () => {
+      const cacheKey = `tasks-${session.user.id}`;
+      const cached = await getCachedData(cacheKey);
+      if (cached) return cached;
+
+      const response = await axios.get('/api/tasks', {
+        headers: {
+          'x-csrf-token': csrfToken || process.env.NEXT_PUBLIC_CSRF_TOKEN,
+        },
+        withCredentials: true,
+      });
+      if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch tasks.');
+      await cacheData(cacheKey, response.data.tasks, 10 * 60 * 1000); // Cache for 10 minutes
+      return response.data.tasks;
+    },
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Fetch Task Progress
+  const { data: taskProgress, isLoading: taskProgressLoading, error: taskProgressError } = useQuery({
+    queryKey: ['taskProgress', session?.user?.id, csrfToken],
+    queryFn: async () => {
+      const cacheKey = `taskProgress-${session.user.id}`;
+      const cached = await getCachedData(cacheKey);
+      if (cached) return cached;
+
+      const token = await executeRecaptcha('task_progress');
+      const response = await axios.get(`/api/task-progress?uid=${session.user.id}`, {
+        headers: {
+          'x-csrf-token': csrfToken || process.env.NEXT_PUBLIC_CSRF_TOKEN,
+          'X-Recaptcha-Token': token,
+        },
+        withCredentials: true,
+      });
+      const progress = response.data.progress.reduce((acc, completion) => {
+        const completionDate = new Date(completion.completedAt);
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        if (completionDate >= today) {
+          acc[completion.taskId] = completion.completionCount;
+        }
+        return acc;
+      }, {});
+      await cacheData(cacheKey, progress, 10 * 60 * 1000); // Cache for 10 minutes
+      return progress;
+    },
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Fetch Point History
+  const { data: pointData, isLoading: pointLoading, error: pointError } = useQuery({
+    queryKey: ['pointHistory', session?.user?.id, csrfToken],
+    queryFn: async () => {
+      const cacheKey = `pointHistory-${session.user.id}`;
+      const cached = await getCachedData(cacheKey);
+      if (cached) return cached;
+
+      const recaptchaToken = await executeRecaptcha('get_user');
+      const userResponse = await axios.get(`/api/user?uid=${session.user.id}`, {
+        headers: {
+          'x-csrf-token': csrfToken,
+          'X-Recaptcha-Token': recaptchaToken,
+        },
+        withCredentials: true,
+      });
+
+      if (!userResponse.data.success) throw new Error('Invalid user data.');
+      const taskPoints = userResponse.data.user.taskPoints || 0;
+
+      const historyRecaptchaToken = await executeRecaptcha('get_point_history');
+      const historyResponse = await axios.get(`/api/point-history?uid=${session.user.id}`, {
+        headers: {
+          'x-csrf-token': csrfToken,
+          'X-Recaptcha-Token': historyRecaptchaToken,
+        },
+        withCredentials: true,
+      });
+
+      const history = (historyResponse.data.history || []).map((item) => ({
+        ...item,
+        taskPoints: item.taskPoints || 0,
+        date: new Date(item.date).toLocaleDateString(),
+      }));
+
+      const todayTaskPoints = taskPoints;
+      const yesterdayTaskPoints = history.length > 1 ? history[history.length - 2]?.taskPoints || 0 : 0;
+      const taskGrowthValue = ((todayTaskPoints - yesterdayTaskPoints) / (yesterdayTaskPoints || 1)) * 100;
+      const taskGrowth = {
+        value: taskGrowthValue.toFixed(2),
+        color: taskGrowthValue > 0 ? 'neon-green' : taskGrowthValue < 0 ? 'red-400' : 'gray-400',
+      };
+
+      const data = { history, taskPoints, taskGrowth };
+      await cacheData(cacheKey, data, 10 * 60 * 1000); // Cache for 10 minutes
+      return data;
+    },
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Fetch Leaderboard
+  const { data: rankings, isLoading: leaderboardLoading, error: leaderboardError } = useQuery({
+    queryKey: ['leaderboard', session?.user?.id, csrfToken],
+    queryFn: async () => {
+      const cacheKey = `leaderboard-${session.user.id}`;
+      const cached = await getCachedData(cacheKey);
+      if (cached) return cached;
+
+      const token = await executeRecaptcha('connect_data');
+      const response = await axios.get('/api/connect-data', {
+        headers: {
+          'x-csrf-token': csrfToken,
+          'X-Recaptcha-Token': token,
+        },
+        withCredentials: true,
+      });
+      if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch leaderboard.');
+      await cacheData(cacheKey, response.data.rankings, 5 * 60 * 1000); // Cache for 5 minutes
+      return response.data.rankings;
+    },
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Handle Wallet Connection
+  const connectWalletMutation = useMutation({
+    mutationFn: async () => {
+      if (!window.ethereum) throw new Error('Please install MetaMask.');
       const provider = new ethers.BrowserProvider(window.ethereum);
       const accounts = await provider.send('eth_requestAccounts', []);
       const walletAddress = accounts[0];
@@ -128,120 +271,498 @@ export default function ProfileTab({ recaptchaRef }) {
 
       const response = await axios.post(
         '/api/verify-wallet',
+        { action: 'verify-wallet', walletAddress, signature, message, uid: session.user.id, recaptchaToken: token },
         {
-          action: 'verify-wallet',
-          walletAddress,
-          signature,
-          message,
-          uid: session.user.id,
-          recaptchaToken: token,
-        },
-        {
-          headers: {
-            'x-csrf-token': csrfToken,
-            'Content-Type': 'application/json',
-          },
+          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
       );
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to verify wallet');
+      return walletAddress;
+    },
+    onSuccess: (walletAddress) => {
+      toast.success('Wallet connected successfully.', { position: 'top-center', autoClose: 5000 });
+      setUserData((prev) => ({ ...prev, walletAddress }));
+    },
+    onError: (err) => {
+      toast.error(`Unable to connect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
+    },
+  });
 
-      if (!response.data.success) {
-        throw new Error(response.data.detail || 'Unable to verify wallet');
-      }
-      setUserData({ ...userData, walletAddress });
-    } catch (err) {
-      console.error('Wallet connection error:', err);
-      setError(`Unable to connect wallet: ${err.response?.data?.detail || err.message}`);
-    } finally {
-      setIsConnectingWallet(false);
-      if (recaptchaRef.current) recaptchaRef.current.reset();
-    }
-  };
-
-  const handleDisconnectWallet = async () => {
-    if (!csrfToken) {
-      setError('CSRF token not fetched');
-      return;
-    }
-    setIsDisconnectingWallet(true);
-    setError(null);
-    try {
+  // Handle Wallet Disconnection
+  const disconnectWalletMutation = useMutation({
+    mutationFn: async () => {
       const token = await executeRecaptcha('disconnect-wallet');
       const response = await axios.post(
         '/api/verify-wallet',
+        { action: 'disconnect-wallet', uid: session.user.id, recaptchaToken: token },
         {
-          action: 'disconnect-wallet',
-          uid: session.user.id,
-          recaptchaToken: token,
-        },
-        {
-          headers: {
-            'x-csrf-token': csrfToken,
-            'Content-Type': 'application/json',
-          },
+          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
       );
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to disconnect wallet');
+    },
+    onSuccess: () => {
+      toast.success('Wallet disconnected successfully.', { position: 'top-center', autoClose: 5000 });
+      setUserData((prev) => ({ ...prev, walletAddress: null }));
+    },
+    onError: (err) => {
+      toast.error(`Unable to disconnect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
+    },
+  });
 
-      if (!response.data.success) {
-        throw new Error(response.data.detail || 'Unable to disconnect wallet');
-      }
-      setUserData({ ...userData, walletAddress: null });
-    } catch (err) {
-      console.error('Wallet disconnection error:', err);
-      setError(`Unable to disconnect wallet: ${err.response?.data?.detail || err.message}`);
-    } finally {
-      setIsDisconnectingWallet(false);
-      if (recaptchaRef.current) recaptchaRef.current.reset();
-    }
-  };
-
-  const handleSignOut = async () => {
+  // Handle Sign Out
+  const handleSignOut = useCallback(async () => {
     try {
       await signOut({ redirect: false });
-      setUserData(null);
-      setError(null);
-      setCsrfToken(null);
+      await clearCache(`userData-${session.user.id}`);
+      await clearCache(`tasks-${session.user.id}`);
+      await clearCache(`taskProgress-${session.user.id}`);
+      await clearCache(`pointHistory-${session.user.id}`);
+      await clearCache(`leaderboard-${session.user.id}`);
       localStorage.removeItem('csrfToken');
       window.location.href = '/auth/signin';
     } catch (err) {
-      console.error('Sign out error:', err);
-      setError('Unable to sign out');
+      toast.error('Unable to sign out', { position: 'top-center', autoClose: 5000 });
     }
-  };
+  }, [session]);
 
-  const getDaysActive = () => {
+  // Handle Task Verification
+  const verifyTaskMutation = useMutation({
+    mutationFn: async (task) => {
+      const token = await executeRecaptcha('verify_task');
+      const response = await axios.post(
+        '/api/verify-task',
+        { taskId: task.id, userId: session.user.id, recaptchaToken: token },
+        {
+          headers: { 'x-csrf-token': csrfToken || process.env.NEXT_PUBLIC_CSRF_TOKEN },
+          withCredentials: true,
+        }
+      );
+      if (!response.data.success) throw new Error(response.data.detail || 'Failed to verify task');
+      return response.data;
+    },
+    onSuccess: (data, task) => {
+      toast.success(`Task ${task.id} verified! +${task.points} points`, { position: 'top-center', autoClose: 5000 });
+      setTaskProgress((prev) => ({
+        ...prev,
+        [task.id]: data.completionCount || prev[task.id] || 0,
+      }));
+    },
+    onError: (err) => {
+      toast.error(
+        err.response?.status === 429
+          ? 'API rate limit exceeded. Please try again later.'
+          : err.message.includes('reCAPTCHA')
+          ? 'reCAPTCHA verification failed. Please try again.'
+          : `Verification failed: ${err.message}`,
+        { position: 'top-center', autoClose: 5000 }
+      );
+    },
+  });
+
+  // Handle Analyze Tweets
+  const analyzeTweetsMutation = useMutation({
+    mutationFn: async () => {
+      const token = await executeRecaptcha('analyze_tweets');
+      const response = await axios.post(
+        '/api/analyze-tweets',
+        { userId: session.user.id, recaptchaToken: token },
+        {
+          headers: { 'x-csrf-token': csrfToken },
+          withCredentials: true,
+        }
+      );
+      if (!response.data.success) throw new Error(response.data.detail || 'Failed to analyze tweets');
+      return response.data;
+    },
+    onSuccess: (data) => {
+      toast.success('Tweets analyzed successfully.', { position: 'top-center', autoClose: 5000 });
+      setUserData((prev) => ({
+        ...prev,
+        tweetPoints: data.tweetPoints || prev.tweetPoints,
+        points: data.totalPoints || prev.points,
+      }));
+    },
+    onError: (err) => {
+      toast.error(
+        err.message.includes('reCAPTCHA')
+          ? 'reCAPTCHA verification failed. Please try again.'
+          : `Failed to analyze tweets: ${err.message}`,
+        { position: 'top-center', autoClose: 5000 }
+      );
+    },
+  });
+
+  // Handle Clear Cache
+  const clearCacheMutation = useMutation({
+    mutationFn: async () => {
+      const cacheKeys = [
+        `userData-${session.user.id}`,
+        `tasks-${session.user.id}`,
+        `taskProgress-${session.user.id}`,
+        `pointHistory-${session.user.id}`,
+        `leaderboard-${session.user.id}`,
+      ];
+      await Promise.all(cacheKeys.map((key) => clearCache(key)));
+      await axios.post('/api/clear-cache', { cacheKeys }, { headers: { 'x-csrf-token': csrfToken } });
+    },
+    onSuccess: () => {
+      toast.success('Cache cleared successfully.', { position: 'top-center', autoClose: 5000 });
+    },
+    onError: () => {
+      toast.error('Failed to clear cache.', { position: 'top-center', autoClose: 5000 });
+    },
+  });
+
+  // Get Days Active
+  const getDaysActive = useCallback(() => {
     if (!userData?.lastConnected) return 0;
     const lastConnectedDate = new Date(userData.lastConnected);
     const currentDate = new Date();
     const diffTime = Math.abs(currentDate - lastConnectedDate);
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
+  }, [userData]);
+
+  // Pagination
+  const getPaginatedData = useCallback((data, tab) => {
+    const startIndex = (currentPage[tab] - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return data.slice(startIndex, endIndex);
+  }, [currentPage]);
+
+  const getTotalPages = useCallback((data) => Math.ceil(data.length / itemsPerPage), []);
+
+  const handlePageChange = useCallback((tab, page) => {
+    setCurrentPage((prev) => ({ ...prev, [tab]: page }));
+  }, []);
+
+  // Get Profile Picture Src
+  const getProfilePictureSrc = useCallback((profilePicture) => {
+    if (profilePicture && profilePicture.startsWith('http')) {
+      try {
+        const url = new URL(profilePicture);
+        const allowedHosts = ['pbs.twimg.com', 'lh3.googleusercontent.com', 'example.com']; // Cập nhật theo hostname thực tế
+        if (allowedHosts.includes(url.hostname)) {
+          return profilePicture;
+        }
+      } catch (err) {
+        console.warn(`Invalid profile picture URL: ${profilePicture}`, err);
+      }
+    }
+    return '/default-avatar.png';
+  }, []);
+
+  // Render User Row for Leaderboard
+  const renderUserRow = useCallback(
+    (user, index, isCurrentUser = false) => {
+      const rank = isCurrentUser ? rankings.findIndex((u) => u.id === user.id) + 1 || 'N/A' : index + 1;
+      const rankStyles = {
+        1: isMobile
+          ? 'bg-gradient-to-r from-neon-blue/20 to-transparent border-neon-blue/50'
+          : 'bg-gradient-to-r from-neon-blue/20 to-transparent border-neon-blue/50 shadow-neon',
+        2: isMobile
+          ? 'bg-gradient-to-r from-gray-400/20 to-transparent border-gray-400/50'
+          : 'bg-gradient-to-r from-gray-400/20 to-transparent border-gray-400/50 shadow-neon',
+        3: isMobile
+          ? 'bg-gradient-to-r from-pink-400/20 to-transparent border-pink-400/50'
+          : 'bg-gradient-to-r from-pink-400/20 to-transparent border-pink-400/50 shadow-neon',
+      };
+
+      return (
+        <motion.a
+          key={user.id}
+          href={`https://x.com/${user.twitterHandle || 'unknown'}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`grid grid-cols-12 p-2 rounded-lg font-jetbrains transition-all duration-300 border border-white/10 ${
+            isMobile ? 'bg-black/60' : 'bg-black/60 backdrop-blur-md hover:bg-neon-blue/10'
+          } ${rankStyles[rank] || ''} ${isCurrentUser ? (isMobile ? '' : 'shadow-neon') : ''}`}
+        >
+          <div className="col-span-2 text-[10px] sm:text-xs text-white flex items-center ml-2">{rank}</div>
+          <div className="col-span-6 flex items-center">
+            <Image
+              src={getProfilePictureSrc(user.profile_picture)}
+              alt={user.google_name || 'User Avatar'}
+              width={24}
+              height={24}
+              className="rounded-lg border border-white/20 mr-2 object-cover"
+            />
+            <span className="text-[10px] sm:text-xs text-white truncate flex items-center">
+              {user.google_name || 'Anonymous'}
+              {isCurrentUser && (
+                <span
+                  className={`ml-2 text-[8px] sm:text-[10px] font-medium text-neon-blue px-2 py-0.5 rounded-full border border-neon-blue/50 ${
+                    isMobile ? 'bg-black/60' : 'bg-black/80 backdrop-blur-md'
+                  }`}
+                >
+                  You
+                </span>
+              )}
+            </span>
+          </div>
+          <div className="col-span-4 p-1 mr-2 text-right text-[10px] sm:text-xs text-neon-blue uppercase">{user.points || 0}</div>
+        </motion.a>
+      );
+    },
+    [isMobile, rankings, getProfilePictureSrc]
+  );
+
+  // Render Tasks Section
+  const renderTasksSection = useCallback(() => (
+    <motion.div
+      key="tasks"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="w-full p-2 sm:p-4 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 shadow-neon-sm"
+    >
+      <h2 className="text-[10px] sm:text-xs font-bold text-white uppercase mb-3 bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded">Tasks</h2>
+      {tasksLoading && <LoadingOverlay isLoading={tasksLoading} message="Loading tasks..." isMobile={isMobile} />}
+      {tasksError && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
+        >
+          Error: {tasksError.message}
+        </motion.div>
+      )}
+      {!tasks?.length && !tasksError && !tasksLoading && (
+        <p className="text-[10px] sm:text-xs text-gray-400 text-center">No tasks available.</p>
+      )}
+      {tasks?.length > 0 && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {getPaginatedData(tasks, 'tasks').map((task) => (
+              <motion.div
+                key={task.id}
+                className="p-3 bg-black/80 rounded-lg border border-white/10 backdrop-blur-md flex flex-col"
+              >
+                <div className="flex-1">
+                  <h3 className="text-[10px] sm:text-xs font-semibold text-white mb-2">
+                    Task {task.id} {task.isDaily ? `(Daily ${taskProgress?.[task.id] || 0}/${task.maxCompletions})` : ''}
+                  </h3>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-[10px] sm:text-xs text-neon-green">+{task.points} Points</span>
+                  <motion.button
+                    onClick={() => verifyTaskMutation.mutate(task)}
+                    disabled={verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)}
+                    className={`px-3 py-1 rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
+                      verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)
+                        ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
+                        : 'text-white hover:bg-neon-blue/30 hover:shadow-neon'
+                    }`}
+                  >
+                    {verifyTaskMutation.isLoading ? 'Verifying...' : 'Verify'}
+                  </motion.button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 mt-3">
+            <motion.button
+              onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
+              disabled={currentPage.tasks === 1}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+              }`}
+            >
+              &lt;
+            </motion.button>
+            <span className="text-xs text-gray-200">Page {currentPage.tasks} of {getTotalPages(tasks)}</span>
+            <motion.button
+              onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
+              disabled={currentPage.tasks === getTotalPages(tasks)}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+              }`}
+            >
+              &gt;
+            </motion.button>
+          </div>
+        </>
+      )}
+    </motion.div>
+  ), [tasks, tasksLoading, tasksError, taskProgress, verifyTaskMutation, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange]);
+
+  // Render Leaderboard Section
+  const renderLeaderboardSection = useCallback(() => (
+    <motion.div
+      key="leaderboard"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="w-full p-2 sm:p-4 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 shadow-neon-sm"
+    >
+      <h2 className="text-[10px] sm:text-xs font-bold text-white uppercase mb-3 text-center bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded">Leaderboard</h2>
+      {leaderboardLoading && <LoadingOverlay isLoading={leaderboardLoading} message="Loading rankings..." isMobile={isMobile} />}
+      {leaderboardError && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
+        >
+          Error: {leaderboardError.message}
+          <button onClick={() => window.location.reload()} className="ml-2 px-2 py-1 bg-neon-blue text-black rounded">
+            Retry
+          </button>
+        </motion.div>
+      )}
+      {!leaderboardLoading && !leaderboardError && rankings?.length === 0 && (
+        <div className="text-center text-gray-400 text-[10px] sm:text-xs p-3 rounded-lg border border-white/10 bg-black/60">
+          No ranking data available.
+        </div>
+      )}
+      {!leaderboardLoading && rankings?.length > 0 && (
+        <>
+          <div className="grid grid-cols-12 gap-2 text-[10px] sm:text-xs text-gray-400 mb-3">
+            <div className="col-span-2">Rank</div>
+            <div className="col-span-6">User</div>
+            <div className="col-span-4 text-right">Points</div>
+          </div>
+          {userData && renderUserRow(userData, -1, true)}
+          {getPaginatedData(rankings, 'leaderboard').map((user, index) => renderUserRow(user, index, false))}
+          <div className="flex justify-end gap-2 mt-3">
+            <motion.button
+              onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
+              disabled={currentPage.leaderboard === 1}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+              }`}
+            >
+              &lt;
+            </motion.button>
+            <span className="text-xs text-gray-200">Page {currentPage.leaderboard} of {getTotalPages(rankings)}</span>
+            <motion.button
+              onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
+              disabled={currentPage.leaderboard === getTotalPages(rankings)}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+              }`}
+            >
+              &gt;
+            </motion.button>
+          </div>
+        </>
+      )}
+    </motion.div>
+  ), [leaderboardLoading, leaderboardError, rankings, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, renderUserRow]);
+
+  // Render Points Section
+  const renderPointsSection = useCallback(() => (
+    <motion.div
+      key="points"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="w-full p-2 sm:p-4 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 shadow-neon-sm"
+    >
+      <h2 className="text-[10px] sm:text-xs font-bold text-white uppercase mb-3 bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded">Point History</h2>
+      {pointLoading && <LoadingOverlay isLoading={pointLoading} message="Loading point data..." isMobile={isMobile} />}
+      {pointError && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
+        >
+          Error: {pointError.message}
+        </motion.div>
+      )}
+      {!pointLoading && !pointError && (
+        <>
+          <div className="h-64 bg-black/80 rounded-lg p-2 mb-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={pointData?.history} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                <CartesianGrid stroke="#ffffff1a" strokeDasharray="5 5" />
+                <XAxis dataKey="date" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} angle={-45} textAnchor="end" height={50} />
+                <YAxis stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1a1a1a',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '0.5rem',
+                    padding: '0.5rem',
+                    boxShadow: '0 0 8px rgba(0, 191, 255, 0.3)',
+                  }}
+                  labelStyle={{ color: '#ffffff' }}
+                  itemStyle={{ color: '#ffffff' }}
+                  cursor={{ stroke: '#00BFFF', strokeWidth: 1 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="taskPoints"
+                  stroke="#00FF00"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ fill: '#00FF00', r: 4, stroke: '#ffffff', strokeWidth: 1 }}
+                  name="Task Points"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <motion.div
+              className="flex-1 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md p-3 sm:p-4 shadow-neon-sm min-h-[120px]"
+            >
+              <h3 className="text-[10px] sm:text-xs font-bold text-white mb-2 uppercase">Total Points</h3>
+              <p className="text-2xl sm:text-3xl font-bold text-neon-blue text-center mb-3">{userData?.points || 0}</p>
+            </motion.div>
+            <motion.div
+              className="flex-1 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md p-3 sm:p-4 shadow-neon-sm min-h-[120px] flex flex-col items-center justify-center"
+            >
+              <h3 className="text-[10px] sm:text-xs font-bold text-white mb-2 uppercase">Task Points</h3>
+              <div className="flex items-center justify-center gap-2">
+                <p className="text-2xl sm:text-3xl font-bold text-neon-blue">{pointData?.taskPoints || 0}</p>
+                <motion.p
+                  className={`text-[10px] sm:text-xs font-semibold text-${pointData?.taskGrowth.color} ${
+                    pointData?.taskGrowth.value != 0 ? 'animate-pulse' : ''
+                  }`}
+                  animate={{ opacity: pointData?.taskGrowth.value != 0 ? [1, 0.7, 1] : 1 }}
+                  transition={{ duration: 1.5, repeat: pointData?.taskGrowth.value != 0 ? Infinity : 0 }}
+                >
+                  {pointData?.taskGrowth.value}% {pointData?.taskGrowth.value > 0 ? '↑' : pointData?.taskGrowth.value < 0 ? '↓' : '–'}
+                </motion.p>
+              </div>
+            </motion.div>
+          </div>
+          <div className="flex justify-end gap-2 mt-3">
+            <motion.button
+              onClick={() => handlePageChange('points', currentPage.points - 1)}
+              disabled={currentPage.points === 1}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+              }`}
+            >
+              &lt;
+            </motion.button>
+            <span className="text-xs text-gray-200">Page {currentPage.points} of {getTotalPages(pointData?.history || [])}</span>
+            <motion.button
+              onClick={() => handlePageChange('points', currentPage.points + 1)}
+              disabled={currentPage.points === getTotalPages(pointData?.history || [])}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+              }`}
+            >
+              &gt;
+            </motion.button>
+          </div>
+        </>
+      )}
+    </motion.div>
+  ), [pointLoading, pointError, pointData, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange]);
 
   if (status === 'loading') {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="font-jetbrains w-full max-w-10xl mx-auto bg-gray-900/30 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon h-[calc(100vh)] overflow-hidden"
+        transition={{ duration: 0.5, ease: 'easeInOut' }}
+        className="font-jetbrains w-full max-w-7xl mx-auto bg-black/60 backdrop-blur-2xl p-2 sm:p-4 shadow-neon-lg h-[calc(100vh)] overflow-hidden"
       >
-        <div className="flex items-center justify-center h-full">
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative w-10 h-10">
-              <div className="absolute inset-0 border-2 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>
-              <Image
-                src="/logos/logo-scan.png"
-                alt="Loading Logo"
-                width={40}
-                height={40}
-                className="absolute inset-0 w-7 h-7 m-1.5 object-contain animate-pulse"
-                onError={() => console.log(`Failed to load loading logo: /logos/logo-scan.png`)}
-              />
-            </div>
-            <p className="text-[10px] text-gray-500 font-medium animate-pulse">Loading profile...</p>
-          </div>
-        </div>
+        <LoadingOverlay isLoading={true} message="Loading profile..." isMobile={isMobile} />
       </motion.div>
     );
   }
@@ -251,10 +772,10 @@ export default function ProfileTab({ recaptchaRef }) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="font-jetbrains w-full max-w-10xl mx-auto bg-gray-900/30 backdrop-blur-lg p-4 md:p-6 shadow-glow-neon h-[calc(100vh)] overflow-hidden"
+        transition={{ duration: 0.5, ease: 'easeInOut' }}
+        className="font-jetbrains w-full max-w-8xl mx-auto bg-black/60 backdrop-blur-2xl p-2 sm:p-4 shadow-neon-lg h-[calc(100vh)] overflow-hidden"
       >
-        <div className="text-center text-gray-400 text-sm p-4 bg-gray-900/50 rounded-2xl border border-white/10 backdrop-blur-lg shadow-glow-neon">
+        <div className="text-center text-gray-400 text-[10px] sm:text-xs p-3 bg-black/60 rounded-lg border border-white/10 backdrop-blur-md shadow-neon-sm">
           <p>Please sign in to view your profile.</p>
         </div>
       </motion.div>
@@ -265,147 +786,172 @@ export default function ProfileTab({ recaptchaRef }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="font-jetbrains w-full max-w-10xl mx-auto bg-galaxy backdrop-blur-lg p-4 md:p-6 shadow-glow-neon h-[calc(100vh)] overflow-y-auto custom-scrollbar"
+      transition={{ duration: 0.5, ease: 'easeInOut' }}
+      className="font-jetbrains w-full max-w-10xl mx-auto bg-black/60 backdrop-blur-2xl p-2 sm:p-4 shadow-neon-lg h-[calc(100vh)] overflow-y-auto custom-scrollbar"
     >
-      <div className="w-full h-full p-4 md:p-6 backdrop-blur-md">
-        {error && (
+      <ToastContainer position="top-center" autoClose={5000} theme="dark" />
+      <div className="w-full h-full flex flex-col gap-4">
+        {/* Profile Information */}
+        {userLoading && <LoadingOverlay isLoading={userLoading} message="Loading profile..." isMobile={isMobile} />}
+        {userError && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 text-[10px] md:text-sm mb-4 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center shadow-glow-neon-red"
+            className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
           >
-            Error: {error}
+            Error: {userError.message}
           </motion.div>
         )}
-        {!userData && !error && (
-          <div className="flex items-center justify-center h-full">
-            <div className="flex flex-col items-center gap-4">
-              <div className="relative w-10 h-10">
-                <div className="absolute inset-0 border-2 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>
-                <Image
-                  src="/logos/logo-scan.png"
-                  alt="Loading Logo"
-                  width={40}
-                  height={40}
-                  className="absolute inset-0 w-7 h-7 m-1.5 object-contain animate-pulse"
-                  onError={() => console.log(`Failed to load loading logo: /logos/logo-scan.png`)}
-                />
-              </div>
-              <p className="text-[10px] text-gray-500 font-medium animate-pulse">Loading profile...</p>
-            </div>
-          </div>
-        )}
         {userData && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {/* Google Account Card */}
-            <motion.div
-              className="rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-900/50 backdrop-blur-lg shadow-glow-neon hover:bg-gray-900/70"
-              whileHover={{ scale: 1 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Google Account</h3>
-              <div className="flex items-center mb-6">
-                <Image
-                  src={userData.profilePicture || '/default-avatar.png'}
-                  alt={userData.googleName || 'Google User'}
-                  width={48}
-                  height={48}
-                  className="rounded-xl border border-white/20 mr-3"
-                  onError={() => console.log(`Failed to load Google profile picture: ${userData.profilePicture}`)}
-                />
-                <span className="text-[9px] md:text-xs text-white truncate">{userData.googleName || userData.email}</span>
+          <motion.div
+            className="w-[80%] mx-auto rounded-b-2xl p-3 sm:p-6 flex flex-col sm:flex-row border-2 border-white/10 bg-black/60 backdrop-blur-md shadow-neon-sm hover:bg-neon-blue/10 relative"
+          >
+            {/* Left: Google Account Logo, Name, Email, Wallet */}
+            <div className="flex flex-col items-center sm:items-start sm:w-1/2">
+              <Image
+                src={getProfilePictureSrc(userData.profilePicture)}
+                alt={userData.googleName || 'Google User'}
+                width={40}
+                height={40}
+                className="rounded-xl border border-white/20 mb-2 sm:mb-3"
+              />
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] sm:text-xs text-white truncate">{userData.googleName || userData.email}</span>
+                <span
+                  className={`text-[8px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                    userData.isPremium ? 'text-yellow-400 border-yellow-400/50 bg-yellow-400/10' : 'text-white border-white/20 bg-white/10'
+                  }`}
+                >
+                  {userData.tier || 'Basic'}
+                </span>
               </div>
+              <p className="text-[8px] sm:text-[10px] text-gray-400 mt-1">{userData.email}</p>
+              <div className="flex items-center gap-2 mt-2 w-full items-center justify-between">
+                {/* <p className="text-[10px] sm:text-xs font-bold text-white uppercase">Wallet:</p> */}
+                <motion.button
+                  onClick={() => connectWalletMutation.mutate()}
+                  disabled={connectWalletMutation.isLoading || userData.walletAddress}
+                  className={`px-2 sm:px-3 py-1 rounded-xl text-[8px] sm:text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
+                    connectWalletMutation.isLoading || userData.walletAddress
+                      ? 'bg-green-500 text-black cursor-not-allowed opacity-50'
+                      : 'text-black bg-green-500 hover:bg-neon-blue/30 hover:shadow-neon'
+                  }`}
+                  whileHover={{ scale: connectWalletMutation.isLoading || userData.walletAddress ? 1 : 1 }}
+                  whileTap={{ scale: connectWalletMutation.isLoading || userData.walletAddress ? 1 : 1 }}
+                >
+                  {connectWalletMutation.isLoading ? 'Connecting...' : 'Connect Wallet'}
+                </motion.button>
+                {userData.walletAddress && (
+                  <motion.button
+                    onClick={() => disconnectWalletMutation.mutate()}
+                    disabled={disconnectWalletMutation.isLoading}
+                    className={`px-2 sm:px-3 py-1 rounded-lg text-[8px] sm:text-[10px] font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${
+                      disconnectWalletMutation.isLoading ? 'text-white/50 cursor-not-allowed opacity-50' : 'text-red-400 hover:bg-red-500/30 hover:shadow-neon'
+                    }`}
+                  >
+                    {disconnectWalletMutation.isLoading ? 'Disconnecting...' : 'Disconnect'}
+                  </motion.button>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Points, Days Active, Clear Cache */}
+            <div className="flex flex-col sm:w-1/2 mt-3 sm:mt-0 items-center sm:items-end justify-between">
               <motion.button
                 onClick={handleSignOut}
-                className="w-full px-3 py-1.5 rounded-lg text-[9px] md:text-xs font-medium text-red-400 border border-red-500/50 backdrop-blur-md hover:bg-red-500/20 hover:shadow-glow-neon-red transition-all duration-300"
-                whileHover={{ scale: 1 }}
+                className="absolute top-3 sm:top-4 right-3 sm:right-4 text-white rounded-lg w-8 h-8 flex items-center justify-center border border-white/10 backdrop-blur-md hover:bg-red-500/30 transition-all duration-300"
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                aria-label="Sign out"
               >
-                Sign Out
-              </motion.button>
-            </motion.div>
-            {/* Wallet Card */}
-            <motion.div
-              className="min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-900/50 backdrop-blur-lg shadow-glow-neon hover:bg-gray-900/70"
-              whileHover={{ scale: 1 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Wallet</h3>
-              <p className="text-[9px] md:text-xs text-white truncate mb-6">{userData.walletAddress || 'Not connected'}</p>
-              <motion.button
-                onClick={handleConnectWallet}
-                disabled={isConnectingWallet || userData.walletAddress}
-                className={`w-full px-3 py-1.5 rounded-lg text-[9px] md:text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
-                  isConnectingWallet || userData.walletAddress
-                    ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
-                    : 'text-white hover:bg-white/20 hover:shadow-glow-neon'
-                }`}
-                whileHover={{ scale: isConnectingWallet || userData.walletAddress ? 1 : 1 }}
-                whileTap={{ scale: isConnectingWallet || userData.walletAddress ? 1 : 0.95 }}
-              >
-                {isConnectingWallet ? 'Connecting...' : 'Connect Wallet'}
-              </motion.button>
-              {userData.walletAddress && (
-                <motion.button
-                  onClick={handleDisconnectWallet}
-                  disabled={isDisconnectingWallet}
-                  className={`w-full mt-2 px-3 py-1.5 rounded-lg text-[9px] md:text-xs font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${
-                    isDisconnectingWallet
-                      ? 'text-white/50 cursor-not-allowed opacity-50'
-                      : 'text-red-400 hover:bg-red-500/20 hover:shadow-glow-neon-red'
-                  }`}
-                  whileHover={{ scale: isDisconnectingWallet ? 1 : 1 }}
-                  whileTap={{ scale: isDisconnectingWallet ? 1 : 0.95 }}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-red-400 fill-none z-10"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
                 >
-                  {isDisconnectingWallet ? 'Disconnecting...' : 'Disconnect'}
-                </motion.button>
-              )}
-            </motion.div>
-            {/* Points Card */}
-            <motion.div
-              className="min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-900/50 backdrop-blur-lg shadow-glow-neon hover:bg-gray-900/70"
-              whileHover={{ scale: 1 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Points</h3>
-              <p className="text-2xl md:text-4xl font-bold text-neon-blue text-center mb-6">{userData.points || 0}</p>
-            </motion.div>
-            {/* Days Active Card */}
-            <motion.div
-              className="min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border border-white/10 bg-gray-900/50 backdrop-blur-lg shadow-glow-neon hover:bg-gray-900/70"
-              whileHover={{ scale: 1 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Days Active</h3>
-              <p className="text-xl md:text-2xl font-bold text-neon-blue text-center mb-6">{getDaysActive()}</p>
-            </motion.div>
-            {/* Tier Card */}
-            <motion.div
-              className={`min-h-[200px] rounded-xl p-4 flex flex-col justify-between transition-all duration-300 border ${
-                userData.isPremium ? 'border-yellow-400/50 shadow-glow-neon-yellow' : 'border-white/10 shadow-glow-neon'
-              } bg-gray-900/50 backdrop-blur-lg hover:bg-gray-900/70`}
-              whileHover={{ scale: 1 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <h3 className="text-[10px] md:text-sm font-bold text-white mb-3 uppercase">Account</h3>
-              <p
-                className={`text-xl md:text-2xl font-bold text-center mb-6 ${userData.isPremium ? 'text-yellow-400' : 'text-white'}`}
-              >
-                {userData.tier || 'Basic'}
-              </p>
-              <div
-                className={`w-full h-2 rounded-b-lg ${
-                  userData.isPremium ? 'bg-gradient-to-r from-yellow-400/50 to-yellow-600/50' : 'bg-gradient-to-r from-white/50 to-gray-400/50'
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                  />
+                </svg>
+              </motion.button>
+              {/* <motion.button
+                onClick={() => clearCacheMutation.mutate()}
+                disabled={clearCacheMutation.isLoading}
+                className={`absolute top-10 sm:top-12 right-3 sm:right-4 px-2 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                  clearCacheMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
                 }`}
-              ></div>
-            </motion.div>
-          </div>
+              >
+                {clearCacheMutation.isLoading ? 'Clearing...' : 'Clear Cache'}
+              </motion.button> */}
+              <div className="flex items-end h-full">
+                <p className="text-[8px] sm:text-[10px] text-white">
+                  Points: <span className="text-neon-blue">{userData.points || 0}</span> Days Active: <span className="text-neon-blue">{getDaysActive()}</span>
+                </p>
+              </div>
+            </div>
+          </motion.div>
         )}
+
+        {/* Tab Navigation */}
+        <div className="flex justify-center gap-1 sm:gap-2 bg-black/60 backdrop-blur-md">
+          {['tasks', 'leaderboard', 'points'].map((tab) => (
+            <motion.button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 px-3 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 ${
+                activeTab === tab ? 'border-b-2 border-white text-white shadow-neon' : 'text-white hover:bg-neon-blue/10'
+              }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </motion.button>
+          ))}
+        </div>
+
+        {/* Tab Content with AnimatePresence */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'tasks' && (
+            <motion.div
+              key="tasks"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderTasksSection()}
+            </motion.div>
+          )}
+          {activeTab === 'leaderboard' && (
+            <motion.div
+              key="leaderboard"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderLeaderboardSection()}
+            </motion.div>
+          )}
+          {activeTab === 'points' && (
+            <motion.div
+              key="points"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderPointsSection()}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
+          width: 4px;
+          height: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
@@ -415,32 +961,71 @@ export default function ProfileTab({ recaptchaRef }) {
           border-radius: 3px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.3);
+          background: rgba(255, 255, 255, 0.4);
         }
-        .shadow-glow-neon {
-          box-shadow: 0 0 8px rgba(255, 255, 255, 0.3), 0 0 16px rgba(255, 255, 255, 0.1);
+        .shadow-neon {
+          box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
         }
-        .shadow-glow-neon-red {
-          box-shadow: 0 0 8px rgba(239, 68, 68, 0.3), 0 0 16px rgba(239, 68, 68, 0.1);
+        .shadow-neon-sm {
+          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
         }
-        .shadow-glow-neon-yellow {
-          box-shadow: 0 0 8px rgba(251, 191, 36, 0.3), 0 0 16px rgba(251, 191, 36, 0.1);
+        .shadow-neon-lg {
+          box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
         }
-        .bg-tech {
-          background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
+        .animate-pulse {
+          animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+        }
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
         }
         @media (max-width: 640px) {
-          .grid {
-            grid-template-columns: 1fr;
+          .w-[80%] {
+            width: 100%;
           }
-          .min-h-[200px] {
-            min-height: 150px;
+          .min-h-[120px] {
+            min-height: 100px;
           }
-          .text-2xl {
+          .text-3xl {
             font-size: 1.25rem;
           }
-          .text-4xl {
-            font-size: 1.875rem;
+          .text-2xl {
+            font-size: 1rem;
+          }
+          .text-[10px] {
+            font-size: 8px;
+          }
+          .text-[9px] {
+            font-size: 7px;
+          }
+          .text-[8px] {
+            font-size: 6px;
+          }
+          .h-64 {
+            height: 24rem;
+          }
+          .grid-cols-3 {
+            grid-template-columns: 1fr;
+          }
+          .grid-cols-12 {
+            font-size: 8px;
+          }
+          .w-8 {
+            width: 1.5rem;
+            height: 1.5rem;
+          }
+          .w-40 {
+            width: 32px;
+            height: 32px;
+          }
+        }
+        @media (min-width: 641px) and (max-width: 1024px) {
+          .grid-cols-3 {
+            grid-template-columns: repeat(2, 1fr);
           }
         }
       `}</style>

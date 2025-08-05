@@ -22,6 +22,18 @@ const nextConfig: NextConfig = {
         hostname: 'coin-images.coingecko.com',
         pathname: '/asset_platforms/images/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'pbs.twimg.com', // Hình ảnh từ Twitter
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com', // Hình ảnh từ Google
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   async headers() {

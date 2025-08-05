@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { logger } from './serverLogger';
+import { logger } from './serverLogger.js';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -37,7 +37,6 @@ connectWithRetry().catch((error) => {
 export async function query(text, params) {
   try {
     const res = await pool.query(text, params);
-    logger.info(`Query executed: ${text}`, { params });
     return res;
   } catch (error) {
     logger.error(`Query error: ${error.message}`, { stack: error.stack, query: text, params });
