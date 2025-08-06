@@ -4,32 +4,8 @@ import axios from 'axios';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
 import Bottleneck from 'bottleneck';
-import { createClient } from 'redis';
 import { isAddress } from 'ethers';
 import { auth } from '@/lib/auth';
-
-const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-redisClient.on('error', (err) => logger.error('Redis Client Error', err));
-await redisClient.connect();
-
-async function checkRateLimit(ip, address) {
-  const ipKey = `rate_limit:etherscan_ip:${ip}`;
-  const addressKey = `rate_limit:etherscan_address:${address || 'unknown'}`;
-  const windowMs = 60 * 1000;
-  const [ipRequests, addressRequests] = await Promise.all([
-    redisClient.get(ipKey) || 0,
-    redisClient.get(addressKey) || 0,
-  ]);
-  if (ipRequests >= 100 || addressRequests >= 30) {
-    throw new Error('Too many requests, please try again later.');
-  }
-  await redisClient.multi()
-    .incr(ipKey)
-    .expire(ipKey, windowMs / 1000)
-    .incr(addressKey)
-    .expire(addressKey, windowMs / 1000)
-    .exec();
-}
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 5,
@@ -41,21 +17,51 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
     return await axios.get(url, config);
   } catch (error) {
     if (error.response?.status === 429 || error.code === 'ECONNABORTED') {
-      throw error; // Let Bottleneck handle retries
+      throw error;
     }
     throw error;
   }
 });
 
+// Allowed origins
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL,
   'http://localhost:3000',
   'https://xynapse-ai.vercel.app',
   'https://xynapseai.net',
-  'https://www.xynapseai.net', // Thêm để nhất quán với /api/auth/[...nextauth]
-  'https://xynapse-ai.vercel.app', 
+  'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean);
+
+// Kiểm tra Origin/Referer
+function isAllowedOrigin(origin, referer) {
+  try {
+    if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.endsWith('xynapseai.net'))) {
+      logger.info(`Origin allowed: ${origin}`);
+      return true;
+    }
+    if (!origin && referer) {
+      const refOrigin = new URL(referer).origin;
+      if (allowedOrigins.includes(refOrigin) || new URL(refOrigin).hostname.endsWith('xynapseai.net')) {
+        logger.info(`Referer origin allowed: ${refOrigin}`);
+        return true;
+      }
+    }
+    if (!origin && !referer) {
+      logger.info('Allowing internal/SSR request');
+      return true;
+    }
+    if (!origin && process.env.NODE_ENV === 'development') {
+      logger.warn('Origin is null, allowing in development mode');
+      return true;
+    }
+    logger.error(`CORS blocked: Origin=${origin || 'null'}, Referer=${referer || 'null'}`);
+    return false;
+  } catch (err) {
+    logger.error(`Error in isAllowedOrigin: ${err.message}`, { origin, referer });
+    return false;
+  }
+}
 
 const bodySchema = z.object({
   action: z.enum(['wallet-balances', 'transactions', 'token-supply', 'token-info'], { message: 'Invalid action' }),
@@ -79,168 +85,171 @@ const ETHERSCAN_API_URLS = {
   optimism: 'https://api-optimistic.etherscan.io/api',
 };
 
-export async function POST(request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const startTime = Date.now();
-  logger.info(`Request to /api/etherscan from IP ${ip}, Origin: ${request.headers.get('origin') || 'null'}`);
+// CORS wrapper
+const handlerWrapper = (handler) =>
+  limiterBottleneck.wrap(async (req) => {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const origin = req.headers.get('origin');
+    const referer = req.headers.get('referer');
+    const startTime = Date.now();
+    logger.info(`Request to /api/etherscan from IP ${ip}, Origin: ${origin || 'null'}, Referer: ${referer || 'null'}`);
 
-  const origin = request.headers.get('origin');
-  if (!origin && process.env.NODE_ENV === 'development') {
-    logger.warn(`Origin is null, allowing in development mode`, { ip });
-  } else if (!origin || !allowedOrigins.includes(origin)) {
-    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`, { allowedOrigins, ip });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    if (!isAllowedOrigin(origin, referer)) {
+      return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    }
+
+    const res = await handler(req);
+    const allowOrigin = origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    res.headers.set('Access-Control-Allow-Origin', allowOrigin);
+    res.headers.set('Access-Control-Allow-Methods', 'POST');
+    res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Internal-Token');
+    res.headers.set('Content-Security-Policy', "default-src 'self'");
+    logger.info(`Response for /api/etherscan, time: ${Date.now() - startTime}ms`, { ip });
+    return res;
+  });
+
+export const POST = handlerWrapper(async (request) => {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  let body;
+  try {
+    body = await request.json();
+  } catch (err) {
+    logger.warn(`Invalid JSON body: ${err.message}`, { ip });
+    return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
   }
 
+  let parsedBody;
   try {
-    let body;
-    try {
-      body = await request.json();
-    } catch (err) {
-      logger.warn(`Invalid JSON body: ${err.message}`, { ip });
-      return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
+    parsedBody = bodySchema.parse(body);
+  } catch (err) {
+    logger.warn(`Validation error: ${err.message}`, { ip });
+    return NextResponse.json({ detail: 'Validation failed', errors: err.errors }, { status: 400 });
+  }
+
+  const { chain, action, address, tokenAddress } = parsedBody;
+  const etherscanBaseUrl = ETHERSCAN_API_URLS[chain?.toLowerCase()];
+  if (!etherscanBaseUrl) {
+    logger.warn(`Unsupported chain for Etherscan: ${chain}`, { ip });
+    return NextResponse.json({ detail: `Unsupported chain for Etherscan: ${chain}` }, { status: 400 });
+  }
+
+  const internalToken = request.headers.get('x-internal-token');
+  if (!internalToken || internalToken !== process.env.INTERNAL_API_TOKEN) {
+    const session = await auth(); // Không truyền request trực tiếp
+    if (!session || !session.user?.id) {
+      logger.error(`Authentication error: No session or UID`, { ip });
+      return NextResponse.json({ detail: 'Unauthorized: Please log in.' }, { status: 401 });
     }
+  }
 
-    let parsedBody;
-    try {
-      parsedBody = bodySchema.parse(body);
-    } catch (err) {
-      logger.warn(`Validation error: ${err.message}`, { ip });
-      return NextResponse.json({ detail: 'Validation failed', errors: err.errors }, { status: 400 });
-    }
+  if (!process.env.ETHERSCAN_API_KEY) {
+    logger.error('ETHERSCAN_API_KEY is not configured');
+    return NextResponse.json({ detail: 'Server configuration error: Missing ETHERSCAN_API_KEY' }, { status: 500 });
+  }
 
-    const { chain, action, address, tokenAddress } = parsedBody;
-    await checkRateLimit(ip, address || tokenAddress);
+  return new NextResponse(
+    new ReadableStream({
+      async start(controller) {
+        try {
+          let apiUrl = '';
+          let data = [];
 
-    const etherscanBaseUrl = ETHERSCAN_API_URLS[chain?.toLowerCase()];
-    if (!etherscanBaseUrl) {
-      logger.warn(`Unsupported chain for Etherscan: ${chain}`, { ip });
-      return NextResponse.json({ detail: `Unsupported chain for Etherscan: ${chain}` }, { status: 400 });
-    }
+          if (action === 'transactions' && address) {
+            apiUrl = `${etherscanBaseUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info(`Calling Etherscan API for transactions: ${apiUrl}`, { ip });
+            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
 
-    const internalToken = request.headers.get('x-internal-token');
-    if (!internalToken || internalToken !== process.env.INTERNAL_API_TOKEN) {
-      const session = await auth();
-      if (!session || !session.user?.id) {
-        logger.error(`Authentication error: No session or UID`, { ip });
-        return NextResponse.json({ detail: 'Unauthorized: Please log in.' }, { status: 401 });
-      }
-    }
+            if (response.data.status === '1' && Array.isArray(response.data.result)) {
+              data = response.data.result.map((tx) => ({
+                chain,
+                hash: tx.hash,
+                from: tx.from,
+                to: tx.to,
+                value: '0x' + (parseInt(tx.value) || 0).toString(16),
+                block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+                gasUsed: tx.gasUsed,
+                gasPrice: tx.gasPrice,
+                input: tx.input,
+                isError: tx.isError === '1',
+              }));
+            } else {
+              logger.warn(`Etherscan API returned status ${response.data.status} for transactions: ${response.data.message}`, { ip, address });
+            }
+            logger.info(`Transactions response for address ${address}: ${data.length} transactions`, { ip });
+            controller.enqueue(JSON.stringify({ success: true, data }));
+            controller.close();
+          } else if (action === 'wallet-balances' && address) {
+            apiUrl = `${etherscanBaseUrl}?module=account&action=balance&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info(`Calling Etherscan API for balance: ${apiUrl}`, { ip });
+            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
 
-    if (!process.env.ETHERSCAN_API_KEY) {
-      logger.error('ETHERSCAN_API_KEY is not configured');
-      return NextResponse.json({ detail: 'Server configuration error: Missing ETHERSCAN_API_KEY' }, { status: 500 });
-    }
-
-    return new NextResponse(
-      new ReadableStream({
-        async start(controller) {
-          try {
-            let apiUrl = '';
-            let data = [];
-
-            if (action === 'transactions' && address) {
-              apiUrl = `${etherscanBaseUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
-              logger.info(`Calling Etherscan API for transactions: ${apiUrl}`, { ip });
-              const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
-
-              if (response.data.status === '1' && Array.isArray(response.data.result)) {
-                data = response.data.result.map(tx => ({
-                  chain,
-                  hash: tx.hash,
-                  from: tx.from,
-                  to: tx.to,
-                  value: '0x' + (parseInt(tx.value) || 0).toString(16),
-                  block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-                  gasUsed: tx.gasUsed,
-                  gasPrice: tx.gasPrice,
-                  input: tx.input,
-                  isError: tx.isError === '1',
-                }));
-              } else {
-                logger.warn(`Etherscan API returned status ${response.data.status} for transactions: ${response.data.message}`, { ip, address });
-              }
-              logger.info(`Transactions response for address ${address}: ${data.length} transactions, time: ${Date.now() - startTime}ms`, { ip });
-              controller.enqueue(JSON.stringify({ success: true, data }));
-              controller.close();
-            } else if (action === 'wallet-balances' && address) {
-              apiUrl = `${etherscanBaseUrl}?module=account&action=balance&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
-              logger.info(`Calling Etherscan API for balance: ${apiUrl}`, { ip });
-              const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
-
-              if (response.data.status === '1' && typeof response.data.result === 'string') {
-                const ethBalanceWei = parseInt(response.data.result);
-                data = [{
+            if (response.data.status === '1' && typeof response.data.result === 'string') {
+              const ethBalanceWei = parseInt(response.data.result);
+              data = [
+                {
                   chain,
                   chain_id: null,
                   address,
-                  symbol: chain === 'ethereum' ? 'ETH' : (chain === 'bnb' ? 'BNB' : 'Native'),
+                  symbol: chain === 'ethereum' ? 'ETH' : chain === 'bnb' ? 'BNB' : 'Native',
                   decimals: 18,
                   amount: ethBalanceWei / Math.pow(10, 18),
                   price_usd: 0,
                   value_usd: 0,
                   logo: null,
-                }];
-              } else {
-                logger.warn(`Etherscan API returned status ${response.data.status} for balance: ${response.data.message}`, { ip, address });
-              }
-              logger.info(`Wallet balances response for address ${address}: ${data.length} tokens, time: ${Date.now() - startTime}ms`, { ip });
-              controller.enqueue(JSON.stringify({ success: true, data }));
-              controller.close();
-            } else if (action === 'token-supply' && tokenAddress) {
-              apiUrl = `${etherscanBaseUrl}?module=stats&action=tokensupply&contractaddress=${tokenAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`;
-              logger.info(`Calling Etherscan API for token supply: ${apiUrl}`, { ip });
-              const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+                },
+              ];
+            } else {
+              logger.warn(`Etherscan API returned status ${response.data.status} for balance: ${response.data.message}`, { ip, address });
+            }
+            logger.info(`Wallet balances response for address ${address}: ${data.length} tokens`, { ip });
+            controller.enqueue(JSON.stringify({ success: true, data }));
+            controller.close();
+          } else if (action === 'token-supply' && tokenAddress) {
+            apiUrl = `${etherscanBaseUrl}?module=stats&action=tokensupply&contractaddress=${tokenAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info(`Calling Etherscan API for token supply: ${apiUrl}`, { ip });
+            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
 
-              if (response.data.status === '1' && typeof response.data.result === 'string') {
-                const supply = response.data.result;
-                controller.enqueue(JSON.stringify({ success: true, data: { tokenAddress, totalSupply: supply } }));
-                controller.close();
-              } else {
-                logger.warn(`Etherscan API returned status ${response.data.status} for token supply: ${response.data.message}`, { ip, tokenAddress });
-                controller.enqueue(JSON.stringify({ success: false, detail: 'Token supply not found or invalid token address.' }));
-                controller.close();
-              }
-            } else if (action === 'token-info' && tokenAddress) {
-              logger.warn(`'token-info' action not fully supported by Etherscan directly. Requires contract interaction for full details.`, { ip, tokenAddress });
-              controller.enqueue(JSON.stringify({ success: true, data: { tokenAddress, name: 'Unknown', symbol: 'Unknown', decimals: 0, note: 'Requires contract interaction for full details' } }));
+            if (response.data.status === '1' && typeof response.data.result === 'string') {
+              const supply = response.data.result;
+              controller.enqueue(JSON.stringify({ success: true, data: { tokenAddress, totalSupply: supply } }));
               controller.close();
             } else {
-              logger.warn(`Invalid parameters for action: ${action}`, { ip });
-              controller.enqueue(JSON.stringify({ detail: `Invalid parameters for action: ${action}` }));
+              logger.warn(`Etherscan API returned status ${response.data.status} for token supply: ${response.data.message}`, { ip, tokenAddress });
+              controller.enqueue(JSON.stringify({ success: false, detail: 'Token supply not found or invalid token address.' }));
               controller.close();
             }
-          } catch (error) {
-            logger.error(`Etherscan API error for action ${action}: ${error.message}`, {
-              status: error.response?.status,
-              data: error.response?.data,
-              stack: error.stack,
-              ip,
-            });
-            const status = error.response?.status || 500;
-            const detail =
-              status === 429
-                ? 'Etherscan API rate limit exceeded, please try again later.'
-                : status === 404
-                ? 'Requested data not found.'
-                : `Etherscan API error: ${error.message}`;
-            controller.enqueue(JSON.stringify({ detail }));
+          } else if (action === 'token-info' && tokenAddress) {
+            logger.warn(`'token-info' action not fully supported by Etherscan directly. Requires contract interaction for full details.`, { ip, tokenAddress });
+            controller.enqueue(JSON.stringify({ success: true, data: { tokenAddress, name: 'Unknown', symbol: 'Unknown', decimals: 0, note: 'Requires contract interaction for full details' } }));
+            controller.close();
+          } else {
+            logger.warn(`Invalid parameters for action: ${action}`, { ip });
+            controller.enqueue(JSON.stringify({ detail: `Invalid parameters for action: ${action}` }));
             controller.close();
           }
-        },
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Security-Policy': "default-src 'self'",
-          'Access-Control-Allow-Origin': process.env.NODE_ENV === 'development' ? (origin || 'http://localhost:3000') : origin,
-          'Access-Control-Allow-Methods': 'POST',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Internal-Token',
-        },
-      }
-    );
-  } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`, { ip });
-    return NextResponse.json({ detail: err.message }, { status: 429 });
-  }
-}
+        } catch (error) {
+          logger.error(`Etherscan API error for action ${action}: ${error.message}`, {
+            status: error.response?.status,
+            data: error.response?.data,
+            stack: error.stack,
+            ip,
+          });
+          const status = error.response?.status || 500;
+          const detail =
+            status === 429
+              ? 'Etherscan API rate limit exceeded, please try again later.'
+              : status === 404
+              ? 'Requested data not found.'
+              : `Etherscan API error: ${error.message}`;
+          controller.enqueue(JSON.stringify({ detail }));
+          controller.close();
+        }
+      },
+    }),
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+});

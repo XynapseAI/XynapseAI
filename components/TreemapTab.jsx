@@ -122,7 +122,7 @@ const LoadingOverlay = ({ isLoading, message = 'Processing...', isMobile }) => (
           <div className="relative w-8 h-8">
             <div
               className={`absolute inset-0 border-2 rounded-full animate-spin bg-black/80 ${
-                isMobile ? 'border-white/50 border-t-white' : 'border-black/80 border-t-white'
+                isMobile ? 'border-black/80 border-t-white' : 'border-black/80 border-t-white'
               }`}
             ></div>
           </div>

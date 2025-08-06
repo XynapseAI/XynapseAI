@@ -4,9 +4,9 @@ import { logger } from './serverLogger.js';
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : false,
-  max: 20, // Maximum number of connections
+  max: 40, // Maximum number of connections
   idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-  connectionTimeoutMillis: 5000, // Timeout for acquiring a connection
+  connectionTimeoutMillis: 10000, // Timeout for acquiring a connection
 });
 
 // Retry connection with exponential backoff

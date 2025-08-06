@@ -21,16 +21,14 @@ const LoadingOverlay = ({ isLoading, message = 'Processing...', isMobile }) => (
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={`fixed inset-0 flex items-center justify-center z-50 ${
-          isMobile ? 'bg-black/80' : 'bg-black/80 backdrop-blur-2xl'
-        }`}
+        className={`fixed inset-0 flex items-center justify-center z-50 ${isMobile ? 'bg-black/80' : 'bg-black/80 backdrop-blur-2xl'
+          }`}
       >
         <div className="flex flex-col items-center gap-3">
           <div className="relative w-8 h-8">
             <div
-              className={`absolute inset-0 border-2 rounded-full animate-spin bg-black/80 ${
-                isMobile ? 'border-white/50 border-t-white' : 'border-black/80 border-t-white'
-              }`}
+              className={`absolute inset-0 border-2 rounded-full animate-spin bg-black/80 ${isMobile ? 'border-black/80 border-t-white' : 'border-black/80 border-t-white'
+                }`}
             ></div>
           </div>
           <p className="text-[10px] sm:text-xs text-gray-200 font-medium">{message}</p>
@@ -355,8 +353,8 @@ export default function ProfileTab({ recaptchaRef }) {
         err.response?.status === 429
           ? 'API rate limit exceeded. Please try again later.'
           : err.message.includes('reCAPTCHA')
-          ? 'reCAPTCHA verification failed. Please try again.'
-          : `Verification failed: ${err.message}`,
+            ? 'reCAPTCHA verification failed. Please try again.'
+            : `Verification failed: ${err.message}`,
         { position: 'top-center', autoClose: 5000 }
       );
     },
@@ -476,9 +474,8 @@ export default function ProfileTab({ recaptchaRef }) {
           href={`https://x.com/${user.twitterHandle || 'unknown'}`}
           target="_blank"
           rel="noopener noreferrer"
-          className={`grid grid-cols-12 p-2 rounded-lg font-jetbrains transition-all duration-300 border border-white/10 ${
-            isMobile ? 'bg-black/60' : 'bg-black/60 backdrop-blur-md hover:bg-neon-blue/10'
-          } ${rankStyles[rank] || ''} ${isCurrentUser ? (isMobile ? '' : 'shadow-neon') : ''}`}
+          className={`grid grid-cols-12 p-2 rounded-lg font-jetbrains transition-all duration-300 border border-white/10 ${isMobile ? 'bg-black/60' : 'bg-black/60 backdrop-blur-md hover:bg-neon-blue/10'
+            } ${rankStyles[rank] || ''} ${isCurrentUser ? (isMobile ? '' : 'shadow-neon') : ''}`}
         >
           <div className="col-span-2 text-[10px] sm:text-xs text-white flex items-center ml-2">{rank}</div>
           <div className="col-span-6 flex items-center">
@@ -493,9 +490,8 @@ export default function ProfileTab({ recaptchaRef }) {
               {user.google_name || 'Anonymous'}
               {isCurrentUser && (
                 <span
-                  className={`ml-2 text-[8px] sm:text-[10px] font-medium text-neon-blue px-2 py-0.5 rounded-full border border-neon-blue/50 ${
-                    isMobile ? 'bg-black/60' : 'bg-black/80 backdrop-blur-md'
-                  }`}
+                  className={`ml-2 text-[8px] sm:text-[10px] font-medium text-neon-blue px-2 py-0.5 rounded-full border border-neon-blue/50 ${isMobile ? 'bg-black/60' : 'bg-black/80 backdrop-blur-md'
+                    }`}
                 >
                   You
                 </span>
@@ -538,11 +534,11 @@ export default function ProfileTab({ recaptchaRef }) {
             {getPaginatedData(tasks, 'tasks').map((task) => (
               <motion.div
                 key={task.id}
-                className="p-3 bg-black/80 rounded-lg border border-white/10 backdrop-blur-md flex flex-col"
+                className="p-3 bg-black/80 rounded-xl border-2 border-white/20 backdrop-blur-md flex flex-col"
               >
                 <div className="flex-1">
                   <h3 className="text-[10px] sm:text-xs font-semibold text-white mb-2">
-                    Task {task.id} {task.isDaily ? `(Daily ${taskProgress?.[task.id] || 0}/${task.maxCompletions})` : ''}
+                    {task.id} {task.isDaily ? `(Daily ${taskProgress?.[task.id] || 0}/${task.maxCompletions})` : ''}
                   </h3>
                 </div>
                 <div className="flex items-center justify-between mt-2">
@@ -550,11 +546,10 @@ export default function ProfileTab({ recaptchaRef }) {
                   <motion.button
                     onClick={() => verifyTaskMutation.mutate(task)}
                     disabled={verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)}
-                    className={`px-3 py-1 rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
-                      verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)
+                    className={`px-3 py-1 rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 border-2 border-white/20 backdrop-blur-md ${verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)
                         ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
                         : 'text-white hover:bg-neon-blue/30 hover:shadow-neon'
-                    }`}
+                      }`}
                   >
                     {verifyTaskMutation.isLoading ? 'Verifying...' : 'Verify'}
                   </motion.button>
@@ -566,19 +561,17 @@ export default function ProfileTab({ recaptchaRef }) {
             <motion.button
               onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
               disabled={currentPage.tasks === 1}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-              }`}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                }`}
             >
               &lt;
             </motion.button>
-            <span className="text-xs text-gray-200">Page {currentPage.tasks} of {getTotalPages(tasks)}</span>
+            <span className="text-xs text-gray-200 mt-1">{currentPage.tasks} / {getTotalPages(tasks)}</span>
             <motion.button
               onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
               disabled={currentPage.tasks === getTotalPages(tasks)}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-              }`}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                }`}
             >
               &gt;
             </motion.button>
@@ -629,9 +622,8 @@ export default function ProfileTab({ recaptchaRef }) {
             <motion.button
               onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
               disabled={currentPage.leaderboard === 1}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-              }`}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                }`}
             >
               &lt;
             </motion.button>
@@ -639,9 +631,8 @@ export default function ProfileTab({ recaptchaRef }) {
             <motion.button
               onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
               disabled={currentPage.leaderboard === getTotalPages(rankings)}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-              }`}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                }`}
             >
               &gt;
             </motion.button>
@@ -717,9 +708,8 @@ export default function ProfileTab({ recaptchaRef }) {
               <div className="flex items-center justify-center gap-2">
                 <p className="text-2xl sm:text-3xl font-bold text-neon-blue">{pointData?.taskPoints || 0}</p>
                 <motion.p
-                  className={`text-[10px] sm:text-xs font-semibold text-${pointData?.taskGrowth.color} ${
-                    pointData?.taskGrowth.value != 0 ? 'animate-pulse' : ''
-                  }`}
+                  className={`text-[10px] sm:text-xs font-semibold text-${pointData?.taskGrowth.color} ${pointData?.taskGrowth.value != 0 ? 'animate-pulse' : ''
+                    }`}
                   animate={{ opacity: pointData?.taskGrowth.value != 0 ? [1, 0.7, 1] : 1 }}
                   transition={{ duration: 1.5, repeat: pointData?.taskGrowth.value != 0 ? Infinity : 0 }}
                 >
@@ -732,9 +722,8 @@ export default function ProfileTab({ recaptchaRef }) {
             <motion.button
               onClick={() => handlePageChange('points', currentPage.points - 1)}
               disabled={currentPage.points === 1}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-              }`}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                }`}
             >
               &lt;
             </motion.button>
@@ -742,9 +731,8 @@ export default function ProfileTab({ recaptchaRef }) {
             <motion.button
               onClick={() => handlePageChange('points', currentPage.points + 1)}
               disabled={currentPage.points === getTotalPages(pointData?.history || [])}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-              }`}
+              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                }`}
             >
               &gt;
             </motion.button>
@@ -804,7 +792,7 @@ export default function ProfileTab({ recaptchaRef }) {
         )}
         {userData && (
           <motion.div
-            className="w-[80%] mx-auto rounded-b-2xl p-3 sm:p-6 flex flex-col sm:flex-row border-2 border-white/10 bg-black/60 backdrop-blur-md shadow-neon-sm hover:bg-neon-blue/10 relative"
+            className="w-[80%] mx-auto rounded-b-2xl p-6 sm:p-6 flex flex-col sm:flex-row border-2 border-white/50 bg-black/60 backdrop-blur-md shadow-neon-sm hover:bg-neon-blue/10 relative"
           >
             {/* Left: Google Account Logo, Name, Email, Wallet */}
             <div className="flex flex-col items-center sm:items-start sm:w-1/2">
@@ -818,24 +806,21 @@ export default function ProfileTab({ recaptchaRef }) {
               <div className="flex items-center gap-2">
                 <span className="text-[10px] sm:text-xs text-white truncate">{userData.googleName || userData.email}</span>
                 <span
-                  className={`text-[8px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-                    userData.isPremium ? 'text-yellow-400 border-yellow-400/50 bg-yellow-400/10' : 'text-white border-white/20 bg-white/10'
-                  }`}
+                  className={`text-[8px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full border ${userData.isPremium ? 'text-black border-yellow-400/50 bg-yellow-400/10' : 'text-black border-gray-200 bg-gray-200'
+                    }`}
                 >
                   {userData.tier || 'Basic'}
                 </span>
               </div>
-              <p className="text-[8px] sm:text-[10px] text-gray-400 mt-1">{userData.email}</p>
-              <div className="flex items-center gap-2 mt-2 w-full items-center justify-between">
-                {/* <p className="text-[10px] sm:text-xs font-bold text-white uppercase">Wallet:</p> */}
+              <p className="text-[8px] sm:text-[10px] text-gray-500 mt-1">{userData.email}</p>
+              <div className="flex items-center gap-2 mt-2 w-full justify-center sm:items-center sm:justify-between">
                 <motion.button
                   onClick={() => connectWalletMutation.mutate()}
                   disabled={connectWalletMutation.isLoading || userData.walletAddress}
-                  className={`px-2 sm:px-3 py-1 rounded-xl text-[8px] sm:text-[10px] font-medium transition-all duration-300 border border-white/20 backdrop-blur-md ${
-                    connectWalletMutation.isLoading || userData.walletAddress
-                      ? 'bg-green-500 text-black cursor-not-allowed opacity-50'
-                      : 'text-black bg-green-500 hover:bg-neon-blue/30 hover:shadow-neon'
-                  }`}
+                  className={`px-2 sm:px-3 py-1 rounded-xl text-[8px] sm:text-[10px] font-medium transition-all duration-300 border border-green-500 backdrop-blur-md ${connectWalletMutation.isLoading || userData.walletAddress
+                      ? 'bg-black/80 text-green-500 cursor-not-allowed opacity-50'
+                      : 'text-green-500 bg-black/80'
+                    }`}
                   whileHover={{ scale: connectWalletMutation.isLoading || userData.walletAddress ? 1 : 1 }}
                   whileTap={{ scale: connectWalletMutation.isLoading || userData.walletAddress ? 1 : 1 }}
                 >
@@ -845,9 +830,8 @@ export default function ProfileTab({ recaptchaRef }) {
                   <motion.button
                     onClick={() => disconnectWalletMutation.mutate()}
                     disabled={disconnectWalletMutation.isLoading}
-                    className={`px-2 sm:px-3 py-1 rounded-lg text-[8px] sm:text-[10px] font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${
-                      disconnectWalletMutation.isLoading ? 'text-white/50 cursor-not-allowed opacity-50' : 'text-red-400 hover:bg-red-500/30 hover:shadow-neon'
-                    }`}
+                    className={`px-2 sm:px-3 py-1 rounded-lg text-[8px] sm:text-[10px] font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${disconnectWalletMutation.isLoading ? 'text-white/50 cursor-not-allowed opacity-50' : 'text-red-400 hover:bg-red-500/30 hover:shadow-neon'
+                      }`}
                   >
                     {disconnectWalletMutation.isLoading ? 'Disconnecting...' : 'Disconnect'}
                   </motion.button>
@@ -859,20 +843,20 @@ export default function ProfileTab({ recaptchaRef }) {
             <div className="flex flex-col sm:w-1/2 mt-3 sm:mt-0 items-center sm:items-end justify-between">
               <motion.button
                 onClick={handleSignOut}
-                className="absolute top-3 sm:top-4 right-3 sm:right-4 text-white rounded-lg w-8 h-8 flex items-center justify-center border border-white/10 backdrop-blur-md hover:bg-red-500/30 transition-all duration-300"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="absolute top-3 sm:top-4 right-3 sm:right-4 text-white rounded-xl w-8 h-8 flex items-center justify-center border border-white/10 backdrop-blur-md hover:bg-red-500/30 transition-all duration-300 bg-black/60"
                 aria-label="Sign out"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-red-400 fill-none z-10"
+                  className="h-4 sm:h-5 w-4 sm:w-5"
                   viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#F87171"
                   strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
                   <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
                     d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                   />
                 </svg>
@@ -901,9 +885,8 @@ export default function ProfileTab({ recaptchaRef }) {
             <motion.button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 px-3 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 ${
-                activeTab === tab ? 'border-b-2 border-white text-white shadow-neon' : 'text-white hover:bg-neon-blue/10'
-              }`}
+              className={`flex-1 px-3 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 uppercase ${activeTab === tab ? 'border-b-2 border-white text-white shadow-neon' : 'text-white hover:bg-neon-blue/10'
+                }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </motion.button>

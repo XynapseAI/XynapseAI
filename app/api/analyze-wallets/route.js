@@ -11,6 +11,7 @@ import fs from 'fs/promises';
 import crypto from 'crypto';
 import path from 'path';
 import { NextResponse } from 'next/server';
+import Bottleneck from 'bottleneck';
 
 const ALLOWED_USER_AGENT = 'CronWorker/1.0';
 const HMAC_SECRET = process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex');
@@ -24,6 +25,69 @@ const WALLET_FILE_PATH = process.env.WALLET_FILE_PATH
   : path.resolve(process.cwd(), 'cron-worker/wallets.json');
 const VALID_CHAINS = ['ethereum', 'bsc', 'polygon'];
 
+const limiter = new Bottleneck({ maxConcurrent: 5, minTime: 200 });
+
+// Allowed origins
+const allowedOrigins = [
+  process.env.NEXT_PUBLIC_APP_URL,
+  'http://localhost:3000',
+  'https://xynapse-ai.vercel.app',
+  'https://xynapseai.net',
+  'https://www.xynapseai.net',
+  'https://xynapse-ai-xynapse-projects.vercel.app',
+].filter(Boolean);
+
+// Kiểm tra Origin/Referer
+function isAllowedOrigin(origin, referer) {
+  try {
+    if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.endsWith('xynapseai.net'))) {
+      logger.info(`Origin allowed: ${origin}`);
+      return true;
+    }
+    if (!origin && referer) {
+      const refOrigin = new URL(referer).origin;
+      if (allowedOrigins.includes(refOrigin) || new URL(refOrigin).hostname.endsWith('xynapseai.net')) {
+        logger.info(`Referer origin allowed: ${refOrigin}`);
+        return true;
+      }
+    }
+    if (!origin && !referer) {
+      logger.info('Allowing internal/SSR request');
+      return true;
+    }
+    if (!origin && process.env.NODE_ENV === 'development') {
+      logger.warn('Origin is null, allowing in development mode');
+      return true;
+    }
+    logger.error(`CORS blocked: Origin=${origin || 'null'}, Referer=${referer || 'null'}`);
+    return false;
+  } catch (err) {
+    logger.error(`Error in isAllowedOrigin: ${err.message}`, { origin, referer });
+    return false;
+  }
+}
+
+// CORS wrapper (loại bỏ rate-limiting)
+const handlerWrapper = (handler) =>
+  limiter.wrap(async (req) => {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const origin = req.headers.get('origin');
+    const referer = req.headers.get('referer');
+    logger.info(`Request to /api/analyze-wallets from IP ${ip}, Origin: ${origin || 'null'}, Referer: ${referer || 'null'}`);
+
+    if (!isAllowedOrigin(origin, referer)) {
+      return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    }
+
+    const body = await req.json(); // Đọc body một lần
+    const res = await handler(req, body);
+    const allowOrigin = origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    res.headers.set('Access-Control-Allow-Origin', allowOrigin);
+    res.headers.set('Access-Control-Allow-Methods', 'POST');
+    res.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, X-HMAC-Signature');
+    return res;
+  });
+
 // Các hàm helper giữ nguyên từ file gốc
 async function withRetry(operation, maxAttempts = 3, delayMs = 1000) {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -32,7 +96,7 @@ async function withRetry(operation, maxAttempts = 3, delayMs = 1000) {
     } catch (e) {
       if (attempt === maxAttempts) throw e;
       logger.warn(`Attempt ${attempt} failed: ${e.message}. Retrying after ${delayMs}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delayMs));
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
 }
@@ -118,7 +182,7 @@ async function saveLargeFlow(data) {
     return;
   }
   try {
-    const values = data.large_flows.map(flow => [
+    const values = data.large_flows.map((flow) => [
       data.source_wallet_scanned || 'N/A',
       flow.from,
       flow.to,
@@ -129,9 +193,9 @@ async function saveLargeFlow(data) {
       flow.to_nametag || 'Unknown',
       new Date(),
     ]);
-    const placeholders = values.map((_, i) =>
-      `(${values.map((_, j) => `$${i * 9 + j + 1}`).join(', ')})`
-    ).join(', ');
+    const placeholders = values
+      .map((_, i) => `(${values.map((_, j) => `$${i * 9 + j + 1}`).join(', ')})`)
+      .join(', ');
     const queryText = `
       INSERT INTO large_flows (source_wallet_scanned, from_address, to_address, value_usd, tx_hash, block_time, from_nametag, to_nametag, timestamp_recorded)
       VALUES ${placeholders}
@@ -151,8 +215,8 @@ async function readWalletFile() {
     const fileContent = await fs.readFile(absolutePath, 'utf-8');
     const wallets = JSON.parse(fileContent);
     const validWallets = wallets
-      .filter(wallet => isAddress(wallet.address))
-      .map(wallet => ({
+      .filter((wallet) => isAddress(wallet.address))
+      .map((wallet) => ({
         address: wallet.address.toLowerCase(),
         name: wallet.name || 'Unknown',
       }));
@@ -169,17 +233,17 @@ async function fetchGeminiAnalysis(walletAddress, txData, isDepositConfidence, c
     return 'No transaction data available for Gemini analysis.';
   }
   const totalTransactions = txData.length;
-  const incomingTransactions = txData.filter(tx => tx.to.toLowerCase() === walletAddress.toLowerCase()).length;
-  const outgoingTransactions = txData.filter(tx => tx.from.toLowerCase() === walletAddress.toLowerCase()).length;
+  const incomingTransactions = txData.filter((tx) => tx.to.toLowerCase() === walletAddress.toLowerCase()).length;
+  const outgoingTransactions = txData.filter((tx) => tx.from.toLowerCase() === walletAddress.toLowerCase()).length;
   const totalValueUsd = txData.reduce((sum, tx) => {
     try {
-      return sum + (parseInt(String(tx.value), 16) / 1e18 * currentEthPriceUsd);
+      return sum + (parseInt(String(tx.value), 16) / 1e18) * currentEthPriceUsd;
     } catch (e) {
       logger.warn(`Error calculating value for Gemini prompt (tx hash: ${tx.hash}): ${e.message}. Skipping this transaction value.`);
       return sum;
     }
   }, 0);
-  const uniqueSenders = new Set(txData.filter(tx => tx.to.toLowerCase() === walletAddress.toLowerCase()).map(tx => tx.from)).size;
+  const uniqueSenders = new Set(txData.filter((tx) => tx.to.toLowerCase() === walletAddress.toLowerCase()).map((tx) => tx.from)).size;
 
   const prompt = `
     Analyze wallet ${walletAddress} as a potential deposit wallet.
@@ -193,18 +257,25 @@ async function fetchGeminiAnalysis(walletAddress, txData, isDepositConfidence, c
   `;
   try {
     logger.info(`Calling Gemini for analysis of ${walletAddress}...`);
-    const response = await axios.post(`${process.env.NEXTAUTH_URL}/api/gemini`, {
-      prompt: prompt,
-      deepSearch: false,
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': process.env.INTERNAL_API_TOKEN,
-        'X-HMAC-Signature': crypto.createHmac('sha256', HMAC_SECRET).update(JSON.stringify({ prompt, deepSearch: false })).digest('hex'),
-        'User-Agent': 'Server/1.0',
+    const response = await axios.post(
+      `${process.env.NEXTAUTH_URL}/api/gemini`,
+      {
+        prompt: prompt,
+        deepSearch: false,
       },
-      timeout: DEFAULT_GEMINI_TIMEOUT_MS,
-    });
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.INTERNAL_API_TOKEN,
+          'X-HMAC-Signature': crypto
+            .createHmac('sha256', HMAC_SECRET)
+            .update(JSON.stringify({ prompt, deepSearch: false }))
+            .digest('hex'),
+          'User-Agent': 'Server/1.0',
+        },
+        timeout: DEFAULT_GEMINI_TIMEOUT_MS,
+      }
+    );
 
     if (response.status !== 200 || !response.data.answer) {
       logger.error(`Gemini API returned non-200 status or no answer: ${response.status}, ${JSON.stringify(response.data)}`);
@@ -237,7 +308,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   logger.info(`Analyzing potential deposit wallet: ${lowerWalletAddress} on ${chain} for sending to ${lowerPrimaryTargetWallet}...`);
 
   const txData = await fetchBlockchainData(lowerWalletAddress, 'transactions', false, 500, chain);
-  let nametag = await getNametag(lowerWalletAddress) || 'Unknown';
+  let nametag = (await getNametag(lowerWalletAddress)) || 'Unknown';
 
   if (!txData || txData.length === 0) {
     logger.info(`No transactions found for wallet ${lowerWalletAddress}. Skipping nametag assignment and PostgreSQL save.`);
@@ -258,7 +329,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const recentTxs30d = txData.filter(tx => {
+  const recentTxs30d = txData.filter((tx) => {
     try {
       return new Date(tx.block_time) > last30Days;
     } catch {
@@ -270,9 +341,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   let confidenceScore = 0;
   let reasonParts = [];
 
-  const incomingTxs24h = recentTxs30d.filter(tx =>
-    tx.to.toLowerCase() === lowerWalletAddress && new Date(tx.block_time) > last24Hours
-  );
+  const incomingTxs24h = recentTxs30d.filter((tx) => tx.to.toLowerCase() === lowerWalletAddress && new Date(tx.block_time) > last24Hours);
 
   if (incomingTxs24h.length < 20) {
     confidenceScore += 20;
@@ -281,7 +350,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     reasonParts.push(`High incoming transaction volume in 24h (${incomingTxs24h.length} txs).`);
   }
 
-  const uniqueSendersToWallet = new Set(incomingTxs24h.map(tx => tx.from.toLowerCase())).size;
+  const uniqueSendersToWallet = new Set(incomingTxs24h.map((tx) => tx.from.toLowerCase())).size;
   if (uniqueSendersToWallet > 0 && uniqueSendersToWallet < 10) {
     confidenceScore += 20;
     reasonParts.push(`Few unique senders (${uniqueSendersToWallet}) to this wallet in 24h.`);
@@ -291,10 +360,10 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     reasonParts.push(`Many unique senders (${uniqueSendersToWallet}) to this wallet in 24h.`);
   }
 
-  const outgoingToPrimaryTarget = recentTxs30d.filter(tx =>
-    tx.from.toLowerCase() === lowerWalletAddress && tx.to.toLowerCase() === lowerPrimaryTargetWallet
+  const outgoingToPrimaryTarget = recentTxs30d.filter(
+    (tx) => tx.from.toLowerCase() === lowerWalletAddress && tx.to.toLowerCase() === lowerPrimaryTargetWallet
   );
-  const totalOutgoingTxs = recentTxs30d.filter(tx => tx.from.toLowerCase() === lowerWalletAddress).length;
+  const totalOutgoingTxs = recentTxs30d.filter((tx) => tx.from.toLowerCase() === lowerWalletAddress).length;
 
   if (outgoingToPrimaryTarget.length === 0) {
     logger.info(`No outgoing transactions to primary wallet ${lowerPrimaryTargetWallet} for wallet ${lowerWalletAddress} in last 30 days. Skipping nametag assignment and PostgreSQL save.`);
@@ -326,8 +395,8 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     reasonParts.push(`Some outgoing transactions sent back to target wallet ${lowerPrimaryTargetWallet} in last 30 days.`);
   }
 
-  const hasComplexIncomingInteraction = recentTxs30d.some(tx =>
-    tx.to.toLowerCase() === lowerWalletAddress && tx.input !== '0x' && tx.input.length > 2
+  const hasComplexIncomingInteraction = recentTxs30d.some(
+    (tx) => tx.to.toLowerCase() === lowerWalletAddress && tx.input !== '0x' && tx.input.length > 2
   );
   if (!hasComplexIncomingInteraction) {
     confidenceScore += 15;
@@ -336,8 +405,8 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     reasonParts.push('Has complex incoming smart contract interactions in last 30 days.');
   }
 
-  const nonContractOutgoingTxs30d = recentTxs30d.filter(tx => tx.from.toLowerCase() === lowerWalletAddress);
-  const uniqueOutgoingDestinations = new Set(nonContractOutgoingTxs30d.map(tx => tx.to.toLowerCase())).size;
+  const nonContractOutgoingTxs30d = recentTxs30d.filter((tx) => tx.from.toLowerCase() === lowerWalletAddress);
+  const uniqueOutgoingDestinations = new Set(nonContractOutgoingTxs30d.map((tx) => tx.to.toLowerCase())).size;
 
   if (uniqueOutgoingDestinations === 1 && nonContractOutgoingTxs30d[0]?.to.toLowerCase() === lowerPrimaryTargetWallet) {
     confidenceScore += 15;
@@ -385,8 +454,8 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
 
   if (isDeposit && outgoingToPrimaryTarget.length > 0) {
     const primaryWallets = await readWalletFile();
-    logger.info(`Looking for primary wallet ${lowerPrimaryTargetWallet} in ${JSON.stringify(primaryWallets.map(w => ({ address: w.address, name: w.name })))}`);
-    const primaryWallet = primaryWallets.find(w => w.address.toLowerCase() === lowerPrimaryTargetWallet);
+    logger.info(`Looking for primary wallet ${lowerPrimaryTargetWallet} in ${JSON.stringify(primaryWallets.map((w) => ({ address: w.address, name: w.name })))}`);
+    const primaryWallet = primaryWallets.find((w) => w.address.toLowerCase() === lowerPrimaryTargetWallet);
     if (!primaryWallet) {
       logger.error(`No primary wallet found for ${lowerPrimaryTargetWallet} in wallets.json`);
       const newNametagValue = `Unknown Deposit Wallet (Conf: ${confidenceScore.toFixed(0)}%)`;
@@ -421,10 +490,12 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
   return result;
 }
 
-export async function POST(req) {
+export const POST = handlerWrapper(async (req, body) => {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const userAgent = req.headers.get('user-agent');
+
   if (userAgent !== ALLOWED_USER_AGENT) {
-    logger.warn(`Invalid User-Agent: ${userAgent}`);
+    logger.warn(`Invalid User-Agent: ${userAgent}`, { ip });
     return NextResponse.json({ detail: 'Unauthorized: Invalid User-Agent.' }, { status: 403 });
   }
 
@@ -432,32 +503,37 @@ export async function POST(req) {
   const internalApiToken = process.env.INTERNAL_API_TOKEN;
 
   if (!apiKey || (apiKey !== internalApiToken && !(await verifyApiKey(apiKey)))) {
-    logger.warn(`Unauthorized: Invalid or missing API key: ${apiKey}`);
+    logger.warn(`Unauthorized: Invalid or missing API key: ${apiKey}`, { ip });
     return NextResponse.json({ detail: 'Unauthorized: Invalid or missing API key.' }, { status: 401 });
   }
 
   const signature = req.headers.get('x-hmac-signature');
-  const body = await req.json();
   if (!signature || !(await verifyHmacSignature(body, signature, HMAC_SECRET))) {
-    logger.warn('Unauthorized: Invalid HMAC signature.');
+    logger.warn('Unauthorized: Invalid HMAC signature.', { ip });
     return NextResponse.json({ detail: 'Unauthorized: Invalid HMAC signature.' }, { status: 401 });
   }
 
-  const session = await auth(req);
+  let session;
   let isAuthorized = false;
+
+  try {
+    session = await auth(); // Không truyền req
+  } catch (error) {
+    logger.error(`Error during auth: ${error.message}`, { stack: error.stack, ip });
+  }
 
   if (session) {
     const isAdminUser = await checkAdminStatus(session.user.id);
     if (isAdminUser) {
       isAuthorized = true;
     } else {
-      logger.warn(`Forbidden access attempt to analyze-wallets API by non-admin user: ${session.user.id}`);
+      logger.warn(`Forbidden access attempt to analyze-wallets API by non-admin user: ${session.user.id}`, { ip });
       return NextResponse.json({ detail: 'Forbidden: Admin access required.' }, { status: 403 });
     }
   } else if (apiKey) {
     isAuthorized = true;
   } else {
-    logger.warn('Unauthorized access attempt to analyze-wallets API (no session or API key)');
+    logger.warn('Unauthorized access attempt to analyze-wallets API (no session or API key)', { ip });
     return NextResponse.json({ detail: 'Unauthorized: Please log in or provide a valid API key.' }, { status: 401 });
   }
 
@@ -473,7 +549,7 @@ export async function POST(req) {
     }
     const currentEthPriceUsd = typeof eth_price_usd === 'number' && eth_price_usd > 0 ? eth_price_usd : DEFAULT_ETH_PRICE_USD;
     if (eth_price_usd !== currentEthPriceUsd) {
-      logger.warn(`Invalid eth_price_usd: ${eth_price_usd}. Using default: ${currentEthPriceUsd}`);
+      logger.warn(`Invalid eth_price_usd: ${eth_price_usd}. Using default: ${currentEthPriceUsd}`, { ip });
     }
     if (!VALID_CHAINS.includes(chain)) {
       return NextResponse.json({ error: `Invalid chain: ${chain}. Supported chains: ${VALID_CHAINS.join(', ')}` }, { status: 400 });
@@ -483,47 +559,35 @@ export async function POST(req) {
       if (!wallet_address) {
         return NextResponse.json({ error: "Wallet address is required for 'identify' action." }, { status: 400 });
       }
-      const result = await identifyDepositWallet(
-        wallet_address,
-        primary_target_wallet || wallet_address,
-        chain,
-        true,
-        currentEthPriceUsd
-      );
+      const result = await identifyDepositWallet(wallet_address, primary_target_wallet || wallet_address, chain, true, currentEthPriceUsd);
       return NextResponse.json(result);
     } else if (action === 'detect-large-flow') {
       if (!wallet_address) {
         return NextResponse.json({ error: "Wallet address is required for 'detect-large-flow' action." }, { status: 400 });
       }
-      logger.info(`Detecting large flows for ${wallet_address} via API.`);
-      const largeFlowResult = await detectLargeFlow(
-        wallet_address,
-        chain,
-        LARGE_VALUE_THRESHOLD_USD,
-        500,
-        currentEthPriceUsd
-      );
+      logger.info(`Detecting large flows for ${wallet_address} via API.`, { ip });
+      const largeFlowResult = await detectLargeFlow(wallet_address, chain, LARGE_VALUE_THRESHOLD_USD, 500, currentEthPriceUsd);
       if (largeFlowResult && largeFlowResult.large_flows && largeFlowResult.large_flows.length > 0) {
         await saveLargeFlow({
           source_wallet_scanned: wallet_address,
           large_flows: largeFlowResult.large_flows,
         });
-        logger.info(`Saved ${largeFlowResult.large_flows.length} large flows for ${wallet_address}.`);
+        logger.info(`Saved ${largeFlowResult.large_flows.length} large flows for ${wallet_address}.`, { ip });
       } else {
-        logger.info(`No large flows detected for ${wallet_address}.`);
+        logger.info(`No large flows detected for ${wallet_address}.`, { ip });
       }
       return NextResponse.json(largeFlowResult);
     } else if (action === 'get-transactions') {
       if (!wallet_address) {
         return NextResponse.json({ error: "Wallet address is required for 'get-transactions' action." }, { status: 400 });
       }
-      logger.info(`Fetching transactions for ${wallet_address} via API.`);
+      logger.info(`Fetching transactions for ${wallet_address} via API.`, { ip });
       const txData = await fetchBlockchainData(wallet_address, 'transactions', false, 100, chain);
 
       const incomingTxs = txData
-        .filter(tx => tx.to.toLowerCase() === wallet_address.toLowerCase())
+        .filter((tx) => tx.to.toLowerCase() === wallet_address.toLowerCase())
         .slice(0, 50)
-        .map(tx => ({
+        .map((tx) => ({
           hash: tx.hash,
           from: tx.from,
           to: tx.to,
@@ -533,9 +597,9 @@ export async function POST(req) {
         }));
 
       const outgoingTxs = txData
-        .filter(tx => tx.from.toLowerCase() === wallet_address.toLowerCase())
+        .filter((tx) => tx.from.toLowerCase() === wallet_address.toLowerCase())
         .slice(0, 50)
-        .map(tx => ({
+        .map((tx) => ({
           hash: tx.hash,
           from: tx.from,
           to: tx.to,
@@ -552,14 +616,17 @@ export async function POST(req) {
       const absolutePath = path.resolve(process.env.WALLET_FILE_PATH);
       await fs.access(absolutePath, fs.constants.F_OK);
       const fileContent = await fs.readFile(absolutePath, 'utf-8');
-      logger.info(`Debug: Successfully read wallet file at ${absolutePath}. Content length: ${fileContent.length}`);
+      logger.info(`Debug: Successfully read wallet file at ${absolutePath}. Content length: ${fileContent.length}`, { ip });
       const wallets = await readWalletFile();
       return NextResponse.json({ path: absolutePath, wallets });
     } else {
-      return NextResponse.json({ error: `Invalid action: ${action}. Supported actions: 'identify', 'detect-large-flow', 'get-transactions', 'debug-wallets', 'debug-wallet-file'.` }, { status: 400 });
+      return NextResponse.json(
+        { error: `Invalid action: ${action}. Supported actions: 'identify', 'detect-large-flow', 'get-transactions', 'debug-wallets', 'debug-wallet-file'.` },
+        { status: 400 }
+      );
     }
   } catch (error) {
-    logger.error(`Error in analyze-wallets API for action '${action}': ${error.message}`, { stack: error.stack });
+    logger.error(`Error in analyze-wallets API for action '${body.action}': ${error.message}`, { stack: error.stack, ip });
     return NextResponse.json({ error: `An error occurred: ${error.message}` }, { status: 500 });
   }
-}
+});

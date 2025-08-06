@@ -1,8 +1,0 @@
-{
-  "projects": {
-    "staging": "next-62115",
-    "default": "next-62115"
-  },
-  "targets": {},
-  "etags": {}
-}

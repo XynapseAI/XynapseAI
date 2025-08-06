@@ -1,7 +1,0 @@
-pandas
-requests
-python-dotenv
-firebase-admin
-schedule
-tenacity
-functions-framework
