@@ -271,4 +271,9 @@ export default {
 		},
 		require("tailwindcss-animate")
 	],
+	variants: {
+		extend: {
+			display: ['group-hover'], // Ensure group-hover is enabled for display
+		},
+	},
 };

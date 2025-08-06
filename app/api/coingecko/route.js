@@ -15,7 +15,7 @@ axiosRetry(axios, {
 });
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 2,
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 3,
   minTime: process.env.NODE_ENV === 'production' ? 200 : 1000,
 });
 
@@ -47,7 +47,7 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:coingecko:${ip}`;
   const requests = parseInt(await redisClient.get(key)) || 0;
   const windowMs = 60 * 1000;
-  if (requests >= 30) {
+  if (requests >= 50) {
     logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`, { ip });
     throw new Error('Too many requests, please try again later.');
   }
@@ -253,7 +253,54 @@ export async function GET(request) {
             });
             data = response.data;
             await redisClient.setEx(cacheKey, 12 * 3600, JSON.stringify({ success: true, data }));
-          } else {
+          } else if (action === 'trending') {
+            cacheKey = `coingecko_trending_${selectedCurrency}`;
+            const cachedData = await redisClient.get(cacheKey);
+            if (cachedData) {
+              controller.enqueue(new TextEncoder().encode(JSON.stringify(JSON.parse(cachedData))));
+              controller.close();
+              return;
+            }
+
+            try {
+              const response = await fetchWithRateLimit('https://api.coingecko.com/api/v3/search/trending', {
+                headers: { 'x-cg-demo-api-key': COINGECKO_API_KEY },
+                timeout: 15000,
+              });
+              data = response.data.coins.map((coin) => ({
+                id: coin.item.id,
+                name: coin.item.name,
+                symbol: coin.item.symbol,
+                thumb: coin.item.thumb || '/fallback-image.png',
+                large: coin.item.large || '/fallback-image.png',
+                market_cap_rank: coin.item.market_cap_rank,
+                price: coin.item.data.price,
+                price_change_percentage_24h: coin.item.data.price_change_percentage_24h.usd,
+              }));
+              await redisClient.setEx(cacheKey, 30 * 60, JSON.stringify({ success: true, data })); // Cache for 5 minutes
+              controller.enqueue(new TextEncoder().encode(JSON.stringify({ success: true, data })));
+            } catch (error) {
+              logger.error(`Failed to fetch trending tokens: ${error.message}`, {
+                ip,
+                status: error.response?.status,
+                data: error.response?.data,
+              });
+              controller.enqueue(
+                new TextEncoder().encode(
+                  JSON.stringify({
+                    success: false,
+                    detail: error.response?.status === 429
+                      ? 'CoinGecko API rate limit exceeded. Please try again in a few minutes.'
+                      : `Failed to fetch trending tokens: ${error.message}`,
+                    data: [],
+                  })
+                )
+              );
+            }
+            controller.close();
+            return;
+          }
+          {
             cacheKey = `coingecko_default_markets_${selectedCurrency}_${start || 1}_${limit || 30}`;
             const cachedData = await redisClient.get(cacheKey);
             if (cachedData) {

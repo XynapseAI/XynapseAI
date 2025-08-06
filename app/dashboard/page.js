@@ -11,7 +11,7 @@ import TreemapTab from '../../components/TreemapTab';
 import WatchlistsTab from '../../components/WatchlistsTab';
 import { motion } from 'framer-motion';
 import ReCAPTCHA from 'react-google-recaptcha';
-import { toast } from 'react-toastify';
+import { toast ,ToastContainer } from 'react-toastify';
 import MatrixHoverEffect from '../../components/MatrixHoverEffect';
 import styles from './page.module.css';
 import Image from 'next/image';
@@ -512,7 +512,7 @@ export default function Dashboard() {
           transition={{ duration: 0.5 }}
           className="w-full h-full flex items-center justify-center"
         >
-          {activeTab === 'market' && <MarketTab recaptchaRef={recaptchaRef} onTokenSelect={handleNavigateToToken} />}
+          {activeTab === 'market' && <MarketTab recaptchaRef={recaptchaRef} toast={toast} onTokenSelect={handleNavigateToToken} />}
           {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
           {activeTab === 'profile' && (
             <ProfileTab
@@ -545,6 +545,7 @@ export default function Dashboard() {
         </a>{' '}
         of Google.
       </p>
+      <ToastContainer position="top-center" autoClose={3000} hideProgressBar closeOnClick pauseOnHover />
     </div>
   );
 }

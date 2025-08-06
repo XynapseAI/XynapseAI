@@ -31,7 +31,7 @@ const LoadingOverlay = ({ isLoading, message = 'Processing...', isMobile }) => (
                 }`}
             ></div>
           </div>
-          <p className="text-[10px] sm:text-xs text-gray-200 font-medium">{message}</p>
+          {/* <p className="text-[10px] sm:text-xs text-gray-200 font-medium">{message}</p> */}
         </div>
       </motion.div>
     )}

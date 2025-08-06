@@ -36,6 +36,7 @@ const CACHE_DURATIONS = {
   DEFI_POOL: 30 * 1000, // 30s for DeFi pool data
   DEFAULT: 60 * 1000, // 1 minute for other data
   TICKERS: 5 * 60 * 1000,
+  TRENDING: 30 * 60 * 1000,
 };
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
@@ -119,6 +120,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [blockchairRequestCount, setBlockchairRequestCount] = useState(0);
   const [lastBlockchairRequestTime, setLastBlockchairRequestTime] = useState(0);
   const blockchairCache = useRef({});
+  const [trendingTokens, setTrendingTokens] = useState([]);
+  const [isLoadingTrending, setIsLoadingTrending] = useState(false);
+  const [trendingError, setTrendingError] = useState(null);
   const [availableCurrencies] = useState([
     'usd', 'eur', 'cny', 'gbp', 'hkd', 'idr', 'jpy', 'krw', 'mxn', 'myr',
     'nok', 'nzd', 'pln', 'rub', 'sar', 'sek', 'sgd', 'thb', 'try', 'twd',
@@ -1037,6 +1041,56 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [toast, status, session]
   );
 
+  const fetchTrendingTokens = useCallback(
+  debounce(
+    async (retryCount = 0) => {
+      if (document.visibilityState !== 'visible') return;
+      const cacheKey = `trending-tokens-${currency}`;
+      setIsLoadingTrending(true);
+      setTrendingError(null);
+      setTrendingTokens([]); // Initialize as empty array
+      try {
+        const fetchFn = async () => {
+          const response = await axios.get('/api/coingecko', {
+            params: { action: 'trending', vs_currency: currency },
+            timeout: 15000,
+          });
+          if (!response.data.success || !Array.isArray(response.data.data)) {
+            throw new Error(`Invalid or missing trending data: ${JSON.stringify(response.data)}`);
+          }
+          return response.data.data;
+        };
+
+        const tokens = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TICKERS); // Use same cache duration as tickers
+        setTrendingTokens(tokens || []);
+        setTrendingError(null);
+      } catch (error) {
+        if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 404 || error.code === 'ECONNABORTED')) {
+          const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          return fetchTrendingTokens(retryCount + 1);
+        }
+        const errorMessage =
+          error.response?.status === 429
+            ? 'CoinGecko API rate limit exceeded. Please try again in a few minutes.'
+            : error.response?.status === 404
+              ? 'No trending token data found.'
+              : error.response?.data?.detail || `Failed to load trending tokens: ${error.message}`;
+        setTrendingError(errorMessage);
+        if (toast?.error) {
+          toast.error(errorMessage, { position: 'top-center', autoClose: 3000 });
+        } else {
+          console.error('Toast error:', errorMessage);
+        }
+      } finally {
+        setIsLoadingTrending(false);
+      }
+    },
+    300
+  ),
+  [currency, toast, getCachedData] // Add getCachedData to dependencies
+);
+
   const handleAddressClick = useCallback(
     (address) => {
       if (address === 'Unknown') {
@@ -1626,6 +1680,41 @@ Use natural, professional tone with recent data.
     []
   );
 
+  const { data: trendingData, error: trendingSWRError } = useSWR(
+    ['/api/coingecko', { action: 'trending', vs_currency: currency }],
+    ([url, params]) => getCachedData(`trending-tokens-${currency}`, () => fetcher(url, params), CACHE_DURATIONS.TRENDING),
+    {
+      refreshInterval: CACHE_DURATIONS.TRENDING, // 10 phút
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: CACHE_DURATIONS.TRENDING, // Ngăn gọi lại API trong vòng 10 phút
+      onSuccess: (data) => {
+        if (!Array.isArray(data)) {
+          console.error('Trending data is not an array:', data);
+          setTrendingError('Invalid trending data format');
+          setTrendingTokens([]);
+          toast.error('Invalid trending data format', { position: 'top-center', autoClose: 3000 });
+          return;
+        }
+        setTrendingTokens(data);
+        setTrendingError(null);
+        setIsLoadingTrending(false);
+      },
+      onError: (err) => {
+        const errorMessage =
+          err.response?.status === 429
+            ? 'CoinGecko API rate limit exceeded. Please try again in a few minutes.'
+            : err.response?.status === 404
+              ? 'No trending token data found.'
+              : err.response?.data?.detail || `Failed to load trending tokens: ${err.message}`;
+        setTrendingError(errorMessage);
+        setTrendingTokens([]);
+        setIsLoadingTrending(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 3000 });
+      },
+    }
+  );
+
   const { data: searchData, error: searchError } = useSWR(
     searchQuery ? ['/api/coingecko', { action: 'search', query: searchQuery }] : null,
     ([url, params]) => fetcher(url, params),
@@ -1985,6 +2074,10 @@ Use natural, professional tone with recent data.
     currency, // Add currency
     setCurrency, // Add setCurrency
     availableCurrencies,
+    trendingTokens,
+    isLoadingTrending,
+    trendingError,
+    fetchTrendingTokens,
     // Constants
     SUPPORTED_CHAINS,
     WALLET_SEARCH_LIMIT,

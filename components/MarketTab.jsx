@@ -13,7 +13,8 @@ import { useMarketTabLogic } from './MarketTabLogic';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { formatDistanceToNow } from 'date-fns';
-import { GECKOTERMINAL_CHAIN_MAPPING, CHAIN_ID_TO_NAME } from '../utils/constants';
+import { GECKOTERMINAL_CHAIN_MAPPING, CHAIN_ID_TO_NAME, CHAIN_EXPLORER_MAP } from '../utils/constants';
+import { SkeletonLoader, getExplorerUrls, formatPrice, truncateAddress, truncateHash } from '../utils/helpers';
 import 'react-loading-skeleton/dist/skeleton.css';
 
 
@@ -39,142 +40,6 @@ const isValidToken = (token) => {
   ];
   return !invalidNamePatterns.some((pattern) => pattern.test(token.name || token.symbol));
 };
-
-const formatPrice = (price, currency = 'usd') => {
-  if (price == null || isNaN(price)) return 'N/A';
-  let fractionDigits = 2;
-  if (price < 0.0001) {
-    fractionDigits = 6;
-  } else if (price < 0.01) {
-    fractionDigits = 4;
-  }
-  return `${currency.toUpperCase()} ${price.toLocaleString('en-US', {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  })}`;
-};
-
-const truncateAddress = (address, nameTags = {}, source) => {
-  if (!address || address === 'None' || typeof address !== 'string') return { text: 'N/A', image: null };
-  const normalizedAddress = address.toLowerCase();
-  const nameTag = nameTags[normalizedAddress]?.nameTag;
-  const image = nameTags[normalizedAddress]?.image || null;
-
-  const isEvmAddress = address.match(/^0x[a-fA-F0-9]{40}$/);
-
-  if (source === 'Blockchair') {
-    const shortAddress = isEvmAddress
-      ? `${address.slice(0, 6)}...${address.slice(-4)}`
-      : `${address.slice(0, 6)}...${address.slice(-6)}`;
-    return {
-      text: nameTag ? `${nameTag} (${shortAddress})` : shortAddress,
-      image,
-    };
-  }
-
-  if (isEvmAddress) {
-    return { text: nameTag || `${address.slice(0, 6)}...${address.slice(-4)}`, image };
-  }
-
-  return { text: nameTag || address, image };
-};
-
-const truncateHash = (hash, startLength = 6, endLength = 4) => {
-  // Handle invalid inputs
-  if (!hash || typeof hash !== 'string') {
-    return { text: 'N/A' };
-  }
-
-  // Truncate to 0x1234...abcd format
-  if (hash.length > 12) {
-    return {
-      text: `${hash.slice(0, startLength)}...${hash.slice(-endLength)}`,
-    };
-  }
-
-  return { text: hash };
-};
-
-// Chain explorer mapping
-const CHAIN_EXPLORER_MAP = {
-  abstract: { baseUrl: 'https://explorer.abstractscan.io', supportsTx: true, supportsAddress: true },
-  ancient8: { baseUrl: 'https://scan.ancient8.gg', supportsTx: true, supportsAddress: true },
-  ape_chain: { baseUrl: 'https://explorer.apescan.io', supportsTx: true, supportsAddress: true },
-  arbitrum: { baseUrl: 'https://arbiscan.io', supportsTx: true, supportsAddress: true },
-  arbitrum_nova: { baseUrl: 'https://nova.arbiscan.io', supportsTx: true, supportsAddress: true },
-  avalanche_c: { baseUrl: 'https://snowtrace.io', supportsTx: true, supportsAddress: true },
-  avalanche_fuji: { baseUrl: 'https://testnet.snowtrace.io', supportsTx: true, supportsAddress: true },
-  base: { baseUrl: 'https://basescan.org', supportsTx: true, supportsAddress: true },
-  base_sepolia: { baseUrl: 'https://sepolia.basescan.org', supportsTx: true, supportsAddress: true },
-  berachain: { baseUrl: 'https://berascan.io', supportsTx: true, supportsAddress: true },
-  blast: { baseUrl: 'https://blastscan.io', supportsTx: true, supportsAddress: true },
-  bnb: { baseUrl: 'https://bscscan.com', supportsTx: true, supportsAddress: true },
-  bob: { baseUrl: 'https://explorer.gobob.xyz', supportsTx: true, supportsAddress: true },
-  boba: { baseUrl: 'https://bobascan.com', supportsTx: true, supportsAddress: true },
-  celo: { baseUrl: 'https://celoscan.io', supportsTx: true, supportsAddress: true },
-  corn: { baseUrl: 'https://explorer.cornscan.io', supportsTx: true, supportsAddress: true },
-  cyber: { baseUrl: 'https://cyberscan.co', supportsTx: true, supportsAddress: true },
-  degen: { baseUrl: 'https://explorer.degen.tips', supportsTx: true, supportsAddress: true },
-  ethereum: { baseUrl: 'https://etherscan.io', supportsTx: true, supportsAddress: true },
-  fantom: { baseUrl: 'https://ftmscan.com', supportsTx: true, supportsAddress: true },
-  flare: { baseUrl: 'https://flarescan.com', supportsTx: true, supportsAddress: true },
-  gnosis: { baseUrl: 'https://gnosisscan.io', supportsTx: true, supportsAddress: true },
-  ham: { baseUrl: 'https://explorer.hamchain.io', supportsTx: true, supportsAddress: true },
-  hychain: { baseUrl: 'https://explorer.hychain.com', supportsTx: true, supportsAddress: true },
-  ink: { baseUrl: 'https://explorer.inkchain.io', supportsTx: true, supportsAddress: true },
-  kaia: { baseUrl: 'https://kaiascan.io', supportsTx: true, supportsAddress: true },
-  linea: { baseUrl: 'https://lineascan.build', supportsTx: true, supportsAddress: true },
-  lisk: { baseUrl: 'https://liskscan.com', supportsTx: true, supportsAddress: true },
-  mantle: { baseUrl: 'https://mantlescan.xyz', supportsTx: true, supportsAddress: true },
-  metis: { baseUrl: 'https://andromeda-explorer.metis.io', supportsTx: true, supportsAddress: true },
-  mint: { baseUrl: 'https://explorer.mintchain.io', supportsTx: true, supportsAddress: true },
-  mode: { baseUrl: 'https://modescan.io', supportsTx: true, supportsAddress: true },
-  monad_testnet: { baseUrl: 'https://explorer.monad.xyz', supportsTx: true, supportsAddress: true },
-  omni: { baseUrl: 'https://explorer.omni.network', supportsTx: true, supportsAddress: true },
-  opbnb: { baseUrl: 'https://opbnbscan.com', supportsTx: true, supportsAddress: true },
-  optimism: { baseUrl: 'https://optimistic.etherscan.io', supportsTx: true, supportsAddress: true },
-  polygon: { baseUrl: 'https://polygonscan.com', supportsTx: true, supportsAddress: true },
-  proof_of_play: { baseUrl: 'https://explorer.proofofplay.io', supportsTx: true, supportsAddress: true },
-  rari: { baseUrl: 'https://rarichain.org', supportsTx: true, supportsAddress: true },
-  redstone: { baseUrl: 'https://redstonescan.com', supportsTx: true, supportsAddress: true },
-  scroll: { baseUrl: 'https://scrollscan.com', supportsTx: true, supportsAddress: true },
-  sei: { baseUrl: 'https://seiscan.app', supportsTx: true, supportsAddress: true },
-  sepolia: { baseUrl: 'https://sepolia.etherscan.io', supportsTx: true, supportsAddress: true },
-  shape: { baseUrl: 'https://shapescan.xyz', supportsTx: true, supportsAddress: true },
-  soneium: { baseUrl: 'https://explorer.soneium.org', supportsTx: true, supportsAddress: true },
-  sonic: { baseUrl: 'https://sonicscan.io', supportsTx: true, supportsAddress: true },
-  superseed: { baseUrl: 'https://superseedscan.io', supportsTx: true, supportsAddress: true },
-  swellchain: { baseUrl: 'https://swellscan.io', supportsTx: true, supportsAddress: true },
-  unichain: { baseUrl: 'https://unichain-sepolia.explorer.caldera.xyz', supportsTx: true, supportsAddress: true },
-  wemix: { baseUrl: 'https://wemixscan.com', supportsTx: true, supportsAddress: true },
-  world: { baseUrl: 'https://worldscan.io', supportsTx: true, supportsAddress: true },
-  xai: { baseUrl: 'https://xaiscan.io', supportsTx: true, supportsAddress: true },
-  zero_network: { baseUrl: 'https://zeroscan.io', supportsTx: true, supportsAddress: true },
-  zkevm: { baseUrl: 'https://zkevm.polygonscan.com', supportsTx: true, supportsAddress: true },
-  zksync: { baseUrl: 'https://explorer.zksync.io', supportsTx: true, supportsAddress: true },
-  zora: { baseUrl: 'https://zora.superscan.network', supportsTx: true, supportsAddress: true },
-};
-
-const getExplorerUrls = (chain, hash, address) => {
-  const explorer = CHAIN_EXPLORER_MAP[chain] || CHAIN_EXPLORER_MAP.ethereum;
-  const txUrl = explorer.supportsTx ? `${explorer.baseUrl}/tx/${hash}` : '#';
-  const addressUrl = explorer.supportsAddress ? `${explorer.baseUrl}/address/${address}` : '#';
-  return { txUrl, addressUrl };
-};
-
-const SkeletonLoader = ({ count = 5, isMobile }) => (
-  <div className="space-y-2 sm:space-y-3 p-2 sm:p-4">
-    {[...Array(count)].map((_, index) => (
-      <div key={index} className="flex items-center gap-2 sm:gap-4">
-        <div className="w-6 sm:w-8 h-6 sm:h-8 bg-gray-700/50 rounded-full animate-pulse"></div>
-        <div className="flex-1 space-y-1 sm:space-y-2">
-          <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse"></div>
-          <div className="h-3 sm:h-4 bg-gray-700/50 rounded animate-pulse w-3/4"></div>
-        </div>
-      </div>
-    ))}
-  </div>
-);
 
 // Modal component
 const Modal = ({ isOpen, onClose, title, content, links = [], isMobile }) => {
@@ -764,7 +629,7 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
   return null;
 };
 
-const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
+const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initialTokenData }) => {
   const { data: session } = useSession();
   const {
     tokens,
@@ -834,8 +699,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
     lastDexRequestTime,
     getDefaultChainAndAddress,
     lastDexFetchTime,
+    trendingTokens,
+    isLoadingTrending,
+    trendingError,
     NON_EVM_CHAINS,
-  } = useMarketTabLogic({ recaptchaRef, toast });
+  } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast });
 
   const dropdownRef = useRef(null);
   const chainDropdownRef = useRef(null);
@@ -849,6 +717,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
   const [selectedPool, setSelectedPool] = useState(null);
   const [currency, setCurrency] = useState('usd');
   const [highLowData, setHighLowData] = useState({ high: null, low: null, percentageChange: null });
+  const [hoveredToken, setHoveredToken] = useState(null);
+  const [isTrendingHovered, setIsTrendingHovered] = useState(false);
+  const trendingRef = useRef(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const [tooltipToken, setTooltipToken] = useState(null);
+  const tokenRefs = useRef({}); // Store refs for each token
   const [availableCurrencies] = useState([
     'usd', 'eth', 'btc', 'eur', 'bnb', 'cny', 'gbp', 'hkd', 'idr', 'jpy',
     'krw', 'kwd', 'mmk', 'mxn', 'myr', 'ngn', 'nok', 'nzd', 'pln', 'rub',
@@ -883,6 +757,71 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
       fetchTokenBySlug();
     }
   }, [initialTokenSlug, setSelectedToken]);
+
+  const updateTooltipPosition = (tokenId, index) => {
+    const tokenElement = tokenRefs.current[`${tokenId}-${index}`];
+    if (tokenElement) {
+      const rect = tokenElement.getBoundingClientRect();
+      setTooltipPosition({
+        top: rect.bottom + window.scrollY + 8, // Position below the token
+        left: rect.left + rect.width / 2 + window.scrollX, // Center horizontally
+      });
+    }
+  };
+
+  // TrendingTooltip Component
+  const TrendingTooltip = ({ token, position }) => {
+    if (!token) return null;
+
+    return createPortal(
+      <motion.div
+        className="trending-tooltip border border-white/20 bg-black/80 p-2 rounded-xl text-white font-jetbrains backdrop-blur-lg shadow-neon-lg"
+        style={{
+          position: 'absolute',
+          top: `${position.top}px`,
+          left: `${position.left}px`,
+          transform: 'translateX(-50%)',
+          zIndex: 1000, // High z-index to overlay other elements
+        }}
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 5 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="flex items-center gap-1 mb-1">
+          <img
+            src={token.large}
+            alt={`${token.symbol} logo`}
+            className="w-4 h-4 rounded-full"
+            onError={(e) => {
+              logger.error('Token large logo failed to load:', { symbol: token.symbol, src: token.large });
+              e.target.src = '/fallback-image.png';
+            }}
+          />
+          <div>
+            <div className="font-bold text-[9px]">{token.symbol.toUpperCase()}</div>
+            <div className="text-gray-400 text-[8px]">Rank: {token.market_cap_rank || 'N/A'}</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-1 text-[8px]">
+          <div>
+            <span className="text-gray-400">Price (USD):</span>
+            <span className="block font-medium">${token.price.toFixed(4)}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">24h Change:</span>
+            <span
+              className={`block font-medium ${token.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'
+                }`}
+            >
+              {token.price_change_percentage_24h.toFixed(2)}%
+            </span>
+          </div>
+        </div>
+      </motion.div>,
+      document.body // Render tooltip in the body
+    );
+  };
 
   // Handle token selection with URL update
   const handleTokenSelect = (token) => {
@@ -1176,25 +1115,103 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
       className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-black/60 backdrop-blur-2xl shadow-neon-lg ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
     >
       {/* Header Section */}
-      <div className="w-full mb-1 mt-2 sm:mt-1">
+      <div className="w-full mb-1 mt-2 sm:mt-1 h-10 sm:h-12 overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-[10px] sm:text-[10px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded">Crypto</h2>
+          {/* Left Section: Crypto/Stock Tabs */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <h2 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-1.5 rounded">
+              Crypto
+            </h2>
             <span className="text-gray-400">|</span>
             <button
-              className="text-[10px] sm:text-[10px] font-bold text-gray-400 uppercase cursor-not-allowed flex items-center gap-1 transition-colors duration-300"
+              className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase cursor-not-allowed flex items-center gap-1 transition-colors duration-300"
               disabled
               aria-label="Stock tab (coming soon)"
             >
-              Stock <span className="text-[7px] sm:text-[8px] text-gray-500">(Soon)</span>
+              Stock <span className="text-[6px] sm:text-[8px] text-gray-500">(Soon)</span>
             </button>
           </div>
-          <div className="flex flex-row items-center gap-2 sm:gap-3 w-full sm:w-auto">
+
+          {/* Middle Section: Trending Tokens Ticker */}
+          <div className="relative flex-1 mx-2 sm:mx-4 trending-container" ref={trendingRef}>
+            {isLoadingTrending ? (
+              <div className="flex items-center justify-center h-8 sm:h-10">
+                <div className="w-6 h-6 border-2 border-neon-blue border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : trendingError ? (
+              <div className="text-gray-400 text-[10px] sm:text-xs text-center"></div>
+            ) : trendingTokens.length === 0 ? (
+              <div className="text-gray-400 text-[10px] sm:text-xs text-center"></div>
+            ) : (
+              <motion.div
+                className="flex items-center whitespace-nowrap"
+                animate={isTrendingHovered ? {} : { x: ['0%', '-100%'] }}
+                transition={{
+                  x: {
+                    repeat: Infinity,
+                    repeatType: 'loop',
+                    duration: trendingTokens.length * 8,
+                    ease: 'linear',
+                  },
+                }}
+                style={{ display: 'inline-flex' }}
+                onMouseEnter={() => setIsTrendingHovered(true)}
+                onMouseLeave={() => {
+                  setIsTrendingHovered(false);
+                  setTooltipToken(null); // Hide tooltip on mouse leave
+                }}
+              >
+                {[...trendingTokens, ...trendingTokens].map((token, index) => (
+                  <motion.div
+                    key={`${token.id}-${index}`}
+                    ref={(el) => (tokenRefs.current[`${token.id}-${index}`] = el)} // Assign ref to each token
+                    className="relative mx-2 mr-2 flex items-center gap-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded-lg"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [0, 1, 1, 0] }}
+                    transition={{
+                      opacity: {
+                        times: [0, 0.1, 0.9, 1],
+                        duration: trendingTokens.length * 8,
+                        ease: 'linear',
+                      },
+                    }}
+                    onMouseEnter={() => {
+                      setHoveredToken(`${token.id}-${index}`);
+                      setTooltipToken(token);
+                      updateTooltipPosition(token.id, index);
+                      logger.log('Hover token:', { id: token.id, index });
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredToken(null);
+                      setTooltipToken(null);
+                      logger.log('Leave token:', { id: token.id, index });
+                    }}
+                  >
+                    <img
+                      src={token.thumb}
+                      alt={`${token.symbol} logo`}
+                      className="w-3 sm:w-4 h-3 sm:h-4 rounded-full"
+                      onError={(e) => {
+                        logger.error('Token logo failed to load:', { symbol: token.symbol, src: token.thumb });
+                        e.target.src = '/fallback-image.png';
+                      }}
+                    />
+                    <span className="text-white text-[8px] sm:text-[10px] font-medium">{token.symbol.toUpperCase()}</span>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+            {/* Render the tooltip via portal */}
+            <TrendingTooltip token={tooltipToken} position={tooltipPosition} />
+          </div>
+
+          {/* Right Section: Chain Select and Wallet Search */}
+          <div className="flex flex-row items-center gap-2 sm:gap-3 w-full sm:w-auto flex-shrink-0">
             {/* Select Chain */}
             <div className="relative flex-1" ref={chainDropdownRef}>
               <motion.button
                 onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-                className={`text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-2 border-2 border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 rounded-xl w-full ${selectedToken?.id && ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase())
+                className={`text-white px-1.5 sm:px-2 py-0.5 sm:py-1 text-[8px] sm:text-[10px] flex items-center gap-1 sm:gap-2 border-2 border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 rounded-xl w-full ${selectedToken?.id && ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase())
                   ? 'opacity-50 cursor-not-allowed'
                   : ''
                   }`}
@@ -1207,30 +1224,28 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                     <img
                       src={getPlatformImage(selectedChain)}
                       alt={`${chains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
-                      className="w-4 sm:w-5 h-4 sm:h-5 rounded-full"
+                      className="w-3 sm:w-4 h-3 sm:h-4 rounded-full"
                       onError={(e) => {
-                        logger.error('Chain logo failed to load:', {
+                        console.error('Chain logo failed to load:', {
                           chain: selectedChain,
                           src: getPlatformImage(selectedChain),
                         });
                         e.target.src = '/fallback-image.png';
                       }}
                     />
-                    <span className="text-[10px] sm:text-xs font-medium truncate">
+                    <span className="text-[8px] sm:text-[10px] font-medium truncate">
                       {chains.find((c) => c.value === selectedChain)?.label || 'Chain'}
                     </span>
                   </>
                 ) : (
-                  <div className="w-4 sm:w-5 h-4 sm:h-5 bg-gray-700 rounded-full animate-pulse"></div>
+                  <div className="w-3 sm:w-4 h-3 sm:h-4 bg-gray-700 rounded-full animate-pulse"></div>
                 )}
-                <span className="text-[10px] sm:text-xs ml-auto">{isChainDropdownOpen ? '▲' : '▼'}</span>
+                <span className="text-[8px] sm:text-[10px] ml-auto">{isChainDropdownOpen ? '▲' : '▼'}</span>
               </motion.button>
               {isChainDropdownOpen && (
-                <div
-                  className="absolute z-50 mt-2 w-full sm:w-48 max-h-48 sm:max-h-64 overflow-y-auto custom-scrollbar border border-white/10 bg-black/60 backdrop-blur-2xl rounded-lg shadow-neon-lg"
-                >
+                <div className="absolute z-50 mt-2 w-full sm:w-48 max-h-48 sm:max-h-64 overflow-y-auto custom-scrollbar border border-white/10 bg-black/60 backdrop-blur-2xl rounded-lg shadow-neon-lg">
                   {getAvailableChains().length === 0 ? (
-                    <div className="px-3 py-2 text-gray-400 text-[10px] sm:text-xs">No supported chains available</div>
+                    <div className="px-3 py-2 text-gray-400 text-[8px] sm:text-[10px]">No supported chains available</div>
                   ) : (
                     getAvailableChains()
                       .filter((chain) => process.env.NODE_ENV === 'development' || !chain.testnet)
@@ -1241,15 +1256,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                             setSelectedChain(chain.value);
                             setIsChainDropdownOpen(false);
                           }}
-                          className="flex items-center w-full text-left px-3 py-2 hover:bg-neon-blue/20 text-white text-[10px] sm:text-xs font-medium transition-all duration-300 rounded"
+                          className="flex items-center w-full text-left px-3 py-2 hover:bg-neon-blue/20 text-white text-[8px] sm:text-[10px] font-medium transition-all duration-300 rounded"
                           whileHover={{ scale: 1.02 }}
                         >
                           <img
                             src={chain.image}
                             alt={`${chain.label} logo`}
-                            className="w-4 sm:w-5 h-4 sm:h-5 rounded-full mr-2"
+                            className="w-3 sm:w-4 h-3 sm:h-4 rounded-full mr-2"
                             onError={(e) => {
-                              logger.error('Dropdown chain logo failed to load:', {
+                              console.error('Dropdown chain logo failed to load:', {
                                 chain: chain.value,
                                 src: chain.image,
                               });
@@ -1263,21 +1278,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                 </div>
               )}
             </div>
-            {/* Currency Select */}
-            {/* <div className="relative flex-1">
-              <select
-                id="currency-select"
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs border border-white/10 bg-black/60 backdrop-blur-2xl rounded-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 custom-scrollbar w-full"
-              >
-                {availableCurrencies.map((curr) => (
-                  <option key={curr} value={curr}>
-                    {curr.toUpperCase()}
-                  </option>
-                ))}
-              </select>
-            </div> */}
             {/* Search Wallet */}
             <div className="relative flex items-center flex-[2]">
               <input
@@ -1285,7 +1285,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                 placeholder="Search wallet (0x...)"
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
-                className="text-white px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs w-full border-2 border-white/10 bg-black/60 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 rounded-xl pr-8 sm:pr-10"
+                className="text-white px-2 sm:px-3 py-0.5 sm:py-1 text-[8px] sm:text-[10px] w-full border-2 border-white/10 bg-black/60 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 rounded-xl pr-6 sm:pr-8"
                 aria-label="Wallet address"
                 onKeyPress={(e) => {
                   if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -1299,14 +1299,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
                     handleWalletSearch();
                   }
                 }}
-                className="absolute right-2 text-white p-1 sm:p-1.5 hover:bg-neon-blue/30 transition-all duration-300 rounded"
+                className="absolute right-1 sm:right-2 text-white p-0.5 sm:p-1 hover:bg-neon-blue/30 transition-all duration-300 rounded"
                 aria-label="Search wallet"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-3 sm:h-4 w-3 sm:w-4"
+                  className="h-2.5 sm:h-3 w-2.5 sm:w-3"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -2819,6 +2819,51 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect }) => {
 
 .custom-scrollbar::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+.header-container {
+  height: 40px; /* Fixed height for desktop */
+  overflow: hidden;
+  position: relative;
+}
+
+.trending-container {
+  max-width: 100%;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px; /* Ensure container has enough height */
+}
+
+/* Ensure trending tokens don't overflow */
+.trending-container > div {
+  display: inline-flex;
+  white-space: nowrap;
+}
+
+/* Tooltip Styling */
+.trending-tooltip {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 191, 255, 0.3);
+  width: 192px;
+  pointer-events: none; /* Prevent tooltip from interfering with mouse events */
+}
+
+@media (max-width: 640px) {
+  .trending-container {
+    max-width: 100%;
+    margin: 0 8px;
+  }
+
+  .header-container {
+    height: auto; /* Allow flexible height on mobile */
+  }
 }
 `}</style>
     </motion.div>
