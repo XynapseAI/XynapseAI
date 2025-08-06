@@ -5,14 +5,15 @@ import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { signIn, signOut, useSession, getProviders } from 'next-auth/react';
 import Header from '../../components/Header';
 import AITab from '../../components/AITab';
-import ProfileTab from '../../components/ProfileTab';
+import ProfileTab  from '../../components/ProfileTab';
 import MarketTab from '../../components/MarketTab';
 import TreemapTab from '../../components/TreemapTab';
 import WatchlistsTab from '../../components/WatchlistsTab';
 import { motion } from 'framer-motion';
 import ReCAPTCHA from 'react-google-recaptcha';
-import { toast ,ToastContainer } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
 import MatrixHoverEffect from '../../components/MatrixHoverEffect';
+import { LoadingOverlay } from '../../utils/helpers';
 import styles from './page.module.css';
 import Image from 'next/image';
 import { gsap } from 'gsap';
@@ -361,7 +362,8 @@ export default function Dashboard() {
   if (!isMounted || !providers) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
-        <p>Loading...</p>
+        <LoadingOverlay isLoading={true} message="Loading dashboard..." isMobile={typeof window !== 'undefined' && window.innerWidth <= 640} />
+
       </div>
     );
   }

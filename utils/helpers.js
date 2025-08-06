@@ -1,3 +1,28 @@
+import {CHAIN_EXPLORER_MAP} from './constants';
+import { motion, AnimatePresence } from 'framer-motion';
+
+export const LoadingOverlay = ({ isLoading, message = 'Processing...', isMobile }) => (
+  <AnimatePresence>
+    {isLoading && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className={`fixed inset-0 flex items-center justify-center z-50 ${isMobile ? 'bg-black/80' : 'bg-black/80 backdrop-blur-2xl'}`}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative w-8 h-8">
+            <div
+              className={`absolute inset-0 border-2 rounded-full animate-spin bg-black/80 ${isMobile ? 'border-black/80 border-t-white' : 'border-black/80 border-t-white'}`}
+            ></div>
+          </div>
+          <p className="text-[10px] sm:text-xs text-gray-200 font-medium">{message}</p>
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
 export const getExplorerUrls = (chain, hash, address) => {
   const explorer = CHAIN_EXPLORER_MAP[chain] || CHAIN_EXPLORER_MAP.ethereum;
   const txUrl = explorer.supportsTx ? `${explorer.baseUrl}/tx/${hash}` : '#';
@@ -72,4 +97,26 @@ export const truncateHash = (hash, startLength = 6, endLength = 4) => {
   }
 
   return { text: hash };
+};
+
+export const isValidToken = (token) => {
+  if (!token.image || token.image === '') return false;
+  const invalidNamePatterns = [
+    /https?:\/\//i, // Matches URLs
+    /<[^>]+>/, // Matches HTML tags
+    /[\n\r\t]/, // Matches newlines or tabs
+    /[^a-zA-Z0-9\s\-$]/, // Matches non-alphanumeric characters except spaces, $, and -
+  ];
+  return !invalidNamePatterns.some((pattern) => pattern.test(token.name || token.symbol));
+};
+
+export const logger = {
+  log: (message, data) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(message, data);
+    }
+  },
+  error: (message, data) => {
+    console.error(message, data);
+  },
 };

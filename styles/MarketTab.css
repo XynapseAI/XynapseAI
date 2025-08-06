@@ -1,0 +1,269 @@
+  .shadow-neon {
+      box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.15);
+      transition: box-shadow 0.3s ease;
+  }
+
+  .shadow-neon-lg {
+      box-shadow: 0 0 12px rgba(0, 191, 255, 0.4), 0 0 24px rgba(0, 191, 255, 0.2);
+      transition: box-shadow 0.3s ease;
+  }
+
+  .shadow-neon:hover {
+      box-shadow: 0 0 12px rgba(0, 191, 255, 0.5), 0 0 20px rgba(0, 191, 255, 0.3);
+  }
+
+  /* Custom Scrollbar for Sleek Look */
+  .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(0, 191, 255, 0.5);
+      border-radius: 3px;
+      transition: background 0.3s ease;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 191, 255, 0.8);
+  }
+
+  @keyframes pulse {
+
+      0%,
+      100% {
+          opacity: 1;
+      }
+
+      50% {
+          opacity: 0.6;
+      }
+  }
+
+  /* Glassmorphism Background */
+  .glass-bg {
+      background: linear-gradient(135deg, rgba(0, 0, 0, 0.7), rgba(20, 20, 20, 0.5));
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* Button Hover Effects */
+  button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 191, 255, 0.4);
+  }
+
+  button:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: 0 1px 4px rgba(0, 191, 255, 0.2);
+  }
+
+  /* Table Styling */
+  table {
+      border-collapse: separate;
+      border-spacing: 0;
+      width: 100%;
+  }
+
+  th,
+  td {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 8px 12px;
+      transition: background 0.3s ease;
+  }
+
+  th {
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.8), rgba(20, 20, 20, 0.6));
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+  }
+
+  tr:hover {
+      background: rgba(0, 191, 255, 0.1);
+  }
+
+  /* Input Styling */
+  input {
+      transition: all 0.3s ease;
+  }
+
+  input:focus {
+      box-shadow: 0 0 8px rgba(0, 191, 255, 0.4);
+      border-color: rgba(0, 191, 255, 0.6);
+  }
+
+  /* Modal Styling */
+  .modal-content {
+      background: linear-gradient(135deg, rgba(0, 0, 0, 0.85), rgba(20, 20, 20, 0.65));
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 24px;
+  }
+
+  /* Chart Styling */
+  .recharts-cartesian-grid line {
+      stroke: rgba(255, 255, 255, 0.1);
+  }
+
+  .recharts-axis line,
+  .recharts-axis text {
+      stroke: rgba(255, 255, 255, 0.8);
+      fill: rgba(255, 255, 255, 0.8);
+  }
+
+  /* Neon Gradient for Chart Area */
+  .recharts-area {
+      fill: url(#neonGradient);
+      stroke: #00BFFF;
+      stroke-width: 2;
+  }
+
+  /* High/Low Container in Chart Section */
+  .high-low-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+  }
+
+  /* Social Links */
+  .social-links {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: flex-end;
+      align-items: center;
+  }
+
+  .social-links a {
+      transition: color 0.3s ease;
+  }
+
+  .social-links a:hover {
+      color: rgba(0, 191, 255, 0.8);
+  }
+
+  .social-links img {
+      width: 1.25rem;
+      height: 1.25rem;
+      object-fit: contain;
+  }
+
+  /* Smooth Scroll Behavior */
+  .smooth-scroll {
+      scroll-behavior: smooth;
+  }
+
+  /* Fixed Column in Table */
+  .table-container {
+      position: relative;
+      overflow-x: auto;
+  }
+
+  .fixed-column {
+      position: sticky;
+      left: 0;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.8), rgba(20, 20, 20, 0.6));
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 11;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* Enhanced Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      margin: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(0, 191, 255, 0.6);
+      border-radius: 4px;
+      transition: background 0.3s ease;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 191, 255, 0.9);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-corner {
+      background: transparent;
+  }
+
+  .header-container {
+      height: 40px;
+      /* Fixed height for desktop */
+      overflow: hidden;
+      position: relative;
+  }
+
+  .trending-container {
+      max-width: 100%;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      -webkit-mask-image: linear-gradient(to right,
+              transparent 0%,
+              black 10%,
+              black 90%,
+              transparent 100%);
+      mask-image: linear-gradient(to right,
+              transparent 0%,
+              black 10%,
+              black 90%,
+              transparent 100%);
+  }
+
+  /* Ensure trending tokens don't overflow */
+  .trending-container>div {
+      display: inline-flex;
+      white-space: nowrap;
+  }
+
+  /* Tooltip Styling */
+  .trending-tooltip {
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 4px 12px rgba(0, 191, 255, 0.3);
+      width: 192px;
+      pointer-events: none;
+      /* Prevent tooltip from interfering with mouse events */
+  }
+
+  @media (max-width: 640px) {
+      .trending-container {
+          max-width: 100%;
+          margin: 0 8px;
+      }
+
+      .header-container {
+          height: auto;
+          /* Allow flexible height on mobile */
+      }
+  }
