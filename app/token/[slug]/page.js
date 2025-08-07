@@ -73,7 +73,7 @@ export async function generateStaticParams() {
     }
 
     const tokens = response;
-    const topTokens = tokens.slice(0, 100);
+    const topTokens = tokens.slice(0, 50);
 
     const redisClient = await getRedisClient();
     await Promise.all(

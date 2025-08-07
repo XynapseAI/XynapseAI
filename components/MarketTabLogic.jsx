@@ -9,6 +9,15 @@ import pLimit from 'p-limit';
 import { GECKOTERMINAL_CHAIN_MAPPING, SUPPORTED_CHAINS, CHAIN_MAPPING } from '../utils/constants';
 import btcNameTags from '../public/nametags/btc-top-holders.json';
 import useSWR from 'swr';
+import Bottleneck from 'bottleneck';
+
+const cacheLimiter = new Bottleneck({
+  maxConcurrent: 10, // Limit to 5 concurrent requests
+  minTime: 500, // Minimum 1 second between requests
+  reservoir: 50, // Allow 30 requests per minute
+  reservoirRefreshAmount: 30,
+  reservoirRefreshInterval: 60 * 1000, // Refresh reservoir every minute
+});
 
 // components/MarketTabLogic.jsx
 const fetcher = async (url, params) => {
@@ -30,13 +39,13 @@ const fetcher = async (url, params) => {
 
 // Cache durations
 const CACHE_DURATIONS = {
-  PRICE: 60 * 1000, // 60s for token price
+  PRICE: 2 * 60 * 1000, // 60s for token price
   METADATA: 2 * 60 * 60 * 1000, // 4 hours for token metadata
   TRANSACTIONS: 10 * 1000, // 10s for transaction history
   DEFI_POOL: 30 * 1000, // 30s for DeFi pool data
   DEFAULT: 60 * 1000, // 1 minute for other data
   TICKERS: 5 * 60 * 1000,
-  TRENDING: 30 * 60 * 1000,
+  TRENDING: 60 * 60 * 1000,
 };
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
@@ -44,22 +53,22 @@ if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
 }
 
 const NON_EVM_CHAINS = ['bitcoin', 'ethereum', 'dogecoin'];
-const BLOCKCHAIR_REQUEST_LIMIT = 30; // Limit of 30 requests per minute
+const BLOCKCHAIR_REQUEST_LIMIT = 50; // Limit of 30 requests per minute
 const BLOCKCHAIR_REQUEST_WINDOW = 60 * 1000; // 1 minute
 const blockchairRequestTracker = new Map();
-const DEX_REQUEST_LIMIT = 30; // Max 5 requests per minute
+const DEX_REQUEST_LIMIT = 50; // Max 5 requests per minute
 const DEX_REQUEST_WINDOW = 5 * 60 * 1000; // 1 minute
 const dexRequestTracker = new Map();
-const limit = pLimit(20);
+const limit = pLimit(30);
 
 const coingeckoAxios = rateLimit(axios.create(), {
-  maxRequests: 15,
+  maxRequests: 30,
   perMilliseconds: 60000,
 });
 
 const COINGECKO_API_KEY = process.env.NEXT_PUBLIC_COINGECKO_API_KEY || '';
 const NAME_TAG_CACHE_DURATION = 24 * 60 * 60 * 1000;
-const WALLET_SEARCH_LIMIT = 5;
+const WALLET_SEARCH_LIMIT = 10;
 const WALLET_SEARCH_WINDOW = 60 * 1000;
 const tokensPerPage = 30;
 
@@ -133,68 +142,107 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
-  const getCachedData = async (key, fetchFn, ttl = CACHE_DURATIONS.DEFAULT) => {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
-    try {
-      // Check local cache first
-      const localCached = localCache.current[key];
-      if (localCached && Date.now() - localCached.timestamp < ttl) {
-        console.log(`Local cache hit for ${key}`);
-        // Update cache in the background
-        setTimeout(async () => {
+  const getCachedData = async (key, fetchFn, ttl = CACHE_DURATIONS.DEFAULT, retryCount = 0) => {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+  try {
+    // Check local cache first
+    const localCached = localCache.current[key];
+    if (localCached && Date.now() - localCached.timestamp < ttl) {
+      console.log(`Local cache hit for ${key}`);
+      // Schedule background cache update only if not recently updated
+      const lastUpdate = localCache.current[`${key}_last_update`] || 0;
+      if (Date.now() - lastUpdate > ttl / 2) { // Update only after half the TTL
+        cacheLimiter.schedule(async () => {
           try {
             const freshData = await fetchFn();
             if (freshData) {
-              await axios.post(`${API_BASE_URL}/api/cache`, { key, action: 'set', data: freshData, ttl });
+              await axios.post(
+                `${API_BASE_URL}/api/cache`,
+                { key, action: 'set', data: freshData, ttl },
+                { timeout: 30000 } // Increase timeout to 30 seconds
+              );
               localCache.current[key] = { data: freshData, timestamp: Date.now() };
+              localCache.current[`${key}_last_update`] = Date.now();
               console.log(`Background cache updated for ${key}`);
             }
           } catch (error) {
-            console.error(`Background cache update failed for ${key}:`, error);
+            console.error(`Background cache update failed for ${key}:`, error.message);
           }
-        }, 0);
-        return localCached.data || [];
+        });
       }
+      return localCached.data || [];
+    }
 
-      // Check Redis cache
-      try {
-        const cacheResponse = await axios.post(`${API_BASE_URL}/api/cache`, { key, action: 'get' });
-        if (cacheResponse.data.success && cacheResponse.data.data) {
-          console.log(`Redis cache hit for ${key}`);
-          localCache.current[key] = { data: cacheResponse.data.data, timestamp: Date.now() };
-          // Update cache in the background
-          setTimeout(async () => {
+    // Check Redis cache
+    try {
+      const cacheResponse = await cacheLimiter.schedule(() =>
+        axios.post(
+          `${API_BASE_URL}/api/cache`,
+          { key, action: 'get' },
+          { timeout: 30000 } // Increase timeout to 30 seconds
+        )
+      );
+      if (cacheResponse.data.success && cacheResponse.data.data) {
+        console.log(`Redis cache hit for ${key}`);
+        localCache.current[key] = { data: cacheResponse.data.data, timestamp: Date.now() };
+        // Schedule background cache update only if not recently updated
+        const lastUpdate = localCache.current[`${key}_last_update`] || 0;
+        if (Date.now() - lastUpdate > ttl / 2) {
+          cacheLimiter.schedule(async () => {
             try {
               const freshData = await fetchFn();
               if (freshData) {
-                await axios.post(`${API_BASE_URL}/api/cache`, { key, action: 'set', data: freshData, ttl });
+                await axios.post(
+                  `${API_BASE_URL}/api/cache`,
+                  { key, action: 'set', data: freshData, ttl },
+                  { timeout: 30000 }
+                );
                 localCache.current[key] = { data: freshData, timestamp: Date.now() };
+                localCache.current[`${key}_last_update`] = Date.now();
                 console.log(`Background cache updated for ${key}`);
               }
             } catch (error) {
-              console.error(`Background cache update failed for ${key}:`, error);
+              console.error(`Background cache update failed for ${key}:`, error.message);
             }
-          }, 0);
-          return cacheResponse.data.data || [];
+          });
         }
-      } catch (cacheError) {
-        console.error(`Redis cache error for ${key}:`, cacheError.message);
+        return cacheResponse.data.data || [];
       }
-
-      // Fetch fresh data if no cache
-      const data = await fetchFn();
-      if (data) {
-        await axios.post(`${API_BASE_URL}/api/cache`, { key, action: 'set', data, ttl });
-        localCache.current[key] = { data, timestamp: Date.now() };
-        console.log(`Cached data for ${key}`);
-        return data || [];
+    } catch (cacheError) {
+      if (cacheError.response?.status === 429 && retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff with jitter
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return getCachedData(key, fetchFn, ttl, retryCount + 1);
       }
-      return [];
-    } catch (error) {
-      console.error(`Cache or fetch error for ${key}:`, error.message);
-      return [];
+      console.error(`Redis cache error for ${key}:`, cacheError.message);
     }
-  };
+
+    // Fetch fresh data if no cache
+    const data = await fetchFn();
+    if (data) {
+      await cacheLimiter.schedule(() =>
+        axios.post(
+          `${API_BASE_URL}/api/cache`,
+          { key, action: 'set', data, ttl },
+          { timeout: 30000 }
+        )
+      );
+      localCache.current[key] = { data, timestamp: Date.now() };
+      localCache.current[`${key}_last_update`] = Date.now();
+      console.log(`Cached data for ${key}`);
+      return data || [];
+    }
+    return [];
+  } catch (error) {
+    if (retryCount < 3 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) {
+      const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff with jitter
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return getCachedData(key, fetchFn, ttl, retryCount + 1);
+    }
+    console.error(`Cache or fetch error for ${key}:`, error.message);
+    return [];
+  }
+};
 
   const executeRecaptcha = useCallback(
     async (action, retryCount = 0) => {

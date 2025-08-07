@@ -105,6 +105,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     fetchPublicTreasuryData,
     fetchTickerData,
     fetchPriceHistory,
+    fetchTrendingTokens,
     nameTags,
     isLoadingNameTags,
     dexData,
@@ -139,12 +140,29 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const [tooltipToken, setTooltipToken] = useState(null);
   const tokenRefs = useRef({}); // Store refs for each token
+  const lastFetchedSlugRef = useRef(null);
   const [availableCurrencies] = useState([
     'usd', 'eth', 'btc', 'eur', 'bnb', 'cny', 'gbp', 'hkd', 'idr', 'jpy',
     'krw', 'kwd', 'mmk', 'mxn', 'myr', 'ngn', 'nok', 'nzd', 'pln', 'rub',
     'sar', 'sek', 'sgd', 'sol', 'thb', 'try', 'twd', 'uah', 'vef', 'vnd',
     'xag', 'xau'
   ]);
+
+  useEffect(() => {
+    // Only fetch trending tokens if the slug has changed or no tokens are loaded
+    if (
+      initialTokenSlug !== lastFetchedSlugRef.current ||
+      trendingTokens.length === 0
+    ) {
+      fetchTrendingTokens((err) => {
+        if (err) {
+          console.error('Failed to fetch trending tokens:', { error: err.message });
+          toast.error('Failed to load trending tokens.', { position: 'top-center', autoClose: 3000 });
+        }
+      });
+      lastFetchedSlugRef.current = initialTokenSlug;
+    }
+  }, [initialTokenSlug, fetchTrendingTokens, trendingTokens.length, toast]);
 
   useEffect(() => {
     if (initialTokenSlug) {
@@ -555,8 +573,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 <motion.button
                   onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
                   className={`text-white px-1.5 sm:px-2 py-0.5 sm:py-1 text-[8px] sm:text-[10px] flex items-center gap-1 sm:gap-2 border-2 border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 rounded-xl w-auto ${selectedToken?.id && ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase())
-                      ? 'opacity-50 cursor-not-allowed'
-                      : ''
+                    ? 'opacity-50 cursor-not-allowed'
+                    : ''
                     }`}
                   disabled={
                     !selectedToken ||
