@@ -12,11 +12,11 @@ import useSWR from 'swr';
 import Bottleneck from 'bottleneck';
 
 const cacheLimiter = new Bottleneck({
-  maxConcurrent: 10, // Limit to 5 concurrent requests
-  minTime: 500, // Minimum 1 second between requests
-  reservoir: 50, // Allow 30 requests per minute
-  reservoirRefreshAmount: 30,
-  reservoirRefreshInterval: 60 * 1000, // Refresh reservoir every minute
+  maxConcurrent: 10,
+  minTime: 500, // Giảm minTime để tăng tốc trên production
+  reservoir: 50, // Tăng reservoir để xử lý lưu lượng lớn
+  reservoirRefreshAmount: 100,
+  reservoirRefreshInterval: 60 * 1000,
 });
 
 // components/MarketTabLogic.jsx
@@ -39,13 +39,15 @@ const fetcher = async (url, params) => {
 
 // Cache durations
 const CACHE_DURATIONS = {
-  PRICE: 2 * 60 * 1000, // 60s for token price
-  METADATA: 4 * 60 * 60 * 1000, // 4 hours for token metadata
-  TRANSACTIONS: 30 * 1000, // 10s for transaction history
-  DEFI_POOL: 30 * 1000, // 30s for DeFi pool data
-  DEFAULT: 60 * 1000, // 1 minute for other data
-  TICKERS: 30 * 60 * 1000,
-  TRENDING: 60 * 60 * 1000,
+  PRICE: 5 * 60 * 1000, // 2 phút
+  METADATA: 4 * 60 * 60 * 1000, // 4 giờ
+  TRANSACTIONS: 60 * 1000, // 30 giây
+  DEFI_POOL: 15 * 60 * 1000, // 30 giây
+  DEFAULT: 5 * 60 * 1000, // 5 phút
+  TICKERS: 60 * 60 * 1000, // 1 giờ (tăng từ 30 phút)
+  TRENDING: 60 * 60 * 1000, // 1 giờ (tăng từ 30 phút)
+  NAMETAGS: 24 * 60 * 60 * 1000, // 24 giờ
+  TOP_HOLDERS: 12 * 60 * 60 * 1000, // 12 giờ
 };
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
@@ -53,16 +55,16 @@ if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
 }
 
 const NON_EVM_CHAINS = ['bitcoin', 'ethereum', 'dogecoin'];
-const BLOCKCHAIR_REQUEST_LIMIT = 50; // Limit of 30 requests per minute
+const BLOCKCHAIR_REQUEST_LIMIT = 60; // Limit of 30 requests per minute
 const BLOCKCHAIR_REQUEST_WINDOW = 60 * 1000; // 1 minute
 const blockchairRequestTracker = new Map();
 const DEX_REQUEST_LIMIT = 50; // Max 5 requests per minute
 const DEX_REQUEST_WINDOW = 5 * 60 * 1000; // 1 minute
 const dexRequestTracker = new Map();
-const limit = pLimit(30);
+const limit = pLimit(60);
 
 const coingeckoAxios = rateLimit(axios.create(), {
-  maxRequests: 50,
+  maxRequests: 60,
   perMilliseconds: 60000,
 });
 
@@ -76,6 +78,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const { data: session, status } = useSession();
   const [tokens, setTokens] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isLoadingSelectedToken, setIsLoadingSelectedToken] = useState(false);
   const [error, setError] = useState(null);
   const [selectedToken, setSelectedToken] = useState(initialTokenData || null);
   const [selectedPair, setSelectedPair] = useState(
@@ -143,15 +146,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
   const getCachedData = async (key, fetchFn, ttl = CACHE_DURATIONS.DEFAULT, retryCount = 0) => {
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
   try {
     // Check local cache first
     const localCached = localCache.current[key];
     if (localCached && Date.now() - localCached.timestamp < ttl) {
       console.log(`Local cache hit for ${key}`);
-      // Schedule background cache update only if not recently updated
-      const lastUpdate = localCache.current[`${key}_last_update`] || 0;
-      if (Date.now() - lastUpdate > ttl / 2) { // Update only after half the TTL
+      // Schedule background refresh only if cache is fully expired
+      if (Date.now() - localCached.timestamp >= ttl) {
         cacheLimiter.schedule(async () => {
           try {
             const freshData = await fetchFn();
@@ -159,7 +161,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               await axios.post(
                 `${API_BASE_URL}/api/cache`,
                 { key, action: 'set', data: freshData, ttl },
-                { timeout: 30000 } // Increase timeout to 30 seconds
+                { timeout: 30000 }
               );
               localCache.current[key] = { data: freshData, timestamp: Date.now() };
               localCache.current[`${key}_last_update`] = Date.now();
@@ -171,78 +173,112 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         });
       }
       return localCached.data || [];
-    }
-
-    // Check Redis cache
-    try {
-      const cacheResponse = await cacheLimiter.schedule(() =>
-        axios.post(
-          `${API_BASE_URL}/api/cache`,
-          { key, action: 'get' },
-          { timeout: 30000 } // Increase timeout to 30 seconds
-        )
-      );
-      if (cacheResponse.data.success && cacheResponse.data.data) {
-        console.log(`Redis cache hit for ${key}`);
-        localCache.current[key] = { data: cacheResponse.data.data, timestamp: Date.now() };
-        // Schedule background cache update only if not recently updated
-        const lastUpdate = localCache.current[`${key}_last_update`] || 0;
-        if (Date.now() - lastUpdate > ttl / 2) {
-          cacheLimiter.schedule(async () => {
-            try {
-              const freshData = await fetchFn();
-              if (freshData) {
-                await axios.post(
-                  `${API_BASE_URL}/api/cache`,
-                  { key, action: 'set', data: freshData, ttl },
-                  { timeout: 30000 }
-                );
-                localCache.current[key] = { data: freshData, timestamp: Date.now() };
-                localCache.current[`${key}_last_update`] = Date.now();
-                console.log(`Background cache updated for ${key}`);
-              }
-            } catch (error) {
-              console.error(`Background cache update failed for ${key}:`, error.message);
-            }
-          });
-        }
-        return cacheResponse.data.data || [];
       }
-    } catch (cacheError) {
-      if (cacheError.response?.status === 429 && retryCount < 3) {
-        const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff with jitter
+
+      // Check Redis cache
+      try {
+        const cacheResponse = await cacheLimiter.schedule(() =>
+          axios.post(
+            `${API_BASE_URL}/api/cache`,
+            { key, action: 'get' },
+            { timeout: 30000 }
+          )
+        );
+        if (cacheResponse.data.success && cacheResponse.data.data) {
+          console.log(`Redis cache hit for ${key}`);
+          localCache.current[key] = { data: cacheResponse.data.data, timestamp: Date.now() };
+          localCache.current[`${key}_last_update`] = Date.now();
+          // Schedule background refresh if cache is older than 75% of TTL
+          if (Date.now() - (localCache.current[`${key}_last_update`] || 0) > ttl * 0.75) {
+            cacheLimiter.schedule(async () => {
+              try {
+                const freshData = await fetchFn();
+                if (freshData) {
+                  await axios.post(
+                    `${API_BASE_URL}/api/cache`,
+                    { key, action: 'set', data: freshData, ttl },
+                    { timeout: 30000 }
+                  );
+                  localCache.current[key] = { data: freshData, timestamp: Date.now() };
+                  localCache.current[`${key}_last_update`] = Date.now();
+                  console.log(`Background cache updated for ${key}`);
+                }
+              } catch (error) {
+                console.error(`Background cache update failed for ${key}:`, error.message);
+              }
+            });
+          }
+          return cacheResponse.data.data || [];
+        }
+      } catch (cacheError) {
+        if (cacheError.response?.status === 429 && retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          return getCachedData(key, fetchFn, ttl, retryCount + 1);
+        }
+        console.error(`Redis cache error for ${key}:`, cacheError.message);
+      }
+
+      // Fetch new data if no cache is available
+      const data = await fetchFn();
+      if (data) {
+        await cacheLimiter.schedule(() =>
+          axios.post(
+            `${API_BASE_URL}/api/cache`,
+            { key, action: 'set', data, ttl },
+            { timeout: 30000 }
+          )
+        );
+        localCache.current[key] = { data, timestamp: Date.now() };
+        localCache.current[`${key}_last_update`] = Date.now();
+        console.log(`Cached data for ${key}`);
+        return data || [];
+      }
+      return [];
+    } catch (error) {
+      if (retryCount < 3 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) {
+        const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
         await new Promise((resolve) => setTimeout(resolve, delay));
         return getCachedData(key, fetchFn, ttl, retryCount + 1);
       }
-      console.error(`Redis cache error for ${key}:`, cacheError.message);
+      console.error(`Cache or fetch error for ${key}:`, error.message);
+      return [];
     }
+  };
 
-    // Fetch fresh data if no cache
-    const data = await fetchFn();
-    if (data) {
-      await cacheLimiter.schedule(() =>
-        axios.post(
-          `${API_BASE_URL}/api/cache`,
-          { key, action: 'set', data, ttl },
-          { timeout: 30000 }
-        )
-      );
-      localCache.current[key] = { data, timestamp: Date.now() };
-      localCache.current[`${key}_last_update`] = Date.now();
-      console.log(`Cached data for ${key}`);
-      return data || [];
-    }
-    return [];
-  } catch (error) {
-    if (retryCount < 3 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) {
-      const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff with jitter
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      return getCachedData(key, fetchFn, ttl, retryCount + 1);
-    }
-    console.error(`Cache or fetch error for ${key}:`, error.message);
-    return [];
-  }
-};
+  // Cache warmup cho trending tokens và top tokens
+  const warmUpCache = useCallback(async () => {
+    const cacheTrending = async () => {
+      const cacheKey = `trending-tokens-${currency}`;
+      const fetchFn = async () => {
+        const response = await axios.get('/api/coingecko', {
+          params: { action: 'trending', vs_currency: currency },
+          timeout: 15000,
+        });
+        if (!response.data.success || !Array.isArray(response.data.data)) {
+          throw new Error(`Invalid trending data: ${JSON.stringify(response.data)}`);
+        }
+        return response.data.data;
+      };
+      await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TRENDING);
+    };
+
+    const cacheTopTokens = async () => {
+      const cacheKey = `market-info-default-${currency}`;
+      const fetchFn = async () => {
+        const response = await axios.get('/api/coingecko', {
+          params: { start: 1, limit: tokensPerPage, vs_currencies: currency },
+          timeout: 15000,
+        });
+        if (!response.data.success || !Array.isArray(response.data.data)) {
+          throw new Error(`Invalid market data: ${JSON.stringify(response.data)}`);
+        }
+        return response.data.data;
+      };
+      await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFAULT);
+    };
+    await Promise.all([cacheTrending(), cacheTopTokens()]);
+  }, [currency]);
 
   const executeRecaptcha = useCallback(
     async (action, retryCount = 0) => {
@@ -466,6 +502,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setIsLoadingNameTags(true);
       const newNameTags = {};
 
+      // Xử lý BTC addresses
       const btcAddresses = addresses.filter((addr) => !addr.match(/^0x[a-fA-F0-9]{40}$/));
       btcAddresses.forEach((addr) => {
         const normalizedAddress = addr.toLowerCase();
@@ -477,25 +514,48 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         };
       });
 
+      // Xử lý EVM addresses với batching
       const evmAddresses = addresses.filter((addr) => addr.match(/^0x[a-fA-F0-9]{40}$/));
       if (evmAddresses.length > 0 && status === 'authenticated') {
         try {
-          const response = await axios.post(
-            `/api/nametags`,
-            { addresses: evmAddresses },
-            {
-              headers: {
-                Authorization: `Bearer ${session?.accessToken}`,
-              },
-              timeout: 40000,
-            }
+          const batchSize = 50; // Giới hạn batch size để tránh timeout
+          const batches = [];
+          for (let i = 0; i < evmAddresses.length; i += batchSize) {
+            batches.push(evmAddresses.slice(i, i + batchSize));
+          }
+
+          const batchPromises = batches.map((batch) =>
+            cacheLimiter.schedule(() =>
+              axios.post(
+                `/api/nametags`,
+                { addresses: batch },
+                {
+                  headers: {
+                    Authorization: `Bearer ${session?.accessToken}`,
+                  },
+                  timeout: 40000,
+                }
+              )
+            )
           );
-          evmAddresses.forEach((address) => {
-            const normalizedAddress = address.toLowerCase();
-            const data = response.data.data?.[normalizedAddress];
-            const nameTag = data?.Labels?.deposit?.['Name Tag'] || null;
-            const image = data?.Labels?.deposit?.image || '/icons/default.png';
-            newNameTags[normalizedAddress] = { nameTag, image, timestamp: Date.now() };
+
+          const responses = await Promise.allSettled(batchPromises);
+          responses.forEach((result, index) => {
+            if (result.status === 'fulfilled' && result.value.data.success) {
+              const batchAddresses = batches[index];
+              batchAddresses.forEach((address) => {
+                const normalizedAddress = address.toLowerCase();
+                const data = result.value.data.data?.[normalizedAddress];
+                const nameTag = data?.Labels?.deposit?.['Name Tag'] || null;
+                const image = data?.Labels?.deposit?.image || '/icons/default.png';
+                newNameTags[normalizedAddress] = { nameTag, image, timestamp: Date.now() };
+              });
+            } else {
+              batches[index].forEach((address) => {
+                const normalizedAddress = address.toLowerCase();
+                newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
+              });
+            }
           });
         } catch (error) {
           console.error(`fetchNameTagsForAddresses error:`, {
@@ -547,6 +607,15 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
         const cacheKey = `price-history-${tokenId}-${days}-${currency}`;
+        setIsLoadingSelectedToken(true); // Use for chart loading in UI
+
+        // Check local cache first
+        const cachedData = localCache.current[cacheKey]?.data;
+        if (cachedData) {
+          setPriceHistory(cachedData);
+          console.log(`Using cached price history for ${tokenId}`);
+        }
+
         try {
           const fetchFn = async () => {
             const response = await axios.get('/api/coingecko/market_chart', {
@@ -581,7 +650,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const priceData = response.data.prices
               .filter(([timestamp]) => typeof timestamp === 'number' && !isNaN(timestamp))
               .map(([timestamp, price]) => ({
-                title: new Date(timestamp).toISOString(), // Use ISO string
+                title: new Date(timestamp).toISOString(),
                 price: parseFloat(
                   price.toLocaleString('en-US', {
                     minimumFractionDigits: fractionDigits,
@@ -615,6 +684,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setError(errorMessage);
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           callback(err);
+          // Keep cached data if available
+          if (!cachedData) {
+            setPriceHistory([]);
+          }
+        } finally {
+          setIsLoadingSelectedToken(false);
         }
       },
       300,
@@ -626,7 +701,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const fetchPublicTreasuryData = useCallback(
     debounce(
       async (tokenSymbol, retryCount = 0) => {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
         const normalizedTokenSymbol = tokenSymbol?.toLowerCase();
         if (!NON_EVM_CHAINS.includes(normalizedTokenSymbol)) {
           setOnChainError(`Unsupported chain: ${normalizedTokenSymbol}`);
@@ -639,74 +714,53 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         setIsLoadingOnChain(true);
         setOnChainError(null);
 
-        const userId = session?.user?.id || 'anonymous';
-        const now = Date.now();
-        let userRequests = blockchairRequestTracker.get(userId) || { count: 0, lastReset: now };
-
-        if (now - userRequests.lastReset >= BLOCKCHAIR_REQUEST_WINDOW) {
-          userRequests = { count: 0, lastReset: now };
-          blockchairRequestTracker.set(userId, userRequests);
-          setBlockchairRequestCount(0);
-          setLastBlockchairRequestTime(now);
-        }
-
-        if (userRequests.count >= BLOCKCHAIR_REQUEST_LIMIT) {
-          const errorMessage = 'Too many Blockchair requests. Please wait a minute and try again.';
-          setOnChainError(errorMessage);
-          setIsLoadingOnChain(false);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-          return;
+        // Check local cache first
+        const cachedData = localCache.current[cacheKey]?.data;
+        if (cachedData) {
+          setOnChainData((prev) => ({
+            ...prev,
+            topHolders: cachedData,
+          }));
+          console.log(`Using cached top holders for ${chain}`);
         }
 
         try {
           const fetchFn = async () => {
             const recaptchaToken = await executeRecaptcha('blockchair_top_holders');
-            blockchairRequestTracker.set(userId, {
-              count: userRequests.count + 1,
-              lastReset: userRequests.lastReset,
-            });
-            setBlockchairRequestCount((prev) => prev + 1);
-
-            let topHolders = [];
-            try {
-              const blockchairResponse = await axios.post(
-                `${API_BASE_URL}/api/blockchair`,
-                { chain, limit: 100 },
-                {
-                  headers: {
-                    'Content-Type': 'application/json',
-                    ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-                    'x-recaptcha-token': recaptchaToken,
-                  },
-                  timeout: 15000,
-                }
-              );
-
-              if (!blockchairResponse.data.success || !Array.isArray(blockchairResponse.data.data)) {
-                throw new Error(blockchairResponse.data.detail || `No top holders data for ${chain} from Blockchair`);
+            const blockchairResponse = await axios.post(
+              `${API_BASE_URL}/api/blockchair`,
+              { chain, limit: 100 },
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+                  'x-recaptcha-token': recaptchaToken,
+                },
+                timeout: 20000,
               }
+            );
 
-              topHolders = blockchairResponse.data.data.map((holder) => ({
-                address: holder.address,
-                balance: parseFloat(holder.balance) || 0,
-                share: parseFloat(holder.share) || 0,
-                nameTag: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
-                image: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.image || null,
-                source: 'Blockchair',
-              }));
-            } catch (blockchairError) {
-              console.warn(`Blockchair fetch failed for ${chain}:`, blockchairError);
+            if (!blockchairResponse.data.success || !Array.isArray(blockchairResponse.data.data)) {
+              throw new Error(blockchairResponse.data.detail || `No top holders data for ${chain}`);
             }
+
+            let topHolders = blockchairResponse.data.data.map((holder) => ({
+              address: holder.address,
+              balance: parseFloat(holder.balance) || 0,
+              share: parseFloat(holder.share) || 0,
+              nameTag: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
+              image: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.image || null,
+              source: 'Blockchair',
+            }));
 
             if (['bitcoin', 'ethereum'].includes(chain)) {
               try {
-                console.log('Fetching treasury data with params:', { action: 'public-treasury', tokenType: chain });
                 const coingeckoResponse = await coingeckoAxios.get(`${API_BASE_URL}/api/coingecko`, {
                   params: { action: 'public-treasury', tokenType: chain },
                   headers: {
                     ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
                   },
-                  timeout: 10000,
+                  timeout: 15000,
                 });
 
                 if (coingeckoResponse.data.success && Array.isArray(coingeckoResponse.data.data?.companies)) {
@@ -724,12 +778,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                     ...topHolders,
                     ...treasuryData.filter((company) => !uniqueAddresses.has(company.address.toLowerCase())),
                   ].sort((a, b) => b.balance - a.balance).slice(0, 100);
-                } else {
-                  console.warn(`Invalid or empty CoinGecko treasury data for ${chain}`);
                 }
               } catch (coingeckoError) {
-                console.error(`Failed to fetch CoinGecko treasury data for ${chain}:`, coingeckoError.response?.data || coingeckoError.message);
-                // Continue with Blockchair data if CoinGecko fails
+                console.warn(`CoinGecko treasury fetch failed for ${chain}:`, coingeckoError.message);
               }
             }
 
@@ -740,7 +791,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             return topHolders;
           };
 
-          const topHolders = await getCachedData(cacheKey, fetchFn);
+          const topHolders = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TOP_HOLDERS);
           setOnChainData((prev) => ({
             ...prev,
             topHolders,
@@ -752,11 +803,18 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               : error.response?.data?.detail || `Failed to fetch top holders for ${chain}`;
           setOnChainError(errorMessage);
           if (retryCount < 3) {
-            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff with jitter
+            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
             await new Promise((resolve) => setTimeout(resolve, delay));
             fetchPublicTreasuryData(tokenSymbol, retryCount + 1);
           } else {
             toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+            // Keep cached data if available
+            if (!cachedData) {
+              setOnChainData((prev) => ({
+                ...prev,
+                topHolders: [],
+              }));
+            }
           }
         } finally {
           setIsLoadingOnChain(false);
@@ -778,46 +836,37 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         const cacheKey = `ticker-${tokenId}`;
         setIsLoadingTickers(true);
         setTickerError(null);
-        setTickerData([]); // Initialize as empty array
+
+        // Check local cache first
+        const cachedData = localCache.current[cacheKey]?.data;
+        if (cachedData) {
+          setTickerData(cachedData);
+          console.log(`Using cached ticker data for ${tokenId}`);
+        } else {
+          setTickerData([]);
+        }
+
         try {
           const fetchFn = async () => {
-            let response;
-            const params = { include_exchange_logo: true };
-            if (process.env.NODE_ENV === 'development') {
-              response = await coingeckoAxios.get(`https://api.coingecko.com/api/v3/coins/${tokenId}/tickers`, {
-                params,
-                headers: {
-                  accept: 'application/json',
-                  ...(COINGECKO_API_KEY && { 'x-cg-demo-api-key': COINGECKO_API_KEY }),
-                },
-                timeout: 15000,
-              });
-              // Handle direct CoinGecko response
-              if (!response.data || !Array.isArray(response.data.tickers)) {
-                throw new Error(`Invalid or missing ticker data from CoinGecko for ${tokenId}: ${JSON.stringify(response.data)}`);
-              }
-              return response.data.tickers;
-            } else {
-              response = await axios.get('/api/coingecko', {
-                params: {
-                  action: 'tickers',
-                  id: tokenId,
-                  include_exchange_logo: true,
-                },
-                timeout: 15000,
-              });
-              if (!response.data.success || !Array.isArray(response.data.data?.tickers)) {
-                throw new Error(`Invalid or missing ticker data from server for ${tokenId}: ${JSON.stringify(response.data)}`);
-              }
-              return response.data.data.tickers;
+            const response = await coingeckoAxios.get('/api/coingecko', {
+              params: {
+                action: 'tickers',
+                id: tokenId,
+                include_exchange_logo: true,
+              },
+              timeout: 20000,
+            });
+            if (!response.data.success || !Array.isArray(response.data.data?.tickers)) {
+              throw new Error(`Invalid ticker data for ${tokenId}: ${JSON.stringify(response.data)}`);
             }
+            return response.data.data.tickers;
           };
 
           const tickers = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TICKERS);
           setTickerData(tickers || []);
           setTickerError(null);
         } catch (error) {
-          if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 404 || error.code === 'ECONNABORTED')) {
+          if (retryCount < 3 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) {
             const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
             await new Promise((resolve) => setTimeout(resolve, delay));
             return fetchTickerData(tokenId, retryCount + 1);
@@ -827,18 +876,19 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               ? 'CoinGecko API rate limit exceeded. Please try again in a few minutes.'
               : error.response?.status === 404
                 ? `No CEX data found for ${tokenId}.`
-                : error.response?.status === 500
-                  ? 'Server error while fetching CEX data. Please try again later.'
-                  : error.response?.data?.detail || `Failed to load CEX data for ${tokenId}: ${error.message}`;
+                : error.response?.data?.detail || `Failed to load CEX data: ${error.message}`;
           setTickerError(errorMessage);
-          setTickerData([]); // Ensure empty array on error
+          // Keep cached data if available
+          if (!cachedData) {
+            setTickerData([]);
+          }
         } finally {
           setIsLoadingTickers(false);
         }
       },
       300
     ),
-    [COINGECKO_API_KEY]
+    []
   );
 
   const fetchOnChainData = useCallback(
@@ -995,6 +1045,15 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         setIsLoadingDex(true);
         setDexError(null);
 
+        // Check local cache first
+        const cachedData = localCache.current[cacheKey]?.data;
+        if (cachedData) {
+          setDexData(cachedData);
+          console.log(`Using cached DEX data for ${geckoChain}-${tokenAddress}`);
+        } else {
+          setDexData({ pools: [], trades: [], poolTokens: {} });
+        }
+
         try {
           const fetchFn = async () => {
             const poolResponse = await coingeckoAxios.get(
@@ -1080,6 +1139,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 : 'Failed to load DEX data.';
           setDexError(safeErrorMessage);
           toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
+          // Keep cached data if available
+          if (!cachedData) {
+            setDexData({ pools: [], trades: [], poolTokens: {} });
+          }
         } finally {
           setIsLoadingDex(false);
         }
@@ -1090,54 +1153,67 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   );
 
   const fetchTrendingTokens = useCallback(
-  debounce(
-    async (retryCount = 0) => {
-      if (document.visibilityState !== 'visible') return;
-      const cacheKey = `trending-tokens-${currency}`;
-      setIsLoadingTrending(true);
-      setTrendingError(null);
-      setTrendingTokens([]); // Initialize as empty array
-      try {
-        const fetchFn = async () => {
-          const response = await axios.get('/api/coingecko', {
-            params: { action: 'trending', vs_currency: currency },
-            timeout: 15000,
-          });
-          if (!response.data.success || !Array.isArray(response.data.data)) {
-            throw new Error(`Invalid or missing trending data: ${JSON.stringify(response.data)}`);
-          }
-          return response.data.data;
-        };
-
-        const tokens = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TICKERS); // Use same cache duration as tickers
-        setTrendingTokens(tokens || []);
+    debounce(
+      async (retryCount = 0) => {
+        if (document.visibilityState !== 'visible') return;
+        const cacheKey = `trending-tokens-${currency}`;
+        setIsLoadingTrending(true);
         setTrendingError(null);
-      } catch (error) {
-        if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 404 || error.code === 'ECONNABORTED')) {
-          const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          return fetchTrendingTokens(retryCount + 1);
-        }
-        const errorMessage =
-          error.response?.status === 429
-            ? 'CoinGecko API rate limit exceeded. Please try again in a few minutes.'
-            : error.response?.status === 404
-              ? 'No trending token data found.'
-              : error.response?.data?.detail || `Failed to load trending tokens: ${error.message}`;
-        setTrendingError(errorMessage);
-        if (toast?.error) {
-          toast.error(errorMessage, { position: 'top-center', autoClose: 3000 });
+
+        // Check local cache first
+        const cachedData = localCache.current[cacheKey]?.data;
+        if (cachedData) {
+          setTrendingTokens(cachedData);
+          console.log(`Using cached trending tokens for ${currency}`);
         } else {
-          console.error('Toast error:', errorMessage);
+          setTrendingTokens([]);
         }
-      } finally {
-        setIsLoadingTrending(false);
-      }
-    },
-    300
-  ),
-  [currency, toast, getCachedData] // Add getCachedData to dependencies
-);
+
+        try {
+          const fetchFn = async () => {
+            const response = await axios.get('/api/coingecko', {
+              params: { action: 'trending', vs_currency: currency },
+              timeout: 15000,
+            });
+            if (!response.data.success || !Array.isArray(response.data.data)) {
+              throw new Error(`Invalid or missing trending data: ${JSON.stringify(response.data)}`);
+            }
+            return response.data.data;
+          };
+
+          const tokens = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TRENDING);
+          setTrendingTokens(tokens || []);
+          setTrendingError(null);
+        } catch (error) {
+          if (retryCount < 3 && (error.response?.status === 429 || error.response?.status === 404 || error.code === 'ECONNABORTED')) {
+            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            return fetchTrendingTokens(retryCount + 1);
+          }
+          const errorMessage =
+            error.response?.status === 429
+              ? 'CoinGecko API rate limit exceeded. Please try again in a few minutes.'
+              : error.response?.status === 404
+                ? 'No trending token data found.'
+                : error.response?.data?.detail || `Failed to load trending tokens: ${error.message}`;
+          setTrendingError(errorMessage);
+          if (toast?.error) {
+            toast.error(errorMessage, { position: 'top-center', autoClose: 3000 });
+          } else {
+            console.error('Toast error:', errorMessage);
+          }
+          // Keep cached data if available
+          if (!cachedData) {
+            setTrendingTokens([]);
+          }
+        } finally {
+          setIsLoadingTrending(false);
+        }
+      },
+      1000
+    ),
+    [currency, toast, getCachedData]
+  );
 
   const handleAddressClick = useCallback(
     (address) => {
@@ -1352,6 +1428,18 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       }
 
       const cacheKey = `token-metadata-${token.id}`;
+      setIsLoadingSelectedToken(true); // Start loading
+
+      // Check local cache first
+      const cachedToken = localCache.current[cacheKey]?.data;
+      if (cachedToken) {
+        setSelectedToken(cachedToken);
+        setSelectedPair(`${cachedToken.symbol?.toUpperCase()}/${currency.toUpperCase()}`);
+        const { chain } = getDefaultChainAndAddress(cachedToken, 'ethereum');
+        setSelectedChain(chain || 'ethereum');
+        console.log(`Using cached token data for ${token.id}`);
+      }
+
       try {
         const fetchFn = async () => {
           const recaptchaToken = await executeRecaptcha('coin_details');
@@ -1408,21 +1496,21 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             atl: marketData.atl || {},
             atl_change_percentage: marketData.atl_change_percentage || {},
             atl_date: marketData.atl_date || {},
-            roi: marketData.roi || response.data.roi,
-            last_updated: response.data.last_updated,
-            market_cap_rank: response.data.market_cap_rank,
-            platforms: response.data.platforms || {},
-            detail_platforms: response.data.detail_platforms || {},
+            roi: marketData.roi || responseData.data.roi,
+            last_updated: responseData.data.last_updated,
+            market_cap_rank: responseData.data.market_cap_rank,
+            platforms: responseData.data.platforms || {},
+            detail_platforms: responseData.data.detail_platforms || {},
             links: {
-              homepage: response.data.links?.homepage || [],
-              blockchain_site: response.data.links?.blockchain_site || [],
-              official_forum_url: response.data.links?.official_forum_url || [],
-              chat_url: response.data.links?.chat_url || [],
-              announcement_url: response.data.links?.announcement_url || [],
-              twitter_screen_name: response.data.links?.twitter_screen_name || '',
-              facebook_username: response.data.links?.facebook_username || '',
-              telegram_channel_identifier: response.data.links?.telegram_channel_identifier || '',
-              repos_url: response.data.links?.repos_url?.github || [],
+              homepage: responseData.data.links?.homepage || [],
+              blockchain_site: responseData.data.links?.blockchain_site || [],
+              official_forum_url: responseData.data.links?.official_forum_url || [],
+              chat_url: responseData.data.links?.chat_url || [],
+              announcement_url: responseData.data.links?.announcement_url || [],
+              twitter_screen_name: responseData.data.links?.twitter_screen_name || '',
+              facebook_username: responseData.data.links?.facebook_username || '',
+              telegram_channel_identifier: responseData.data.links?.telegram_channel_identifier || '',
+              repos_url: responseData.data.links?.repos_url?.github || [],
             },
           };
         };
@@ -1460,8 +1548,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             ? 'CoinGecko rate limit reached. Please wait a minute and try again.'
             : error.response?.data?.detail || 'Failed to load token details.'
         );
+        // Keep cached data if available
+        if (!cachedToken) {
+          setSelectedToken(null);
+        }
+      } finally {
+        setIsLoadingSelectedToken(false);
       }
-    }, 300),
+    }, 500),
     [currency, availableCurrencies, timeRange, fetchPriceHistory, setSelectedToken, setSelectedPair, setSelectedChain, setAnalysis, setPrediction, setAnalysisLinks, setIsDropdownOpen, setOnChainData, setOnChainError, setError, executeRecaptcha, getDefaultChainAndAddress, initialTokenSlug]
   );
 
@@ -1789,6 +1883,10 @@ Use natural, professional tone with recent data.
       },
     }
   );
+
+  useEffect(() => {
+    warmUpCache();
+  }, [warmUpCache]);
 
   useEffect(() => {
     debouncedSearch(searchQuery);
@@ -2126,6 +2224,8 @@ Use natural, professional tone with recent data.
     isLoadingTrending,
     trendingError,
     fetchTrendingTokens,
+    isLoadingSelectedToken, // Add new state
+    localCache,
     // Constants
     SUPPORTED_CHAINS,
     WALLET_SEARCH_LIMIT,

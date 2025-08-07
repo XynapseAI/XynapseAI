@@ -106,6 +106,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     fetchTickerData,
     fetchPriceHistory,
     fetchTrendingTokens,
+    isLoadingSelectedToken, // Add new state
+    localCache,
     nameTags,
     isLoadingNameTags,
     dexData,
@@ -253,7 +255,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           </div>
         </div>
       </motion.div>,
-      document.body 
+      document.body
     );
   };
 
@@ -687,13 +689,33 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
           {/* Hàng dưới: Trending Tokens Ticker */}
           <div className="relative w-full trending-container" ref={trendingRef}>
-            {isLoadingTrending ? (
-              <div className="flex items-center justify-center h-8">
+            {isLoadingTrending && !trendingTokens?.length ? (
+              <div className="flex items-center justify-start h-8 gap-2">
+                {/* {Array(5)
+                  .fill()
+                  .map((_, index) => (
+                    <SkeletonLoader
+                      key={index}
+                      count={1}
+                      isMobile={isMobile}
+                      className="w-20 h-6 rounded-lg bg-gray-800/50 animate-pulse"
+                    />
+                  ))} */}
               </div>
             ) : trendingError ? (
-              <div className="text-gray-400 text-[10px] text-center"></div>
+              <div className="text-[10px] text-center">
+                <p className="text-red-500">{trendingError}</p>
+                <motion.button
+                  onClick={() => fetchTrendingTokens()}
+                  className="mt-2 px-4 py-1 text-white text-[10px] border border-neon-blue/50 rounded-xl hover:bg-neon-blue/30"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Retry
+                </motion.button>
+              </div>
             ) : trendingTokens.length === 0 ? (
-              <div className="text-gray-400 text-[10px] text-center"></div>
+              <div className="text-gray-400 text-[10px] text-center">No trending tokens available.</div>
             ) : (
               <motion.div
                 className="flex items-center whitespace-nowrap w-full"
@@ -702,7 +724,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   x: {
                     repeat: Infinity,
                     repeatType: 'loop',
-                    duration: trendingTokens.length * 4, // Adjust speed based on number of tokens
+                    duration: trendingTokens.length * 4,
                     ease: 'linear',
                   },
                 }}
@@ -810,8 +832,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             <div
               className={`border border-white/10 p-2 sm:p-4 rounded-xl min-h-[260px] sm:min-h-[290px] sm:max-h-[290px] overflow-y-auto custom-scrollbar bg-black/60 backdrop-blur-2xl relative`}
             >
-              {selectedToken ? (
+              {isLoadingSelectedToken && !localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
+                <SkeletonLoader count={5} isMobile={isMobile} />
+              ) : selectedToken || localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
                 <div className="relative">
+                  {/* Existing token info rendering */}
                   <div className="absolute top-1 right-1 w-32 sm:w-40" ref={dropdownRef}>
                     <motion.button
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -820,15 +845,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       whileHover={{ scale: 1 }}
                       whileTap={{ scale: 0.95 }}
                     >
-                      {selectedToken ? (
+                      {selectedToken || localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
                         <>
                           <img
-                            src={selectedToken.image}
-                            alt={`${selectedToken.symbol} logo`}
+                            src={selectedToken?.image || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.image}
+                            alt={`${selectedToken?.symbol || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.symbol} logo`}
                             className="w-4 sm:w-5 h-4 sm:h-5 rounded-full mr-2"
                             onError={(e) => (e.target.src = '/fallback-image.png')}
                           />
-                          {selectedToken.symbol?.toUpperCase() || 'Token'}
+                          {(selectedToken?.symbol || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.symbol)?.toUpperCase() || 'Token'}
                         </>
                       ) : (
                         'Select Token'
@@ -850,11 +875,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         />
                         <div className="p-2">
                           {(searchQuery ? searchResults : tokens.slice(0, 30))
-                            .filter(isValidToken) // Apply the filter
+                            .filter(isValidToken)
                             .map((token) => (
                               <motion.button
                                 key={token.id}
-                                onClick={() => handleTokenSelect(token)} // Use the new handleTokenSelect
+                                onClick={() => handleTokenSelect(token)}
                                 className="flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/20 text-white text-[8px] sm:text-[10px] transition-all duration-300 rounded"
                                 whileHover={{ scale: 1 }}
                               >
@@ -878,10 +903,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                   <div className="mb-2 sm:mb-4">
                     <div className="flex items-center gap-2">
-                      {selectedToken.image && (
+                      {(selectedToken?.image || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.image) && (
                         <motion.img
-                          src={selectedToken.image}
-                          alt={`${selectedToken.symbol} logo`}
+                          src={selectedToken?.image || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.image}
+                          alt={`${selectedToken?.symbol || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.symbol} logo`}
                           className="w-6 sm:w-7 h-6 sm:h-7 rounded-full"
                           onError={(e) => (e.target.src = '/fallback-image.png')}
                           initial={{ scale: 0.8, opacity: 0 }}
@@ -891,10 +916,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       )}
                       <div>
                         <h4 className="text-base sm:text-sm font-bold text-white tracking-tight">
-                          {selectedToken.name} ({selectedToken.symbol?.toUpperCase() || 'Token'})
+                          {(selectedToken?.name || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.name)} (
+                          {(selectedToken?.symbol || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.symbol)?.toUpperCase() || 'Token'})
                         </h4>
-                        {selectedToken.market_cap_rank && (
-                          <span className="text-[10px] sm:text-xs text-gray-400">Rank #{selectedToken.market_cap_rank}</span>
+                        {(selectedToken?.market_cap_rank || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.market_cap_rank) && (
+                          <span className="text-[10px] sm:text-xs text-gray-400">
+                            Rank #{selectedToken?.market_cap_rank || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.market_cap_rank}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -902,13 +930,24 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm sm:text-sm font-bold text-yellow">{formatPrice(selectedToken.current_price?.[currency], currency)}</p>
+                        <p className="text-sm sm:text-sm font-bold text-yellow">
+                          {formatPrice(
+                            selectedToken?.current_price?.[currency] ||
+                            localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.current_price?.[currency],
+                            currency
+                          )}
+                        </p>
                         <span
-                          className={`text-[9px] sm:text-[9px] font-medium ${selectedToken.price_change_percentage_24h_in_currency?.[currency] >= 0 ? 'text-green-500' : 'text-red-500'
+                          className={`text-[9px] sm:text-[9px] font-medium ${(selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]) >= 0
+                              ? 'text-green-500'
+                              : 'text-red-500'
                             }`}
                         >
-                          {selectedToken.price_change_percentage_24h_in_currency?.[currency] != null
-                            ? `${selectedToken.price_change_percentage_24h_in_currency[currency].toFixed(2)}% (24h)`
+                          {(selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
+                            localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]) != null
+                            ? `${(selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]).toFixed(2)}% (24h)`
                             : 'N/A'}
                         </span>
                       </div>
@@ -940,24 +979,30 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         <p className="text-gray-500">
                           Market Cap:{' '}
                           <span className="text-white font-semibold">
-                            {selectedToken.market_cap?.[currency] != null
-                              ? `${currency.toUpperCase()} ${selectedToken.market_cap[currency].toLocaleString('en-US')}`
+                            {(selectedToken?.market_cap?.[currency] ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.market_cap?.[currency]) != null
+                              ? `${currency.toUpperCase()} ${(selectedToken?.market_cap?.[currency] ||
+                                localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.market_cap?.[currency]).toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
                         <p className="text-gray-500">
                           Fully Diluted Valuation:{' '}
                           <span className="text-white font-semibold">
-                            {selectedToken.fully_diluted_valuation?.[currency] != null
-                              ? `${currency.toUpperCase()} ${selectedToken.fully_diluted_valuation[currency].toLocaleString('en-US')}`
+                            {(selectedToken?.fully_diluted_valuation?.[currency] ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.fully_diluted_valuation?.[currency]) != null
+                              ? `${currency.toUpperCase()} ${(selectedToken?.fully_diluted_valuation?.[currency] ||
+                                localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.fully_diluted_valuation?.[currency]).toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
                         <p className="text-gray-500">
                           24h Volume:{' '}
                           <span className="text-white font-semibold">
-                            {selectedToken.total_volume?.[currency] != null
-                              ? `${currency.toUpperCase()} ${selectedToken.total_volume[currency].toLocaleString('en-US')}`
+                            {(selectedToken?.total_volume?.[currency] ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.total_volume?.[currency]) != null
+                              ? `${currency.toUpperCase()} ${(selectedToken?.total_volume?.[currency] ||
+                                localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.total_volume?.[currency]).toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
@@ -971,24 +1016,30 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         <p className="text-gray-500">
                           Circulating Supply:{' '}
                           <span className="text-white font-semibold">
-                            {selectedToken.circulating_supply != null
-                              ? `${selectedToken.circulating_supply.toLocaleString('en-US')}`
+                            {(selectedToken?.circulating_supply ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.circulating_supply) != null
+                              ? `${(selectedToken?.circulating_supply ||
+                                localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.circulating_supply).toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
                         <p className="text-gray-500">
                           Total Supply:{' '}
                           <span className="text-white font-semibold">
-                            {selectedToken.total_supply != null
-                              ? `${selectedToken.total_supply.toLocaleString('en-US')}`
+                            {(selectedToken?.total_supply ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.total_supply) != null
+                              ? `${(selectedToken?.total_supply ||
+                                localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.total_supply).toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
                         <p className="text-gray-500">
                           Max Supply:{' '}
                           <span className="text-white font-semibold">
-                            {selectedToken.max_supply != null
-                              ? `${selectedToken.max_supply.toLocaleString('en-US')}`
+                            {(selectedToken?.max_supply ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.max_supply) != null
+                              ? `${(selectedToken?.max_supply ||
+                                localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.max_supply).toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
@@ -1003,15 +1054,19 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           ATH:{' '}
                           <span
                             className={
-                              typeof selectedToken.ath?.[currency] === 'number'
-                                ? selectedToken.ath_change_percentage?.[currency] >= 0
+                              typeof (selectedToken?.ath?.[currency] ||
+                                localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.ath?.[currency]) === 'number'
+                                ? (selectedToken?.ath_change_percentage?.[currency] ||
+                                  localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.ath_change_percentage?.[currency]) >= 0
                                   ? 'text-red-500'
                                   : 'text-green-500'
                                 : 'text-white'
                             }
                           >
-                            {typeof selectedToken.ath?.[currency] === 'number'
-                              ? `${currency.toUpperCase()} ${selectedToken.ath[currency].toLocaleString('en-US')}`
+                            {typeof (selectedToken?.ath?.[currency] ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.ath?.[currency]) === 'number'
+                              ? `${currency.toUpperCase()} ${(selectedToken?.ath?.[currency] ||
+                                localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.ath?.[currency]).toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
@@ -1019,15 +1074,19 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           ATL:{' '}
                           <span
                             className={
-                              typeof selectedToken.atl?.[currency] === 'number'
-                                ? selectedToken.atl_change_percentage?.[currency] >= 0
+                              typeof (selectedToken?.atl?.[currency] ||
+                                localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.atl?.[currency]) === 'number'
+                                ? (selectedToken?.atl_change_percentage?.[currency] ||
+                                  localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.atl_change_percentage?.[currency]) >= 0
                                   ? 'text-red-500'
                                   : 'text-green-500'
                                 : 'text-white'
                             }
                           >
-                            {typeof selectedToken.atl?.[currency] === 'number'
-                              ? `${currency.toUpperCase()} ${selectedToken.atl[currency].toLocaleString('en-US')}`
+                            {typeof (selectedToken?.atl?.[currency] ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.atl?.[currency]) === 'number'
+                              ? `${currency.toUpperCase()} ${(selectedToken?.atl?.[currency] ||
+                                localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.atl?.[currency]).toLocaleString('en-US')}`
                               : 'N/A'}
                           </span>
                         </p>
@@ -1048,64 +1107,64 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                   {/* Social Links (Moved to bottom-right) */}
                   <div className="absolute bottom-2 right-2 flex gap-2 social-links">
-                    {selectedToken.links?.twitter_screen_name && (
+                    {(selectedToken?.links?.twitter_screen_name || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.twitter_screen_name) && (
                       <a
-                        href={`https://twitter.com/${selectedToken.links.twitter_screen_name}`}
+                        href={`https://twitter.com/${selectedToken?.links?.twitter_screen_name || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.twitter_screen_name}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-neon-blue hover:text-neon-blue/80"
                         title="Twitter"
                       >
                         <img
-                          src="/logos/x.png" // Replace with actual Twitter logo path
+                          src="/logos/x.png"
                           alt="Twitter"
                           className="w-3 h-3"
                           onError={(e) => (e.target.src = '/fallback-image.png')}
                         />
                       </a>
                     )}
-                    {selectedToken.links?.chat_url?.[0] && (
+                    {(selectedToken?.links?.chat_url?.[0] || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.chat_url?.[0]) && (
                       <a
-                        href={selectedToken.links.chat_url[0]}
+                        href={selectedToken?.links?.chat_url?.[0] || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.chat_url?.[0]}
                         target="_blank"
                         rel="noreferrer"
                         className="text-neon-blue hover:text-neon-blue/80"
                         title="Discord"
                       >
                         <img
-                          src="/logos/discord.png" // Replace with actual Discord logo path
+                          src="/logos/discord.png"
                           alt="Discord"
                           className="w-3 h-3"
                           onError={(e) => (e.target.src = '/fallback-image.png')}
                         />
                       </a>
                     )}
-                    {selectedToken.links?.homepage?.[0] && (
+                    {(selectedToken?.links?.homepage?.[0] || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.homepage?.[0]) && (
                       <a
-                        href={selectedToken.links.homepage[0]}
+                        href={selectedToken?.links?.homepage?.[0] || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.homepage?.[0]}
                         target="_blank"
                         rel="noreferrer"
                         className="text-neon-blue hover:text-neon-blue/80"
                         title="Website"
                       >
                         <img
-                          src="/logos/website.png" // Replace with actual Website logo path
+                          src="/logos/website.png"
                           alt="Website"
                           className="w-3 h-3"
                           onError={(e) => (e.target.src = '/fallback-image.png')}
                         />
                       </a>
                     )}
-                    {selectedToken.links?.repos_url?.github?.[0] && (
+                    {(selectedToken?.links?.repos_url?.github?.[0] || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.repos_url?.github?.[0]) && (
                       <a
-                        href={selectedToken.links.repos_url.github[0]}
+                        href={selectedToken?.links?.repos_url?.github?.[0] || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.repos_url?.github?.[0]}
                         target="_blank"
                         rel="noreferrer"
                         className="text-neon-blue hover:text-neon-blue/80"
                         title="GitHub"
                       >
                         <img
-                          src="/logos/github.png" // Replace with actual GitHub logo path
+                          src="/logos/github.png"
                           alt="GitHub"
                           className="w-3 h-3"
                           onError={(e) => (e.target.src = '/fallback-image.png')}
@@ -1189,7 +1248,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 </div>
               </div>
               {isChartLoading ? (
-                <SkeletonLoader count={5} isMobile={isMobile} />
+                <div className="h-48 sm:h-58 flex items-center justify-center">
+                  {/* <SkeletonLoader
+                    count={1}
+                    isMobile={isMobile}
+                    className="w-full h-full rounded-lg bg-gray-800/50 animate-pulse"
+                  /> */}
+                </div>
               ) : priceHistory && priceHistory.length > 0 ? (
                 <div className="h-48 sm:h-58">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1346,8 +1411,20 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         {selectedToken.symbol?.toUpperCase()} Holders
                       </h4>
                     </div>
-                    {isLoadingOnChain ? (
+                    {isLoadingOnChain && !onChainData.topHolders?.length ? (
                       <SkeletonLoader count={5} isMobile={isMobile} />
+                    ) : onChainError ? (
+                      <div className="text-[10px] sm:text-xs text-center p-2 sm:p-4">
+                        <p className="text-red-500">{onChainError}</p>
+                        <motion.button
+                          onClick={() => fetchPublicTreasuryData(selectedToken?.id)}
+                          className="mt-2 px-4 py-1 text-white text-[10px] sm:text-xs border border-neon-blue/50 rounded-xl hover:bg-neon-blue/30"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          Retry
+                        </motion.button>
+                      </div>
                     ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                       <table className="w-full text-[10px] sm:text-[11px]">
                         <thead
@@ -1469,10 +1546,19 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 {/* CEX Tab */}
                 {activeMarketTab === 'cex' && (
                   <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar smooth-scroll">
-                    {tickerError && (
-                      <p className="text-[10px] sm:text-xs text-red-500 text-center p-2 sm:p-4 bg-red-500/10 rounded">{tickerError}</p>
-                    )}
-                    {isLoadingTickers ? (
+                    {tickerError ? (
+                      <div className="text-[10px] sm:text-xs text-center p-2 sm:p-4">
+                        <p className="text-red-500">{tickerError}</p>
+                        <motion.button
+                          onClick={() => fetchTickerData(selectedToken?.id)}
+                          className="mt-2 px-4 py-1 text-white text-[10px] sm:text-xs border border-neon-blue/50 rounded-xl hover:bg-neon-blue/30"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          Retry
+                        </motion.button>
+                      </div>
+                    ) : isLoadingTickers && !tickerData?.length ? (
                       <SkeletonLoader count={5} isMobile={isMobile} />
                     ) : tickerData.length > 0 ? (
                       <div className="table-container">
@@ -1642,10 +1728,24 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 {/* DEX Tab */}
                 {activeMarketTab === 'dex' && (
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
-                    {dexError && (
-                      <p className="text-[10px] sm:text-xs text-red-500 text-center p-2 sm:p-4 bg-red-500/10 rounded">{dexError}</p>
-                    )}
-                    {isLoadingDex ? (
+                    {dexError ? (
+                      <div className="text-[10px] sm:text-xs text-center p-2 sm:p-4">
+                        <p className="text-red-500">{dexError}</p>
+                        <motion.button
+                          onClick={() => {
+                            const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+                            if (chain && tokenAddress) {
+                              fetchDexData(chain, tokenAddress);
+                            }
+                          }}
+                          className="mt-2 px-4 py-1 text-white text-[10px] sm:text-xs border border-neon-blue/50 rounded-xl hover:bg-neon-blue/30"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          Retry
+                        </motion.button>
+                      </div>
+                    ) : isLoadingDex && !dexData.trades?.length ? (
                       <SkeletonLoader count={5} isMobile={isMobile} />
                     ) : dexData.trades.length > 0 ? (
                       <table className="w-full text-[10px] sm:text-[11px]">
