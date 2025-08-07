@@ -13,6 +13,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 import { chains, mapCoinGeckoChains, getPlatformImage, getExplorerUrls } from '../utils/constants';
+import { LoadingOverlay} from '../utils/helpers';
 import axios from 'axios';
 
 const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, value, chainLogo, isRoot = false, onSelect, isMobile }) => {
@@ -106,32 +107,6 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
     </div>
   );
 });
-
-const LoadingOverlay = ({ isLoading, message = 'Processing...', isMobile }) => (
-  <AnimatePresence>
-    {isLoading && (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className={`fixed inset-0 flex items-center justify-center z-50 ${
-          isMobile ? 'bg-black/80' : 'bg-black/80 backdrop-blur-2xl'
-        }`}
-      >
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative w-8 h-8">
-            <div
-              className={`absolute inset-0 border-2 rounded-full animate-spin bg-black/80 ${
-                isMobile ? 'border-black/80 border-t-white' : 'border-black/80 border-t-white'
-              }`}
-            ></div>
-          </div>
-          <p className="text-[10px] sm:text-xs text-gray-200 font-medium">{message}</p>
-        </div>
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
 
 const CACHE_TTL = 3600000;
 const NODES_PER_PAGE = 50;
@@ -769,7 +744,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         </div>
       </div>
 
-      {loading && <LoadingOverlay message={loadingMessage} />}
+      {loading && <LoadingOverlay isLoading={true} message="Loading transactions..." isMobile={typeof window !== 'undefined' && window.innerWidth <= 640} />}
       {!loading && incomingData.length === 0 && outgoingData.length === 0 && walletInfo.address && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}

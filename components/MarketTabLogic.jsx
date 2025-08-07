@@ -40,11 +40,11 @@ const fetcher = async (url, params) => {
 // Cache durations
 const CACHE_DURATIONS = {
   PRICE: 2 * 60 * 1000, // 60s for token price
-  METADATA: 2 * 60 * 60 * 1000, // 4 hours for token metadata
-  TRANSACTIONS: 10 * 1000, // 10s for transaction history
+  METADATA: 4 * 60 * 60 * 1000, // 4 hours for token metadata
+  TRANSACTIONS: 30 * 1000, // 10s for transaction history
   DEFI_POOL: 30 * 1000, // 30s for DeFi pool data
   DEFAULT: 60 * 1000, // 1 minute for other data
-  TICKERS: 5 * 60 * 1000,
+  TICKERS: 30 * 60 * 1000,
   TRENDING: 60 * 60 * 1000,
 };
 
@@ -62,7 +62,7 @@ const dexRequestTracker = new Map();
 const limit = pLimit(30);
 
 const coingeckoAxios = rateLimit(axios.create(), {
-  maxRequests: 30,
+  maxRequests: 50,
   perMilliseconds: 60000,
 });
 

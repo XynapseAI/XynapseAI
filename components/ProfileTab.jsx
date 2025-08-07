@@ -90,7 +90,7 @@ export default function ProfileTab({ recaptchaRef }) {
         isPremium: response.data.user.isPremium || false,
         tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
       };
-      await cacheData(cacheKey, user, 5 * 60 * 1000); // Cache for 5 minutes
+      await cacheData(cacheKey, user, 24 * 60 * 60 * 1000); // Cache for 5 minutes
       return user;
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,

@@ -253,7 +253,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           </div>
         </div>
       </motion.div>,
-      document.body // Render tooltip in the body
+      document.body 
     );
   };
 
@@ -689,7 +689,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           <div className="relative w-full trending-container" ref={trendingRef}>
             {isLoadingTrending ? (
               <div className="flex items-center justify-center h-8">
-                <div className="w-6 h-6 border-2 border-neon-blue border-t-transparent rounded-full animate-spin"></div>
               </div>
             ) : trendingError ? (
               <div className="text-gray-400 text-[10px] text-center"></div>
@@ -871,7 +870,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               </motion.button>
                             ))}
                           {(searchQuery ? searchResults : tokens.slice(0, 30)).filter(isValidToken).length === 0 && (
-                            <p className="text-[8px] sm:text-[10px] text-gray-400 text-center p-2">No valid tokens found.</p>
+                            <p className="text-[8px] sm:text-[10px] text-gray-400 text-center p-2"></p>
                           )}
                         </div>
                       </div>
