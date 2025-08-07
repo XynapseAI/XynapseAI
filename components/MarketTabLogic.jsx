@@ -1298,7 +1298,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   );
 
   const getDefaultChainAndAddress = useCallback(
-    (token, selectedChain = 'ethereum') => {
+    (token, preferredChain = 'ethereum') => {
       if (!token) {
         console.warn('No token provided for getDefaultChainAndAddress');
         return { chain: null, tokenAddress: null, decimalPlace: null };
@@ -1309,36 +1309,40 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return { chain: tokenSymbol, tokenAddress: null, decimalPlace: null };
       }
 
+      // Normalize platforms from token.detail_platforms
       const normalizedPlatforms = Object.keys(token.detail_platforms || {}).reduce((acc, cgId) => {
-        const chain = chains.find((c) => c.coingeckoId === cgId);
-        if (chain && token.detail_platforms[cgId].contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+        const chain = chains.find((c) => c.coingeckoId === cgId || CHAIN_MAPPING[cgId]?.simChain === c.value);
+        if (chain && token.detail_platforms[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
           const decimalPlace = Number(token.detail_platforms[cgId].decimal_place) || 18;
           acc[chain.value] = {
-            address: token.detail_platforms[cgId].contract_address,
+            address: token.detail_platforms[cgId].contract_address.toLowerCase(),
             decimal_place: decimalPlace,
           };
         }
         return acc;
       }, {});
 
+      // Filter available chains, excluding testnets in production
       const availableChains = chains.filter(
         (chain) =>
           normalizedPlatforms[chain.value] &&
           (process.env.NODE_ENV === 'development' || !chain.testnet)
       );
 
+      // Prefer the provided chain if valid, otherwise fallback to available chains
       if (
-        normalizedPlatforms[selectedChain] &&
-        chains.some((net) => net.value === selectedChain) &&
-        normalizedPlatforms[selectedChain].address.match(/^0x[a-fA-F0-9]{40}$/)
+        normalizedPlatforms[preferredChain] &&
+        chains.some((net) => net.value === preferredChain) &&
+        normalizedPlatforms[preferredChain].address.match(/^0x[a-fA-F0-9]{40}$/)
       ) {
         return {
-          chain: selectedChain,
-          tokenAddress: normalizedPlatforms[selectedChain].address,
-          decimalPlace: normalizedPlatforms[selectedChain].decimal_place,
+          chain: preferredChain,
+          tokenAddress: normalizedPlatforms[preferredChain].address,
+          decimalPlace: normalizedPlatforms[preferredChain].decimal_place,
         };
       }
 
+      // Fallback to the first available chain
       if (availableChains.length > 0) {
         const defaultChain = availableChains[0].value;
         const tokenAddress = normalizedPlatforms[defaultChain].address;
@@ -1346,6 +1350,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return { chain: defaultChain, tokenAddress, decimalPlace };
       }
 
+      // Fallback tokens for specific cases
       const fallbackTokens = {
         usdc: {
           chain: 'ethereum',
@@ -1357,13 +1362,19 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           tokenAddress: '0x6b175474e89094c44da98b954eedeac495271d0f',
           decimalPlace: 18,
         },
+        link: {
+          chain: 'ethereum',
+          tokenAddress: '0x514910771af9ca656af840dff83e8264ecf986ca',
+          decimalPlace: 18,
+        },
       };
 
       if (fallbackTokens[tokenSymbol]) {
         return fallbackTokens[tokenSymbol];
       }
 
-      setOnChainError('This token does not have on-chain data available on supported chains. Try selecting a different token.');
+      // Set error if no valid chain or address is found
+      setOnChainError('This token does not have on-chain data available on supported chains.');
       return { chain: null, tokenAddress: null, decimalPlace: null };
     },
     [chains, setOnChainError]
@@ -1373,11 +1384,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     if (!selectedToken?.detail_platforms) return [];
 
     const normalizedPlatforms = Object.keys(selectedToken.detail_platforms).reduce((acc, cgId) => {
-      const chain = chains.find((c) => c.coingeckoId === cgId);
-      if (chain && selectedToken.detail_platforms[cgId].contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+      const chain = chains.find((c) => c.coingeckoId === cgId || CHAIN_MAPPING[cgId]?.simChain === c.value);
+      if (chain && selectedToken.detail_platforms[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
         const decimalPlace = Number(selectedToken.detail_platforms[cgId].decimal_place) || 18;
         acc[chain.value] = {
-          address: selectedToken.detail_platforms[cgId].contract_address,
+          address: selectedToken.detail_platforms[cgId].contract_address.toLowerCase(),
           decimal_place: decimalPlace,
         };
       }
@@ -1400,7 +1411,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       if (initialTokenData && initialTokenData.id === token.id) {
         setSelectedToken(initialTokenData);
         setSelectedPair(`${initialTokenData.symbol?.toUpperCase()}/${currency.toUpperCase()}`);
-        const { chain } = getDefaultChainAndAddress(initialTokenData, 'ethereum');
+        const { chain } = getDefaultChainAndAddress(initialTokenData, selectedChain);
         setSelectedChain(chain || 'ethereum');
         setAnalysis(null);
         setPrediction(null);
@@ -1428,17 +1439,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       }
 
       const cacheKey = `token-metadata-${token.id}`;
-      setIsLoadingSelectedToken(true); // Start loading
-
-      // Check local cache first
-      const cachedToken = localCache.current[cacheKey]?.data;
-      if (cachedToken) {
-        setSelectedToken(cachedToken);
-        setSelectedPair(`${cachedToken.symbol?.toUpperCase()}/${currency.toUpperCase()}`);
-        const { chain } = getDefaultChainAndAddress(cachedToken, 'ethereum');
-        setSelectedChain(chain || 'ethereum');
-        console.log(`Using cached token data for ${token.id}`);
-      }
+      setIsLoadingSelectedToken(true);
 
       try {
         const fetchFn = async () => {
@@ -1452,7 +1453,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             },
           });
 
-          // Handle streaming response
           let responseData = response.data;
           if (response.data instanceof ReadableStream) {
             const text = await new Response(response.data).text();
@@ -1518,7 +1518,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         const fullToken = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.METADATA);
         setSelectedToken(fullToken);
         setSelectedPair(`${fullToken.symbol?.toUpperCase()}/${currency.toUpperCase()}`);
-        const { chain } = getDefaultChainAndAddress(fullToken, 'ethereum');
+        const { chain } = getDefaultChainAndAddress(fullToken, selectedChain);
         setSelectedChain(chain || 'ethereum');
         setAnalysis(null);
         setPrediction(null);
@@ -1527,7 +1527,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         setOnChainData({ topHolders: [], whaleActivity: [] });
         setOnChainError(null);
         lastFetchedTokenRef.current = token.id;
-        console.log('lastFetchedTokenRef set to:', lastFetchedTokenRef.current);
 
         const days = timeRange || '1';
         fetchPriceHistory(token.id, days, (err, data) => {
@@ -1548,15 +1547,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             ? 'CoinGecko rate limit reached. Please wait a minute and try again.'
             : error.response?.data?.detail || 'Failed to load token details.'
         );
-        // Keep cached data if available
-        if (!cachedToken) {
+        if (!localCache.current[cacheKey]?.data) {
           setSelectedToken(null);
         }
       } finally {
         setIsLoadingSelectedToken(false);
       }
     }, 500),
-    [currency, availableCurrencies, timeRange, fetchPriceHistory, setSelectedToken, setSelectedPair, setSelectedChain, setAnalysis, setPrediction, setAnalysisLinks, setIsDropdownOpen, setOnChainData, setOnChainError, setError, executeRecaptcha, getDefaultChainAndAddress, initialTokenSlug]
+    [currency, availableCurrencies, timeRange, fetchPriceHistory, selectedChain, setError, executeRecaptcha, getDefaultChainAndAddress, initialTokenSlug]
   );
 
   const debouncedHandleAnalysis = useCallback(
@@ -2022,6 +2020,7 @@ Use natural, professional tone with recent data.
 
     setIsLoadingOnChain(true);
     setOnChainData((prev) => ({ ...prev, topHolders: [] }));
+    setOnChainError(null);
 
     if (isNonEvmChain) {
       lastFetchedTokenRef.current = tokenKey;
@@ -2029,20 +2028,14 @@ Use natural, professional tone with recent data.
     } else {
       if (!chain || !tokenAddress) {
         setIsLoadingOnChain(false);
-        setOnChainError('No valid chain or token address available for this token.');
+        setOnChainError('This token does not have on-chain data available on supported chains.');
         return;
       }
 
       lastFetchedTokenRef.current = tokenKey;
       fetchOnChainData(chain, tokenAddress, 'top-holders', decimalPlace);
     }
-
-    return () => {
-      if (fetchPublicTreasuryData.cancel) fetchPublicTreasuryData.cancel();
-      if (fetchOnChainData.cancel) fetchOnChainData.cancel();
-    };
-  }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData, onChainData.topHolders.length]);
-
+  }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData]);
 
   useEffect(() => {
     prevTopHoldersRef.current = onChainData.topHolders;

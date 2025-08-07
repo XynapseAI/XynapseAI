@@ -96,7 +96,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     handleAddressClick,
     getAvailableChains,
     chains,
-    setSelectedToken, // Add this to the destructured props
+    setSelectedToken,
     setSelectedWallet,
     setWalletBalances,
     setTransactions,
@@ -106,7 +106,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     fetchTickerData,
     fetchPriceHistory,
     fetchTrendingTokens,
-    isLoadingSelectedToken, // Add new state
+    isLoadingSelectedToken,
     localCache,
     nameTags,
     isLoadingNameTags,
@@ -141,7 +141,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   const trendingRef = useRef(null);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
   const [tooltipToken, setTooltipToken] = useState(null);
-  const tokenRefs = useRef({}); // Store refs for each token
+  const tokenRefs = useRef({});
   const lastFetchedSlugRef = useRef(null);
   const [availableCurrencies] = useState([
     'usd', 'eth', 'btc', 'eur', 'bnb', 'cny', 'gbp', 'hkd', 'idr', 'jpy',
@@ -151,7 +151,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   ]);
 
   useEffect(() => {
-    // Only fetch trending tokens if the slug has changed or no tokens are loaded
     if (
       initialTokenSlug !== lastFetchedSlugRef.current ||
       trendingTokens.length === 0
@@ -199,13 +198,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     if (tokenElement) {
       const rect = tokenElement.getBoundingClientRect();
       setTooltipPosition({
-        top: rect.bottom + window.scrollY + 8, // Position below the token
-        left: rect.left + rect.width / 2 + window.scrollX, // Center horizontally
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + rect.width / 2 + window.scrollX,
       });
     }
   };
 
-  // TrendingTooltip Component
   const TrendingTooltip = ({ token, position }) => {
     if (!token) return null;
 
@@ -217,7 +215,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           top: `${position.top}px`,
           left: `${position.left}px`,
           transform: 'translateX(-50%)',
-          zIndex: 1000, // High z-index to overlay other elements
+          zIndex: 1000,
         }}
         initial={{ opacity: 0, y: 5 }}
         animate={{ opacity: 1, y: 0 }}
@@ -247,8 +245,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           <div>
             <span className="text-gray-500">24h Change:</span>
             <span
-              className={`block font-medium ${token.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'
-                }`}
+              className={`block font-medium ${token.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'}`}
             >
               {token.price_change_percentage_24h.toFixed(2)}%
             </span>
@@ -259,7 +256,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     );
   };
 
-  // Handle token selection with URL update
   const handleTokenSelect = (token) => {
     debouncedHandleTokenSelect(token);
     if (onTokenSelect && token.id) {
@@ -273,8 +269,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     const imageUrl = chain?.image || '/fallback-image.png';
     return imageUrl;
   };
-
-
 
   const handleDexTabClick = () => {
     if (dexRequestCount >= 5 && Date.now() - lastDexRequestTime < 60 * 1000) {
@@ -294,7 +288,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     }
   };
 
-  // Define handlePoolClick
   const handlePoolClick = (poolAddress) => {
     if (process.env.NODE_ENV === 'development') {
       console.log('handlePoolClick called with poolAddress:', poolAddress);
@@ -316,7 +309,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     }
   };
 
-  // Modal content for pool details
   const renderPoolModalContent = () => {
     if (!selectedPool || !selectedPool.tokens) {
       return (
@@ -412,7 +404,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     const checkMobile = () => setIsMobile(window.innerWidth <= 640);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile); // Fixed cleanup
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   useEffect(() => {
@@ -553,7 +545,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       <div className="w-full mb-1 mt-2 sm:mt-1 h-auto">
         <div className="flex flex-col gap-2">
           <div className="flex flex-row items-center justify-between gap-2 sm:gap-3">
-            {/* Left Section: Crypto/Stock Tabs */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <h2 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-1.5 rounded">
                 Crypto
@@ -567,10 +558,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 Stock <span className="text-[6px] sm:text-[8px] text-gray-500">(Soon)</span>
               </button>
             </div>
-
-            {/* Right Section: Chain Select and Wallet Search */}
             <div className="flex flex-row items-center gap-2 sm:gap-3 flex-1 justify-end">
-              {/* Select Chain */}
               <div className="relative" ref={chainDropdownRef}>
                 <motion.button
                   onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
@@ -646,7 +634,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                 )}
               </div>
-              {/* Search Wallet */}
               <div className="relative flex items-center flex-1 max-w-[150px]">
                 <input
                   type="text"
@@ -686,21 +673,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               </div>
             </div>
           </div>
-
-          {/* Hàng dưới: Trending Tokens Ticker */}
           <div className="relative w-full trending-container" ref={trendingRef}>
             {isLoadingTrending && !trendingTokens?.length ? (
               <div className="flex items-center justify-start h-8 gap-2">
-                {/* {Array(5)
-                  .fill()
-                  .map((_, index) => (
-                    <SkeletonLoader
-                      key={index}
-                      count={1}
-                      isMobile={isMobile}
-                      className="w-20 h-6 rounded-lg bg-gray-800/50 animate-pulse"
-                    />
-                  ))} */}
+                {/* SkeletonLoader commented out as in original */}
               </div>
             ) : trendingError ? (
               <div className="text-[10px] text-center">
@@ -802,8 +778,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       {token.symbol.toUpperCase()}
                     </span>
                     <span
-                      className={`text-[8px] sm:text-[10px] font-medium ${token.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'
-                        }`}
+                      className={`text-[8px] sm:text-[10px] font-medium ${token.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'}`}
                     >
                       {token.price_change_percentage_24h.toFixed(2)}%
                     </span>
@@ -824,11 +799,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
       {!loading && !error && tokens.length > 0 && (
         <div className={`flex flex-col md:grid md:grid-cols-2 gap-2 sm:gap-4 h-[calc(100%-4rem)] sm:h-[calc(100%-1rem)] ${isMobile ? 'space-y-4' : ''}`}>
-          {/* Right Section: Token Info and Chart */}
           <div
             className={`flex flex-col gap-2 sm:gap-4 max-h-[800px] min-h-[780px] sm:max-h-[calc(100%-3rem)] overflow-y-auto custom-scrollbar`}
           >
-            {/* Token Info */}
             <div
               className={`border border-white/10 p-2 sm:p-4 rounded-xl min-h-[260px] sm:min-h-[290px] sm:max-h-[290px] overflow-y-auto custom-scrollbar bg-black/60 backdrop-blur-2xl relative`}
             >
@@ -836,7 +809,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 <SkeletonLoader count={5} isMobile={isMobile} />
               ) : selectedToken || localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
                 <div className="relative">
-                  {/* Existing token info rendering */}
                   <div className="absolute top-1 right-1 w-32 sm:w-40" ref={dropdownRef}>
                     <motion.button
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -939,9 +911,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </p>
                         <span
                           className={`text-[9px] sm:text-[9px] font-medium ${(selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
-                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]) >= 0
-                              ? 'text-green-500'
-                              : 'text-red-500'
+                            localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]) >= 0
+                            ? 'text-green-500'
+                            : 'text-red-500'
                             }`}
                         >
                           {(selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
@@ -1105,7 +1077,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </div>
                     </div>
                   </div>
-                  {/* Social Links (Moved to bottom-right) */}
                   <div className="absolute bottom-2 right-2 flex gap-2 social-links">
                     {(selectedToken?.links?.twitter_screen_name || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.twitter_screen_name) && (
                       <a
@@ -1177,8 +1148,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 <SkeletonLoader count={5} isMobile={isMobile} />
               )}
             </div>
-
-            {/* Chart */}
             <div
               className="border border-white/10 p-2 sm:p-3 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-black/60 backdrop-blur-2xl shadow-neon-lg overflow-y-auto custom-scrollbar"
             >
@@ -1326,7 +1295,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               </div>
             </div>
           </div>
-          {/* Left Section: Top Holders, CEX, DEX */}
           <div
             className={`flex flex-col border border-white/10 rounded-xl max-h-[50vh] min-h-[80vh] sm:max-h-[calc(100%-5rem)] overflow-y-auto custom-scrollbar bg-black/60 backdrop-blur-2xl shadow-neon-sm`}
           >
@@ -1342,8 +1310,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     }}
                     className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-[11px] font-medium transition-all duration-500 ease-in-out ${activeMarketTab === 'holders' ? 'border-b-2 border-white' : 'text-white hover:bg-neon-blue/30'
                       }`}
-                    whileHover={{ scale: 1 }} // Tăng nhẹ scale khi hover
-                    transition={{ duration: 0.5, ease: 'easeInOut' }} // Thêm transition cho motion
+                    whileHover={{ scale: 1 }}
+                    transition={{ duration: 0.5, ease: 'easeInOut' }}
                   >
                     TOP HOLDERS
                   </motion.button>
@@ -1385,8 +1353,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     </span>
                   </div>
                 )}
-
-                {/* Top Holders Tab */}
                 {activeMarketTab === 'holders' && (
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
                     <div
@@ -1411,19 +1377,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         {selectedToken.symbol?.toUpperCase()} Holders
                       </h4>
                     </div>
-                    {isLoadingOnChain && !onChainData.topHolders?.length ? (
-                      <SkeletonLoader count={5} isMobile={isMobile} />
+                    {isLoadingOnChain ? (
+                      <div className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
+                        Loading top holders data...
+                      </div>
                     ) : onChainError ? (
                       <div className="text-[10px] sm:text-xs text-center p-2 sm:p-4">
                         <p className="text-red-500">{onChainError}</p>
-                        <motion.button
-                          onClick={() => fetchPublicTreasuryData(selectedToken?.id)}
-                          className="mt-2 px-4 py-1 text-white text-[10px] sm:text-xs border border-neon-blue/50 rounded-xl hover:bg-neon-blue/30"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          Retry
-                        </motion.button>
                       </div>
                     ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                       <table className="w-full text-[10px] sm:text-[11px]">
@@ -1530,20 +1490,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </table>
                     ) : (
                       <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
-                        {isLoadingOnChain
-                          ? 'Loading top holders data...'
-                          : NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
-                            ? `No public treasury data available for ${selectedToken?.symbol?.toUpperCase() || 'selected token'}.`
-                            : `No top holders data available for ${selectedToken?.symbol?.toUpperCase() || 'selected token'
-                            } on ${chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.`}
+                        No top holders data available for {selectedToken?.symbol?.toUpperCase() || 'selected token'} on{' '}
+                        {chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.
                       </p>
                     )}
                   </div>
                 )}
-
-
-
-                {/* CEX Tab */}
                 {activeMarketTab === 'cex' && (
                   <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar smooth-scroll">
                     {tickerError ? (
