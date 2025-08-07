@@ -313,9 +313,30 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   );
 
   const fetchSupportedChains = useCallback(async (retryCount = 0) => {
+    const cacheKey = 'supported-chains';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
+
+    // Check Redis cache first
+    try {
+      const cacheResponse = await cacheLimiter.schedule(() =>
+        axios.post(
+          `${API_BASE_URL}/api/cache`,
+          { key: cacheKey, action: 'get' },
+          { timeout: 30000 }
+        )
+      );
+      if (cacheResponse.data.success && cacheResponse.data.data) {
+        setChains(cacheResponse.data.data);
+        console.log(`Redis cache hit for supported chains: ${cacheResponse.data.data.length} chains`);
+        return;
+      }
+    } catch (cacheError) {
+      console.warn(`Redis cache error for supported chains: ${cacheError.message}`);
+    }
+
     try {
       const response = await coingeckoAxios.get('/api/coingecko/chains', {
-        timeout: 15000,
+        timeout: 20000, // Increase timeout
       });
 
       if (!response.data.success || !Array.isArray(response.data.data)) {
@@ -339,12 +360,21 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         };
       });
 
+      // Save to Redis cache
+      await cacheLimiter.schedule(() =>
+        axios.post(
+          `${API_BASE_URL}/api/cache`,
+          { key: cacheKey, action: 'set', data: mappedChains, ttl: 24 * 60 * 60 * 1000 }, // Cache for 24 hours
+          { timeout: 30000 }
+        )
+      );
+
       setChains(mappedChains);
       console.log(`Successfully fetched ${mappedChains.length} chains`);
     } catch (error) {
       console.error(`Failed to fetch supported chains (attempt ${retryCount + 1}):`, error.message);
-      if (retryCount < 3 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) {
-        const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+      if (retryCount < 5 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) { // Increase retries to 5
+        const delay = Math.pow(2, retryCount) * 2000 + Math.random() * 200; // Increase delay
         await new Promise((resolve) => setTimeout(resolve, delay));
         return fetchSupportedChains(retryCount + 1);
       }
@@ -612,19 +642,28 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   const fetchPriceHistory = useCallback(
     debounce(
-      async (tokenId, days, callback, retryCount = 0) => {
+      async (tokenId, days, callback = () => { }, retryCount = 0) => { // Add default empty callback
         if (document.visibilityState !== 'visible') {
           callback(null);
           return;
         }
+        if (!tokenId || !days) {
+          const errorMessage = 'Invalid token ID or days parameter';
+          setError(errorMessage);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          callback(new Error(errorMessage));
+          return;
+        }
+
         const cacheKey = `price-history-${tokenId}-${days}-${currency}`;
-        setIsLoadingSelectedToken(true); // Use for chart loading in UI
+        setIsLoadingSelectedToken(true);
 
         // Check local cache first
         const cachedData = localCache.current[cacheKey]?.data;
         if (cachedData) {
           setPriceHistory(cachedData);
           console.log(`Using cached price history for ${tokenId}`);
+          callback(null, cachedData); // Call callback with cached data
         }
 
         try {
@@ -638,10 +677,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               throw new Error('Invalid or empty price history data');
             }
 
-            // Log raw API data for debugging
             console.log('Raw API prices:', response.data.prices);
 
-            // Validate timestamps
             const invalidTimestamps = response.data.prices.filter(([timestamp, price]) =>
               typeof timestamp !== 'number' || isNaN(timestamp) || typeof price !== 'number' || isNaN(price)
             );
@@ -695,7 +732,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setError(errorMessage);
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           callback(err);
-          // Keep cached data if available
           if (!cachedData) {
             setPriceHistory([]);
           }
