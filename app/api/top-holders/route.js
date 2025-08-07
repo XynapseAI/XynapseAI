@@ -12,7 +12,7 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:top_holders:${ip}`;
   const requests = parseInt(await redisClient.get(key)) || 0;
   const windowMs = 60 * 1000;
-  if (requests >= 50) {
+  if (requests >= 100) {
     throw new Error('Too many requests, please try again later.');
   }
   await redisClient.multi()
@@ -22,7 +22,7 @@ async function checkRateLimit(ip) {
 }
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 5,
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 15 : 5,
   minTime: process.env.NODE_ENV === 'production' ? 200 : 1000,
 });
 

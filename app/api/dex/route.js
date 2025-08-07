@@ -27,7 +27,7 @@ async function checkRateLimit(userId) {
 }
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: 10,
+  maxConcurrent: 20,
   minTime: 100,
 });
 

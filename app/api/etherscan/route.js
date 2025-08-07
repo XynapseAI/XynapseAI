@@ -8,7 +8,7 @@ import { isAddress } from 'ethers';
 import { auth } from '@/lib/auth';
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: 5,
+  maxConcurrent: 10,
   minTime: 2000,
 });
 

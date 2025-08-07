@@ -5,6 +5,31 @@ import axiosRetry from 'axios-retry';
 import NodeCache from 'node-cache';
 import { createClient } from 'redis';
 
+// Fallback chains in case the API fails
+const FALLBACK_CHAINS = [
+  {
+    id: 'ethereum',
+    name: 'Ethereum',
+    chainId: 1,
+    shortname: 'ETH',
+    image: { thumb: '/fallback-image.png', small: '/fallback-image.png', large: '/fallback-image.png' },
+  },
+  {
+    id: 'binance-smart-chain',
+    name: 'BNB Chain',
+    chainId: 56,
+    shortname: 'BNB',
+    image: { thumb: '/fallback-image.png', small: '/fallback-image.png', large: '/fallback-image.png' },
+  },
+  {
+    id: 'polygon-pos',
+    name: 'Polygon',
+    chainId: 137,
+    shortname: 'MATIC',
+    image: { thumb: '/fallback-image.png', small: '/fallback-image.png', large: '/fallback-image.png' },
+  },
+];
+
 const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379',
 });
@@ -15,7 +40,7 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:coingecko_chains:${ip}`;
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
-  if (requests >= 20) {
+  if (requests >= 40) {
     throw new Error('Too many requests, please try again later.');
   }
   await redisClient.multi()
@@ -26,11 +51,11 @@ async function checkRateLimit(ip) {
 
 axiosRetry(axios, {
   retries: 3,
-  retryDelay: (retryCount) => retryCount * 1000,
-  retryCondition: (error) => error.response?.status === 429,
+  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100,
+  retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
 });
 
-const cache = new NodeCache({ stdTTL: 1800 }); // Cache for 30 minutes
+const cache = new NodeCache({ stdTTL: 86400 }); // Cache for 30 minutes
 
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -84,6 +109,10 @@ export async function GET(request) {
             timeout: 15000,
           });
 
+          if (!response.data || !Array.isArray(response.data)) {
+            throw new Error('Invalid or empty chain data from CoinGecko');
+          }
+
           const chains = response.data.map((chain) => ({
             id: chain.id,
             name: chain.name,
@@ -109,11 +138,14 @@ export async function GET(request) {
             data: error.response?.data,
           });
           const status = error.response?.status || 500;
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const detail =
             status === 429
               ? 'CoinGecko API rate limit exceeded, please try again later.'
               : `Failed to fetch chains: ${error.message}`;
-          controller.enqueue(JSON.stringify({ detail }));
+          // Return fallback chains
+          cache.set(cacheKey, FALLBACK_CHAINS);
+          controller.enqueue(JSON.stringify({ success: true, data: FALLBACK_CHAINS }));
           controller.close();
         }
       },

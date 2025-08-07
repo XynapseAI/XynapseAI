@@ -15,7 +15,7 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:coingecko_history:${ip}`;
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
-  if (requests >= 20) {
+  if (requests >= 50) {
     throw new Error('Too many requests, please try again later.');
   }
   await redisClient

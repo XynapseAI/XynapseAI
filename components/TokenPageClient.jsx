@@ -20,7 +20,7 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('market');
 
-  const { selectedToken, debouncedHandleTokenSelect } = useMarketTabLogic({
+  const { selectedToken, debouncedHandleTokenSelect , fetchSupportedChains,} = useMarketTabLogic({
     recaptchaRef,
     toast,
     initialTokenSlug,
@@ -36,18 +36,21 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
   }, [initialTokenSlug, initialTokenData, selectedToken]);
 
   useEffect(() => {
-    if (initialTokenData && initialTokenSlug) {
-      console.log(`Setting initial token: ${initialTokenSlug}`); // Fixed string interpolation
+  if (initialTokenData && initialTokenSlug) {
+    console.log(`Setting initial token: ${initialTokenSlug}`);
+    // Ensure chains are fetched before selecting token
+    fetchSupportedChains().then(() => {
       debouncedHandleTokenSelect({ id: initialTokenSlug }, initialTokenData);
       setIsLoadingToken(false);
       setIsLoadingPriceHistory(!initialPriceHistory);
       setIsLoadingTopHolders(!initialTopHolders);
-    } else if (!initialTokenData) {
-      setError(`Token data for ${initialTokenSlug} not found`); // Fixed string interpolation
-      setIsLoadingToken(false);
-      toast.error(`Token ${initialTokenSlug} not found`, { position: 'top-center', autoClose: 3000 }); // Fixed string interpolation
-    }
-  }, [initialTokenSlug, initialTokenData, initialPriceHistory, initialTopHolders, debouncedHandleTokenSelect]);
+    });
+  } else if (!initialTokenData) {
+    setError(`Token data for ${initialTokenSlug} not found`);
+    setIsLoadingToken(false);
+    toast.error(`Token ${initialTokenSlug} not found`, { position: 'top-center', autoClose: 3000 });
+  }
+}, [initialTokenSlug, initialTokenData, initialPriceHistory, initialTopHolders, debouncedHandleTokenSelect, fetchSupportedChains]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {

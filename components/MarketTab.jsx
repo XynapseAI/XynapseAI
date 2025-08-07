@@ -796,7 +796,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             className={`flex flex-col gap-2 sm:gap-4 max-h-[800px] min-h-[780px] sm:max-h-[calc(100%-3rem)] overflow-y-auto custom-scrollbar`}
           >
             <div
-              className={`border border-white/10 p-2 sm:p-4 rounded-xl min-h-[260px] sm:min-h-[290px] sm:max-h-[290px] overflow-y-auto custom-scrollbar bg-black/60 backdrop-blur-2xl relative`}
+              className={`border border-white/10 p-4 sm:p-4 rounded-xl min-h-[280px] sm:min-h-[290px] sm:max-h-[290px] overflow-y-auto custom-scrollbar bg-black/60 backdrop-blur-2xl relative`}
             >
               {isLoadingSelectedToken && !localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
                 <SkeletonLoader count={5} isMobile={isMobile} />
@@ -866,7 +866,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </div>
                     )}
                   </div>
-                  <div className="mb-2 sm:mb-4">
+                  <div className="mb-2 sm:mb-2">
                     <div className="flex items-center gap-2">
                       {(selectedToken?.image || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.image) && (
                         <motion.img
@@ -892,7 +892,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-2 mb-2 sm:mb-2">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
                         <p className="text-sm sm:text-sm font-bold text-yellow">
@@ -1141,8 +1141,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 <SkeletonLoader count={5} isMobile={isMobile} />
               )}
             </div>
+            {/* Chart */}
             <div
-              className="border border-white/10 p-2 sm:p-3 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-black/60 backdrop-blur-2xl shadow-neon-lg overflow-y-auto custom-scrollbar"
+              className="border border-white/10 p-2 sm:p-3 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-black/60 backdrop-blur-2xl overflow-y-auto custom-scrollbar"
             >
               <div className="flex flex-col items-center mb-2 sm:mb-2 mt-4 sm:mt-0">
                 <div className="flex flex-col sm:flex-row justify-between items-center w-full max-w-[90%] sm:max-w-[600px] gap-2 sm:gap-3">
@@ -1804,7 +1805,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       onError={(e) => (e.target.src = '/fallback-image.png')}
                                     />
                                   )}
-                                  <span className="truncate">
+                                  {/* <span className="truncate">
                                     {(() => {
                                       const tokenAddress =
                                         trade.kind === 'sell' ? trade.from_token_address : trade.to_token_address;
@@ -1815,7 +1816,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         ? selectedToken?.symbol?.toUpperCase()
                                         : 'Token';
                                     })()}
-                                  </span>
+                                  </span> */}
                                 </div>
                               </td>
                               <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px]">

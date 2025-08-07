@@ -10,13 +10,25 @@ import { GECKOTERMINAL_CHAIN_MAPPING, SUPPORTED_CHAINS, CHAIN_MAPPING } from '..
 import btcNameTags from '../public/nametags/btc-top-holders.json';
 import useSWR from 'swr';
 import Bottleneck from 'bottleneck';
+import axiosRetry from 'axios-retry';
 
 const cacheLimiter = new Bottleneck({
-  maxConcurrent: 10,
-  minTime: 500, // Giảm minTime để tăng tốc trên production
-  reservoir: 50, // Tăng reservoir để xử lý lưu lượng lớn
-  reservoirRefreshAmount: 100,
+  maxConcurrent: 30,
+  minTime: 200, // Giảm minTime để tăng tốc trên production
+  reservoir: 500, // Tăng reservoir để xử lý lưu lượng lớn
+  reservoirRefreshAmount: 500,
   reservoirRefreshInterval: 60 * 1000,
+});
+
+const coingeckoAxios = rateLimit(axios.create(), {
+  maxRequests: 60,
+  perMilliseconds: 60000,
+});
+
+axiosRetry(coingeckoAxios, {
+  retries: 3,
+  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100, // Exponential backoff with jitter
+  retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
 });
 
 // components/MarketTabLogic.jsx
@@ -62,11 +74,6 @@ const DEX_REQUEST_LIMIT = 50; // Max 5 requests per minute
 const DEX_REQUEST_WINDOW = 5 * 60 * 1000; // 1 minute
 const dexRequestTracker = new Map();
 const limit = pLimit(60);
-
-const coingeckoAxios = rateLimit(axios.create(), {
-  maxRequests: 60,
-  perMilliseconds: 60000,
-});
 
 const COINGECKO_API_KEY = process.env.NEXT_PUBLIC_COINGECKO_API_KEY || '';
 const NAME_TAG_CACHE_DURATION = 24 * 60 * 60 * 1000;
@@ -146,33 +153,33 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
   const getCachedData = async (key, fetchFn, ttl = CACHE_DURATIONS.DEFAULT, retryCount = 0) => {
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
-  try {
-    // Check local cache first
-    const localCached = localCache.current[key];
-    if (localCached && Date.now() - localCached.timestamp < ttl) {
-      console.log(`Local cache hit for ${key}`);
-      // Schedule background refresh only if cache is fully expired
-      if (Date.now() - localCached.timestamp >= ttl) {
-        cacheLimiter.schedule(async () => {
-          try {
-            const freshData = await fetchFn();
-            if (freshData) {
-              await axios.post(
-                `${API_BASE_URL}/api/cache`,
-                { key, action: 'set', data: freshData, ttl },
-                { timeout: 30000 }
-              );
-              localCache.current[key] = { data: freshData, timestamp: Date.now() };
-              localCache.current[`${key}_last_update`] = Date.now();
-              console.log(`Background cache updated for ${key}`);
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
+    try {
+      // Check local cache first
+      const localCached = localCache.current[key];
+      if (localCached && Date.now() - localCached.timestamp < ttl) {
+        console.log(`Local cache hit for ${key}`);
+        // Schedule background refresh only if cache is fully expired
+        if (Date.now() - localCached.timestamp >= ttl) {
+          cacheLimiter.schedule(async () => {
+            try {
+              const freshData = await fetchFn();
+              if (freshData) {
+                await axios.post(
+                  `${API_BASE_URL}/api/cache`,
+                  { key, action: 'set', data: freshData, ttl },
+                  { timeout: 30000 }
+                );
+                localCache.current[key] = { data: freshData, timestamp: Date.now() };
+                localCache.current[`${key}_last_update`] = Date.now();
+                console.log(`Background cache updated for ${key}`);
+              }
+            } catch (error) {
+              console.error(`Background cache update failed for ${key}:`, error.message);
             }
-          } catch (error) {
-            console.error(`Background cache update failed for ${key}:`, error.message);
-          }
-        });
-      }
-      return localCached.data || [];
+          });
+        }
+        return localCached.data || [];
       }
 
       // Check Redis cache
@@ -305,27 +312,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [recaptchaRef]
   );
 
-  const fetchSupportedChains = useCallback(async () => {
+  const fetchSupportedChains = useCallback(async (retryCount = 0) => {
     try {
-      const response = await axios.get('/api/coingecko/chains', {
+      const response = await coingeckoAxios.get('/api/coingecko/chains', {
         timeout: 15000,
       });
 
-      if (!response.data.success) {
-        setChains(
-          SUPPORTED_CHAINS.map((chain) => ({
-            coingeckoId: Object.keys(CHAIN_MAPPING).find(
-              (key) => CHAIN_MAPPING[key].simChain === chain.value
-            ) || null,
-            value: chain.value,
-            label: chain.label,
-            shortName: chain.label.split(' ')[0],
-            chainId: chain.chainId,
-            testnet: chain.testnet || false,
-            image: '/fallback-image.png',
-          }))
-        );
-        return;
+      if (!response.data.success || !Array.isArray(response.data.data)) {
+        throw new Error('Invalid or empty chain data from API');
       }
 
       const coingeckoChains = response.data.data;
@@ -346,23 +340,40 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       });
 
       setChains(mappedChains);
+      console.log(`Successfully fetched ${mappedChains.length} chains`);
     } catch (error) {
-      setChains(
-        SUPPORTED_CHAINS.map((chain) => ({
-          coingeckoId: Object.keys(CHAIN_MAPPING).find(
-            (key) => CHAIN_MAPPING[key].simChain === chain.value
-          ) || null,
-          value: chain.value,
-          label: chain.label,
-          shortName: chain.label.split(' ')[0],
-          chainId: chain.chainId,
-          testnet: chain.testnet || false,
-          image: '/fallback-image.png',
-        }))
-      );
-      toast.error('Failed to load supported chains', { position: 'top-center', autoClose: 5000 });
+      console.error(`Failed to fetch supported chains (attempt ${retryCount + 1}):`, error.message);
+      if (retryCount < 3 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) {
+        const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return fetchSupportedChains(retryCount + 1);
+      }
+
+      // Fallback to SUPPORTED_CHAINS
+      const fallbackChains = SUPPORTED_CHAINS.map((chain) => ({
+        coingeckoId: Object.keys(CHAIN_MAPPING).find(
+          (key) => CHAIN_MAPPING[key].simChain === chain.value
+        ) || null,
+        value: chain.value,
+        label: chain.label,
+        shortName: chain.label.split(' ')[0],
+        chainId: chain.chainId,
+        testnet: chain.testnet || false,
+        image: '/fallback-image.png',
+      }));
+      setChains(fallbackChains);
+      toast.error('Failed to load supported chains, using fallback data', {
+        position: 'top-center',
+        autoClose: 5000,
+      });
     }
   }, [toast]);
+
+  useEffect(() => {
+    if (chains.length === 0) {
+      fetchSupportedChains();
+    }
+  }, [fetchSupportedChains, chains]);
 
   const fetchPoolTokenMetadata = useCallback(
     async (chain, poolAddress, retryCount = 0) => {
@@ -894,6 +905,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const fetchOnChainData = useCallback(
     debounce(
       async (chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount = 0) => {
+        // Validate parameters
         if (
           (action === 'top-holders' && (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/))) ||
           ((action === 'wallet-balances' || action === 'transactions') && !address?.match(/^0x[a-fA-F0-9]{40}$/)) ||
@@ -918,9 +930,15 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        const simChain = chains.find((c) => c.value === chain)?.value;
+        // Ensure chains are loaded, fallback to 'ethereum' if chain is invalid
+        let simChain = chains.find((c) => c.value === chain)?.value;
         if (!simChain && action === 'top-holders') {
-          const errorMessage = `Invalid chain: ${chain}`;
+          simChain = 'ethereum'; // Fallback to 'ethereum'
+          console.warn(`Invalid chain: ${chain}, falling back to 'ethereum'`);
+        }
+
+        if (!simChain) {
+          const errorMessage = `No valid chain found for ${chain}`;
           setOnChainError(errorMessage);
           setIsLoadingOnChain(false);
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
@@ -979,7 +997,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setOnChainError(errorMessage);
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           if (retryCount < 3) {
-            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff với jitter
+            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff with jitter
             await new Promise((resolve) => setTimeout(resolve, delay));
             fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount + 1);
           }
@@ -1301,12 +1319,18 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     (token, preferredChain = 'ethereum') => {
       if (!token) {
         console.warn('No token provided for getDefaultChainAndAddress');
-        return { chain: null, tokenAddress: null, decimalPlace: null };
+        return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
       }
 
       const tokenSymbol = token.symbol?.toLowerCase();
       if (NON_EVM_CHAINS.includes(tokenSymbol)) {
         return { chain: tokenSymbol, tokenAddress: null, decimalPlace: null };
+      }
+
+      // Ensure chains array is not empty
+      if (!chains || chains.length === 0) {
+        console.warn('Chains array is empty, falling back to default chain: ethereum');
+        return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
       }
 
       // Normalize platforms from token.detail_platforms
@@ -1375,7 +1399,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
       // Set error if no valid chain or address is found
       setOnChainError('This token does not have on-chain data available on supported chains.');
-      return { chain: null, tokenAddress: null, decimalPlace: null };
+      return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
     },
     [chains, setOnChainError]
   );
