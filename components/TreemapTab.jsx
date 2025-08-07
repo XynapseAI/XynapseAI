@@ -13,8 +13,25 @@ import 'react-toastify/dist/ReactToastify.css';
 import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 import { chains, mapCoinGeckoChains, getPlatformImage, getExplorerUrls } from '../utils/constants';
-import { LoadingOverlay} from '../utils/helpers';
 import axios from 'axios';
+
+const LoadingOverlay = ({ isLoading, isMobile }) => (
+  <AnimatePresence>
+    {isLoading && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`fixed inset-0 flex items-center justify-center z-50 bg-black/80 ${!isMobile ? 'bg-black/80' : ''}`}
+      >
+        <div className="relative w-8 h-8">
+          <div className="absolute inset-0 border-2 border-transparent border-t-white border-r-white rounded-full animate-spin" />
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 
 const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, value, chainLogo, isRoot = false, onSelect, isMobile }) => {
   const truncateAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;

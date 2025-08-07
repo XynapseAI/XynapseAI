@@ -37,7 +37,7 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
       <div className="bg-black/80 p-2 rounded border border-white/20 text-white text-sm backdrop-blur-lg font-jetbrains">
         <p>{label}</p>
         <p>
-          Price: <span className="font-bold">{formatPrice(payload[0].value, currency)}</span>
+          Price: <span className="font-bold">{formatPrice(Math.floor(payload[0].value), currency)}</span>
         </p>
       </div>
     );
@@ -429,14 +429,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   }, [setIsDropdownOpen]);
 
   useEffect(() => {
-    if (selectedToken && timeRange) {
-      logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange });
+    if (selectedToken && timeRange && currency) {
+      logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange, currency });
       setIsChartLoading(true);
       const { chain } = getAvailableChains().find((c) => c.value === selectedChain) || {};
       const tokenId = chain && selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId]?.contract_address
         ? `${chains.find((c) => c.value === chain)?.coingeckoId}/${selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId].contract_address}`
         : selectedToken.id;
-      fetchPriceHistory(tokenId, timeRange, (err, data) => {
+      fetchPriceHistory(tokenId, timeRange, currency, (err, data) => {
         if (err) {
           logger.error('Price history fetch failed:', { error: err.message });
           toast.error(err.message, { position: 'top-center', autoClose: 3000 });
@@ -444,7 +444,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         setIsChartLoading(false);
       });
     }
-  }, [selectedToken, timeRange, selectedChain, fetchPriceHistory, getAvailableChains, chains]);
+  }, [selectedToken, timeRange, currency, selectedChain, fetchPriceHistory, getAvailableChains, chains]);
 
   useEffect(() => {
     if (!selectedToken) return;
@@ -755,15 +755,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       setTooltipToken(null);
                       logger.log('Leave token:', { id: token.id, index });
                     }}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: [0, 1, 1, 0] }}
-                    transition={{
-                      opacity: {
-                        times: [0, 0.1, 0.9, 1],
-                        duration: trendingTokens.length * 8,
-                        ease: 'linear',
-                      },
-                    }}
+                    initial={{ opacity: 1 }}
+                    animate={{ opacity: 1 }}
                   >
                     <img
                       src={token.thumb || token.image?.thumb || '/fallback-image.png'}
@@ -778,7 +771,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       {token.symbol.toUpperCase()}
                     </span>
                     <span
-                      className={`text-[8px] sm:text-[10px] font-medium ${token.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'}`}
+                      className={`text-[8px] sm:text-[9px] font-medium ${token.price_change_percentage_24h >= 0 ? 'text-green-500' : 'text-red-500'}`}
                     >
                       {token.price_change_percentage_24h.toFixed(2)}%
                     </span>
@@ -904,8 +897,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       <div className="flex items-center gap-2">
                         <p className="text-sm sm:text-sm font-bold text-yellow">
                           {formatPrice(
-                            selectedToken?.current_price?.[currency] ||
-                            localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.current_price?.[currency],
+                            Math.floor(selectedToken?.current_price?.[currency] ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.current_price?.[currency]),
                             currency
                           )}
                         </p>
@@ -1236,17 +1229,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         width={isMobile ? 50 : 60}
                         tickCount={10}
                         tickFormatter={(value) => {
-                          const minPrice = Math.min(...priceHistory.map((item) => item.price).filter((p) => p > 0));
-                          let fractionDigits = 2;
-                          if (minPrice < 0.0001) {
-                            fractionDigits = 6;
-                          } else if (minPrice < 0.01) {
-                            fractionDigits = 4;
-                          }
-                          return `${currency.toUpperCase()} ${value.toLocaleString('en-US', {
-                            minimumFractionDigits: fractionDigits,
-                            maximumFractionDigits: fractionDigits,
-                          })}`;
+                          return `${currency.toUpperCase()} ${Math.floor(value).toLocaleString('en-US')}`;
                         }}
                       />
                       <Tooltip content={<CustomTooltip currency={currency} />} />
@@ -1477,10 +1460,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 </td>
                                 <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 text-[10px] sm:text-xs w-[80px] sm:w-[100px]">
                                   <span>
-                                    {holder.balance.toLocaleString('en-US', {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 8,
-                                    })}
+                                    {Math.floor(holder.balance).toLocaleString('en-US')}
                                   </span>
                                 </td>
                               </tr>
@@ -1636,7 +1616,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 </td>
                                 <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[80px]">
                                   <span className="truncate">
-                                    {ticker.converted_last.usd != null ? formatPrice(ticker.converted_last.usd) : 'N/A'}
+                                    {ticker.converted_last.usd != null ? `$${Math.floor(ticker.converted_last.usd).toLocaleString('en-US')}` : 'N/A'}
                                   </span>
                                 </td>
                                 <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px]">
@@ -1716,7 +1696,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   <path
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
-                                    d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
+                                    d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
                                   />
                                 </svg>
                                 Token
@@ -1756,24 +1736,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 To Address
                               </div>
                             </th>
-                            <th className="px-2 sm:px-3 py-1 sm:py-2 text-white text-left font-medium w-[80px] sm:w-[100px]">
-                              <div className="flex items-center gap-2">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                  viewBox="0 0 24 24"
-                                  strokeWidth="2"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
-                                  />
-                                </svg>
-                                Volume (USD)
-                              </div>
-                            </th>
-                            <th className="px-2 sm:px-3 py-1 sm:py-2 text-white text-left font-medium w-[80px] sm:w-[100px]">
+                            <th className="px-2 sm:px-3 py-1 sm:py-2 text-white text-left font-medium w-[100px] sm:w-[120px]">
                               <div className="flex items-center gap-2">
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
@@ -1807,7 +1770,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 Tx/Time
                               </div>
                             </th>
-                            <th className="px-2 sm:px-3 py-1 sm:py-2 text-white text-left font-medium w-[70px] sm:w-[80px]">
+                            <th className="px-2 sm:px-3 py-1 sm:py-2 text-white text-left font-medium w-[80px] sm:w-[100px]">
                               <div className="flex items-center gap-2">
                                 <svg
                                   xmlns="http://www.w3.org/2000/svg"
@@ -1941,31 +1904,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   )}
                                 </div>
                               </td>
-                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[80px] sm:w-[100px]">
-                                <div className="flex items-center gap-2">
-                                  <span className="truncate">
-                                    ${parseFloat(trade.volume_in_usd).toLocaleString('en-US', {
-                                      minimumFractionDigits: 0,
-                                      maximumFractionDigits: 0,
-                                    })}
-                                  </span>
-                                  <span
-                                    className={`inline-block px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] font-medium flex-shrink-0 ${trade.kind === 'buy' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
-                                      }`}
-                                  >
-                                    {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[80px] sm:w-[100px]">
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px]">
                                 <div className="flex flex-col gap-0.5">
                                   <span className="truncate">
-                                    {parseFloat(trade.kind === 'sell' ? trade.from_token_amount : trade.to_token_amount || 0).toLocaleString(
-                                      'en-US',
-                                      {
-                                        maximumFractionDigits: 2,
-                                      }
-                                    )}{' '}
+                                    {Math.floor(parseFloat(trade.kind === 'sell' ? trade.from_token_amount : trade.to_token_amount || 0)).toLocaleString('en-US')}{' '}
                                     {(() => {
                                       const tokenAddress =
                                         trade.kind === 'sell' ? trade.from_token_address : trade.to_token_address;
@@ -1977,6 +1919,16 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         : 'Token';
                                     })()}
                                   </span>
+                                  <div className="flex items-center gap-1 text-[8px] sm:text-[9px]">
+                                    <span className="truncate text-gray-500">
+                                      ${Math.floor(parseFloat(trade.volume_in_usd)).toLocaleString('en-US')}
+                                    </span>
+                                    <span
+                                      className={`inline-block px-1 py-0.5 rounded-full font-medium ${trade.kind === 'buy' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}
+                                    >
+                                      {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
+                                    </span>
+                                  </div>
                                 </div>
                               </td>
                               <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px] text-center">
@@ -1995,22 +1947,22 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       onError={(e) => (e.target.src = '/fallback-image.png')}
                                     />
                                   </a>
-                                  <span className="truncate text-[10px] sm:text-xs text-center">
+                                  <span className="truncate text-[9px] sm:text-[9px] text-gray-500 text-center">
                                     {formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}
                                   </span>
                                 </div>
                               </td>
-                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[70px] sm:w-[100px]">
+                              <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[80px] sm:w-[100px]">
                                 <motion.button
                                   onClick={() => trade.pool_address && handlePoolClick(trade.pool_address)}
-                                  className="flex items-center gap-2 text-[10px] sm:text-xs text-neon-blue hover:underline truncate max-w-[40px] sm:max-w-[50px]"
+                                  className="flex items-center gap-1 text-[10px] sm:text-xs"
                                   title={
                                     dexData.pools.find((p) => p.attributes.address === trade.pool_address)?.attributes
                                       .name || 'View Pool Details'
                                   }
                                   disabled={!trade.pool_address || !dexData.poolTokens[trade.pool_address]}
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.9 }}
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
                                 >
                                   {(() => {
                                     const poolTokens =
@@ -2021,21 +1973,21 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null;
                                     const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null;
                                     return token1 && token2 ? (
-                                      <>
+                                      <div className="flex items-center gap-1">
                                         <img
                                           src={token1.image_url}
                                           alt={`${token1.symbol} logo`}
-                                          className="w-3 sm:w-4 h-3 sm:h-4 rounded-full flex-shrink-0"
+                                          className="w-4 sm:w-5 h-4 sm:h-5 rounded-full flex-shrink-0"
                                           onError={(e) => (e.target.src = '/fallback-image.png')}
                                         />
-                                        <span>/</span>
+                                        <span className="text-gray-400">/</span>
                                         <img
                                           src={token2.image_url}
                                           alt={`${token2.symbol} logo`}
-                                          className="w-3 sm:w-4 h-3 sm:h-4 rounded-full flex-shrink-0"
+                                          className="w-4 sm:w-5 h-4 sm:h-5 rounded-full flex-shrink-0"
                                           onError={(e) => (e.target.src = '/fallback-image.png')}
                                         />
-                                      </>
+                                      </div>
                                     ) : (
                                       'N/A'
                                     );

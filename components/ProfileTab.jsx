@@ -11,9 +11,26 @@ import { ethers } from 'ethers';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { cacheData, getCachedData, clearCache } from '../utils/indexedDB';
-import { LoadingOverlay } from '../utils/helpers';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+
+const LoadingOverlay = ({ isLoading, isMobile }) => (
+  <AnimatePresence>
+    {isLoading && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`fixed inset-0 flex items-center justify-center z-50 bg-black/80 ${!isMobile ? 'bg-black/80' : ''}`}
+      >
+        <div className="relative w-8 h-8">
+          <div className="absolute inset-0 border-2 border-transparent border-t-white border-r-white rounded-full animate-spin" />
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 
 export default function ProfileTab({ recaptchaRef }) {
   const { data: session, status } = useSession();

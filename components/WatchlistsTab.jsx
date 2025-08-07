@@ -1129,7 +1129,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
         </div>
       )}
 
-      <div className="flex w-full border-b border-white/10 mb-2 sm:mb-4 bg-black/60 backdrop-blur-md rounded-lg">
+      <div className="flex w-full border-b border-white/10 mb-2 sm:mb-4 bg-black/60 backdrop-blur-md rounded-xl">
         {['TOKEN', 'NFT', 'ACTIVITY'].map((tab) => (
           <motion.button
             key={tab}
@@ -1137,7 +1137,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
             whileHover={{ scale: 1 }}
             whileTap={{ scale: 0.95 }}
             className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 ${
-              activeTab === tab ? 'border-b-2 border-white text-white shadow-neon' : 'text-white hover:bg-neon-blue/10'
+              activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white'
             } last:border-r-0`}
           >
             {tab}
@@ -1161,7 +1161,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                 &lt;
               </motion.button>
               <span className="text-[10px] sm:text-xs text-gray-200 self-center">
-                Page {currentPage.TOKEN} of {getTotalPages(filteredBalances)}
+                {currentPage.TOKEN} / {getTotalPages(filteredBalances)}
               </span>
               <motion.button
                 onClick={() => handlePageChange('TOKEN', currentPage.TOKEN + 1)}

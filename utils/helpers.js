@@ -1,22 +1,18 @@
 import {CHAIN_EXPLORER_MAP} from './constants';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export const LoadingOverlay = ({ isLoading, message = 'Processing...', isMobile }) => (
+export const LoadingOverlay = ({ isLoading, isMobile }) => (
   <AnimatePresence>
     {isLoading && (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={`fixed inset-0 flex items-center justify-center z-50 ${isMobile ? 'bg-black/80' : 'bg-black/80 backdrop-blur-2xl'}`}
+        transition={{ duration: 0.3 }}
+        className={`fixed inset-0 flex items-center justify-center z-50 bg-black/80 ${!isMobile ? 'backdrop-blur-sm' : ''}`}
       >
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative w-8 h-8">
-            <div
-              className={`absolute inset-0 border-2 rounded-full animate-spin bg-black/80 ${isMobile ? 'border-black/80 border-t-white' : 'border-black/80 border-t-white'}`}
-            ></div>
-          </div>
-          <p className="text-[10px] sm:text-xs text-gray-200 font-medium">{message}</p>
+        <div className="relative w-8 h-8">
+          <div className="absolute inset-0 border-2 border-transparent border-t-white rounded-full animate-spin" />
         </div>
       </motion.div>
     )}

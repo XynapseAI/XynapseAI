@@ -9,11 +9,10 @@ import ProfileTab  from '../../components/ProfileTab';
 import MarketTab from '../../components/MarketTab';
 import TreemapTab from '../../components/TreemapTab';
 import WatchlistsTab from '../../components/WatchlistsTab';
-import { motion } from 'framer-motion';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { toast, ToastContainer } from 'react-toastify';
 import MatrixHoverEffect from '../../components/MatrixHoverEffect';
-import { LoadingOverlay } from '../../utils/helpers';
+import { motion, AnimatePresence } from 'framer-motion';
 import styles from './page.module.css';
 import Image from 'next/image';
 import { gsap } from 'gsap';
@@ -23,6 +22,24 @@ import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 gsap.registerPlugin(MotionPathPlugin);
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+
+const LoadingOverlay = ({ isLoading, isMobile }) => (
+  <AnimatePresence>
+    {isLoading && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`fixed inset-0 flex items-center justify-center z-50 bg-black/80 ${!isMobile ? 'bg-black/80' : ''}`}
+      >
+        <div className="relative w-8 h-8">
+          <div className="absolute inset-0 border-2 border-transparent border-t-white border-r-white rounded-full animate-spin" />
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
 
 export default function Dashboard() {
   const { data: session, status, update } = useSession();
