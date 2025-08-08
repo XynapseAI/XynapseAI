@@ -14,7 +14,7 @@ import axiosRetry from 'axios-retry';
 
 const cacheLimiter = new Bottleneck({
   maxConcurrent: 30,
-  minTime: 200, // Giảm minTime để tăng tốc trên production
+  minTime: 100, // Giảm minTime để tăng tốc trên production
   reservoir: 500, // Tăng reservoir để xử lý lưu lượng lớn
   reservoirRefreshAmount: 500,
   reservoirRefreshInterval: 60 * 1000,
@@ -51,7 +51,7 @@ const fetcher = async (url, params) => {
 
 // Cache durations
 const CACHE_DURATIONS = {
-  PRICE: 5 * 60 * 1000, // 5 phút
+  PRICE: 5 * 60 * 1000, // 2 phút
   METADATA: 4 * 60 * 60 * 1000, // 4 giờ
   TRANSACTIONS: 60 * 1000, // 30 giây
   DEFI_POOL: 15 * 60 * 1000, // 30 giây
@@ -142,6 +142,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [trendingTokens, setTrendingTokens] = useState([]);
   const [isLoadingTrending, setIsLoadingTrending] = useState(false);
   const [trendingError, setTrendingError] = useState(null);
+  const isFetchingChainsRef = useRef(false);
+  const lastFetchedChainsRef = useRef(0);
   const [availableCurrencies] = useState([
     'usd', 'eur', 'cny', 'gbp', 'hkd', 'idr', 'jpy', 'krw', 'mxn', 'myr',
     'nok', 'nzd', 'pln', 'rub', 'sar', 'sek', 'sgd', 'thb', 'try', 'twd',
@@ -151,7 +153,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const localCache = useRef({});
 
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
-  
 
   const getCachedData = async (key, fetchFn, ttl = CACHE_DURATIONS.DEFAULT, retryCount = 0) => {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
@@ -317,7 +318,22 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     const cacheKey = 'supported-chains';
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
 
-    // Check Redis cache first
+    // Kiểm tra cache cục bộ và thời gian cache (48 giờ)
+    const cachedChains = localCache.current[cacheKey]?.data;
+    if (cachedChains && Date.now() - localCache.current[cacheKey]?.timestamp < 48 * 60 * 60 * 1000) {
+      setChains(cachedChains);
+      console.log(`Using local cache for supported chains: ${cachedChains.length} chains`);
+      return;
+    }
+
+    // Ngăn gọi lại nếu đang tải hoặc đã tải gần đây
+    if (isFetchingChainsRef.current || (Date.now() - lastFetchedChainsRef.current < 48 * 60 * 60 * 1000 && chains.length > 0)) {
+      console.log(`Skipping fetchSupportedChains: ${isFetchingChainsRef.current ? 'Already fetching' : 'Recently fetched'}`);
+      return;
+    }
+
+    isFetchingChainsRef.current = true;
+
     try {
       const cacheResponse = await cacheLimiter.schedule(() =>
         axios.post(
@@ -327,8 +343,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         )
       );
       if (cacheResponse.data.success && cacheResponse.data.data) {
+        localCache.current[cacheKey] = { data: cacheResponse.data.data, timestamp: Date.now() };
         setChains(cacheResponse.data.data);
         console.log(`Redis cache hit for supported chains: ${cacheResponse.data.data.length} chains`);
+        lastFetchedChainsRef.current = Date.now();
         return;
       }
     } catch (cacheError) {
@@ -337,7 +355,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
     try {
       const response = await coingeckoAxios.get('/api/coingecko/chains', {
-        timeout: 20000, // Increase timeout
+        timeout: 20000,
       });
 
       if (!response.data.success || !Array.isArray(response.data.data)) {
@@ -361,26 +379,27 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         };
       });
 
-      // Save to Redis cache
+      // Lưu vào cache cục bộ và Redis
+      localCache.current[cacheKey] = { data: mappedChains, timestamp: Date.now() };
       await cacheLimiter.schedule(() =>
         axios.post(
           `${API_BASE_URL}/api/cache`,
-          { key: cacheKey, action: 'set', data: mappedChains, ttl: 24 * 60 * 60 * 1000 }, // Cache for 24 hours
+          { key: cacheKey, action: 'set', data: mappedChains, ttl: 48 * 60 * 60 * 1000 },
           { timeout: 30000 }
         )
       );
 
       setChains(mappedChains);
+      lastFetchedChainsRef.current = Date.now();
       console.log(`Successfully fetched ${mappedChains.length} chains`);
     } catch (error) {
       console.error(`Failed to fetch supported chains (attempt ${retryCount + 1}):`, error.message);
-      if (retryCount < 5 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) { // Increase retries to 5
-        const delay = Math.pow(2, retryCount) * 2000 + Math.random() * 200; // Increase delay
+      if (retryCount < 5 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) {
+        const delay = Math.pow(2, retryCount) * 2000 + Math.random() * 200;
         await new Promise((resolve) => setTimeout(resolve, delay));
         return fetchSupportedChains(retryCount + 1);
       }
 
-      // Fallback to SUPPORTED_CHAINS
       const fallbackChains = SUPPORTED_CHAINS.map((chain) => ({
         coingeckoId: Object.keys(CHAIN_MAPPING).find(
           (key) => CHAIN_MAPPING[key].simChain === chain.value
@@ -392,19 +411,22 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         testnet: chain.testnet || false,
         image: '/fallback-image.png',
       }));
+      localCache.current[cacheKey] = { data: fallbackChains, timestamp: Date.now() };
       setChains(fallbackChains);
       toast.error('Failed to load supported chains, using fallback data', {
         position: 'top-center',
         autoClose: 5000,
       });
+    } finally {
+      isFetchingChainsRef.current = false;
     }
   }, [toast]);
 
   useEffect(() => {
-    if (chains.length === 0) {
+    if (chains.length === 0 && !isFetchingChainsRef.current && Date.now() - lastFetchedChainsRef.current > 48 * 60 * 60 * 1000) {
       fetchSupportedChains();
     }
-  }, [fetchSupportedChains, chains]);
+  }, [fetchSupportedChains, chains.length]);
 
   const fetchPoolTokenMetadata = useCallback(
     async (chain, poolAddress, retryCount = 0) => {
@@ -1050,162 +1072,162 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   );
 
   const fetchDexData = useCallback(
-    debounce(
-      async (chain, tokenAddress, retryCount = 0) => {
-        if (status !== 'authenticated') {
-          const errorMessage = 'Please log in to access DEX data.';
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-          return;
-        }
+  debounce(
+    async (chain, tokenAddress, retryCount = 0) => {
+      if (status !== 'authenticated') {
+        const errorMessage = 'Please log in to access DEX data.';
+        setDexError(errorMessage);
+        setIsLoadingDex(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
 
-        if (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
-          const errorMessage = 'Invalid chain or token address for DEX data';
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-          return;
-        }
+      if (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        const errorMessage = 'Invalid chain or token address for DEX data';
+        setDexError(errorMessage);
+        setIsLoadingDex(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
 
-        const geckoChain = GECKOTERMINAL_CHAIN_MAPPING[chain];
-        if (!geckoChain) {
-          const errorMessage = `Unsupported chain for DEX data: ${chain}`;
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-          return;
-        }
+      const geckoChain = GECKOTERMINAL_CHAIN_MAPPING[chain];
+      if (!geckoChain) {
+        const errorMessage = `Unsupported chain for DEX data: ${chain}`;
+        setDexError(errorMessage);
+        setIsLoadingDex(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
 
-        const userId = session?.user?.id || 'anonymous';
-        const now = Date.now();
-        const userRequests = dexRequestTracker.get(userId) || { count: 0, lastReset: now };
+      const userId = session?.user?.id || 'anonymous';
+      const now = Date.now();
+      const userRequests = dexRequestTracker.get(userId) || { count: 0, lastReset: now };
 
-        if (now - userRequests.lastReset >= DEX_REQUEST_WINDOW) {
-          dexRequestTracker.set(userId, { count: 1, lastReset: now });
-          setDexRequestCount(1);
-          setLastDexRequestTime(now);
-        } else if (userRequests.count >= DEX_REQUEST_LIMIT) {
-          const errorMessage = 'Too many DEX requests. Please wait a minute and try again.';
-          setDexError(errorMessage);
-          setIsLoadingDex(false);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-          return;
-        } else {
-          dexRequestTracker.set(userId, { count: userRequests.count + 1, lastReset: userRequests.lastReset });
-          setDexRequestCount((prev) => prev + 1);
-        }
+      if (now - userRequests.lastReset >= DEX_REQUEST_WINDOW) {
+        dexRequestTracker.set(userId, { count: 1, lastReset: now });
+        setDexRequestCount(1);
+        setLastDexRequestTime(now);
+      } else if (userRequests.count >= DEX_REQUEST_LIMIT) {
+        const errorMessage = 'Too many DEX requests. Please wait a minute and try again.';
+        setDexError(errorMessage);
+        setIsLoadingDex(false);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      } else {
+        dexRequestTracker.set(userId, { count: userRequests.count + 1, lastReset: userRequests.lastReset });
+        setDexRequestCount((prev) => prev + 1);
+      }
 
-        const cacheKey = `dex-${geckoChain}-${tokenAddress}`;
-        setIsLoadingDex(true);
-        setDexError(null);
+      const cacheKey = `dex-${geckoChain}-${tokenAddress}`;
+      setIsLoadingDex(true);
+      setDexError(null);
 
-        // Check local cache first
-        const cachedData = localCache.current[cacheKey]?.data;
+      const cachedData = localCache.current[cacheKey]?.data;
+      if (cachedData && Date.now() - localCache.current[cacheKey].timestamp < CACHE_DURATIONS.DEFI_POOL) {
+        setDexData(cachedData);
+        console.log(`Using cached DEX data for ${geckoChain}-${tokenAddress}`);
+        setIsLoadingDex(false);
+        return;
+      }
+
+      try {
+        const fetchFn = async () => {
+          const poolResponse = await coingeckoAxios.get(
+            `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/tokens/${tokenAddress}/pools?page=1`,
+            {
+              headers: { accept: 'application/json' },
+              timeout: 10000,
+            }
+          );
+
+          let pools = poolResponse.data?.data || [];
+          pools.sort((a, b) => parseFloat(b.attributes.volume_usd.h24) - parseFloat(a.attributes.volume_usd.h24));
+          const topPools = pools.slice(0, 3);
+
+          const tradePromises = topPools.map((pool) =>
+            limit(() =>
+              coingeckoAxios.get(
+                `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/pools/${pool.attributes.address}/trades?trade_volume_in_usd_greater_than=100`,
+                {
+                  headers: { accept: 'application/json' },
+                  timeout: 10000,
+                }
+              ).then((response) => ({
+                status: 'fulfilled',
+                poolAddress: pool.attributes.address,
+                poolName: pool.attributes.name,
+                data: response.data?.data || [],
+              })).catch((error) => ({
+                status: 'rejected',
+                poolAddress: pool.attributes.address,
+                poolName: pool.attributes.name,
+                error: {
+                  message: error.message,
+                  status: error.response?.status,
+                  safeMessage: error.response?.status === 429 ? 'Rate limit exceeded' : 'Failed to fetch trades',
+                },
+              }))
+            )
+          );
+
+          const tradeResults = await Promise.allSettled(tradePromises);
+          const trades = tradeResults.reduce((acc, result) => {
+            if (result.status === 'fulfilled') {
+              return acc.concat(
+                result.value.data.map((trade) => ({
+                  ...trade.attributes,
+                  pool_name: result.value.poolName,
+                  pool_address: result.value.poolAddress,
+                }))
+              );
+            }
+            return acc;
+          }, []);
+
+          const validTrades = trades.filter((trade) => {
+            const isValid = trade.pool_address && typeof trade.pool_address === 'string' && trade.pool_address.match(/^0x[a-fA-F0-9]{40}$/);
+            return isValid;
+          });
+
+          const poolTokenPromises = topPools.map((pool) =>
+            limit(() => fetchPoolTokenMetadata(chain, pool.attributes.address))
+          );
+          const poolTokenResults = await Promise.allSettled(poolTokenPromises);
+          const poolTokens = poolTokenResults.reduce((acc, result, index) => {
+            if (result.status === 'fulfilled' && Object.keys(result.value).length > 0) {
+              acc[topPools[index].attributes.address] = result.value;
+            }
+            return acc;
+          }, {});
+
+          return { pools: topPools, trades: validTrades, poolTokens };
+        };
+
+        const dexData = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL);
+        setDexData(dexData);
+        setLastDexFetchTime(Date.now());
+      } catch (error) {
+        const safeErrorMessage =
+          error.response?.status === 429
+            ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
+            : error.response?.status === 404
+              ? `No DEX data found for token ${tokenAddress} on ${chain}.`
+              : 'Failed to load DEX data.';
+        setDexError(safeErrorMessage);
+        toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
         if (cachedData) {
           setDexData(cachedData);
-          console.log(`Using cached DEX data for ${geckoChain}-${tokenAddress}`);
         } else {
           setDexData({ pools: [], trades: [], poolTokens: {} });
         }
-
-        try {
-          const fetchFn = async () => {
-            const poolResponse = await coingeckoAxios.get(
-              `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/tokens/${tokenAddress}/pools?page=1&bypassCache=true`,
-              {
-                headers: { accept: 'application/json' },
-                timeout: 10000,
-              }
-            );
-
-            let pools = poolResponse.data?.data || [];
-            pools.sort((a, b) => parseFloat(b.attributes.volume_usd.h24) - parseFloat(a.attributes.volume_usd.h24));
-            const topPools = pools.slice(0, 5);
-
-            const tradePromises = topPools.map((pool) =>
-              limit(() =>
-                coingeckoAxios.get(
-                  `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/pools/${pool.attributes.address}/trades?trade_volume_in_usd_greater_than=100`,
-                  {
-                    headers: { accept: 'application/json' },
-                    timeout: 10000,
-                  }
-                ).then((response) => ({
-                  status: 'fulfilled',
-                  poolAddress: pool.attributes.address,
-                  poolName: pool.attributes.name,
-                  data: response.data?.data || [],
-                })).catch((error) => ({
-                  status: 'rejected',
-                  poolAddress: pool.attributes.address,
-                  poolName: pool.attributes.name,
-                  error: {
-                    message: error.message,
-                    status: error.response?.status,
-                    safeMessage: error.response?.status === 429 ? 'Rate limit exceeded' : 'Failed to fetch trades',
-                  },
-                }))
-              )
-            );
-
-            const tradeResults = await Promise.allSettled(tradePromises);
-            const trades = tradeResults.reduce((acc, result) => {
-              if (result.status === 'fulfilled') {
-                return acc.concat(
-                  result.value.data.map((trade) => ({
-                    ...trade.attributes,
-                    pool_name: result.value.poolName,
-                    pool_address: result.value.poolAddress,
-                  }))
-                );
-              }
-              return acc;
-            }, []);
-
-            const validTrades = trades.filter((trade) => {
-              const isValid = trade.pool_address && typeof trade.pool_address === 'string' && trade.pool_address.match(/^0x[a-fA-F0-9]{40}$/);
-              return isValid;
-            });
-
-            const poolTokenPromises = topPools.map((pool) =>
-              limit(() => fetchPoolTokenMetadata(chain, pool.attributes.address))
-            );
-            const poolTokenResults = await Promise.allSettled(poolTokenPromises);
-            const poolTokens = poolTokenResults.reduce((acc, result, index) => {
-              if (result.status === 'fulfilled' && Object.keys(result.value).length > 0) {
-                acc[topPools[index].attributes.address] = result.value;
-              }
-              return acc;
-            }, {});
-
-            return { pools: topPools, trades: validTrades, poolTokens };
-          };
-
-          const dexData = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL);
-          setDexData(dexData);
-          setLastDexFetchTime(Date.now());
-        } catch (error) {
-          const safeErrorMessage =
-            error.response?.status === 429
-              ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
-              : error.response?.status === 404
-                ? `No DEX data found for token ${tokenAddress} on ${chain}.`
-                : 'Failed to load DEX data.';
-          setDexError(safeErrorMessage);
-          toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
-          // Keep cached data if available
-          if (!cachedData) {
-            setDexData({ pools: [], trades: [], poolTokens: {} });
-          }
-        } finally {
-          setIsLoadingDex(false);
-        }
-      },
-      300
-    ),
-    [toast, status, session]
-  );
+      } finally {
+        setIsLoadingDex(false);
+      }
+    },
+    300
+  ),
+  [toast, status, session, fetchPoolTokenMetadata]
+);
 
   const fetchTrendingTokens = useCallback(
     debounce(
@@ -1468,6 +1490,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token, initialTokenData = null, onTokenSelect = null) => {
+      if (!token?.id || lastFetchedTokenRef.current === token.id) {
+        console.log(`Skipping debouncedHandleTokenSelect: Token ${token?.id} already selected or invalid`);
+        return;
+      }
+
       console.log('Selecting token:', token.id, 'Initial token data:', initialTokenData?.id);
       if (initialTokenData && initialTokenData.id === token.id) {
         setSelectedToken(initialTokenData);
@@ -1480,7 +1507,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         setIsDropdownOpen(false);
         setOnChainData({ topHolders: [], whaleActivity: [] });
         setOnChainError(null);
-        lastFetchedTokenRef.current = initialTokenSlug;
+        lastFetchedTokenRef.current = token.id;
         console.log('lastFetchedTokenRef set to:', lastFetchedTokenRef.current);
 
         const days = timeRange || '1';
@@ -1615,7 +1642,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         setIsLoadingSelectedToken(false);
       }
     }, 500),
-    [currency, availableCurrencies, timeRange, fetchPriceHistory, selectedChain, setError, executeRecaptcha, getDefaultChainAndAddress, initialTokenSlug]
+    [currency, availableCurrencies, timeRange, fetchPriceHistory, selectedChain, setError, executeRecaptcha, getDefaultChainAndAddress]
   );
 
   const debouncedHandleAnalysis = useCallback(

@@ -20,7 +20,8 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:cache:${ip}`;
   const requests = parseInt(await redisClient.get(key)) || 0;
   const windowMs = 60 * 1000;
-  if (requests >= 200) {
+  const maxRequests = 500; // Tăng giới hạn lên 500 yêu cầu/phút
+  if (requests >= maxRequests) {
     throw new Error('Too many requests, please try again later.');
   }
   await redisClient.multi()
@@ -60,7 +61,7 @@ export async function POST(request) {
     return NextResponse.json({ success: false, detail: `Invalid action: ${action}` }, { status: 400 });
   }
 
-  const maxTTL = 24 * 60 * 60; // 24 hours
+  const maxTTL = 48 * 60 * 60; // Tăng lên 48 giờ
   const effectiveTTL = ttl && Number.isInteger(ttl) && ttl > 0 ? Math.min(ttl / 1000, maxTTL) : 60;
 
   try {

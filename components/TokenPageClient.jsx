@@ -19,8 +19,15 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
   const [isLoadingTopHolders, setIsLoadingTopHolders] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('market');
+  const initializedRef = useRef(false); // Theo dõi trạng thái khởi tạo
+  const prevTokenSlugRef = useRef(initialTokenSlug); // Lưu token trước đó
 
-  const { selectedToken, debouncedHandleTokenSelect , fetchSupportedChains,} = useMarketTabLogic({
+  const {
+    selectedToken,
+    debouncedHandleTokenSelect,
+    fetchSupportedChains,
+    chains, // Lấy danh sách chains từ useMarketTabLogic
+  } = useMarketTabLogic({
     recaptchaRef,
     toast,
     initialTokenSlug,
@@ -36,21 +43,40 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
   }, [initialTokenSlug, initialTokenData, selectedToken]);
 
   useEffect(() => {
-  if (initialTokenData && initialTokenSlug) {
-    console.log(`Setting initial token: ${initialTokenSlug}`);
-    // Ensure chains are fetched before selecting token
-    fetchSupportedChains().then(() => {
-      debouncedHandleTokenSelect({ id: initialTokenSlug }, initialTokenData);
+    // Ngăn chạy lại nếu đã khởi tạo và token không thay đổi
+    if (initializedRef.current && prevTokenSlugRef.current === initialTokenSlug) {
+      console.log(`Skipping initialization: Token ${initialTokenSlug} already set`);
+      return;
+    }
+
+    if (initialTokenData && initialTokenSlug) {
+      console.log(`Setting initial token: ${initialTokenSlug}`);
+      // Kiểm tra xem chains đã được tải chưa
+      if (chains.length === 0) {
+        fetchSupportedChains().then(() => {
+          debouncedHandleTokenSelect({ id: initialTokenSlug }, initialTokenData);
+          setIsLoadingToken(false);
+          setIsLoadingPriceHistory(!initialPriceHistory);
+          setIsLoadingTopHolders(!initialTopHolders);
+          initializedRef.current = true;
+          prevTokenSlugRef.current = initialTokenSlug;
+        });
+      } else {
+        // Nếu chains đã có, gọi trực tiếp debouncedHandleTokenSelect
+        debouncedHandleTokenSelect({ id: initialTokenSlug }, initialTokenData);
+        setIsLoadingToken(false);
+        setIsLoadingPriceHistory(!initialPriceHistory);
+        setIsLoadingTopHolders(!initialTopHolders);
+        initializedRef.current = true;
+        prevTokenSlugRef.current = initialTokenSlug;
+      }
+    } else if (!initialTokenData) {
+      setError(`Token data for ${initialTokenSlug} not found`);
       setIsLoadingToken(false);
-      setIsLoadingPriceHistory(!initialPriceHistory);
-      setIsLoadingTopHolders(!initialTopHolders);
-    });
-  } else if (!initialTokenData) {
-    setError(`Token data for ${initialTokenSlug} not found`);
-    setIsLoadingToken(false);
-    toast.error(`Token ${initialTokenSlug} not found`, { position: 'top-center', autoClose: 3000 });
-  }
-}, [initialTokenSlug, initialTokenData, initialPriceHistory, initialTopHolders, debouncedHandleTokenSelect, fetchSupportedChains]);
+      toast.error(`Token ${initialTokenSlug} not found`, { position: 'top-center', autoClose: 3000 });
+      initializedRef.current = true; // Đánh dấu đã khởi tạo để tránh chạy lại
+    }
+  }, [initialTokenSlug, initialTokenData, initialPriceHistory, initialTopHolders, debouncedHandleTokenSelect, fetchSupportedChains, chains]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -71,19 +97,19 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
 
   const handleNavigateToToken = (newSlug) => {
     if (!newSlug || typeof newSlug !== 'string' || newSlug.trim() === '') {
-      console.error(`Invalid slug provided for navigation: ${newSlug}`); // Fixed string interpolation
+      console.error(`Invalid slug provided for navigation: ${newSlug}`);
       toast.error('Cannot navigate to token page: Invalid token ID.', {
         position: 'top-center',
         autoClose: 3000,
       });
       return;
     }
-    console.log(`Navigating to token: ${newSlug}`); // Fixed string interpolation
+    console.log(`Navigating to token: ${newSlug}`);
     setIsLoadingToken(true);
     setIsLoadingPriceHistory(true);
     setIsLoadingTopHolders(true);
     setError(null);
-    router.push(`/token/${newSlug}`, { scroll: false }); // Fixed string interpolation
+    router.push(`/token/${newSlug}`, { scroll: false });
     setActiveTab('market');
   };
 

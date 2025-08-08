@@ -59,7 +59,7 @@ function isAllowedOrigin(origin, referer, pathname) {
         return true;
       }
       const hostname = new URL(origin).hostname;
-      if (hostname === "xynapse-ai.vercel.app" || hostname === "xynapse-ai-xynapse-projects.vercel.app") {
+      if (hostname === "xynapse-ai.vercel.app" || hostname === "localhost:3000" || hostname === "xynapse-ai-xynapse-projects.vercel.app") {
         logger.info('Dynamic domain allowed', { origin, hostname });
         return true;
       }

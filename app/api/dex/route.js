@@ -54,7 +54,7 @@ const bodySchema = z.object({
   tokenAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid token address'),
 });
 
-const CACHE_DURATION = 5 * 60; // 5 minutes in seconds
+const CACHE_DURATION = 15 * 60; // 15 minutes in seconds
 
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -120,12 +120,7 @@ export async function POST(request) {
   if (cachedData) {
     logger.info('Serving DEX data from cache:', { cacheKey });
     return new NextResponse(
-      new ReadableStream({
-        start(controller) {
-          controller.enqueue(cachedData);
-          controller.close();
-        },
-      }),
+      JSON.stringify(JSON.parse(cachedData)),
       {
         headers: {
           'Content-Type': 'application/json',
@@ -138,47 +133,59 @@ export async function POST(request) {
     );
   }
 
-  return new NextResponse(
-    new ReadableStream({
-      async start(controller) {
-        try {
-          const url = `https://api.geckoterminal.com/api/v2/networks/${GECKOTERMINAL_CHAIN_MAPPING[chain]}/tokens/${tokenAddress}/pools?page=1`;
-          const response = await fetchWithRateLimit(url, {
-            headers: { accept: 'application/json' },
-            timeout: 10000,
-          });
+  try {
+    const url = `https://api.geckoterminal.com/api/v2/networks/${GECKOTERMINAL_CHAIN_MAPPING[chain]}/tokens/${tokenAddress}/pools?page=1`;
+    const response = await fetchWithRateLimit(url, {
+      headers: { accept: 'application/json' },
+      timeout: 10000,
+    });
 
-          await redisClient.setEx(cacheKey, CACHE_DURATION, JSON.stringify(response.data));
-          logger.info('DEX data fetched and cached:', { cacheKey, poolCount: response.data?.data?.length || 0 });
+    await redisClient.setEx(cacheKey, CACHE_DURATION, JSON.stringify(response.data));
+    logger.info('DEX data fetched and cached:', { cacheKey, poolCount: response.data?.data?.length || 0 });
 
-          controller.enqueue(JSON.stringify(response.data));
-          controller.close();
-        } catch (error) {
-          logger.error('Error fetching DEX data:', {
-            status: error.response?.status,
-            detail: error.response?.data || error.message,
-            ip,
-          });
-          const status = error.response?.status || 500;
-          const detail =
-            status === 429
-              ? 'GeckoTerminal API rate limit exceeded. Please try again later.'
-              : status === 404
-              ? `No DEX data found for token ${tokenAddress} on ${chain}.`
-              : 'An unexpected error occurred while fetching DEX data';
-          controller.enqueue(JSON.stringify({ detail }));
-          controller.close();
+    return new NextResponse(
+      JSON.stringify(response.data),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Security-Policy': "default-src 'self'",
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Methods': 'POST',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      }
+    );
+  } catch (error) {
+    logger.error('Error fetching DEX data:', {
+      status: error.response?.status,
+      detail: error.response?.data || error.message,
+      ip,
+    });
+    const status = error.response?.status || 500;
+    const detail =
+      status === 429
+        ? 'GeckoTerminal API rate limit exceeded. Please try again later.'
+        : status === 404
+        ? `No DEX data found for token ${tokenAddress} on ${chain}.`
+        : 'An unexpected error occurred while fetching DEX data';
+    
+    // Trả về dữ liệu cache nếu có
+    if (cachedData) {
+      logger.info('Serving stale DEX data due to error:', { cacheKey });
+      return new NextResponse(
+        JSON.stringify(JSON.parse(cachedData)),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Security-Policy': "default-src 'self'",
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Methods': 'POST',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
         }
-      },
-    }),
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Security-Policy': "default-src 'self'",
-        'Access-Control-Allow-Origin': origin,
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
+      );
     }
-  );
+
+    return NextResponse.json({ detail }, { status });
+  }
 }

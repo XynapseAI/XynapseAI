@@ -6,7 +6,7 @@ import Bottleneck from 'bottleneck';
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 1,
-  minTime: process.env.NODE_ENV === 'production' ? 200 : 1000,
+  minTime: process.env.NODE_ENV === 'production' ? 100 : 1000,
 });
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
