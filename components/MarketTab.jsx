@@ -17,7 +17,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { formatDistanceToNow } from 'date-fns';
 import { GECKOTERMINAL_CHAIN_MAPPING, CHAIN_ID_TO_NAME, CHAIN_EXPLORER_MAP } from '../utils/constants';
-import { SkeletonLoader, getExplorerUrls, formatPrice, truncateAddress, truncateHash, isValidToken } from '../utils/helpers';
+import { SkeletonLoader, getExplorerUrls, formatPrice, truncateAddress, truncateHash, isValidToken, LoadingOverlay } from '../utils/helpers';
 import 'react-loading-skeleton/dist/skeleton.css';
 
 const logger = {
@@ -798,6 +798,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             <div
               className={`border border-white/10 p-4 sm:p-4 rounded-xl min-h-[280px] sm:min-h-[290px] sm:max-h-[290px] overflow-y-auto custom-scrollbar bg-black/60 backdrop-blur-2xl relative`}
             >
+              <LoadingOverlay
+                isLoading={isLoadingSelectedToken && !localCache.current[`token-metadata-${selectedToken?.id}`]?.data}
+                isMobile={isMobile}
+              />
               {isLoadingSelectedToken && !localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
                 <SkeletonLoader count={5} isMobile={isMobile} />
               ) : selectedToken || localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
@@ -1145,6 +1149,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             <div
               className="border border-white/10 p-2 sm:p-3 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-black/60 backdrop-blur-2xl overflow-y-auto custom-scrollbar"
             >
+              <LoadingOverlay isLoading={isChartLoading} isMobile={isMobile} />
               <div className="flex flex-col items-center mb-2 sm:mb-2 mt-4 sm:mt-0">
                 <div className="flex flex-col sm:flex-row justify-between items-center w-full max-w-[90%] sm:max-w-[600px] gap-2 sm:gap-3">
                   <div className="flex space-x-2 mb-2 sm:mb-0 justify-start sm:justify-center w-full sm:w-auto">
@@ -1212,11 +1217,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               </div>
               {isChartLoading ? (
                 <div className="h-48 sm:h-58 flex items-center justify-center">
-                  {/* <SkeletonLoader
-                    count={1}
-                    isMobile={isMobile}
-                    className="w-full h-full rounded-lg bg-gray-800/50 animate-pulse"
-                  /> */}
                 </div>
               ) : priceHistory && priceHistory.length > 0 ? (
                 <div className="h-48 sm:h-58">
@@ -1339,6 +1339,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 )}
                 {activeMarketTab === 'holders' && (
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} />
                     <div
                       className={`flex justify-center items-center p-2 sm:p-3 border-b border-white/10 bg-black/60 backdrop-blur-md`}
                     >
@@ -1363,7 +1364,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     </div>
                     {isLoadingOnChain ? (
                       <div className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
-                        Loading top holders data...
                       </div>
                     ) : onChainError ? (
                       <div className="text-[10px] sm:text-xs text-center p-2 sm:p-4">
@@ -1479,6 +1479,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 )}
                 {activeMarketTab === 'cex' && (
                   <div className="flex-1 overflow-x-auto overflow-y-auto custom-scrollbar smooth-scroll">
+                    <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} />
                     {tickerError ? (
                       <div className="text-[10px] sm:text-xs text-center p-2 sm:p-4">
                         <p className="text-red-500">{tickerError}</p>
@@ -1661,6 +1662,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 {/* DEX Tab */}
                 {activeMarketTab === 'dex' && (
                   <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    <LoadingOverlay isLoading={isLoadingDex && !dexData.trades?.length} isMobile={isMobile} />
                     {dexError ? (
                       <div className="text-[10px] sm:text-xs text-center p-2 sm:p-4">
                         <p className="text-red-500">{dexError}</p>

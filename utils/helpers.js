@@ -10,9 +10,19 @@ export const LoadingOverlay = ({ isLoading, isMobile }) => (
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
         className={`fixed inset-0 flex items-center justify-center z-50 bg-black/80 ${!isMobile ? 'backdrop-blur-sm' : ''}`}
+        aria-label="Loading animation"
       >
-        <div className="relative w-8 h-8">
-          <div className="absolute inset-0 border-2 border-transparent border-t-white rounded-full animate-spin" />
+        <div className={`relative ${isMobile ? 'w-10 h-10' : 'w-12 h-12'}`}>
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full object-contain"
+            src="/logo-loading.webm" // Update with your WebM file path or URL
+          >
+            Your browser does not support the video tag.
+          </video>
         </div>
       </motion.div>
     )}
