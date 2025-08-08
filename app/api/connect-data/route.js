@@ -35,7 +35,7 @@ async function withRetry(fn, retries = 3, delay = 1000) {
 const rateLimiter = new RateLimiterRedis({
   storeClient: await getRedisClient(),
   keyPrefix: 'rate_limit:connect-data',
-  points: 500, // Increased to 200 requests
+  points: 200, // Increased to 200 requests
   duration: 15 * 60, // 15 minutes
 });
 

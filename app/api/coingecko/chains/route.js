@@ -148,6 +148,7 @@ export async function GET(request) {
       data: error.response?.data,
     });
     const status = error.response?.status || 500;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const detail =
       status === 429
         ? 'CoinGecko API rate limit exceeded, please try again later.'

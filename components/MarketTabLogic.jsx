@@ -51,7 +51,7 @@ const fetcher = async (url, params) => {
 
 // Cache durations
 const CACHE_DURATIONS = {
-  PRICE: 5 * 60 * 1000, // 2 phút
+  PRICE: 5 * 60 * 1000, // 5 phút
   METADATA: 4 * 60 * 60 * 1000, // 4 giờ
   TRANSACTIONS: 60 * 1000, // 30 giây
   DEFI_POOL: 15 * 60 * 1000, // 30 giây
