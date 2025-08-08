@@ -1,4 +1,3 @@
-// app/api/dex/route.js
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
@@ -14,12 +13,22 @@ const redisClient = createClient({
 redisClient.on('error', (err) => logger.error('Redis Client Error', err));
 await redisClient.connect();
 
+async function checkRateLimit(userId) {
+  const key = `rate_limit:dex:${userId || 'anonymous'}`;
+  const requests = await redisClient.get(key) || 0;
+  const windowMs = 60 * 1000;
+  if (requests >= 100) {
+    throw new Error('Too many DEX requests for this user. Please try again later.');
+  }
+  await redisClient.multi()
+    .incr(key)
+    .expire(key, windowMs / 1000)
+    .exec();
+}
+
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 20,
   minTime: 100,
-  reservoir: 100,
-  reservoirRefreshAmount: 100,
-  reservoirRefreshInterval: 60 * 1000,
 });
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
@@ -32,6 +41,7 @@ const allowedOrigins = [
   'https://xynapse-ai.vercel.app',
   'https://app.xynapseai.net',
   'https://xynapseai.net',
+  'https://xynapse-ai.vercel.app', 
   'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean);
 
@@ -45,19 +55,6 @@ const bodySchema = z.object({
 });
 
 const CACHE_DURATION = 5 * 60; // 5 minutes in seconds
-
-async function checkRateLimit(userId) {
-  const key = `rate_limit:dex:${userId || 'anonymous'}`;
-  const requests = Number(await redisClient.get(key)) || 0;
-  const windowMs = 60 * 1000;
-  if (requests >= 100) {
-    throw new Error('Too many DEX requests for this user. Please try again later.');
-  }
-  await redisClient.multi()
-    .incr(key)
-    .expire(key, windowMs / 1000)
-    .exec();
-}
 
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -111,11 +108,6 @@ export async function POST(request) {
   }
 
   const { chain, tokenAddress } = parsedBody;
-  const geckoChain = GECKOTERMINAL_CHAIN_MAPPING[chain];
-  if (!geckoChain) {
-    logger.warn(`Invalid chain: ${chain}`, { ip });
-    return NextResponse.json({ detail: `Invalid chain: ${chain}` }, { status: 400 });
-  }
 
   logger.info('Processing DEX request:', {
     chain,
@@ -123,147 +115,70 @@ export async function POST(request) {
     ip,
   });
 
-  const cacheKey = `dex-${geckoChain}-${tokenAddress}`;
+  const cacheKey = `dex-${chain}-${tokenAddress}`;
   const cachedData = await redisClient.get(cacheKey);
   if (cachedData) {
     logger.info('Serving DEX data from cache:', { cacheKey });
-    return NextResponse.json(JSON.parse(cachedData), {
+    return new NextResponse(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(cachedData);
+          controller.close();
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Security-Policy': "default-src 'self'",
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Methods': 'POST',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      }
+    );
+  }
+
+  return new NextResponse(
+    new ReadableStream({
+      async start(controller) {
+        try {
+          const url = `https://api.geckoterminal.com/api/v2/networks/${GECKOTERMINAL_CHAIN_MAPPING[chain]}/tokens/${tokenAddress}/pools?page=1`;
+          const response = await fetchWithRateLimit(url, {
+            headers: { accept: 'application/json' },
+            timeout: 10000,
+          });
+
+          await redisClient.setEx(cacheKey, CACHE_DURATION, JSON.stringify(response.data));
+          logger.info('DEX data fetched and cached:', { cacheKey, poolCount: response.data?.data?.length || 0 });
+
+          controller.enqueue(JSON.stringify(response.data));
+          controller.close();
+        } catch (error) {
+          logger.error('Error fetching DEX data:', {
+            status: error.response?.status,
+            detail: error.response?.data || error.message,
+            ip,
+          });
+          const status = error.response?.status || 500;
+          const detail =
+            status === 429
+              ? 'GeckoTerminal API rate limit exceeded. Please try again later.'
+              : status === 404
+              ? `No DEX data found for token ${tokenAddress} on ${chain}.`
+              : 'An unexpected error occurred while fetching DEX data';
+          controller.enqueue(JSON.stringify({ detail }));
+          controller.close();
+        }
+      },
+    }),
+    {
       headers: {
         'Content-Type': 'application/json',
         'Content-Security-Policy': "default-src 'self'",
         'Access-Control-Allow-Origin': origin,
         'Access-Control-Allow-Methods': 'POST',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Cache-Control': `public, max-age=${CACHE_DURATION}`,
       },
-    });
-  }
-
-  try {
-    const url = `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/tokens/${tokenAddress}/pools?page=1`;
-    const response = await fetchWithRateLimit(url, {
-      headers: { accept: 'application/json' },
-      timeout: 10000,
-    });
-
-    const data = response.data;
-    let pools = data?.data || [];
-    pools.sort((a, b) => parseFloat(b.attributes.volume_usd.h24) - parseFloat(a.attributes.volume_usd.h24));
-    const topPools = pools.slice(0, 5);
-
-    const tradePromises = topPools.map((pool) =>
-      fetchWithRateLimit(
-        `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/pools/${pool.attributes.address}/trades?trade_volume_in_usd_greater_than=100`,
-        {
-          headers: { accept: 'application/json' },
-          timeout: 10000,
-        }
-      ).then((response) => ({
-        status: 'fulfilled',
-        poolAddress: pool.attributes.address,
-        poolName: pool.attributes.name,
-        data: response.data?.data || [],
-      })).catch((error) => ({
-        status: 'rejected',
-        poolAddress: pool.attributes.address,
-        poolName: pool.attributes.name,
-        error: {
-          message: error.message,
-          status: error.response?.status,
-          safeMessage: error.response?.status === 429 ? 'Rate limit exceeded' : 'Failed to fetch trades',
-        },
-      }))
-    );
-
-    const tradeResults = await Promise.allSettled(tradePromises);
-    const trades = tradeResults.reduce((acc, result) => {
-      if (result.status === 'fulfilled') {
-        return acc.concat(
-          result.value.data.map((trade) => ({
-            ...trade.attributes,
-            pool_name: result.value.poolName,
-            pool_address: result.value.poolAddress,
-          }))
-        );
-      }
-      return acc;
-    }, []);
-
-    const validTrades = trades.filter((trade) => {
-      const isValid = trade.pool_address && typeof trade.pool_address === 'string' && trade.pool_address.match(/^0x[a-fA-F0-9]{40}$/);
-      return isValid;
-    });
-
-    const poolTokens = {};
-    // Fetch pool token metadata (giả sử fetchPoolTokenMetadata đã được định nghĩa trong MarketTabLogic.jsx)
-    const poolTokenPromises = topPools.map((pool) =>
-      fetchWithRateLimit(
-        `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/pools/${pool.attributes.address}/info`,
-        {
-          headers: { accept: 'application/json' },
-          timeout: 10000,
-        }
-      ).then((response) => ({
-        status: 'fulfilled',
-        poolAddress: pool.attributes.address,
-        data: response.data?.data || [],
-      })).catch((error) => ({
-        status: 'rejected',
-        poolAddress: pool.attributes.address,
-        error: {
-          message: error.message,
-          status: error.response?.status,
-          safeMessage: error.response?.status === 429 ? 'Rate limit exceeded' : 'Failed to fetch pool token metadata',
-        },
-      }))
-    );
-
-    const poolTokenResults = await Promise.allSettled(poolTokenPromises);
-    poolTokenResults.forEach((result, index) => {
-      if (result.status === 'fulfilled' && result.value.data.length > 0) {
-        poolTokens[topPools[index].attributes.address] = result.value.data.reduce((acc, token) => {
-          acc[token.attributes.address] = {
-            symbol: token.attributes.symbol,
-            image_url: token.attributes.image_url,
-            transaction_score: token.attributes.gt_score_details?.transaction || 0,
-            holders: token.attributes.holders || {},
-          };
-          return acc;
-        }, {});
-      }
-    });
-
-    const responseData = {
-      success: true,
-      data: { pools: topPools, trades: validTrades, poolTokens },
-    };
-
-    await redisClient.setEx(cacheKey, CACHE_DURATION, JSON.stringify(responseData));
-    logger.info('DEX data fetched and cached:', { cacheKey, poolCount: topPools.length });
-
-    return NextResponse.json(responseData, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Security-Policy': "default-src 'self'",
-        'Access-Control-Allow-Origin': origin,
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Cache-Control': `public, max-age=${CACHE_DURATION}`,
-      },
-    });
-  } catch (error) {
-    logger.error('Error fetching DEX data:', {
-      status: error.response?.status,
-      detail: error.response?.data || error.message,
-      ip,
-    });
-    const status = error.response?.status || 500;
-    const detail =
-      status === 429
-        ? 'GeckoTerminal API rate limit exceeded. Please try again later.'
-        : status === 404
-        ? `No DEX data found for token ${tokenAddress} on ${chain}.`
-        : 'An unexpected error occurred while fetching DEX data';
-    return NextResponse.json({ detail }, { status });
-  }
+    }
+  );
 }
