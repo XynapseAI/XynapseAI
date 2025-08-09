@@ -99,7 +99,8 @@ export default {
 				jetbrains: [
 					'JetBrains Mono',
 					'monospace'
-				]
+				],
+				saira: ['Saira', 'sans-serif'],
 			},
 			fontSize: {
 				xs: '0.75rem',

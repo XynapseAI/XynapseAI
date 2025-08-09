@@ -374,7 +374,7 @@ export default function Dashboard() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, ease: 'easeOut' }}
-        className={`h-screen w-screen flex items-center justify-center bg-black text-white overflow-hidden font-jetbrains relative ${styles.container}`}
+        className={`h-screen w-screen flex items-center justify-center bg-black text-white overflow-hidden font-saira relative ${styles.container}`}
       >
         <motion.div
           ref={starsBackgroundRef}

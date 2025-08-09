@@ -451,7 +451,7 @@ export default function ProfileTab({ recaptchaRef }) {
           href={`https://x.com/${user.twitterHandle || 'unknown'}`}
           target="_blank"
           rel="noopener noreferrer"
-          className={`grid grid-cols-12 p-2 rounded-lg font-jetbrains transition-all duration-300 border border-white/10 ${isMobile ? 'bg-black/60' : 'bg-black/60 backdrop-blur-md hover:bg-neon-blue/10'
+          className={`grid grid-cols-12 p-2 rounded-lg font-saira transition-all duration-300 border border-white/10 ${isMobile ? 'bg-black/60' : 'bg-black/60 backdrop-blur-md hover:bg-neon-blue/10'
             } ${rankStyles[rank] || ''} ${isCurrentUser ? (isMobile ? '' : 'shadow-neon') : ''}`}
         >
           <div className="col-span-2 text-[10px] sm:text-xs text-white flex items-center ml-2">{rank}</div>
@@ -489,243 +489,250 @@ export default function ProfileTab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="w-full p-2 sm:p-4 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 shadow-neon-sm"
+      className="w-full p-2 sm:p-4 rounded-lg bg-black/60 backdrop-blur-md border border-white/10"
     >
-      <h2 className="text-[10px] sm:text-xs font-bold text-white uppercase mb-3 bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded">Tasks</h2>
-      {tasksLoading && <LoadingOverlay isLoading={tasksLoading} message="Loading tasks..." isMobile={isMobile} />}
-      {tasksError && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
-        >
-          Error: {tasksError.message}
-        </motion.div>
-      )}
-      {!tasks?.length && !tasksError && !tasksLoading && (
-        <p className="text-[10px] sm:text-xs text-gray-400 text-center">No tasks available.</p>
-      )}
-      {tasks?.length > 0 && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {getPaginatedData(tasks, 'tasks').map((task) => (
-              <motion.div
-                key={task.id}
-                className="p-3 bg-black/80 rounded-xl border-2 border-white/20 backdrop-blur-md flex flex-col"
-              >
-                <div className="flex-1">
-                  <h3 className="text-[10px] sm:text-xs font-semibold text-white mb-2">
-                    {task.id} {task.isDaily ? `(Daily ${taskProgress?.[task.id] || 0}/${task.maxCompletions})` : ''}
-                  </h3>
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-[10px] sm:text-xs text-neon-green">+{task.points} Points</span>
-                  <motion.button
-                    onClick={() => verifyTaskMutation.mutate(task)}
-                    disabled={verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)}
-                    className={`px-3 py-1 rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 border-2 border-white/20 backdrop-blur-md ${verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)
+      <div className="relative min-h-[calc(100vh-12rem)]">
+        <LoadingOverlay isLoading={tasksLoading || taskProgressLoading} message="Loading tasks..." isMobile={isMobile} />
+        <h2 className="text-[10px] sm:text-xs font-bold text-white uppercase mb-3 bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded">Tasks</h2>
+        {tasksError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center min-h-[calc(100vh-12rem)] flex items-center justify-center"
+          >
+            Error: {tasksError.message}
+          </motion.div>
+        )}
+        {!tasks?.length && !tasksError && !(tasksLoading || taskProgressLoading) && (
+          <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 min-h-[calc(100vh-12rem)] flex items-center justify-center">No tasks available.</p>
+        )}
+        {tasks?.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {getPaginatedData(tasks, 'tasks').map((task) => (
+                <motion.div
+                  key={task.id}
+                  className="p-3 bg-black/80 rounded-xl border-2 border-white/20 backdrop-blur-md flex flex-col"
+                >
+                  <div className="flex-1">
+                    <h3 className="text-[10px] sm:text-xs font-semibold text-white mb-2">
+                      {task.id} {task.isDaily ? `(Daily ${taskProgress?.[task.id] || 0}/${task.maxCompletions})` : ''}
+                    </h3>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-[10px] sm:text-xs text-neon-green">+{task.points} Points</span>
+                    <motion.button
+                      onClick={() => verifyTaskMutation.mutate(task)}
+                      disabled={verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)}
+                      className={`px-3 py-1 rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 border-2 border-white/20 backdrop-blur-md ${verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)
                         ? 'bg-white/10 text-white/50 cursor-not-allowed opacity-50'
-                        : 'text-white hover:bg-neon-blue/30 hover:shadow-neon'
-                      }`}
-                  >
-                    {verifyTaskMutation.isLoading ? 'Verifying...' : 'Verify'}
-                  </motion.button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-          <div className="flex justify-end gap-2 mt-3">
-            <motion.button
-              onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
-              disabled={currentPage.tasks === 1}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                }`}
-            >
-              &lt;
-            </motion.button>
-            <span className="text-xs text-gray-200 mt-1">{currentPage.tasks} / {getTotalPages(tasks)}</span>
-            <motion.button
-              onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
-              disabled={currentPage.tasks === getTotalPages(tasks)}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                }`}
-            >
-              &gt;
-            </motion.button>
-          </div>
-        </>
-      )}
+                        : 'text-white'
+                        }`}
+                    >
+                      {verifyTaskMutation.isLoading ? 'Verifying...' : 'Verify'}
+                    </motion.button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 mt-3">
+              <motion.button
+                onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
+                disabled={currentPage.tasks === 1}
+                className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  }`}
+              >
+                &lt;
+              </motion.button>
+              <span className="text-xs text-gray-200 mt-1">{currentPage.tasks} / {getTotalPages(tasks)}</span>
+              <motion.button
+                onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
+                disabled={currentPage.tasks === getTotalPages(tasks)}
+                className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  }`}
+              >
+                &gt;
+              </motion.button>
+            </div>
+          </>
+        )}
+      </div>
     </motion.div>
-  ), [tasks, tasksLoading, tasksError, taskProgress, verifyTaskMutation, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange]);
+  ), [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange]);
 
-  // Render Leaderboard Section
+  // Update renderLeaderboardSection
   const renderLeaderboardSection = useCallback(() => (
     <motion.div
       key="leaderboard"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="w-full p-2 sm:p-4 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 shadow-neon-sm"
+      className="w-full p-2 sm:p-4 rounded-lg bg-black/60 backdrop-blur-md border border-white/10"
     >
-      <h2 className="text-[10px] sm:text-xs font-bold text-white uppercase mb-3 text-center bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded">Leaderboard</h2>
-      {leaderboardLoading && <LoadingOverlay isLoading={leaderboardLoading} message="Loading rankings..." isMobile={isMobile} />}
-      {leaderboardError && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
-        >
-          Error: {leaderboardError.message}
-          <button onClick={() => window.location.reload()} className="ml-2 px-2 py-1 bg-neon-blue text-black rounded">
-            Retry
-          </button>
-        </motion.div>
-      )}
-      {!leaderboardLoading && !leaderboardError && rankings?.length === 0 && (
-        <div className="text-center text-gray-400 text-[10px] sm:text-xs p-3 rounded-lg border border-white/10 bg-black/60">
-          No ranking data available.
-        </div>
-      )}
-      {!leaderboardLoading && rankings?.length > 0 && (
-        <>
-          <div className="grid grid-cols-12 gap-2 text-[10px] sm:text-xs text-gray-400 mb-3">
-            <div className="col-span-2">Rank</div>
-            <div className="col-span-6">User</div>
-            <div className="col-span-4 text-right">Points</div>
+      <div className="relative min-h-[calc(100vh-12rem)]">
+        <LoadingOverlay isLoading={leaderboardLoading} message="Loading rankings..." isMobile={isMobile} />
+        <h2 className="text-[10px] sm:text-xs font-bold text-white uppercase mb-3 text-center bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded">Leaderboard</h2>
+        {leaderboardError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center min-h-[calc(100vh-12rem)] flex items-center justify-center"
+          >
+            Error: {leaderboardError.message}
+            <button onClick={() => window.location.reload()} className="ml-2 px-2 py-1 bg-neon-blue text-black rounded">
+              Retry
+            </button>
+          </motion.div>
+        )}
+        {!leaderboardLoading && !leaderboardError && rankings?.length === 0 && (
+          <div className="text-center text-gray-400 text-[10px] sm:text-xs p-3 rounded-lg border border-white/10 bg-black/60 min-h-[calc(100vh-12rem)] flex items-center justify-center">
+            No ranking data available.
           </div>
-          {userData && renderUserRow(userData, -1, true)}
-          {getPaginatedData(rankings, 'leaderboard').map((user, index) => renderUserRow(user, index, false))}
-          <div className="flex justify-end gap-2 mt-3">
-            <motion.button
-              onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
-              disabled={currentPage.leaderboard === 1}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                }`}
-            >
-              &lt;
-            </motion.button>
-            <span className="text-xs text-gray-200">Page {currentPage.leaderboard} of {getTotalPages(rankings)}</span>
-            <motion.button
-              onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
-              disabled={currentPage.leaderboard === getTotalPages(rankings)}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                }`}
-            >
-              &gt;
-            </motion.button>
-          </div>
-        </>
-      )}
+        )}
+        {!leaderboardLoading && rankings?.length > 0 && (
+          <>
+            <div className="grid grid-cols-12 gap-2 text-[10px] sm:text-xs text-gray-400 mb-3">
+              <div className="col-span-2">Rank</div>
+              <div className="col-span-6">User</div>
+              <div className="col-span-4 text-right">Points</div>
+            </div>
+            {userData && renderUserRow(userData, -1, true)}
+            {getPaginatedData(rankings, 'leaderboard').map((user, index) => renderUserRow(user, index, false))}
+            <div className="flex justify-end gap-2 mt-3">
+              <motion.button
+                onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
+                disabled={currentPage.leaderboard === 1}
+                className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  }`}
+              >
+                &lt;
+              </motion.button>
+              <span className="text-xs text-gray-200">Page {currentPage.leaderboard} of {getTotalPages(rankings)}</span>
+              <motion.button
+                onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
+                disabled={currentPage.leaderboard === getTotalPages(rankings)}
+                className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  }`}
+              >
+                &gt;
+              </motion.button>
+            </div>
+          </>
+        )}
+      </div>
     </motion.div>
   ), [leaderboardLoading, leaderboardError, rankings, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, renderUserRow]);
 
-  // Render Points Section
+  // Update renderPointsSection
   const renderPointsSection = useCallback(() => (
     <motion.div
       key="points"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="w-full p-2 sm:p-4 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 shadow-neon-sm"
+      className="w-full p-2 sm:p-4 rounded-lg bg-black/60 backdrop-blur-md border border-white/10"
     >
-      <h2 className="text-[10px] sm:text-xs font-bold text-white uppercase mb-3 bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded">Point History</h2>
-      {pointLoading && <LoadingOverlay isLoading={pointLoading} message="Loading point data..." isMobile={isMobile} />}
-      {pointError && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
-        >
-          Error: {pointError.message}
-        </motion.div>
-      )}
-      {!pointLoading && !pointError && (
-        <>
-          <div className="h-64 bg-black/80 rounded-lg p-2 mb-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={pointData?.history} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                <CartesianGrid stroke="#ffffff1a" strokeDasharray="5 5" />
-                <XAxis dataKey="date" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} angle={-45} textAnchor="end" height={50} />
-                <YAxis stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1a1a1a',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '0.5rem',
-                    padding: '0.5rem',
-                    boxShadow: '0 0 8px rgba(0, 191, 255, 0.3)',
-                  }}
-                  labelStyle={{ color: '#ffffff' }}
-                  itemStyle={{ color: '#ffffff' }}
-                  cursor={{ stroke: '#00BFFF', strokeWidth: 1 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="taskPoints"
-                  stroke="#00FF00"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ fill: '#00FF00', r: 4, stroke: '#ffffff', strokeWidth: 1 }}
-                  name="Task Points"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <motion.div
-              className="flex-1 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md p-3 sm:p-4 shadow-neon-sm min-h-[120px]"
-            >
-              <h3 className="text-[10px] sm:text-xs font-bold text-white mb-2 uppercase">Total Points</h3>
-              <p className="text-2xl sm:text-3xl font-bold text-neon-blue text-center mb-3">{userData?.points || 0}</p>
-            </motion.div>
-            <motion.div
-              className="flex-1 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md p-3 sm:p-4 shadow-neon-sm min-h-[120px] flex flex-col items-center justify-center"
-            >
-              <h3 className="text-[10px] sm:text-xs font-bold text-white mb-2 uppercase">Task Points</h3>
-              <div className="flex items-center justify-center gap-2">
-                <p className="text-2xl sm:text-3xl font-bold text-neon-blue">{pointData?.taskPoints || 0}</p>
-                <motion.p
-                  className={`text-[10px] sm:text-xs font-semibold text-${pointData?.taskGrowth.color} ${pointData?.taskGrowth.value != 0 ? 'animate-pulse' : ''
-                    }`}
-                  animate={{ opacity: pointData?.taskGrowth.value != 0 ? [1, 0.7, 1] : 1 }}
-                  transition={{ duration: 1.5, repeat: pointData?.taskGrowth.value != 0 ? Infinity : 0 }}
-                >
-                  {pointData?.taskGrowth.value}% {pointData?.taskGrowth.value > 0 ? '↑' : pointData?.taskGrowth.value < 0 ? '↓' : '–'}
-                </motion.p>
-              </div>
-            </motion.div>
-          </div>
-          <div className="flex justify-end gap-2 mt-3">
-            <motion.button
-              onClick={() => handlePageChange('points', currentPage.points - 1)}
-              disabled={currentPage.points === 1}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                }`}
-            >
-              &lt;
-            </motion.button>
-            <span className="text-xs text-gray-200">Page {currentPage.points} of {getTotalPages(pointData?.history || [])}</span>
-            <motion.button
-              onClick={() => handlePageChange('points', currentPage.points + 1)}
-              disabled={currentPage.points === getTotalPages(pointData?.history || [])}
-              className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                }`}
-            >
-              &gt;
-            </motion.button>
-          </div>
-        </>
-      )}
+      <div className="relative min-h-[calc(100vh-12rem)]">
+        <LoadingOverlay isLoading={pointLoading} message="Loading point data..." isMobile={isMobile} />
+        <h2 className="text-[10px] sm:text-xs font-bold text-white uppercase mb-3 bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded">Point History</h2>
+        {pointError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center min-h-[calc(100vh-12rem)] flex items-center justify-center"
+          >
+            Error: {pointError.message}
+          </motion.div>
+        )}
+        {!pointLoading && !pointError && (
+          <>
+            <div className="h-64 bg-black/80 rounded-lg p-2 mb-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={pointData?.history} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                  <CartesianGrid stroke="#ffffff1a" strokeDasharray="5 5" />
+                  <XAxis dataKey="date" stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} angle={-45} textAnchor="end" height={50} />
+                  <YAxis stroke="#ffffff" tick={{ fontSize: 9, fill: '#ffffff' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1a1a1a',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '0.5rem',
+                      padding: '0.5rem',
+                      boxShadow: '0 0 8px rgba(0, 191, 255, 0.3)',
+                    }}
+                    labelStyle={{ color: '#ffffff' }}
+                    itemStyle={{ color: '#ffffff' }}
+                    cursor={{ stroke: '#00BFFF', strokeWidth: 1 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="taskPoints"
+                    stroke="#00FF00"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ fill: '#00FF00', r: 4, stroke: '#ffffff', strokeWidth: 1 }}
+                    name="Task Points"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <motion.div
+                className="flex-1 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md p-3 sm:p-4 min-h-[120px]"
+              >
+                <h3 className="text-[10px] sm:text-xs font-bold text-white mb-2 uppercase">Total Points</h3>
+                <p className="text-2xl sm:text-3xl font-bold text-neon-blue text-center mb-3">{userData?.points || 0}</p>
+              </motion.div>
+              <motion.div
+                className="flex-1 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md p-3 sm:p-4 min-h-[120px] flex flex-col items-center justify-center"
+              >
+                <h3 className="text-[10px] sm:text-xs font-bold text-white mb-2 uppercase">Task Points</h3>
+                <div className="flex items-center justify-center gap-2">
+                  <p className="text-2xl sm:text-3xl font-bold text-neon-blue">{pointData?.taskPoints || 0}</p>
+                  <motion.p
+                    className={`text-[10px] sm:text-xs font-semibold text-${pointData?.taskGrowth.color} ${pointData?.taskGrowth.value != 0 ? 'animate-pulse' : ''
+                      }`}
+                    animate={{ opacity: pointData?.taskGrowth.value != 0 ? [1, 0.7, 1] : 1 }}
+                    transition={{ duration: 1.5, repeat: pointData?.taskGrowth.value != 0 ? Infinity : 0 }}
+                  >
+                    {pointData?.taskGrowth.value}% {pointData?.taskGrowth.value > 0 ? '↑' : pointData?.taskGrowth.value < 0 ? '↓' : '–'}
+                  </motion.p>
+                </div>
+              </motion.div>
+            </div>
+            <div className="flex justify-end gap-2 mt-3">
+              <motion.button
+                onClick={() => handlePageChange('points', currentPage.points - 1)}
+                disabled={currentPage.points === 1}
+                className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  }`}
+              >
+                &lt;
+              </motion.button>
+              <span className="text-xs text-gray-200">Page {currentPage.points} of {getTotalPages(pointData?.history || [])}</span>
+              <motion.button
+                onClick={() => handlePageChange('points', currentPage.points + 1)}
+                disabled={currentPage.points === getTotalPages(pointData?.history || [])}
+                className={`px-3 py-1 text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                  }`}
+              >
+                &gt;
+              </motion.button>
+            </div>
+          </>
+        )}
+      </div>
     </motion.div>
   ), [pointLoading, pointError, pointData, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange]);
 
-  if (status === 'loading') {
+
+  if (status === 'loading' || csrfLoading) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
-        className="font-jetbrains w-full max-w-7xl mx-auto bg-black/60 backdrop-blur-2xl p-2 sm:p-4 shadow-neon-lg h-[calc(100vh)] overflow-hidden"
+        className="font-saira w-full max-w-7xl mx-auto bg-black/60 backdrop-blur-2xl p-2 sm:p-4 h-[calc(100vh)] overflow-hidden"
       >
         <LoadingOverlay isLoading={true} message="Loading profile..." isMobile={isMobile} />
       </motion.div>
@@ -738,9 +745,9 @@ export default function ProfileTab({ recaptchaRef }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
-        className="font-jetbrains w-full max-w-8xl mx-auto bg-black/60 backdrop-blur-2xl p-2 sm:p-4 shadow-neon-lg h-[calc(100vh)] overflow-hidden"
+        className="font-saira w-full max-w-8xl mx-auto bg-black/60 backdrop-blur-2xl p-2 sm:p-4 h-[calc(100vh)] overflow-hidden"
       >
-        <div className="text-center text-gray-400 text-[10px] sm:text-xs p-3 bg-black/60 rounded-lg border border-white/10 backdrop-blur-md shadow-neon-sm">
+        <div className="text-center text-gray-400 text-[10px] sm:text-xs p-3 bg-black/60 rounded-lg border border-white/10 backdrop-blur-md min-h-[calc(100vh-12rem)] flex items-center justify-center">
           <p>Please sign in to view your profile.</p>
         </div>
       </motion.div>
@@ -752,109 +759,102 @@ export default function ProfileTab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className="font-jetbrains w-full max-w-10xl mx-auto bg-black/60 backdrop-blur-2xl p-2 sm:p-4 shadow-neon-lg h-[calc(100vh)] overflow-y-auto custom-scrollbar"
+      className="font-saira w-full max-w-10xl mx-auto bg-black/60 backdrop-blur-2xl p-2 sm:p-4 h-[calc(100vh)] overflow-y-auto custom-scrollbar"
     >
       <ToastContainer position="top-center" autoClose={5000} theme="dark" />
       <div className="w-full h-full flex flex-col gap-4">
         {/* Profile Information */}
-        {userLoading && <LoadingOverlay isLoading={userLoading} message="Loading profile..." isMobile={isMobile} />}
-        {userError && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
-          >
-            Error: {userError.message}
-          </motion.div>
-        )}
-        {userData && (
-          <motion.div
-            className="w-[80%] mx-auto rounded-b-2xl p-6 sm:p-6 flex flex-col sm:flex-row border-2 border-white/50 bg-black/60 backdrop-blur-md shadow-neon-sm hover:bg-neon-blue/10 relative"
-          >
-            {/* Left: Google Account Logo, Name, Email, Wallet */}
-            <div className="flex flex-col items-center sm:items-start sm:w-1/2">
-              <Image
-                src={getProfilePictureSrc(userData.profilePicture)}
-                alt={userData.googleName || 'Google User'}
-                width={40}
-                height={40}
-                className="rounded-xl border border-white/20 mb-2 sm:mb-3"
-              />
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] sm:text-xs text-white truncate">{userData.googleName || userData.email}</span>
-                <span
-                  className={`text-[8px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full border ${userData.isPremium ? 'text-black border-yellow-400/50 bg-yellow-400/10' : 'text-black border-gray-200 bg-gray-200'
-                    }`}
-                >
-                  {userData.tier || 'Basic'}
-                </span>
-              </div>
-              <p className="text-[8px] sm:text-[10px] text-gray-500 mt-1">{userData.email}</p>
-              <div className="flex items-center gap-2 mt-2 w-full justify-center sm:items-center sm:justify-between">
-                <motion.button
-                  onClick={() => connectWalletMutation.mutate()}
-                  disabled={connectWalletMutation.isLoading || userData.walletAddress}
-                  className={`px-2 sm:px-3 py-1 rounded-xl text-[8px] sm:text-[10px] font-medium transition-all duration-300 border border-green-500 backdrop-blur-md ${connectWalletMutation.isLoading || userData.walletAddress
-                      ? 'bg-black/80 text-green-500 cursor-not-allowed opacity-50'
-                      : 'text-green-500 bg-black/80'
-                    }`}
-                  whileHover={{ scale: connectWalletMutation.isLoading || userData.walletAddress ? 1 : 1 }}
-                  whileTap={{ scale: connectWalletMutation.isLoading || userData.walletAddress ? 1 : 1 }}
-                >
-                  {connectWalletMutation.isLoading ? 'Connecting...' : 'Connect Wallet'}
-                </motion.button>
-                {userData.walletAddress && (
-                  <motion.button
-                    onClick={() => disconnectWalletMutation.mutate()}
-                    disabled={disconnectWalletMutation.isLoading}
-                    className={`px-2 sm:px-3 py-1 rounded-lg text-[8px] sm:text-[10px] font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${disconnectWalletMutation.isLoading ? 'text-white/50 cursor-not-allowed opacity-50' : 'text-red-400 hover:bg-red-500/30 hover:shadow-neon'
+        <div className="relative">
+          <LoadingOverlay isLoading={userLoading} message="Loading profile..." isMobile={isMobile} />
+          {userError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-red-400 text-[10px] sm:text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center"
+            >
+              Error: {userError.message}
+            </motion.div>
+          )}
+          {userData && (
+            <motion.div
+              className="w-[80%] mx-auto rounded-b-2xl p-6 sm:p-6 flex flex-col sm:flex-row border-2 border-white/50 bg-black/60 backdrop-blur-md hover:bg-neon-blue/10"
+            >
+              {/* Left: Google Account Logo, Name, Email, Wallet */}
+              <div className="flex flex-col items-center sm:items-start sm:w-1/2">
+                <Image
+                  src={getProfilePictureSrc(userData.profilePicture)}
+                  alt={userData.googleName || 'Google User'}
+                  width={40}
+                  height={40}
+                  className="rounded-xl border border-white/20 mb-2 sm:mb-3"
+                />
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] sm:text-xs text-white truncate">{userData.googleName || userData.email}</span>
+                  <span
+                    className={`text-[8px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full border ${userData.isPremium ? 'text-black border-yellow-400/50 bg-yellow-400/10' : 'text-black border-gray-200 bg-gray-200'
                       }`}
                   >
-                    {disconnectWalletMutation.isLoading ? 'Disconnecting...' : 'Disconnect'}
+                    {userData.tier || 'Basic'}
+                  </span>
+                </div>
+                <p className="text-[8px] sm:text-[10px] text-gray-500 mt-1">{userData.email}</p>
+                <div className="flex items-center gap-2 mt-2 w-full justify-center sm:items-center sm:justify-between">
+                  <motion.button
+                    onClick={() => connectWalletMutation.mutate()}
+                    disabled={connectWalletMutation.isLoading || userData.walletAddress}
+                    className={`px-2 sm:px-3 py-1 rounded-xl text-[8px] sm:text-[10px] font-medium transition-all duration-300 border border-green-500 backdrop-blur-md ${connectWalletMutation.isLoading || userData.walletAddress
+                      ? 'bg-black/80 text-green-500 cursor-not-allowed opacity-50'
+                      : 'text-green-500 bg-black/80'
+                      }`}
+                    whileHover={{ scale: connectWalletMutation.isLoading || userData.walletAddress ? 1 : 1 }}
+                    whileTap={{ scale: connectWalletMutation.isLoading || userData.walletAddress ? 1 : 1 }}
+                  >
+                    {connectWalletMutation.isLoading ? 'Connecting...' : 'Connect Wallet'}
                   </motion.button>
-                )}
+                  {userData.walletAddress && (
+                    <motion.button
+                      onClick={() => disconnectWalletMutation.mutate()}
+                      disabled={disconnectWalletMutation.isLoading}
+                      className={`px-2 sm:px-3 py-1 rounded-lg text-[8px] sm:text-[10px] font-medium transition-all duration-300 border border-red-500/50 backdrop-blur-md ${disconnectWalletMutation.isLoading ? 'text-white/50 cursor-not-allowed opacity-50' : 'text-red-400 hover:bg-red-500/30'
+                        }`}
+                    >
+                      {disconnectWalletMutation.isLoading ? 'Disconnecting...' : 'Disconnect'}
+                    </motion.button>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Right: Points, Days Active, Clear Cache */}
-            <div className="flex flex-col sm:w-1/2 mt-3 sm:mt-0 items-center sm:items-end justify-between">
-              <motion.button
-                onClick={handleSignOut}
-                className="absolute top-3 sm:top-4 right-3 sm:right-4 text-white rounded-xl w-8 h-8 flex items-center justify-center border border-white/10 backdrop-blur-md hover:bg-red-500/30 transition-all duration-300 bg-black/60"
-                aria-label="Sign out"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 sm:h-5 w-4 sm:w-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#F87171"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              {/* Right: Points, Days Active */}
+              <div className="flex flex-col sm:w-1/2 mt-3 sm:mt-0 items-center sm:items-end justify-between">
+                <motion.button
+                  onClick={handleSignOut}
+                  className="absolute top-3 sm:top-4 right-3 sm:right-4 text-white rounded-xl w-8 h-8 flex items-center justify-center border border-white/10 backdrop-blur-md hover:bg-red-500/30 transition-all duration-300 bg-black/60"
+                  aria-label="Sign out"
                 >
-                  <path
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                  />
-                </svg>
-              </motion.button>
-              {/* <motion.button
-                onClick={() => clearCacheMutation.mutate()}
-                disabled={clearCacheMutation.isLoading}
-                className={`absolute top-10 sm:top-12 right-3 sm:right-4 px-2 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
-                  clearCacheMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                }`}
-              >
-                {clearCacheMutation.isLoading ? 'Clearing...' : 'Clear Cache'}
-              </motion.button> */}
-              <div className="flex items-end h-full">
-                <p className="text-[8px] sm:text-[10px] text-white">
-                  Points: <span className="text-neon-blue">{userData.points || 0}</span> Days Active: <span className="text-neon-blue">{getDaysActive()}</span>
-                </p>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 sm:h-5 w-4 sm:w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#F87171"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                    />
+                  </svg>
+                </motion.button>
+                <div className="flex items-end h-full">
+                  <p className="text-[8px] sm:text-[10px] text-white">
+                    Points: <span className="text-neon-blue">{userData.points || 0}</span> Days Active: <span className="text-neon-blue">{getDaysActive()}</span>
+                  </p>
+                </div>
               </div>
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
+        </div>
 
         {/* Tab Navigation */}
         <div className="flex justify-center gap-1 sm:gap-2 bg-black/60 backdrop-blur-md">
@@ -862,7 +862,7 @@ export default function ProfileTab({ recaptchaRef }) {
             <motion.button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 px-3 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 uppercase ${activeTab === tab ? 'border-b-2 border-white text-white shadow-neon' : 'text-white hover:bg-neon-blue/10'
+              className={`flex-1 px-3 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 uppercase ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white'
                 }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -909,86 +909,86 @@ export default function ProfileTab({ recaptchaRef }) {
       </div>
 
       <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+        height: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.4);
+      }
+      .shadow-neon {
+        box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
+      }
+      .shadow-neon-sm {
+        box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
+      }
+      .shadow-neon-lg {
+        box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
+      }
+      .animate-pulse {
+        animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+      }
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
+        50% {
+          opacity: 0.5;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 3px;
+      }
+      @media (max-width: 640px) {
+        .w-[80%] {
+          width: 100%;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.4);
+        .min-h-[120px] {
+          min-height: 100px;
         }
-        .shadow-neon {
-          box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
+        .text-3xl {
+          font-size: 1.25rem;
         }
-        .shadow-neon-sm {
-          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
+        .text-2xl {
+          font-size: 1rem;
         }
-        .shadow-neon-lg {
-          box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
+        .text-[10px] {
+          font-size: 8px;
         }
-        .animate-pulse {
-          animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+        .text-[9px] {
+          font-size: 7px;
         }
-        @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
+        .text-[8px] {
+          font-size: 6px;
         }
-        @media (max-width: 640px) {
-          .w-[80%] {
-            width: 100%;
-          }
-          .min-h-[120px] {
-            min-height: 100px;
-          }
-          .text-3xl {
-            font-size: 1.25rem;
-          }
-          .text-2xl {
-            font-size: 1rem;
-          }
-          .text-[10px] {
-            font-size: 8px;
-          }
-          .text-[9px] {
-            font-size: 7px;
-          }
-          .text-[8px] {
-            font-size: 6px;
-          }
-          .h-64 {
-            height: 24rem;
-          }
-          .grid-cols-3 {
-            grid-template-columns: 1fr;
-          }
-          .grid-cols-12 {
-            font-size: 8px;
-          }
-          .w-8 {
-            width: 1.5rem;
-            height: 1.5rem;
-          }
-          .w-40 {
-            width: 32px;
-            height: 32px;
-          }
+        .h-64 {
+          height: 24rem;
         }
-        @media (min-width: 641px) and (max-width: 1024px) {
-          .grid-cols-3 {
-            grid-template-columns: repeat(2, 1fr);
-          }
+        .grid-cols-3 {
+          grid-template-columns: 1fr;
         }
-      `}</style>
+        .grid-cols-12 {
+          font-size: 8px;
+        }
+        .w-8 {
+          width: 1.5rem;
+          height: 1.5rem;
+        }
+        .w-40 {
+          width: 32px;
+          height: 32px;
+        }
+      }
+      @media (min-width: 641px) and (max-width: 1024px) {
+        .grid-cols-3 {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+    `}</style>
     </motion.div>
   );
 }

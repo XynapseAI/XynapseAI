@@ -124,7 +124,7 @@ export default async function TokenPage({ params }) {
   const data = await fetchTokenData(slug);
   if (!data?.data) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-black text-white font-jetbrains">
+      <div className="h-screen w-screen flex items-center justify-center bg-black text-white font-saira">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Token Not Found</h1>
           <p className="text-gray-400 mb-4">The token with slug {slug} could not be found.</p>

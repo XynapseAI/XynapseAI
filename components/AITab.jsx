@@ -388,7 +388,7 @@ export default function AITab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={`font-jetbrains w-full h-full mx-auto mt-0 md:mt-4 bg-galaxy backdrop-blur-lg shadow-glow-neon ${isMobile ? 'h-[calc(45vh)] min-h-[calc(45vh)]' : 'h-[calc(100vh)] min-h-[calc(95vh)]'} flex flex-col overflow-hidden`}
+      className={`font-saira w-full h-full mx-auto mt-0 md:mt-4 bg-galaxy backdrop-blur-lg shadow-glow-neon ${isMobile ? 'h-[calc(45vh)] min-h-[calc(45vh)]' : 'h-[calc(100vh)] min-h-[calc(95vh)]'} flex flex-col overflow-hidden`}
     >
       {/* Header */}
       <div className="p-2 bg-gray-900/50 border-b border-white/10 flex items-center shrink-0 rounded-t-lg">

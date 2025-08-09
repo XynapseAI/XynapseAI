@@ -417,7 +417,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-black text-white overflow-x-hidden font-jetbrains">
+    <div className="min-h-screen flex flex-col bg-black text-white overflow-x-hidden font-saira">
       {/* Header */}
       <header className="w-full py-1 px-6 flex justify-between items-center bg-gray-900/50 backdrop-blur-lg border-b border-white/10 z-50 sticky top-0">
         <Image

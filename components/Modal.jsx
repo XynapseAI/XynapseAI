@@ -15,7 +15,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile }) => {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.4, ease: "easeInOut" }}
-      className="fixed inset-0 flex items-center justify-center z-50 font-jetbrains bg-black/60 backdrop-blur-xl"
+      className="fixed inset-0 flex items-center justify-center z-50 font-saira bg-black/60 backdrop-blur-xl"
       onClick={onClose}
     >
       <div

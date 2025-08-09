@@ -34,7 +34,7 @@ const logger = {
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-black/80 p-2 rounded border border-white/20 text-white text-sm backdrop-blur-lg font-jetbrains">
+      <div className="bg-black/80 p-2 rounded border border-white/20 text-white text-sm backdrop-blur-lg font-saira">
         <p>{label}</p>
         <p>
           Price: <span className="font-bold">{formatPrice(Math.floor(payload[0].value), currency)}</span>
@@ -209,7 +209,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
     return createPortal(
       <motion.div
-        className="trending-tooltip border border-white/20 bg-black/80 p-2 rounded-xl text-white font-jetbrains backdrop-blur-lg shadow-neon-lg"
+        className="trending-tooltip border border-white/20 bg-black/80 p-2 rounded-xl text-white font-saira backdrop-blur-lg shadow-neon-lg"
         style={{
           position: 'absolute',
           top: `${position.top}px`,
@@ -539,7 +539,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-black/60 backdrop-blur-2xl shadow-neon-lg ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
+      className={`font-saira w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-black/60 backdrop-blur-2xl shadow-neon-lg ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
     >
       {/* Header Section */}
       <div className="w-full mb-1 mt-2 sm:mt-1 h-auto">
@@ -1411,10 +1411,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         <tbody>
                           {onChainData.topHolders.slice(0, 100).map((holder, index) => {
                             const isNonEvmChain = NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase());
-                            const address = holder.address.toLowerCase();
+                            const address = holder.address?.toLowerCase();
                             const { text: displayText, image } = truncateAddress(holder.address, nameTags, holder.source);
-                            const isValidBtcAddress = holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/);
-                            const isValidEvmAddress = holder.address.match(/^0x[a-fA-F0-9]{40}$/);
+                            const isValidAddress = holder.address && (
+                              holder.address.match(/^0x[a-fA-F0-9]{40}$/) || // EVM address
+                              holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/) // Non-EVM (e.g., Bitcoin)
+                            );
 
                             return (
                               <tr
@@ -1422,7 +1424,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
                               >
                                 <td className="px-2 sm:px-3 py-1 sm:py-2 text-white min-w-[150px] sm:min-w-[200px]">
-                                  <div className="flex items-center gap-2 text-[10px] sm:text-xs">
+                                  <div className="flex items-center gap-2 text-[10px] sm:text-xs group relative">
                                     {image && (
                                       <img
                                         src={image}
@@ -1437,29 +1439,55 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         }}
                                       />
                                     )}
-                                    {isNonEvmChain && isValidBtcAddress ? (
+                                    {isNonEvmChain && isValidAddress ? (
                                       <a
                                         href={`https://blockchair.com/${selectedToken?.id.toLowerCase()}/address/${holder.address}`}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="text-neon-blue hover:underline"
+                                        className="text-white hover:text-neon-blue transition-colors"
                                         title={holder.address}
                                       >
                                         {displayText}
                                       </a>
                                     ) : (
                                       <span
-                                        className={`text-gray-200 ${isValidEvmAddress ? 'cursor-pointer hover:text-neon-blue hover:underline' : 'cursor-default'
-                                          }`}
-                                        onClick={() => isValidEvmAddress && handleAddressClick(holder.address)}
+                                        className={`text-white ${isValidAddress ? 'cursor-pointer hover:text-neon-blue transition-colors' : 'cursor-default'}`}
+                                        onClick={() => isValidAddress && handleAddressClick(holder.address)}
                                         title={displayText}
                                       >
                                         {displayText}
                                       </span>
                                     )}
+                                    {isValidAddress && (
+                                      <motion.button
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(holder.address);
+                                          toast.success('Address copied!', { autoClose: 2000 });
+                                        }}
+                                        className="absolute right-0 text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                        title="Copy address"
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                      >
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="w-3 sm:w-4 h-3 sm:h-4"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                          strokeWidth={2}
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                          />
+                                        </svg>
+                                      </motion.button>
+                                    )}
                                   </div>
                                 </td>
-                                <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 text-[10px] sm:text-xs w-[80px] sm:w-[100px]">
+                                <td className="px-2 sm:px-3 py-1 sm:py-2 text-white text-[10px] sm:text-xs w-[80px] sm:w-[100px]">
                                   <span>
                                     {Math.floor(holder.balance).toLocaleString('en-US')}
                                   </span>
@@ -1807,27 +1835,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       onError={(e) => (e.target.src = '/fallback-image.png')}
                                     />
                                   )}
-                                  {/* <span className="truncate">
-                                    {(() => {
-                                      const tokenAddress =
-                                        trade.kind === 'sell' ? trade.from_token_address : trade.to_token_address;
-                                      return tokenAddress.toLowerCase() ===
-                                        selectedToken?.detail_platforms?.[
-                                          chains.find((c) => c.value === selectedChain)?.coingeckoId
-                                        ]?.contract_address?.toLowerCase()
-                                        ? selectedToken?.symbol?.toUpperCase()
-                                        : 'Token';
-                                    })()}
-                                  </span> */}
                                 </div>
                               </td>
                               <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px]">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 group relative">
                                   <a
                                     href={getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address).addressUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-neon-blue hover:underline truncate cursor-pointer"
+                                    className="text-neon-blue hover:text-neon-blue/80 truncate cursor-pointer"
                                     title={trade.tx_from_address}
                                   >
                                     {(() => {
@@ -1841,7 +1857,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         navigator.clipboard.writeText(trade.tx_from_address);
                                         toast.success('Address copied!', { autoClose: 2000 });
                                       }}
-                                      className="text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0"
+                                      className="absolute right-0 text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                                       title="Copy address"
                                       whileHover={{ scale: 1.1 }}
                                       whileTap={{ scale: 0.9 }}
@@ -1865,12 +1881,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 </div>
                               </td>
                               <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px]">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 group relative">
                                   <a
                                     href={getExplorerUrls(selectedChain, trade.tx_hash, trade.to_token_address).addressUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-neon-blue hover:underline truncate cursor-pointer"
+                                    className="text-neon-blue hover:text-neon-blue/80 truncate cursor-pointer"
                                     title={trade.to_token_address}
                                   >
                                     {(() => {
@@ -1884,7 +1900,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         navigator.clipboard.writeText(trade.to_token_address);
                                         toast.success('Address copied!', { autoClose: 2000 });
                                       }}
-                                      className="text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0"
+                                      className="absolute right-0 text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                                       title="Copy address"
                                       whileHover={{ scale: 1.1 }}
                                       whileTap={{ scale: 0.9 }}
@@ -1935,7 +1951,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 </div>
                               </td>
                               <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px] text-center">
-                                <div className="flex flex-col gap-0.5 items-center">
+                                <div className="flex flex-col gap-0.5 items-center group relative">
                                   <a
                                     href={getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address).txUrl}
                                     target="_blank"
@@ -1953,6 +1969,33 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   <span className="truncate text-[9px] sm:text-[9px] text-gray-500 text-center">
                                     {formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}
                                   </span>
+                                  {trade.tx_hash && typeof trade.tx_hash === 'string' && (
+                                    <motion.button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(trade.tx_hash);
+                                        toast.success('Transaction hash copied!', { autoClose: 2000 });
+                                      }}
+                                      className="absolute right-0 text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                      title="Copy transaction hash"
+                                      whileHover={{ scale: 1.1 }}
+                                      whileTap={{ scale: 0.9 }}
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="w-3 sm:w-4 h-3 sm:h-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth={2}
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                        />
+                                      </svg>
+                                    </motion.button>
+                                  )}
                                 </div>
                               </td>
                               <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[80px] sm:w-[100px]">

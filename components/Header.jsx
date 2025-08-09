@@ -116,7 +116,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
   };
 
   return (
-    <header className="h-[4vh] sm:h-[5vh] bg-galaxy border-b rounded-b-xl p-3 flex justify-between items-center sticky top-[-10px] z-20 font-jetbrains">
+    <header className="h-[4vh] sm:h-[5vh] bg-galaxy border-b rounded-b-xl p-3 flex justify-between items-center sticky top-[-10px] z-20 font-saira">
       <div className="block sm:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -150,8 +150,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
               className={`group px-3 py-1.5 text-[10px] md:text-[10px] font-medium transition-all duration-300 text-white backdrop-blur-md perspective-1000 uppercase ${
                 activeTab === tab.id ? 'bg-gradient-to-r from-neon-blue/30 to-transparent text-black' : ''
               }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
             >
               <span className="matrix-text inline-block underline underline-offset-2">
                 {renderMatrixText(tab.label)}
