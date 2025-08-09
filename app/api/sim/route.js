@@ -186,9 +186,9 @@ export async function POST(request) {
   const effectiveDecimalPlace = typeof decimalPlace === 'number' && Number.isInteger(decimalPlace) && decimalPlace >= 0
     ? decimalPlace
     : 18;
-  const effectiveLimit = typeof limit === 'number' && Number.isInteger(limit) && limit >= 1 && limit <= 500
+  const effectiveLimit = typeof limit === 'number' && Number.isInteger(limit) && limit >= 1 && limit <= 3000
     ? limit
-    : 100;
+    : 3000;
 
   // Validate parameters based on 'action'
   let validationError = null;
@@ -340,6 +340,7 @@ export async function POST(request) {
               controller.close();
             } else if (action === 'transactions' && address) {
               logger.info(`Processing transactions for address: ${address}`, { ip });
+              const effectiveLimit = Math.min(limit, 500);
               const url = isEVMAddress
                 ? `https://api.sim.dune.com/v1/evm/activity/${address}?${chainParam}&limit=${effectiveLimit}&sort=desc`
                 : `https://api.sim.dune.com/beta/svm/transactions/${address}?${chainParam}&limit=${effectiveLimit}&sort=desc`;
