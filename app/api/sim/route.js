@@ -60,31 +60,20 @@ const isValidSolanaAddress = (address) => {
 
 const CHAIN_ID_MAP = {
   abstract: '2741',
-  ancient8: '888888888',
   ape_chain: '33139',
   arbitrum: '42161',
   arbitrum_nova: '42170',
   avalanche_c: '43114',
-  avalanche_fuji: '43113',
   base: '8453',
-  base_sepolia: '84532',
   berachain: '80094',
   blast: '81457',
   bnb: '56',
-  bob: '60808',
-  boba: '288',
   celo: '42220',
-  corn: '21000000',
   cyber: '7560',
-  degen: '666666666',
   ethereum: '1',
   fantom: '250',
-  flare: '14',
   gnosis: '100',
-  ham: '5112',
-  hychain: '2911',
   ink: '57073',
-  kaia: '8217',
   linea: '59144',
   lisk: '1135',
   mantle: '5000',
@@ -95,25 +84,37 @@ const CHAIN_ID_MAP = {
   opbnb: '204',
   optimism: '10',
   polygon: '137',
-  proof_of_play: '70700',
   rari: '1380012617',
-  redstone: '690',
   scroll: '534352',
-  sei: '1329',
-  sepolia: '11155111',
-  shape: '360',
   soneium: '1868',
   sonic: '146',
-  superseed: '5330',
-  swellchain: '1923',
   unichain: '130',
-  wemix: '1111',
   world: '480',
   xai: '660279',
-  zero_network: '543210',
-  zkevm: '1101',
   zksync: '324',
   zora: '7777777',
+
+  // ancient8: '888888888',
+  // avalanche_fuji: '43113',
+  // base_sepolia: '84532',
+  // bob: '60808',
+  // boba: '288',
+  // corn: '21000000',
+  // degen: '666666666',
+  // flare: '14',
+  // ham: '5112',
+  // hychain: '2911',
+  // kaia: '8217',
+  // proof_of_play: '70700',
+  // redstone: '690',
+  // sei: '1329',
+  // sepolia: '11155111',
+  // shape: '360',
+  // superseed: '5330',
+  // swellchain: '1923',
+  // wemix: '1111',
+  // zero_network: '543210',
+  // zkevm: '1101',
 };
 
 const SUPPORTED_SVM_CHAINS = ['solana', 'eclipse'];
@@ -186,9 +187,9 @@ export async function POST(request) {
   const effectiveDecimalPlace = typeof decimalPlace === 'number' && Number.isInteger(decimalPlace) && decimalPlace >= 0
     ? decimalPlace
     : 18;
-  const effectiveLimit = typeof limit === 'number' && Number.isInteger(limit) && limit >= 1 && limit <= 3000
+  const effectiveLimit = typeof limit === 'number' && Number.isInteger(limit) && limit >= 1 && limit <= 500
     ? limit
-    : 3000;
+    : 100;
 
   // Validate parameters based on 'action'
   let validationError = null;
@@ -340,7 +341,6 @@ export async function POST(request) {
               controller.close();
             } else if (action === 'transactions' && address) {
               logger.info(`Processing transactions for address: ${address}`, { ip });
-              const effectiveLimit = Math.min(limit, 500);
               const url = isEVMAddress
                 ? `https://api.sim.dune.com/v1/evm/activity/${address}?${chainParam}&limit=${effectiveLimit}&sort=desc`
                 : `https://api.sim.dune.com/beta/svm/transactions/${address}?${chainParam}&limit=${effectiveLimit}&sort=desc`;

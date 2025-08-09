@@ -162,7 +162,6 @@ export const getExplorerUrls = (chainId, txHash, address) => {
   };
 };
 
-// utils/chainConstants.js
 export const SUPPORTED_CHAINS = [
   { value: 'abstract', chainId: '2741', label: 'Abstract' },
   { value: 'ancient8', chainId: '888888888', label: 'Ancient8' },
