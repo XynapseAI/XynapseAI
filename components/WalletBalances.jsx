@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { CHAIN_ID_TO_NAME } from '../utils/constants';
 import { getExplorerUrls, truncateAddress, isValidToken, LoadingOverlay } from '../utils/helpers'; // Added LoadingOverlay import
 import '../styles/MarketTab.css';
+import { toast } from 'react-toastify';
 
 const logger = {
   log: (message, data) => {
@@ -415,6 +416,9 @@ const WalletBalances = ({
                             tx.type === 'receive' ? tx.from : tx.to,
                             nameTags
                           );
+                          const isValidAddress = (tx.type === 'receive' ? tx.from : tx.to)?.match(/^(0x[a-fA-F0-9]{40}|(1|3|bc1)[a-zA-Z0-9]+)$/);
+                          const isValidTxHash = tx.hash?.match(/^(0x)?[a-fA-F0-9]+$/);
+
                           return (
                             <tr
                               key={`${tx.chain}-${tx.hash}-${index}`}
@@ -455,7 +459,7 @@ const WalletBalances = ({
                                 </div>
                               </td>
                               <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs text-center">
-                                <div className="flex flex-col items-center space-y-1">
+                                <div className="flex flex-col items-center space-y-1 group relative">
                                   <span
                                     className={`inline-flex px-1.5 py-0.5 rounded-lg text-[7px] sm:text-[8px] font-medium flex-shrink-0 ${tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'}`}
                                   >
@@ -480,12 +484,39 @@ const WalletBalances = ({
                                       href={addressUrl}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="text-[8px] sm:text-xs text-neon-blue hover:underline"
+                                      className="text-[8px] sm:text-xs text-neon-blue hover:text-neon-blue/80 transition-colors"
                                       title={tx.type === 'receive' ? tx.from : tx.to}
                                       onClick={() => handleAddressClick(tx.type === 'receive' ? tx.from : tx.to)}
                                     >
                                       {displayAddress}
                                     </a>
+                                    {isValidAddress && (
+                                      <motion.button
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(tx.type === 'receive' ? tx.from : tx.to);
+                                          toast.success('Address copied!', { autoClose: 2000 });
+                                        }}
+                                        className="absolute right-0 text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                        title="Copy address"
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                      >
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="w-3 sm:w-4 h-3 sm:h-4"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                          strokeWidth={2}
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                          />
+                                        </svg>
+                                      </motion.button>
+                                    )}
                                   </div>
                                 </div>
                               </td>
@@ -493,7 +524,7 @@ const WalletBalances = ({
                                 {tx.value != null ? `$${formatNumber(tx.value)}` : 'N/A'}
                               </td>
                               <td className="px-2 py-2 text-gray-200 text-[8px] sm:text-xs text-center">
-                                <div className="flex flex-col items-center gap-0.5">
+                                <div className="flex flex-col items-center gap-0.5 group relative">
                                   <a href={txUrl} target="_blank" rel="noreferrer" className="flex-shrink-0">
                                     <img
                                       src="/logos/etherscan-logo.png"
@@ -505,6 +536,33 @@ const WalletBalances = ({
                                   <span className="text-[7px] sm:text-[10px] text-gray-500 text-center">
                                     {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
                                   </span>
+                                  {isValidTxHash && (
+                                    <motion.button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(tx.hash);
+                                        toast.success('Transaction hash copied!', { autoClose: 2000 });
+                                      }}
+                                      className="absolute right-0 text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                      title="Copy transaction hash"
+                                      whileHover={{ scale: 1.1 }}
+                                      whileTap={{ scale: 0.9 }}
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="w-3 sm:w-4 h-3 sm:h-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        strokeWidth={2}
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                        />
+                                      </svg>
+                                    </motion.button>
+                                  )}
                                 </div>
                               </td>
                             </tr>

@@ -803,7 +803,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 isMobile={isMobile}
               />
               {isLoadingSelectedToken && !localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
-                <SkeletonLoader count={5} isMobile={isMobile} />
+                <div className="h-full flex items-center justify-center">
+                  {/* Thay thế SkeletonLoader bằng LoadingOverlay đã được thêm ở trên, nên không cần nội dung ở đây */}
+                </div>
               ) : selectedToken || localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
                 <div className="relative">
                   <div className="absolute top-1 right-1 w-32 sm:w-40" ref={dropdownRef}>
@@ -1142,7 +1144,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                 </div>
               ) : (
-                <SkeletonLoader count={5} isMobile={isMobile} />
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-[10px] sm:text-xs text-gray-400 text-center">
+                    Please select a token to view details.
+                  </p>
+                </div>
               )}
             </div>
             {/* Chart */}

@@ -6,7 +6,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Thêm các kiểu từ <style jsx> */
 .animate-marquee-right-to-left {
   display: flex;
   animation: marquee-right-to-left 20s linear infinite;
