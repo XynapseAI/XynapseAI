@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef , useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
@@ -37,7 +37,7 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
       <div className="bg-black/80 p-2 rounded border border-white/20 text-white text-sm backdrop-blur-lg font-saira">
         <p>{label}</p>
         <p>
-          Price: <span className="font-bold">{formatPrice(Math.floor(payload[0].value), currency)}</span>
+          Price: <span className="font-bold">{formatPrice(payload[0].value, currency, 8)}</span>
         </p>
       </div>
     );
@@ -263,6 +263,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     }
   };
 
+  const handleChainSelect = useCallback((chainValue) => {
+    setSelectedChain(chainValue);
+    setIsChainDropdownOpen(false);
+    // Prevent token or chart reload
+  }, [setSelectedChain, setIsChainDropdownOpen]);
+
   const getPlatformImage = (chainValue) => {
     const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
     const chain = chains.find((c) => c.value === chainName);
@@ -432,10 +438,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     if (selectedToken && timeRange && currency) {
       logger.log('Fetching price history:', { tokenId: selectedToken.id, days: timeRange, currency });
       setIsChartLoading(true);
-      const { chain } = getAvailableChains().find((c) => c.value === selectedChain) || {};
-      const tokenId = chain && selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId]?.contract_address
-        ? `${chains.find((c) => c.value === chain)?.coingeckoId}/${selectedToken.detail_platforms[chains.find((c) => c.value === chain)?.coingeckoId].contract_address}`
-        : selectedToken.id;
+      // Use selectedToken.id directly, as price history doesn't depend on chain for most tokens
+      const tokenId = selectedToken.id;
       fetchPriceHistory(tokenId, timeRange, currency, (err, data) => {
         if (err) {
           logger.error('Price history fetch failed:', { error: err.message });
@@ -444,7 +448,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         setIsChartLoading(false);
       });
     }
-  }, [selectedToken, timeRange, currency, selectedChain, fetchPriceHistory, getAvailableChains, chains]);
+  }, [selectedToken, timeRange, currency, fetchPriceHistory]);
 
   useEffect(() => {
     if (!selectedToken) return;
@@ -608,10 +612,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         .map((chain) => (
                           <motion.button
                             key={chain.value}
-                            onClick={() => {
-                              setSelectedChain(chain.value);
-                              setIsChainDropdownOpen(false);
-                            }}
+                            onClick={() => handleChainSelect(chain.value)}
                             className="flex items-center w-full text-left px-3 py-2 hover:bg-neon-blue/20 text-white text-[8px] sm:text-[10px] font-medium transition-all duration-300 rounded"
                             whileHover={{ scale: 1.02 }}
                           >
@@ -903,22 +904,25 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       <div className="flex items-center gap-2">
                         <p className="text-sm sm:text-sm font-bold text-yellow">
                           {formatPrice(
-                            Math.floor(selectedToken?.current_price?.[currency] ||
-                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.current_price?.[currency]),
-                            currency
+                            selectedToken?.current_price?.[currency] ||
+                            localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.current_price?.[currency],
+                            currency,
+                            8
                           )}
                         </p>
                         <span
                           className={`text-[9px] sm:text-[9px] font-medium ${(selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
-                            localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]) >= 0
-                            ? 'text-green-500'
-                            : 'text-red-500'
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]) >= 0
+                              ? 'text-green-500'
+                              : 'text-red-500'
                             }`}
                         >
                           {(selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
                             localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]) != null
-                            ? `${(selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
-                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]).toFixed(2)}% (24h)`
+                            ? `${(
+                              selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
+                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]
+                            ).toFixed(2)}% (24h)`
                             : 'N/A'}
                         </span>
                       </div>
@@ -1064,13 +1068,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         <p className="text-gray-500">
                           24H High:{' '}
                           <span className="text-green-500 font-semibold">
-                            {formatPrice(highLowData.high, currency)}
+                            {formatPrice(highLowData.high, currency, 8)}
                           </span>
                         </p>
                         <p className="text-gray-500">
                           24H Low:{' '}
                           <span className="text-red-500 font-semibold">
-                            {formatPrice(highLowData.low, currency)}
+                            {formatPrice(highLowData.low, currency, 8)}
                           </span>
                         </p>
                       </div>
@@ -1370,8 +1374,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     </div>
                     {isLoadingOnChain ? (
                       <div className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
+                        {/* Loading handled by LoadingOverlay */}
                       </div>
-                    ) : onChainError ? (
+                    ) : onChainError && !NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase()) ? (
                       <div className="text-[10px] sm:text-xs text-center p-2 sm:p-4">
                         <p className="text-red-500">{onChainError}</p>
                       </div>
@@ -1472,8 +1477,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         }}
                                         className="absolute right-0 text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                                         title="Copy address"
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.9 }}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
                                       >
                                         <svg
                                           xmlns="http://www.w3.org/2000/svg"
@@ -1493,7 +1498,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-2 sm:px-3 py-1 sm:py-2 text-white text-[10px] sm:text-xs w-[80px] sm:w-[100px]">
+                                <td className="px-2 sm:px-3 py-1 sm:py-2 font-bold text-white text-[10px] sm:text-xs w-[80px] sm:w-[100px]">
                                   <span>
                                     {Math.floor(holder.balance).toLocaleString('en-US')}
                                   </span>
@@ -1505,8 +1510,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </table>
                     ) : (
                       <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4">
-                        No top holders data available for {selectedToken?.symbol?.toUpperCase() || 'selected token'} on{' '}
-                        {chains.find((c) => c.value === selectedChain)?.label || 'selected chain'}.
+                        {NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
+                          ? `Top holders data for ${selectedToken?.symbol?.toUpperCase()} is unavailable.`
+                          : `No top holders data available for ${selectedToken?.symbol?.toUpperCase() || 'selected token'} on ${chains.find((c) => c.value === selectedChain)?.label || 'selected chain'
+                          }.`}
                       </p>
                     )}
                   </div>
@@ -1652,7 +1659,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 </td>
                                 <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[80px]">
                                   <span className="truncate">
-                                    {ticker.converted_last.usd != null ? `$${Math.floor(ticker.converted_last.usd).toLocaleString('en-US')}` : 'N/A'}
+                                    {ticker.converted_last.usd != null ? formatPrice(ticker.converted_last.usd, 'usd', 8) : 'N/A'}
                                   </span>
                                 </td>
                                 <td className="px-2 sm:px-3 py-1 sm:py-2 text-gray-200 w-[100px] sm:w-[120px]">

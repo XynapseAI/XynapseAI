@@ -9,6 +9,7 @@ import ReCAPTCHA from 'react-google-recaptcha';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { useMarketTabLogic } from './MarketTabLogic';
+import { LoadingOverlay } from '../utils/helpers';
 
 export default function TokenPageClient({ initialTokenSlug, initialTokenData, initialTopHolders, initialPriceHistory }) {
   const { data: session, status } = useSession();
@@ -19,14 +20,14 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
   const [isLoadingTopHolders, setIsLoadingTopHolders] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('market');
-  const initializedRef = useRef(false); // Theo dõi trạng thái khởi tạo
-  const prevTokenSlugRef = useRef(initialTokenSlug); // Lưu token trước đó
+  const initializedRef = useRef(false);
+  const prevTokenSlugRef = useRef(initialTokenSlug);
 
   const {
     selectedToken,
     debouncedHandleTokenSelect,
     fetchSupportedChains,
-    chains, // Lấy danh sách chains từ useMarketTabLogic
+    chains,
   } = useMarketTabLogic({
     recaptchaRef,
     toast,
@@ -43,7 +44,6 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
   }, [initialTokenSlug, initialTokenData, selectedToken]);
 
   useEffect(() => {
-    // Ngăn chạy lại nếu đã khởi tạo và token không thay đổi
     if (initializedRef.current && prevTokenSlugRef.current === initialTokenSlug) {
       console.log(`Skipping initialization: Token ${initialTokenSlug} already set`);
       return;
@@ -51,7 +51,6 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
 
     if (initialTokenData && initialTokenSlug) {
       console.log(`Setting initial token: ${initialTokenSlug}`);
-      // Kiểm tra xem chains đã được tải chưa
       if (chains.length === 0) {
         fetchSupportedChains().then(() => {
           debouncedHandleTokenSelect({ id: initialTokenSlug }, initialTokenData);
@@ -62,7 +61,6 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
           prevTokenSlugRef.current = initialTokenSlug;
         });
       } else {
-        // Nếu chains đã có, gọi trực tiếp debouncedHandleTokenSelect
         debouncedHandleTokenSelect({ id: initialTokenSlug }, initialTokenData);
         setIsLoadingToken(false);
         setIsLoadingPriceHistory(!initialPriceHistory);
@@ -74,7 +72,7 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
       setError(`Token data for ${initialTokenSlug} not found`);
       setIsLoadingToken(false);
       toast.error(`Token ${initialTokenSlug} not found`, { position: 'top-center', autoClose: 3000 });
-      initializedRef.current = true; // Đánh dấu đã khởi tạo để tránh chạy lại
+      initializedRef.current = true;
     }
   }, [initialTokenSlug, initialTokenData, initialPriceHistory, initialTopHolders, debouncedHandleTokenSelect, fetchSupportedChains, chains]);
 
@@ -152,10 +150,8 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
           className="w-full h-full flex items-center justify-center"
         >
           {isLoadingToken ? (
-            <div className="animate-pulse w-full max-w-4xl p-4">
-              <div className="h-8 bg-gray-700 rounded w-1/4 mb-4"></div>
-              <div className="h-64 bg-gray-700 rounded w-full mb-4"></div>
-              <div className="h-32 bg-gray-700 rounded w-full"></div>
+            <div className="w-full h-full flex items-center justify-center">
+              <LoadingOverlay isLoading={true} isMobile={window.innerWidth <= 640} />
             </div>
           ) : (
             <MarketTab

@@ -23,7 +23,7 @@ async function checkRateLimit(ip) {
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 5,
-  minTime: process.env.NODE_ENV === 'production' ? 200 : 2000,
+  minTime: process.env.NODE_ENV === 'production' ? 100 : 1000,
 });
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {

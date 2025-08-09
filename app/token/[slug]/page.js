@@ -5,7 +5,7 @@ import { getRedisClient } from '../../../lib/redis';
 import Bottleneck from 'bottleneck';
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 1,
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 5,
   minTime: process.env.NODE_ENV === 'production' ? 100 : 1000,
 });
 

@@ -50,18 +50,24 @@ export const SkeletonLoader = ({ count = 5, isMobile }) => (
   </div>
 );
 
-export const formatPrice = (price, currency = 'usd') => {
+export const formatPrice = (price, currency = 'usd', decimals = 8) => {
   if (price == null || isNaN(price)) return 'N/A';
+
+  // Adjust fraction digits based on price magnitude
   let fractionDigits = 2;
   if (price < 0.0001) {
-    fractionDigits = 6;
+    fractionDigits = decimals; // Use provided decimals for very small prices
   } else if (price < 0.01) {
     fractionDigits = 4;
   }
-  return `${currency.toUpperCase()} ${price.toLocaleString('en-US', {
+
+  // Use toLocaleString with currency style for proper formatting
+  return price.toLocaleString('en-US', {
+    style: 'currency',
+    currency: currency.toUpperCase(),
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
-  })}`;
+  });
 };
 
 export const truncateAddress = (address, nameTags = {}, source) => {
