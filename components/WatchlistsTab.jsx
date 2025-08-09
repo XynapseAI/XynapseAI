@@ -2,7 +2,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
@@ -139,7 +139,6 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
     balances: false,
     collectibles: false,
     transactions: false,
-    tokenInfo: false,
   });
   const [activeChainType, setActiveChainType] = useState('EVM');
   const [activeChain, setActiveChain] = useState(null);
@@ -152,14 +151,13 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
   const [nameTags, setNameTags] = useState({});
   const [chains, setChains] = useState([]);
   const [newWalletName, setNewWalletName] = useState('');
-  const [forceFetch, setForceFetch] = useState(false);
+  const [forceFetch, setForceFetch] = useState(false); // New state to force re-fetch
   const itemsPerPage = 50;
   const [currentPage, setCurrentPage] = useState({
     TOKEN: 1,
     NFT: 1,
     ACTIVITY: 1,
   });
-  const cancelTokenSource = useRef(null); // For canceling Axios requests
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
   const SUPPORTED_SVM_CHAINS = ['solana', 'eclipse'];
@@ -177,11 +175,37 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
     router.push(`/watchlist?${newParams.toString()}`, { shallow: true });
   }, [router]);
 
-  const handleTabClick = useCallback((tab) => {
+  const handleTabClick = (tab) => {
     setActiveTab(tab);
     setCurrentPage((prev) => ({ ...prev, [tab]: 1 }));
     updateUrl(tab.toLowerCase(), selectedWallet?.address || null);
-  }, [selectedWallet, updateUrl]);
+  };
+
+  useEffect(() => {
+    console.log('Sync useEffect triggered', { watchlists: watchlists.length, selectedWallet: selectedWallet?.address });
+    const tabFromUrl = searchParams.get('tab')?.toUpperCase() || initialTab.toUpperCase();
+    const addressFromUrl = searchParams.get('address') || initialAddress;
+
+    if (['TOKEN', 'NFT', 'ACTIVITY'].includes(tabFromUrl) && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+      setCurrentPage((prev) => ({ ...prev, [tabFromUrl]: 1 }));
+    }
+
+    if (addressFromUrl && stableWatchlists.some((w) => w.address === addressFromUrl)) {
+      const wallet = stableWatchlists.find((w) => w.address === addressFromUrl);
+      if (wallet && wallet.address !== selectedWallet?.address) {
+        console.log('Setting selected wallet from URL', { wallet });
+        setSelectedWallet(wallet);
+        setActiveChainType(wallet?.chainType || 'EVM');
+      }
+    } else if (stableWatchlists.length > 0 && !selectedWallet) {
+      const wallet = stableWatchlists[0];
+      console.log('Setting default selected wallet', { wallet });
+      setSelectedWallet(wallet);
+      setActiveChainType(wallet?.chainType || 'EVM');
+      updateUrl(activeTab.toLowerCase(), wallet.address);
+    }
+  }, [searchParams, initialTab, initialAddress, stableWatchlists, selectedWallet, updateUrl, activeTab]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -248,14 +272,14 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
     return address && address.length === 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
   }, []);
 
-  const fetchDataQuery = useCallback(async (action, address, chainType) => {
+  const fetchDataQuery = async (action, address, chainType) => {
     const isValidEVM = isAddress(address);
     const cacheKey = `${action}-${address}-${chainType}`;
     let cachedData = null;
 
     try {
       cachedData = await getCachedData(cacheKey);
-      if (cachedData && !forceFetch) {
+      if (cachedData) {
         console.log(`Using cached data for ${cacheKey}`);
         return cachedData;
       }
@@ -270,11 +294,6 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
       limit: 500,
     };
 
-    if (cancelTokenSource.current) {
-      cancelTokenSource.current.cancel('Operation canceled due to new request.');
-    }
-    cancelTokenSource.current = axios.CancelToken.source();
-
     try {
       const response = await axios.post(`${API_BASE_URL}/api/sim`, payload, {
         headers: {
@@ -283,7 +302,6 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
         },
         withCredentials: true,
         timeout: 30000,
-        cancelToken: cancelTokenSource.current.token,
       });
 
       if (!response.data.success) throw new Error(response.data.detail || `Failed to load ${action} data`);
@@ -295,13 +313,9 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
       }
       return response.data.data;
     } catch (error) {
-      if (axios.isCancel(error)) {
-        console.log(`Request canceled for ${cacheKey}`);
-        return null;
-      }
       throw new Error(error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`);
     }
-  }, [session, forceFetch]);
+  };
 
   const { data: balancesData, error: balancesError, isValidating: balancesValidating } = useSWR(
     selectedWallet ? ['wallet-balances', selectedWallet.address, activeChainType] : null,
@@ -311,9 +325,6 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
       revalidateOnReconnect: true,
       refreshInterval: 15 * 60 * 1000,
       dedupingInterval: 30 * 1000,
-      shouldRetryOnError: true,
-      errorRetryCount: 3,
-      errorRetryInterval: 1000,
     }
   );
 
@@ -325,9 +336,6 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
       revalidateOnReconnect: true,
       refreshInterval: 15 * 60 * 1000,
       dedupingInterval: 30 * 1000,
-      shouldRetryOnError: true,
-      errorRetryCount: 3,
-      errorRetryInterval: 1000,
     }
   );
 
@@ -339,11 +347,47 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
       revalidateOnReconnect: true,
       refreshInterval: 15 * 60 * 1000,
       dedupingInterval: 30 * 1000,
-      shouldRetryOnError: true,
-      errorRetryCount: 3,
-      errorRetryInterval: 1000,
     }
   );
+
+  useEffect(() => {
+    if (balancesError || collectiblesError || transactionsError) {
+      const errorMessage =
+        balancesError?.message || collectiblesError?.message || transactionsError?.message || 'Failed to load data';
+      setError(errorMessage);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      if (balancesError) setBalances([]);
+      if (collectiblesError) setCollectibles([]);
+      if (transactionsError) setTransactions([]);
+    }
+  }, [balancesError, collectiblesError, transactionsError, toast]);
+
+  useEffect(() => {
+    if (balancesData) {
+      setBalances(balancesData);
+      const chainsWithData = [...new Set(balancesData.map((b) => CHAIN_ID_TO_NAME[b.chain] || b.chain))];
+      setChainsWithAssets(chainsWithData);
+      if (activeChain === undefined && chainsWithData.length > 0) {
+        setActiveChain(chainsWithData[0]);
+      }
+    }
+    if (collectiblesData) setCollectibles(collectiblesData);
+    if (transactionsData) {
+      setTransactions(
+        transactionsData.map((tx) => ({
+          ...tx,
+          chain: CHAIN_ID_TO_NAME[tx.chain] || tx.chain,
+        }))
+      );
+    }
+    setLoadingStates({
+      loading: chainsLoading,
+      balances: balancesValidating,
+      collectibles: collectiblesValidating,
+      transactions: transactionsValidating,
+      tokenInfo: tokenInfoValidating,
+    });
+  }, [balancesData, collectiblesData, transactionsData, chainsLoading, balancesValidating, collectiblesValidating, transactionsValidating]);
 
   const { data: tokenInfoData, error: tokenInfoError, isValidating: tokenInfoValidating } = useSWR(
     selectedWallet && balances.length > 0 ? ['tokenInfo', balances.map((b) => b.address)] : null,
@@ -361,7 +405,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
         let cachedData = null;
         try {
           cachedData = await getCachedData(cacheKey);
-          if (cachedData && !forceFetch) {
+          if (cachedData) {
             tokenInfoData[address] = cachedData;
             continue;
           }
@@ -376,17 +420,12 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
             limit: 1,
             metadata: 'logo',
           };
-          if (cancelTokenSource.current) {
-            cancelTokenSource.current.cancel('Operation canceled due to new request.');
-          }
-          cancelTokenSource.current = axios.CancelToken.source();
           const response = await axios.post(`${API_BASE_URL}/api/sim`, payload, {
             headers: {
               'Content-Type': 'application/json',
               ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
             },
             timeout: 30000,
-            cancelToken: cancelTokenSource.current.token,
           });
           if (response.data.success && response.data.data.length > 0) {
             const tokenData = response.data.data[0];
@@ -406,10 +445,6 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
             }
           }
         } catch (err) {
-          if (axios.isCancel(err)) {
-            console.log(`Token info request canceled for ${cacheKey}`);
-            continue;
-          }
           console.error(`Error fetching token info for ${address} on ${chain}:`, err);
           tokenInfoData[address] = [
             {
@@ -428,60 +463,8 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
       revalidateOnReconnect: true,
       refreshInterval: 15 * 60 * 1000,
       dedupingInterval: 30 * 1000,
-      shouldRetryOnError: true,
-      errorRetryCount: 3,
-      errorRetryInterval: 1000,
     }
   );
-
-  useEffect(() => {
-    if (balancesError || collectiblesError || transactionsError) {
-      const errorMessage =
-        balancesError?.message || collectiblesError?.message || transactionsError?.message || 'Failed to load data';
-      setError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      if (balancesError) setBalances([]);
-      if (collectiblesError) setCollectibles([]);
-      if (transactionsError) setTransactions([]);
-    } else {
-      setError(null);
-    }
-  }, [balancesError, collectiblesError, transactionsError, toast]);
-
-  useEffect(() => {
-    if (balancesData) {
-      setBalances(balancesData);
-      const chainsWithData = [...new Set(balancesData.map((b) => CHAIN_ID_TO_NAME[b.chain] || b.chain))];
-      setChainsWithAssets(chainsWithData);
-      if (activeChain === undefined && chainsWithData.length > 0) {
-        setActiveChain(chainsWithData[0]);
-      }
-    } else {
-      setBalances([]);
-    }
-    if (collectiblesData) {
-      setCollectibles(collectiblesData);
-    } else {
-      setCollectibles([]);
-    }
-    if (transactionsData) {
-      setTransactions(
-        transactionsData.map((tx) => ({
-          ...tx,
-          chain: CHAIN_ID_TO_NAME[tx.chain] || tx.chain,
-        }))
-      );
-    } else {
-      setTransactions([]);
-    }
-    setLoadingStates({
-      loading: chainsLoading,
-      balances: balancesValidating,
-      collectibles: collectiblesValidating,
-      transactions: transactionsValidating,
-      tokenInfo: tokenInfoValidating,
-    });
-  }, [balancesData, collectiblesData, transactionsData, chainsLoading, balancesValidating, collectiblesValidating, transactionsValidating, tokenInfoValidating]);
 
   useEffect(() => {
     if (tokenInfoError) {
@@ -490,41 +473,8 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
       toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
     }
     if (tokenInfoData) setTokenInfo(tokenInfoData);
-    setLoadingStates((prev) => ({ ...prev, tokenInfo: tokenInfoValidating }));
+    setLoadingStates((prev) => ({ ...prev, loading: tokenInfoValidating }));
   }, [tokenInfoData, tokenInfoError, tokenInfoValidating, toast]);
-
-  useEffect(() => {
-    console.log('Sync useEffect triggered', { watchlists: watchlists.length, selectedWallet: selectedWallet?.address });
-    const tabFromUrl = searchParams.get('tab')?.toUpperCase() || initialTab.toUpperCase();
-    const addressFromUrl = searchParams.get('address') || initialAddress;
-
-    if (['TOKEN', 'NFT', 'ACTIVITY'].includes(tabFromUrl) && tabFromUrl !== activeTab) {
-      setActiveTab(tabFromUrl);
-      setCurrentPage((prev) => ({ ...prev, [tabFromUrl]: 1 }));
-    }
-
-    if (addressFromUrl && stableWatchlists.some((w) => w.address === addressFromUrl)) {
-      const wallet = stableWatchlists.find((w) => w.address === addressFromUrl);
-      if (wallet && wallet.address !== selectedWallet?.address) {
-        console.log('Setting selected wallet from URL', { wallet });
-        setSelectedWallet(wallet);
-        setActiveChainType(wallet?.chainType || 'EVM');
-        setActiveChain(null);
-        setBalances([]);
-        setCollectibles([]);
-        setTransactions([]);
-        setTokenInfo({});
-        setForceFetch(true);
-      }
-    } else if (stableWatchlists.length > 0 && !selectedWallet) {
-      const wallet = stableWatchlists[0];
-      console.log('Setting default selected wallet', { wallet });
-      setSelectedWallet(wallet);
-      setActiveChainType(wallet?.chainType || 'EVM');
-      setForceFetch(true);
-      updateUrl(activeTab.toLowerCase(), wallet.address);
-    }
-  }, [searchParams, initialTab, initialAddress, stableWatchlists, selectedWallet, updateUrl, activeTab]);
 
   useEffect(() => {
     if (!session?.user?.id || !watchlists.length) return;
@@ -569,6 +519,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
       const cacheKey = `watchlists-${session.user.id}`;
       console.log('Fetching watchlists for user:', session.user.id, 'Cache key:', cacheKey);
 
+      // Check cache only if forceFetch is false
       if (!forceFetch) {
         const cachedData = await getCachedData(cacheKey);
         if (cachedData && cachedData.length > 0) {
@@ -638,7 +589,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
         setWatchlists([]);
       } finally {
         setLoadingStates((prev) => ({ ...prev, loading: false }));
-        setForceFetch(false);
+        setForceFetch(false); // Reset forceFetch after fetching
       }
     }
 
@@ -702,7 +653,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
         setNewAddress('');
         setNewWalletName('');
         setError(null);
-        setForceFetch(true);
+        setForceFetch(true); // Trigger re-fetch to ensure cache consistency
         updateUrl(activeTab.toLowerCase(), newWallet?.address);
         toast.success('Wallet added successfully.', { position: 'top-center', autoClose: 5000 });
       } else {
@@ -760,7 +711,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
           setTransactions([]);
           setTokenInfo({});
           setActiveChain(null);
-          setForceFetch(true);
+          setForceFetch(true); // Trigger re-fetch to ensure cache consistency
           updateUrl(activeTab.toLowerCase(), newWallet?.address || null);
         }
         setError(null);
@@ -832,7 +783,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
         className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
       >
         <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
           <div className="flex items-center justify-center gap-2 relative">
@@ -879,8 +830,8 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
   const renderNFTRow = useMemo(() => (nft) => {
     const logoUrl =
       nft.token_metadata?.logo &&
-      !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') &&
-      nft.token_metadata.logo !== '/fallback-image.png'
+        !nft.token_metadata.logo.includes('scontent.xx.fbcdn.net') &&
+        nft.token_metadata.logo !== '/fallback-image.png'
         ? nft.token_metadata.logo
         : null;
     if (!logoUrl) {
@@ -892,7 +843,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
         className="flex flex-col items-center p-2 sm:p-3 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 hover:bg-neon-blue/20 transition-all duration-300"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
       >
         <div className="relative w-full aspect-square">
           <Image
@@ -943,7 +894,7 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
         className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
       >
         <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
           <div className="flex items-center justify-center gap-2 relative">
@@ -1071,8 +1022,8 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
       className={`font-saira w-full max-w-9xl mx-auto mt-2 p-2 -max-h-[calc(100vh-6rem)] bg-black/60 backdrop-blur-2xl shadow-neon-lg ${isMobile ? '' : ''}`}
     >
@@ -1097,7 +1048,6 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
                 setActiveChain(null);
                 setActiveChainType(wallet?.chainType || 'EVM');
                 setCurrentPage({ TOKEN: 1, NFT: 1, ACTIVITY: 1 });
-                setForceFetch(true);
                 updateUrl(activeTab.toLowerCase(), wallet?.address || null);
               }}
               initial={{ opacity: 0, scale: 0.95 }}
@@ -1295,201 +1245,185 @@ export default function WatchlistsTab({ initialTab = 'token', initialAddress = n
           className="relative flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-lg bg-black/60 backdrop-blur-2xl shadow-neon-sm"
           style={{ maxHeight: isMobile ? 'calc(100vh - 18rem)' : 'calc(100vh - 18rem)', minHeight: isMobile ? 'calc(100vh - 18rem)' : 'calc(100vh - 18rem)' }}
         >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <LoadingOverlay
-                isLoading={
-                  loadingStates.loading ||
-                  (activeTab === 'TOKEN' && (loadingStates.balances || loadingStates.tokenInfo)) ||
-                  (activeTab === 'NFT' && loadingStates.collectibles) ||
-                  (activeTab === 'ACTIVITY' && loadingStates.transactions)
-                }
-                isMobile={isMobile}
-              />
-              <div className="min-h-[calc(100vh-18rem)]">
-                {loadingStates.loading || loadingStates.balances || loadingStates.collectibles || loadingStates.transactions || loadingStates.tokenInfo ? (
-                  <SkeletonLoader isMobile={isMobile} />
-                ) : selectedWallet ? (
-                  <div className="relative overflow-x-auto">
-                    {activeTab === 'TOKEN' && (
-                      <>
-                        {filteredBalances.length > 0 ? (
-                          <table className="w-full text-[10px] sm:text-xs">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
-                              <tr>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
-                                      />
-                                    </svg>
-                                    Token
-                                  </div>
-                                </th>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
-                                      />
-                                    </svg>
-                                    Balance
-                                  </div>
-                                </th>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5" />
-                                    </svg>
-                                    Value
-                                  </div>
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>{getPaginatedData(filteredBalances, 'TOKEN').map(renderTokenRow)}</tbody>
-                          </table>
-                        ) : (
-                          <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 min-h-[calc(100vh-18rem)] flex items-center justify-center">
-                            No balances found for this wallet.
-                          </p>
-                        )}
-                      </>
+          <LoadingOverlay isLoading={loadingStates.loading || (activeTab === 'TOKEN' && (loadingStates.balances || loadingStates.tokenInfo))} isMobile={isMobile} />
+          <LoadingOverlay isLoading={loadingStates.collectibles && activeTab === 'NFT'} isMobile={isMobile} />
+          <LoadingOverlay isLoading={loadingStates.transactions && activeTab === 'ACTIVITY'} isMobile={isMobile} />
+          <div className="min-h-[calc(100vh-18rem)]">
+            {loadingStates.loading || loadingStates.balances || loadingStates.collectibles || loadingStates.transactions || loadingStates.tokenInfo ? (
+              <SkeletonLoader isMobile={isMobile} />
+            ) : selectedWallet ? (
+              <div className="relative overflow-x-auto">
+                {activeTab === 'TOKEN' && (
+                  <>
+                    {filteredBalances.length > 0 ? (
+                      <table className="w-full text-[10px] sm:text-xs">
+                        <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
+                          <tr>
+                            <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="2"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
+                                  />
+                                </svg>
+                                Token
+                              </div>
+                            </th>
+                            <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="2"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
+                                  />
+                                </svg>
+                                Balance
+                              </div>
+                            </th>
+                            <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="2"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5" />
+                                </svg>
+                                Value
+                              </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>{getPaginatedData(filteredBalances, 'TOKEN').map(renderTokenRow)}</tbody>
+                      </table>
+                    ) : (
+                      <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 min-h-[calc(100vh-18rem)] flex items-center justify-center">
+                        No balances found for this wallet.
+                      </p>
                     )}
-                    {activeTab === 'NFT' && (
-                      <>
-                        {filteredCollectibles.length > 0 ? (
-                          <div
-                            className={`grid ${isMobile ? 'grid-cols-2 gap-2' : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3'} p-2 sm:p-3`}
-                          >
-                            {getPaginatedData(filteredCollectibles, 'NFT').map(renderNFTRow)}
-                          </div>
-                        ) : (
-                          <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 min-h-[calc(100vh-18rem)] flex items-center justify-center">
-                            No NFTs found for this wallet.
-                          </p>
-                        )}
-                      </>
+                  </>
+                )}
+                {activeTab === 'NFT' && (
+                  <>
+                    {filteredCollectibles.length > 0 ? (
+                      <div
+                        className={`grid ${isMobile ? 'grid-cols-2 gap-2' : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3'} p-2 sm:p-3`}
+                      >
+                        {getPaginatedData(filteredCollectibles, 'NFT').map(renderNFTRow)}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 min-h-[calc(100vh-18rem)] flex items-center justify-center">
+                        No NFTs found for this wallet.
+                      </p>
                     )}
-                    {activeTab === 'ACTIVITY' && (
-                      <>
-                        {filteredTransactions.length > 0 ? (
-                          <table className="w-full text-[10px] sm:text-xs">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
-                              <tr>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
-                                      />
-                                    </svg>
-                                    Token
-                                  </div>
-                                </th>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                                      />
-                                    </svg>
-                                    Address
-                                  </div>
-                                </th>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
-                                      />
-                                    </svg>
-                                    Value
-                                  </div>
-                                </th>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                      />
-                                    </svg>
-                                    Time
-                                  </div>
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>{getPaginatedData(filteredTransactions, 'ACTIVITY').map(renderTransactionRow)}</tbody>
-                          </table>
-                        ) : (
-                          <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 min-h-[calc(100vh-18rem)] flex items-center justify-center">
-                            No transactions found for this wallet.
-                          </p>
-                        )}
-                      </>
+                  </>
+                )}
+                {activeTab === 'ACTIVITY' && (
+                  <>
+                    {filteredTransactions.length > 0 ? (
+                      <table className="w-full text-[10px] sm:text-xs">
+                        <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
+                          <tr>
+                            <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="2"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
+                                  />
+                                </svg>
+                                Token
+                              </div>
+                            </th>
+                            <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="2"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                                  />
+                                </svg>
+                                Address
+                              </div>
+                            </th>
+                            <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="2"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
+                                  />
+                                </svg>
+                                Value
+                              </div>
+                            </th>
+                            <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                  viewBox="0 0 24 24"
+                                  strokeWidth="2"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  />
+                                </svg>
+                                Time
+                              </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>{getPaginatedData(filteredTransactions, 'ACTIVITY').map(renderTransactionRow)}</tbody>
+                      </table>
+                    ) : (
+                      <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 min-h-[calc(100vh-18rem)] flex items-center justify-center">
+                        No transactions found for this wallet.
+                      </p>
                     )}
-                  </div>
-                ) : (
-                  <div className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 min-h-[calc(100vh-18rem)] flex items-center justify-center">
-                    Please select a wallet to view data.
-                  </div>
+                  </>
                 )}
               </div>
-            </motion.div>
-          </AnimatePresence>
+            ) : (
+              <div className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 min-h-[calc(100vh-18rem)] flex items-center justify-center">
+                Please select a wallet to view data.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
