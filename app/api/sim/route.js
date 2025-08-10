@@ -116,6 +116,13 @@ const CHAIN_ID_MAP = {
   zora: '7777777',
 };
 
+const LIMIT_CONFIG = {
+  'top-holders': 100,
+  'wallet-balances': 1000,
+  'transactions': 500,
+  'collectibles': 200,
+};
+
 const SUPPORTED_SVM_CHAINS = ['solana', 'eclipse'];
 const SUPPORTED_CHAIN_IDS = Object.values(CHAIN_ID_MAP).join(',');
 
@@ -186,9 +193,12 @@ export async function POST(request) {
   const effectiveDecimalPlace = typeof decimalPlace === 'number' && Number.isInteger(decimalPlace) && decimalPlace >= 0
     ? decimalPlace
     : 18;
-  const effectiveLimit = typeof limit === 'number' && Number.isInteger(limit) && limit >= 1 && limit <= 500
-    ? limit
-    : 100;
+
+  // Set effectiveLimit based on action, with fallback to provided limit if valid
+  let effectiveLimit = LIMIT_CONFIG[action] || 500; // Default to 500 if action not in LIMIT_CONFIG
+  if (typeof limit === 'number' && Number.isInteger(limit) && limit >= 1 && limit <= LIMIT_CONFIG[action]) {
+    effectiveLimit = limit; // Allow custom limit if within bounds
+  }
 
   // Validate parameters based on 'action'
   let validationError = null;
@@ -215,7 +225,6 @@ export async function POST(request) {
       }
       break;
     default:
-      // This case is already covered by the initial 'action' check, but for completeness.
       validationError = `Invalid parameters for the specified action: ${action}`;
       break;
   }
