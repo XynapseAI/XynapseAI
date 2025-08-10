@@ -118,7 +118,7 @@ const CHAIN_ID_MAP = {
 
 const LIMIT_CONFIG = {
   'top-holders': 100,
-  'wallet-balances': 1000,
+  'wallet-balances': 2000,
   'transactions': 500,
   'collectibles': 200,
 };
