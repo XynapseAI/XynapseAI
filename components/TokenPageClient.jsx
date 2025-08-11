@@ -1,7 +1,7 @@
 // components/TokenPageClient.jsx
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation'; // Add useSearchParams
+import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import Header from './Header';
 import MarketTab from './MarketTab';
@@ -14,8 +14,6 @@ import { LoadingOverlay } from '../utils/helpers';
 export default function TokenPageClient({ initialTokenSlug, initialTokenData, initialTopHolders, initialPriceHistory }) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams(); // Add searchParams
-  const selectedAddress = searchParams.get('address') || null; // Get address from query
   const recaptchaRef = useRef(null);
   const [isLoadingToken, setIsLoadingToken] = useState(true);
   const [isLoadingPriceHistory, setIsLoadingPriceHistory] = useState(true);
@@ -97,8 +95,7 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
 
   const handleSetActiveTab = (tabId) => {
     setActiveTab(tabId);
-    const query = tabId === 'watchlists' && selectedAddress ? `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}` : `tab=${tabId}`;
-    router.push(`/dashboard?${query}`, { scroll: false });
+    router.push(`/dashboard?tab=${tabId}`, { scroll: false }); // Navigate to dashboard with tab
   };
 
   const handleNavigateToToken = (newSlug) => {
@@ -115,8 +112,7 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
     setIsLoadingPriceHistory(true);
     setIsLoadingTopHolders(true);
     setError(null);
-    const query = selectedAddress ? `?address=${encodeURIComponent(selectedAddress)}` : '';
-    router.push(`/token/${newSlug}${query}`, { scroll: false });
+    router.push(`/token/${newSlug}`, { scroll: false });
     setActiveTab('market');
   };
 
@@ -150,12 +146,7 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
 
   return (
     <div className="h-screen w-screen bg-black text-white overflow-x-hidden flex flex-col">
-      <Header
-        activeTab={activeTab}
-        setActiveTab={handleSetActiveTab}
-        handleSignOut={handleSignOut}
-        selectedAddress={selectedAddress} // Pass selectedAddress
-      />
+      <Header activeTab={activeTab} setActiveTab={handleSetActiveTab} handleSignOut={handleSignOut} />
       <main className="flex-1 flex items-center justify-center overflow-hidden">
         <motion.div
           initial={{ opacity: 0 }}
