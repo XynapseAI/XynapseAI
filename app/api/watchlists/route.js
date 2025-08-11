@@ -19,6 +19,24 @@ const allowedOrigins = [
   'https://xynapseai-production.up.railway.app',
 ].filter((v, i, a) => a.indexOf(v) === i);
 
+// Validate Solana address
+const isValidSolanaAddress = (address) => {
+  return address && address.length >= 32 && address.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
+};
+
+// Validation schemas
+const postSchema = z.object({
+  action: z.enum(['add', 'remove'], { message: 'Action must be "add" or "remove"' }),
+  wallet_address: z
+    .string()
+    .nonempty('Wallet address is required')
+    .refine(
+      (val) => isAddress(val) || isValidSolanaAddress(val),
+      { message: 'Wallet address must be a valid EVM or Solana address' }
+    ),
+  name: z.string().optional(),
+});
+
 // Rate limiting with Redis
 async function checkRateLimit(ip) {
   try {
@@ -93,24 +111,6 @@ async function checkCSRF(request) {
     return false;
   }
 }
-
-// Validate Solana address
-const isValidSolanaAddress = (address) => {
-  return address && address.length === 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
-};
-
-// Validation schemas
-const postSchema = z.object({
-  action: z.enum(['add', 'remove'], { message: 'Action must be "add" or "remove"' }),
-  wallet_address: z
-    .string()
-    .nonempty('Wallet address is required')
-    .refine(
-      (val) => isAddress(val) || isValidSolanaAddress(val),
-      { message: 'Wallet address must be a valid EVM or Solana address' }
-    ),
-  name: z.string().optional(),
-});
 
 // GET handler: Fetch watchlists for the authenticated user
 export async function GET(request) {
@@ -264,7 +264,8 @@ export async function POST(request) {
   }
 
   const { action, wallet_address, name } = parsedBody;
-  const normalizedAddress = wallet_address.toLowerCase();
+  // Normalize only EVM addresses to lowercase, keep Solana addresses as-is
+  const normalizedAddress = isAddress(wallet_address) ? wallet_address.toLowerCase() : wallet_address;
 
   try {
     if (action === 'add') {

@@ -1,3 +1,4 @@
+// app/api/sim/route.js
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { logger } from '../../../utils/serverLogger';
@@ -6,6 +7,7 @@ import { isAddress } from 'ethers';
 import { auth } from '@/lib/auth';
 import { createClient } from 'redis';
 
+// Configure axios-retry for Dune API requests
 axiosRetry(axios, {
   retries: 5,
   retryDelay: (retryCount) => Math.min(retryCount * 2000, 10000),
@@ -19,31 +21,35 @@ axiosRetry(axios, {
   },
 });
 
+// Initialize Redis client
 const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379',
 });
 redisClient.on('error', (err) => logger.error('Redis Client Error', err));
+
+// Connect Redis client
 await redisClient.connect();
 
-async function checkRateLimit(ip, address) {
+async function checkRateLimit(ip, address, isSVMAddress) {
   const ipKey = `rate_limit:sim:ip:${ip}`;
-  const addressKey = address ? `rate_limit:sim:address:${address}` : null;
+  const addressKey = address ? `rate_limit:sim:address:${isSVMAddress ? address : address.toLowerCase()}` : null;
   const windowMs = 60 * 1000;
 
-  const ipRequests = await redisClient.get(ipKey) || 0;
+  const ipRequests = parseInt(await redisClient.get(ipKey)) || 0;
   if (ipRequests >= 100) {
     throw new Error('Too many requests, please try again later.');
   }
 
   let addressRequests = 0;
   if (addressKey) {
-    addressRequests = await redisClient.get(addressKey) || 0;
+    addressRequests = parseInt(await redisClient.get(addressKey)) || 0;
     if (addressRequests >= 100) {
       throw new Error('Too many requests for this wallet address.');
     }
   }
 
-  const multi = redisClient.multi()
+  const multi = redisClient
+    .multi()
     .incr(ipKey)
     .expire(ipKey, windowMs / 1000);
 
@@ -54,8 +60,9 @@ async function checkRateLimit(ip, address) {
   await multi.exec();
 }
 
+// Validate Solana address (Base58)
 const isValidSolanaAddress = (address) => {
-  return address && address.length === 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
+  return address && address.length >= 32 && address.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
 };
 
 const CHAIN_ID_MAP = {
@@ -179,14 +186,17 @@ export async function POST(request) {
     return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
   }
 
-  // --- Manual validation replacing Zod ---
+  // Manual validation
   const validActions = ['top-holders', 'wallet-balances', 'transactions', 'collectibles', 'proxy-image'];
   const { action, imageUrl, chain, tokenAddress, address, decimalPlace, limit } = body;
 
   // Validate 'action'
   if (!action || !validActions.includes(action)) {
     logger.warn(`Validation error: Invalid 'action' parameter.`, { ip, action });
-    return NextResponse.json({ detail: 'Validation failed', errors: [{ message: `Invalid 'action'. Must be one of ${validActions.join(', ')}` }] }, { status: 400 });
+    return NextResponse.json(
+      { detail: 'Validation failed', errors: [{ message: `Invalid 'action'. Must be one of ${validActions.join(', ')}` }] },
+      { status: 400 }
+    );
   }
 
   // Set default values for optional parameters
@@ -194,14 +204,16 @@ export async function POST(request) {
     ? decimalPlace
     : 18;
 
-  // Set effectiveLimit based on action, with fallback to provided limit if valid
-  let effectiveLimit = LIMIT_CONFIG[action] || 500; // Default to 500 if action not in LIMIT_CONFIG
+  // Set effectiveLimit based on action
+  let effectiveLimit = LIMIT_CONFIG[action] || 500;
   if (typeof limit === 'number' && Number.isInteger(limit) && limit >= 1 && limit <= LIMIT_CONFIG[action]) {
-    effectiveLimit = limit; // Allow custom limit if within bounds
+    effectiveLimit = limit;
   }
 
   // Validate parameters based on 'action'
   let validationError = null;
+  const isEVMAddress = isAddress(address || '');
+  const isSVMAddress = isValidSolanaAddress(address || '');
   switch (action) {
     case 'proxy-image':
       if (!imageUrl || typeof imageUrl !== 'string' || !/^https?:\/\/.+/.test(imageUrl)) {
@@ -220,8 +232,11 @@ export async function POST(request) {
     case 'collectibles':
       if (!address) {
         validationError = 'address is required for this action.';
-      } else if (!isAddress(address) && !isValidSolanaAddress(address)) {
-        validationError = 'address must be a valid EVM or Solana address.';
+      } else if (!isEVMAddress && !isSVMAddress) {
+        validationError = 'address must be a valid EVM or Solana address. Note: Solana addresses are case-sensitive.';
+      } else if (isEVMAddress && address !== address.toLowerCase()) {
+        logger.warn(`EVM address not in lowercase: ${address}`, { ip });
+        // Optionally normalize EVM address here if needed
       }
       break;
     default:
@@ -233,20 +248,22 @@ export async function POST(request) {
     logger.warn(`Validation error: ${validationError}`, { ip, body });
     return NextResponse.json({ detail: 'Validation failed', errors: [{ message: validationError }] }, { status: 400 });
   }
-  // --- End of manual validation ---
 
+  // Rate limiting
   try {
-    await checkRateLimit(ip, address);
+    await checkRateLimit(ip, address, isSVMAddress);
   } catch (err) {
     logger.error(`Rate limit error: ${err.message}`, { ip });
     return NextResponse.json({ detail: err.message }, { status: 429 });
   }
 
+  // Check SIM_API_KEY
   if (!process.env.SIM_API_KEY) {
-    logger.error('SIM_API_KEY is not configured');
+    logger.error('SIM_API_KEY is not configured', { ip });
     return NextResponse.json({ detail: 'Server configuration error: Missing SIM_API_KEY' }, { status: 500 });
   }
 
+  // Authentication for wallet-related actions
   if (['wallet-balances', 'transactions', 'collectibles'].includes(action)) {
     const session = await auth();
     if (!session || !session.user?.id) {
@@ -255,8 +272,6 @@ export async function POST(request) {
     }
   }
 
-  const isEVMAddress = isAddress(address || '');
-  const isSVMAddress = isValidSolanaAddress(address || '');
   const chainParam = isEVMAddress ? `chain_ids=${SUPPORTED_CHAIN_IDS}` : `chains=${SUPPORTED_SVM_CHAINS.join(',')}`;
 
   // Streaming response for large datasets
@@ -380,69 +395,169 @@ export async function POST(request) {
                     },
                   };
                 } else {
+                  // Phần SVM: Mở rộng logic để detect swap và các loại khác
                   let toAddress = 'None';
+                  let fromAddress = tx.from || tx.address || 'Unknown';
                   let value = '0';
                   let type = 'Unknown';
-                  const fromAddress = tx.from || tx.address || 'Unknown';
-                  let tokenSymbol = tx.chain === 'solana' ? 'SOL' : 'ETH';
+                  let tokenSymbol = NATIVE_TOKEN_METADATA[tx.chain]?.symbol || 'Unknown';
                   let tokenLogo = NATIVE_TOKEN_METADATA[tx.chain]?.logo || null;
                   let tokenName = NATIVE_TOKEN_METADATA[tx.chain]?.name || 'Unknown';
+                  let swap_details = null;
 
-                  const tokenRecipient = tx.meta?.postTokenBalances?.find((postBalance) => {
-                    const preBalance = tx.meta?.preTokenBalances?.find(
-                      (pre) => pre.mint === postBalance.mint && pre.owner === postBalance.owner
-                    );
-                    return (
-                      preBalance &&
-                      Number(postBalance.uiTokenAmount.amount) > Number(preBalance.uiTokenAmount.amount)
-                    );
-                  });
+                  // Thu thập tất cả thay đổi token balances cho address
+                  const sentTokens = [];
+                  const receivedTokens = [];
+                  if (tx.meta?.postTokenBalances && tx.meta?.preTokenBalances) {
+                    tx.meta.postTokenBalances.forEach((postBalance) => {
+                      if (postBalance.owner === address) {
+                        const preBalance = tx.meta.preTokenBalances.find(
+                          (pre) => pre.mint === postBalance.mint && pre.owner === postBalance.owner
+                        );
+                        if (preBalance) {
+                          const delta = Number(postBalance.uiTokenAmount.amount) - Number(preBalance.uiTokenAmount.amount);
+                          if (delta > 0) {
+                            receivedTokens.push({
+                              mint: postBalance.mint,
+                              amount: delta / Math.pow(10, postBalance.uiTokenAmount.decimals || 9),
+                              symbol: postBalance.mint.slice(0, 4) + '...' || 'Unknown', // Sử dụng mint truncated nếu không có symbol
+                              logo: null, // Có thể fetch sau nếu cần
+                              decimals: postBalance.uiTokenAmount.decimals || 9,
+                            });
+                          } else if (delta < 0) {
+                            sentTokens.push({
+                              mint: postBalance.mint,
+                              amount: -delta / Math.pow(10, postBalance.uiTokenAmount.decimals || 9),
+                              symbol: postBalance.mint.slice(0, 4) + '...' || 'Unknown',
+                              logo: null,
+                              decimals: postBalance.uiTokenAmount.decimals || 9,
+                            });
+                          }
+                        }
+                      }
+                    });
+                  }
 
-                  if (tokenRecipient) {
-                    toAddress = tokenRecipient.owner;
-                    const preBalance = tx.meta?.preTokenBalances?.find(
-                      (pre) => pre.mint === tokenRecipient.mint && pre.owner === tokenRecipient.owner
-                    );
-                    value = (
-                      (Number(tokenRecipient.uiTokenAmount.amount) - Number(preBalance.uiTokenAmount.amount)) /
-                      Math.pow(10, tokenRecipient.uiTokenAmount.uiDecimals || 9)
-                    ).toString();
-                    type = tokenRecipient.owner === address ? 'receive' : 'send';
-                    tokenSymbol = tokenRecipient.uiTokenAmount?.uiDecimals ? tokenRecipient.mint : tokenSymbol;
-                    tokenLogo = null;
-                    tokenName = 'Unknown Token';
-                  } else {
-                    if (tx.meta?.postBalances && tx.meta?.preBalances && tx.raw_transaction?.transaction?.message?.accountKeys) {
-                      const deltas = tx.meta.postBalances.map((post, i) => post - (tx.meta.preBalances[i] || 0));
-                      const recipientIndex = deltas.findIndex(
-                        (delta, i) => delta > 0 && tx.raw_transaction.transaction.message.accountKeys[i] !== fromAddress
-                      );
-                      const senderIndex = deltas.findIndex(
-                        (delta, i) => delta < 0 && tx.raw_transaction.transaction.message.accountKeys[i] === fromAddress
-                      );
+                  // Xử lý native balance changes
+                  if (tx.meta?.postBalances && tx.meta?.preBalances && tx.raw_transaction?.transaction?.message?.accountKeys) {
+                    const deltas = tx.meta.postBalances.map((post, i) => post - (tx.meta.preBalances[i] || 0));
+                    const accountKeys = tx.raw_transaction.transaction.message.accountKeys;
+                    const userIndex = accountKeys.findIndex((key) => key === address);
+                    if (userIndex !== -1) {
+                      const nativeDelta = deltas[userIndex];
+                      if (nativeDelta > 0) {
+                        receivedTokens.push({
+                          mint: 'native',
+                          amount: nativeDelta / 1e9,
+                          symbol: tokenSymbol,
+                          logo: tokenLogo,
+                          decimals: 9,
+                        });
+                      } else if (nativeDelta < 0) {
+                        sentTokens.push({
+                          mint: 'native',
+                          amount: -nativeDelta / 1e9,
+                          symbol: tokenSymbol,
+                          logo: tokenLogo,
+                          decimals: 9,
+                        });
+                      }
+                    }
 
-                      if (recipientIndex > -1 && tx.raw_transaction.transaction.message.accountKeys[recipientIndex] === address) {
-                        toAddress = fromAddress;
+                    // Tìm recipient/sender cho native transfer nếu không phải swap
+                    if (sentTokens.length === 0 && receivedTokens.length === 0) { // Fallback nếu không có token changes
+                      const recipientIndex = deltas.findIndex((delta, i) => delta > 0 && accountKeys[i] !== fromAddress);
+                      if (recipientIndex > -1) {
+                        toAddress = accountKeys[recipientIndex];
                         value = (deltas[recipientIndex] / 1e9).toString();
+                        type = (accountKeys[recipientIndex] === address) ? 'receive' : 'send';
+                      }
+                    }
+                  } else if (tx.meta?.postBalances && tx.meta?.preBalances && tx.raw_transaction?.transaction?.message?.accountKeys) {
+                    const deltas = tx.meta.postBalances.map((post, i) => post - (tx.meta.preBalances[i] || 0));
+                    const accountKeys = tx.raw_transaction.transaction.message.accountKeys;
+                    const userIndex = accountKeys.findIndex((key) => key === address);
+                    if (userIndex !== -1) {
+                      const nativeDelta = deltas[userIndex];
+                      if (nativeDelta > 0) {
                         type = 'receive';
-                      } else if (senderIndex > -1 && tx.raw_transaction.transaction.message.accountKeys[senderIndex] === address) {
-                        toAddress = tx.raw_transaction.transaction.message.accountKeys[deltas.findIndex((delta) => delta > 0)] || 'None';
-                        value = (-deltas[senderIndex] / 1e9).toString();
+                        value = (nativeDelta / 1e9).toFixed(6);
+                        tokenSymbol = NATIVE_TOKEN_METADATA[tx.chain]?.symbol || 'Unknown';
+                        tokenLogo = NATIVE_TOKEN_METADATA[tx.chain]?.logo || null;
+                        tokenName = NATIVE_TOKEN_METADATA[tx.chain]?.name || 'Unknown';
+                        toAddress = address;
+                        // Tìm fromAddress: có thể là index với delta < 0
+                        const senderIndex = deltas.findIndex((delta, i) => delta < 0 && i !== userIndex);
+                        if (senderIndex > -1) {
+                          fromAddress = accountKeys[senderIndex] || fromAddress;
+                        }
+                      } else if (nativeDelta < 0) {
                         type = 'send';
+                        value = (-nativeDelta / 1e9).toFixed(6);
+                        tokenSymbol = NATIVE_TOKEN_METADATA[tx.chain]?.symbol || 'Unknown';
+                        tokenLogo = NATIVE_TOKEN_METADATA[tx.chain]?.logo || null;
+                        tokenName = NATIVE_TOKEN_METADATA[tx.chain]?.name || 'Unknown';
+                        fromAddress = address;
+                        // Tìm toAddress: index với delta > 0
+                        const recipientIndex = deltas.findIndex((delta, i) => delta > 0 && i !== userIndex);
+                        if (recipientIndex > -1) {
+                          toAddress = accountKeys[recipientIndex] || toAddress;
+                        }
                       }
                     }
                   }
 
+                  // Detect type dựa trên balance changes
+                  if (sentTokens.length > 0 && receivedTokens.length > 0) {
+                    // Swap: có sent và received
+                    type = 'swap';
+                    swap_details = {
+                      sent: sentTokens,
+                      received: receivedTokens,
+                    };
+                    // Đối với UI, có thể lấy tokenSymbol từ sent/received
+                    tokenSymbol = `${sentTokens[0]?.symbol || 'Unknown'}/${receivedTokens[0]?.symbol || 'Unknown'}`;
+                    tokenLogo = sentTokens[0]?.logo || receivedTokens[0]?.logo || tokenLogo;
+                    toAddress = 'Swap'; // Hoặc contract address nếu có
+                    value = sentTokens[0]?.amount.toFixed(6) || '0';
+                  } else if (receivedTokens.length > 0) {
+                    // Receive
+                    type = 'receive';
+                    const received = receivedTokens[0];
+                    value = received.amount.toFixed(6);
+                    tokenSymbol = received.symbol;
+                    tokenLogo = received.logo || tokenLogo;
+                    tokenName = received.mint === 'native' ? tokenName : 'Unknown Token';
+                    // Tìm from: có thể là account gửi token, nhưng khó, giữ 'Unknown' hoặc tìm instruction
+                    fromAddress = tx.meta?.postTokenBalances?.find((b) => b.mint === received.mint && b.owner !== address)?.owner || fromAddress;
+                    toAddress = address;
+                  } else if (sentTokens.length > 0) {
+                    // Send
+                    type = 'send';
+                    const sent = sentTokens[0];
+                    value = sent.amount.toFixed(6);
+                    tokenSymbol = sent.symbol;
+                    tokenLogo = sent.logo || tokenLogo;
+                    tokenName = sent.mint === 'native' ? tokenName : 'Unknown Token';
+                    toAddress = tx.meta?.postTokenBalances?.find((b) => b.mint === sent.mint && b.owner !== address)?.owner || toAddress;
+                    fromAddress = address;
+                  } else {
+                    // Unknown hoặc các loại khác (ví dụ: vote, create account, etc.)
+                    type = 'other'; // Hoặc phân tích instructions nếu cần
+                    value = 'N/A';
+                  }
+
                   return {
                     chain: tx.chain,
-                    hash: tx.raw_transaction?.transaction?.signatures?.[0] || 'Unknown',
+                    hash: tx.raw_transaction?.transaction?.signatures?.[0] || 'Unknown', // Signature
                     from: fromAddress,
                     to: toAddress,
                     value: value,
-                    block_time: tx.block_time ? new Date(tx.block_time / 1000).toISOString() : null,
+                    block_time: tx.block_time ? new Date(tx.block_time / 1000).toISOString() : null, // Đảm bảo timestamp đúng (microseconds to milliseconds)
                     block_slot: tx.block_slot || null,
                     token: tokenSymbol,
                     type: type,
+                    swap_details: swap_details, // Thêm để UI xử lý swap
                     token_metadata: {
                       symbol: tokenSymbol,
                       logo: tokenLogo,
@@ -457,7 +572,7 @@ export async function POST(request) {
               controller.close();
             } else if (action === 'collectibles' && address) {
               logger.info(`Processing collectibles for address: ${address}`, { ip });
-              const effectiveLimit = Math.min(limit, 500);
+              const effectiveLimit = Math.min(limit || 500, 500);
               const url = isEVMAddress
                 ? `https://api.sim.dune.com/v1/evm/collectibles/${address}?${chainParam}&limit=${effectiveLimit}`
                 : `https://api.sim.dune.com/beta/svm/collectibles/${address}?${chainParam}&limit=${effectiveLimit}`;
@@ -502,25 +617,29 @@ export async function POST(request) {
               stack: error.stack,
               ip,
             });
-            controller.enqueue(JSON.stringify({
-              detail: error.response?.status === 429
-                ? 'Dune Sim API rate limit exceeded, please try again later.'
-                : error.response?.status === 404
-                  ? 'Requested data not found.'
-                  : `Dune Sim API error: ${error.message}`,
-            }));
+            controller.enqueue(
+              JSON.stringify({
+                detail: error.response?.status === 429
+                  ? 'Dune Sim API rate limit exceeded, please try again later.'
+                  : error.response?.status === 404
+                    ? 'Requested data not found.'
+                    : `Dune Sim API error: ${error.message}`,
+              })
+            );
             controller.close();
           }
         },
-      }), {
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_APP_URL || 'https://xynapseai.net',
-        'Access-Control-Allow-Methods': 'POST',
-      },
-    });
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_APP_URL || 'https://xynapseai.net',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      }
+    );
   }
-
 
   // Non-streaming response for proxy-image
   if (action === 'proxy-image' && imageUrl) {
@@ -553,7 +672,8 @@ export async function POST(request) {
           'Content-Type': contentType,
           'Cache-Control': 'public, max-age=86400',
           'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_APP_URL || 'https://xynapseai.net',
-          'Access-Control-Allow-Methods': 'POST',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
       });
     } catch (error) {
@@ -565,3 +685,24 @@ export async function POST(request) {
   logger.warn(`Invalid parameters for action: ${action}`, { ip });
   return NextResponse.json({ detail: `Invalid parameters for action: ${action}` }, { status: 400 });
 }
+
+// OPTIONS handler for CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json(
+    {},
+    {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_APP_URL || 'https://xynapseai.net',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+    }
+  );
+}
+
+// Cleanup Redis connection on process termination
+process.on('SIGTERM', async () => {
+  await redisClient.quit();
+});

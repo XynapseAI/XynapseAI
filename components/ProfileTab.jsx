@@ -848,7 +848,7 @@ export default function ProfileTab({ recaptchaRef }) {
                 </motion.button>
                 <div className="flex items-end h-full">
                   <p className="text-[8px] sm:text-[10px] text-white">
-                    Points: <span className="text-neon-blue">{userData.points || 0}</span> Days Active: <span className="text-neon-blue">{getDaysActive()}</span>
+                    Points: <span className="text-neon-blue">{userData.points || 0} </span>/ Days Active: <span className="text-neon-blue">{getDaysActive()}</span>
                   </p>
                 </div>
               </div>
