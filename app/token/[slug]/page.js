@@ -124,5 +124,5 @@ export async function generateMetadata({ params }) {
 export default async function TokenPage({ params }) {
   const { slug } = await params;
   // Redirect to /dashboard?tab=market&slug=...
-  redirect(`/dashboard?tab=market&token=${encodeURIComponent(slug)}`);
+  redirect(`/dashboard?tab=market&slug=${encodeURIComponent(slug)}`);
 }
