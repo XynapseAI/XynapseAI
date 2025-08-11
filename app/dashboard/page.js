@@ -1,11 +1,12 @@
+// app/dashboard/page.js
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { signIn, signOut, useSession, getProviders } from 'next-auth/react';
 import Header from '../../components/Header';
 import AITab from '../../components/AITab';
-import ProfileTab  from '../../components/ProfileTab';
+import ProfileTab from '../../components/ProfileTab';
 import MarketTab from '../../components/MarketTab';
 import TreemapTab from '../../components/TreemapTab';
 import WatchlistsTab from '../../components/WatchlistsTab';
@@ -19,7 +20,6 @@ import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { LoadingOverlay } from '@/utils/helpers';
 
-// Register GSAP plugins
 gsap.registerPlugin(MotionPathPlugin);
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
@@ -30,7 +30,12 @@ export default function Dashboard() {
   const { disconnect } = useDisconnect();
   const { signMessageAsync } = useSignMessage();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('profile');
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = searchParams.get('tab');
+    return tab && ['market', 'ai', 'profile', 'treemap', 'watchlists'].includes(tab) ? tab : 'profile';
+  });
+  const [selectedAddress, setSelectedAddress] = useState(searchParams.get('address') || null); // Add address state
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [topPlayers, setTopPlayers] = useState({ rankings: [], creators: [], aiRank: [] });
   const [userData, setUserData] = useState(null);
@@ -50,6 +55,12 @@ export default function Dashboard() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Update selectedAddress when searchParams change
+  useEffect(() => {
+    const address = searchParams.get('address');
+    setSelectedAddress(address || null);
+  }, [searchParams]);
 
   // Fetch providers for sign-in options
   useEffect(() => {
@@ -175,7 +186,6 @@ export default function Dashboard() {
         }
         if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
 
-        // Retry logic for /api/user request
         let response;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
@@ -298,7 +308,6 @@ export default function Dashboard() {
       toast.error('Failed to sign out.', { position: 'top-center' });
     }
   };
-
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAnalyzeTweets = async () => {
     if (isAnalyzing) return;
@@ -344,7 +353,7 @@ export default function Dashboard() {
       toast.error('Cannot navigate to token page: Invalid token ID.', { position: 'top-center', autoClose: 3000 });
       return;
     }
-    router.push(`/token/${slug}`, undefined, { shallow: true });
+    router.push(`/token/${slug}`, { scroll: false });
     setActiveTab('market');
   };
 
@@ -363,7 +372,6 @@ export default function Dashboard() {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
         <LoadingOverlay isLoading={true} message="Loading dashboard..." isMobile={typeof window !== 'undefined' && window.innerWidth <= 640} />
-
       </div>
     );
   }
@@ -506,7 +514,7 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen w-screen bg-black text-white overflow-x-hidden flex flex-col">
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} />
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} selectedAddress={selectedAddress} />
       <main className="flex-1 flex items-center justify-center overflow-hidden">
         <motion.div
           initial={{ opacity: 0 }}
@@ -527,7 +535,7 @@ export default function Dashboard() {
             />
           )}
           {activeTab === 'treemap' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
-          {activeTab === 'watchlists' && <WatchlistsTab toast={toast} />}
+          {activeTab === 'watchlists' && <WatchlistsTab toast={toast} initialAddress={selectedAddress} />}
         </motion.div>
       </main>
       <ReCAPTCHA

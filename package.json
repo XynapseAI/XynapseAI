@@ -48,7 +48,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
-    "csurf": "^1.11.0",
+    "csurf": "^1.2.2",
     "d3": "^7.9.0",
     "date-fns": "^4.1.0",
     "dompurify": "^3.2.6",

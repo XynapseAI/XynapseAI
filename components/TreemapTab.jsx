@@ -150,11 +150,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
   const updateUrl = (chain, address) => {
     const newParams = new URLSearchParams();
+    newParams.set('tab', 'treemap');
     newParams.set('chain', chain);
     if (address) {
       newParams.set('address', address);
     }
-    router.push(`/treemap?${newParams.toString()}`, { shallow: true });
+    router.replace(`/dashboard?${newParams.toString()}`, { scroll: false });
   };
 
   useEffect(() => {
@@ -395,7 +396,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSelectWallet = (address) => {

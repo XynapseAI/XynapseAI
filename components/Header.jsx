@@ -3,11 +3,13 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Power } from 'lucide-react';
 
-export default function Header({ activeTab, setActiveTab, handleSignOut }) {
+export default function Header({ activeTab, setActiveTab, handleSignOut, selectedAddress }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const router = useRouter();
 
   const tabs = [
     { id: 'market', label: 'Market' },
@@ -29,6 +31,9 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
 
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
+    // Include address in the URL for watchlists tab
+    const query = tabId === 'watchlists' && selectedAddress ? `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}` : `tab=${tabId}`;
+    router.push(`/dashboard?${query}`, { scroll: false });
     setIsMenuOpen(false);
   };
 
@@ -145,7 +150,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut }) {
         {tabs.map((tab, index) => (
           <div key={tab.id} className="flex items-center">
             <motion.button
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabClick(tab.id)}
               onMouseEnter={handleMouseEnter}
               className={`group px-3 py-1.5 text-[10px] md:text-[10px] font-medium transition-all duration-300 text-white backdrop-blur-md perspective-1000 uppercase ${
                 activeTab === tab.id ? 'bg-gradient-to-r from-neon-blue/30 to-transparent text-black' : ''

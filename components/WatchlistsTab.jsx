@@ -17,6 +17,7 @@ import { formatDistanceToNow } from 'date-fns';
 import useSWR from 'swr';
 import { cacheData, getCachedData } from '../utils/indexedDB';
 import { LoadingOverlay, truncateAddress, formatPrice, isValidToken, getExplorerUrls } from '../utils/helpers';
+import { debounce } from 'lodash';
 
 axiosRetry(axios, {
   retries: 3,
@@ -94,6 +95,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showWatchlistSidebar, setShowWatchlistSidebar] = useState(false);
+  const [isUserInitiatedChange, setIsUserInitiatedChange] = useState(false);
+  const lastSelectedWalletRef = useRef(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640);
   const [watchlists, setWatchlists] = useState([]);
   const [selectedWallet, setSelectedWallet] = useState(null);
@@ -132,16 +136,22 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const stableWatchlists = useMemo(() => watchlists, [watchlists]);
 
   const updateUrl = useCallback(
-    (address) => {
-      const newParams = new URLSearchParams();
-      if (address) {
-        newParams.set('address', address);
+    debounce((address) => {
+      if (!address) {
+        router.replace('/dashboard?tab=watchlists', { scroll: false });
+        return;
       }
-      const url = `/watchlist?${newParams.toString()}`;
-      console.log('Updating URL:', url);
-      router.replace(url, { shallow: true });
-    },
-    [router]
+      const currentAddress = searchParams.get('address');
+      if (address.toLowerCase() !== currentAddress?.toLowerCase()) {
+        const newParams = new URLSearchParams();
+        newParams.set('tab', 'watchlists');
+        newParams.set('address', address);
+        const url = `/dashboard?${newParams.toString()}`;
+        console.log('Updating URL:', url);
+        router.replace(url, { scroll: false });
+      }
+    }, 300),
+    [router, searchParams]
   );
 
   const handleTabClick = useCallback((tab) => {
@@ -158,16 +168,33 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       selectedWallet: selectedWallet?.address,
     });
 
-    if (watchlists.length > 0) {
+    // Skip if user-initiated change
+    if (isUserInitiatedChange) {
+      console.log('Skipping selectedWallet update due to user-initiated change');
+      setIsUserInitiatedChange(false);
+      return;
+    }
+
+    // Skip if URL matches last selected wallet
+    if (addressFromUrl && addressFromUrl.toLowerCase() === lastSelectedWalletRef.current?.toLowerCase()) {
+      console.log('Skipping selectedWallet update: URL matches last selected wallet');
+      return;
+    }
+
+    // Handle initial load or URL-driven changes
+    if (watchlists.length > 0 && isInitialLoad) {
       let wallet = null;
       if (addressFromUrl) {
         wallet = watchlists.find((w) => w.address.toLowerCase() === addressFromUrl.toLowerCase());
       }
-      if (!wallet && watchlists.length > 0) {
+      if (!wallet && initialAddress) {
+        wallet = watchlists.find((w) => w.address.toLowerCase() === initialAddress.toLowerCase());
+      }
+      if (!wallet) {
         wallet = watchlists[0];
       }
       if (wallet && wallet.address !== selectedWallet?.address) {
-        console.log('Setting selectedWallet from URL:', wallet.address);
+        console.log('Setting selectedWallet from URL or initialAddress:', wallet.address);
         setSelectedWallet(wallet);
         setActiveChainType(wallet.chainType || 'EVM');
         setBalances([]);
@@ -175,10 +202,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         setTokenInfo({});
         setActiveChain(null);
         setCurrentPage({ PORTFOLIO: 1, ACTIVITY: 1 });
-        updateUrl(wallet.address);
+        lastSelectedWalletRef.current = wallet.address;
+        setIsInitialLoad(false); // Mark initial load as complete
       }
     }
-  }, [searchParams, watchlists, selectedWallet, updateUrl]);
+  }, [searchParams, watchlists, selectedWallet, isUserInitiatedChange, isInitialLoad, initialAddress]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -549,6 +577,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     if (!session?.user?.id) {
       setWatchlists([]);
       setSelectedWallet(null);
+      setIsInitialLoad(true); // Reset on session change
       return;
     }
 
@@ -558,11 +587,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         const cachedData = await getCachedData(cacheKey);
         if (cachedData && cachedData.length > 0) {
           setWatchlists(cachedData);
-          if (cachedData.length > 0) {
-            const walletToSelect = cachedData.find((w) => w.address === initialAddress) || cachedData[0];
+          if (cachedData.length > 0 && isInitialLoad) {
+            const walletToSelect = cachedData.find((w) => w.address.toLowerCase() === (initialAddress?.toLowerCase() || searchParams.get('address')?.toLowerCase())) || cachedData[0];
             setSelectedWallet(walletToSelect);
             setActiveChainType(walletToSelect?.chainType || 'EVM');
-            updateUrl(walletToSelect.address);
+            lastSelectedWalletRef.current = walletToSelect?.address;
+            updateUrl(walletToSelect?.address);
+            setIsInitialLoad(false);
           }
           return;
         }
@@ -585,11 +616,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           }));
           await cacheData(cacheKey, watchlistsData);
           setWatchlists(watchlistsData);
-          if (watchlistsData.length > 0) {
-            const walletToSelect = watchlistsData.find((w) => w.address === initialAddress) || watchlistsData[0];
+          if (watchlistsData.length > 0 && isInitialLoad) {
+            const walletToSelect = watchlistsData.find((w) => w.address.toLowerCase() === (initialAddress?.toLowerCase() || searchParams.get('address')?.toLowerCase())) || watchlistsData[0];
             setSelectedWallet(walletToSelect);
             setActiveChainType(walletToSelect?.chainType || 'EVM');
-            updateUrl(walletToSelect.address);
+            lastSelectedWalletRef.current = walletToSelect?.address;
+            updateUrl(walletToSelect?.address);
+            setIsInitialLoad(false);
           }
         } else {
           setError('Failed to load watchlists.');
@@ -607,7 +640,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }
 
     fetchWatchlists();
-  }, [session, isValidSolanaAddress, initialAddress, updateUrl, forceFetch]);
+  }, [session, isValidSolanaAddress, initialAddress, updateUrl, forceFetch, isInitialLoad, searchParams]);
 
   const handleAddWallet = async () => {
     if (!newAddress) {
@@ -790,8 +823,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               <Image
                 src={logoUrl}
                 alt={`${tokenSymbol} logo`}
-                width={isMobile ? 12 : 18}
-                height={isMobile ? 12 : 18}
+                width={isMobile ? 20 : 24}
+                height={isMobile ? 20 : 24}
                 className="rounded-full"
                 style={{ width: 'auto', height: 'auto' }}
                 onError={(e) => (e.target.src = '/icons/default.png')}
@@ -799,8 +832,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               <Image
                 src={getPlatformImage(token.chain)}
                 alt={`${token.chain} logo`}
-                width={isMobile ? 4 : 6}
-                height={isMobile ? 4 : 6}
+                width={isMobile ? 8 : 10}
+                height={isMobile ? 8 : 10}
                 className="rounded-full absolute top-0 right-0"
                 style={{ transform: 'translate(25%, -25%)', width: 'auto', height: 'auto' }}
                 onError={(e) => (e.target.src = token.chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
@@ -853,8 +886,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               <Image
                 src={tokenLogo}
                 alt={`${tokenSymbol} logo`}
-                width={isMobile ? 24 : 28}
-                height={isMobile ? 24 : 28}
+                width={isMobile ? 20 : 24}
+                height={isMobile ? 20 : 24}
                 className="rounded-full"
                 style={{ width: 'auto', height: 'auto' }}
                 onError={(e) => (e.target.src = '/icons/default.png')}
@@ -862,11 +895,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               <Image
                 src={getPlatformImage(tx.chain)}
                 alt={`${tx.chain} logo`}
-                width={isMobile ? 12 : 14}
-                height={isMobile ? 12 : 14}
+                width={isMobile ? 8 : 10}
+                height={isMobile ? 8 : 10}
                 className="rounded-full absolute top-0 right-0"
                 style={{ transform: 'translate(25%, -25%)', width: 'auto', height: 'auto' }}
-                onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
+                onError={(e) => (e.target.src = tx.chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
               />
             </div>
             <span>{tokenSymbol}</span>
@@ -967,7 +1000,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           <h3 className="text-lg sm:text-xl font-bold text-white mb-4">Please Log In</h3>
           <p className="text-sm sm:text-base text-gray-400 mb-6">You need to be logged in to access your watchlist.</p>
           <motion.button
-            onClick={() => router.push('/login')}
+            onClick={() => router.push('/auth/signin')}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium text-black bg-white border border-white/10 rounded-xl hover:bg-neon-blue/30 transition-all duration-300"
@@ -991,14 +1024,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       {/* Toggle Button for Mobile */}
       {!showWatchlistSidebar && (
         <motion.button
-          className="sm:hidden fixed top-16 left-2 z-50 p-2 bg-black/60 border border-white/10 rounded-lg text-white hover:bg-neon-blue/30 transition-all duration-300"
+          className="sm:hidden fixed top-1 left-1 z-50 p-1 bg-black/60 border border-white/10 rounded-lg text-white hover:bg-neon-blue/30 transition-all duration-300"
           onClick={() => setShowWatchlistSidebar(true)}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
+            className="h-4 w-4"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -1045,6 +1078,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     <motion.div
                       key={wallet.address}
                       onClick={() => {
+                        setIsUserInitiatedChange(true);
                         setSelectedWallet(wallet);
                         setActiveChainType(wallet?.chainType || 'EVM');
                         setBalances([]);
@@ -1052,15 +1086,17 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         setTokenInfo({});
                         setActiveChain(null);
                         setCurrentPage({ PORTFOLIO: 1, ACTIVITY: 1 });
+                        lastSelectedWalletRef.current = wallet.address;
                         updateUrl(wallet.address);
                         setShowWatchlistSidebar(false);
                       }}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className={`flex items-center justify-between p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                        ? 'border-white bg-black/60'
-                        : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
-                        }`}
+                      className={`flex items-center justify-between p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${
+                        selectedWallet?.address === wallet.address
+                          ? 'border-white bg-black/60'
+                          : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
+                      }`}
                     >
                       <div className="flex items-center gap-2">
                         {nameTags[wallet.address.toLowerCase()]?.image && (
@@ -1079,7 +1115,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                             {nameTags[wallet.address.toLowerCase()]?.nameTag || wallet.name || 'Unnamed Wallet'}
                           </span>
                           <span className="text-[8px] text-gray-400 truncate max-w-[120px]">
-                            {truncateAddress(wallet.address, nameTags).text}
+                            {wallet.address}
                           </span>
                         </div>
                       </div>
@@ -1125,6 +1161,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             <motion.div
               key={wallet.address}
               onClick={() => {
+                setIsUserInitiatedChange(true);
                 setSelectedWallet(wallet);
                 setActiveChainType(wallet?.chainType || 'EVM');
                 setBalances([]);
@@ -1132,14 +1169,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 setTokenInfo({});
                 setActiveChain(null);
                 setCurrentPage({ PORTFOLIO: 1, ACTIVITY: 1 });
+                lastSelectedWalletRef.current = wallet.address;
                 updateUrl(wallet.address);
               }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={`flex items-center justify-between p-2 sm:p-3 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                ? 'border-white bg-black/60'
-                : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
-                }`}
+              className={`flex items-center justify-between p-2 sm:p-3 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${
+                selectedWallet?.address === wallet.address
+                  ? 'border-white bg-black/60'
+                  : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
+              }`}
             >
               <div className="flex items-center gap-2">
                 {nameTags[wallet.address.toLowerCase()]?.image && (
@@ -1158,7 +1195,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     {nameTags[wallet.address.toLowerCase()]?.nameTag || wallet.name || 'Unnamed Wallet'}
                   </span>
                   <span className="text-[8px] sm:text-[10px] text-gray-400 truncate max-w-[120px] sm:max-w-[150px]">
-                    {truncateAddress(wallet.address, nameTags).text}
+                    {wallet.address}
                   </span>
                 </div>
               </div>
@@ -1184,14 +1221,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           <>
             {/* Wallet Info (20% height) */}
             <div className="h-[20%] border-b border-white/10 bg-black/60 backdrop-blur-md p-2 sm:p-3 flex flex-col justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mb-2">
                 {nameTags[selectedWallet.address.toLowerCase()]?.image && (
                   <Image
                     src={nameTags[selectedWallet.address.toLowerCase()].image}
                     alt={`${nameTags[selectedWallet.address.toLowerCase()]?.nameTag || selectedWallet.name || 'Unnamed Wallet'} logo`}
-                    width={isMobile ? 32 : 36}
-                    height={isMobile ? 32 : 36}
-                    className="rounded-full"
+                    width={isMobile ? 24 : 28}
+                    height={isMobile ? 24 : 28}
+                    className="rounded-xl"
                     style={{ width: 'auto', height: 'auto' }}
                     onError={(e) => (e.target.src = '/icons/default.png')}
                   />
@@ -1225,43 +1262,43 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   </motion.button>
                 </div>
               </div>
-              <div className="flex items-center gap-3 sm:gap-4">
-                {chainsWithAssets.map((chain) => (
-                  <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
+              <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-4 no-scrollbar pb-2">
+                <div className="flex items-center space-x-2 sm:space-x-3">
+                  <Tooltip text="All Chains">
                     <motion.button
-                      onClick={() => setActiveChain(chain)}
-                      whileHover={{ scale: 1 }}
-                      whileTap={{ scale: 0.95 }}
-                      className={`p-1 sm:p-1.5 border rounded-sm transition-all duration-300 ${activeChain === chain
-                        ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
-                        : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
-                        }`}
+                      onClick={() => setActiveChain(null)}
+                      className={`px-2 sm:px-2 py-1 sm:py-1 border rounded-xl transition-all duration-300 text-[9px] sm:text-[10px] font-medium text-white flex-shrink-0 z-10 ${
+                        activeChain === null
+                          ? 'border-white bg-neon-blue/20 shadow-neon'
+                          : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
+                      }`}
                     >
-                      <Image
-                        src={getPlatformImage(chain)}
-                        alt={chain}
-                        width={isMobile ? 36 : 40}
-                        height={isMobile ? 36 : 40}
-                        className="rounded-sm object-contain"
-                        style={{ width: 'auto', height: 'auto' }}
-                        onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
-                      />
+                      ALL
                     </motion.button>
                   </Tooltip>
-                ))}
-                <Tooltip text="All Chains">
-                  <motion.button
-                    onClick={() => setActiveChain(null)}
-                    whileHover={{ scale: 1 }}
-                    whileTap={{ scale: 0.95 }}
-                    className={`px-2 sm:px-3 py-1.5 sm:py-1.5 border rounded-sm transition-all duration-300 text-[10px] sm:text-xs font-medium text-white ${activeChain === null
-                      ? 'border-white bg-neon-blue/20 shadow-neon'
-                      : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
-                      }`}
-                  >
-                    ALL
-                  </motion.button>
-                </Tooltip>
+                  {chainsWithAssets.map((chain) => (
+                    <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
+                      <motion.button
+                        onClick={() => setActiveChain(chain)}
+                        className={`p-1 border rounded-xl transition-all duration-300 flex-shrink-0 z-10 ${
+                          activeChain === chain
+                            ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
+                            : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
+                        }`}
+                      >
+                        <Image
+                          src={getPlatformImage(chain)}
+                          alt={chain}
+                          width={isMobile ? 16 : 32}
+                          height={isMobile ? 16 : 32}
+                          className="rounded-xl object-contain block"
+                          style={{ width: 'auto', height: 'auto', minWidth: '16px', minHeight: '16px' }}
+                          onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
+                        />
+                      </motion.button>
+                    </Tooltip>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -1274,8 +1311,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     onClick={() => handleTabClick(tab)}
                     whileHover={{ scale: 1 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 ${activeTab === tab ? 'border-b-2 border-white text-white bg-neon-blue/20' : 'text-white'
-                      } last:border-r-0`}
+                    className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 ${
+                      activeTab === tab ? 'border-b-2 border-white text-white bg-neon-blue/20' : 'text-white'
+                    } last:border-r-0`}
                   >
                     {tab}
                   </motion.button>
@@ -1283,7 +1321,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-lg bg-black/60 backdrop-blur-2xl shadow-neon-sm">
-                <LoadingOverlay isLoading={loadingStates.loading || (activeTab === 'PORTFOLIO' && (loadingStates.balances || loadingStates.tokenInfo))} isMobile={isMobile} />
+                <LoadingOverlay
+                  isLoading={loadingStates.loading || (activeTab === 'PORTFOLIO' && (loadingStates.balances || loadingStates.tokenInfo))}
+                  isMobile={isMobile}
+                />
                 <LoadingOverlay isLoading={loadingStates.transactions && activeTab === 'ACTIVITY'} isMobile={isMobile} />
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -1448,7 +1489,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               </div>
 
               {(activeTab === 'PORTFOLIO' && filteredBalances.length > itemsPerPage) ||
-                (activeTab === 'ACTIVITY' && filteredTransactions.length > itemsPerPage) ? (
+              (activeTab === 'ACTIVITY' && filteredTransactions.length > itemsPerPage) ? (
                 <div className="flex justify-end mt-2 px-2 sm:px-4">
                   <div className="flex items-center gap-2 sm:gap-4">
                     <motion.button
@@ -1456,8 +1497,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       disabled={currentPage[activeTab] === 1}
                       whileHover={{ scale: 1 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage[activeTab] === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                        } transition-all duration-300 rounded`}
+                      className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                        currentPage[activeTab] === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
+                      } transition-all duration-300 rounded`}
                     >
                       &lt;
                     </motion.button>
@@ -1469,10 +1511,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       disabled={currentPage[activeTab] === getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)}
                       whileHover={{ scale: 1 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage[activeTab] === getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-neon-blue/30'
-                        } transition-all duration-300 rounded`}
+                      className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${
+                        currentPage[activeTab] === getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:bg-neon-blue/30'
+                      } transition-all duration-300 rounded`}
                     >
                       &gt;
                     </motion.button>
@@ -1596,58 +1639,70 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       </AnimatePresence>
 
       <style jsx>{`
-        .shadow-neon {
-          box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
-        }
-        .shadow-neon-lg {
-          box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.4);
-        }
-        .animate-pulse {
-          animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
-        }
-        @keyframes pulse {
-          0%,
-          100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-        }
-        table {
-          table-layout: auto;
-          width: 100%;
-        }
-        th,
-        td {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        @media (max-width: 640px) {
-          table {
-            font-size: 9px;
-          }
-          th,
-          td {
-            padding: 0.5rem;
-          }
-        }
-      `}</style>
+  .shadow-neon {
+    box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
+  }
+  .shadow-neon-lg {
+    box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+  .custom-scrollbar {
+    -ms-overflow-style: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .animate-pulse {
+    animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+  table {
+    table-layout: auto;
+    width: 100%;
+  }
+  th,
+  td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  @media (max-width: 640px) {
+    table {
+      font-size: 9px;
+    }
+    th,
+    td {
+      padding: 0.5rem;
+    }
+  }
+`}</style>
     </motion.div>
   );
 }

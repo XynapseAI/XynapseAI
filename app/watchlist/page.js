@@ -1,18 +1,12 @@
 // app/watchlist/page.js
-import WatchlistPageClient from '../../components/WatchlistPageClient';
+import { redirect } from 'next/navigation';
 
-// Hàm tạo static params
-export async function generateStaticParams() {
-  try {
-    // No static parameters needed since we're using dynamic rendering with address
-    return [];
-  } catch (error) {
-    console.error('Error in generateStaticParams:', error);
-    return [];
-  }
+export default async function WatchlistPage({ searchParams }) {
+  const { address = null } = await searchParams;
+  const query = address ? `tab=watchlists&address=${encodeURIComponent(address)}` : 'tab=watchlists';
+  redirect(`/dashboard?${query}`);
 }
 
-// Server-side metadata for SEO
 export async function generateMetadata({ searchParams }) {
   const params = await searchParams;
   const { address = 'unknown' } = params;
@@ -23,11 +17,4 @@ export async function generateMetadata({ searchParams }) {
     keywords: `wallet, cryptocurrency, blockchain, ${address || 'watchlist'}`,
     robots: 'index, follow',
   };
-}
-
-// Server Component
-export default async function WatchlistPage({ searchParams }) {
-  const params = await searchParams;
-  const { address = null } = params;
-  return <WatchlistPageClient initialAddress={address} />;
 }
