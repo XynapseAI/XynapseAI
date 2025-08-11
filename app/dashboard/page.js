@@ -35,15 +35,13 @@ export default function Dashboard() {
     const tab = searchParams.get('tab');
     return tab && ['market', 'ai', 'profile', 'treemap', 'watchlists'].includes(tab) ? tab : 'profile';
   });
-  const [selectedAddress, setSelectedAddress] = useState(searchParams.get('address') || null); // Add address state
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedAddress, setSelectedAddress] = useState(searchParams.get('address') || null);
   const [topPlayers, setTopPlayers] = useState({ rankings: [], creators: [], aiRank: [] });
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [lastAnalysisSuccess, setLastAnalysisSuccess] = useState(false);
   const [providers, setProviders] = useState(null);
   const [email, setEmail] = useState('');
@@ -56,13 +54,11 @@ export default function Dashboard() {
     setIsMounted(true);
   }, []);
 
-  // Update selectedAddress when searchParams change
   useEffect(() => {
     const address = searchParams.get('address');
     setSelectedAddress(address || null);
   }, [searchParams]);
 
-  // Fetch providers for sign-in options
   useEffect(() => {
     async function fetchProviders() {
       try {
@@ -76,7 +72,6 @@ export default function Dashboard() {
     fetchProviders();
   }, []);
 
-  // Fetch CSRF token on mount when authenticated
   useEffect(() => {
     if (!isMounted || status !== 'authenticated' || session?.csrfToken || isFetchingCsrf) return;
 
@@ -114,7 +109,6 @@ export default function Dashboard() {
     fetchCsrfToken();
   }, [isMounted, status, session, update, isFetchingCsrf]);
 
-  // Fetch top players
   useEffect(() => {
     if (!isMounted || status !== 'authenticated' || !csrfToken) return;
 
@@ -161,7 +155,6 @@ export default function Dashboard() {
     fetchTopPlayers();
   }, [isMounted, status, csrfToken]);
 
-  // Fetch user data
   useEffect(() => {
     if (!isMounted || !session?.user?.id || !csrfToken) return;
 
@@ -308,7 +301,7 @@ export default function Dashboard() {
       toast.error('Failed to sign out.', { position: 'top-center' });
     }
   };
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const handleAnalyzeTweets = async () => {
     if (isAnalyzing) return;
     setIsAnalyzing(true);
@@ -353,7 +346,7 @@ export default function Dashboard() {
       toast.error('Cannot navigate to token page: Invalid token ID.', { position: 'top-center', autoClose: 3000 });
       return;
     }
-    router.push(`/token/${slug}`, { scroll: false });
+    router.push(`/dashboard?tab=market&token=${slug}`, { scroll: false }); // Updated URL
     setActiveTab('market');
   };
 
@@ -522,7 +515,14 @@ export default function Dashboard() {
           transition={{ duration: 0.5 }}
           className="w-full h-full flex items-center justify-center"
         >
-          {activeTab === 'market' && <MarketTab recaptchaRef={recaptchaRef} toast={toast} onTokenSelect={handleNavigateToToken} />}
+          {activeTab === 'market' && (
+            <MarketTab
+              recaptchaRef={recaptchaRef}
+              toast={toast}
+              onTokenSelect={handleNavigateToToken}
+              initialTokenSlug={searchParams.get('token') || undefined} // Pass token from query params
+            />
+          )}
           {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
           {activeTab === 'profile' && (
             <ProfileTab

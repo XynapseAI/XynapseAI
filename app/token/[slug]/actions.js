@@ -4,10 +4,10 @@ import { revalidatePath } from 'next/cache';
 
 export async function revalidateTokenPath(slug) {
   try {
-    revalidatePath(`/token/${slug}`); // Fixed string interpolation
+    revalidatePath(`/dashboard?tab=market&token=${slug}`); // Updated to new URL structure
     return { success: true };
   } catch (error) {
-    console.error(`Error revalidating path /token/${slug}:`, error); // Fixed string interpolation
+    console.error(`Error revalidating path /dashboard?tab=market&token=${slug}:`, error);
     return { success: false, error: error.message };
   }
 }

@@ -112,7 +112,7 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
     setIsLoadingPriceHistory(true);
     setIsLoadingTopHolders(true);
     setError(null);
-    router.push(`/token/${newSlug}`, { scroll: false });
+    router.push(`/dashboard?tab=market&token=${newSlug}`, { scroll: false }); // Updated URL
     setActiveTab('market');
   };
 

@@ -3,6 +3,7 @@ import { revalidateTokenPath } from './actions';
 import TokenPageClient from '../../../components/TokenPageClient';
 import { getRedisClient } from '../../../lib/redis';
 import Bottleneck from 'bottleneck';
+import { redirect } from 'next/navigation';
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 5,
@@ -19,11 +20,11 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
       },
     });
     if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`); // Fixed string interpolation
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
     }
     return response.json();
   } catch (error) {
-    console.error(`Fetch error for ${url}:`, error); // Fixed string interpolation
+    console.error(`Fetch error for ${url}:`, error);
     return null;
   }
 });
@@ -32,10 +33,10 @@ async function fetchTokenData(slug) {
   let redisClient;
   try {
     redisClient = await getRedisClient();
-    const cacheKey = `token-full-${slug}-1-usd`; // Added quotes
+    const cacheKey = `token-full-${slug}-1-usd`;
     const cached = await redisClient.get(cacheKey);
     if (cached) {
-      console.log(`Cache hit for token ${slug}`); // Fixed string interpolation
+      console.log(`Cache hit for token ${slug}`);
       return JSON.parse(cached);
     }
     const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
@@ -45,14 +46,14 @@ async function fetchTokenData(slug) {
     });
 
     if (!response || !response.success || !response.data) {
-      console.error(`Invalid response for ${slug}:`, response); // Fixed string interpolation
+      console.error(`Invalid response for ${slug}:`, response);
       return null;
     }
 
     await redisClient.setEx(cacheKey, 60, JSON.stringify(response));
     return response;
   } catch (error) {
-    console.error(`Error fetching token data for slug ${slug}:`, error); // Fixed string interpolation
+    console.error(`Error fetching token data for slug ${slug}:`, error);
     return null;
   }
 }
@@ -78,7 +79,7 @@ export async function generateStaticParams() {
     const redisClient = await getRedisClient();
     await Promise.all(
       topTokens.slice(0, 20).map(async (token) => {
-        const cacheKey = `token-full-${token.id}-1-usd`; // Added quotes
+        const cacheKey = `token-full-${token.id}-1-usd`;
         const cached = await redisClient.get(cacheKey);
         if (!cached) {
           const data = await fetchTokenData(token.id);
@@ -99,7 +100,7 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }) {
-  const { slug } = await params; // Await params
+  const { slug } = await params;
   const data = await fetchTokenData(slug);
   const tokenData = data?.data;
   if (!tokenData) {
@@ -112,15 +113,19 @@ export async function generateMetadata({ params }) {
   }
   const capitalizedSlug = slug.charAt(0).toUpperCase() + slug.slice(1);
   return {
-    title: `${tokenData.name || capitalizedSlug}`, // Fixed string interpolation
-    description: `Explore market data and insights for ${tokenData.name || capitalizedSlug} on our crypto dashboard.`, // Fixed string interpolation
-    keywords: `${slug}, ${tokenData.symbol?.toUpperCase() || 'token'}, cryptocurrency, market data, blockchain`, // Fixed string interpolation
+    title: `${tokenData.name || capitalizedSlug}`,
+    description: `Explore market data and insights for ${tokenData.name || capitalizedSlug} on our crypto dashboard.`,
+    keywords: `${slug}, ${tokenData.symbol?.toUpperCase() || 'token'}, cryptocurrency, market data, blockchain`,
     robots: 'index, follow',
   };
 }
 
-export default async function TokenPage({ params }) {
-  const { slug } = await params; // Await params
+export default async function TokenPage({ params, searchParams }) {
+  const { slug } = await params;
+  // Redirect to new URL structure if accessed via /token/[slug]
+  if (!searchParams.tab && !searchParams.token) {
+    redirect(`/dashboard?tab=market&token=${slug}`);
+  }
   const data = await fetchTokenData(slug);
   if (!data?.data) {
     return (
