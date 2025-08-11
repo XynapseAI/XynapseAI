@@ -36,12 +36,14 @@ export default function Dashboard() {
     return tab && ['market', 'ai', 'profile', 'treemap', 'watchlists'].includes(tab) ? tab : 'profile';
   });
   const [selectedAddress, setSelectedAddress] = useState(searchParams.get('address') || null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [topPlayers, setTopPlayers] = useState({ rankings: [], creators: [], aiRank: [] });
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [lastAnalysisSuccess, setLastAnalysisSuccess] = useState(false);
   const [providers, setProviders] = useState(null);
   const [email, setEmail] = useState('');
@@ -302,6 +304,7 @@ export default function Dashboard() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAnalyzeTweets = async () => {
     if (isAnalyzing) return;
     setIsAnalyzing(true);
