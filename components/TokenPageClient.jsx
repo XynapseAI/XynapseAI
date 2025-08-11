@@ -1,7 +1,7 @@
 // components/TokenPageClient.jsx
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation'; // Add useSearchParams
 import { useSession, signOut } from 'next-auth/react';
 import Header from './Header';
 import MarketTab from './MarketTab';
@@ -10,14 +10,12 @@ import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { useMarketTabLogic } from './MarketTabLogic';
 import { LoadingOverlay } from '../utils/helpers';
-import axios from 'axios';
 
 export default function TokenPageClient({ initialTokenSlug, initialTokenData, initialTopHolders, initialPriceHistory }) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const selectedAddress = searchParams.get('address') || null;
-  const slugFromUrl = searchParams.get('slug') || initialTokenSlug;
+  const searchParams = useSearchParams(); // Add searchParams
+  const selectedAddress = searchParams.get('address') || null; // Get address from query
   const recaptchaRef = useRef(null);
   const [isLoadingToken, setIsLoadingToken] = useState(true);
   const [isLoadingPriceHistory, setIsLoadingPriceHistory] = useState(true);
@@ -25,10 +23,7 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('market');
   const initializedRef = useRef(false);
-  const prevTokenSlugRef = useRef(slugFromUrl);
-  const [tokenData, setTokenData] = useState(initialTokenData);
-  const [topHolders, setTopHolders] = useState(initialTopHolders || []);
-  const [priceHistory, setPriceHistory] = useState(initialPriceHistory || []);
+  const prevTokenSlugRef = useRef(initialTokenSlug);
 
   const {
     selectedToken,
@@ -38,81 +33,57 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
   } = useMarketTabLogic({
     recaptchaRef,
     toast,
-    initialTokenSlug: slugFromUrl,
-    initialTokenData: tokenData,
+    initialTokenSlug,
+    initialTokenData,
   });
-
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
-
-  const fetchTokenData = async (slug) => {
-    try {
-      const response = await axios.get(`${apiBaseUrl}/api/coingecko/token/${slug}`, {
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (!response.data.success || !response.data.data) {
-        throw new Error(`Invalid response for ${slug}`);
-      }
-      setTokenData(response.data.data);
-      setTopHolders(response.data.topHolders || []);
-      setPriceHistory(response.data.priceHistory || []);
-      return response.data;
-    } catch (error) {
-      console.error(`Error fetching token data for ${slug}:`, error);
-      setError(`Failed to fetch token data for ${slug}`);
-      toast.error(`Token ${slug} not found`, { position: 'top-center', autoClose: 3000 });
-      return null;
-    }
-  };
 
   useEffect(() => {
     console.log('TokenPageClient mounted with:', {
-      slugFromUrl,
       initialTokenSlug,
       initialTokenData: initialTokenData?.id,
       selectedToken: selectedToken?.id,
     });
+  }, [initialTokenSlug, initialTokenData, selectedToken]);
 
+  useEffect(() => {
+    if (initializedRef.current && prevTokenSlugRef.current === initialTokenSlug) {
+      console.log(`Skipping initialization: Token ${initialTokenSlug} already set`);
+      return;
+    }
+
+    if (initialTokenData && initialTokenSlug) {
+      console.log(`Setting initial token: ${initialTokenSlug}`);
+      if (chains.length === 0) {
+        fetchSupportedChains().then(() => {
+          debouncedHandleTokenSelect({ id: initialTokenSlug }, initialTokenData);
+          setIsLoadingToken(false);
+          setIsLoadingPriceHistory(!initialPriceHistory);
+          setIsLoadingTopHolders(!initialTopHolders);
+          initializedRef.current = true;
+          prevTokenSlugRef.current = initialTokenSlug;
+        });
+      } else {
+        debouncedHandleTokenSelect({ id: initialTokenSlug }, initialTokenData);
+        setIsLoadingToken(false);
+        setIsLoadingPriceHistory(!initialPriceHistory);
+        setIsLoadingTopHolders(!initialTopHolders);
+        initializedRef.current = true;
+        prevTokenSlugRef.current = initialTokenSlug;
+      }
+    } else if (!initialTokenData) {
+      setError(`Token data for ${initialTokenSlug} not found`);
+      setIsLoadingToken(false);
+      toast.error(`Token ${initialTokenSlug} not found`, { position: 'top-center', autoClose: 3000 });
+      initializedRef.current = true;
+    }
+  }, [initialTokenSlug, initialTokenData, initialPriceHistory, initialTopHolders, debouncedHandleTokenSelect, fetchSupportedChains, chains]);
+
+  useEffect(() => {
     if (status === 'unauthenticated') {
       console.log('User unauthenticated, redirecting to signin');
       router.push('/auth/signin');
-      return;
     }
-
-    if (!slugFromUrl) {
-      setError('No token slug provided');
-      setIsLoadingToken(false);
-      toast.error('No token specified', { position: 'top-center', autoClose: 3000 });
-      return;
-    }
-
-    if (initializedRef.current && prevTokenSlugRef.current === slugFromUrl) {
-      console.log(`Skipping initialization: Token ${slugFromUrl} already set`);
-      return;
-    }
-
-    if (initialTokenData && slugFromUrl === initialTokenSlug && chains.length > 0) {
-      console.log(`Setting initial token: ${slugFromUrl}`);
-      debouncedHandleTokenSelect({ id: slugFromUrl }, initialTokenData);
-      setIsLoadingToken(false);
-      setIsLoadingPriceHistory(!initialPriceHistory);
-      setIsLoadingTopHolders(!initialTopHolders);
-      initializedRef.current = true;
-      prevTokenSlugRef.current = slugFromUrl;
-    } else {
-      fetchSupportedChains().then(() => {
-        fetchTokenData(slugFromUrl).then((data) => {
-          if (data) {
-            debouncedHandleTokenSelect({ id: slugFromUrl }, data.data);
-            setIsLoadingToken(false);
-            setIsLoadingPriceHistory(!data.priceHistory);
-            setIsLoadingTopHolders(!data.topHolders);
-            initializedRef.current = true;
-            prevTokenSlugRef.current = slugFromUrl;
-          }
-        });
-      });
-    }
-  }, [slugFromUrl, initialTokenSlug, initialTokenData, initialPriceHistory, initialTopHolders, debouncedHandleTokenSelect, fetchSupportedChains, chains, status, router]);
+  }, [status, router]);
 
   const handleSignOut = async () => {
     try {
@@ -126,14 +97,8 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
 
   const handleSetActiveTab = (tabId) => {
     setActiveTab(tabId);
-    const queryParams = new URLSearchParams();
-    queryParams.set('tab', tabId);
-    if (tabId === 'watchlists' && selectedAddress) {
-      queryParams.set('address', encodeURIComponent(selectedAddress));
-    } else if (tabId === 'market' && slugFromUrl) {
-      queryParams.set('slug', encodeURIComponent(slugFromUrl));
-    }
-    router.push(`/dashboard?${queryParams.toString()}`, { scroll: false });
+    const query = tabId === 'watchlists' && selectedAddress ? `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}` : `tab=${tabId}`;
+    router.push(`/dashboard?${query}`, { scroll: false });
   };
 
   const handleNavigateToToken = (newSlug) => {
@@ -150,17 +115,12 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
     setIsLoadingPriceHistory(true);
     setIsLoadingTopHolders(true);
     setError(null);
-    const queryParams = new URLSearchParams();
-    queryParams.set('tab', 'market');
-    queryParams.set('slug', encodeURIComponent(newSlug));
-    if (selectedAddress) {
-      queryParams.set('address', encodeURIComponent(selectedAddress));
-    }
-    router.push(`/dashboard?${queryParams.toString()}`, { scroll: false });
+    const query = selectedAddress ? `?address=${encodeURIComponent(selectedAddress)}` : '';
+    router.push(`/token/${newSlug}${query}`, { scroll: false });
     setActiveTab('market');
   };
 
-  if (status === 'loading' || !slugFromUrl) {
+  if (status === 'loading' || !initialTokenSlug) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
         <div className="animate-pulse">
@@ -194,7 +154,7 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
         activeTab={activeTab}
         setActiveTab={handleSetActiveTab}
         handleSignOut={handleSignOut}
-        selectedAddress={selectedAddress}
+        selectedAddress={selectedAddress} // Pass selectedAddress
       />
       <main className="flex-1 flex items-center justify-center overflow-hidden">
         <motion.div
@@ -210,10 +170,10 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
           ) : (
             <MarketTab
               recaptchaRef={recaptchaRef}
-              initialTokenSlug={slugFromUrl}
-              initialTokenData={tokenData}
-              initialTopHolders={topHolders}
-              initialPriceHistory={priceHistory}
+              initialTokenSlug={initialTokenSlug}
+              initialTokenData={initialTokenData}
+              initialTopHolders={initialTopHolders}
+              initialPriceHistory={initialPriceHistory}
               onTokenSelect={handleNavigateToToken}
               isLoadingPriceHistory={isLoadingPriceHistory}
               setIsLoadingPriceHistory={setIsLoadingPriceHistory}

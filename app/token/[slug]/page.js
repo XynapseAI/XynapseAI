@@ -1,8 +1,6 @@
 // app/token/[slug]/page.js
-'use server';
-import { redirect } from 'next/navigation';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { revalidateTokenPath } from './actions';
+import TokenPageClient from '../../../components/TokenPageClient';
 import { getRedisClient } from '../../../lib/redis';
 import Bottleneck from 'bottleneck';
 
@@ -21,11 +19,11 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
       },
     });
     if (!response.ok) {
-      throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+      throw new Error(`HTTP error ${response.status}: ${response.statusText}`); // Fixed string interpolation
     }
     return response.json();
   } catch (error) {
-    console.error(`Fetch error for ${url}:`, error);
+    console.error(`Fetch error for ${url}:`, error); // Fixed string interpolation
     return null;
   }
 });
@@ -34,10 +32,10 @@ async function fetchTokenData(slug) {
   let redisClient;
   try {
     redisClient = await getRedisClient();
-    const cacheKey = `token-full-${slug}-1-usd`;
+    const cacheKey = `token-full-${slug}-1-usd`; // Added quotes
     const cached = await redisClient.get(cacheKey);
     if (cached) {
-      console.log(`Cache hit for token ${slug}`);
+      console.log(`Cache hit for token ${slug}`); // Fixed string interpolation
       return JSON.parse(cached);
     }
     const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
@@ -47,14 +45,14 @@ async function fetchTokenData(slug) {
     });
 
     if (!response || !response.success || !response.data) {
-      console.error(`Invalid response for ${slug}:`, response);
+      console.error(`Invalid response for ${slug}:`, response); // Fixed string interpolation
       return null;
     }
 
     await redisClient.setEx(cacheKey, 60, JSON.stringify(response));
     return response;
   } catch (error) {
-    console.error(`Error fetching token data for slug ${slug}:`, error);
+    console.error(`Error fetching token data for slug ${slug}:`, error); // Fixed string interpolation
     return null;
   }
 }
@@ -80,7 +78,7 @@ export async function generateStaticParams() {
     const redisClient = await getRedisClient();
     await Promise.all(
       topTokens.slice(0, 20).map(async (token) => {
-        const cacheKey = `token-full-${token.id}-1-usd`;
+        const cacheKey = `token-full-${token.id}-1-usd`; // Added quotes
         const cached = await redisClient.get(cacheKey);
         if (!cached) {
           const data = await fetchTokenData(token.id);
@@ -101,7 +99,7 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }) {
-  const { slug } = await params;
+  const { slug } = await params; // Await params
   const data = await fetchTokenData(slug);
   const tokenData = data?.data;
   if (!tokenData) {
@@ -114,15 +112,40 @@ export async function generateMetadata({ params }) {
   }
   const capitalizedSlug = slug.charAt(0).toUpperCase() + slug.slice(1);
   return {
-    title: `${tokenData.name || capitalizedSlug}`,
-    description: `Explore market data and insights for ${tokenData.name || capitalizedSlug} on our crypto dashboard.`,
-    keywords: `${slug}, ${tokenData.symbol?.toUpperCase() || 'token'}, cryptocurrency, market data, blockchain`,
+    title: `${tokenData.name || capitalizedSlug}`, // Fixed string interpolation
+    description: `Explore market data and insights for ${tokenData.name || capitalizedSlug} on our crypto dashboard.`, // Fixed string interpolation
+    keywords: `${slug}, ${tokenData.symbol?.toUpperCase() || 'token'}, cryptocurrency, market data, blockchain`, // Fixed string interpolation
     robots: 'index, follow',
   };
 }
 
 export default async function TokenPage({ params }) {
-  const { slug } = await params;
-  // Redirect to /dashboard?tab=market&slug=...
-  redirect(`/dashboard?tab=market&slug=${encodeURIComponent(slug)}`);
+  const { slug } = await params; // Await params
+  const data = await fetchTokenData(slug);
+  if (!data?.data) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-black text-white font-saira">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Token Not Found</h1>
+          <p className="text-gray-400 mb-4">The token with slug {slug} could not be found.</p>
+          <a href="/dashboard" className="text-neon-blue hover:underline">
+            Back to Dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
+  if (process.env.NODE_ENV === 'production') {
+    await revalidateTokenPath(slug);
+  }
+  return (
+    <TokenPageClient
+      initialTokenSlug={slug}
+      initialTokenData={data.data}
+      initialTopHolders={data.topHolders || []}
+      initialPriceHistory={data.priceHistory || []}
+    />
+  );
 }
+
+export const revalidate = 300;
