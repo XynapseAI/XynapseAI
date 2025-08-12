@@ -936,12 +936,12 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           <div className="flex flex-col items-center gap-1">
             <span
               className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${tx.type === 'receive'
-                  ? 'bg-green-500/20 text-green-500'
-                  : tx.type === 'send'
-                    ? 'bg-blue-500/20 text-blue-500'
-                    : tx.type === 'swap'
-                      ? 'bg-purple-500/20 text-purple-500'
-                      : 'bg-gray-500/20 text-gray-500'
+                ? 'bg-green-500/20 text-green-500'
+                : tx.type === 'send'
+                  ? 'bg-blue-500/20 text-blue-500'
+                  : tx.type === 'swap'
+                    ? 'bg-purple-500/20 text-purple-500'
+                    : 'bg-gray-500/20 text-gray-500'
                 }`}
             >
               {typeDisplay}
@@ -1127,8 +1127,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className={`flex items-center justify-between p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                          ? 'border-white bg-black/60'
-                          : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
+                        ? 'border-white bg-black/60'
+                        : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
                         }`}
                     >
                       <div className="flex items-center gap-2">
@@ -1206,8 +1206,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 updateUrl(wallet.address);
               }}
               className={`flex items-center justify-between p-2 sm:p-3 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                  ? 'border-white bg-black/60'
-                  : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
+                ? 'border-white bg-black/60'
+                : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
                 }`}
             >
               <div className="flex items-center gap-2">
@@ -1293,41 +1293,39 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   </motion.button>
                 </div>
               </div>
-              <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-4 no-scrollbar pb-2">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <Tooltip text="All Chains">
+              <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-4 no-scrollbar">
+                <Tooltip text="All Chains">
+                  <motion.button
+                    onClick={() => setActiveChain(null)}
+                    className={`px-2 sm:px-3 py-1 sm:py-1.5 border border-white rounded-xl transition-all duration-300 text-[10px] sm:text-xs font-medium text-white flex-shrink-0 min-w-[48px] z-10 ${activeChain === null
+                        ? 'border-white bg-neon-blue/20 shadow-neon'
+                        : 'border-white bg-black/60 backdrop-blur-md'
+                      }`}
+                  >
+                    ALL
+                  </motion.button>
+                </Tooltip>
+                {chainsWithAssets.map((chain) => (
+                  <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
                     <motion.button
-                      onClick={() => setActiveChain(null)}
-                      className={`px-2 sm:px-2 py-1 sm:py-1 border rounded-xl transition-all duration-300 text-[9px] sm:text-[10px] font-medium text-white flex-shrink-0 z-10 ${activeChain === null
-                          ? 'border-white bg-neon-blue/20 shadow-neon'
+                      onClick={() => setActiveChain(chain)}
+                      className={`flex items-center justify-center rounded-full flex-shrink-0 z-10 min-w-[26px] sm:min-w-[26px] m-1 ${activeChain === chain
+                          ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
                           : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
                         }`}
                     >
-                      ALL
+                      <img
+                        src={getPlatformImage(chain)}
+                        alt={chain}
+                        width={isMobile ? 20 : 24} // Increased from 24 to 32 for mobile
+                        height={isMobile ? 20 : 24} // Increased from 24 to 32 for mobile
+                        className="rounded-full object-contain block flex-shrink-0"
+                        onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
+                        loading="lazy"
+                      />
                     </motion.button>
                   </Tooltip>
-                  {chainsWithAssets.map((chain) => (
-                    <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
-                      <motion.button
-                        onClick={() => setActiveChain(chain)}
-                        className={`p-1 border rounded-xl transition-all duration-300 flex-shrink-0 z-10 ${activeChain === chain
-                            ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
-                            : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
-                          }`}
-                      >
-                        <img
-                          src={getPlatformImage(chain)}
-                          alt={chain}
-                          width={isMobile ? 16 : 20}
-                          height={isMobile ? 16 : 20}
-                          className="rounded-xl object-contain block"
-                          onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
-                          loading="lazy"
-                        />
-                      </motion.button>
-                    </Tooltip>
-                  ))}
-                </div>
+                ))}
               </div>
             </div>
 
@@ -1340,7 +1338,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     onClick={() => handleTabClick(tab)}
                     whileHover={{ scale: 1 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium transition-all duration-300 ${activeTab === tab ? 'border-b-2 border-white text-white bg-neon-blue/20' : 'text-white'
+                    className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white'
                       } last:border-r-0`}
                   >
                     {tab}
@@ -1348,7 +1346,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 ))}
               </div>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-lg bg-black/60 backdrop-blur-2xl shadow-neon-sm">
+              <div className="flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-lg bg-black/60 backdrop-blur-2xl">
                 <LoadingOverlay
                   isLoading={loadingStates.loading || (activeTab === 'PORTFOLIO' && (loadingStates.balances || loadingStates.tokenInfo))}
                   isMobile={isMobile}
