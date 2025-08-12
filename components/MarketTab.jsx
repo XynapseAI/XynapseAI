@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef , useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
@@ -912,9 +912,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </p>
                         <span
                           className={`text-[9px] sm:text-[9px] font-medium ${(selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
-                              localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]) >= 0
-                              ? 'text-green-500'
-                              : 'text-red-500'
+                            localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]) >= 0
+                            ? 'text-green-500'
+                            : 'text-red-500'
                             }`}
                         >
                           {(selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
@@ -947,7 +947,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                     <div>
-                      <h5 className="text-[11px] sm:text-[10px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-1">
+                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-1">
                         Market Stats
                       </h5>
                       <div className="grid grid-cols-1 gap-1 sm:gap-2 text-[10px] sm:text-[9px]">
@@ -984,7 +984,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </div>
                     </div>
                     <div>
-                      <h5 className="text-[11px] sm:text-[10px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-1">
+                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-1">
                         Supply Stats
                       </h5>
                       <div className="grid grid-cols-1 gap-1 sm:gap-2 text-[10px] sm:text-[9px]">
@@ -1021,7 +1021,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </div>
                     </div>
                     <div>
-                      <h5 className="text-[11px] sm:text-[10px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-1">
+                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-1">
                         All-Time Stats
                       </h5>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2 text-[10px] sm:text-[9px]">

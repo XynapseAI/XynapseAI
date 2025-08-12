@@ -1,3 +1,4 @@
+// app\api\get-transactions\route.js
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
@@ -26,18 +27,18 @@ async function checkRateLimit(ip) {
 }
 
 const SUPPORTED_CHAINS = {
-  '1': { name: 'ethereum', explorer: 'Etherscan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'ethereum' },
-  '56': { name: 'bsc', explorer: 'BscScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'binance-smart-chain' },
-  '204': { name: 'opbnb', explorer: 'opBNB BscScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'opbnb' },
-  '250': { name: 'fantom', explorer: 'FTMScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'fantom' },
-  '10': { name: 'optimism', explorer: 'Optimistic Etherscan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'optimistic-ethereum' },
-  '137': { name: 'polygon', explorer: 'PolygonScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'polygon-pos' },
-  '42161': { name: 'arbitrum', explorer: 'Arbiscan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'arbitrum-one' },
-  '100': { name: 'gnosis', explorer: 'GnosisScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'xdai' },
-  '8453': { name: 'base', explorer: 'BaseScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'base' },
-  '59144': { name: 'linea', explorer: 'LineaScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'linea' },
-  '534352': { name: 'scroll', explorer: 'ScrollScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'scroll' },
-  '81457': { name: 'blast', explorer: 'BlastScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'blast' },
+  '1': { name: 'ethereum', explorer: 'Etherscan', apiUrl: 'https://api.etherscan.io/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'ethereum' },
+  '56': { name: 'bsc', explorer: 'BscScan', apiUrl: 'https://api.bscscan.com/api', apiKey: process.env.BSCSCAN_API_KEY, coingeckoId: 'binance-smart-chain' },
+  '204': { name: 'opbnb', explorer: 'opBNB BscScan', apiUrl: 'https://api-opbnb.bscscan.com/api', apiKey: process.env.BSCSCAN_API_KEY, coingeckoId: 'opbnb' },
+  '250': { name: 'fantom', explorer: 'FTMScan', apiUrl: 'https://api.ftmscan.com/api', apiKey: process.env.FTMSCAN_API_KEY, coingeckoId: 'fantom' },
+  '10': { name: 'optimism', explorer: 'Optimistic Etherscan', apiUrl: 'https://api-optimistic.etherscan.io/api', apiKey: process.env.OPTIMISM_API_KEY, coingeckoId: 'optimistic-ethereum' },
+  '137': { name: 'polygon', explorer: 'PolygonScan', apiUrl: 'https://api.polygonscan.com/api', apiKey: process.env.POLYGONSCAN_API_KEY, coingeckoId: 'polygon-pos' },
+  '42161': { name: 'arbitrum', explorer: 'Arbiscan', apiUrl: 'https://api.arbiscan.io/api', apiKey: process.env.ARBISCAN_API_KEY, coingeckoId: 'arbitrum-one' },
+  '100': { name: 'gnosis', explorer: 'GnosisScan', apiUrl: 'https://api.gnosisscan.io/api', apiKey: process.env.GNOSISSCAN_API_KEY, coingeckoId: 'xdai' },
+  '8453': { name: 'base', explorer: 'BaseScan', apiUrl: 'https://api.basescan.org/api', apiKey: process.env.BASESCAN_API_KEY, coingeckoId: 'base' },
+  '59144': { name: 'linea', explorer: 'LineaScan', apiUrl: 'https://api.lineascan.build/api', apiKey: process.env.LINEASCAN_API_KEY, coingeckoId: 'linea' },
+  '534352': { name: 'scroll', explorer: 'ScrollScan', apiUrl: 'https://api.scrollscan.com/api', apiKey: process.env.SCROLLSCAN_API_KEY, coingeckoId: 'scroll' },
+  '81457': { name: 'blast', explorer: 'BlastScan', apiUrl: 'https://api.blastscan.io/api', apiKey: process.env.BLASTSCAN_API_KEY, coingeckoId: 'blast' },
   'solana': { name: 'solana', explorer: 'Solscan', apiUrl: 'https://public-api.solscan.io', apiKey: process.env.SOLSCAN_API_KEY, coingeckoId: 'solana' },
   'tron': { name: 'tron', explorer: 'TronScan', apiUrl: 'https://api.tronscan.org/api', apiKey: process.env.TRONSCAN_API_KEY, coingeckoId: 'tron' },
 };
@@ -212,8 +213,12 @@ async function fetchBlockchainData(walletAddress, dataType, isTestnet, limit, ch
         hash: tx.txHash,
         from: tx.signer,
         to: tx.actions[0]?.destination || '',
-        value: tx.actions[0]?.amount ? (tx.actions[0].amount / 1e9).toString() : '0',
+        value: tx.actions[0]?.amount ? Number((tx.actions[0].amount / 1e9).toFixed(6)) : 0,
         block_time: new Date(tx.blockTime * 1000).toISOString(),
+        tokenName: 'Solana',
+        tokenSymbol: 'SOL',
+        tokenDecimal: '9',
+        contractAddress: null,
       }));
     } else if (chainId === 'tron') {
       const response = await fetch(`${chain.apiUrl}/transaction?address=${walletAddress}&limit=${limit}`, {
@@ -225,22 +230,52 @@ async function fetchBlockchainData(walletAddress, dataType, isTestnet, limit, ch
         hash: tx.hash,
         from: tx.ownerAddress,
         to: tx.toAddress,
-        value: tx.amount ? (tx.amount / 1e6).toString() : '0',
+        value: tx.amount ? Number((tx.amount / 1e6).toFixed(6)) : 0,
         block_time: new Date(tx.timestamp).toISOString(),
+        tokenName: 'TRON',
+        tokenSymbol: 'TRX',
+        tokenDecimal: '6',
+        contractAddress: null,
       }));
     } else {
-      const response = await fetch(
-        `${chain.apiUrl}?chainid=${chainId}&module=account&action=txlist&address=${walletAddress}&sort=desc&apikey=${chain.apiKey}&page=1&offset=${limit}`
+      // Fetch native transactions (txlist)
+      const nativeResponse = await fetch(
+        `${chain.apiUrl}?module=account&action=txlist&address=${walletAddress}&sort=desc&apikey=${chain.apiKey}&page=1&offset=${limit}`
       );
-      const data = await response.json();
-      if (data.status !== '1') throw new Error(data.message || 'Error fetching EVM transactions');
-      transactions = data.result.map(tx => ({
+      const nativeData = await nativeResponse.json();
+      if (nativeData.status !== '1') throw new Error(nativeData.message || 'Error fetching EVM transactions');
+      const nativeTxs = nativeData.result.map(tx => ({
         hash: tx.hash,
         from: tx.from,
         to: tx.to,
-        value: tx.value,
+        value: Number((parseInt(tx.value) / 1e18).toFixed(6)),
         block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+        tokenName: chain.name.charAt(0).toUpperCase() + chain.name.slice(1), // e.g., Ethereum
+        tokenSymbol: chainId === '1' ? 'ETH' : chain.name.toUpperCase(), // e.g., ETH, BNB
+        tokenDecimal: '18',
+        contractAddress: null,
       }));
+
+      // Fetch token transactions (tokentx)
+      const tokenResponse = await fetch(
+        `${chain.apiUrl}?module=account&action=tokentx&address=${walletAddress}&sort=desc&apikey=${chain.apiKey}&page=1&offset=${limit}`
+      );
+      const tokenData = await tokenResponse.json();
+      if (tokenData.status !== '1') throw new Error(tokenData.message || 'Error fetching EVM token transactions');
+      const tokenTxs = tokenData.result.map(tx => ({
+        hash: tx.hash,
+        from: tx.from,
+        to: tx.to,
+        value: Number((parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal))).toFixed(6)),
+        block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+        tokenName: tx.tokenName,
+        tokenSymbol: tx.tokenSymbol,
+        tokenDecimal: tx.tokenDecimal,
+        contractAddress: tx.contractAddress,
+      }));
+
+      // Combine native and token transactions
+      transactions = [...nativeTxs, ...tokenTxs];
     }
     return transactions;
   } catch (error) {
@@ -358,7 +393,7 @@ export async function POST(request) {
               hash: tx.hash,
               from: tx.from.toLowerCase(),
               to: tx.to.toLowerCase(),
-              value: (parseInt(String(tx.value), 16) / 1e18).toFixed(6),
+              value: tx.value,
               block_time: tx.block_time,
               type: 'incoming',
               chainLogo,
@@ -366,13 +401,17 @@ export async function POST(request) {
               from_image: nametags[tx.from.toLowerCase()]?.image || '/icons/default.png',
               to_nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
               to_image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.png',
+              tokenName: tx.tokenName,
+              tokenSymbol: tx.tokenSymbol,
+              tokenDecimal: tx.tokenDecimal,
+              contractAddress: tx.contractAddress,
             }));
 
             outgoingTxsWithNametags = outgoingTxs.map((tx) => ({
               hash: tx.hash,
               from: tx.from.toLowerCase(),
               to: tx.to.toLowerCase(),
-              value: (parseInt(String(tx.value), 16) / 1e18).toFixed(6),
+              value: tx.value,
               block_time: tx.block_time,
               type: 'outgoing',
               chainLogo,
@@ -380,6 +419,10 @@ export async function POST(request) {
               from_image: nametags[tx.from.toLowerCase()]?.image || '/icons/default.png',
               to_nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
               to_image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.png',
+              tokenName: tx.tokenName,
+              tokenSymbol: tx.tokenSymbol,
+              tokenDecimal: tx.tokenDecimal,
+              contractAddress: tx.contractAddress,
             }));
 
             walletInfo = {
@@ -402,6 +445,10 @@ export async function POST(request) {
               from_image: '/icons/default.png',
               to_nametag: tx.to.slice(0, 6) + '...' + tx.to.slice(-4),
               to_image: '/icons/default.png',
+              tokenName: tx.tokenName,
+              tokenSymbol: tx.tokenSymbol,
+              tokenDecimal: tx.tokenDecimal,
+              contractAddress: tx.contractAddress,
             }));
 
             outgoingTxsWithNametags = outgoingTxs.map((tx) => ({
@@ -416,6 +463,10 @@ export async function POST(request) {
               from_image: '/icons/default.png',
               to_nametag: tx.to.slice(0, 6) + '...' + tx.to.slice(-4),
               to_image: '/icons/default.png',
+              tokenName: tx.tokenName,
+              tokenSymbol: tx.tokenSymbol,
+              tokenDecimal: tx.tokenDecimal,
+              contractAddress: tx.contractAddress,
             }));
           }
 

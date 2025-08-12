@@ -15,7 +15,7 @@ import { chains, mapCoinGeckoChains, getPlatformImage, getExplorerUrls } from '.
 import { LoadingOverlay } from '@/utils/helpers';
 import axios from 'axios';
 
-const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, value, chainLogo, isRoot = false, onSelect, isMobile }) => {
+const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, value, chainLogo, isRoot = false, onSelect, isMobile, chain, tokenSymbol }) => {
   const truncateAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   const displayName = nametag !== 'Unknown' ? nametag : truncateAddress(address);
 
@@ -89,7 +89,7 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
           <p>
             <strong>Tx Hash:</strong>{' '}
             <a
-              href={getExplorerUrls('ethereum', txHash, address).txUrl}
+              href={getExplorerUrls(chain, txHash, address).txUrl}
               target="_blank"
               rel="noreferrer"
               className="text-neon-blue hover:underline"
@@ -98,10 +98,24 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
             </a>
           </p>
         )}
-        {type && <p><strong>Type:</strong> {type}</p>}
+        {type && (
+          <p>
+            <strong>Type:</strong>{' '}
+            <span
+              className={`inline-block px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${
+                type === 'Incoming' ? 'bg-[#00BFFF]/20 text-[#00BFFF]' : 'bg-[#EF4444]/20 text-[#EF4444]'
+              }`}
+            >
+              {type}
+            </span>
+          </p>
+        )}
         {block_time && <p><strong>Block Time:</strong> {formatDistanceToNow(new Date(block_time), { addSuffix: true })}</p>}
         {value != null && (
-          <p><strong>Value:</strong> {value < 0.000001 ? value.toExponential(4) : value.toFixed(6)} ETH</p>
+          <p>
+            <strong>Value:</strong>{' '}
+            {value < 0.000001 ? value.toExponential(4) : value.toFixed(6)} {tokenSymbol}
+          </p>
         )}
       </div>
     </div>
@@ -246,8 +260,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   };
 
   const fetchTransactions = async (address) => {
-    if (!isAddress(address)) {
-      toast.error('Invalid wallet address. Please enter a valid Ethereum address.', {
+    if (!isAddress(address) && !['solana', 'tron'].includes(selectedChain)) {
+      toast.error('Invalid wallet address. Please enter a valid address for the selected chain.', {
         position: 'top-center',
         autoClose: 5000,
       });
@@ -323,20 +337,24 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         nametag: tx.from_nametag,
         image: tx.from_image,
         txHash: tx.hash,
-        value: parseFloat(tx.value),
+        value: Number(tx.value),
         block_time: tx.block_time,
         type: 'Incoming',
         chainLogo: tx.chainLogo,
+        chain: selectedChain,
+        tokenSymbol: tx.tokenSymbol,
       }));
       const outgoing = result.outgoing.map((tx) => ({
         address: tx.to.toLowerCase(),
         nametag: tx.to_nametag,
         image: tx.to_image,
         txHash: tx.hash,
-        value: parseFloat(tx.value),
+        value: Number(tx.value),
         block_time: tx.block_time,
         type: 'Outgoing',
         chainLogo: tx.chainLogo,
+        chain: selectedChain,
+        tokenSymbol: tx.tokenSymbol,
       }));
 
       if (incoming.length === 0 && outgoing.length === 0) {
@@ -721,7 +739,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               className="bg-black/60 backdrop-blur-md text-white px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-[10px] w-full sm:w-64 border-2 border-white/20 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 pr-8"
               aria-label="Wallet address"
               onKeyPress={(e) => {
-                if (e.key === 'Enter' && walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+                if (e.key === 'Enter' && (
+                  (['solana', 'tron'].includes(selectedChain) && walletAddress.match(/^[A-Za-z0-9]{32,44}$/)) ||
+                  (!['solana', 'tron'].includes(selectedChain) && walletAddress.match(/^0x[a-fA-F0-9]{40}$/))
+                )) {
                   fetchTransactions(walletAddress);
                 }
               }}
@@ -753,23 +774,21 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg"
+          className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 bg-black/60 backdrop-blur-md"
         >
           <p className="mb-2">No transactions found for this address on {mappedChains.find((c) => c.value === selectedChain)?.label || selectedChain}.</p>
           <p>Please verify the wallet address or try a different chain.</p>
         </motion.div>
       )}
       {walletInfo.address && (
-        <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden bg-black/60 backdrop-blur-md border border-white/10 rounded-lg shadow-neon-sm">
+        <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden bg-black/60 backdrop-blur-md">
           <div className="flex gap-2 mb-2 mt-2 justify-center">
             <motion.button
               onClick={() => {
                 setOffset({ x: 0, y: 0 });
                 setZoom(1);
               }}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              className="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium text-white border border-white/20 rounded-xl backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
             >
               Reset View
             </motion.button>
@@ -777,8 +796,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               <motion.button
                 onClick={handleLoadMore}
                 className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
               >
                 Load More
               </motion.button>
@@ -837,6 +854,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 isRoot={true}
                 onSelect={handleSelectWallet}
                 isMobile={isMobile}
+                chain={selectedChain}
               />
             </div>
             {incomingNodes.map((node, index) => (
@@ -852,6 +870,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   chainLogo={node.chainLogo}
                   onSelect={handleSelectWallet}
                   isMobile={isMobile}
+                  chain={node.chain}
+                  tokenSymbol={node.tokenSymbol}
                 />
               </div>
             ))}
@@ -868,6 +888,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   chainLogo={node.chainLogo}
                   onSelect={handleSelectWallet}
                   isMobile={isMobile}
+                  chain={node.chain}
+                  tokenSymbol={node.tokenSymbol}
                 />
               </div>
             ))}
