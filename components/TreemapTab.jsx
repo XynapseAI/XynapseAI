@@ -10,7 +10,6 @@ import throttle from 'lodash.throttle';
 import crypto from 'crypto-js';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 import { chains, mapCoinGeckoChains, getPlatformImage, getExplorerUrls } from '../utils/constants';
 import { LoadingOverlay } from '@/utils/helpers';
@@ -71,13 +70,14 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
       <div className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[8px] sm:text-[10px] py-2 px-3 rounded-lg shadow-neon z-50 -top-20 sm:-top-24 left-1/2 -translate-x-1/2 w-56 sm:w-64 font-jetbrains transition-all duration-300">
         <div className="flex items-center gap-2 mb-2">
           {image && (
-            <Image
+            <img
               src={image}
               alt={`${nametag} logo`}
               width={isMobile ? 16 : 20}
               height={isMobile ? 16 : 20}
               className="rounded-full"
               onError={() => console.log(`Failed to load wallet image: ${image}`)}
+              loading="lazy"
             />
           )}
           <span className="font-bold">{nametag !== 'Unknown' ? nametag : 'No Nametag'}</span>
@@ -405,7 +405,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }
   };
 
-  // Mouse events
   const handleMouseDown = (e) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
@@ -424,7 +423,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     setIsDragging(false);
   };
 
-  // Touch events
   const handleTouchStart = (e) => {
     e.preventDefault();
     const touches = e.touches;
@@ -586,13 +584,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               className="text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border-2 border-white/20 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 flex items-center gap-2 text-[10px] sm:text-[10px]"
               aria-label="Select chain"
             >
-              <Image
+              <img
                 src={getPlatformImage(selectedChain, coingeckoChains)}
                 alt={`${mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
                 width={isMobile ? 12 : 16}
                 height={isMobile ? 12 : 16}
                 className="rounded-lg"
                 onError={() => console.log(`Failed to load chain image: ${getPlatformImage(selectedChain, coingeckoChains)} for chain: ${selectedChain}`)}
+                loading="lazy"
               />
               <span className="font-medium">
                 {mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'}
@@ -629,23 +628,25 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                           !isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                       >
-                        <Image
+                        <img
                           src={chain.image}
                           alt={`${chain.label} logo`}
                           width={isMobile ? 12 : 16}
                           height={isMobile ? 12 : 16}
                           className="mr-2 rounded-xl"
                           onError={() => console.log(`Failed to load chain image: ${chain.image} for chain: ${chain.value}`)}
+                          loading="lazy"
                         />
                         {chain.label}
                         {!isPremium && chain.value !== '1' && (
                           <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
-                            <Image
+                            <img
                               src="/icons/crown.png"
                               alt="Premium required"
                               width={isMobile ? 10 : 12}
                               height={isMobile ? 10 : 12}
                               className="opacity-100"
+                              loading="lazy"
                             />
                             <span className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
                               Premium required
@@ -693,12 +694,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                     {limit}
                     {!isPremium && limit > 100 && (
                       <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
-                        <Image
+                        <img
                           src="/icons/crown.png"
                           alt="Premium required"
                           width={isMobile ? 10 : 12}
                           height={isMobile ? 10 : 12}
                           className="opacity-80"
+                          loading="lazy"
                         />
                         <span className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[8px] sm:text-[10px] rounded p-1 -top-5 right-0">
                           Premium required

@@ -6,7 +6,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
-import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { isAddress } from 'ethers';
@@ -168,20 +167,17 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       selectedWallet: selectedWallet?.address,
     });
 
-    // Skip if user-initiated change
     if (isUserInitiatedChange) {
       console.log('Skipping selectedWallet update due to user-initiated change');
       setIsUserInitiatedChange(false);
       return;
     }
 
-    // Skip if URL matches last selected wallet
     if (addressFromUrl && addressFromUrl === lastSelectedWalletRef.current) {
       console.log('Skipping selectedWallet update: URL matches last selected wallet');
       return;
     }
 
-    // Handle initial load or URL-driven changes
     if (watchlists.length > 0 && isInitialLoad) {
       let wallet = null;
       if (addressFromUrl) {
@@ -203,7 +199,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         setActiveChain(null);
         setCurrentPage({ PORTFOLIO: 1, ACTIVITY: 1 });
         lastSelectedWalletRef.current = wallet.address;
-        setIsInitialLoad(false); // Mark initial load as complete
+        setIsInitialLoad(false);
       }
     }
   }, [searchParams, watchlists, selectedWallet, isUserInitiatedChange, isInitialLoad, initialAddress]);
@@ -473,7 +469,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
       const newNameTags = {};
 
-      // Handle EVM addresses with batching
       const evmAddresses = addresses.filter((addr) => isAddress(addr));
       if (evmAddresses.length > 0 && status === 'authenticated') {
         try {
@@ -546,7 +541,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         });
       }
 
-      // Handle SVM addresses
       const svmAddresses = addresses.filter((addr) => !isAddress(addr));
       svmAddresses.forEach((addr) => {
         newNameTags[addr] = { nameTag: null, image: null, timestamp: Date.now() };
@@ -576,7 +570,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     if (!session?.user?.id) {
       setWatchlists([]);
       setSelectedWallet(null);
-      setIsInitialLoad(true); // Reset on session change
+      setIsInitialLoad(true);
       return;
     }
 
@@ -665,7 +659,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         `${API_BASE_URL}/api/watchlists`,
         {
           action: 'add',
-          wallet_address: newAddress, // Keep address as-is, no normalization
+          wallet_address: newAddress,
           name: newWalletName || 'Unnamed Wallet',
         },
         {
@@ -713,7 +707,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     try {
       const response = await axios.post(
         `${API_BASE_URL}/api/watchlists`,
-        { action: 'remove', wallet_address: walletAddress }, // Keep address as-is
+        { action: 'remove', wallet_address: walletAddress },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -800,11 +794,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       return null;
     }
 
-    // Format balance to handle large/small numbers
     const formatBalance = (amount) => {
       if (amount == null || isNaN(amount)) return 'N/A';
       const num = Number(amount);
-      if (num < 0.0001) return num.toFixed(6); // Show up to 6 decimals for small numbers
+      if (num < 0.0001) return num.toFixed(6);
       return num.toLocaleString('en-US', { maximumFractionDigits: 4 });
     };
 
@@ -819,7 +812,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
           <div className="flex items-center justify-center gap-2 relative">
             <div className="relative flex-shrink-0">
-              <Image
+              <img
                 src={logoUrl}
                 alt={`${tokenSymbol} logo`}
                 width={isMobile ? 20 : 24}
@@ -827,8 +820,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 className="rounded-full"
                 style={{ width: 'auto', height: 'auto' }}
                 onError={(e) => (e.target.src = '/icons/default.png')}
+                loading="lazy"
               />
-              <Image
+              <img
                 src={getPlatformImage(token.chain)}
                 alt={`${token.chain} logo`}
                 width={isMobile ? 8 : 10}
@@ -836,6 +830,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 className="rounded-full absolute top-0 right-0"
                 style={{ transform: 'translate(25%, -25%)', width: 'auto', height: 'auto' }}
                 onError={(e) => (e.target.src = token.chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
+                loading="lazy"
               />
             </div>
             <div className="flex flex-col items-center">
@@ -859,141 +854,143 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   };
 
   const renderTransactionRow = (tx, index) => {
-  const transactionKey = tx.hash || `tx-${index}`;
-  const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address);
-  const isSVM = SUPPORTED_SVM_CHAINS.includes(tx.chain);
-  let tokenLogo = isSVM
-    ? tx.token_metadata?.logo || NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png'
-    : tx.token_metadata?.logo && !tx.token_metadata.logo.includes('scontent.xx.fbcdn.net')
-      ? tx.token_metadata.logo
-      : NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png';
-  let tokenSymbol = tx.token || 'Unknown';
-  const addressToShow = tx.type === 'receive' ? tx.from : tx.to;
-  const { text: displayAddress, image: addressImage } = truncateAddress(addressToShow, nameTags);
+    const transactionKey = tx.hash || `tx-${index}`;
+    const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address);
+    const isSVM = SUPPORTED_SVM_CHAINS.includes(tx.chain);
+    let tokenLogo = isSVM
+      ? tx.token_metadata?.logo || NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png'
+      : tx.token_metadata?.logo && !tx.token_metadata.logo.includes('scontent.xx.fbcdn.net')
+        ? tx.token_metadata.logo
+        : NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png';
+    let tokenSymbol = tx.token || 'Unknown';
+    const addressToShow = tx.type === 'receive' ? tx.from : tx.to;
+    const { text: displayAddress, image: addressImage } = truncateAddress(addressToShow, nameTags);
 
-  // Handle swap và other transactions
-  let displayValue = tx.value;
-  let typeDisplay = tx.type.charAt(0).toUpperCase() + tx.type.slice(1);
-  if (tx.type === 'swap' && tx.swap_details) {
-    const sent = tx.swap_details.sent[0];
-    const received = tx.swap_details.received[0];
-    if (sent && received) {
-      displayValue = `${sent.amount.toFixed(4)} ${sent.symbol} → ${received.amount.toFixed(4)} ${received.symbol}`;
-      tokenSymbol = `${sent.symbol}/${received.symbol}`;
-      tokenLogo = sent.logo || received.logo || '/icons/default.png';
-    } else if (sent) {
-      displayValue = `${sent.amount.toFixed(4)} ${sent.symbol}`;
-      tokenSymbol = sent.symbol;
-      tokenLogo = sent.logo || '/icons/default.png';
-    } else if (received) {
-      displayValue = `${received.amount.toFixed(4)} ${received.symbol}`;
-      tokenSymbol = received.symbol;
-      tokenLogo = received.logo || '/icons/default.png';
+    let displayValue = tx.value;
+    let typeDisplay = tx.type.charAt(0).toUpperCase() + tx.type.slice(1);
+    if (tx.type === 'swap' && tx.swap_details) {
+      const sent = tx.swap_details.sent[0];
+      const received = tx.swap_details.received[0];
+      if (sent && received) {
+        displayValue = `${sent.amount.toFixed(4)} ${sent.symbol} → ${received.amount.toFixed(4)} ${received.symbol}`;
+        tokenSymbol = `${sent.symbol}/${received.symbol}`;
+        tokenLogo = sent.logo || received.logo || '/icons/default.png';
+      } else if (sent) {
+        displayValue = `${sent.amount.toFixed(4)} ${sent.symbol}`;
+        tokenSymbol = sent.symbol;
+        tokenLogo = sent.logo || '/icons/default.png';
+      } else if (received) {
+        displayValue = `${received.amount.toFixed(4)} ${received.symbol}`;
+        tokenSymbol = received.symbol;
+        tokenLogo = received.logo || '/icons/default.png';
+      }
+      typeDisplay = 'Swap';
+    } else if (tx.type === 'other') {
+      typeDisplay = 'Other';
+      displayValue = tx.value || 'N/A';
+    } else if (tx.type === 'send' || tx.type === 'receive') {
+      displayValue = Number(tx.value).toFixed(4);
     }
-    typeDisplay = 'Swap';
-  } else if (tx.type === 'other') {
-    typeDisplay = 'Other';
-    displayValue = tx.value || 'N/A';
-  } else if (tx.type === 'send' || tx.type === 'receive') {
-    displayValue = Number(tx.value).toFixed(4);
-  }
 
-  return (
-    <motion.tr
-      key={`${tx.chain}-${transactionKey}-${index}`}
-      className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.1 }}
-    >
-      <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
-        <div className="flex items-center justify-center gap-2 relative">
-          <div className="relative flex-shrink-0">
-            <Image
-              src={tokenLogo}
-              alt={`${tokenSymbol} logo`}
-              width={isMobile ? 20 : 24}
-              height={isMobile ? 20 : 24}
-              className="rounded-full"
-              style={{ width: 'auto', height: 'auto' }}
-              onError={(e) => (e.target.src = '/icons/default.png')}
-            />
-            <Image
-              src={getPlatformImage(tx.chain)}
-              alt={`${tx.chain} logo`}
-              width={isMobile ? 8 : 10}
-              height={isMobile ? 8 : 10}
-              className="rounded-full absolute top-0 right-0"
-              style={{ transform: 'translate(25%, -25%)', width: 'auto', height: 'auto' }}
-              onError={(e) => (e.target.src = tx.chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
-            />
+    return (
+      <motion.tr
+        key={`${tx.chain}-${transactionKey}-${index}`}
+        className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+      >
+        <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+          <div className="flex items-center justify-center gap-2 relative">
+            <div className="relative flex-shrink-0">
+              <img
+                src={tokenLogo}
+                alt={`${tokenSymbol} logo`}
+                width={isMobile ? 20 : 24}
+                height={isMobile ? 20 : 24}
+                className="rounded-full"
+                style={{ width: 'auto', height: 'auto' }}
+                onError={(e) => (e.target.src = '/icons/default.png')}
+                loading="lazy"
+              />
+              <img
+                src={getPlatformImage(tx.chain)}
+                alt={`${tx.chain} logo`}
+                width={isMobile ? 8 : 10}
+                height={isMobile ? 8 : 10}
+                className="rounded-full absolute top-0 right-0"
+                style={{ transform: 'translate(25%, -25%)', width: 'auto', height: 'auto' }}
+                onError={(e) => (e.target.src = tx.chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
+                loading="lazy"
+              />
+            </div>
+            <span>{tokenSymbol}</span>
           </div>
-          <span>{tokenSymbol}</span>
-        </div>
-      </td>
-      <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
-        <div className="flex flex-col items-center gap-1">
-          <span
-            className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${
-              tx.type === 'receive'
-                ? 'bg-green-500/20 text-green-500'
-                : tx.type === 'send'
-                ? 'bg-blue-500/20 text-blue-500'
-                : tx.type === 'swap'
-                ? 'bg-purple-500/20 text-purple-500'
-                : 'bg-gray-500/20 text-gray-500' // cho other/unknown
-            }`}
-          >
-            {typeDisplay}
-          </span>
-          <div className="flex items-center justify-center gap-2">
-            {addressImage && (
-              <Image
-                src={addressImage}
-                alt={`${displayAddress} logo`}
+        </td>
+        <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+          <div className="flex flex-col items-center gap-1">
+            <span
+              className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${tx.type === 'receive'
+                  ? 'bg-green-500/20 text-green-500'
+                  : tx.type === 'send'
+                    ? 'bg-blue-500/20 text-blue-500'
+                    : tx.type === 'swap'
+                      ? 'bg-purple-500/20 text-purple-500'
+                      : 'bg-gray-500/20 text-gray-500'
+                }`}
+            >
+              {typeDisplay}
+            </span>
+            <div className="flex items-center justify-center gap-2">
+              {addressImage && (
+                <img
+                  src={addressImage}
+                  alt={`${displayAddress} logo`}
+                  width={isMobile ? 12 : 16}
+                  height={isMobile ? 12 : 16}
+                  className="rounded-full"
+                  style={{ width: 'auto', height: 'auto' }}
+                  onError={(e) => (e.target.src = '/icons/default.png')}
+                  loading="lazy"
+                />
+              )}
+              <a
+                href={addressUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-neon-blue hover:underline truncate"
+                title={addressToShow}
+              >
+                {displayAddress}
+              </a>
+            </div>
+          </div>
+        </td>
+        <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+          {displayValue}
+        </td>
+        <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+          <div className="flex flex-col items-center gap-0.5">
+            <a href={txUrl} target="_blank" rel="noopener noreferrer">
+              <img
+                src="/logos/etherscan-logo.png"
+                alt="Explorer"
                 width={isMobile ? 12 : 16}
                 height={isMobile ? 12 : 16}
                 className="rounded-full"
                 style={{ width: 'auto', height: 'auto' }}
-                onError={(e) => (e.target.src = '/icons/default.png')}
+                onError={(e) => (e.target.src = '/fallback-image.png')}
+                loading="lazy"
               />
-            )}
-            <a
-              href={addressUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-neon-blue hover:underline truncate"
-              title={addressToShow}
-            >
-              {displayAddress}
             </a>
+            <span className="text-[8px] sm:text-[10px] text-gray-400">
+              {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
+            </span>
           </div>
-        </div>
-      </td>
-      <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
-        {displayValue}
-      </td>
-      <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
-        <div className="flex flex-col items-center gap-0.5">
-          <a href={txUrl} target="_blank" rel="noopener noreferrer">
-            <Image
-              src="/logos/etherscan-logo.png" // Thay bằng Solscan hoặc tương tự nếu cần cho SVM
-              alt="Explorer"
-              width={isMobile ? 12 : 16}
-              height={isMobile ? 12 : 16}
-              className="rounded-full"
-              style={{ width: 'auto', height: 'auto' }}
-              onError={(e) => (e.target.src = '/fallback-image.png')}
-            />
-          </a>
-          <span className="text-[8px] sm:text-[10px] text-gray-400">
-            {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
-          </span>
-        </div>
-      </td>
-    </motion.tr>
-  );
-};
+        </td>
+      </motion.tr>
+    );
+  };
 
   const filteredBalances = useMemo(() => {
     return balances
@@ -1055,28 +1052,24 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     >
       <ToastContainer position="top-center" autoClose={5000} theme="dark" />
 
-      {/* Toggle Button for Mobile */}
-      {!showWatchlistSidebar && (
-        <motion.button
-          className="sm:hidden fixed top-1 left-1 z-50 p-1 bg-black/60 border border-white/10 rounded-lg text-white hover:bg-neon-blue/30 transition-all duration-300"
-          onClick={() => setShowWatchlistSidebar(true)}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+      <motion.button
+        className="sm:hidden fixed top-1 left-1 z-50 p-1 bg-black/60 border border-white/10 rounded-lg text-white hover:bg-neon-blue/30 transition-all duration-300"
+        onClick={() => setShowWatchlistSidebar(true)}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
-          </svg>
-        </motion.button>
-      )}
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
+        </svg>
+      </motion.button>
 
-      {/* Left Sidebar: Watchlist (Mobile - 50% width with slide-in) */}
       <AnimatePresence>
         {showWatchlistSidebar && isMobile && (
           <motion.div
@@ -1133,23 +1126,27 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     >
                       <div className="flex items-center gap-2">
                         {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.image && (
-                          <Image
+                          <img
                             src={nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address].image}
-                            alt={`${nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'} logo`}
+                            alt={`${nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag ||
+                              wallet.name ||
+                              'Unnamed Wallet'
+                              } logo`}
                             width={20}
                             height={20}
                             className="rounded-full"
                             style={{ width: 'auto', height: 'auto' }}
                             onError={(e) => (e.target.src = '/icons/default.png')}
+                            loading="lazy"
                           />
                         )}
                         <div className="flex flex-col">
                           <span className="text-[10px] text-white font-bold">
-                            {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'}
+                            {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag ||
+                              wallet.name ||
+                              'Unnamed Wallet'}
                           </span>
-                          <span className="text-[8px] text-gray-400 truncate max-w-[120px]">
-                            {wallet.address}
-                          </span>
+                          <span className="text-[8px] text-gray-400 truncate max-w-[120px]">{wallet.address}</span>
                         </div>
                       </div>
                       <motion.button
@@ -1172,7 +1169,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         )}
       </AnimatePresence>
 
-      {/* Left Sidebar: Watchlist (Desktop) */}
       <div className="hidden sm:block w-[20%] border-r border-white/10 p-2 sm:p-4 overflow-y-auto custom-scrollbar">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-2">
@@ -1205,30 +1201,28 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 lastSelectedWalletRef.current = wallet.address;
                 updateUrl(wallet.address);
               }}
-              className={`flex items-center justify-between p-2 sm:p-3 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                  ? 'border-white bg-black/60'
-                  : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
+              className={`flex items-center justify-between p-2 sm:p-3 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address ? 'border-white bg-black/60' : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
                 }`}
             >
               <div className="flex items-center gap-2">
                 {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.image && (
-                  <Image
+                  <img
                     src={nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address].image}
-                    alt={`${nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'} logo`}
+                    alt={`${nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'
+                      } logo`}
                     width={isMobile ? 20 : 24}
                     height={isMobile ? 20 : 24}
                     className="rounded-full"
                     style={{ width: 'auto', height: 'auto' }}
                     onError={(e) => (e.target.src = '/icons/default.png')}
+                    loading="lazy"
                   />
                 )}
                 <div className="flex flex-col">
                   <span className="text-[10px] sm:text-xs text-white font-bold">
                     {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'}
                   </span>
-                  <span className="text-[8px] sm:text-[10px] text-gray-400 truncate max-w-[120px] sm:max-w-[150px]">
-                    {wallet.address}
-                  </span>
+                  <span className="text-[8px] sm:text-[10px] text-gray-400 truncate max-w-[120px] sm:max-w-[150px]">{wallet.address}</span>
                 </div>
               </div>
               <motion.button
@@ -1247,32 +1241,34 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         )}
       </div>
 
-      {/* Right Section: Wallet Info (20%) + Tabs (80%) */}
       <div className="w-full sm:w-[80%] p-2 sm:p-4 flex flex-col">
         {selectedWallet ? (
           <>
-            {/* Wallet Info (20% height) */}
             <div className="h-[20%] border-b border-white/10 bg-black/60 backdrop-blur-md p-2 sm:p-3 flex flex-col justify-between">
               <div className="flex items-center gap-2 mb-2">
                 {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.image && (
-                  <Image
+                  <img
                     src={nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address].image}
-                    alt={`${nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'} logo`}
+                    alt={`${nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag ||
+                      selectedWallet.name ||
+                      'Unnamed Wallet'
+                      } logo`}
                     width={isMobile ? 24 : 28}
                     height={isMobile ? 24 : 28}
                     className="rounded-xl"
                     style={{ width: 'auto', height: 'auto' }}
                     onError={(e) => (e.target.src = '/icons/default.png')}
+                    loading="lazy"
                   />
                 )}
                 <div className="relative group">
                   <div className="flex flex-col">
                     <span className="text-[12px] sm:text-sm font-bold text-white">
-                      {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'}
+                      {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag ||
+                        selectedWallet.name ||
+                        'Unnamed Wallet'}
                     </span>
-                    <span className="text-[10px] sm:text-xs text-gray-400">
-                      {selectedWallet.address}
-                    </span>
+                    <span className="text-[10px] sm:text-xs text-gray-400">{selectedWallet.address}</span>
                   </div>
                   <motion.button
                     className="absolute top-1/2 right-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-neon-blue hover:text-neon-blue/80 transition-opacity duration-200"
@@ -1299,9 +1295,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   <Tooltip text="All Chains">
                     <motion.button
                       onClick={() => setActiveChain(null)}
-                      className={`px-2 sm:px-2 py-1 sm:py-1 border rounded-xl transition-all duration-300 text-[9px] sm:text-[10px] font-medium text-white flex-shrink-0 z-10 ${activeChain === null
-                          ? 'border-white bg-neon-blue/20 shadow-neon'
-                          : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
+                      className={`px-2 sm:px-2 py-1 sm:py-1 border rounded-xl transition-all duration-300 text-[9px] sm:text-[10px] font-medium text-white flex-shrink-0 z-10 ${activeChain === null ? 'border-white bg-neon-blue/20 shadow-neon' : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
                         }`}
                     >
                       ALL
@@ -1311,12 +1305,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
                       <motion.button
                         onClick={() => setActiveChain(chain)}
-                        className={`p-1 border rounded-xl transition-all duration-300 flex-shrink-0 z-10 ${activeChain === chain
-                            ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
-                            : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
+                        className={`p-1 border rounded-xl transition-all duration-300 flex-shrink-0 z-10 ${activeChain === chain ? 'border-neon-blue bg-neon-blue/20 shadow-neon' : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
                           }`}
                       >
-                        <Image
+                        <img
                           src={getPlatformImage(chain)}
                           alt={chain}
                           width={isMobile ? 16 : 32}
@@ -1324,6 +1316,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           className="rounded-xl object-contain block"
                           style={{ width: 'auto', height: 'auto', minWidth: '16px', minHeight: '16px' }}
                           onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
+                          loading="lazy"
                         />
                       </motion.button>
                     </Tooltip>
@@ -1332,7 +1325,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               </div>
             </div>
 
-            {/* Tabs: Portfolio & Activity (80% height) */}
             <div className="h-[90%] flex flex-col">
               <div className="flex w-full border-b border-white/10 mb-2 sm:mb-4 bg-black/60 backdrop-blur-md rounded-xl">
                 {['PORTFOLIO', 'ACTIVITY'].map((tab) => (
@@ -1350,10 +1342,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-lg bg-black/60 backdrop-blur-2xl shadow-neon-sm">
-                <LoadingOverlay
-                  isLoading={loadingStates.loading || (activeTab === 'PORTFOLIO' && (loadingStates.balances || loadingStates.tokenInfo))}
-                  isMobile={isMobile}
-                />
+                <LoadingOverlay isLoading={loadingStates.loading || (activeTab === 'PORTFOLIO' && (loadingStates.balances || loadingStates.tokenInfo))} isMobile={isMobile} />
                 <LoadingOverlay isLoading={loadingStates.transactions && activeTab === 'ACTIVITY'} isMobile={isMobile} />
                 <AnimatePresence mode="wait">
                   <motion.div
@@ -1378,11 +1367,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
-                                      />
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" />
                                     </svg>
                                     Token
                                   </div>
@@ -1395,11 +1380,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
-                                      />
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z" />
                                     </svg>
                                     Balance
                                   </div>
@@ -1442,11 +1423,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
-                                      />
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" />
                                     </svg>
                                     Token
                                   </div>
@@ -1459,11 +1436,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                                      />
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                                     </svg>
                                     Address
                                   </div>
@@ -1476,11 +1449,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
-                                      />
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z" />
                                     </svg>
                                     Value
                                   </div>
@@ -1493,11 +1462,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                      />
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                     Time
                                   </div>
@@ -1517,8 +1482,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 </AnimatePresence>
               </div>
 
-              {(activeTab === 'PORTFOLIO' && filteredBalances.length > itemsPerPage) ||
-                (activeTab === 'ACTIVITY' && filteredTransactions.length > itemsPerPage) ? (
+              {(activeTab === 'PORTFOLIO' && filteredBalances.length > itemsPerPage) || (activeTab === 'ACTIVITY' && filteredTransactions.length > itemsPerPage) ? (
                 <div className="flex justify-end mt-2 px-2 sm:px-4">
                   <div className="flex items-center gap-2 sm:gap-4">
                     <motion.button
@@ -1552,9 +1516,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-[10px] sm:text-xs text-gray-400">
-            Please select a wallet to view data.
-          </div>
+          <div className="flex-1 flex items-center justify-center text-[10px] sm:text-xs text-gray-400">Please select a wallet to view data.</div>
         )}
       </div>
 
