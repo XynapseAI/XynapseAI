@@ -917,7 +917,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   <div className="absolute top-1 right-1 w-32 sm:w-40" ref={dropdownRef}>
                     <motion.button
                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                      className="text-white px-2 sm:px-2 py-1 sm:py-1 text-[10px] sm:text-xs flex items-center w-full border-2 border-white/20 bg-white/5 backdrop-blur-xl hover:bg-white/10 transition-all duration-300 rounded-xl"
+                      className="text-white px-2 sm:px-2 py-1 sm:py-1 text-[10px] sm:text-xs flex items-center w-full border-2 border-white/20 bg-white/5 hover:bg-white/10 transition-all duration-300 rounded-xl"
                       aria-label="Select token"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
@@ -1085,7 +1085,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           id="currency-select"
                           value={currency}
                           onChange={(e) => setCurrency(e.target.value)}
-                          className="text-white px-2 py-1 text-[10px] sm:text-[10px] border-2 border-white/20 bg-white/5 backdrop-blur-xl rounded-xl focus:outline-none focus:ring-2 focus:ring-white/30"
+                          className="text-white px-2 py-1 text-[10px] sm:text-[10px] border-2 border-white/20 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/30"
                         >
                           {availableCurrencies.map((curr) => (
                             <option key={curr} value={curr} className="bg-black">
@@ -1097,7 +1097,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
-                    <div className="bg-white/5 backdrop-blur-sm rounded-xl p-2">
+                    <div className="bg-white/5 rounded-xl p-2">
                       <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-white/10 to-transparent p-1">
                         Market Stats
                       </h5>
@@ -1150,7 +1150,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </div>
                       </div>
                     </div>
-                    <div className="bg-white/5 backdrop-blur-sm rounded-xl p-2">
+                    <div className="bg-white/5 rounded-xl p-2">
                       <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-white/10 to-transparent p-1">
                         Supply Stats
                       </h5>
@@ -1194,7 +1194,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </div>
                       </div>
                     </div>
-                    <div className="bg-white/5 backdrop-blur-sm rounded-xl p-2 sm:col-span-2">
+                    <div className="bg-white/5 rounded-xl p-2 sm:col-span-2">
                       <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-1 tracking-wider bg-gradient-to-r from-white/10 to-transparent p-1">
                         Price Range (24h)
                       </h5>
@@ -1432,7 +1432,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       <select
                         value={timeRange}
                         onChange={(e) => setTimeRange(e.target.value)}
-                        className="text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[8px] sm:text-[9px] border-2 border-white/20 bg-white/5 backdrop-blur-xl rounded-xl focus:outline-none focus:ring-2 focus:ring-white/30"
+                        className="text-white px-2 sm:px-3 py-1 sm:py-1.5 text-[8px] sm:text-[9px] border-2 border-white/20 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/30"
                       >
                         {["1D", "7D", "1M", "3M", "1Y"].map((range, idx) => (
                           <option key={range} value={["1", "7", "30", "90", "365"][idx]} className="bg-black">
@@ -1521,7 +1521,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           >
             {selectedToken ? (
               <>
-                <div className="flex w-full text-[10px] sm:text-[12px] border-b border-white/10 bg-white/5 backdrop-blur-xl">
+                <div className="flex w-full text-[10px] sm:text-[12px] border-b border-white/10 bg-white/5">
                   <motion.button
                     onClick={() => {
                       setActiveMarketTab("holders")
@@ -1629,7 +1629,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                         <div className="overflow-x-auto">
                           <table className="w-full text-[10px] sm:text-xs">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10 backdrop-blur-xl">
+                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10">
                               <tr>
                                 <th className="px-4 py-3 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
@@ -1790,7 +1790,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       ) : tickerData.length > 0 ? (
                         <div className="table-container">
                           <table className="w-full text-[10px] sm:text-xs">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10 backdrop-blur-xl">
+                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10">
                               <tr>
                                 <th className="px-4 py-3 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
@@ -1977,7 +1977,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       ) : dexData.trades.length > 0 ? (
                         <div className="overflow-x-auto">
                           <table className="w-full text-[10px] sm:text-xs">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10 backdrop-blur-xl">
+                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10">
                               <tr>
                                 <th className="px-4 py-3 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
