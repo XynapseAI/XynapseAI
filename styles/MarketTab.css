@@ -256,6 +256,22 @@
       /* Prevent tooltip from interfering with mouse events */
   }
 
+  .market-tab-container {
+      overflow-y: auto;
+  }
+
+  /* Ensure tab content is scrollable */
+  .tab-content {
+      overflow-y: auto;
+  }
+
+  /* Ensure table containers are scrollable */
+  .table-container {
+      overflow-x: auto;
+      overflow-y: auto;
+  }
+
+  /* Hide scrollbar for all scrollable elements */
   .hide-scrollbar::-webkit-scrollbar {
       display: none;
   }
@@ -263,11 +279,6 @@
   .hide-scrollbar {
       -ms-overflow-style: none;
       scrollbar-width: none;
-  }
-
-  .market-tab-container {
-      height: 100%;
-      overflow-y: auto;
   }
 
   @media (max-width: 640px) {
@@ -281,18 +292,12 @@
           /* Allow flexible height on mobile */
       }
 
-      .market-tab-container {
-          max-height: calc(100vh - 4rem);
-          overflow-y: auto;
+      .hide-scrollbar::-webkit-scrollbar {
+          display: none;
       }
 
-      .tab-content {
-          max-height: calc(100vh - 8rem);
-          overflow-y: auto;
-      }
-
-      .table-container {
-          max-height: calc(100vh - 10rem);
-          overflow-y: auto;
+      .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
       }
   }

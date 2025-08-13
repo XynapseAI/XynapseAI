@@ -951,7 +951,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     </motion.button>
                     {isDropdownOpen && (
                       <motion.div
-                        className="absolute bg-black/95 backdrop-blur-2xl mt-2 w-full max-h-40 sm:max-h-48 overflow-y-auto border border-white/20 rounded-lg shadow-2xl z-50"
+                        className="absolute bg-black/95 backdrop-blur-2xl mt-2 w-full max-h-40 sm:max-h-48 overflow-y-auto border border-white/20 rounded-lg shadow-2xl z-50 hide-scrollbar"
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2 }}
@@ -1514,14 +1514,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
           {/* Right Column - Market Data Tabs */}
           <motion.div
-            className="flex flex-col border border-white/10 rounded-xl max-h-full bg-white/5 backdrop-blur-xl market-tab-container hide-scrollbar"
+            className="flex flex-col border border-white/10 rounded-xl min-h-[600px] sm:min-h-[500px] sm:max-h-full bg-white/5 backdrop-blur-xl market-tab-container hide-scrollbar"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
             {selectedToken ? (
               <>
-                <div className="flex w-full text-[11px] sm:text-xs border-b border-white/10 bg-white/5 backdrop-blur-xl">
+                <div className="flex w-full text-[10px] sm:text-[12px] border-b border-white/10 bg-white/5 backdrop-blur-xl">
                   <motion.button
                     onClick={() => {
                       setActiveMarketTab("holders")
@@ -1594,7 +1594,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </span>
                     </div>
                   )}
-
+              
                   {activeMarketTab === "holders" && (
                     <div className="flex-1 overflow-y-auto tab-content hide-scrollbar">
                       <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} />
@@ -1628,7 +1628,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </div>
                       ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                         <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
+                          <table className="w-full text-[10px] sm:text-xs">
                             <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10 backdrop-blur-xl">
                               <tr>
                                 <th className="px-4 py-3 text-white text-left font-semibold">
@@ -1774,7 +1774,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     <div className="flex-1 overflow-x-auto overflow-y-auto tab-content hide-scrollbar">
                       <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} />
                       {tickerError ? (
-                        <div className="text-sm text-center p-6">
+                        <div className="text-[10px] sm:text-xs text-center p-6">
                           <p className="text-red-400 mb-4">{tickerError}</p>
                           <motion.button
                             onClick={() => fetchTickerData(selectedToken?.id)}
@@ -1789,7 +1789,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         <SkeletonLoader count={5} isMobile={isMobile} />
                       ) : tickerData.length > 0 ? (
                         <div className="table-container">
-                          <table className="w-full text-xs">
+                          <table className="w-full text-[10px] sm:text-xs">
                             <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10 backdrop-blur-xl">
                               <tr>
                                 <th className="px-4 py-3 text-white text-left font-semibold">
@@ -1926,7 +1926,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       maximumFractionDigits: 0,
                                     }) || "N/A"}
                                   </td>
-                                  <td className="px-4 py-3 text-white/70 text-xs">
+                                  <td className="px-4 py-3 text-white/70 text-[10px] sm:text-xs">
                                     {ticker.last_traded_at
                                       ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", {
                                         hour: "2-digit",
@@ -1956,7 +1956,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     <div className="flex-1 overflow-y-auto tab-content hide-scrollbar">
                       <LoadingOverlay isLoading={isLoadingDex && !dexData.trades?.length} isMobile={isMobile} />
                       {dexError ? (
-                        <div className="text-sm text-center p-6">
+                        <div className="text-[10px] text-xs text-center p-6">
                           <p className="text-red-400 mb-4">{dexError}</p>
                           <motion.button
                             onClick={() => {
@@ -1976,7 +1976,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         <SkeletonLoader count={5} isMobile={isMobile} />
                       ) : dexData.trades.length > 0 ? (
                         <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
+                          <table className="w-full text-[10px] sm:text-xs">
                             <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10 backdrop-blur-xl">
                               <tr>
                                 <th className="px-4 py-3 text-white text-left font-semibold">
@@ -2280,7 +2280,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   <td className="px-4 py-3 text-white">
                                     <motion.button
                                       onClick={() => trade.pool_address && handlePoolClick(trade.pool_address)}
-                                      className="flex items-center gap-2 text-sm hover:bg-white/10 p-2 rounded-xl transition-all duration-300"
+                                      className="flex items-center gap-2 text-[10px] sm:text-xs hover:bg-white/10 p-2 rounded-xl transition-all duration-300"
                                       title={
                                         dexData.pools.find((p) => p.attributes.address === trade.pool_address)
                                           ?.attributes.name || "View Pool Details"
