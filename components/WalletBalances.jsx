@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { CHAIN_ID_TO_NAME } from '../utils/constants';
-import { getExplorerUrls, truncateAddress, isValidToken, LoadingOverlay } from '../utils/helpers'; // Added LoadingOverlay import
+import { getExplorerUrls, truncateAddress, isValidToken, LoadingOverlay } from '../utils/helpers';
 import '../styles/MarketTab.css';
 import { toast } from 'react-toastify';
 
@@ -92,12 +92,10 @@ const WalletBalances = ({
     return Math.floor(Number(value)).toLocaleString('en-US');
   };
 
-  // Filter valid tokens for Portfolio tab
   const validBalances = balances.filter((balance) =>
     isValidToken({ image: balance.logo, symbol: balance.symbol })
   );
 
-  // Filter valid transactions for Activity tab
   const validTransactions = transactions?.filter((tx) =>
     isValidToken({ image: tx.token_metadata?.logo, symbol: tx.token })
   ) || [];
@@ -112,14 +110,14 @@ const WalletBalances = ({
     >
       <div
         ref={walletBalancesRef}
-        className="p-4 sm:p-6 max-w-6xl w-[95%] rounded-xl relative max-h-[80vh] min-h-[80vh] overflow-hidden custom-scrollbar border border-white/10 bg-black/60 backdrop-blur-xl shadow-neon-lg"
+        className="p-2 sm:p-4 max-w-6xl w-[95%] rounded-3xl relative max-h-[80vh] min-h-[80vh] overflow-y-auto wallet-balances-container hide-scrollbar"
       >
-        <div className="sticky top-0 z-10 p-3 bg-black/70 backdrop-blur-md">
+        <div className="sticky top-0 z-10 p-3 wallet-balances-header">
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-2">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-white"
+                className="h-5 w-5 text-white/60"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -135,7 +133,7 @@ const WalletBalances = ({
                 <img
                   src={walletImage}
                   alt={`${displayWalletAddress} logo`}
-                  className="w-5 h-5 rounded-full flex-shrink-0"
+                  className="w-6 h-6 rounded-full ring-1 ring-white/20"
                   onError={(e) => {
                     logger.error('Wallet name tag image failed to load:', {
                       address: walletAddress,
@@ -149,7 +147,7 @@ const WalletBalances = ({
             </div>
             <motion.button
               onClick={onClose}
-              className="text-white text-lg font-bold rounded-full w-10 h-10 flex items-center justify-center bg-black/60 border border-white/10 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+              className="text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center bg-white/10 border border-white/10 backdrop-blur-md hover:bg-white/20 transition-all duration-300"
               aria-label="Close balances"
               whileHover={{ scale: 1.1, rotate: 90 }}
               whileTap={{ scale: 0.9 }}
@@ -157,56 +155,72 @@ const WalletBalances = ({
               ✕
             </motion.button>
           </div>
-          <div className="flex space-x-2 mb-3">
+          <div className="flex space-x-2 mb-2">
             <motion.button
               onClick={() => setActiveTab('portfolio')}
-              className={`flex-1 px-2 py-1 sm:px-4 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 border-2 border-white/10 ${activeTab === 'portfolio' ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-white/20'}`}
-              whileHover={{ scale: 1 }}
+              className={`flex-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 border border-white/20 ${activeTab === 'portfolio' ? 'bg-white text-black' : 'text-white bg-white/5 hover:bg-white/10'}`}
+              whileHover={{ scale: activeTab !== 'portfolio' ? 1.05 : 1 }}
+              whileTap={{ scale: activeTab !== 'portfolio' ? 0.95 : 1 }}
             >
               Portfolio
+              {activeTab === 'portfolio' && (
+                <motion.div
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-white"
+                  layoutId="activeWalletTab"
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                />
+              )}
             </motion.button>
             <motion.button
               onClick={() => setActiveTab('activity')}
-              className={`flex-1 px-2 py-1 sm:px-4 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 border-2 border-white/10 ${activeTab === 'activity' ? 'bg-white text-black shadow-neon' : 'text-white hover:bg-white/20'}`}
-              whileHover={{ scale: 1 }}
+              className={`flex-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-medium transition-all duration-300 border border-white/20 ${activeTab === 'activity' ? 'bg-white text-black' : 'text-white bg-white/5 hover:bg-white/10'}`}
+              whileHover={{ scale: activeTab !== 'activity' ? 1.05 : 1 }}
+              whileTap={{ scale: activeTab !== 'activity' ? 0.95 : 1 }}
             >
               Activity
+              {activeTab === 'activity' && (
+                <motion.div
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-white"
+                  layoutId="activeWalletTab"
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                />
+              )}
             </motion.button>
           </div>
         </div>
 
-        <div className="relative overflow-y-auto max-h-[calc(80vh-100px)] min-h-[calc(80vh-100px)] rounded-lg custom-scrollbar">
+        <div className="relative wallet-tab-content hide-scrollbar">
           <LoadingOverlay isLoading={isLoading && activeTab === 'portfolio'} isMobile={isMobile} />
           <LoadingOverlay isLoading={isLoadingTransactions && activeTab === 'activity' && validTransactions.length === 0} isMobile={isMobile} />
-          <div className="min-h-[calc(80vh-100px)]">
+          <div className="min-h-[calc(80vh-120px)]">
             {activeTab === 'portfolio' && (
               <>
                 {isLoading ? (
-                  <div className="space-y-3 p-4 min-h-[calc(80vh-100px)]">
+                  <div className="space-y-3 p-2 sm:p-4 min-h-[calc(80vh-120px)]">
                     {[...Array(5)].map((_, index) => (
                       <div key={index} className="flex items-center gap-4">
-                        <div className="w-8 h-8 bg-gray-700/50 rounded-full animate-pulse"></div>
+                        <div className="w-8 h-8 bg-white/10 rounded-full animate-pulse"></div>
                         <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-gray-700/50 rounded animate-pulse"></div>
-                          <div className="h-4 bg-gray-700/50 rounded animate-pulse w-3/4"></div>
+                          <div className="h-4 bg-white/10 rounded animate-pulse"></div>
+                          <div className="h-4 bg-white/10 rounded animate-pulse w-3/4"></div>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : error ? (
-                  <p className="text-xs text-red-400 text-center bg-red-500/10 p-3 rounded min-h-[calc(80vh-100px)] flex items-center justify-center">
+                  <p className="text-xs text-red-400 text-center bg-red-500/10 p-3 rounded min-h-[calc(80vh-120px)] flex items-center justify-center">
                     Error: {error}
                   </p>
                 ) : validBalances.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full table-fixed">
-                      <thead className="text-[10px] sm:text-xs sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md uppercase">
+                  <div className="overflow-x-auto wallet-table-container hide-scrollbar">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10 backdrop-blur-xl">
                         <tr>
-                          <th className="px-2 py-2 text-white text-center font-medium w-[30%]">
-                            <div className="flex items-center justify-center gap-2">
+                          <th className="px-4 py-3 text-white text-left font-semibold w-[30%]">
+                            <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                className="h-5 w-5 stroke-white/60 fill-none"
                                 viewBox="0 0 24 24"
                                 strokeWidth="2"
                               >
@@ -219,25 +233,28 @@ const WalletBalances = ({
                               Token
                             </div>
                           </th>
-                          <th className="px-2 py-2 text-white text-center font-medium w-[35%]">
-                            <div className="flex items-center justify-center gap-2">
+                          <th className="px-4 py-3 text-white text-left font-semibold w-[35%]">
+                            <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 fill-neon-blue"
+                                className="h-5 w-5 stroke-white/60 fill-none"
                                 viewBox="0 0 24 24"
+                                strokeWidth="2"
                               >
                                 <path
-                                  d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
                                 />
                               </svg>
                               Amount
                             </div>
                           </th>
-                          <th className="px-2 py-2 text-white text-center font-medium w-[35%]">
-                            <div className="flex items-center justify-center gap-2">
+                          <th className="px-4 py-3 text-white text-left font-semibold w-[35%]">
+                            <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                className="h-5 w-5 stroke-white/60 fill-none"
                                 viewBox="0 0 24 24"
                                 strokeWidth="2"
                               >
@@ -254,18 +271,21 @@ const WalletBalances = ({
                       </thead>
                       <tbody>
                         {validBalances.map((balance, index) => (
-                          <tr
+                          <motion.tr
                             key={`${balance.chain}-${balance.address}-${index}`}
-                            className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
+                            className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.3, delay: index * 0.02 }}
                           >
-                            <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs text-center">
-                              <div className="flex items-center space-x-2 relative">
+                            <td className="px-4 py-3 text-white">
+                              <div className="flex items-center gap-3">
                                 {balance.logo && (
                                   <div className="relative inline-block">
                                     <img
                                       src={balance.logo}
                                       alt={`${balance.symbol} logo`}
-                                      className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex-shrink-0"
+                                      className="w-6 h-6 rounded-full ring-1 ring-white/20"
                                       onError={(e) => {
                                         logger.error('Token logo failed to load:', {
                                           symbol: balance.symbol,
@@ -277,7 +297,7 @@ const WalletBalances = ({
                                     <img
                                       src={getPlatformImage(balance.chain)}
                                       alt={`${balance.chain} logo`}
-                                      className="w-3 h-3 sm:w-4 sm:h-4 rounded-full absolute -left-1 -top-1 sm:-left-2 sm:-top-2"
+                                      className="w-3 h-3 rounded-full absolute -right-1 -bottom-1 ring-1 ring-white/20"
                                       onError={(e) => {
                                         logger.error('Platform logo failed to load:', {
                                           chain: balance.chain,
@@ -288,31 +308,29 @@ const WalletBalances = ({
                                     />
                                   </div>
                                 )}
-                                <div className="flex flex-col items-start">
-                                  <span className="text-[9px] sm:text-[10px]">
-                                    {balance.symbol || 'Unknown'} {balance.address === 'native' ? '' : ''}
-                                  </span>
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] font-medium">{balance.symbol || 'Unknown'}</span>
                                   {balance.price_usd != null && (
-                                    <span className="text-[8px] sm:text-[10px] text-gray-400">
+                                    <span className="text-[9px] text-white/60">
                                       ${formatNumber(balance.price_usd)}
                                     </span>
                                   )}
                                 </div>
                               </div>
                             </td>
-                            <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs text-center">
+                            <td className="px-4 py-3 text-white font-semibold">
                               {balance.amount != null ? formatNumber(balance.amount) : 'N/A'}
                             </td>
-                            <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs text-center">
+                            <td className="px-4 py-3 text-white font-semibold">
                               {balance.value_usd != null ? `$${formatNumber(balance.value_usd)}` : 'N/A'}
                             </td>
-                          </tr>
+                          </motion.tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 text-center p-4 min-h-[calc(80vh-100px)] flex items-center justify-center">
+                  <p className="text-[10px] sm:text-xs text-white/60 text-center p-4 min-h-[calc(80vh-120px)] flex items-center justify-center">
                     No valid balances found for this wallet.
                   </p>
                 )}
@@ -321,31 +339,31 @@ const WalletBalances = ({
             {activeTab === 'activity' && (
               <>
                 {isLoadingTransactions && validTransactions.length === 0 ? (
-                  <div className="space-y-3 p-4 min-h-[calc(80vh-100px)]">
+                  <div className="space-y-3 p-2 sm:p-4 min-h-[calc(80vh-120px)]">
                     {[...Array(5)].map((_, index) => (
                       <div key={index} className="flex items-center gap-4">
-                        <div className="w-8 h-8 bg-gray-700/50 rounded-full animate-pulse"></div>
+                        <div className="w-8 h-8 bg-white/10 rounded-full animate-pulse"></div>
                         <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-gray-700/50 rounded animate-pulse"></div>
-                          <div className="h-4 bg-gray-700/50 rounded animate-pulse w-3/4"></div>
+                          <div className="h-4 bg-white/10 rounded animate-pulse"></div>
+                          <div className="h-4 bg-white/10 rounded animate-pulse w-3/4"></div>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : transactionsError ? (
-                  <p className="text-xs text-red-400 text-center bg-red-500/10 p-3 rounded min-h-[calc(80vh-100px)] flex items-center justify-center">
+                  <p className="text-[10px] sm:text-xs text-red-400 text-center bg-red-500/10 p-3 rounded min-h-[calc(80vh-120px)] flex items-center justify-center">
                     Error: {transactionsError}
                   </p>
                 ) : validTransactions.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full table-fixed">
-                      <thead className="text-[10px] sm:text-xs sticky top-0 z-10 border-b border-white/10 bg-black/70 backdrop-blur-md uppercase">
+                  <div className="overflow-x-auto wallet-table-container hide-scrollbar">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10 backdrop-blur-xl">
                         <tr>
-                          <th className="px-2 py-2 text-white text-center font-medium w-[25%]">
-                            <div className="flex items-center justify-center gap-2">
+                          <th className="px-4 py-3 text-white text-left font-semibold w-[25%]">
+                            <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                className="h-5 w-5 stroke-white/60 fill-none"
                                 viewBox="0 0 24 24"
                                 strokeWidth="2"
                               >
@@ -358,11 +376,11 @@ const WalletBalances = ({
                               Token
                             </div>
                           </th>
-                          <th className="px-2 py-2 text-white text-center font-medium w-[25%]">
-                            <div className="flex items-center justify-center gap-2">
+                          <th className="px-4 py-3 text-white text-left font-semibold w-[25%]">
+                            <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                className="h-5 w-5 stroke-white/60 fill-none"
                                 viewBox="0 0 24 24"
                                 strokeWidth="2"
                               >
@@ -375,25 +393,28 @@ const WalletBalances = ({
                               Address
                             </div>
                           </th>
-                          <th className="px-2 py-2 text-white text-center font-medium w-[25%]">
-                            <div className="flex items-center justify-center gap-2">
+                          <th className="px-4 py-3 text-white text-left font-semibold w-[25%]">
+                            <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 fill-neon-blue"
+                                className="h-5 w-5 stroke-white/60 fill-none"
                                 viewBox="0 0 24 24"
+                                strokeWidth="2"
                               >
                                 <path
-                                  d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
                                 />
                               </svg>
                               Value
                             </div>
                           </th>
-                          <th className="px-2 py-2 text-white text-center font-medium w-[25%]">
-                            <div className="flex items-center justify-center gap-2">
+                          <th className="px-4 py-3 text-white text-left font-semibold w-[25%]">
+                            <div className="flex items-center gap-2">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                className="h-5 w-5 stroke-white/60 fill-none"
                                 viewBox="0 0 24 24"
                                 strokeWidth="2"
                               >
@@ -420,18 +441,21 @@ const WalletBalances = ({
                           const isValidTxHash = tx.hash?.match(/^(0x)?[a-fA-F0-9]+$/);
 
                           return (
-                            <tr
+                            <motion.tr
                               key={`${tx.chain}-${tx.hash}-${index}`}
-                              className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
+                              className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.3, delay: index * 0.02 }}
                             >
-                              <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs text-center">
-                                <div className="flex flex-col items-center space-y-1 relative">
+                              <td className="px-4 py-3 text-white">
+                                <div className="flex items-center gap-3">
                                   {tx.token_metadata?.logo && (
                                     <div className="relative inline-block">
                                       <img
                                         src={tx.token_metadata.logo}
                                         alt={`${tx.token} logo`}
-                                        className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex-shrink-0"
+                                        className="w-6 h-6 rounded-full ring-1 ring-white/20"
                                         onError={(e) => {
                                           logger.error('Token logo failed to load:', {
                                             symbol: tx.token,
@@ -443,7 +467,7 @@ const WalletBalances = ({
                                       <img
                                         src={getPlatformImage(tx.chain)}
                                         alt={`${chainName} logo`}
-                                        className="w-3 h-3 sm:w-4 sm:h-4 rounded-full absolute -left-1 -top-1 sm:-left-2 sm:-top-2"
+                                        className="w-3 h-3 rounded-full absolute -right-1 -bottom-1 ring-1 ring-white/20"
                                         onError={(e) => {
                                           logger.error('Transaction chain logo failed to load:', {
                                             chain: tx.chain,
@@ -455,22 +479,22 @@ const WalletBalances = ({
                                       />
                                     </div>
                                   )}
-                                  <span className="text-[8px] sm:text-[10px]">{tx.token || 'Unknown'}</span>
+                                  <span className="text-[10px] font-medium">{tx.token || 'Unknown'}</span>
                                 </div>
                               </td>
-                              <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs text-center">
-                                <div className="flex flex-col items-center space-y-1 group relative">
+                              <td className="px-4 py-3 text-white">
+                                <div className="flex items-center gap-2 group relative">
                                   <span
-                                    className={`inline-flex px-1.5 py-0.5 rounded-lg text-[7px] sm:text-[8px] font-medium flex-shrink-0 ${tx.type === 'receive' ? 'bg-green-500/20 text-green-500' : 'bg-blue-500/20 text-blue-500'}`}
+                                    className={`inline-flex px-2 py-0.5 rounded-lg text-[9px] font-medium ${tx.type === 'receive' ? 'bg-emerald-400/20 text-emerald-400' : 'bg-red-400/20 text-red-400'}`}
                                   >
                                     {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
                                   </span>
-                                  <div className="flex items-center justify-center space-x-2">
+                                  <div className="flex items-center gap-2">
                                     {addressImage && (
                                       <img
                                         src={addressImage}
                                         alt={`${displayAddress} logo`}
-                                        className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
+                                        className="w-4 h-4 rounded-full ring-1 ring-white/20"
                                         onError={(e) => {
                                           logger.error('Address name tag image failed to load:', {
                                             address: tx.type === 'receive' ? tx.from : tx.to,
@@ -484,7 +508,7 @@ const WalletBalances = ({
                                       href={addressUrl}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="text-[8px] sm:text-xs text-neon-blue hover:text-neon-blue/80 transition-colors"
+                                      className="text-[10px] text-white hover:text-white/80 transition-colors font-medium"
                                       title={tx.type === 'receive' ? tx.from : tx.to}
                                       onClick={() => handleAddressClick(tx.type === 'receive' ? tx.from : tx.to)}
                                     >
@@ -496,14 +520,14 @@ const WalletBalances = ({
                                           navigator.clipboard.writeText(tx.type === 'receive' ? tx.from : tx.to);
                                           toast.success('Address copied!', { autoClose: 2000 });
                                         }}
-                                        className="absolute right-0 text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                        className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
                                         title="Copy address"
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
                                       >
                                         <svg
                                           xmlns="http://www.w3.org/2000/svg"
-                                          className="w-3 sm:w-4 h-3 sm:h-4"
+                                          className="w-4 h-4"
                                           fill="none"
                                           viewBox="0 0 24 24"
                                           stroke="currentColor"
@@ -520,20 +544,26 @@ const WalletBalances = ({
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-2 py-2 text-gray-200 text-[9px] sm:text-xs text-center">
+                              <td className="px-4 py-3 text-white font-semibold">
                                 {tx.value != null ? `$${formatNumber(tx.value)}` : 'N/A'}
                               </td>
-                              <td className="px-2 py-2 text-gray-200 text-[8px] sm:text-xs text-center">
-                                <div className="flex flex-col items-center gap-0.5 group relative">
-                                  <a href={txUrl} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                              <td className="px-4 py-3 text-white">
+                                <div className="flex items-center gap-2 group relative">
+                                  <a
+                                    href={txUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 transition-all duration-300"
+                                    title={tx.hash}
+                                  >
                                     <img
                                       src="/logos/etherscan-logo.png"
                                       alt="Etherscan"
-                                      className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0 object-contain"
+                                      className="w-4 h-4 object-contain"
                                       onError={(e) => (e.target.src = '/fallback-image.png')}
                                     />
                                   </a>
-                                  <span className="text-[7px] sm:text-[10px] text-gray-500 text-center">
+                                  <span className="text-[9px] text-white/60">
                                     {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
                                   </span>
                                   {isValidTxHash && (
@@ -542,14 +572,14 @@ const WalletBalances = ({
                                         navigator.clipboard.writeText(tx.hash);
                                         toast.success('Transaction hash copied!', { autoClose: 2000 });
                                       }}
-                                      className="absolute right-0 text-gray-400 hover:text-neon-blue transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                      className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
                                       title="Copy transaction hash"
                                       whileHover={{ scale: 1.1 }}
                                       whileTap={{ scale: 0.9 }}
                                     >
                                       <svg
                                         xmlns="http://www.w3.org/2000/svg"
-                                        className="w-3 sm:w-4 h-3 sm:h-4"
+                                        className="w-4 h-4"
                                         fill="none"
                                         viewBox="0 0 24 24"
                                         stroke="currentColor"
@@ -565,14 +595,14 @@ const WalletBalances = ({
                                   )}
                                 </div>
                               </td>
-                            </tr>
+                            </motion.tr>
                           );
                         })}
                       </tbody>
                     </table>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 text-center p-4 min-h-[calc(80vh-100px)] flex items-center justify-center">
+                  <p className="text-[10px] sm:text-xs text-white/60 text-center p-4 min-h-[calc(80vh-120px)] flex items-center justify-center">
                     No valid transactions found for this wallet.
                   </p>
                 )}

@@ -256,6 +256,20 @@
       /* Prevent tooltip from interfering with mouse events */
   }
 
+  .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+  }
+
+  .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+  }
+
+  .market-tab-container {
+      height: 100%;
+      overflow-y: auto;
+  }
+
   @media (max-width: 640px) {
       .trending-container {
           max-width: 100%;
@@ -265,5 +279,20 @@
       .header-container {
           height: auto;
           /* Allow flexible height on mobile */
+      }
+
+      .market-tab-container {
+          max-height: calc(100vh - 4rem);
+          overflow-y: auto;
+      }
+
+      .tab-content {
+          max-height: calc(100vh - 8rem);
+          overflow-y: auto;
+      }
+
+      .table-container {
+          max-height: calc(100vh - 10rem);
+          overflow-y: auto;
       }
   }
