@@ -37,22 +37,22 @@ const NATIVE_TOKEN_INFO = {
 const SkeletonLoader = ({ isMobile }) => {
   const skeletonRows = Array(5).fill(null);
   return (
-    <div className="w-full p-2 sm:p-4">
-      <table className="w-full text-[10px] sm:text-xs">
+    <div className="w-full p-2 sm:p-3">
+      <table className="w-full text-[9px] sm:text-[10px]">
         <tbody>
           {skeletonRows.map((_, index) => (
             <tr key={index} className="border-t border-white/10">
-              <td className="px-2 sm:px-4 py-2 text-center">
+              <td className="px-2 sm:px-3 py-2 text-center">
                 <div className="flex flex-col items-center gap-1">
-                  <div className="w-5 sm:w-6 h-5 sm:h-6 bg-gray-700/50 rounded-full animate-pulse"></div>
-                  <div className="w-10 sm:w-12 h-2 bg-gray-700/50 rounded animate-pulse"></div>
+                  <div className="w-5 sm:w-6 h-5 sm:h-6 bg-white/10 rounded-full animate-pulse"></div>
+                  <div className="w-10 sm:w-12 h-2 bg-white/10 rounded animate-pulse"></div>
                 </div>
               </td>
-              <td className="px-2 sm:px-4 py-2 text-center">
-                <div className="w-16 sm:w-20 h-3 bg-gray-700/50 rounded animate-pulse mx-auto"></div>
+              <td className="px-2 sm:px-3 py-2 text-center">
+                <div className="w-16 sm:w-20 h-3 bg-white/10 rounded animate-pulse mx-auto"></div>
               </td>
-              <td className="px-2 sm:px-4 py-2 text-center">
-                <div className="w-20 sm:w-24 h-3 bg-gray-700/50 rounded animate-pulse mx-auto"></div>
+              <td className="px-2 sm:px-3 py-2 text-center">
+                <div className="w-20 sm:w-24 h-3 bg-white/10 rounded animate-pulse mx-auto"></div>
               </td>
             </tr>
           ))}
@@ -74,7 +74,7 @@ const Tooltip = ({ children, text }) => {
     >
       {children}
       <div
-        className={`absolute ${isVisible ? 'block' : 'hidden'} bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[10px] sm:text-[12px] py-1 sm:py-2 px-2 sm:px-3 rounded-lg shadow-neon z-20 -top-8 sm:-top-10 left-1/2 -translate-x-1/2 whitespace-nowrap font-saira transition-all duration-300`}
+        className={`absolute ${isVisible ? 'block' : 'hidden'} bg-white/5 backdrop-blur-md border border-white/10 text-white/80 text-[9px] sm:text-[10px] py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg shadow-neon-sm z-20 -top-8 sm:-top-10 left-1/2 -translate-x-1/2 whitespace-nowrap font-saira transition-all duration-300`}
       >
         {text}
       </div>
@@ -168,20 +168,17 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       selectedWallet: selectedWallet?.address,
     });
 
-    // Skip if user-initiated change
     if (isUserInitiatedChange) {
       console.log('Skipping selectedWallet update due to user-initiated change');
       setIsUserInitiatedChange(false);
       return;
     }
 
-    // Skip if URL matches last selected wallet
     if (addressFromUrl && addressFromUrl === lastSelectedWalletRef.current) {
       console.log('Skipping selectedWallet update: URL matches last selected wallet');
       return;
     }
 
-    // Handle initial load or URL-driven changes
     if (watchlists.length > 0 && isInitialLoad) {
       let wallet = null;
       if (addressFromUrl) {
@@ -203,7 +200,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         setActiveChain(null);
         setCurrentPage({ PORTFOLIO: 1, ACTIVITY: 1 });
         lastSelectedWalletRef.current = wallet.address;
-        setIsInitialLoad(false); // Mark initial load as complete
+        setIsInitialLoad(false);
       }
     }
   }, [searchParams, watchlists, selectedWallet, isUserInitiatedChange, isInitialLoad, initialAddress]);
@@ -473,7 +470,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
       const newNameTags = {};
 
-      // Handle EVM addresses with batching
       const evmAddresses = addresses.filter((addr) => isAddress(addr));
       if (evmAddresses.length > 0 && status === 'authenticated') {
         try {
@@ -546,7 +542,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         });
       }
 
-      // Handle SVM addresses
       const svmAddresses = addresses.filter((addr) => !isAddress(addr));
       svmAddresses.forEach((addr) => {
         newNameTags[addr] = { nameTag: null, image: null, timestamp: Date.now() };
@@ -576,7 +571,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     if (!session?.user?.id) {
       setWatchlists([]);
       setSelectedWallet(null);
-      setIsInitialLoad(true); // Reset on session change
+      setIsInitialLoad(true);
       return;
     }
 
@@ -665,7 +660,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         `${API_BASE_URL}/api/watchlists`,
         {
           action: 'add',
-          wallet_address: newAddress, // Keep address as-is, no normalization
+          wallet_address: newAddress,
           name: newWalletName || 'Unnamed Wallet',
         },
         {
@@ -713,7 +708,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     try {
       const response = await axios.post(
         `${API_BASE_URL}/api/watchlists`,
-        { action: 'remove', wallet_address: walletAddress }, // Keep address as-is
+        { action: 'remove', wallet_address: walletAddress },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -800,7 +795,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       return null;
     }
 
-    // Format balance to handle large/small numbers
     const formatBalance = (amount) => {
       if (amount == null || isNaN(amount)) return 'N/A';
       const num = Number(amount);
@@ -816,14 +810,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
-        <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
           <div className="flex items-center justify-center gap-2 relative">
             <div className="relative flex-shrink-0">
               <img
                 src={logoUrl}
                 alt={`${tokenSymbol} logo`}
-                width={isMobile ? 16 : 20}
-                height={isMobile ? 16 : 20}
+                width={isMobile ? 14 : 16}
+                height={isMobile ? 14 : 16}
                 className="rounded-full"
                 onError={(e) => (e.target.src = '/icons/default.png')}
                 loading="lazy"
@@ -831,8 +825,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               <img
                 src={getPlatformImage(token.chain)}
                 alt={`${token.chain} logo`}
-                width={isMobile ? 10 : 12}
-                height={isMobile ? 10 : 12}
+                width={isMobile ? 8 : 10}
+                height={isMobile ? 8 : 10}
                 className="rounded-full absolute top-0 right-0"
                 style={{ transform: 'translate(25%, -25%)' }}
                 onError={(e) => (e.target.src = token.chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
@@ -842,15 +836,15 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             <div className="flex flex-col items-center">
               <span>{tokenSymbol}</span>
               {token.price_usd != null && (
-                <span className="text-[7px] sm:text-[10px] text-gray-400">{formatPrice(token.price_usd)}</span>
+                <span className="text-[7px] sm:text-[9px] text-white/60">{formatPrice(token.price_usd)}</span>
               )}
             </div>
           </div>
         </td>
-        <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
           {formatBalance(token.amount)}
         </td>
-        <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
           {token.value_usd != null
             ? `$${token.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
             : 'N/A'}
@@ -906,14 +900,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
-        <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
           <div className="flex items-center justify-center gap-2 relative">
             <div className="relative flex-shrink-0">
               <img
                 src={tokenLogo}
                 alt={`${tokenSymbol} logo`}
-                width={isMobile ? 16 : 20}
-                height={isMobile ? 16 : 20}
+                width={isMobile ? 14 : 16}
+                height={isMobile ? 14 : 16}
                 className="rounded-full"
                 onError={(e) => (e.target.src = '/icons/default.png')}
                 loading="lazy"
@@ -921,8 +915,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               <img
                 src={getPlatformImage(tx.chain)}
                 alt={`${tx.chain} logo`}
-                width={isMobile ? 10 : 12}
-                height={isMobile ? 10 : 12}
+                width={isMobile ? 8 : 10}
+                height={isMobile ? 8 : 10}
                 className="rounded-full absolute top-0 right-0"
                 style={{ transform: 'translate(25%, -25%)' }}
                 onError={(e) => (e.target.src = tx.chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
@@ -932,16 +926,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             <span>{tokenSymbol}</span>
           </div>
         </td>
-        <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
           <div className="flex flex-col items-center gap-1">
             <span
-              className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-medium ${tx.type === 'receive'
-                ? 'bg-green-500/20 text-green-500'
+              className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === 'receive'
+                ? 'bg-neon-green/20 text-neon-green'
                 : tx.type === 'send'
-                  ? 'bg-blue-500/20 text-blue-500'
+                  ? 'bg-neon-blue/20 text-neon-blue'
                   : tx.type === 'swap'
-                    ? 'bg-purple-500/20 text-purple-500'
-                    : 'bg-gray-500/20 text-gray-500'
+                    ? 'bg-purple-400/20 text-purple-400'
+                    : 'bg-white/20 text-white/60'
                 }`}
             >
               {typeDisplay}
@@ -951,8 +945,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 <img
                   src={addressImage}
                   alt={`${displayAddress} logo`}
-                  width={isMobile ? 12 : 16}
-                  height={isMobile ? 12 : 16}
+                  width={isMobile ? 12 : 14}
+                  height={isMobile ? 12 : 14}
                   className="rounded-full"
                   onError={(e) => (e.target.src = '/icons/default.png')}
                   loading="lazy"
@@ -962,7 +956,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 href={addressUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-neon-blue hover:underline truncate"
+                className="text-neon-blue hover:text-neon-blue/80 truncate"
                 title={addressToShow}
               >
                 {displayAddress}
@@ -970,23 +964,23 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             </div>
           </div>
         </td>
-        <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
           {displayValue}
         </td>
-        <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-200 text-[10px] sm:text-xs text-center">
+        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
           <div className="flex flex-col items-center gap-0.5">
             <a href={txUrl} target="_blank" rel="noopener noreferrer">
               <img
                 src="/logos/etherscan-logo.png"
                 alt="Explorer"
-                width={isMobile ? 12 : 16}
-                height={isMobile ? 12 : 16}
+                width={isMobile ? 12 : 14}
+                height={isMobile ? 12 : 14}
                 className="rounded-full"
                 onError={(e) => (e.target.src = '/fallback-image.png')}
                 loading="lazy"
               />
             </a>
-            <span className="text-[8px] sm:text-[10px] text-gray-400">
+            <span className="text-[8px] sm:text-[9px] text-white/60">
               {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
             </span>
           </div>
@@ -1028,16 +1022,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
-        className="font-saira w-full max-w-9xl mx-auto mt-2 p-4 bg-black/60 backdrop-blur-2xl shadow-neon-lg rounded-lg flex items-center justify-center min-h-[calc(100vh-6rem)]"
+        className="font-saira w-full max-w-7xl mx-auto mt-2 p-2 sm:p-3 bg-white/5 backdrop-blur-md border border-white/10 shadow-neon-sm rounded-xl flex items-center justify-center min-h-[calc(100vh-6rem)]"
       >
         <div className="text-center">
-          <h3 className="text-lg sm:text-xl font-bold text-white mb-4">Please Log In</h3>
-          <p className="text-sm sm:text-base text-gray-400 mb-6">You need to be logged in to access your watchlist.</p>
+          <h3 className="text-[12px] sm:text-[14px] font-bold text-white mb-3 uppercase tracking-wider">Please Log In</h3>
+          <p className="text-[9px] sm:text-[10px] text-white/60 mb-4">You need to be logged in to access your watchlist.</p>
           <motion.button
             onClick={() => router.push('/auth/signin')}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium text-black bg-white border border-white/10 rounded-xl hover:bg-neon-blue/30 transition-all duration-300"
+            className="px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
           >
             Log In
           </motion.button>
@@ -1051,21 +1045,21 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className="font-saira w-full max-w-9xl mx-auto p-2 bg-black/60 backdrop-blur-2xl shadow-neon-lg flex flex-row h-full overflow-hidden"
+      className="font-saira w-full max-w-9xl mx-auto mt-2 p-2 sm:p-3  flex flex-row h-[calc(100vh-3rem)] rounded-xl overflow-hidden"
     >
       <ToastContainer position="top-center" autoClose={5000} theme="dark" />
 
       {/* Toggle Button for Mobile */}
       {!showWatchlistSidebar && (
         <motion.button
-          className="sm:hidden fixed top-1 left-1 z-50 p-1 bg-black/60 border border-white/10 rounded-lg text-white hover:bg-neon-blue/30 transition-all duration-300"
+          className="sm:hidden fixed top-1 left-1 z-50 p-1 bg-white/5 border border-white/10 rounded-lg text-white hover:bg-neon-blue/20 transition-all duration-300"
           onClick={() => setShowWatchlistSidebar(true)}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
+            className="h-3 w-3"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -1084,29 +1078,29 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="fixed inset-0 sm:hidden bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 sm:hidden bg-black/30 backdrop-blur-sm z-40"
             onClick={() => setShowWatchlistSidebar(false)}
           >
             <motion.div
-              className="w-1/2 h-full bg-black/80 backdrop-blur-2xl border-r border-white/10 overflow-y-auto custom-scrollbar"
+              className="w-1/2 h-full bg-white/5 backdrop-blur-md border-r border-white/10 overflow-y-auto custom-scrollbar shadow-neon-sm"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-2">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[10px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-2">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/20 to-transparent p-1 rounded">
                     Watchlist
                   </h3>
                   <motion.button
                     onClick={() => setShowAddModal(true)}
-                    whileHover={{ scale: 1 }}
+                    whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="px-2 py-1.5 text-[10px] font-medium text-black border border-white/10 rounded-xl bg-white backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+                    className="px-2 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
                   >
                     Add +
                   </motion.button>
                 </div>
                 {watchlists.length === 0 ? (
-                  <p className="text-[10px] text-gray-400 text-center">No wallets added</p>
+                  <p className="text-[9px] sm:text-[10px] text-white/60 text-center">No wallets added</p>
                 ) : (
                   watchlists.map((wallet) => (
                     <motion.div
@@ -1127,8 +1121,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className={`flex items-center justify-between p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                        ? 'border-white bg-black/60'
-                        : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
+                        ? 'border-neon-blue bg-white/10'
+                        : 'border-transparent bg-white/5 hover:bg-neon-blue/10'
                         }`}
                     >
                       <div className="flex items-center gap-2">
@@ -1136,18 +1130,18 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           <img
                             src={nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address].image}
                             alt={`${nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'} logo`}
-                            width={isMobile ? 16 : 20}
-                            height={isMobile ? 16 : 20}
+                            width={isMobile ? 14 : 16}
+                            height={isMobile ? 14 : 16}
                             className="rounded-full"
                             onError={(e) => (e.target.src = '/icons/default.png')}
                             loading="lazy"
                           />
                         )}
                         <div className="flex flex-col">
-                          <span className="text-[10px] text-white font-bold">
+                          <span className="text-[9px] sm:text-[10px] text-white font-bold">
                             {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'}
                           </span>
-                          <span className="text-[8px] text-gray-400 truncate max-w-[120px]">
+                          <span className="text-[8px] sm:text-[9px] text-white/60 truncate max-w-[120px] sm:max-w-[150px]">
                             {wallet.address}
                           </span>
                         </div>
@@ -1157,9 +1151,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           e.stopPropagation();
                           handleRemoveWallet(wallet.address);
                         }}
-                        whileHover={{ scale: 1 }}
+                        whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="text-[8px] text-red-500/80 hover:text-red-500"
+                        className="text-[8px] sm:text-[9px] text-red-400/80 hover:text-red-400"
                       >
                         ✕
                       </motion.button>
@@ -1173,22 +1167,22 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       </AnimatePresence>
 
       {/* Left Sidebar: Watchlist (Desktop) */}
-      <div className="hidden sm:block w-[20%] border-r border-white/10 p-2 sm:p-4 overflow-y-auto custom-scrollbar">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-2">
+      <div className="hidden sm:block w-[20%] border-r border-white/10 p-2 sm:p-3 overflow-y-auto custom-scrollbar bg-white/5 backdrop-blur-md shadow-neon-sm">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/20 to-transparent p-1 rounded">
             Watchlist
           </h3>
           <motion.button
             onClick={() => setShowAddModal(true)}
-            whileHover={{ scale: 1 }}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="px-2 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-medium text-black border border-white/10 rounded-xl bg-white backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+            className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
           >
             Add +
           </motion.button>
         </div>
         {watchlists.length === 0 ? (
-          <p className="text-[10px] sm:text-xs text-gray-400 text-center">No wallets added</p>
+          <p className="text-[9px] sm:text-[10px] text-white/60 text-center">No wallets added</p>
         ) : (
           watchlists.map((wallet) => (
             <motion.div
@@ -1205,9 +1199,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 lastSelectedWalletRef.current = wallet.address;
                 updateUrl(wallet.address);
               }}
-              className={`flex items-center justify-between p-2 sm:p-3 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                ? 'border-white bg-black/60'
-                : 'border-transparent bg-black/60 hover:bg-neon-blue/10'
+              className={`flex items-center justify-between p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
+                ? 'border-neon-blue bg-white/10'
+                : 'border-transparent bg-white/5 hover:bg-neon-blue/10'
                 }`}
             >
               <div className="flex items-center gap-2">
@@ -1215,18 +1209,18 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   <img
                     src={nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address].image}
                     alt={`${nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'} logo`}
-                    width={isMobile ? 16 : 20}
-                    height={isMobile ? 16 : 20}
+                    width={isMobile ? 14 : 16}
+                    height={isMobile ? 14 : 16}
                     className="rounded-full"
                     onError={(e) => (e.target.src = '/icons/default.png')}
                     loading="lazy"
                   />
                 )}
                 <div className="flex flex-col">
-                  <span className="text-[10px] sm:text-xs text-white font-bold">
+                  <span className="text-[9px] sm:text-[10px] text-white font-bold">
                     {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'}
                   </span>
-                  <span className="text-[8px] sm:text-[10px] text-gray-400 truncate max-w-[120px] sm:max-w-[150px]">
+                  <span className="text-[8px] sm:text-[9px] text-white/60 truncate max-w-[120px] sm:max-w-[150px]">
                     {wallet.address}
                   </span>
                 </div>
@@ -1236,9 +1230,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   e.stopPropagation();
                   handleRemoveWallet(wallet.address);
                 }}
-                whileHover={{ scale: 1 }}
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="text-[8px] sm:text-[10px] text-red-500/80 hover:text-red-500"
+                className="text-[8px] sm:text-[9px] text-red-400/80 hover:text-red-400"
               >
                 ✕
               </motion.button>
@@ -1248,17 +1242,17 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       </div>
 
       {/* Right Section: Wallet Info (20%) + Tabs (80%) */}
-      <div className="w-full sm:w-[80%] p-2 sm:p-4 flex flex-col">
+      <div className="w-full sm:w-[80%] p-2 sm:p-3 flex flex-col">
         {selectedWallet ? (
           <>
-            <div className="h-[20%] border-b border-white/10 bg-black/60 backdrop-blur-md p-2 sm:p-3 flex flex-col justify-between">
+            <div className="h-[20%] border-b border-white/10 bg-white/5 backdrop-blur-md p-2 sm:p-3 flex flex-col justify-between rounded-xl shadow-neon-sm">
               <div className="flex items-center gap-2 mb-2">
                 {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.image && (
                   <img
                     src={nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address].image}
                     alt={`${nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'} logo`}
-                    width={isMobile ? 24 : 28}
-                    height={isMobile ? 24 : 28}
+                    width={isMobile ? 20 : 24}
+                    height={isMobile ? 20 : 24}
                     className="rounded-xl"
                     onError={(e) => (e.target.src = '/icons/default.png')}
                     loading="lazy"
@@ -1266,23 +1260,23 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 )}
                 <div className="relative group">
                   <div className="flex flex-col">
-                    <span className="text-[12px] sm:text-sm font-bold text-white">
+                    <span className="text-[10px] sm:text-[12px] font-bold text-white">
                       {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'}
                     </span>
-                    <span className="text-[10px] sm:text-xs text-gray-400">
+                    <span className="text-[9px] sm:text-[10px] text-white/60">
                       {selectedWallet.address}
                     </span>
                   </div>
                   <motion.button
                     className="absolute top-1/2 right-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-neon-blue hover:text-neon-blue/80 transition-opacity duration-200"
                     onClick={() => copyAddress(selectedWallet.address, toast)}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     title="Copy Address"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-3.5 sm:h-4 w-3.5 sm:w-4"
+                      className="h-3 sm:h-3.5 w-3 sm:w-3.5"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -1293,14 +1287,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   </motion.button>
                 </div>
               </div>
-              <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-4 no-scrollbar">
+              <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-3 no-scrollbar">
                 <Tooltip text="All Chains">
                   <motion.button
                     onClick={() => setActiveChain(null)}
-                    className={`px-2 sm:px-3 py-1 sm:py-1.5 border border-white rounded-xl transition-all duration-300 text-[10px] sm:text-xs font-medium text-white flex-shrink-0 min-w-[48px] z-10 ${activeChain === null
-                        ? 'border-white bg-neon-blue/20 shadow-neon'
-                        : 'border-white bg-black/60 backdrop-blur-md'
+                    className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl transition-all duration-300 flex-shrink-0 min-w-[48px] z-10 ${activeChain === null ? 'border-neon-blue bg-neon-blue/20 shadow-neon-sm' : 'hover:bg-neon-blue/20'
                       }`}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
                     ALL
                   </motion.button>
@@ -1310,15 +1304,17 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     <motion.button
                       onClick={() => setActiveChain(chain)}
                       className={`flex items-center justify-center rounded-full flex-shrink-0 z-10 min-w-[26px] sm:min-w-[26px] m-1 ${activeChain === chain
-                          ? 'border-neon-blue bg-neon-blue/20 shadow-neon'
-                          : 'border-white/10 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30'
+                        ? 'border-neon-blue bg-neon-blue/20 shadow-neon-sm'
+                        : 'border-white/10 bg-white/5 backdrop-blur-md hover:bg-neon-blue/20'
                         }`}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
                       <img
                         src={getPlatformImage(chain)}
                         alt={chain}
-                        width={isMobile ? 20 : 24} // Increased from 24 to 32 for mobile
-                        height={isMobile ? 20 : 24} // Increased from 24 to 32 for mobile
+                        width={isMobile ? 18 : 20}
+                        height={isMobile ? 18 : 20}
                         className="rounded-full object-contain block flex-shrink-0"
                         onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
                         loading="lazy"
@@ -1331,22 +1327,22 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
             {/* Tabs: Portfolio & Activity (80% height) */}
             <div className="h-[90%] flex flex-col">
-              <div className="flex w-full border-b border-white/10 mb-2 sm:mb-4 bg-black/60 backdrop-blur-md rounded-xl">
+              <div className="flex w-full border-b border-white/10 mb-2 sm:mb-3 bg-white/5 backdrop-blur-md rounded-xl">
                 {['PORTFOLIO', 'ACTIVITY'].map((tab) => (
                   <motion.button
                     key={tab}
                     onClick={() => handleTabClick(tab)}
-                    whileHover={{ scale: 1 }}
+                    whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className={`flex-1 px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs font-medium ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white'
-                      } last:border-r-0`}
+                    className={`flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white/80 hover:bg-neon-blue/20'
+                      } last:border-r-0 transition-all duration-300`}
                   >
                     {tab}
                   </motion.button>
                 ))}
               </div>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-lg bg-black/60 backdrop-blur-2xl">
+              <div className="flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-xl bg-white/5 backdrop-blur-md shadow-neon-sm">
                 <LoadingOverlay
                   isLoading={loadingStates.loading || (activeTab === 'PORTFOLIO' && (loadingStates.balances || loadingStates.tokenInfo))}
                   isMobile={isMobile}
@@ -1364,14 +1360,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     {activeTab === 'PORTFOLIO' && (
                       <>
                         {filteredBalances.length > 0 ? (
-                          <table className="w-full text-[10px] sm:text-xs">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
+                          <table className="w-full text-[9px] sm:text-[10px]">
+                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5 backdrop-blur-md">
                               <tr>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                                <th className="px-2 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
@@ -1384,11 +1380,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                     Token
                                   </div>
                                 </th>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                                <th className="px-2 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
@@ -1401,11 +1397,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                     Balance
                                   </div>
                                 </th>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                                <th className="px-2 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
@@ -1419,7 +1415,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                             <tbody>{getPaginatedData(filteredBalances, 'PORTFOLIO').map(renderTokenRow)}</tbody>
                           </table>
                         ) : (
-                          <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 h-full flex items-center justify-center">
+                          <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3 h-full flex items-center justify-center">
                             No balances found for this wallet.
                           </p>
                         )}
@@ -1428,14 +1424,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     {activeTab === 'ACTIVITY' && (
                       <>
                         {filteredTransactions.length > 0 ? (
-                          <table className="w-full text-[10px] sm:text-xs">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/60 backdrop-blur-md">
+                          <table className="w-full text-[9px] sm:text-[10px]">
+                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5 backdrop-blur-md">
                               <tr>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                                <th className="px-2 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
@@ -1448,11 +1444,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                     Token
                                   </div>
                                 </th>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                                <th className="px-2 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
@@ -1465,11 +1461,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                     Address
                                   </div>
                                 </th>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                                <th className="px-2 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
@@ -1482,11 +1478,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                     Value
                                   </div>
                                 </th>
-                                <th className="px-2 sm:px-4 py-1 sm:py-1.5 text-white font-medium text-center">
+                                <th className="px-2 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
-                                      className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
                                       viewBox="0 0 24 24"
                                       strokeWidth="2"
                                     >
@@ -1504,7 +1500,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                             <tbody>{getPaginatedData(filteredTransactions, 'ACTIVITY').map(renderTransactionRow)}</tbody>
                           </table>
                         ) : (
-                          <p className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 h-full flex items-center justify-center">
+                          <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3 h-full flex items-center justify-center">
                             No transactions found for this wallet.
                           </p>
                         )}
@@ -1516,30 +1512,30 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
               {(activeTab === 'PORTFOLIO' && filteredBalances.length > itemsPerPage) ||
                 (activeTab === 'ACTIVITY' && filteredTransactions.length > itemsPerPage) ? (
-                <div className="flex justify-end mt-2 px-2 sm:px-4">
-                  <div className="flex items-center gap-2 sm:gap-4">
+                <div className="flex justify-end mt-2 px-2 sm:px-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <motion.button
                       onClick={() => handlePageChange(activeTab, currentPage[activeTab] - 1)}
                       disabled={currentPage[activeTab] === 1}
-                      whileHover={{ scale: 1 }}
+                      whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage[activeTab] === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/30'
-                        } transition-all duration-300 rounded`}
+                      className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md ${currentPage[activeTab] === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+                        } transition-all duration-300 rounded-xl`}
                     >
                       &lt;
                     </motion.button>
-                    <span className="text-[10px] sm:text-xs text-gray-200 self-center">
+                    <span className="text-[9px] sm:text-[10px] text-white/80 self-center">
                       {currentPage[activeTab]} / {getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)}
                     </span>
                     <motion.button
                       onClick={() => handlePageChange(activeTab, currentPage[activeTab] + 1)}
                       disabled={currentPage[activeTab] === getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)}
-                      whileHover={{ scale: 1 }}
+                      whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-black/60 backdrop-blur-md ${currentPage[activeTab] === getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)
+                      className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md ${currentPage[activeTab] === getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)
                         ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-neon-blue/30'
-                        } transition-all duration-300 rounded`}
+                        : 'hover:bg-neon-blue/20'
+                        } transition-all duration-300 rounded-xl`}
                     >
                       &gt;
                     </motion.button>
@@ -1549,7 +1545,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-[10px] sm:text-xs text-gray-400">
+          <div className="flex-1 flex items-center justify-center text-[9px] sm:text-[10px] text-white/60">
             Please select a wallet to view data.
           </div>
         )}
@@ -1562,11 +1558,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.4, ease: 'easeInOut' }}
-            className="fixed inset-0 flex items-center justify-center z-50 bg-black/80 backdrop-blur-2xl font-saira"
+            className="fixed inset-0 flex items-center justify-center z-50 bg-black/30 backdrop-blur-sm font-saira"
             onClick={() => setShowAddModal(false)}
           >
             <motion.div
-              className="p-4 sm:p-6 max-w-[90%] sm:max-w-md w-full border-2 border-white/10 rounded-xl bg-black/60 backdrop-blur-2xl shadow-neon-lg"
+              className="p-3 sm:p-4 max-w-[90%] sm:max-w-md w-full border border-white/10 rounded-xl bg-white/5 backdrop-blur-md shadow-neon-sm"
               onClick={(e) => e.stopPropagation()}
               initial={{ y: 20 }}
               animate={{ y: 0 }}
@@ -1579,17 +1575,17 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   setNewAddress('');
                   setError(null);
                 }}
-                className="absolute top-4 right-4 text-white text-lg font-bold rounded-full w-10 h-10 flex items-center justify-center bg-black/60 border border-white/10 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+                className="absolute top-3 right-3 text-white text-[12px] sm:text-[14px] font-bold rounded-full w-8 h-8 flex items-center justify-center bg-white/5 border border-white/10 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300"
                 aria-label="Close modal"
-                whileHover={{ scale: 1, rotate: 90 }}
+                whileHover={{ scale: 1.05, rotate: 90 }}
                 whileTap={{ scale: 0.95 }}
               >
                 ✕
               </motion.button>
-              <h4 className="text-[10px] sm:text-sm font-bold text-white mb-4 uppercase tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded flex items-center gap-2">
+              <h4 className="text-[10px] sm:text-[12px] font-bold text-white mb-3 uppercase tracking-wider bg-gradient-to-r from-neon-blue/20 to-transparent p-1 rounded flex items-center gap-2">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+                  className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
                   viewBox="0 0 24 24"
                   strokeWidth="2"
                 >
@@ -1597,32 +1593,32 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 </svg>
                 Add Wallet to Watchlist
               </h4>
-              <div className="mb-4">
-                <label className="text-[10px] sm:text-xs text-gray-200 uppercase tracking-wider mb-1 block">NAME</label>
+              <div className="mb-3">
+                <label className="text-[9px] sm:text-[10px] text-white/80 uppercase tracking-wider mb-1 block">NAME</label>
                 <input
                   type="text"
                   value={newWalletName}
                   onChange={(e) => setNewWalletName(e.target.value)}
                   placeholder="Enter wallet name (optional)"
-                  className="w-full text-[9px] sm:text-[10px] px-3 sm:px-4 py-1 sm:py-1.5 mb-3 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300"
+                  className="w-full text-[9px] sm:text-[10px] px-2 sm:px-3 py-1 border border-white/10 bg-white/5 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 rounded-xl"
                 />
-                <label className="text-[10px] sm:text-xs text-gray-200 uppercase tracking-wider mb-1 block">WALLET</label>
+                <label className="text-[9px] sm:text-[10px] text-white/80 uppercase tracking-wider mb-1 mt-2 block">WALLET</label>
                 <input
                   type="text"
                   value={newAddress}
                   onChange={(e) => setNewAddress(e.target.value)}
                   placeholder={`Enter wallet address (${newChainType === 'EVM' ? 'EVM' : 'Solana/Eclipse'})`}
-                  className="w-full text-[9px] sm:text-[10px] px-3 sm:px-4 py-1 sm:py-1.5 border border-white/10 bg-black/60 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300"
+                  className="w-full text-[9px] sm:text-[10px] px-2 sm:px-3 py-1 border border-white/10 bg-white/5 backdrop-blur-md text-white focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 rounded-xl"
                 />
               </div>
-              <div className="flex w-full mb-4 bg-black/60 backdrop-blur-md">
+              <div className="flex w-full mb-3 bg-white/5 backdrop-blur-md rounded-xl">
                 {['EVM', 'SVM'].map((type) => (
                   <motion.button
                     key={type}
                     onClick={() => setNewChainType(type)}
-                    whileHover={{ scale: 1 }}
-                    whileTap={{ scale: 1 }}
-                    className={`flex-1 flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-medium transition-all duration-300 border border-white rounded-xl m-2 ${newChainType === type ? 'text-white bg-gray-300 shadow-neon' : 'text-white'
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`flex-1 flex items-center justify-between px-2 sm:px-3 py-1 sm:py-2 text-[9px] sm:text-[10px] font-medium transition-all duration-300 border border-white/10 rounded-xl m-1 ${newChainType === type ? 'text-white bg-neon-blue/20 shadow-neon-sm' : 'text-white/80 hover:bg-neon-blue/20'
                       }`}
                   >
                     <span>{type}</span>
@@ -1632,31 +1628,31 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           key={chain}
                           src={NATIVE_TOKEN_INFO[chain]?.logo || '/icons/default.png'}
                           alt={`${chain} logo`}
-                          width={isMobile ? 16 : 20}
-                          height={isMobile ? 16 : 20}
+                          width={isMobile ? 14 : 16}
+                          height={isMobile ? 14 : 16}
                           className="rounded-full"
-                          style={{ marginLeft: index > 0 ? '-9px' : '0', zIndex: 10 - index }}
+                          style={{ marginLeft: index > 0 ? '-8px' : '0', zIndex: 10 - index }}
                           onError={(e) => (e.target.src = '/icons/default.png')}
                           loading="lazy"
                         />
                       ))}
-                      <div className="flex items-center justify-center w-4 sm:w-5 h-4 sm:h-5 bg-neon-blue/50 rounded-full text-white text-[8px] sm:text-[10px] mr-6">+</div>
+                      <div className="flex items-center justify-center w-3 sm:w-4 h-3 sm:h-4 bg-neon-blue/50 rounded-full text-white text-[7px] sm:text-[8px] mr-4">+</div>
                     </div>
                   </motion.button>
                 ))}
               </div>
-              <div className="flex justify-end gap-2 sm:gap-3 mt-4">
+              <div className="flex justify-end gap-2 sm:gap-3 mt-3">
                 <motion.button
                   onClick={handleAddWallet}
-                  whileHover={{ scale: 1 }}
+                  whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-black border border-white/10 bg-white rounded-xl backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+                  className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
                 >
                   ADD +
                 </motion.button>
               </div>
               {error && (
-                <p className="text-[10px] sm:text-xs text-red-400 mt-3 bg-red-500/10 p-2 rounded">Error: {error}</p>
+                <p className="text-[9px] sm:text-[10px] text-red-400 mt-2 bg-red-400/10 p-2 rounded-xl">Error: {error}</p>
               )}
             </motion.div>
           </motion.div>
@@ -1664,70 +1660,67 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       </AnimatePresence>
 
       <style jsx>{`
-  .shadow-neon {
-    box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
-  }
-  .shadow-neon-lg {
-    box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
-  }
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.4);
-  }
-  .custom-scrollbar {
-    -ms-overflow-style: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-  }
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .animate-pulse {
-    animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
-  }
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
-  }
-  table {
-    table-layout: auto;
-    width: 100%;
-  }
-  th,
-  td {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  @media (max-width: 640px) {
-    table {
-      font-size: 9px;
-    }
-    th,
-    td {
-      padding: 0.5rem;
-    }
-  }
-`}</style>
+        .shadow-neon-sm {
+          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.15);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+          height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.4);
+        }
+        .custom-scrollbar {
+          -ms-overflow-style: auto;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .animate-pulse {
+          animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+        }
+        @keyframes pulse {
+          0%,
+          100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+        }
+        table {
+          table-layout: auto;
+          width: 100%;
+        }
+        th,
+        td {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        @media (max-width: 640px) {
+          table {
+            font-size: 8px;
+          }
+          th,
+          td {
+            padding: 0.4rem;
+          }
+        }
+      `}</style>
     </motion.div>
   );
 }

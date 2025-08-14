@@ -19,6 +19,7 @@ import Image from 'next/image';
 import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { LoadingOverlay } from '@/utils/helpers';
+import { CurrencyProvider } from '../../components/CurrencyContext';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -509,56 +510,58 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="h-screen w-screen bg-black text-white overflow-x-hidden flex flex-col">
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} selectedAddress={selectedAddress} />
-      <main className="flex-1 flex items-center justify-center overflow-hidden">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="w-full h-full flex items-center justify-center"
-        >
-          {activeTab === 'market' && (
-            <MarketTab
-              recaptchaRef={recaptchaRef}
-              toast={toast}
-              onTokenSelect={handleNavigateToToken}
-              initialTokenSlug={searchParams.get('token') || undefined} // Pass token from query params
-            />
-          )}
-          {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
-          {activeTab === 'profile' && (
-            <ProfileTab
-              userData={userData}
-              loading={loading}
-              error={error}
-              isConnected={isConnected}
-              handleConnectWallet={handleConnectWallet}
-              recaptchaRef={recaptchaRef}
-            />
-          )}
-          {activeTab === 'treemap' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
-          {activeTab === 'watchlists' && <WatchlistsTab toast={toast} initialAddress={selectedAddress} />}
-        </motion.div>
-      </main>
-      <ReCAPTCHA
-        ref={recaptchaRef}
-        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
-        size="invisible"
-        badge="bottomright"
-      />
-      <p className="text-[8px] text-gray-600 ml-2">
-        Protected by reCAPTCHA. See{' '}
-        <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
-          Privacy Policy
-        </a>{' '}
-        &{' '}
-        <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
-          Terms
-        </a>{' '}
-        of Google.
-      </p>
-      <ToastContainer position="top-center" autoClose={3000} hideProgressBar closeOnClick pauseOnHover />
-    </div>
+    <CurrencyProvider>
+      <div className="h-screen w-screen bg-black text-white overflow-x-hidden flex flex-col">
+        <Header activeTab={activeTab} setActiveTab={setActiveTab} handleSignOut={handleSignOut} selectedAddress={selectedAddress} />
+        <main className="flex-1 flex items-center justify-center overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="w-full h-full flex items-center justify-center"
+          >
+            {activeTab === 'market' && (
+              <MarketTab
+                recaptchaRef={recaptchaRef}
+                toast={toast}
+                onTokenSelect={handleNavigateToToken}
+                initialTokenSlug={searchParams.get('token') || undefined}
+              />
+            )}
+            {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
+            {activeTab === 'profile' && (
+              <ProfileTab
+                userData={userData}
+                loading={loading}
+                error={error}
+                isConnected={isConnected}
+                handleConnectWallet={handleConnectWallet}
+                recaptchaRef={recaptchaRef}
+              />
+            )}
+            {activeTab === 'treemap' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
+            {activeTab === 'watchlists' && <WatchlistsTab toast={toast} initialAddress={selectedAddress} />}
+          </motion.div>
+        </main>
+        <ReCAPTCHA
+          ref={recaptchaRef}
+          sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+          size="invisible"
+          badge="bottomright"
+        />
+        <p className="text-[8px] text-gray-600 ml-2">
+          Protected by reCAPTCHA. See{' '}
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
+            Privacy Policy
+          </a>{' '}
+          &{' '}
+          <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="text-neon-blue">
+            Terms
+          </a>{' '}
+          of Google.
+        </p>
+        <ToastContainer position="top-center" autoClose={3000} hideProgressBar closeOnClick pauseOnHover />
+      </div>
+    </CurrencyProvider>
   );
 }

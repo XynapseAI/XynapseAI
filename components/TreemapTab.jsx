@@ -38,14 +38,13 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
 
   return (
     <div
-      className={`relative flex items-center justify-center p-2 rounded-lg border border-white/10 bg-black/60 backdrop-blur-md transition-all duration-300 cursor-pointer group ${
-        isRoot ? 'w-[160px] max-w-[160px] shadow-neon' : 'w-[100px]'
-      }`}
+      className={`relative flex items-center justify-center p-2 rounded-xl border border-white/20 bg-black/40 backdrop-blur-md transition-all duration-300 cursor-pointer group ${isRoot ? 'w-[160px] max-w-[160px] shadow-neon-sm' : 'w-[100px]'
+        }`}
       onClick={() => onSelect(address)}
     >
       <button
         onClick={handleCopyAddress}
-        className="absolute top-1 right-1 z-20 p-1 rounded-full hover:bg-neon-blue/30 transition-all duration-200 group-hover:block hidden"
+        className="absolute top-1 right-1 z-20 p-1 rounded-full hover:bg-neon-blue/20 transition-all duration-200 group-hover:block hidden"
         title="Copy address"
         aria-label="Copy wallet address"
       >
@@ -64,17 +63,17 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
           />
         </svg>
       </button>
-      <p className="text-white text-[8px] sm:text-[10px] font-medium text-center truncate mr-2" title={displayName}>
+      <p className="text-white text-[9px] sm:text-[10px] font-medium text-center truncate mr-2" title={displayName}>
         {displayName}
       </p>
-      <div className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[8px] sm:text-[10px] py-2 px-3 rounded-lg shadow-neon z-50 -top-20 sm:-top-24 left-1/2 -translate-x-1/2 w-56 sm:w-64 font-jetbrains transition-all duration-300">
+      <div className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-white/80 text-[9px] sm:text-[10px] py-2 px-3 rounded-xl shadow-neon-sm z-50 -top-20 sm:-top-24 left-1/2 -translate-x-1/2 w-56 sm:w-64 font-jetbrains transition-all duration-300">
         <div className="flex items-center gap-2 mb-2">
           {image && (
             <img
               src={image}
               alt={`${nametag} logo`}
-              width={isMobile ? 16 : 20}
-              height={isMobile ? 16 : 20}
+              width={isMobile ? 12 : 16}
+              height={isMobile ? 12 : 16}
               className="rounded-full"
               onError={() => console.log(`Failed to load wallet image: ${image}`)}
               loading="lazy"
@@ -92,7 +91,7 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
               href={getExplorerUrls(chain, txHash, address).txUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-neon-blue hover:underline"
+              className="text-neon-blue hover:text-neon-blue/80"
             >
               {truncateAddress(txHash)}
             </a>
@@ -102,9 +101,8 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
           <p>
             <strong>Type:</strong>{' '}
             <span
-              className={`inline-block px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${
-                type === 'Incoming' ? 'bg-[#00BFFF]/20 text-[#00BFFF]' : 'bg-[#EF4444]/20 text-[#EF4444]'
-              }`}
+              className={`inline-block px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${type === 'Incoming' ? 'bg-neon-blue/20 text-neon-blue' : 'bg-red-400/20 text-red-400'
+                }`}
             >
               {type}
             </span>
@@ -574,15 +572,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] rounded-xl bg-black/60 backdrop-blur-2xl shadow-neon-lg ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
+      className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto custom-scrollbar' : ''}`}
     >
       <ToastContainer position="top-center" autoClose={5000} theme="dark" />
       <div className="mb-2 sm:mb-3 border-b border-white/10 pb-2">
         <div className="flex items-center justify-between mb-2 sm:mb-3">
-          <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/30 to-transparent p-2 rounded flex items-center gap-2">
+          <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/20 to-transparent p-2 rounded flex items-center gap-2">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-4 sm:h-5 w-4 sm:w-5 stroke-neon-blue fill-none"
+              className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
               viewBox="0 0 24 24"
               strokeWidth="2"
             >
@@ -597,9 +595,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         </div>
         <div className="flex items-center justify-end gap-2 sm:gap-3 flex-wrap">
           <div className="relative" ref={chainDropdownRef}>
-            <button
+            <motion.button
               onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-              className="text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border-2 border-white/20 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 flex items-center gap-2 text-[10px] sm:text-[10px]"
+              className="text-white px-2 sm:px-3 py-1 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               aria-label="Select chain"
             >
               <img
@@ -615,16 +615,16 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 {mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'}
               </span>
               <span>{isChainDropdownOpen ? '▲' : '▼'}</span>
-            </button>
+            </motion.button>
             {isChainDropdownOpen && (
-              <div className="absolute z-20 bg-black/80 backdrop-blur-lg rounded-xl mt-1 w-56 max-h-72 overflow-y-auto custom-scrollbar border border-white/20">
+              <div className="absolute z-20 bg-white/5 backdrop-blur-md rounded-xl mt-1 w-56 max-h-72 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-sm">
                 {mappedChains.length === 0 ? (
-                  <div className="px-3 py-1.5 text-gray-400 text-[10px] sm:text-[10px]">No supported chains available</div>
+                  <div className="px-2 sm:px-3 py-1 text-white/60 text-[9px] sm:text-[10px]">No supported chains available</div>
                 ) : (
                   mappedChains
                     .filter((chain) => process.env.NODE_ENV === 'development' || !chain.testnet)
                     .map((chain) => (
-                      <button
+                      <motion.button
                         key={chain.value}
                         onClick={() => {
                           if (!isPremium && chain.value !== '1') {
@@ -642,9 +642,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             fetchTransactions(walletAddress);
                           }
                         }}
-                        className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/30 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${
-                          !isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
+                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                        whileHover={{ scale: !isPremium && chain.value !== '1' ? 1 : 1.05 }}
+                        whileTap={{ scale: !isPremium && chain.value !== '1' ? 1 : 0.95 }}
                       >
                         <img
                           src={chain.image}
@@ -663,33 +664,35 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                               alt="Premium required"
                               width={isMobile ? 10 : 12}
                               height={isMobile ? 10 : 12}
-                              className="opacity-100"
+                              className="opacity-80"
                               loading="lazy"
                             />
-                            <span className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
+                            <span className="absolute hidden group-hover:block bg-white/5 backdrop-blur-md border border-white/10 text-white/80 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
                               Premium required
                             </span>
                           </span>
                         )}
-                      </button>
+                      </motion.button>
                     ))
                 )}
               </div>
             )}
           </div>
           <div className="relative" ref={limitDropdownRef}>
-            <button
+            <motion.button
               onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
-              className="text-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border-2 border-white/20 bg-black/60 backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300 flex items-center gap-2 text-[10px] sm:text-[10px]"
+              className="text-white px-2 sm:px-3 py-1 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               aria-label="Select transaction limit"
             >
               <span className="font-medium">Txh: {selectedLimit}</span>
               <span>{isLimitDropdownOpen ? '▲' : '▼'}</span>
-            </button>
+            </motion.button>
             {isLimitDropdownOpen && (
-              <div className="absolute z-20 bg-black/80 backdrop-blur-lg rounded-lg mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon">
+              <div className="absolute z-20 bg-white/5 backdrop-blur-md rounded-xl mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-sm">
                 {[100, 200, 300, 500].map((limit) => (
-                  <button
+                  <motion.button
                     key={limit}
                     onClick={() => {
                       if (!isPremium && limit > 100) {
@@ -705,9 +708,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                         fetchTransactions(walletAddress);
                       }
                     }}
-                    className={`flex items-center w-full text-left px-3 py-1.5 hover:bg-neon-blue/30 rounded-md text-white font-medium text-[10px] sm:text-xs transition-all duration-300 relative ${
-                      !isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
+                    className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    whileHover={{ scale: !isPremium && limit > 100 ? 1 : 1.05 }}
+                    whileTap={{ scale: !isPremium && limit > 100 ? 1 : 0.95 }}
                   >
                     {limit}
                     {!isPremium && limit > 100 && (
@@ -720,12 +724,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                           className="opacity-80"
                           loading="lazy"
                         />
-                        <span className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-gray-200 text-[8px] sm:text-[10px] rounded p-1 -top-5 right-0">
+                        <span className="absolute hidden group-hover:block bg-white/5 backdrop-blur-md border border-white/10 text-white/80 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
                           Premium required
                         </span>
                       </span>
                     )}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             )}
@@ -736,7 +740,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               placeholder="Search wallet (0x...)"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
-              className="bg-black/60 backdrop-blur-md text-white px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-[10px] w-full sm:w-64 border-2 border-white/20 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/30 transition-all duration-300 pr-8"
+              className="bg-white/5 backdrop-blur-md text-white px-2 sm:px-3 py-1 rounded-xl text-[9px] sm:text-[10px] w-full sm:w-64 border border-white/10 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 pr-8"
               aria-label="Wallet address"
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && (
@@ -747,9 +751,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 }
               }}
             />
-            <button
+            <motion.button
               onClick={() => fetchTransactions(walletAddress)}
-              className="absolute right-1.5 text-white p-1 transition-all duration-300 rounded"
+              className="absolute right-1.5 text-white p-1 transition-all duration-300 rounded hover:bg-neon-blue/20"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               aria-label="Search wallet"
               disabled={loading}
             >
@@ -763,7 +769,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>
@@ -774,28 +780,32 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="text-[10px] sm:text-xs text-gray-400 text-center p-2 sm:p-4 bg-black/60 backdrop-blur-md"
+          className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl shadow-neon-sm"
         >
-          <p className="mb-2">No transactions found for this address on {mappedChains.find((c) => c.value === selectedChain)?.label || selectedChain}.</p>
+          <p className="mb-1">No transactions found for this address on {mappedChains.find((c) => c.value === selectedChain)?.label || selectedChain}.</p>
           <p>Please verify the wallet address or try a different chain.</p>
         </motion.div>
       )}
       {walletInfo.address && (
-        <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden bg-black/60 backdrop-blur-md">
+        <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden bg-white/5 backdrop-blur-md border border-white/10 rounded-xl shadow-neon-sm">
           <div className="flex gap-2 mb-2 mt-2 justify-center">
             <motion.button
               onClick={() => {
                 setOffset({ x: 0, y: 0 });
                 setZoom(1);
               }}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium text-white border border-white/20 rounded-xl backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+              className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
               Reset View
             </motion.button>
             {(incomingData.length > nodePage * NODES_PER_PAGE || outgoingData.length > nodePage * NODES_PER_PAGE) && (
               <motion.button
                 onClick={handleLoadMore}
-                className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-white border border-white/10 bg-gradient-to-r from-neon-blue/30 to-transparent rounded-lg backdrop-blur-md hover:bg-neon-blue/30 transition-all duration-300"
+                className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-neon-blue/20 backdrop-blur-md rounded-xl hover:bg-neon-blue/30 transition-all duration-300"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
                 Load More
               </motion.button>
@@ -841,7 +851,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   strokeWidth="2"
                   fill="none"
                   strokeDasharray="5,5"
-                  className="transition-all duration-300 hover:stroke-red-500/80"
+                  className="transition-all duration-300 hover:stroke-red-400/80"
                 />
               ))}
             </svg>
@@ -898,12 +908,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       )}
 
       <style jsx>{`
-        .shadow-neon {
-          box-shadow: 0 0 10px rgba(0, 191, 255, 0.4), 0 0 20px rgba(0, 191, 255, 0.2);
-        }
-        .shadow-neon-lg {
-          box-shadow: 0 0 15px rgba(0, 191, 255, 0.5), 0 0 30px rgba(0, 191, 255, 0.3);
-        }
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
           height: 4px;
@@ -918,16 +922,44 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: rgba(255, 255, 255, 0.4);
         }
+        .shadow-neon-sm {
+          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
+        }
         .animate-pulse {
           animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
         }
         @keyframes pulse {
-          0%,
-          100% {
+          0%, 100% {
             opacity: 1;
           }
           50% {
             opacity: 0.5;
+          }
+        }
+        @media (max-width: 640px) {
+          .text-[12px] {
+            font-size: 10px;
+          }
+          .text-[10px] {
+            font-size: 8px;
+          }
+          .text-[9px] {
+            font-size: 7px;
+          }
+          .text-[8px] {
+            font-size: 6px;
+          }
+          .w-56 {
+            width: 12rem;
+          }
+          .w-64 {
+            width: 14rem;
+          }
+          .w-28 {
+            width: 6rem;
+          }
+          .max-w-7xl {
+            max-width: 95%;
           }
         }
       `}</style>

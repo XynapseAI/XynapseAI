@@ -5,11 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Power } from 'lucide-react';
+import { useCurrency } from './CurrencyContext';
 
 export default function Header({ activeTab, setActiveTab, handleSignOut, selectedAddress }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const router = useRouter();
+  const { currency, setCurrency, availableCurrencies } = useCurrency();
 
   const tabs = [
     { id: 'market', label: 'Market' },
@@ -31,7 +33,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
-    // Include address in the URL for watchlists tab
     const query = tabId === 'watchlists' && selectedAddress ? `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}` : `tab=${tabId}`;
     router.push(`/dashboard?${query}`, { scroll: false });
     setIsMenuOpen(false);
@@ -98,8 +99,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   const lineVariants = {
     closed: { rotate: 0, y: 0, opacity: 1, transition: { duration: 0.3 } },
-    openTop: { rotate: 45, y: 8, transition: { duration: 0.3 } },
-    openBottom: { rotate: -45, y: -8, transition: { duration: 0.3 } },
+    openTop: { rotate: 45, y: 6, transition: { duration: 0.3 } },
+    openBottom: { rotate: -45, y: -6, transition: { duration: 0.3 } },
     hidden: { opacity: 0, transition: { duration: 0.3 } },
   };
 
@@ -112,8 +113,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     return text.split('').map((char, index) => (
       <span
         key={index}
-        className={`inline-block transform-style-3d transition-transform-opacity duration-300 ease-in-out underline underline-offset-2 ${char === ' ' ? '' : `animation-delay-${(index % 13) + 1}`
-          }`}
+        className={`inline-block transform-style-3d transition-transform-opacity duration-300 ease-in-out ${char === ' ' ? '' : `animation-delay-${(index % 13) + 1}`}`}
       >
         {char === ' ' ? '\u00A0' : char}
       </span>
@@ -121,112 +121,142 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   return (
-    <header className="h-[4vh] sm:h-[5vh] bg-galaxy border-b rounded-b-xl p-3 flex justify-between items-center sticky top-[-10px] z-20 font-saira">
+    <header className="h-[4vh] sm:h-[5vh] bg-white/5 backdrop-blur-md border-b border-white/10 rounded-b-xl p-2 sm:p-3 flex justify-between items-center sticky top-0 z-20 font-saira shadow-neon-sm">
       <div className="block sm:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="w-6 h-6 flex flex-col justify-center items-center"
+          className="w-5 h-5 flex flex-col justify-center items-center"
           aria-label="Toggle menu"
         >
           <motion.span
-            className="w-6 h-0.5 bg-white mb-1 sm:mb-1.5"
+            className="w-5 h-0.5 bg-white mb-1"
             variants={lineVariants}
             animate={isMenuOpen ? 'openTop' : 'closed'}
           />
           <motion.span
-            className="w-6 h-0.5 bg-white mb-1 sm:mb-1.5"
+            className="w-5 h-0.5 bg-white mb-1"
             variants={lineVariants}
             animate={isMenuOpen ? 'hidden' : 'closed'}
           />
           <motion.span
-            className="w-6 h-0.5 bg-white"
+            className="w-5 h-0.5 bg-white"
             variants={lineVariants}
             animate={isMenuOpen ? 'openBottom' : 'closed'}
           />
         </button>
       </div>
 
-      <div className="hidden sm:flex items-center space-x-2">
+      <div className="hidden sm:flex justify-center items-center flex-grow">
         {tabs.map((tab, index) => (
           <div key={tab.id} className="flex items-center">
             <motion.button
               onClick={() => handleTabClick(tab.id)}
               onMouseEnter={handleMouseEnter}
-              className={`group px-3 py-1.5 text-[10px] md:text-[10px] font-medium transition-all duration-300 text-white backdrop-blur-md perspective-1000 uppercase ${
-                activeTab === tab.id ? 'bg-gradient-to-r from-neon-blue/30 to-transparent text-black' : ''
+              className={`group px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium transition-all duration-300 uppercase ${
+                activeTab === tab.id
+                  ? 'border-b-2 border-white text-white bg-neon-blue/20'
+                  : 'text-white/80 hover:bg-neon-blue/20'
               }`}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              <span className="matrix-text inline-block underline underline-offset-2">
-                {renderMatrixText(tab.label)}
-              </span>
+              <span className="matrix-text">{renderMatrixText(tab.label)}</span>
             </motion.button>
             {index < tabs.length - 1 && (
-              <span className="h-6 w-px bg-white/30 mx-1"></span>
+              <span className="h-4 w-px bg-white/20 mx-1"></span>
             )}
           </div>
         ))}
       </div>
 
-      <motion.button
-        onClick={handleSignOut}
-        className="hidden sm:flex fixed bottom-4 right-4 sm:static w-8 h-8 rounded-full text-red flex items-center justify-center backdrop-blur-md z-50 mr-4"
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.9 }}
-        aria-label="Sign out"
-      >
-        <Power size={20} />
-      </motion.button>
+      <div className="hidden sm:flex items-center gap-2 sm:gap-3 p-1">
+        <select
+          id="currency-select"
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value)}
+          className="text-white px-1.5 py-1 text-[8px] sm:text-[8px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300"
+        >
+          {availableCurrencies.map((curr) => (
+            <option key={curr} value={curr} className="bg-black text-[9px]">
+              {curr.toUpperCase()}
+            </option>
+          ))}
+        </select>
+        {/* <motion.button
+          onClick={handleSignOut}
+          className="flex w-5 sm:w-6 h-5 sm:h-6 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md hover:bg-red-400/20 transition-all duration-300"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          aria-label="Sign out"
+        >
+          <Power size={14} />
+        </motion.button> */}
+      </div>
 
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
             ref={menuRef}
-            className="fixed top-0 left-0 w-full max-w-xs h-full bg-galaxy backdrop-blur-lg z-30 flex flex-col p-4 sm:hidden rounded-r-xl"
+            className="fixed top-0 left-0 w-full max-w-[80%] sm:max-w-xs h-[100vh] bg-black/90 backdrop-blur-3xl z-30 flex flex-col p-3 sm:hidden rounded-r-xl border-r border-white/10 shadow-neon-sm"
             initial="closed"
             animate="open"
             exit="closed"
             variants={menuVariants}
           >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-white">MENU</h2>
-              <button
-                onClick={() => setIsMenuOpen(false)}
-                className="text-white text-xl"
-                aria-label="Close menu"
-              >
-                ✕
-              </button>
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-[10px] font-bold text-white uppercase tracking-wider">MENU</h2>
+              <div className="flex items-center gap-2">
+                <select
+                  id="mobile-currency-select"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="text-white px-2 py-1 text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300"
+                >
+                  {availableCurrencies.map((curr) => (
+                    <option key={curr} value={curr} className="bg-black text-[9px]">
+                      {curr.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-white text-[12px] font-bold"
+                  aria-label="Close menu"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-            <nav className="flex flex-col space-y-2 flex-grow overflow-y-auto">
+            <nav className="flex flex-col space-y-2 flex-grow overflow-y-auto custom-scrollbar">
               {tabs.map((tab, index) => (
-                <div key={tab.id} className="flex flex-col">
+                <div key={tab.id} className="w-full">
                   <motion.button
                     onClick={() => handleTabClick(tab.id)}
                     onMouseEnter={handleMouseEnter}
-                    className={`group w-1/3 text-left px-2 py-1 md:py-2 text-[10px] md:text-xs font-medium transition-all duration-300 bg-galaxy/90 text-white backdrop-blur-md uppercase ${
-                      activeTab === tab.id ? 'bg-gradient-to-r from-neon-blue/30 to-transparent text-black' : ''
-                    }`}
-                    whileHover={{ scale: 1 }}
-                    whileTap={{ scale: 0.97 }}
+                    className={`w-full text-left px-2 py-1 text-[9px] font-medium transition-all duration-300 uppercase ${
+                      activeTab === tab.id
+                        ? 'border-l-2 border-white text-white bg-neon-blue/20'
+                        : 'text-white/80 hover:bg-neon-blue/20'
+                    } rounded-lg`}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    <span className="matrix-text">
-                      {renderMatrixText(tab.label)}
-                    </span>
+                    <span className="matrix-text">{renderMatrixText(tab.label)}</span>
                   </motion.button>
                   {index < tabs.length - 1 && (
-                    <span className="w-full h-px bg-white/30 my-2"></span>
+                    <span className="w-full h-px bg-white/20 my-2"></span>
                   )}
                 </div>
               ))}
             </nav>
             <motion.button
               onClick={handleSignOut}
-              className="self-end mt-4 w-8 h-8 rounded-full text-red flex items-center justify-center backdrop-blur-md"
+              className="self-end mt-3 w-5 h-5 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md hover:bg-red-400/20 transition-all duration-300"
               whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.95 }}
               aria-label="Sign out"
             >
-              <Power size={20} />
+              <Power size={14} />
             </motion.button>
           </motion.div>
         )}
@@ -244,6 +274,99 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           />
         )}
       </AnimatePresence>
+
+      <style jsx>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+          height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.4);
+        }
+        .shadow-neon-sm {
+          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.15);
+        }
+        .animate-matrix-flip {
+          animation: matrix-flip 0.4s ease-in-out;
+        }
+        .animate-flicker {
+          animation: flicker 0.4s ease-in-out;
+        }
+        .animate-shuffle-position {
+          animation: shuffle-position 0.4s ease-in-out;
+        }
+        @keyframes matrix-flip {
+          0% {
+            transform: rotateY(0deg);
+          }
+          50% {
+            transform: rotateY(180deg);
+          }
+          100% {
+            transform: rotateY(360deg);
+          }
+        }
+        @keyframes flicker {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.6;
+          }
+        }
+        @keyframes shuffle-position {
+          0% {
+            transform: translateX(0);
+          }
+          50% {
+            transform: translateX(var(--shuffle-offset-1, 0));
+          }
+          75% {
+            transform: translateX(var(--shuffle-offset-2, 0));
+          }
+          100% {
+            transform: translateX(var(--shuffle-offset-3, 0));
+          }
+        }
+        .animation-delay-1 { animation-delay: 0.05s; }
+        .animation-delay-2 { animation-delay: 0.1s; }
+        .animation-delay-3 { animation-delay: 0.15s; }
+        .animation-delay-4 { animation-delay: 0.2s; }
+        .animation-delay-5 { animation-delay: 0.25s; }
+        .animation-delay-6 { animation-delay: 0.3s; }
+        .animation-delay-7 { animation-delay: 0.35s; }
+        .animation-delay-8 { animation-delay: 0.4s; }
+        .animation-delay-9 { animation-delay: 0.45s; }
+        .animation-delay-10 { animation-delay: 0.5s; }
+        .animation-delay-11 { animation-delay: 0.55s; }
+        .animation-delay-12 { animation-delay: 0.6s; }
+        .animation-delay-13 { animation-delay: 0.65s; }
+        @media (max-width: 640px) {
+          .matrix-text span {
+            font-size: 8px;
+          }
+          .animation-delay-1 { animation-delay: 0.04s; }
+          .animation-delay-2 { animation-delay: 0.08s; }
+          .animation-delay-3 { animation-delay: 0.12s; }
+          .animation-delay-4 { animation-delay: 0.16s; }
+          .animation-delay-5 { animation-delay: 0.2s; }
+          .animation-delay-6 { animation-delay: 0.24s; }
+          .animation-delay-7 { animation-delay: 0.28s; }
+          .animation-delay-8 { animation-delay: 0.32s; }
+          .animation-delay-9 { animation-delay: 0.36s; }
+          .animation-delay-10 { animation-delay: 0.4s; }
+          .animation-delay-11 { animation-delay: 0.44s; }
+          .animation-delay-12 { animation-delay: 0.48s; }
+          .animation-delay-13 { animation-delay: 0.52s; }
+        }
+      `}</style>
     </header>
   );
 }
