@@ -1043,7 +1043,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             href={`https://twitter.com/${selectedToken?.links?.twitter_screen_name || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.twitter_screen_name}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 backdrop-blur-sm rounded-xl hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-300"
                             title="Twitter"
                             whileHover={{ scale: 1.1, y: -2 }}
                             whileTap={{ scale: 0.9 }}
@@ -1065,7 +1065,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 backdrop-blur-sm rounded-xl hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-300"
                             title="Discord"
                             whileHover={{ scale: 1.1, y: -2 }}
                             whileTap={{ scale: 0.9 }}
@@ -1087,7 +1087,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 backdrop-blur-sm rounded-xl hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-300"
                             title="Website"
                             whileHover={{ scale: 1.1, y: -2 }}
                             whileTap={{ scale: 0.9 }}
@@ -1109,7 +1109,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 backdrop-blur-sm rounded-xl hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-300"
                             title="GitHub"
                             whileHover={{ scale: 1.1, y: -2 }}
                             whileTap={{ scale: 0.9 }}
@@ -1285,7 +1285,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </div>
                     </div>
                   </div>
-                  <div className="absolute bottom-2 right-2 flex gap-2">
+                  {/* <div className="absolute bottom-2 right-2 flex gap-2">
                     {(selectedToken?.links?.twitter_screen_name ||
                       localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.twitter_screen_name) && (
                         <motion.a
@@ -1371,7 +1371,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           />
                         </motion.a>
                       )}
-                  </div>
+                  </div> */}
                 </div>
               ) : (
                 <div className="h-full flex items-center justify-center">
@@ -1597,7 +1597,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto hide-scrollbar">
                   {activeMarketTab === "dex" && (
-                    <div className="p-4 text-right text-xs text-white/60 border-b border-white/10">
+                    <div className="p-4 text-right text-[10px] text-white/60 border-b border-white/10">
                       <span className="bg-white/5 px-2 py-1 rounded-lg">
                         Last Updated:{" "}
                         {lastDexFetchTime
@@ -1645,9 +1645,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                         <div className="overflow-x-auto">
                           <table className="w-full text-[10px] sm:text-xs">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10">
+                            <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
                               <tr>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -1664,7 +1664,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     Address/Name
                                   </div>
                                 </th>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -1806,9 +1806,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       ) : tickerData.length > 0 ? (
                         <div className="table-container">
                           <table className="w-full text-[10px] sm:text-xs">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10">
+                            <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
                               <tr>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -1825,7 +1825,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     Market
                                   </div>
                                 </th>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -1842,7 +1842,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     Pair
                                   </div>
                                 </th>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -1859,7 +1859,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     Price
                                   </div>
                                 </th>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -1876,7 +1876,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     Volume
                                   </div>
                                 </th>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -1993,9 +1993,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       ) : dexData.trades.length > 0 ? (
                         <div className="overflow-x-auto">
                           <table className="w-full text-[10px] sm:text-xs">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/10">
+                            <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
                               <tr>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -2012,7 +2012,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     Token
                                   </div>
                                 </th>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -2029,7 +2029,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     From Address
                                   </div>
                                 </th>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -2046,7 +2046,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     To Address
                                   </div>
                                 </th>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -2063,7 +2063,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     Value
                                   </div>
                                 </th>
-                                <th className="px-4 py-3 text-white text-center font-semibold">
+                                <th className="px-4 py-2 text-white text-center font-semibold">
                                   <div className="flex items-center justify-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -2080,7 +2080,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     Tx/Time
                                   </div>
                                 </th>
-                                <th className="px-4 py-3 text-white text-left font-semibold">
+                                <th className="px-4 py-2 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -2236,7 +2236,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           ${Math.floor(Number.parseFloat(trade.volume_in_usd)).toLocaleString("en-US")}
                                         </span>
                                         <span
-                                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${trade.kind === "buy" ? "bg-emerald-400/20 text-emerald-400" : "bg-red-400/20 text-red-400"}`}
+                                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${trade.kind === "buy" ? "bg-emerald-400/20 text-emerald-400" : "bg-red-500/40 text-red-500"}`}
                                         >
                                           {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
                                         </span>
@@ -2257,11 +2257,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         <img
                                           src="/logos/etherscan-logo.png"
                                           alt="Etherscan"
-                                          className="w-5 h-5"
+                                          className="w-4 h-4"
                                           onError={(e) => (e.target.src = "/fallback-image.png")}
                                         />
                                       </a>
-                                      <span className="text-xs text-white/60 text-center">
+                                      <span className="text-[10px] text-white/60 text-center">
                                         {formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}
                                       </span>
                                       {trade.tx_hash && typeof trade.tx_hash === "string" && (

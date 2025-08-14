@@ -482,7 +482,7 @@ export default function ProfileTab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="w-full p-2 sm:p-3 rounded-xl bg-black/70 backdrop-blur-md border border-white/5 shadow-neon-sm"
+      className="w-full p-2 sm:p-3 rounded-xl bg-black/70 border border-white/5"
     >
       <div className="relative min-h-[calc(100vh-12rem)]">
         <LoadingOverlay isLoading={tasksLoading || taskProgressLoading} message="Loading tasks..." isMobile={isMobile} />
@@ -562,7 +562,7 @@ export default function ProfileTab({ recaptchaRef }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="w-full p-2 sm:p-3 rounded-xl bg-black/70 backdrop-blur-md border border-white/5 shadow-neon-sm"
+      className="w-full p-2 sm:p-3 rounded-xl bg-black/70 border border-white/5"
     >
       <div className="relative min-h-[calc(100vh-12rem)]">
         <LoadingOverlay isLoading={leaderboardLoading} message="Loading rankings..." isMobile={isMobile} />
@@ -780,16 +780,16 @@ export default function ProfileTab({ recaptchaRef }) {
           )}
           {userData && (
             <motion.div
-              className="w-full sm:w-[80%] mx-auto rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row border border-white/20 bg-black/70 backdrop-blur-xl"
+              className="w-full sm:w-[80%] mx-auto rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row border border-white/20 bg-black/70 relative"
             >
               {/* Left: Google Account Logo, Name, Email, Wallet */}
               <div className="flex flex-col items-center sm:items-start sm:w-1/2">
                 <Image
                   src={getProfilePictureSrc(userData.profilePicture)}
                   alt={userData.googleName || 'Google User'}
-                  width={32}
-                  height={32}
-                  className="rounded-xl border border-white/10 mb-2"
+                  width={44}
+                  height={44}
+                  className="rounded-xl border border-white/10 m-2"
                 />
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] sm:text-[10px] text-white truncate">{userData.googleName || userData.email}</span>
@@ -801,7 +801,7 @@ export default function ProfileTab({ recaptchaRef }) {
                 </div>
                 <p className="text-[8px] sm:text-[9px] text-white/60 mt-1">{userData.email}</p>
                 <div className="flex items-center gap-2 mt-2 w-full justify-center sm:items-center sm:justify-between">
-                  <motion.button
+                  {/* <motion.button
                     onClick={() => connectWalletMutation.mutate()}
                     disabled={connectWalletMutation.isLoading || userData.walletAddress}
                     className={`px-2 sm:px-3 py-1 rounded-xl text-[9px] sm:text-[10px] font-medium transition-all duration-300 border border-neon-green/50 bg-white/5 backdrop-blur-md ${connectWalletMutation.isLoading || userData.walletAddress
@@ -812,7 +812,7 @@ export default function ProfileTab({ recaptchaRef }) {
                     whileTap={{ scale: connectWalletMutation.isLoading || userData.walletAddress ? 1 : 0.95 }}
                   >
                     {connectWalletMutation.isLoading ? 'Connecting...' : 'Connect Wallet'}
-                  </motion.button>
+                  </motion.button> */}
                   {userData.walletAddress && (
                     <motion.button
                       onClick={() => disconnectWalletMutation.mutate()}
@@ -829,7 +829,7 @@ export default function ProfileTab({ recaptchaRef }) {
               <div className="flex flex-col sm:w-1/2 mt-3 sm:mt-0 items-center sm:items-end justify-between">
                 <motion.button
                   onClick={handleSignOut}
-                  className="absolute top-2 sm:top-3 right-2 sm:right-3 text-red-400 rounded-xl w-6 h-6 flex items-center justify-center transition-all duration-300"
+                  className="absolute top-2 sm:top-4 right-2 sm:right-4 text-red-400 w-6 h-6 flex items-center justify-center transition-all duration-300"
                   aria-label="Sign out"
                 >
                   <svg
