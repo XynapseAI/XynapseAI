@@ -225,7 +225,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           <img
             src={token.large || "/placeholder.svg"}
             alt={`${token.symbol} logo`}
-            className="w-8 h-8 rounded-full ring-2 ring-white/20"
+            className="w-8 h-8"
             onError={(e) => {
               logger.error("Token large logo failed to load:", { symbol: token.symbol, src: token.large })
               e.target.src = "/fallback-image.png"
@@ -743,7 +743,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           >
             {isLoadingTrending && !trendingTokens?.length ? (
               <div className="flex items-center justify-center h-8">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white"></div>
               </div>
             ) : trendingError ? (
               <div className="text-center">
@@ -758,7 +757,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 </motion.button>
               </div>
             ) : trendingTokens.length === 0 ? (
-              <div className="text-white/60 text-[10px] text-center">No trending tokens available.</div>
+              <div className="text-white/60 text-[10px] text-center"></div>
             ) : (
               <motion.div
                 className="flex items-center whitespace-nowrap w-full"
@@ -828,7 +827,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     <img
                       src={token.thumb || token.image?.thumb || "/fallback-image.png"}
                       alt={`${token.symbol} logo`}
-                      className="w-3 sm:w-4 h-3 sm:h-4 rounded-full ring-1 ring-white/20"
+                      className="w-3 sm:w-4 h-3 sm:h-4 rounded-full"
                       onError={(e) => {
                         logger.error("Token logo failed to load:", { symbol: token.symbol, src: token.thumb })
                         e.target.src = "/fallback-image.png"
@@ -944,7 +943,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 <img
                                   src={token.image || "/placeholder.svg"}
                                   alt={`${token.symbol} logo`}
-                                  className="w-4 sm:w-5 h-4 sm:h-5 rounded-full mr-2 ring-1 ring-white/20"
+                                  className="w-4 sm:w-5 h-4 sm:h-5 rounded-full mr-2"
                                   onError={(e) => (e.target.src = "/fallback-image.png")}
                                 />
                               )}
@@ -1464,7 +1463,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               </div>
               {isChartLoading ? (
                 <div className="h-48 sm:h-58 flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-white/20 border-t-white"></div>
                 </div>
               ) : priceHistory && priceHistory.length > 0 ? (
                 <div className="h-48 sm:h-58">
@@ -1708,7 +1706,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           <img
                                             src={image || "/placeholder.svg"}
                                             alt={`${displayText} logo`}
-                                            className="w-6 h-6 flex-shrink-0 rounded-full ring-1 ring-white/20"
+                                            className="w-6 h-6 flex-shrink-0 rounded-full"
                                             onError={(e) => {
                                               logger.error("Name tag image failed to load:", {
                                                 address,
@@ -1912,7 +1910,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         <img
                                           src={ticker.market.logo || "/placeholder.svg"}
                                           alt={`${ticker.market.name} logo`}
-                                          className="w-6 h-6 flex-shrink-0 rounded-full ring-1 ring-white/20"
+                                          className="w-6 h-6 flex-shrink-0 rounded-full"
                                           onError={(e) => (e.target.src = "/fallback-image.png")}
                                         />
                                       )}
@@ -2112,7 +2110,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         <img
                                           src={selectedToken.image || "/placeholder.svg"}
                                           alt={`${selectedToken.symbol} logo`}
-                                          className="w-6 h-6 rounded-full flex-shrink-0 ring-1 ring-white/20"
+                                          className="w-6 h-6 rounded-full flex-shrink-0"
                                           onError={(e) => (e.target.src = "/fallback-image.png")}
                                         />
                                       )}
@@ -2320,14 +2318,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             <img
                                               src={token1.image_url || "/placeholder.svg"}
                                               alt={`${token1.symbol} logo`}
-                                              className="w-5 h-5 rounded-full flex-shrink-0 ring-1 ring-white/20"
+                                              className="w-5 h-5 rounded-full flex-shrink-0"
                                               onError={(e) => (e.target.src = "/fallback-image.png")}
                                             />
                                             <span className="text-white/40">/</span>
                                             <img
                                               src={token2.image_url || "/placeholder.svg"}
                                               alt={`${token2.symbol} logo`}
-                                              className="w-5 h-5 rounded-full flex-shrink-0 ring-1 ring-white/20"
+                                              className="w-5 h-5 rounded-full flex-shrink-0"
                                               onError={(e) => (e.target.src = "/fallback-image.png")}
                                             />
                                           </div>

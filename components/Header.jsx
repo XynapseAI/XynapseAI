@@ -121,7 +121,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   return (
-    <header className="h-[4vh] sm:h-[5vh] bg-white/5 backdrop-blur-md border-b border-white/10 rounded-b-xl p-2 sm:p-3 flex justify-between items-center sticky top-0 z-20 font-saira shadow-neon-sm">
+    <header className="h-[4vh] sm:h-[5vh] bg-white/5 backdrop-blur-md border-b border-white/10 rounded-b-xl p-2 sm:p-3 flex justify-between items-center sticky top-0 z-20 font-saira">
       <div className="block sm:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -152,13 +152,11 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
             <motion.button
               onClick={() => handleTabClick(tab.id)}
               onMouseEnter={handleMouseEnter}
-              className={`group px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium transition-all duration-300 uppercase ${
+              className={`group px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium uppercase ${
                 activeTab === tab.id
-                  ? 'border-b-2 border-white text-white bg-neon-blue/20'
-                  : 'text-white/80 hover:bg-neon-blue/20'
+                  ? 'border-b-2 border-white text-white'
+                  : 'text-white/80'
               }`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
             >
               <span className="matrix-text">{renderMatrixText(tab.label)}</span>
             </motion.button>
@@ -235,11 +233,9 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                     onMouseEnter={handleMouseEnter}
                     className={`w-full text-left px-2 py-1 text-[9px] font-medium transition-all duration-300 uppercase ${
                       activeTab === tab.id
-                        ? 'border-l-2 border-white text-white bg-neon-blue/20'
-                        : 'text-white/80 hover:bg-neon-blue/20'
-                    } rounded-lg`}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                        ? 'text-white bg-neon-blue/20'
+                        : 'text-white/80'
+                    }`}
                   >
                     <span className="matrix-text">{renderMatrixText(tab.label)}</span>
                   </motion.button>
@@ -252,8 +248,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
             <motion.button
               onClick={handleSignOut}
               className="self-end mt-3 w-5 h-5 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md hover:bg-red-400/20 transition-all duration-300"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
               aria-label="Sign out"
             >
               <Power size={14} />
@@ -265,7 +259,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-20 sm:hidden"
+            className="fixed inset-0 z-20 sm:hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

@@ -1052,14 +1052,12 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       {/* Toggle Button for Mobile */}
       {!showWatchlistSidebar && (
         <motion.button
-          className="sm:hidden fixed top-1 left-1 z-50 p-1 bg-white/5 border border-white/10 rounded-lg text-white hover:bg-neon-blue/20 transition-all duration-300"
+          className="sm:hidden fixed top-8 left-1 z-50 p-1 bg-white/5 border border-white/10 rounded-lg text-white hover:bg-neon-blue/20 transition-all duration-300"
           onClick={() => setShowWatchlistSidebar(true)}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-3 w-3"
+            className="h-4 w-4"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -1078,11 +1076,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="fixed inset-0 sm:hidden bg-black/30 backdrop-blur-sm z-40"
+            className="fixed inset-0 sm:hidden bg-black/10 backdrop-blur-xs z-40"
             onClick={() => setShowWatchlistSidebar(false)}
           >
             <motion.div
-              className="w-1/2 h-full bg-white/5 backdrop-blur-md border-r border-white/10 overflow-y-auto custom-scrollbar shadow-neon-sm"
+              className="w-2/3 h-full bg-black/70 backdrop-blur-xl border-r border-white/10 overflow-y-auto custom-scrollbar shadow-neon-sm"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-2">
@@ -1118,10 +1116,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         updateUrl(wallet.address);
                         setShowWatchlistSidebar(false);
                       }}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`flex items-center justify-between p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                        ? 'border-neon-blue bg-white/10'
+                      className={`flex items-center justify-between p-2 mb-2 cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
+                        ? 'border-white/80 bg-white/10'
                         : 'border-transparent bg-white/5 hover:bg-neon-blue/10'
                         }`}
                     >
@@ -1167,7 +1163,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       </AnimatePresence>
 
       {/* Left Sidebar: Watchlist (Desktop) */}
-      <div className="hidden sm:block w-[20%] border-r border-white/10 p-2 sm:p-3 overflow-y-auto custom-scrollbar bg-white/5 backdrop-blur-md shadow-neon-sm">
+      <div className="hidden sm:block w-[20%] h-[95%] border border-white/10 rounded-xl p-3 sm:p-4 mt-2 overflow-y-auto custom-scrollbar bg-white/5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/20 to-transparent p-1 rounded">
             Watchlist
@@ -1245,7 +1241,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       <div className="w-full sm:w-[80%] p-2 sm:p-3 flex flex-col">
         {selectedWallet ? (
           <>
-            <div className="h-[20%] border-b border-white/10 bg-white/5 backdrop-blur-md p-2 sm:p-3 flex flex-col justify-between rounded-xl shadow-neon-sm">
+            <div className="h-[20%] border border-white/10 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex flex-col justify-between rounded-xl">
               <div className="flex items-center gap-2 mb-2">
                 {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.image && (
                   <img
@@ -1291,10 +1287,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 <Tooltip text="All Chains">
                   <motion.button
                     onClick={() => setActiveChain(null)}
-                    className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl transition-all duration-300 flex-shrink-0 min-w-[48px] z-10 ${activeChain === null ? 'border-neon-blue bg-neon-blue/20 shadow-neon-sm' : 'hover:bg-neon-blue/20'
+                    className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl flex-shrink-0 min-w-[48px] z-10 ${activeChain === null ? 'border-neon-blue bg-neon-blue/20 shadow-neon-sm' : 'hover:bg-neon-blue/20'
                       }`}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
                   >
                     ALL
                   </motion.button>
@@ -1303,12 +1297,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
                     <motion.button
                       onClick={() => setActiveChain(chain)}
-                      className={`flex items-center justify-center rounded-full flex-shrink-0 z-10 min-w-[26px] sm:min-w-[26px] m-1 ${activeChain === chain
+                      className={`flex items-center justify-center rounded-full flex-shrink-0 z-10 min-w-[22px] sm:min-w-[22px] m-1 ${activeChain === chain
                         ? 'border-neon-blue bg-neon-blue/20 shadow-neon-sm'
                         : 'border-white/10 bg-white/5 backdrop-blur-md hover:bg-neon-blue/20'
                         }`}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
                     >
                       <img
                         src={getPlatformImage(chain)}
@@ -1326,23 +1318,21 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             </div>
 
             {/* Tabs: Portfolio & Activity (80% height) */}
-            <div className="h-[90%] flex flex-col">
-              <div className="flex w-full border-b border-white/10 mb-2 sm:mb-3 bg-white/5 backdrop-blur-md rounded-xl">
+            <div className="h-[85%] flex flex-col">
+              <div className="flex w-full border border-white/10 mt-4 bg-white/5 rounded-t-xl">
                 {['PORTFOLIO', 'ACTIVITY'].map((tab) => (
                   <motion.button
                     key={tab}
                     onClick={() => handleTabClick(tab)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className={`flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white/80 hover:bg-neon-blue/20'
-                      } last:border-r-0 transition-all duration-300`}
+                    className={`flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white/80'
+                      } last:border-r-0`}
                   >
                     {tab}
                   </motion.button>
                 ))}
               </div>
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar border border-white/10 rounded-xl bg-white/5 backdrop-blur-md shadow-neon-sm">
+              <div className="flex-1 overflow-y-auto custom-scrollbar border border-white/10 bg-white/5">
                 <LoadingOverlay
                   isLoading={loadingStates.loading || (activeTab === 'PORTFOLIO' && (loadingStates.balances || loadingStates.tokenInfo))}
                   isMobile={isMobile}
@@ -1361,7 +1351,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       <>
                         {filteredBalances.length > 0 ? (
                           <table className="w-full text-[9px] sm:text-[10px]">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5 backdrop-blur-md">
+                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5">
                               <tr>
                                 <th className="px-2 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-2">
@@ -1425,7 +1415,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       <>
                         {filteredTransactions.length > 0 ? (
                           <table className="w-full text-[9px] sm:text-[10px]">
-                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5 backdrop-blur-md">
+                            <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5">
                               <tr>
                                 <th className="px-2 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-2">
