@@ -10,6 +10,7 @@ import ProfileTab from '../../components/ProfileTab';
 import MarketTab from '../../components/MarketTab';
 import TreemapTab from '../../components/TreemapTab';
 import WatchlistsTab from '../../components/WatchlistsTab';
+import ClusterTab from '../../components/ClusterTab';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { toast, ToastContainer } from 'react-toastify';
 import MatrixHoverEffect from '../../components/MatrixHoverEffect';
@@ -541,6 +542,12 @@ export default function Dashboard() {
             )}
             {activeTab === 'treemap' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
             {activeTab === 'watchlists' && <WatchlistsTab toast={toast} initialAddress={selectedAddress} />}
+            {activeTab === 'cluster' && (
+              <ClusterTab
+                recaptchaRef={recaptchaRef}
+                initialExchangeId={searchParams.get('exchangeId') || undefined}
+              />
+            )}
           </motion.div>
         </main>
         <ReCAPTCHA

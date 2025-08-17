@@ -1,4 +1,5 @@
-// context/CurrencyContext.jsx
+"use client";
+
 import React, { createContext, useState, useContext } from 'react';
 
 const CurrencyContext = createContext();

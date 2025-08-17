@@ -4,14 +4,31 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Power } from 'lucide-react';
+import { Power, Search } from 'lucide-react';
 import { useCurrency } from './CurrencyContext';
+import { logger } from '../utils/serverLogger'; // Assuming logger is available client-side or mocked
 
 export default function Header({ activeTab, setActiveTab, handleSignOut, selectedAddress }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const menuRef = useRef(null);
+  const searchRef = useRef(null);
   const router = useRouter();
-  const { currency, setCurrency, availableCurrencies } = useCurrency();
+  let currency = 'usd';
+  let setCurrency = () => console.warn('setCurrency not available');
+  let availableCurrencies = ['usd', 'eur', 'btc'];
+  try {
+    const context = useCurrency();
+    if (context) {
+      ({ currency, setCurrency, availableCurrencies } = context);
+    } else {
+      console.error('CurrencyContext is not available. Using fallback values.');
+    }
+  } catch (err) {
+    console.error('Error accessing CurrencyContext:', err);
+  }
 
   const tabs = [
     { id: 'market', label: 'Market' },
@@ -19,25 +36,68 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     { id: 'profile', label: 'Profile' },
     { id: 'treemap', label: 'Treemap' },
     { id: 'watchlists', label: 'Watchlists' },
+    { id: 'cluster', label: 'Cluster' }, // New Cluster tab
   ];
 
+  
+
+  // Handle click outside to close menu or search dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setIsMenuOpen(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setIsSearchDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Handle exchange search
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setIsSearchDropdownOpen(false);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/coingecko?action=exchange-search&query=${encodeURIComponent(searchQuery)}`, {
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || 'Failed to search exchanges');
+      setSearchResults(result.data || []);
+      setIsSearchDropdownOpen(true);
+      logger.log('Exchange search results:', { query: searchQuery, results: result.data });
+    } catch (err) {
+      logger.error('Error searching exchanges:', { query: searchQuery, error: err.message });
+      setSearchResults([]);
+      setIsSearchDropdownOpen(false);
+    }
+  };
+
+  // Handle exchange selection
+  const handleExchangeSelect = (exchange) => {
+    router.push(`/cluster?exchangeId=${exchange.id}`, { scroll: false });
+    setSearchQuery('');
+    setSearchResults([]);
+    setIsSearchDropdownOpen(false);
+  };
+
+  // Handle tab navigation
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
-    const query = tabId === 'watchlists' && selectedAddress ? `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}` : `tab=${tabId}`;
+    const query = tabId === 'watchlists' && selectedAddress 
+      ? `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}` 
+      : `tab=${tabId}`;
     router.push(`/dashboard?${query}`, { scroll: false });
     setIsMenuOpen(false);
   };
 
+  // Matrix text animation
   const handleMouseEnter = (e) => {
     const container = e.currentTarget.querySelector('.matrix-text');
     if (container) {
@@ -122,6 +182,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   return (
     <header className="h-[4vh] sm:h-[5vh] bg-white/5 backdrop-blur-md border-b border-white/10 rounded-b-xl p-2 sm:p-3 flex justify-between items-center sticky top-0 z-20 font-saira">
+      {/* Mobile Menu Toggle */}
       <div className="block sm:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -146,6 +207,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         </button>
       </div>
 
+      {/* Desktop Tabs */}
       <div className="hidden sm:flex justify-center items-center flex-grow">
         {tabs.map((tab, index) => (
           <div key={tab.id} className="flex items-center">
@@ -155,7 +217,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
               className={`group px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium uppercase ${
                 activeTab === tab.id
                   ? 'border-b-2 border-white text-white'
-                  : 'text-white/80'
+                  : 'text-white/80 hover:text-white'
               }`}
             >
               <span className="matrix-text">{renderMatrixText(tab.label)}</span>
@@ -167,12 +229,64 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         ))}
       </div>
 
-      <div className="hidden sm:flex items-center gap-2 sm:gap-3 p-1">
+      {/* Desktop Right Section: Currency Selector, Search Bar, Sign Out */}
+      <div className="flex items-center gap-2 sm:gap-3 p-1">
+        {/* Search Bar */}
+        {/* <div className="relative" ref={searchRef}>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Search exchange (e.g., Binance, OKX)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              className="text-white px-3 py-1.5 text-[8px] sm:text-[9px] w-[120px] sm:w-[200px] border border-white/20 bg-white/5 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 rounded-xl"
+            />
+            <motion.button
+              onClick={handleSearch}
+              className="text-white/70 p-1 hover:bg-white/10 transition-all duration-300 rounded"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <Search size={12} />
+            </motion.button>
+          </div>
+          <AnimatePresence>
+            {isSearchDropdownOpen && searchResults.length > 0 && (
+              <motion.div
+                className="absolute z-50 mt-2 w-full max-w-[200px] max-h-48 overflow-y-auto border border-white/20 bg-black/90 backdrop-blur-2xl rounded-lg shadow-neon-sm"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                {searchResults.map((exchange) => (
+                  <motion.button
+                    key={exchange.id}
+                    onClick={() => handleExchangeSelect(exchange)}
+                    className="flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white text-[9px] transition-all duration-300"
+                    whileHover={{ x: 4 }}
+                  >
+                    <img
+                      src={exchange.image}
+                      alt={`${exchange.name} logo`}
+                      className="w-4 h-4 rounded-full mr-2"
+                      onError={(e) => (e.target.src = '/fallback-image.png')}
+                    />
+                    {exchange.name}
+                  </motion.button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div> */}
+
+        {/* Currency Selector */}
         <select
           id="currency-select"
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
-          className="text-white px-1.5 py-1 text-[8px] sm:text-[8px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300"
+          className="text-white px-1.5 py-1 text-[8px] sm:text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300"
         >
           {availableCurrencies.map((curr) => (
             <option key={curr} value={curr} className="bg-black text-[9px]">
@@ -180,6 +294,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
             </option>
           ))}
         </select>
+
+        {/* Sign Out Button */}
         {/* <motion.button
           onClick={handleSignOut}
           className="flex w-5 sm:w-6 h-5 sm:h-6 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md hover:bg-red-400/20 transition-all duration-300"
@@ -191,6 +307,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         </motion.button> */}
       </div>
 
+      {/* Mobile Menu */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
@@ -225,6 +342,54 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                 </button>
               </div>
             </div>
+            <div className="relative mb-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Search exchange (e.g., Binance, OKX)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  className="text-white px-3 py-1.5 text-[9px] w-full border border-white/20 bg-white/5 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 rounded-xl"
+                />
+                <motion.button
+                  onClick={handleSearch}
+                  className="text-white/70 p-1 hover:bg-white/10 transition-all duration-300 rounded"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <Search size={12} />
+                </motion.button>
+              </div>
+              <AnimatePresence>
+                {isSearchDropdownOpen && searchResults.length > 0 && (
+                  <motion.div
+                    className="absolute z-50 mt-2 w-full max-h-48 overflow-y-auto border border-white/20 bg-black/90 backdrop-blur-2xl rounded-lg shadow-neon-sm"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {searchResults.map((exchange) => (
+                      <motion.button
+                        key={exchange.id}
+                        onClick={() => handleExchangeSelect(exchange)}
+                        className="flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white text-[9px] transition-all duration-300"
+                        whileHover={{ x: 4 }}
+                      >
+                        <img
+                          src={exchange.image}
+                          alt={`${exchange.name} logo`}
+                          className="w-4 h-4 rounded-full mr-2"
+                          onError={(e) => (e.target.src = '/fallback-image.png')}
+                        />
+                        {exchange.name}
+                      </motion.button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <nav className="flex flex-col space-y-2 flex-grow overflow-y-auto custom-scrollbar">
               {tabs.map((tab, index) => (
                 <div key={tab.id} className="w-full">
@@ -234,7 +399,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                     className={`w-full text-left px-2 py-1 text-[9px] font-medium transition-all duration-300 uppercase ${
                       activeTab === tab.id
                         ? 'text-white bg-neon-blue/20'
-                        : 'text-white/80'
+                        : 'text-white/80 hover:text-white'
                     }`}
                   >
                     <span className="matrix-text">{renderMatrixText(tab.label)}</span>
@@ -256,6 +421,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         )}
       </AnimatePresence>
 
+      {/* Mobile Overlay */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div

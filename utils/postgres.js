@@ -1,22 +1,38 @@
+// utils/postgres.js
 import { Pool } from 'pg';
 import { logger } from './serverLogger.js';
+import { parse } from 'url';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : false,
-  max: 40, // Maximum number of connections
-  idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-  connectionTimeoutMillis: 10000, // Timeout for acquiring a connection
-});
+const connectionString = process.env.DATABASE_URL;
+let poolConfig = { connectionString };
 
-// Retry connection with exponential backoff
+if (connectionString) {
+  const parsedUrl = parse(connectionString);
+  const [username, password] = parsedUrl.auth ? parsedUrl.auth.split(':') : [null, null];
+  poolConfig = {
+    user: username,
+    password: password || '', // Ensure password is a string
+    host: parsedUrl.hostname,
+    port: parsedUrl.port || 5432,
+    database: parsedUrl.pathname?.slice(1),
+    ssl: connectionString.includes('sslmode=require') ? { rejectUnauthorized: false } : false,
+    max: 40,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  };
+} else {
+  logger.error('DATABASE_URL is not set in .env');
+}
+
+const pool = new Pool(poolConfig);
+
 async function connectWithRetry(retries = 5, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
       const client = await pool.connect();
       logger.info('Successfully connected to PostgreSQL database');
       client.release();
-      return;
+      return true;
     } catch (error) {
       logger.error(`Failed to connect to PostgreSQL (attempt ${i + 1}/${retries}): ${error.message}`, { stack: error.stack });
       if (i < retries - 1) {
@@ -25,13 +41,11 @@ async function connectWithRetry(retries = 5, delay = 1000) {
     }
   }
   logger.error('Failed to connect to PostgreSQL after all retries');
-  throw new Error('Unable to connect to PostgreSQL');
+  return false;
 }
 
-// Initialize connection
 connectWithRetry().catch((error) => {
   logger.error('Initial PostgreSQL connection failed:', { error: error.message, stack: error.stack });
-  process.exit(1); // Exit if connection fails on startup
 });
 
 export async function query(text, params) {
@@ -44,4 +58,4 @@ export async function query(text, params) {
   }
 }
 
-export { pool }; // Export pool for advanced use cases (e.g., transactions)
+export { pool };

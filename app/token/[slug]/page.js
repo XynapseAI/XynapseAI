@@ -6,7 +6,7 @@ import Bottleneck from 'bottleneck';
 import { redirect } from 'next/navigation';
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 5,
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 10,
   minTime: process.env.NODE_ENV === 'production' ? 100 : 1000,
 });
 
@@ -39,19 +39,29 @@ async function fetchTokenData(slug) {
       console.log(`Cache hit for token ${slug}`);
       return JSON.parse(cached);
     }
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
-    const response = await fetchWithRateLimit(`${apiBaseUrl}/api/coingecko/token/${slug}`, {
-      headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
-    });
 
-    if (!response || !response.success || !response.data) {
+    const response = await fetchWithRateLimit(
+      `https://api.coingecko.com/api/v3/coins/${slug}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false`,
+      {
+        headers: { 'Content-Type': 'application/json' },
+        next: { revalidate: 300 }, // Cache for 5 minutes
+      }
+    );
+
+    if (!response || !response.id) {
       console.error(`Invalid response for ${slug}:`, response);
       return null;
     }
 
-    await redisClient.setEx(cacheKey, 60, JSON.stringify(response));
-    return response;
+    const formattedResponse = {
+      success: true,
+      data: response,
+      topHolders: [], // Add logic if needed
+      priceHistory: [], // Add logic if needed
+    };
+
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(formattedResponse));
+    return formattedResponse;
   } catch (error) {
     console.error(`Error fetching token data for slug ${slug}:`, error);
     return null;
@@ -65,8 +75,7 @@ export async function generateStaticParams() {
         'Content-Type': 'application/json',
         'x-cg-demo-api-key': process.env.COINGECKO_API_KEY || '',
       },
-      cache: 'force-cache',
-      next: { revalidate: 86400 },
+      next: { revalidate: 86400 }, // Cache for 24 hours
     });
     if (!response) {
       console.error('Failed to fetch token list from CoinGecko');
