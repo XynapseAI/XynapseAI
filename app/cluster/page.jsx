@@ -1,17 +1,20 @@
-// app/cluster/page.jsx
+"use client"
+
 import { Suspense } from 'react';
 import ClusterTab from '../../components/ClusterTab';
 import Header from '../../components/Header';
 import { CurrencyProvider } from '../../components/CurrencyContext';
 import { ToastContainer } from 'react-toastify';
+import { useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 export default function ClusterPage({ searchParams }) {
   const exchangeId = searchParams.exchangeId || 'binance';
 
   return (
     <div className="min-h-screen bg-black">
-      <Header />
       <CurrencyProvider>
+        <Header />
         <Suspense
           fallback={
             <div className="flex justify-center items-center h-screen bg-black/80 text-white">
@@ -41,8 +44,6 @@ export default function ClusterPage({ searchParams }) {
 // Client component to handle useSearchParams
 function ClusterTabWrapper({ exchangeId }) {
   'use client';
-  const { useRef } = require('react');
-  const { useSearchParams } = require('next/navigation');
   const searchParams = useSearchParams();
   const recaptchaRef = useRef(null);
   const finalExchangeId = searchParams.get('exchangeId') || exchangeId;

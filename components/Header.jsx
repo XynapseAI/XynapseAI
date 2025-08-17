@@ -39,7 +39,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     { id: 'cluster', label: 'Cluster' }, // New Cluster tab
   ];
 
-  
+
 
   // Handle click outside to close menu or search dropdown
   useEffect(() => {
@@ -90,8 +90,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   // Handle tab navigation
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
-    const query = tabId === 'watchlists' && selectedAddress 
-      ? `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}` 
+    const query = tabId === 'watchlists' && selectedAddress
+      ? `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}`
       : `tab=${tabId}`;
     router.push(`/dashboard?${query}`, { scroll: false });
     setIsMenuOpen(false);
@@ -181,7 +181,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   return (
-    <header className="h-[4vh] sm:h-[5vh] bg-white/5 backdrop-blur-md border-b border-white/10 rounded-b-xl p-2 sm:p-3 flex justify-between items-center sticky top-0 z-20 font-saira">
+    <header className="h-[4vh] sm:h-[5vh] bg-white/5 backdrop-blur-md border-b border-white/10 rounded-b-xl flex justify-between items-center sticky top-0 z-20 font-saira">
       {/* Mobile Menu Toggle */}
       <div className="block sm:hidden">
         <button
@@ -208,85 +208,32 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
       </div>
 
       {/* Desktop Tabs */}
-      <div className="hidden sm:flex justify-center items-center flex-grow">
+      <div className="hidden sm:flex justify-center items-end flex-grow h-full">
         {tabs.map((tab, index) => (
-          <div key={tab.id} className="flex items-center">
+          <div key={tab.id} className="flex items-end">
             <motion.button
               onClick={() => handleTabClick(tab.id)}
               onMouseEnter={handleMouseEnter}
-              className={`group px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium uppercase ${
-                activeTab === tab.id
-                  ? 'border-b-2 border-white text-white'
-                  : 'text-white/80 hover:text-white'
+              className={`group px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium uppercase no-hover-effect ${
+                activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'
               }`}
             >
               <span className="matrix-text">{renderMatrixText(tab.label)}</span>
             </motion.button>
-            {index < tabs.length - 1 && (
+            {/* {index < tabs.length - 1 && (
               <span className="h-4 w-px bg-white/20 mx-1"></span>
-            )}
+            )} */}
           </div>
         ))}
       </div>
 
-      {/* Desktop Right Section: Currency Selector, Search Bar, Sign Out */}
+      {/* Desktop Right Section: Currency Selector, Sign Out */}
       <div className="flex items-center gap-2 sm:gap-3 p-1">
-        {/* Search Bar */}
-        {/* <div className="relative" ref={searchRef}>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="Search exchange (e.g., Binance, OKX)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              className="text-white px-3 py-1.5 text-[8px] sm:text-[9px] w-[120px] sm:w-[200px] border border-white/20 bg-white/5 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 rounded-xl"
-            />
-            <motion.button
-              onClick={handleSearch}
-              className="text-white/70 p-1 hover:bg-white/10 transition-all duration-300 rounded"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-            >
-              <Search size={12} />
-            </motion.button>
-          </div>
-          <AnimatePresence>
-            {isSearchDropdownOpen && searchResults.length > 0 && (
-              <motion.div
-                className="absolute z-50 mt-2 w-full max-w-[200px] max-h-48 overflow-y-auto border border-white/20 bg-black/90 backdrop-blur-2xl rounded-lg shadow-neon-sm"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                {searchResults.map((exchange) => (
-                  <motion.button
-                    key={exchange.id}
-                    onClick={() => handleExchangeSelect(exchange)}
-                    className="flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white text-[9px] transition-all duration-300"
-                    whileHover={{ x: 4 }}
-                  >
-                    <img
-                      src={exchange.image}
-                      alt={`${exchange.name} logo`}
-                      className="w-4 h-4 rounded-full mr-2"
-                      onError={(e) => (e.target.src = '/fallback-image.png')}
-                    />
-                    {exchange.name}
-                  </motion.button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div> */}
-
-        {/* Currency Selector */}
         <select
           id="currency-select"
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
-          className="text-white px-1.5 py-1 text-[8px] sm:text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300"
+          className="text-white px-1.5 py-1 text-[8px] sm:text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 backdrop-blur-md transition-all duration-300 no-hover-effect"
         >
           {availableCurrencies.map((curr) => (
             <option key={curr} value={curr} className="bg-black text-[9px]">
@@ -294,17 +241,15 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
             </option>
           ))}
         </select>
-
-        {/* Sign Out Button */}
-        {/* <motion.button
+        <motion.button
           onClick={handleSignOut}
-          className="flex w-5 sm:w-6 h-5 sm:h-6 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md hover:bg-red-400/20 transition-all duration-300"
+          className="flex w-5 sm:w-6 h-5 sm:h-6 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md transition-all duration-300 no-hover-effect"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           aria-label="Sign out"
         >
           <Power size={14} />
-        </motion.button> */}
+        </motion.button>
       </div>
 
       {/* Mobile Menu */}
@@ -325,7 +270,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                   id="mobile-currency-select"
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="text-white px-2 py-1 text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300"
+                  className="text-white px-2 py-1 text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 backdrop-blur-md transition-all duration-300 no-hover-effect"
                 >
                   {availableCurrencies.map((curr) => (
                     <option key={curr} value={curr} className="bg-black text-[9px]">
@@ -335,60 +280,12 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                 </select>
                 <button
                   onClick={() => setIsMenuOpen(false)}
-                  className="text-white text-[12px] font-bold"
+                  className="text-white text-[12px] font-bold no-hover-effect"
                   aria-label="Close menu"
                 >
                   ✕
                 </button>
               </div>
-            </div>
-            <div className="relative mb-3">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Search exchange (e.g., Binance, OKX)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  className="text-white px-3 py-1.5 text-[9px] w-full border border-white/20 bg-white/5 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 rounded-xl"
-                />
-                <motion.button
-                  onClick={handleSearch}
-                  className="text-white/70 p-1 hover:bg-white/10 transition-all duration-300 rounded"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <Search size={12} />
-                </motion.button>
-              </div>
-              <AnimatePresence>
-                {isSearchDropdownOpen && searchResults.length > 0 && (
-                  <motion.div
-                    className="absolute z-50 mt-2 w-full max-h-48 overflow-y-auto border border-white/20 bg-black/90 backdrop-blur-2xl rounded-lg shadow-neon-sm"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    {searchResults.map((exchange) => (
-                      <motion.button
-                        key={exchange.id}
-                        onClick={() => handleExchangeSelect(exchange)}
-                        className="flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white text-[9px] transition-all duration-300"
-                        whileHover={{ x: 4 }}
-                      >
-                        <img
-                          src={exchange.image}
-                          alt={`${exchange.name} logo`}
-                          className="w-4 h-4 rounded-full mr-2"
-                          onError={(e) => (e.target.src = '/fallback-image.png')}
-                        />
-                        {exchange.name}
-                      </motion.button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
             <nav className="flex flex-col space-y-2 flex-grow overflow-y-auto custom-scrollbar">
               {tabs.map((tab, index) => (
@@ -396,10 +293,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                   <motion.button
                     onClick={() => handleTabClick(tab.id)}
                     onMouseEnter={handleMouseEnter}
-                    className={`w-full text-left px-2 py-1 text-[9px] font-medium transition-all duration-300 uppercase ${
-                      activeTab === tab.id
-                        ? 'text-white bg-neon-blue/20'
-                        : 'text-white/80 hover:text-white'
+                    className={`w-full text-left px-2 py-1 text-[9px] font-medium transition-all duration-300 uppercase no-hover-effect ${
+                      activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'
                     }`}
                   >
                     <span className="matrix-text">{renderMatrixText(tab.label)}</span>
@@ -412,7 +307,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
             </nav>
             <motion.button
               onClick={handleSignOut}
-              className="self-end mt-3 w-5 h-5 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md hover:bg-red-400/20 transition-all duration-300"
+              className="self-end mt-3 w-5 h-5 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md transition-all duration-300 no-hover-effect"
               aria-label="Sign out"
             >
               <Power size={14} />

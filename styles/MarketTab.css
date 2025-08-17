@@ -281,6 +281,42 @@
       scrollbar-width: none;
   }
 
+  /* styles/MarketTab.css */
+  .no-hover-effect:hover {
+      background: none !important;
+      box-shadow: none !important;
+      transform: none !important;
+  }
+
+  button.no-hover-effect:hover:not(:disabled) {
+      background: none !important;
+      box-shadow: none !important;
+      transform: none !important;
+  }
+
+  /* Override table row hover effects */
+  table tr:hover {
+      background: none !important;
+      box-shadow: none !important;
+  }
+
+  /* Override general button hover effects */
+  button:hover:not(:disabled) {
+      background: none !important;
+      box-shadow: none !important;
+      transform: none !important;
+  }
+
+  /* Override shadow-neon hover effect */
+  .shadow-neon:hover {
+      box-shadow: none !important;
+  }
+
+  /* Ensure no scan effect on buttons */
+  button:hover::after {
+      content: none !important;
+  }
+
   @media (max-width: 640px) {
       .trending-container {
           max-width: 100%;

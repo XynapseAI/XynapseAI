@@ -11,7 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import UniversalSearch from "./UniversalSearch";
 import WalletBalances from "./WalletBalances";
 import { CHAIN_ID_TO_NAME } from "../utils/constants";
-import { SkeletonLoader, formatPrice, truncateAddress, LoadingOverlay , getExplorerUrls } from "../utils/helpers";
+import { SkeletonLoader, formatPrice, truncateAddress, LoadingOverlay, getExplorerUrls } from "../utils/helpers";
 import "../styles/MarketTab.css";
 import "react-loading-skeleton/dist/skeleton.css";
 
@@ -64,7 +64,7 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
 const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const exchangeIdFromQuery = searchParams.get("exchangeId") || initialExchangeId;
+  const exchangeIdFromQuery = searchParams.get("exchangeId") || initialExchangeId || "binance";
   const { currency } = useCurrency();
   const [exchangeData, setExchangeData] = useState(null);
   const [volumeHistory, setVolumeHistory] = useState([]);
@@ -127,12 +127,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   }, []);
 
   useEffect(() => {
-    if (exchangeIdFromQuery) {
-      const mappedId = mapExchangeId(exchangeIdFromQuery);
-      fetchExchangeData(mappedId);
-      fetchVolumeHistory(mappedId);
-      fetchPortfolioAndWallets(exchangeIdFromQuery);
-    }
+    const mappedId = mapExchangeId(exchangeIdFromQuery);
+    fetchExchangeData(mappedId);
+    fetchVolumeHistory(mappedId);
+    fetchPortfolioAndWallets(exchangeIdFromQuery);
   }, [exchangeIdFromQuery, currency]);
 
   useEffect(() => {
@@ -652,7 +650,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 return (
                   <motion.tr
                     key={index}
-                    className="border-t border-white/10 hover:bg-white/5"
+                    className="border-t border-white/10"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.02 }}
@@ -661,7 +659,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                       <div className="flex items-center gap-2 group relative">
                         <button
                           onClick={() => handleWalletClick(wallet.holder_address)}
-                          className="text-white hover:text-white/80"
+                          className="text-white hover:text-white/80 no-hover-effect"
                         >
                           {truncateAddress(wallet.holder_address).text}
                         </button>
@@ -670,7 +668,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                             navigator.clipboard.writeText(wallet.holder_address);
                             toast.success("Address copied!", { autoClose: 2000 });
                           }}
-                          className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           aria-label="Copy address"
@@ -725,12 +723,11 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           <table className="w-full text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-white/5">
               <tr>
-                <th className="px-2 py-1 text-white text-left font-semibold">Chain</th>
+                <th className="px-2 py-1 text-white text-left font-semibold w-[60px] sm:w-[80px]">Chain</th>
                 <th className="px-2 py-1 text-white text-left font-semibold">From</th>
                 <th className="px-2 py-1 text-white text-left font-semibold">To</th>
                 <th className="px-2 py-1 text-white text-left font-semibold">Value ({currency.toUpperCase()})</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Time</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Hash</th>
+                <th className="px-2 py-1 text-white text-left font-semibold w-[120px] sm:w-[140px]">Details</th>
               </tr>
             </thead>
             <tbody>
@@ -742,19 +739,18 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 return (
                   <motion.tr
                     key={index}
-                    className="border-t border-white/10 hover:bg-white/5"
+                    className="border-t border-white/10"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.02 }}
                   >
-                    <td className="px-2 py-2 text-white">
+                    <td className="px-2 py-2 text-white w-[60px] sm:w-[80px]">
                       <img
                         src={chainLogos[chain] || "/fallback-image.png"}
                         alt={`${tx.chain || "Unknown"} logo`}
-                        className="w-4 h-4 inline mr-2 rounded-full"
+                        className="w-4 h-4 inline rounded-full"
                         onError={(e) => (e.target.src = "/fallback-image.png")}
                       />
-                      {/* {tx.chain || "Unknown"} */}
                     </td>
                     <td className="px-2 py-2 text-white">
                       <div className="flex items-center gap-2 group relative">
@@ -766,7 +762,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                         />
                         <button
                           onClick={() => handleWalletClick(tx.from)}
-                          className="text-white hover:text-white/80"
+                          className="text-white hover:text-white/80 no-hover-effect"
                         >
                           {fromNtag.name !== "N/A" ? fromNtag.name : truncateAddress(tx.from).text}
                         </button>
@@ -775,7 +771,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                             navigator.clipboard.writeText(tx.from);
                             toast.success("Address copied!", { autoClose: 2000 });
                           }}
-                          className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           aria-label="Copy from address"
@@ -807,7 +803,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                         />
                         <button
                           onClick={() => handleWalletClick(tx.to)}
-                          className="text-white hover:text-white/80"
+                          className="text-white hover:text-white/80 no-hover-effect"
                         >
                           {toNtag.name !== "N/A" ? toNtag.name : truncateAddress(tx.to).text}
                         </button>
@@ -816,7 +812,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                             navigator.clipboard.writeText(tx.to);
                             toast.success("Address copied!", { autoClose: 2000 });
                           }}
-                          className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           aria-label="Copy to address"
@@ -839,25 +835,27 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                       </div>
                     </td>
                     <td className="px-2 py-2 text-white">{formatPrice(Number(tx.value_usd) || 0, currency, 2)}</td>
-                    <td className="px-2 py-2 text-white">
-                      {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : "N/A"}
-                    </td>
-                    <td className="px-2 py-2 text-white">
-                      <motion.a
-                        href={txUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-block"
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                      >
-                        <img
-                          src="/logos/etherscan-logo.png"
-                          alt="Explorer"
-                          className="w-4 h-4"
-                          onError={(e) => (e.target.src = "/fallback-image.png")}
-                        />
-                      </motion.a>
+                    <td className="px-2 py-2 text-white w-[120px] sm:w-[140px]">
+                      <div className="flex flex-col items-center justify-center gap-1">
+                        <motion.a
+                          href={txUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-block no-hover-effect"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                        >
+                          <img
+                            src="/logos/etherscan-logo.png"
+                            alt="Explorer"
+                            className="w-3 h-3"
+                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                          />
+                        </motion.a>
+                        <span className="text-[7px] sm:text-[9px]">
+                          {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : "N/A"}
+                        </span>
+                      </div>
                     </td>
                   </motion.tr>
                 );
@@ -1032,19 +1030,21 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <div className="p-4 border-b border-white/10 bg-white/5 flex gap-4">
-              <button
+            <div className="p-0 border-b border-white/10 bg-white/5 flex gap-4 items-end h-[48px]">
+              <motion.button
                 onClick={() => setActiveTab("portfolio")}
-                className={`text-xs font-bold text-white uppercase tracking-wider pb-2 ${activeTab === "portfolio" ? "border-b-2 border-white" : ""}`}
+                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect ${activeTab === "portfolio" ? "border-b-2 border-white" : "text-white/80 hover:text-white"
+                  }`}
               >
                 Portfolio
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={() => setActiveTab("wallets")}
-                className={`text-xs font-bold text-white uppercase tracking-wider pb-2 ${activeTab === "wallets" ? "border-b-2 border-white" : ""}`}
+                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect ${activeTab === "wallets" ? "border-b-2 border-white" : "text-white/80 hover:text-white"
+                  }`}
               >
                 Wallets
-              </button>
+              </motion.button>
             </div>
             {activeTab === "portfolio" ? renderPortfolioContent() : renderWalletsContent()}
           </motion.div>
@@ -1056,9 +1056,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             transition={{ duration: 0.5, delay: 0.3 }}
           >
             <div className="p-4 border-b border-white/10 bg-white/5">
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                Large Transactions (&gt;{formatPrice(1000000, currency, 0)})
-              </h4>
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider">Large Flow</h4>
             </div>
             {renderTransactionsContent()}
           </motion.div>

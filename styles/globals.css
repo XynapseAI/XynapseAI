@@ -433,8 +433,10 @@ button:hover {
 
 .custom-scrollbar {
   /* Hide scrollbar for WebKit browsers (Chrome, Safari) */
-  scrollbar-width: none; /* For Firefox */
-  -ms-overflow-style: none; /* For Internet Explorer and Edge */
+  scrollbar-width: none;
+  /* For Firefox */
+  -ms-overflow-style: none;
+  /* For Internet Explorer and Edge */
 }
 
 .dashboard-scroll {
@@ -589,6 +591,15 @@ td {
   animation: ticker 20s linear infinite;
 }
 
+button:hover {
+  filter: none !important;
+}
+
+/* Override shadow-neon-blue hover effect */
+.shadow-neon-blue:hover {
+  box-shadow: none !important;
+}
+
 
 @media (max-width: 640px) {
 
@@ -608,6 +619,7 @@ td {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
-    gap: 2rem; /* Increased gap for better spacing */
+    gap: 2rem;
+    /* Increased gap for better spacing */
   }
 }

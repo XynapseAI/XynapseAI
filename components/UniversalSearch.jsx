@@ -26,7 +26,7 @@ export default function UniversalSearch({
       icon: 10,
       modalInput: "text-[8px] sm:text-[9px] px-2 py-1 w-full",
       modalResult: "text-[8px]",
-      image: "w-3 h-3",
+      image: "w-4 h-4",
     },
     default: {
       input: "text-[9px] sm:text-[10px] px-3 py-1.5 w-[120px] sm:w-[200px]",
@@ -34,7 +34,7 @@ export default function UniversalSearch({
       icon: 12,
       modalInput: "text-[9px] sm:text-[10px] px-3 py-1.5 w-full",
       modalResult: "text-[9px]",
-      image: "w-4 h-4",
+      image: "w-5 h-5",
     },
     large: {
       input: "text-[10px] sm:text-[12px] px-4 py-2 w-[150px] sm:w-[250px]",
@@ -42,7 +42,7 @@ export default function UniversalSearch({
       icon: 14,
       modalInput: "text-[10px] sm:text-[12px] px-4 py-2 w-full",
       modalResult: "text-[10px]",
-      image: "w-5 h-5",
+      image: "w-6 h-6",
     },
   };
 
@@ -248,10 +248,10 @@ export default function UniversalSearch({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => searchQuery.trim() && setIsModalOpen(true)}
-          className={`text-white border border-white/20 bg-white/5 backdrop-blur-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 rounded-xl ${config.input}`}
+          className={`text-white border border-white/20 bg-white/5 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 rounded-xl ${config.input}`}
           aria-label="Search wallets, nametags, or exchanges"
         />
-        <motion.button
+        {/* <motion.button
           disabled={isLoading}
           className={`text-white/70 hover:bg-white/10 transition-all duration-300 rounded ${config.button}`}
           whileHover={{ scale: 1.1 }}
@@ -263,7 +263,7 @@ export default function UniversalSearch({
           ) : (
             <Search size={config.icon} />
           )}
-        </motion.button>
+        </motion.button> */}
       </div>
 
       <AnimatePresence>
@@ -278,7 +278,7 @@ export default function UniversalSearch({
             aria-modal="true"
           >
             <motion.div
-              className="w-[50vw] h-[50vh] bg-black/90 backdrop-blur-2xl border border-white/20 rounded-xl flex flex-col shadow-neon-lg overflow-hidden"
+              className="w-[90vw] sm:w-[50vw] h-[50vh] bg-black/90 backdrop-blur-sm border border-white/20 rounded-xl flex flex-col shadow-neon-lg overflow-hidden"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -297,8 +297,6 @@ export default function UniversalSearch({
                 <motion.button
                   onClick={() => setIsModalOpen(false)}
                   className="text-white/70 hover:bg-white/10 p-2 rounded-full transition-all duration-300"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
                   aria-label="Close search modal"
                 >
                   <X size={config.icon} />
@@ -344,13 +342,13 @@ export default function UniversalSearch({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium truncate">{result.name}</span>
-                          <span className="text-xs text-white/50 bg-white/10 px-1 py-0.5 rounded">
+                          <span className="text-10px sm:text-[11px] text-white/50 bg-white/10 px-1 py-0.5 rounded">
                             {getTypeLabel(result.type)}
                           </span>
                         </div>
-                        {result.description && (
+                        {/* {result.description && (
                           <div className="text-xs text-white/60 truncate mt-0.5">{result.description}</div>
-                        )}
+                        )} */}
                         {result.address && (
                           <div className="text-xs text-white/40 font-mono truncate mt-0.5">{result.address}</div>
                         )}

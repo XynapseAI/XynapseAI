@@ -113,13 +113,13 @@ const WalletBalances = ({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="fixed inset-0 flex items-center justify-center z-50 font-saira bg-black/10 backdrop-blur-xl"
+      className="fixed inset-0 flex items-center justify-center z-50 font-saira bg-black/10 backdrop-blur-sm"
     >
       <div
         ref={walletBalancesRef}
-        className="p-2 sm:p-4 max-w-6xl w-[95%] bg-black/80 backdrop-blur-xl border border-white/10 rounded-3xl relative max-h-[calc(100vh-8rem)] overflow-y-auto wallet-balances-container hide-scrollbar"
+        className="p-2 sm:p-4 max-w-6xl w-[95%] bg-black/80 backdrop-blur-sm border border-white/10 rounded-3xl relative max-h-[calc(100vh-8rem)] overflow-y-auto wallet-balances-container hide-scrollbar"
       >
-        <div className="sticky top-0 z-10 p-3 bg-black/80 backdrop-blur-3xl border-b border-white/10">
+        <div className="sticky top-0 z-10 p-3 bg-black/80 backdrop-blur-sm border-b border-white/10">
           <div className="flex justify-between items-center mb-3">
             <div className="flex items-center gap-2">
               <svg
@@ -140,7 +140,7 @@ const WalletBalances = ({
                 <img
                   src={walletImage}
                   alt={`${displayWalletAddress} logo`}
-                  className="w-6 h-6 rounded-full ring-1 ring-white/20"
+                  className="w-6 h-6 rounded-xl"
                   onError={(e) => {
                     logger.error('Wallet name tag image failed to load:', {
                       address: walletAddress,
@@ -217,7 +217,7 @@ const WalletBalances = ({
                                     <img
                                       src={balance.logo}
                                       alt={`${balance.symbol} logo`}
-                                      className="w-4 h-4 rounded-full ring-1 ring-white/20"
+                                      className="w-4 h-4 rounded-full"
                                       onError={(e) => {
                                         logger.error('Token logo failed to load:', {
                                           symbol: balance.symbol,
@@ -229,7 +229,7 @@ const WalletBalances = ({
                                     <img
                                       src={getPlatformImage(balance.chain)}
                                       alt={`${balance.chain} logo`}
-                                      className="w-3 h-3 rounded-full absolute -right-1 -bottom-1 ring-1 ring-white/20"
+                                      className="w-3 h-3 rounded-full absolute -right-1 -bottom-1"
                                       onError={(e) => {
                                         logger.error('Platform logo failed to load:', {
                                           chain: balance.chain,
@@ -323,7 +323,7 @@ const WalletBalances = ({
                                       <img
                                         src={tx.token_metadata.logo}
                                         alt={`${tx.token} logo`}
-                                        className="w-4 h-4 rounded-full ring-1 ring-white/20"
+                                        className="w-4 h-4 rounded-full"
                                         onError={(e) => {
                                           logger.error('Token logo failed to load:', {
                                             symbol: tx.token,
@@ -335,7 +335,7 @@ const WalletBalances = ({
                                       <img
                                         src={getPlatformImage(tx.chain)}
                                         alt={`${chainName} logo`}
-                                        className="w-3 h-3 rounded-full absolute -right-1 -bottom-1 ring-1 ring-white/20"
+                                        className="w-3 h-3 rounded-full absolute -right-1 -bottom-1"
                                         onError={(e) => {
                                           logger.error('Transaction chain logo failed to load:', {
                                             chain: tx.chain,
@@ -362,7 +362,7 @@ const WalletBalances = ({
                                       <img
                                         src={addressImage}
                                         alt={`${displayAddress} logo`}
-                                        className="w-4 h-4 rounded-full ring-1 ring-white/20"
+                                        className="w-4 h-4 rounded-full"
                                         onError={(e) => {
                                           logger.error('Address name tag image failed to load:', {
                                             address: tx.type === 'receive' ? tx.from : tx.to,
