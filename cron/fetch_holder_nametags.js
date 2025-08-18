@@ -58,6 +58,9 @@ const SUPPORTED_CHAINS = [
   "mantle",
 ];
 
+// Additional chains for nameTag lookup based on public/nametags data
+const NAME_TAG_CHAINS = ["kyberswap", "uniswap"];
+
 // Non-EVM chains for Blockchair API
 const NON_EVM_CHAINS = ["bitcoin", "dogecoin"];
 
@@ -73,6 +76,7 @@ class TokenHoldersCron {
     this.currentBatch = 0;
     this.totalTokens = 0;
     this.nameTags = new Map();
+    this.nameTagData = new Map();
   }
 
   // Map name_tag to simplified name (take first word)
@@ -87,11 +91,9 @@ class TokenHoldersCron {
       "binance: cold wallet": "binance",
       "aave ethereum link (aethlink)": "aave",
     };
-    // Check for direct mapping
     for (const [key, value] of Object.entries(mapping)) {
       if (lowerTag.includes(key.toLowerCase())) return value;
     }
-    // Take the first word after splitting by spaces, dashes, or colons
     const words = lowerTag.split(/[\s:-]+/);
     return words[0] ? words[0].trim() : null;
   }
@@ -126,7 +128,8 @@ class TokenHoldersCron {
   }
 
   async loadNameTags() {
-    console.log("📂 Loading name tags from public/nametags directory...");
+    console.log("📂 Loading name tags and images from public/nametags directory...");
+    this.nameTagData = new Map();
     try {
       const nametagsDir = join(__dirname, "..", "public", "nametags");
       const files = await fs.readdir(nametagsDir);
@@ -143,8 +146,9 @@ class TokenHoldersCron {
             const chainKeys = Object.keys(labels);
             for (const chainKey of chainKeys) {
               const nameTag = labels[chainKey]?.["Name Tag"] || null;
+              const image = labels[chainKey]?.["image"] || null;
               if (nameTag) {
-                this.nameTags.set(`${chainKey}:${address.toLowerCase()}`, nameTag);
+                this.nameTagData.set(`${chainKey}:${address.toLowerCase()}`, { nameTag, image });
               }
             }
           }
@@ -155,7 +159,7 @@ class TokenHoldersCron {
           });
         }
       }
-      console.log(`✅ Total name tags loaded: ${this.nameTags.size}`);
+      console.log(`✅ Total name tags loaded: ${this.nameTagData.size}`);
     } catch (error) {
       console.error("❌ Error reading nametags directory:", {
         message: error.message,
@@ -192,9 +196,11 @@ class TokenHoldersCron {
         percentage DECIMAL(10, 6),
         name_tag VARCHAR(255),
         name VARCHAR(255),
+        image VARCHAR(255),
         rank INTEGER,
         source VARCHAR(50) DEFAULT 'sim',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(coingecko_id, chain, holder_address)
       );
     `;
@@ -204,11 +210,30 @@ class TokenHoldersCron {
       CREATE INDEX IF NOT EXISTS idx_holders_token_chain ON token_holders(coingecko_id, chain);
       CREATE INDEX IF NOT EXISTS idx_holders_created_at ON token_holders(created_at);
       CREATE INDEX IF NOT EXISTS idx_holders_name ON token_holders(name);
+      CREATE INDEX IF NOT EXISTS idx_holders_image ON token_holders(image);
+      CREATE INDEX IF NOT EXISTS idx_holders_updated_at ON token_holders(updated_at);
     `;
 
-    await pool.query(createTokensTable);
-    await pool.query(createHoldersTable);
-    await pool.query(createIndexes);
+    try {
+      console.log("📋 Creating tokens table...");
+      await pool.query(createTokensTable);
+      console.log("✅ Tokens table created or already exists");
+
+      console.log("📋 Creating token_holders table...");
+      await pool.query(createHoldersTable);
+      console.log("✅ Token_holders table created or already exists");
+
+      console.log("📋 Creating indexes...");
+      await pool.query(createIndexes);
+      console.log("✅ Indexes created or already exist");
+    } catch (error) {
+      console.error("❌ Error creating tables or indexes:", {
+        message: error.message,
+        detail: error.detail,
+        code: error.code,
+      });
+      throw error;
+    }
   }
 
   async fetchTokensFromCoinGecko() {
@@ -279,19 +304,19 @@ class TokenHoldersCron {
 
         const result = await pool.query(
           `
-        INSERT INTO tokens (coingecko_id, symbol, name, market_cap_rank, platforms, detail_platforms, decimals, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
-        ON CONFLICT (coingecko_id) 
-        DO UPDATE SET 
-          symbol = EXCLUDED.symbol,
-          name = EXCLUDED.name,
-          market_cap_rank = EXCLUDED.market_cap_rank,
-          platforms = EXCLUDED.platforms,
-          detail_platforms = EXCLUDED.detail_platforms,
-          decimals = EXCLUDED.decimals,
-          updated_at = CURRENT_TIMESTAMP
-        RETURNING id
-        `,
+          INSERT INTO tokens (coingecko_id, symbol, name, market_cap_rank, platforms, detail_platforms, decimals, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+          ON CONFLICT (coingecko_id) 
+          DO UPDATE SET 
+            symbol = EXCLUDED.symbol,
+            name = EXCLUDED.name,
+            market_cap_rank = EXCLUDED.market_cap_rank,
+            platforms = EXCLUDED.platforms,
+            detail_platforms = EXCLUDED.detail_platforms,
+            decimals = EXCLUDED.decimals,
+            updated_at = CURRENT_TIMESTAMP
+          RETURNING id
+          `,
           [
             token.id,
             token.symbol,
@@ -367,23 +392,35 @@ class TokenHoldersCron {
         SUPPORTED_CHAINS.includes(chain) &&
         platforms[chain]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)
     );
-    console.log(`📊 Token ${token.symbol} supported on ${supportedPlatforms.length} chains`, {
+    console.log(`📊 Token ${token.symbol} supported on ${supportedPlatforms.length} EVM chains`, {
       chains: supportedPlatforms,
       platforms: Object.keys(platforms).slice(0, 5),
     });
 
+    // Handle Bitcoin and Dogecoin
     if (["bitcoin", "dogecoin"].includes(token.coingecko_id)) {
+      // Fetch treasury data from CoinGecko
       await this.processTreasuryData(token);
+
+      // Fetch holders from Blockchair
+      const chain = token.coingecko_id; // Use coingecko_id as chain (bitcoin or dogecoin)
+      const blockchairHolders = await this.fetchBlockchairHolders(token, chain);
+      if (blockchairHolders.length > 0) {
+        await this.storeHolders(token, chain, null, blockchairHolders);
+        console.log(`    ✅ Stored ${blockchairHolders.length} Blockchair holders for ${token.symbol} on ${chain}`);
+      }
+      return;
     }
 
+    // Handle EVM chains
     for (const chain of supportedPlatforms) {
       try {
         const tokenAddress = platforms[chain].contract_address;
-        console.log(`  📡 Fetching holders for ${token.symbol} on ${chain} (address: ${tokenAddress})`);
+        console.log(`  📡 Fetching holders for ${token.symbol} on ${chain} (address: ${tokenAddress})`);
         await this.fetchAndStoreHolders(token, chain, tokenAddress);
         await new Promise((resolve) => setTimeout(resolve, 2000));
       } catch (error) {
-        console.error(`    ❌ Error processing ${token.symbol} on ${chain}:`, {
+        console.error(`    ❌ Error processing ${token.symbol} on ${chain}:`, {
           message: error.message,
           status: error.response?.status,
           data: error.response?.data,
@@ -395,7 +432,7 @@ class TokenHoldersCron {
 
   async processTreasuryData(token) {
     try {
-      console.log(`  🏛️ Fetching treasury data for ${token.coingecko_id}...`);
+      console.log(`  🏛️ Fetching treasury data for ${token.coingecko_id}...`);
 
       const response = await coingeckoLimiter.schedule(() =>
         axios.get(`https://api.coingecko.com/api/v3/companies/public_treasury/${token.coingecko_id}`, {
@@ -410,20 +447,21 @@ class TokenHoldersCron {
         const decimals = NON_EVM_DECIMALS[token.coingecko_id] || 8;
         const holders = response.data.companies
           .map((company, index) => {
-            const nameTag = company.address
-              ? this.nameTags.get(`${token.coingecko_id}:${company.address.toLowerCase()}`) || company.name || null
-              : company.name || null;
-
+            const tagData = company.address
+              ? this.nameTagData.get(`${token.coingecko_id}:${company.address.toLowerCase()}`) || {}
+              : {};
+            const nameTag = tagData.nameTag || company.name || null;
+            const image = tagData.image || null;
             if (!nameTag) return null;
 
             const name = this.mapNameTagToName(nameTag);
             const rawBalance = Number.parseFloat(company.total_holdings) || 0;
-            // Adjust balance to 6 decimals only if decimals > 6, otherwise use raw balance
             const balance = decimals > 6 ? rawBalance / Math.pow(10, decimals - 6) : rawBalance;
 
-            // Log balance details for debugging
-            console.log(`      ℹ️ Treasury balance details:`, {
+            console.log(`      ℹ️ Treasury balance details:`, {
               holder_address: company.address || company.name || `company_${index}`,
+              name_tag: nameTag,
+              image: image,
               raw_balance: rawBalance,
               adjusted_balance: balance,
               decimals: decimals,
@@ -436,6 +474,7 @@ class TokenHoldersCron {
               percentage: 0,
               name_tag: nameTag,
               name: name,
+              image: image,
               rank: index + 1,
               source: "coingecko_treasury",
             };
@@ -443,21 +482,118 @@ class TokenHoldersCron {
           .filter((holder) => holder !== null && holder.name_tag !== null);
 
         if (holders.length === 0) {
-          console.log(`    ⚠️ No holders with name tags for ${token.coingecko_id}`);
+          console.log(`    ⚠️ No holders with name tags for ${token.coingecko_id}`);
           return;
         }
 
         await this.storeHolders(token, token.coingecko_id, null, holders);
-        console.log(`    ✅ Stored ${holders.length} treasury holders with name tags for ${token.coingecko_id}`);
+        console.log(`    ✅ Stored ${holders.length} treasury holders with name tags for ${token.coingecko_id}`);
       } else {
-        console.log(`    ℹ️ No treasury data available for ${token.coingecko_id}`);
+        console.log(`    ℹ️ No treasury data available for ${token.coingecko_id}`);
       }
     } catch (error) {
       if (error.response?.status === 404) {
-        console.log(`    ℹ️ No treasury data available for ${token.coingecko_id}`);
+        console.log(`    ℹ️ No treasury data available for ${token.coingecko_id}`);
       } else {
-        console.error(`    ❌ Error fetching treasury data:`, error.message);
+        console.error(`    ❌ Error fetching treasury data:`, error.message);
       }
+    }
+  }
+
+  async fetchBlockchairHolders(token, chain) {
+    try {
+      console.log(`  📡 Fetching holders for ${token.symbol} on ${chain} via Blockchair...`);
+
+      const decimals = NON_EVM_DECIMALS[token.coingecko_id] || 8;
+
+      const response = await coingeckoLimiter.schedule(() =>
+        axios.post(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"}/api/blockchair`,
+          {
+            chain: chain,
+            limit: 100,
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            timeout: 30000,
+          }
+        )
+      );
+
+      console.log(`📡 Blockchair API response for ${token.symbol} on ${chain}:`, {
+        success: response.data?.success,
+        dataLength: response.data?.data?.length,
+        sample: response.data?.data?.slice(0, 2),
+      });
+
+      if (!response.data?.success || !Array.isArray(response.data.data)) {
+        console.warn(`     ⚠️ No valid holder data for ${token.symbol} on ${chain} from Blockchair`);
+        return [];
+      }
+
+      const priceResponse = await coingeckoLimiter.schedule(() =>
+        axios.get(`https://api.coingecko.com/api/v3/coins/${token.coingecko_id}`, {
+          headers: {
+            "x-cg-demo-api-key": process.env.COINGECKO_API_KEY || "",
+          },
+          timeout: 15000,
+        })
+      );
+      const priceUsd = Number.parseFloat(priceResponse.data.market_data.current_price.usd) || 0;
+      const totalSupply = Number.parseFloat(priceResponse.data.market_data.total_supply) || 0;
+
+      const holders = response.data.data
+        .map((holder, index) => {
+          const tagData = this.nameTagData.get(`${chain}:${holder.address.toLowerCase()}`) || {};
+          const nameTag = tagData.nameTag || null;
+          const image = tagData.image || null;
+          if (!nameTag) return null;
+
+          const name = this.mapNameTagToName(nameTag);
+          const balance = Number(holder.balance) || 0;
+          const balance_usd = balance * priceUsd;
+          const percentage = totalSupply > 0 ? (balance / totalSupply) * 100 : holder.share || 0;
+
+          console.log(`       ℹ️ Blockchair holder balance details:`, {
+            holder_address: holder.address,
+            name_tag: nameTag,
+            image: image,
+            final_balance: balance,
+            balance_usd: balance_usd,
+            percentage: percentage,
+            chain: chain,
+          });
+
+          return {
+            holder_address: holder.address,
+            balance: balance,
+            balance_usd: balance_usd,
+            percentage: percentage,
+            name_tag: nameTag,
+            name: name,
+            image: image,
+            rank: index + 1,
+            source: "blockchair",
+          };
+        })
+        .filter((holder) => holder !== null && holder.name_tag !== null);
+
+      console.log(`     ✅ Fetched ${holders.length} holders with name tags for ${token.symbol} on ${chain} from Blockchair`);
+      return holders;
+    } catch (error) {
+      console.error(`     ❌ Error fetching Blockchair holders for ${token.symbol} on ${chain}:`, {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+      if (error.response?.status === 429) {
+        console.log(`     ⚠️ Blockchair API rate limit exceeded`);
+      } else if (error.response?.status === 404) {
+        console.log(`     ℹ️ No holder data found on ${chain} from Blockchair`);
+      }
+      return [];
     }
   }
 
@@ -507,23 +643,58 @@ class TokenHoldersCron {
       const totalSupply = Number.parseFloat(totalSupplyResponse.data.market_data.total_supply) || 0;
       const priceUsd = Number.parseFloat(totalSupplyResponse.data.market_data.current_price.usd) || 0;
 
+      const totalHolders = response.data.data.length;
       const holders = response.data.data
         .map((holder, index) => {
-          // 🚨 SỬA LỖI 1: Quay lại dùng key 'uniswap:' cố định để tra cứu name tag
-          const nameTag = this.nameTags.get(`uniswap:${holder.address.toLowerCase()}`) || null;
-          if (!nameTag) return null;
+          // Try to lookup nameTag from NAME_TAG_CHAINS (kyberswap, uniswap)
+          let tagData = {};
+          let nameTagSource = null;
 
-          // 🚨 SỬA LỖI 2: Sửa lại tên hàm đúng (bỏ "ag")
-          const name = this.mapNameTagToName(nameTag);
+          for (const nameTagChain of NAME_TAG_CHAINS) {
+            tagData = this.nameTagData.get(`${nameTagChain}:${holder.address.toLowerCase()}`) || {};
+            if (tagData.nameTag) {
+              nameTagSource = nameTagChain;
+              break;
+            }
+          }
 
+          // If not found in NAME_TAG_CHAINS, try the current chain and fallback to Ethereum
+          if (!tagData.nameTag) {
+            tagData = this.nameTagData.get(`${chain}:${holder.address.toLowerCase()}`) || {};
+            if (tagData.nameTag) {
+              nameTagSource = chain;
+            } else {
+              tagData = this.nameTagData.get(`ethereum:${holder.address.toLowerCase()}`) || {};
+              if (tagData.nameTag) {
+                nameTagSource = "ethereum";
+              }
+            }
+          }
+
+          const nameTag = tagData.nameTag || null;
+          const image = tagData.image || null;
+
+          // Log for debugging
+          console.log(`       ℹ️ NameTag lookup for ${holder.address} on ${chain}:`, {
+            triedKeys: [
+              ...NAME_TAG_CHAINS.map((c) => `${c}:${holder.address.toLowerCase()}`),
+              `${chain}:${holder.address.toLowerCase()}`,
+              `ethereum:${holder.address.toLowerCase()}`,
+            ],
+            nameTagSource: nameTagSource,
+            nameTag: nameTag,
+            image: image,
+          });
+
+          const name = nameTag ? this.mapNameTagToName(nameTag) : null;
           const calculatedBalance = Number(holder.balance) || 0;
-
           const balance_usd = calculatedBalance * priceUsd;
           const percentage = totalSupply > 0 ? (calculatedBalance / totalSupply) * 100 : 0;
 
           console.log(`       ℹ️ Holder balance details:`, {
             holder_address: holder.address,
-            name_tag: nameTag, // Thêm log để kiểm tra
+            name_tag: nameTag,
+            image: image,
             final_balance: calculatedBalance,
             balance_usd: balance_usd,
             percentage: percentage,
@@ -537,6 +708,7 @@ class TokenHoldersCron {
             percentage: percentage,
             name_tag: nameTag,
             name: name,
+            image: image,
             rank: index + 1,
             source: "sim",
           };
@@ -544,12 +716,14 @@ class TokenHoldersCron {
         .filter((holder) => holder !== null && holder.name_tag !== null);
 
       if (holders.length === 0) {
-        console.log(`     ⚠️ No holders with name tags for ${token.symbol} on ${chain}`);
+        console.log(`     ⚠️ No holders with valid name tags for ${token.symbol} on ${chain} (total holders: ${totalHolders})`);
         return;
       }
 
+      console.log(`     ℹ️ Filtered ${holders.length} holders with valid name tags out of ${totalHolders} for ${token.symbol} on ${chain}`);
+
       await this.storeHolders(token, chain, tokenAddress, holders);
-      console.log(`     ✅ Stored ${holders.length} holders with name tags for ${token.symbol} on ${chain}`);
+      console.log(`     ✅ Stored ${holders.length} holders for ${token.symbol} on ${chain}`);
     } catch (error) {
       console.error(`     ❌ Error fetching holders for ${token.symbol} on ${chain}:`, {
         message: error.message,
@@ -568,38 +742,38 @@ class TokenHoldersCron {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query(
-        `
-      DELETE FROM token_holders 
-      WHERE coingecko_id = $1 AND chain = $2
-    `,
-        [token.coingecko_id, chain]
-      );
 
       let insertedCount = 0;
+      let updatedCount = 0;
+
       for (const holder of holders) {
         try {
           const result = await client.query(
             `
-          INSERT INTO token_holders (
-            token_id, coingecko_id, chain, token_address, holder_address, 
-            balance, balance_usd, percentage, name_tag, name, rank, source
-          ) VALUES (
-            (SELECT id FROM tokens WHERE coingecko_id = $1),
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-          )
-          ON CONFLICT (coingecko_id, chain, holder_address) 
-          DO UPDATE SET
-            balance = EXCLUDED.balance,
-            balance_usd = EXCLUDED.balance_usd,
-            percentage = EXCLUDED.percentage,
-            name_tag = EXCLUDED.name_tag,
-            name = EXCLUDED.name,
-            rank = EXCLUDED.rank,
-            source = EXCLUDED.source,
-            created_at = CURRENT_TIMESTAMP
-          RETURNING id
-        `,
+            INSERT INTO token_holders (
+              token_id, coingecko_id, chain, token_address, holder_address, 
+              balance, balance_usd, percentage, name_tag, name, image, rank, source
+            ) VALUES (
+              (SELECT id FROM tokens WHERE coingecko_id = $1),
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+            )
+            ON CONFLICT (coingecko_id, chain, holder_address) 
+            DO UPDATE SET
+              balance = EXCLUDED.balance,
+              balance_usd = EXCLUDED.balance_usd,
+              percentage = EXCLUDED.percentage,
+              name_tag = EXCLUDED.name_tag,
+              name = EXCLUDED.name,
+              image = EXCLUDED.image,
+              rank = EXCLUDED.rank,
+              source = EXCLUDED.source,
+              created_at = CASE 
+                WHEN token_holders.created_at IS NULL THEN CURRENT_TIMESTAMP 
+                ELSE token_holders.created_at 
+              END,
+              updated_at = CURRENT_TIMESTAMP
+            RETURNING id, (xmax = 0) AS is_inserted
+            `,
             [
               token.coingecko_id,
               chain,
@@ -610,19 +784,30 @@ class TokenHoldersCron {
               holder.percentage,
               holder.name_tag,
               holder.name,
+              holder.image,
               holder.rank,
               holder.source,
             ]
           );
-          insertedCount++;
-          console.log(`      ✅ Inserted holder ${holder.holder_address} for ${token.symbol} on ${chain}`, {
-            db_id: result.rows[0]?.id,
-            name_tag: holder.name_tag,
-            name: holder.name,
-            balance: holder.balance,
-          });
+
+          if (result.rows[0].is_inserted) {
+            insertedCount++;
+          } else {
+            updatedCount++;
+          }
+
+          console.log(
+            `      ✅ ${result.rows[0].is_inserted ? "Inserted" : "Updated"} holder ${holder.holder_address} for ${token.symbol} on ${chain} (source: ${holder.source})`,
+            {
+              db_id: result.rows[0]?.id,
+              name_tag: holder.name_tag,
+              name: holder.name,
+              image: holder.image,
+              balance: holder.balance,
+            }
+          );
         } catch (error) {
-          console.error(`      ❌ Error storing holder ${holder.holder_address}:`, {
+          console.error(`      ❌ Error storing holder ${holder.holder_address}:`, {
             message: error.message,
             detail: error.detail,
             code: error.code,
@@ -631,10 +816,12 @@ class TokenHoldersCron {
       }
 
       await client.query("COMMIT");
-      console.log(`    ✅ Committed ${insertedCount}/${holders.length} holders for ${token.symbol} on ${chain}`);
+      console.log(
+        `    ✅ Committed ${insertedCount} inserted and ${updatedCount} updated holders for ${token.symbol} on ${chain}`
+      );
     } catch (error) {
       await client.query("ROLLBACK");
-      console.error(`    ❌ Transaction rollback for ${token.symbol} on ${chain}:`, error.message);
+      console.error(`    ❌ Transaction rollback for ${token.symbol} on ${chain}:`, error.message);
       throw error;
     } finally {
       client.release();

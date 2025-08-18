@@ -505,7 +505,7 @@ export default function ProfileTab({ recaptchaRef }) {
               {getPaginatedData(tasks, 'tasks').map((task) => (
                 <motion.div
                   key={task.id}
-                  className="p-2 sm:p-3 bg-white/5 rounded-xl border border-white/10 backdrop-blur-md flex flex-col shadow-neon-sm"
+                  className="p-2 sm:p-3 bg-white/5 rounded-xl border border-white/10 flex flex-col"
                 >
                   <div className="flex-1">
                     <h3 className="text-[9px] sm:text-[10px] font-semibold text-white mb-1">{task.id} {task.isDaily ? `(Daily ${taskProgress?.[task.id] || 0}/${task.maxCompletions})` : ''}</h3>
@@ -515,7 +515,7 @@ export default function ProfileTab({ recaptchaRef }) {
                     <motion.button
                       onClick={() => verifyTaskMutation.mutate(task)}
                       disabled={verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)}
-                      className={`px-2 sm:px-3 py-1 rounded-xl text-[9px] sm:text-[10px] font-medium transition-all duration-300 border border-white/10 bg-white/5 backdrop-blur-md ${verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)
+                      className={`px-2 sm:px-3 py-1 rounded-xl text-[9px] sm:text-[10px] font-medium transition-all duration-300 border border-white/10 bg-white/5 ${verifyTaskMutation.isLoading || (task.isDaily && (taskProgress?.[task.id] || 0) >= task.maxCompletions)
                         ? 'text-white/50 cursor-not-allowed opacity-50'
                         : 'text-white hover:bg-neon-blue/20'
                         }`}
@@ -863,7 +863,7 @@ export default function ProfileTab({ recaptchaRef }) {
             <motion.button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium transition-all duration-300 uppercase rounded-lg ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white/60'}`}
+              className={`flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium transition-all duration-300 uppercase ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white/60'}`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </motion.button>

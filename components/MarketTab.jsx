@@ -599,9 +599,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       <div className="w-full mb-1 mt-2 sm:mt-1">
         <div className="flex flex-col gap-2">
           <div className="flex flex-row items-center justify-between gap-2 sm:gap-3">
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0 bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-sm">
               <motion.div
-                className="bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-xl p-1.5"
+                className=" p-1.5"
                 whileHover={{ scale: 1.02 }}
                 transition={{ duration: 0.2 }}
               >
@@ -609,7 +609,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               </motion.div>
               <div className="h-6 w-px bg-white/20"></div>
               <motion.button
-                className="text-[8px] sm:text-[10px] font-bold text-white/50 uppercase cursor-not-allowed flex items-center gap-1 transition-colors duration-300 bg-white/5 backdrop-blur-sm px-2 py-1"
+                className="text-[8px] sm:text-[10px] font-bold text-white/50 uppercase cursor-not-allowed flex items-center gap-1 transition-colors duration-300 px-2 py-1"
                 disabled
                 aria-label="Stock tab (coming soon)"
                 whileHover={{ scale: 1.02 }}
@@ -839,7 +839,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
       {!loading && !error && tokens.length > 0 && (
         <div
-          className={`flex flex-col md:grid md:grid-cols-2 gap-4 sm:gap-1 h-[calc(100%-4rem)] sm:h-[calc(100%-1rem)] ${isMobile ? "space-y-4 overflow-y-auto hide-scrollbar" : ""}`}
+          className={`flex flex-col md:grid md:grid-cols-2 gap-4 sm:gap-4 h-[calc(100%-4rem)] sm:h-[calc(100%-1rem)] ${isMobile ? "space-y-4 overflow-y-auto hide-scrollbar" : ""}`}
         >
           {/* Left Column - Token Info & Chart */}
           <div className="flex flex-col gap-4 max-h-full min-h-[800px] sm:max-h-full overflow-y-auto hide-scrollbar">

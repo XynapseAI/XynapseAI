@@ -1266,8 +1266,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   <motion.button
                     className="absolute top-1/2 right-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-neon-blue hover:text-neon-blue/80 transition-opacity duration-200"
                     onClick={() => copyAddress(selectedWallet.address, toast)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
                     title="Copy Address"
                   >
                     <svg
@@ -1298,8 +1296,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     <motion.button
                       onClick={() => setActiveChain(chain)}
                       className={`flex items-center justify-center rounded-full flex-shrink-0 z-10 min-w-[22px] sm:min-w-[22px] m-1 ${activeChain === chain
-                        ? 'border-neon-blue bg-neon-blue/20 shadow-neon-sm'
-                        : 'border-white/10 bg-white/5 backdrop-blur-md hover:bg-neon-blue/20'
+                        ? 'border-neon-blue bg-neon-blue/20'
+                        : 'border-white/10 bg-white/5'
                         }`}
                     >
                       <img

@@ -1,7 +1,7 @@
 import {CHAIN_EXPLORER_MAP} from './constants';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export const LoadingOverlay = ({ isLoading, isMobile }) => (
+export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
   <AnimatePresence>
     {isLoading && (
       <motion.div
@@ -9,7 +9,7 @@ export const LoadingOverlay = ({ isLoading, isMobile }) => (
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className={`fixed inset-0 flex items-center justify-center z-50 bg-black/80 ${!isMobile ? 'backdrop-blur-sm' : ''}`}
+        className={`absolute inset-0 flex items-center justify-center bg-black/80 ${!isMobile ? 'backdrop-blur-sm' : ''} ${className}`}
         aria-label="Loading animation"
       >
         <div className={`relative ${isMobile ? 'w-10 h-10' : 'w-12 h-12'}`}>

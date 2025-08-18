@@ -5,7 +5,6 @@ import { logger } from "../../../utils/serverLogger";
 import { getRedisClient } from "../../../lib/redis";
 
 const EXCHANGE_MAPPING = {
-  // CoinGecko format -> Database format
   okex: "okx",
   bybit_spot: "bybit",
   mxc: "mexc",
@@ -49,7 +48,6 @@ export async function GET(request) {
   }
 
   try {
-    // Check rate limit using Redis
     await checkRateLimit(ip);
 
     const redisClient = await getRedisClient();
@@ -81,9 +79,11 @@ export async function GET(request) {
       SELECT 
         holder_address,
         name_tag,
+        image,
         balance_usd,
         balance,
-        percentage
+        percentage,
+        chain
       FROM token_holders
       WHERE LOWER(name) = LOWER($1)
       ORDER BY balance_usd DESC
@@ -95,7 +95,7 @@ export async function GET(request) {
       logger.warn(`No data found for exchange: ${exchange} (mapped to: ${mappedExchange})`, { ip });
       return NextResponse.json(
         { success: false, detail: `No portfolio or wallet data found for exchange: ${exchange}` },
-        { status: 404 },
+        { status: 404 }
       );
     }
 

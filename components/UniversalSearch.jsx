@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { Search, Wallet, Building2, Hash, X } from "lucide-react";
 import useSWR from "swr";
-import {LoadingOverlay } from '../utils/helpers';
+import { LoadingOverlay } from "../utils/helpers";
 
 export default function UniversalSearch({
   onSelect,
@@ -62,13 +62,13 @@ export default function UniversalSearch({
   const { data: nametagData, error: nametagError, isLoading: isLoadingNametags } = useSWR(
     searchQuery.trim() ? `/api/search-nametags?query=${encodeURIComponent(searchQuery)}` : null,
     fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 }, // Cache for 30s, refresh every 5min
+    { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 },
   );
 
   const { data: exchangeData, error: exchangeError, isLoading: isLoadingExchanges } = useSWR(
     searchQuery.trim() ? `/api/coingecko?action=exchange-search&query=${encodeURIComponent(searchQuery)}` : null,
     fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 }, // Cache for 30s, refresh every 5min
+    { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 },
   );
 
   // Handle click outside to close modal
@@ -76,6 +76,8 @@ export default function UniversalSearch({
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setIsModalOpen(false);
+        setSearchQuery("");
+        setSearchResults([]);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -104,9 +106,8 @@ export default function UniversalSearch({
 
   // Process search results
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    if (!isModalOpen) {
       setSearchResults([]);
-      setIsModalOpen(false);
       setIsLoading(false);
       return;
     }
@@ -181,7 +182,6 @@ export default function UniversalSearch({
     });
 
     setSearchResults(sortedResults.slice(0, 10)); // Limit to 10 results
-    setIsModalOpen(true);
 
     console.log("Universal search results:", {
       query: searchQuery,
@@ -196,7 +196,7 @@ export default function UniversalSearch({
     if (exchangeError) {
       console.error("Error searching exchanges:", { query: searchQuery, error: exchangeError.message });
     }
-  }, [searchQuery, nametagData, exchangeData, isLoadingNametags, isLoadingExchanges, nametagError, exchangeError]);
+  }, [searchQuery, nametagData, exchangeData, isLoadingNametags, isLoadingExchanges, nametagError, exchangeError, isModalOpen]);
 
   // Handle result selection
   const handleResultSelect = (result) => {
@@ -247,23 +247,10 @@ export default function UniversalSearch({
           placeholder={placeholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onFocus={() => searchQuery.trim() && setIsModalOpen(true)}
+          onFocus={() => setIsModalOpen(true)}
           className={`text-white border border-white/20 bg-white/5 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-neon-blue/50 rounded-xl ${config.input}`}
           aria-label="Search wallets, nametags, or exchanges"
         />
-        {/* <motion.button
-          disabled={isLoading}
-          className={`text-white/70 hover:bg-white/10 transition-all duration-300 rounded ${config.button}`}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          aria-label="Search"
-        >
-          {isLoading ? (
-            <LoadingOverlay isLoading={isLoading} />
-          ) : (
-            <Search size={config.icon} />
-          )}
-        </motion.button> */}
       </div>
 
       <AnimatePresence>
@@ -295,69 +282,68 @@ export default function UniversalSearch({
                   autoFocus
                 />
                 <motion.button
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setSearchQuery("");
+                    setSearchResults([]);
+                  }}
                   className="text-white/70 hover:bg-white/10 p-2 rounded-full transition-all duration-300"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
                   aria-label="Close search modal"
                 >
                   <X size={config.icon} />
                 </motion.button>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 hide-scrollbar">
-                {isLoading ? (
-                  <div className="flex justify-center items-center h-full">
-                    <div
-                      className="animate-spin rounded-full border-2 border-white/20 border-t-white"
-                      style={{ width: config.icon * 2, height: config.icon * 2 }}
-                    />
-                  </div>
-                ) : searchResults.length > 0 ? (
-                  searchResults.map((result) => (
-                    <motion.button
-                      key={result.id}
-                      onClick={() => handleResultSelect(result)}
-                      className={`flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white transition-all duration-300 border-b border-white/5 last:border-b-0 ${config.modalResult}`}
-                      whileHover={{ x: 4 }}
-                      role="option"
-                      aria-selected={false}
-                    >
-                      <div className="flex items-center mr-2">
-                        {result.image ? (
-                          <img
-                            src={result.image || "/placeholder.svg"}
-                            alt={`${result.name} logo`}
-                            className={`rounded-full mr-2 ${config.image}`}
-                            onError={(e) => {
-                              e.target.style.display = "none";
-                              e.target.nextSibling.style.display = "flex";
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className="flex items-center justify-center mr-2"
-                          style={{ display: result.image ? "none" : "flex" }}
-                        >
-                          {getResultIcon(result.type)}
+              <div className="flex-1 overflow-y-auto p-4 mobile-scroll">
+                <div className="relative min-h-[100px]">
+                  <LoadingOverlay isLoading={isLoading} isMobile={window.innerWidth <= 640} className="z-[60]" />
+                  {searchResults.length > 0 ? (
+                    searchResults.map((result) => (
+                      <motion.button
+                        key={result.id}
+                        onClick={() => handleResultSelect(result)}
+                        className={`flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white transition-all duration-300 border-b border-white/5 last:border-b-0 ${config.modalResult}`}
+                        whileHover={{ x: 4 }}
+                        role="option"
+                        aria-selected={false}
+                      >
+                        <div className="flex items-center mr-2">
+                          {result.image ? (
+                            <img
+                              src={result.image || "/placeholder.svg"}
+                              alt={`${result.name} logo`}
+                              className={`rounded-full mr-2 ${config.image}`}
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                                e.target.nextSibling.style.display = "flex";
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="flex items-center justify-center mr-2"
+                            style={{ display: result.image ? "none" : "flex" }}
+                          >
+                            {getResultIcon(result.type)}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">{result.name}</span>
-                          <span className="text-10px sm:text-[11px] text-white/50 bg-white/10 px-1 py-0.5 rounded">
-                            {getTypeLabel(result.type)}
-                          </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium truncate">{result.name}</span>
+                            <span className="text-10px sm:text-[11px] text-white/50 bg-white/10 px-1 py-0.5 rounded">
+                              {getTypeLabel(result.type)}
+                            </span>
+                          </div>
+                          {result.address && (
+                            <div className="text-xs text-white/40 font-mono truncate mt-0.5">{result.address}</div>
+                          )}
                         </div>
-                        {/* {result.description && (
-                          <div className="text-xs text-white/60 truncate mt-0.5">{result.description}</div>
-                        )} */}
-                        {result.address && (
-                          <div className="text-xs text-white/40 font-mono truncate mt-0.5">{result.address}</div>
-                        )}
-                      </div>
-                    </motion.button>
-                  ))
-                ) : (
-                  <p className="text-[10px] text-white/60 text-center mt-4">No results found.</p>
-                )}
+                      </motion.button>
+                    ))
+                  ) : !isLoading ? (
+                    <p className="text-[10px] text-white/60 text-center mt-4">No results found.</p>
+                  ) : null}
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -368,12 +354,13 @@ export default function UniversalSearch({
         .shadow-neon-lg {
           box-shadow: 0 0 12px rgba(0, 191, 255, 0.4), 0 0 24px rgba(0, 191, 255, 0.2);
         }
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .hide-scrollbar {
-          -ms-overflow-style: none;
+        .mobile-scroll {
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
+        }
+        .mobile-scroll::-webkit-scrollbar {
+          display: none;
         }
       `}</style>
     </div>

@@ -228,7 +228,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
       </div>
 
       {/* Desktop Right Section: Currency Selector, Sign Out */}
-      <div className="flex items-center gap-2 sm:gap-3 p-1">
+      <div className="flex items-center gap-2 sm:gap-3 p-2 mr-2">
         <select
           id="currency-select"
           value={currency}
@@ -241,7 +241,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
             </option>
           ))}
         </select>
-        <motion.button
+        {/* <motion.button
           onClick={handleSignOut}
           className="flex w-5 sm:w-6 h-5 sm:h-6 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md transition-all duration-300 no-hover-effect"
           whileHover={{ scale: 1.05 }}
@@ -249,7 +249,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           aria-label="Sign out"
         >
           <Power size={14} />
-        </motion.button>
+        </motion.button> */}
       </div>
 
       {/* Mobile Menu */}
@@ -305,13 +305,13 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                 </div>
               ))}
             </nav>
-            <motion.button
+            {/* <motion.button
               onClick={handleSignOut}
               className="self-end mt-3 w-5 h-5 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md transition-all duration-300 no-hover-effect"
               aria-label="Sign out"
             >
               <Power size={14} />
-            </motion.button>
+            </motion.button> */}
           </motion.div>
         )}
       </AnimatePresence>
