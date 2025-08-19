@@ -507,7 +507,7 @@ export default function ProfileTab({ recaptchaRef }) {
         <>
           {!userData?.twitterHandle && (
             <motion.div
-              className="mb-2 p-2 bg-white/5 rounded-xl border border-white/10 text-center"
+              className="mb-2 p-2 text-center"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
             >

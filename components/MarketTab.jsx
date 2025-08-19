@@ -85,6 +85,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     onChainError,
     selectedWallet,
     walletBalances,
+    fetchOnChainData,
     isLoadingWalletBalances,
     walletBalancesError,
     transactions,
@@ -129,6 +130,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     dexRequestCount,
     lastDexRequestTime,
     getDefaultChainAndAddress,
+    setIsLoadingWalletBalances,
     lastDexFetchTime,
     trendingTokens,
     isLoadingTrending,
@@ -336,8 +338,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   // Handle search result selection
   const handleSearchSelect = (result) => {
     if (result.type === "wallet" || result.type === "nametag") {
-      setSelectedWallet(result.address);
-      setWalletAddress(result.address);
+      const address = result.address?.toLowerCase();
+      if (/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        logger.log("Selected wallet address from search:", { address });
+        setSelectedWallet(address);
+        setWalletAddress(address);
+      } else {
+        logger.error("Invalid wallet address selected:", { address });
+        toast.error("Invalid wallet address", { position: "top-center", autoClose: 3000 });
+      }
     } else if (result.type === "exchange" || result.type === "organization") {
       const mappedId = mapExchangeId(result.exchangeId || result.id);
       window.open(`/cluster?exchangeId=${mappedId}`, '_blank');
@@ -2278,6 +2287,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           setWalletAddress("")
         }}
         isMobile={isMobile}
+        fetchOnChainData={fetchOnChainData}
+        setIsLoadingWalletBalances={setIsLoadingWalletBalances}
       />
       <Modal
         isOpen={!!analysis}

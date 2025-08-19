@@ -1008,7 +1008,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         }
 
         const cacheKey = `onchain-${simChain || 'wallet'}-${tokenAddress || address}-${action}`;
-        setIsLoadingOnChain(true);
+        setIsLoadingOnChain(action === 'top-holders');
         if (action === 'wallet-balances') setIsLoadingWalletBalances(true);
         else if (action === 'transactions') setIsLoadingTransactions(true);
 
@@ -1024,22 +1024,32 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               ...(address && { address }),
             };
 
-            console.log(`Fetching ${action} for address: ${address}, chain: ${simChain}, tokenAddress: ${tokenAddress}`);
+            console.log(`Starting fetchOnChainData for action: ${action}, address: ${address}, chain: ${simChain}, tokenAddress: ${tokenAddress}`);
 
             const response = await axios.post(apiUrl, payload, {
               headers: {
                 Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
                 'Content-Type': 'application/json',
+                'x-recaptcha-token': recaptchaToken,
               },
               timeout: 30000,
             });
 
+            // Axios automatically parses JSON responses, so use response.data directly
+            const result = response.data;
+
+            console.log(`Raw ${action} response:`, { address, response: result, status: response.status });
+
             if (!response.data.success) {
-              throw new Error(response.data.detail || `Failed to fetch ${action} data`);
+              throw new Error(result.detail || `Failed to fetch ${action} data: ${response.statusText}`);
             }
 
-            console.log(`Fetched ${action} data:`, response.data.data);
-            return response.data.data || [];
+            if (!result.data) {
+              throw new Error(result.detail || `No ${action} data returned`);
+            }
+
+            console.log(`Parsed ${action} data:`, { address, data: result.data });
+            return result.data || [];
           };
 
           const ttl = action === 'transactions' ? CACHE_DURATIONS.TRANSACTIONS : CACHE_DURATIONS.DEFAULT;
@@ -1053,35 +1063,54 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             }));
           } else if (action === 'wallet-balances') {
             setWalletBalances(data);
-            setWalletBalancesError(null); // Clear any previous errors
+            setWalletBalancesError(null);
           } else if (action === 'transactions') {
             setTransactions(data);
-            setTransactionsError(null); // Clear any previous errors
+            setTransactionsError(null);
           }
         } catch (error) {
           const errorMessage =
             error.response?.status === 429
               ? 'Too many requests. Please try again later.'
-              : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
-          console.error(`Error fetching ${action}:`, errorMessage);
+              : error.response?.status === 401
+                ? 'Unauthorized: Please log in again.'
+                : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
+                  ? 'reCAPTCHA verification failed. Please try again.'
+                  : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
+          console.error(`Error fetching ${action}:`, { errorMessage, stack: error.stack });
           setOnChainError(errorMessage);
-          if (action === 'wallet-balances') setWalletBalancesError(errorMessage);
-          else if (action === 'transactions') setTransactionsError(errorMessage);
+          if (action === 'wallet-balances') {
+            setWalletBalancesError(errorMessage);
+            setWalletBalances([]);
+          } else if (action === 'transactions') {
+            setTransactionsError(errorMessage);
+            setTransactions([]);
+          }
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           if (retryCount < 3) {
             const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff with jitter
             await new Promise((resolve) => setTimeout(resolve, delay));
-            fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount + 1);
+            // Attempt to get a new reCAPTCHA token on retry
+            let newRecaptchaToken = recaptchaToken;
+            try {
+              newRecaptchaToken = await executeRecaptcha(action);
+            } catch (recaptchaError) {
+              console.error(`Failed to get reCAPTCHA token on retry ${retryCount + 1}:`, recaptchaError.message);
+            }
+            fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, newRecaptchaToken, retryCount + 1);
           }
         } finally {
           setIsLoadingOnChain(false);
           if (action === 'wallet-balances') setIsLoadingWalletBalances(false);
           else if (action === 'transactions') setIsLoadingTransactions(false);
+          if (recaptchaRef.current) {
+            recaptchaRef.current.reset();
+          }
         }
       },
       300
     ),
-    [chains, status, session?.accessToken, toast]
+    [chains, status, session?.accessToken, toast, executeRecaptcha]
   );
 
   const fetchDexData = useCallback(
@@ -1306,42 +1335,63 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   );
 
   const handleAddressClick = useCallback(
-  (address) => {
-    if (address === 'Unknown') {
-      const errorMessage = 'Cannot fetch balances for unknown address.';
-      console.error(errorMessage);
-      setWalletBalancesError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      return;
-    }
+    (address) => {
+      if (address === 'Unknown') {
+        const errorMessage = 'Cannot fetch balances for unknown address.';
+        console.error(errorMessage);
+        setWalletBalancesError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
 
-    if (selectedToken?.id.toLowerCase() === 'bitcoin') {
-      const blockchairUrl = `https://blockchair.com/bitcoin/address/${address}`;
-      console.log(`Opening Blockchair URL for BTC address: ${address}`);
-      window.open(blockchairUrl, '_blank', 'noreferrer');
-      return;
-    }
+      if (selectedToken?.id.toLowerCase() === 'bitcoin') {
+        const blockchairUrl = `https://blockchair.com/bitcoin/address/${address}`;
+        console.log(`Opening Blockchair URL for BTC address: ${address}`);
+        window.open(blockchairUrl, '_blank', 'noreferrer');
+        return;
+      }
 
-    if (!address?.match(/^0x[a-fA-F0-9]{40}$/)) {
-      const errorMessage = `Invalid address format: ${address}`;
-      console.error(errorMessage);
-      setWalletBalancesError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-      return;
-    }
+      if (!address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+        const errorMessage = `Invalid address format: ${address}`;
+        console.error(errorMessage);
+        setWalletBalancesError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        return;
+      }
 
-    console.log(`Handling address click: ${address}`);
-    setSelectedWallet(address);
-    setWalletBalances([]);
-    setTransactions(null);
-    setWalletBalancesError(null);
-    setTransactionsError(null);
-    setIsLoadingWalletBalances(true);
+      console.log(`Handling address click: ${address}`);
+      setSelectedWallet(address);
+      setWalletBalances([]);
+      setTransactions(null);
+      setWalletBalancesError(null);
+      setTransactionsError(null);
+      setIsLoadingWalletBalances(true);
 
-    fetchOnChainData(null, null, 'wallet-balances', null, address);
-  },
-  [fetchOnChainData, selectedToken, toast]
-);
+      // Fetch wallet balances with reCAPTCHA
+      const fetchBalances = async () => {
+        try {
+          const recaptchaToken = await executeRecaptcha('wallet-balances');
+          await fetchOnChainData(null, null, 'wallet-balances', null, address, recaptchaToken);
+        } catch (error) {
+          const errorMessage =
+            error.response?.status === 401
+              ? 'Unauthorized: Please log in again.'
+              : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
+                ? 'reCAPTCHA verification failed. Please try again.'
+                : error.response?.status === 429
+                  ? 'Too many requests. Please try again later.'
+                  : error.response?.data?.detail || `Failed to fetch wallet balances: ${error.message}`;
+          console.error(`Error in handleAddressClick:`, { errorMessage, stack: error.stack });
+          setWalletBalancesError(errorMessage);
+          setIsLoadingWalletBalances(false);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        }
+      };
+
+      fetchBalances();
+    },
+    [fetchOnChainData, selectedToken, toast, executeRecaptcha]
+  );
 
   const handleWalletSearch = useCallback(
     debounce(async () => {
@@ -1394,7 +1444,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   );
 
   const fetchTransactions = useCallback(
-    async (address) => {
+    async (address, retryCount = 0) => {
       if (!address?.match(/^0x[a-fA-F0-9]{40}$/)) {
         const errorMessage = `Invalid address for transactions: ${address}`;
         console.error(errorMessage);
@@ -1419,11 +1469,18 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               ? 'reCAPTCHA verification failed. Please try again.'
               : error.response?.status === 429
                 ? 'Too many requests. Please try again later.'
-                : error.response?.data?.detail || `Failed to fetch transactions: ${error.message}`;
-        console.error(`Error in fetchTransactions:`, errorMessage);
+                : error.message.includes('reCAPTCHA')
+                  ? 'reCAPTCHA verification failed. Please try again.'
+                  : error.response?.data?.detail || `Failed to fetch transactions: ${error.message}`;
+        console.error(`Error in fetchTransactions:`, { errorMessage, stack: error.stack });
         setTransactionsError(errorMessage);
         setIsLoadingTransactions(false);
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        if (retryCount < 3) {
+          const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          fetchTransactions(address, retryCount + 1);
+        }
       }
     },
     [fetchOnChainData, executeRecaptcha, toast]
@@ -2334,6 +2391,7 @@ Use natural, professional tone with recent data.
     debouncedHandlePrediction,
     handleWalletSearch,
     fetchTransactions,
+    fetchOnChainData,
     handleAddressClick,
     getAvailableChains,
     getDefaultChainAndAddress,

@@ -210,6 +210,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
   useEffect(() => {
     if (selectedWallet) {
+      logger.log("Triggering fetch for selected wallet:", { selectedWallet });
       fetchWalletBalances(selectedWallet);
       fetchWalletTransactions(selectedWallet);
     }
@@ -407,7 +408,15 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const fetchWalletBalances = async (walletAddress) => {
     setIsLoadingWalletBalances(true);
     setWalletBalancesError(null);
+    logger.log("Starting fetchWalletBalances", { walletAddress });
     try {
+      if (!walletAddress) {
+        throw new Error("No wallet address provided");
+      }
+      if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        throw new Error("Invalid wallet address format");
+      }
+
       const response = await fetch(`/api/sim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -426,19 +435,20 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       } catch {
         throw new Error("Invalid JSON response from wallet balances API");
       }
-      if (!result.success) {
-        throw new Error(result.detail || "Failed to fetch wallet balances");
+      if (!response.ok) {
+        throw new Error(result.detail || `Failed to fetch wallet balances: ${response.statusText}`);
       }
-      if (!result.data) {
-        throw new Error("No balance data returned");
+      if (!result.success || !result.data) {
+        throw new Error(result.detail || "No balance data returned");
       }
+      logger.log("Parsed wallet balances:", { walletAddress, data: result.data });
       setWalletBalances(result.data || []);
-      logger.log("Fetched wallet balances:", { walletAddress, data: result.data });
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching wallet balances";
       logger.error("Error fetching wallet balances:", { walletAddress, error: errorMessage, stack: err.stack });
       setWalletBalancesError(errorMessage);
       toast.error(`Failed to load wallet balances: ${errorMessage}`, { position: "top-center", autoClose: 3000 });
+      setWalletBalances([]); // Ensure balances are cleared on error
     } finally {
       setIsLoadingWalletBalances(false);
     }
@@ -480,7 +490,14 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       const mappedId = mapExchangeId(result.exchangeId || result.id);
       router.push(`/cluster?exchangeId=${mappedId}`, { scroll: false });
     } else if (result.type === "wallet" || result.type === "nametag") {
-      setSelectedWallet(result.address);
+      const address = result.address?.toLowerCase();
+      if (/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        logger.log("Selected wallet address from search:", { address });
+        setSelectedWallet(address);
+      } else {
+        logger.error("Invalid wallet address selected:", { address });
+        toast.error("Invalid wallet address", { position: "top-center", autoClose: 3000 });
+      }
     }
   };
 

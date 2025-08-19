@@ -38,6 +38,8 @@ const WalletBalances = ({
   setWalletAddress,
   nameTags,
   isMobile,
+  fetchOnChainData,
+  setIsLoadingWalletBalances,
 }) => {
   const walletBalancesRef = useRef(null);
   const [activeTab, setActiveTab] = useState('portfolio');
@@ -53,26 +55,74 @@ const WalletBalances = ({
   }, [onClose]);
 
   useEffect(() => {
-    if (
-      activeTab === 'activity' &&
-      walletAddress &&
-      !transactions &&
-      !isLoadingTransactions &&
-      !transactionsError
-    ) {
-      logger.log('Fetching transactions for wallet:', { walletAddress });
-      fetchTransactions(walletAddress).catch((err) => {
-        logger.error('Failed to fetch transactions:', { walletAddress, error: err.message });
-        setTransactionsError(err.message || 'Failed to fetch transactions');
-      });
-    }
+    if (!walletAddress) return;
+
+    const fetchData = async () => {
+      // Fetch wallet balances for the Portfolio tab
+      if (
+        activeTab === 'portfolio' &&
+        walletAddress &&
+        !balances?.length &&
+        !isLoading &&
+        !error
+      ) {
+        logger.log('Fetching wallet balances for:', { walletAddress });
+        try {
+          setIsLoadingWalletBalances(true);
+          setWalletBalancesError(null);
+          await fetchOnChainData(null, null, 'wallet-balances', null, walletAddress);
+        } catch (err) {
+          const errorMessage = err.message || 'Failed to fetch wallet balances';
+          logger.error('Failed to fetch wallet balances:', { walletAddress, error: errorMessage });
+          setWalletBalancesError(errorMessage);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        } finally {
+          setIsLoadingWalletBalances(false);
+        }
+      }
+
+      // Fetch transactions for the Activity tab
+      if (
+        activeTab === 'activity' &&
+        walletAddress &&
+        !transactions &&
+        !isLoadingTransactions &&
+        !transactionsError
+      ) {
+        logger.log('Fetching transactions for wallet:', { walletAddress });
+        fetchTransactions(walletAddress).catch((err) => {
+          const errorMessage = err.message || 'Failed to fetch transactions';
+          logger.error('Failed to fetch transactions:', { walletAddress, error: errorMessage });
+          setTransactionsError(errorMessage);
+          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        });
+      }
+    };
+
+    fetchData();
+
     return () => {
       if (fetchTransactions.cancel) {
         logger.log('Canceling fetchTransactions');
         fetchTransactions.cancel();
       }
     };
-  }, [activeTab, walletAddress, transactions, isLoadingTransactions, transactionsError, fetchTransactions, setTransactionsError]);
+  }, [
+    activeTab,
+    walletAddress,
+    balances,
+    transactions,
+    isLoading,
+    error,
+    isLoadingTransactions,
+    transactionsError,
+    fetchTransactions,
+    fetchOnChainData,
+    setWalletBalancesError,
+    setIsLoadingWalletBalances,
+    setTransactionsError,
+    toast,
+  ]);
 
   if (!walletAddress) return null;
 
@@ -216,6 +266,18 @@ const WalletBalances = ({
                   <p className="text-[8px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
                     Error: {error}
                   </p>
+                ) : isLoading ? (
+                  <div className="space-y-3 p-2 sm:p-4 min-h-[calc(100vh-12rem)]">
+                    {[...Array(5)].map((_, index) => (
+                      <div key={index} className="flex items-center gap-4">
+                        <div className="w-8 h-8 bg-white/10 rounded-full animate-pulse"></div>
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-white/10 rounded animate-pulse"></div>
+                          <div className="h-4 bg-white/10 rounded animate-pulse w-3/4"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : validBalances.length > 0 ? (
                   <div className="relative overflow-x-auto custom-scrollbar">
                     <LoadingOverlay isLoading={isLoading} isMobile={isMobile} />
