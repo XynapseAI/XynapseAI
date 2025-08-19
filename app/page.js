@@ -426,7 +426,7 @@ export default function Home() {
             alt="Xynapse Logo"
             width={120}
             height={56}
-            className="h-12 sm:h-14 w-auto"
+            className="h-14 sm:h-20 w-auto"
             priority
           />
         </div>
