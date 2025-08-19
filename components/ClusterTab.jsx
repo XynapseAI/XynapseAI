@@ -544,11 +544,11 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           <table className="w-full text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-white/5">
               <tr>
-                <th className="px-2 py-1 text-white text-left font-semibold ml-2">Token</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Chain</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Balance</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Value ({currency.toUpperCase()})</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Percentage</th>
+                <th className="px-2 py-1 text-white text-left font-semibold ml-2 m-1">Token</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">Chain</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">Balance</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">Value ({currency.toUpperCase()})</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">Percentage</th>
               </tr>
             </thead>
             <tbody>
@@ -669,10 +669,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           <table className="w-full text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-white/5">
               <tr>
-                <th className="px-2 py-1 text-white text-left font-semibold">Wallet Address</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Name Tag</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Value ({currency.toUpperCase()})</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Percentage</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">Wallet Address</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">Name Tag</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">Value ({currency.toUpperCase()})</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">Percentage</th>
               </tr>
             </thead>
             <tbody>
@@ -758,11 +758,11 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           <table className="w-full text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-white/5">
               <tr>
-                <th className="px-2 py-1 text-white text-left font-semibold w-[60px] sm:w-[80px]">Chain</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">From</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">To</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Value ({currency.toUpperCase()})</th>
-                <th className="px-2 py-1 text-white text-left font-semibold w-[120px] sm:w-[140px]">Details</th>
+                <th className="px-2 py-1 text-white text-left font-semibold w-[60px] sm:w-[80px] m-1">Chain</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">From</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">To</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">Value ({currency.toUpperCase()})</th>
+                <th className="px-2 py-1 text-white text-left font-semibold w-[120px] sm:w-[140px] m-1">Details</th>
               </tr>
             </thead>
             <tbody>
@@ -923,9 +923,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-black/80 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
+      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-black/80 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
     >
-      <div className="w-full mb-4">
+      <div className="w-full mb-2">
         <UniversalSearch
           onSelect={handleSearchSelect}
           placeholder="Search wallets, nametags, or exchanges..."

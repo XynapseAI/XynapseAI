@@ -1,3 +1,4 @@
+// app/api/connect-data/route.js
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';
@@ -35,22 +36,22 @@ async function withRetry(fn, retries = 3, delay = 1000) {
 const rateLimiter = new RateLimiterRedis({
   storeClient: await getRedisClient(),
   keyPrefix: 'rate_limit:connect-data',
-  points: 200, // Increased to 200 requests
-  duration: 15 * 60, // 15 minutes
+  points: 100, // Giảm xuống 100 request để tránh lỗi
+  duration: 15 * 60, // 15 phút
 });
 
 async function checkRateLimit(ip) {
   try {
     await rateLimiter.consume(ip);
   } catch (err) {
-    // Calculate remaining time until rate limit resets
-    const msBeforeReset = err.msBeforeNext || 15 * 60 * 1000; // Fallback to duration
+    const msBeforeReset = err.msBeforeNext || 15 * 60 * 1000;
+    logger.warn(`Rate limit exceeded for IP ${ip}`, { msBeforeReset });
     return NextResponse.json(
-      { detail: 'Too many requests, please try again later.' },
+      { detail: `Too many requests. Please try again in ${Math.ceil(msBeforeReset / 1000)} seconds.` },
       {
         status: 429,
         headers: {
-          'Retry-After': Math.ceil(msBeforeReset / 1000).toString(), // Seconds until reset
+          'Retry-After': Math.ceil(msBeforeReset / 1000).toString(),
         },
       }
     );
@@ -68,19 +69,32 @@ function isAllowedOrigin(origin, referer) {
   const allowedOrigins = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
     'http://localhost:3000',
-    'http://localhost:3000/api',
     'https://xynapseai.net',
     'https://www.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
-    'https://*.xynapseai.net',
   ].filter((v, i, a) => a.indexOf(v) === i);
 
   try {
-    if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.match(/(\.vercel\.app|xynapseai\.net)$/))) return true;
-    if (!origin && referer && allowedOrigins.includes(new URL(referer).origin)) return true;
-    if (!origin && !referer) return true;
-    if (!origin && process.env.NODE_ENV === 'development') return true;
+    const refererOrigin = referer ? new URL(referer).origin : null;
+    logger.info('Checking allowed origin', { origin, referer, refererOrigin, allowedOrigins });
+    if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.match(/(\.vercel\.app|xynapseai\.net)$/))) {
+      logger.info('Origin allowed', { origin });
+      return true;
+    }
+    if (!origin && refererOrigin && allowedOrigins.includes(refererOrigin)) {
+      logger.info('Referer origin allowed', { refererOrigin });
+      return true;
+    }
+    if (!origin && !referer) {
+      logger.info('No origin or referer, allowing request');
+      return true;
+    }
+    if (!origin && process.env.NODE_ENV === 'development') {
+      logger.info('Development mode, allowing request');
+      return true;
+    }
+    logger.warn('Origin not allowed', { origin, referer, refererOrigin });
     return false;
   } catch (error) {
     logger.error('Error in isAllowedOrigin', { error: error.message, origin, referer });
@@ -136,7 +150,8 @@ export async function GET(request) {
     const cached = await redisClient.get(cacheKey);
     if (cached) {
       logger.info(`Cache hit for connect-data user ${session.user.id}`, { ip });
-      return NextResponse.json(JSON.parse(cached), {
+      const cachedData = JSON.parse(cached);
+      return NextResponse.json(cachedData, {
         headers: {
           'Content-Type': 'application/json',
           'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self' https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net",
@@ -160,6 +175,7 @@ export async function GET(request) {
           google_name: true,
           points: true,
           tier: true,
+          twitter_handle: true,
         },
       })
     );
@@ -167,9 +183,7 @@ export async function GET(request) {
     const serializedRankings = serializeBigInt(rankings);
     const data = { success: true, rankings: serializedRankings };
 
-    await redisClient.multi()
-      .setEx(cacheKey, 300, JSON.stringify(data))
-      .exec();
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(data));
     logger.info('Fetched and cached connect-data successfully', { rankingsCount: rankings.length, userId: session.user.id, ip });
 
     return NextResponse.json(data, {

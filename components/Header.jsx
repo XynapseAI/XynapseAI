@@ -36,10 +36,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     { id: 'profile', label: 'Profile' },
     { id: 'treemap', label: 'Treemap' },
     { id: 'watchlists', label: 'Watchlists' },
-    { id: 'cluster', label: 'Cluster' }, // New Cluster tab
+    { id: 'cluster', label: 'Cluster' },
   ];
-
-
 
   // Handle click outside to close menu or search dropdown
   useEffect(() => {
@@ -186,7 +184,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
       <div className="block sm:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="w-5 h-5 flex flex-col justify-center items-center"
+          className="w-5 h-5 flex flex-col justify-center items-center ml-4"
           aria-label="Toggle menu"
         >
           <motion.span
@@ -214,15 +212,10 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
             <motion.button
               onClick={() => handleTabClick(tab.id)}
               onMouseEnter={handleMouseEnter}
-              className={`group px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium uppercase no-hover-effect ${
-                activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'
-              }`}
+              className={`group px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium uppercase no-hover-effect ${activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'}`}
             >
               <span className="matrix-text">{renderMatrixText(tab.label)}</span>
             </motion.button>
-            {/* {index < tabs.length - 1 && (
-              <span className="h-4 w-px bg-white/20 mx-1"></span>
-            )} */}
           </div>
         ))}
       </div>
@@ -233,7 +226,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           id="currency-select"
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
-          className="text-white px-1.5 py-1 text-[8px] sm:text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 backdrop-blur-md transition-all duration-300 no-hover-effect"
+          className="hidden sm:block text-white px-1.5 py-1 text-[8px] sm:text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 no-hover-effect"
         >
           {availableCurrencies.map((curr) => (
             <option key={curr} value={curr} className="bg-black text-[9px]">
@@ -293,9 +286,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                   <motion.button
                     onClick={() => handleTabClick(tab.id)}
                     onMouseEnter={handleMouseEnter}
-                    className={`w-full text-left px-2 py-1 text-[9px] font-medium transition-all duration-300 uppercase no-hover-effect ${
-                      activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'
-                    }`}
+                    className={`w-full text-left px-2 py-1 text-[9px] font-medium transition-all duration-300 uppercase no-hover-effect ${activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'}`}
                   >
                     <span className="matrix-text">{renderMatrixText(tab.label)}</span>
                   </motion.button>

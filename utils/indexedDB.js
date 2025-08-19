@@ -1,7 +1,7 @@
 // utils/indexedDB.js
 'use client';
 
-import { get, set, del } from 'idb-keyval';
+import { get, set, del, keys } from 'idb-keyval';
 import { z } from 'zod';
 import { logger } from './clientLogger';
 
@@ -55,10 +55,33 @@ export async function clearCache(key) {
   try {
     cacheSchema.shape.key.parse(key);
 
+    const cacheExists = await get(key);
+    if (!cacheExists) {
+      logger.info(`No cache found to clear in IndexedDB for key: ${key}`);
+      return;
+    }
     await del(key);
     logger.info(`Cleared cache in IndexedDB for key: ${key}`);
   } catch (error) {
     logger.error(`Error clearing cache for key: ${key}`, {
+      error: error.message,
+    });
+    throw error;
+  }
+}
+
+export async function clearAllCaches(userId) {
+  try {
+    const cacheKeys = await keys();
+    const userCacheKeys = cacheKeys.filter((key) => typeof key === 'string' && key.includes(userId));
+    if (userCacheKeys.length === 0) {
+      logger.info(`No caches found in IndexedDB for userId: ${userId}`);
+      return;
+    }
+    await Promise.all(userCacheKeys.map((key) => del(key)));
+    logger.info(`Cleared all caches in IndexedDB for userId: ${userId}`, { keys: userCacheKeys });
+  } catch (error) {
+    logger.error(`Error clearing all caches for userId: ${userId}`, {
       error: error.message,
     });
     throw error;

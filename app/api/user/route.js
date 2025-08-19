@@ -16,6 +16,15 @@ const prisma = new PrismaClient({
   },
 });
 
+// Hàm chuyển đổi BigInt thành chuỗi
+const serializeBigInt = (obj) => {
+  return JSON.parse(
+    JSON.stringify(obj, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    )
+  );
+};
+
 // Retry logic
 async function withRetry(fn, retries = 3, delay = 1000) {
   for (let i = 0; i < retries; i++) {
@@ -81,7 +90,7 @@ function isAllowedOrigin(origin, referer) {
     'https://www.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
-    'https://*.xynapseai.net', // Thêm wildcard cho subdomain
+    'https://*.xynapseai.net',
   ].filter((v, i, a) => a.indexOf(v) === i);
 
   logger.info('Checking origin', { origin, referer, allowedOrigins });
@@ -215,7 +224,9 @@ export async function GET(request) {
     const cached = await redisClient.get(cacheKey);
     if (cached) {
       logger.info(`Cache hit for user ${uid}`, { ip });
-      return NextResponse.json(JSON.parse(cached), {
+      const cachedData = JSON.parse(cached);
+      logger.info('Cached user data:', cachedData);
+      return NextResponse.json(cachedData, {
         headers: {
           'Content-Type': 'application/json',
           'Content-Security-Policy': "default-src 'self'",
@@ -227,7 +238,7 @@ export async function GET(request) {
       });
     }
 
-    logger.info(`Starting to fetch user data for UID: ${uid}`, { ip });
+    logger.info(`Cache miss, fetching user data from database for UID: ${uid}`, { ip });
     const user = await withRetry(() =>
       prisma.users.findUnique({
         where: { id: uid },
@@ -248,6 +259,7 @@ export async function GET(request) {
           is_premium: true,
           wallet_address: true,
           last_connected: true,
+          twitter_handle: true,
         },
       })
     );
@@ -257,6 +269,7 @@ export async function GET(request) {
       return NextResponse.json({ detail: 'User not found' }, { status: 404 });
     }
 
+    logger.info('Raw user data from database:', user);
     const data = {
       success: true,
       user: {
@@ -266,20 +279,22 @@ export async function GET(request) {
         profilePicture: user.profile_picture || '',
         googleName: user.google_name || '',
         emailVerified: user.email_verified || false,
-        points: user.points || 0,
-        tweetPoints: user.tweet_points || 0,
-        aiPoints: user.ai_points || 0,
-        taskPoints: user.task_points || 0,
+        points: Number(user.points || 0),
+        tweetPoints: Number(user.tweet_points || 0),
+        aiPoints: Number(user.ai_points || 0),
+        taskPoints: Number(user.task_points || 0),
         isCreator: user.is_creator || false,
         isAiRank: user.is_ai_rank || false,
         tier: user.tier || 'Basic',
         isPremium: user.is_premium || false,
         walletAddress: user.wallet_address || null,
         lastConnected: user.last_connected ? new Date(user.last_connected).toISOString() : null,
+        twitterHandle: user.twitter_handle || null,
       },
     };
 
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(data));
+    logger.info('Transformed user data:', data);
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(serializeBigInt(data)));
     logger.info(`Successfully fetched and cached user: ${uid}`, { ip });
     return NextResponse.json(data, {
       headers: {
@@ -368,6 +383,7 @@ export async function POST(request) {
       tier: 'Basic',
       is_plus: false,
       is_premium: false,
+      twitter_handle: null,
     };
 
     logger.info(`Starting to create/update user: ${id}`, { ip });
@@ -385,7 +401,7 @@ export async function POST(request) {
     );
 
     logger.info(`User created/updated: ${id}`, { ip });
-    return NextResponse.json({ success: true, user: updatedUser }, {
+    return NextResponse.json({ success: true, user: serializeBigInt(updatedUser) }, {
       headers: {
         'Content-Security-Policy': "default-src 'self'",
         'Access-Control-Allow-Origin': origin && isAllowedOrigin(origin, referer) ? origin : (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),

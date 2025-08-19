@@ -1,3 +1,4 @@
+// components/WalletBalances.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -117,11 +118,11 @@ const WalletBalances = ({
     >
       <div
         ref={walletBalancesRef}
-        className="p-2 sm:p-4 max-w-6xl w-[95%] bg-black/80 backdrop-blur-sm border border-white/10 rounded-3xl relative max-h-[calc(100vh-8rem)] overflow-y-auto wallet-balances-container hide-scrollbar"
+        className="p-2 sm:p-4 max-w-6xl w-[95%] bg-black/80 backdrop-blur-sm border border-white/10 rounded-3xl relative max-h-[calc(100vh-8rem)] flex flex-col"
       >
-        <div className="sticky top-0 z-10 p-3 bg-black/80 backdrop-blur-sm border-b border-white/10">
+        <div className="sticky top-0 z-20 p-3 bg-black/80 backdrop-blur-sm border-b border-white/10">
           <div className="flex justify-between items-center mb-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 group relative">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5 text-white/60"
@@ -151,12 +152,37 @@ const WalletBalances = ({
                 />
               )}
               <span className="text-sm font-bold text-white tracking-tight">{displayWalletAddress}</span>
+              <motion.button
+                onClick={() => {
+                  navigator.clipboard.writeText(walletAddress);
+                  toast.success('Address copied!', { autoClose: 2000 });
+                }}
+                className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
+                title="Copy address"
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="#F87171"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              </motion.button>
             </div>
             <motion.button
               onClick={onClose}
-              className="text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center bg-white/10 border border-white/10 backdrop-blur-md hover:bg-white/20 transition-all duration-300"
+              className="text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center bg-white/10 border border-white/10 backdrop-blur-md hover:bg-red-400/20 transition-all duration-300"
               aria-label="Close balances"
-              whileHover={{ scale: 1.1, rotate: 90 }}
+              whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.9 }}
             >
               ✕
@@ -165,7 +191,7 @@ const WalletBalances = ({
           <div className="flex space-x-2 mb-2">
             <motion.button
               onClick={() => setActiveTab('portfolio')}
-              className={`flex-1 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all duration-300 ${activeTab === 'portfolio' ? 'bg-white text-black' : ''}`}
+              className={`flex-1 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-white/5 border border-white/10 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300 ${activeTab === 'portfolio' ? 'bg-neon-blue/20 border-neon-blue shadow-neon-sm' : ''}`}
               whileHover={{ scale: activeTab !== 'portfolio' ? 1.05 : 1 }}
               whileTap={{ scale: activeTab !== 'portfolio' ? 0.95 : 1 }}
             >
@@ -173,7 +199,7 @@ const WalletBalances = ({
             </motion.button>
             <motion.button
               onClick={() => setActiveTab('activity')}
-              className={`flex-1 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all duration-300 ${activeTab === 'activity' ? 'bg-white text-black' : ''}`}
+              className={`flex-1 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-white/5 border border-white/10 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300 ${activeTab === 'activity' ? 'bg-neon-blue/20 border-neon-blue shadow-neon-sm' : ''}`}
               whileHover={{ scale: activeTab !== 'activity' ? 1.05 : 1 }}
               whileTap={{ scale: activeTab !== 'activity' ? 0.95 : 1 }}
             >
@@ -182,16 +208,16 @@ const WalletBalances = ({
           </div>
         </div>
 
-        <div className="relative wallet-tab-content hide-scrollbar">
+        <div className="relative flex-1 overflow-y-auto custom-scrollbar">
           <div className="min-h-[calc(100vh-12rem)] p-4">
             {activeTab === 'portfolio' && (
               <>
                 {error ? (
-                  <p className="text-[8px] sm:text-[10px] text-red-400 text-center bg-red-500/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
+                  <p className="text-[8px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
                     Error: {error}
                   </p>
                 ) : validBalances.length > 0 ? (
-                  <div className="relative overflow-x-auto wallet-table-container hide-scrollbar">
+                  <div className="relative overflow-x-auto custom-scrollbar">
                     <LoadingOverlay isLoading={isLoading} isMobile={isMobile} />
                     <table className="w-full text-[8px] sm:text-[10px]">
                       <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5 backdrop-blur-xl">
@@ -205,7 +231,7 @@ const WalletBalances = ({
                         {validBalances.map((balance, index) => (
                           <motion.tr
                             key={`${balance.chain}-${balance.address}-${index}`}
-                            className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                            className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3, delay: index * 0.02 }}
@@ -271,7 +297,7 @@ const WalletBalances = ({
             {activeTab === 'activity' && (
               <>
                 {transactionsError ? (
-                  <p className="text-[8px] sm:text-[10px] text-red-400 text-center bg-red-500/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
+                  <p className="text-[8px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
                     Error: {transactionsError}
                   </p>
                 ) : isLoadingTransactions ? (
@@ -287,7 +313,7 @@ const WalletBalances = ({
                     ))}
                   </div>
                 ) : validTransactions.length > 0 ? (
-                  <div className="relative overflow-x-auto wallet-table-container hide-scrollbar">
+                  <div className="relative overflow-x-auto custom-scrollbar">
                     <table className="w-full text-[8px] sm:text-[10px]">
                       <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5 backdrop-blur-xl">
                         <tr>
@@ -311,7 +337,7 @@ const WalletBalances = ({
                           return (
                             <motion.tr
                               key={`${tx.chain}-${tx.hash}-${index}`}
-                              className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                              className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ duration: 0.3, delay: index * 0.02 }}
@@ -376,7 +402,7 @@ const WalletBalances = ({
                                       href={addressUrl}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="text-[8px] sm:text-[10px] text-white hover:text-white/80 transition-colors font-medium"
+                                      className="text-[8px] sm:text-[10px] text-neon-blue hover:text-neon-blue/80 transition-colors font-medium"
                                       title={tx.type === 'receive' ? tx.from : tx.to}
                                       onClick={() => handleAddressClick(tx.type === 'receive' ? tx.from : tx.to)}
                                     >
@@ -388,9 +414,9 @@ const WalletBalances = ({
                                           navigator.clipboard.writeText(tx.type === 'receive' ? tx.from : tx.to);
                                           toast.success('Address copied!', { autoClose: 2000 });
                                         }}
-                                        className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                        className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
                                         title="Copy address"
-                                        whileHover={{ scale: 1.1 }}
+                                        whileHover={{ scale: 1.1, y: -2 }}
                                         whileTap={{ scale: 0.9 }}
                                       >
                                         <svg
@@ -398,7 +424,7 @@ const WalletBalances = ({
                                           className="w-4 h-4"
                                           fill="none"
                                           viewBox="0 0 24 24"
-                                          stroke="currentColor"
+                                          stroke="#F87171"
                                           strokeWidth={2}
                                         >
                                           <path
@@ -421,7 +447,7 @@ const WalletBalances = ({
                                     href={txUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 transition-all duration-300"
+                                    className="flex-shrink-0 p-1 rounded-lg hover:bg-neon-blue/20 transition-all duration-300"
                                     title={tx.hash}
                                   >
                                     <img
@@ -440,9 +466,9 @@ const WalletBalances = ({
                                         navigator.clipboard.writeText(tx.hash);
                                         toast.success('Transaction hash copied!', { autoClose: 2000 });
                                       }}
-                                      className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                      className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
                                       title="Copy transaction hash"
-                                      whileHover={{ scale: 1.1 }}
+                                      whileHover={{ scale: 1.1, y: -2 }}
                                       whileTap={{ scale: 0.9 }}
                                     >
                                       <svg
@@ -450,7 +476,7 @@ const WalletBalances = ({
                                         className="w-4 h-4"
                                         fill="none"
                                         viewBox="0 0 24 24"
-                                        stroke="currentColor"
+                                        stroke="#F87171"
                                         strokeWidth={2}
                                       >
                                         <path
@@ -479,6 +505,57 @@ const WalletBalances = ({
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        .shadow-neon-sm {
+          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.15);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+          height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.4);
+        }
+        .custom-scrollbar {
+          -ms-overflow-style: auto;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        table {
+          table-layout: auto;
+          width: 100%;
+        }
+        th,
+        td {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        @media (max-width: 640px) {
+          table {
+            font-size: 8px;
+          }
+          th,
+          td {
+            padding: 0.4rem;
+          }
+        }
+      `}</style>
     </motion.div>
   );
 

@@ -1,6 +1,5 @@
-// app/dashboard/page.js
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { signIn, signOut, useSession, getProviders } from 'next-auth/react';
@@ -26,6 +25,92 @@ gsap.registerPlugin(MotionPathPlugin);
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
+// Custom hook để xử lý trạng thái và logic của user data
+const useUserData = (session, csrfToken, setIsAnalyzing) => {
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const recaptchaRef = useRef(null);
+
+  const fetchUserData = useCallback(async () => {
+    if (!session?.user?.id || !csrfToken) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const recaptchaToken = 'mock-recaptcha-token'; // Thay bằng logic thực tế
+      const response = await fetch(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Recaptcha-Token': recaptchaToken,
+          'X-CSRF-Token': csrfToken,
+        },
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || 'Failed to fetch user data');
+      }
+      // Kiểm tra header X-Clear-IndexedDB
+      if (response.headers.get('X-Clear-IndexedDB') === 'true') {
+        await clearAllCaches(session.user.id);
+        console.log('Cleared IndexedDB cache due to server instruction');
+      }
+      setUserData({
+        ...result.user,
+        profilePicture: result.user.profile_picture,
+        googleName: result.user.google_name,
+        tweetPoints: result.user.tweet_points,
+        aiPoints: result.user.ai_points,
+      });
+      toast.success('User data loaded successfully!', { position: 'top-center' });
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching user data:', err);
+      setError(`Failed to fetch user data: ${err.message}`);
+      toast.error(`Error: ${err.message}`, { position: 'top-center' });
+    } finally {
+      setLoading(false);
+    }
+  }, [session, csrfToken]);
+
+  const handleAnalyzeTweets = useCallback(async () => {
+    setIsAnalyzing(true);
+    try {
+      if (!session?.user || !csrfToken) throw new Error('Authentication or CSRF token missing');
+      const recaptchaToken = 'mock-recaptcha-token'; // Thay bằng logic thực tế
+      const response = await fetch(`${API_BASE_URL}/api/analyze-tweets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Recaptcha-Token': recaptchaToken,
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify({ uid: session.user.id }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail || 'Tweet analysis failed');
+      }
+      setUserData((prev) => (prev ? { ...prev, tweetPoints: result.tweet_points } : null));
+      toast.success('Tweet analysis successful!', { position: 'top-center' });
+    } catch (err) {
+      console.error('Error analyzing tweet:', err);
+      toast.error(`Tweet analysis error: ${err.message}`, { position: 'top-center' });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [session, csrfToken, setIsAnalyzing]);
+
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData]);
+
+  return { userData, loading, error, handleAnalyzeTweets, recaptchaRef };
+};
+
 export default function Dashboard() {
   const { data: session, status, update } = useSession();
   const { isConnected, address } = useAccount();
@@ -33,338 +118,121 @@ export default function Dashboard() {
   const { signMessageAsync } = useSignMessage();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => {
-    const tab = searchParams.get('tab');
-    return tab && ['market', 'ai', 'profile', 'treemap', 'watchlists'].includes(tab) ? tab : 'profile';
-  });
-  const [selectedAddress, setSelectedAddress] = useState(searchParams.get('address') || null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [topPlayers, setTopPlayers] = useState({ rankings: [], creators: [], aiRank: [] });
-  const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+
   const [isMounted, setIsMounted] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [activeTab, setActiveTab] = useState('profile');
+  const [selectedAddress, setSelectedAddress] = useState(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [lastAnalysisSuccess, setLastAnalysisSuccess] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [providers, setProviders] = useState(null);
   const [email, setEmail] = useState('');
   const [csrfToken, setCsrfToken] = useState(null);
-  const [isFetchingCsrf, setIsFetchingCsrf] = useState(false);
-  const recaptchaRef = useRef(null);
   const starsBackgroundRef = useRef(null);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { userData, loading, error, handleAnalyzeTweets, recaptchaRef } = useUserData(session, csrfToken, setIsAnalyzing);
 
   useEffect(() => {
     setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['market', 'ai', 'profile', 'treemap', 'watchlists', 'cluster'].includes(tab)) {
+      setActiveTab(tab);
+    }
     const address = searchParams.get('address');
-    setSelectedAddress(address || null);
+    if (address) {
+      setSelectedAddress(address);
+    }
   }, [searchParams]);
 
   useEffect(() => {
-    async function fetchProviders() {
-      try {
-        const response = await getProviders();
-        setProviders(response);
-      } catch (err) {
-        console.error('Error fetching providers:', err);
-        setError('Failed to fetch sign-in methods.');
-      }
-    }
-    fetchProviders();
-  }, []);
+    if (status !== 'authenticated' || session?.csrfToken || csrfToken) return;
 
-  useEffect(() => {
-    if (!isMounted || status !== 'authenticated' || session?.csrfToken || isFetchingCsrf) return;
-
-    async function fetchCsrfToken() {
-      setIsFetchingCsrf(true);
+    const fetchCsrfToken = async () => {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const response = await fetch(`${API_BASE_URL}/api/csrf-token`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
+        const response = await fetch(`${API_BASE_URL}/api/csrf-token`);
         const result = await response.json();
-        if (!response.ok) throw new Error(result.detail || 'Failed to fetch CSRF token');
-        setCsrfToken(result.csrfToken);
-        try {
+        if (response.ok) {
+          setCsrfToken(result.csrfToken);
           await update({ csrfToken: result.csrfToken });
-        } catch (updateError) {
-          console.error('Error updating session:', updateError);
-          setError(`Failed to update session: ${updateError.message}. Please refresh the page.`);
+        } else {
+          throw new Error(result.detail || 'Failed to fetch CSRF token');
         }
       } catch (err) {
         console.error('Error fetching CSRF token:', err);
-        setError(`Failed to fetch CSRF token: ${err.message}. Please refresh the page or contact support.`);
-        setCsrfToken(null);
-      } finally {
-        setIsFetchingCsrf(false);
+        toast.error(`Failed to fetch CSRF token: ${err.message}`, { position: 'top-center' });
       }
-    }
+    };
     fetchCsrfToken();
-  }, [isMounted, status, session, update, isFetchingCsrf]);
+  }, [status, session, csrfToken, update]);
 
-  useEffect(() => {
-    if (!isMounted || status !== 'authenticated' || !csrfToken) return;
-
-    async function fetchTopPlayers() {
-      setLoading(true);
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        const response = await fetch(`${API_BASE_URL}/api/connect-data`, {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': csrfToken || '',
-          },
-          credentials: 'include',
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.detail || 'Failed to fetch leaderboard data');
-        setTopPlayers({
-          rankings: result.rankings || [],
-          creators: result.creators.map((player) => ({
-            ...player,
-            points: player.tweet_points,
-            profilePicture: player.profile_picture,
-            googleName: player.google_name,
-          })),
-          aiRank: result.aiRank.map((player) => ({
-            ...player,
-            points: player.ai_points,
-            profilePicture: player.profile_picture,
-            googleName: player.google_name,
-          })),
-        });
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching leaderboard data:', err);
-        setError(`Failed to fetch leaderboard data: ${err.message}. Please try again later.`);
-        setTopPlayers({ rankings: [], creators: [], aiRank: [] });
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchTopPlayers();
-  }, [isMounted, status, csrfToken]);
-
-  useEffect(() => {
-    if (!isMounted || !session?.user?.id || !csrfToken) return;
-
-    async function initUserData() {
-      setLoading(true);
-      try {
-        if (!recaptchaRef.current) throw new Error('reCAPTCHA not initialized');
-        let recaptchaToken = null;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            await recaptchaRef.current.reset();
-            recaptchaToken = await Promise.race([
-              recaptchaRef.current.executeAsync(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timed out')), 5000)),
-            ]);
-            if (recaptchaToken) break;
-          } catch (err) {
-            console.error('Error generating reCAPTCHA token (attempt', attempt, '):', err);
-            if (attempt === 3) throw new Error('Failed to generate reCAPTCHA token after 3 attempts');
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-          }
-        }
-        if (!recaptchaToken) throw new Error('Failed to generate reCAPTCHA token');
-
-        let response;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-            response = await fetch(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Recaptcha-Token': recaptchaToken,
-                'X-CSRF-Token': csrfToken || '',
-              },
-              credentials: 'include',
-              signal: controller.signal,
-            });
-            clearTimeout(timeoutId);
-            if (response.ok) break;
-            if (response.status === 403 && attempt < 3) {
-              await fetchCsrfToken();
-            } else {
-              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-          } catch (err) {
-            console.error('Error fetching user data (attempt', attempt, '):', err);
-            if (attempt === 3) throw err;
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-          }
-        }
-
-        const result = await response.json();
-        if (!response.ok) {
-          if (result.detail?.includes('User not found')) {
-            throw new Error('HTTP 404: User not found');
-          }
-          throw new Error(
-            `${result.detail || 'Unknown error'}${result.errors ? `: ${result.errors.map((e) => e.msg).join(', ')}` : ''} (HTTP ${response.status})`
-          );
-        }
-        setUserData({
-          ...result.user,
-          profilePicture: result.user.profile_picture,
-          googleName: result.user.google_name,
-          tweetPoints: result.user.tweet_points,
-          aiPoints: result.user.ai_points,
-        });
-        setError(null);
-        toast.success('User data loaded successfully!', { position: 'top-center' });
-      } catch (err) {
-        console.error('Error fetching user data:', err);
-        if (err.message.includes('HTTP 404')) {
-          setError('User not found. Please sign in again.');
-          await signOut({ redirect: false });
-          router.push('/auth/signin');
-        } else {
-          setUserData(null);
-          setError(`Failed to fetch user data: ${err.message}. Please refresh the page or contact support.`);
-          toast.error(`Error: ${err.message}`, { position: 'top-center' });
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-    initUserData();
-  }, [isMounted, session, router, csrfToken]);
-
+  // Handle wallet connection
   const handleConnectWallet = async () => {
     try {
-      if (!session?.user) throw new Error('Not signed in');
-      if (!isConnected || !address) throw new Error('Wallet not connected');
-      if (!recaptchaRef.current) throw new Error('reCAPTCHA not ready');
+      if (!session?.user || !isConnected || !address || !recaptchaRef.current) throw new Error('Prerequisites not met');
       const recaptchaToken = await recaptchaRef.current.executeAsync();
       const message = `Sign this message to authenticate: ${address}`;
       const signature = await signMessageAsync({ message });
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
       const response = await fetch(`${API_BASE_URL}/api/verify-wallet`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Recaptcha-Token': recaptchaToken,
-          'X-CSRF-Token': csrfToken || '',
-        },
-        credentials: 'include',
-        signal: controller.signal,
-        body: JSON.stringify({
-          walletAddress: address,
-          signature,
-          message,
-          uid: session.user.id,
-        }),
+        headers: { 'Content-Type': 'application/json', 'X-Recaptcha-Token': recaptchaToken, 'X-CSRF-Token': csrfToken },
+        body: JSON.stringify({ walletAddress: address, signature, message, uid: session.user.id }),
       });
-      clearTimeout(timeoutId);
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail || 'Wallet verification failed');
-      setError(null);
-      setUserData((prev) => ({
-        ...prev,
-        walletAddress: address,
-      }));
       toast.success('Wallet connected successfully!', { position: 'top-center' });
     } catch (err) {
       console.error('Error verifying wallet:', err);
-      setError(`Wallet verification error: ${err.message}`);
       toast.error(`Wallet verification error: ${err.message}`, { position: 'top-center' });
     } finally {
       if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   };
 
+  // Handle sign out
   const handleSignOut = async () => {
     try {
       await signOut({ callbackUrl: '/' });
       if (isConnected) disconnect();
-      setUserData(null);
-      setError(null);
       toast.success('Signed out successfully!', { position: 'top-center' });
     } catch (error) {
       console.error('Error signing out:', error);
-      setError('Failed to sign out.');
       toast.error('Failed to sign out.', { position: 'top-center' });
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleAnalyzeTweets = async () => {
-    if (isAnalyzing) return;
-    setIsAnalyzing(true);
-    try {
-      if (!session?.user) throw new Error('Not signed in');
-      if (!recaptchaRef.current) throw new Error('reCAPTCHA not ready');
-      const recaptchaToken = await recaptchaRef.current.executeAsync();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const response = await fetch(`${API_BASE_URL}/api/analyze-tweets`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Recaptcha-Token': recaptchaToken,
-          'X-CSRF-Token': csrfToken || '',
-        },
-        credentials: 'include',
-        signal: controller.signal,
-        body: JSON.stringify({ uid: session.user.id }),
-      });
-      clearTimeout(timeoutId);
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.detail || 'Tweet analysis failed');
-      setUserData((prev) => (prev ? { ...prev, points: result.points, tweet_points: result.tweet_points } : null));
-      setError(null);
-      setLastAnalysisSuccess(true);
-      toast.success('Tweet analysis successful!', { position: 'top-center' });
-    } catch (error) {
-      console.error('Error analyzing tweet:', error);
-      setError(`Tweet analysis error: ${error.message}`);
-      setLastAnalysisSuccess(false);
-      toast.error(`Tweet analysis error: ${error.message}`, { position: 'top-center' });
-    } finally {
-      setIsAnalyzing(false);
-      if (recaptchaRef.current) recaptchaRef.current.reset();
-    }
-  };
-
-  const handleNavigateToToken = (slug) => {
-    if (!slug || typeof slug !== 'string' || slug.trim() === '') {
-      console.error('Invalid slug:', { slug });
-      toast.error('Cannot navigate to token page: Invalid token ID.', { position: 'top-center', autoClose: 3000 });
+  // Handle navigation to token page
+  const handleNavigateToToken = useCallback((slug) => {
+    if (!slug) {
+      toast.error('Invalid token ID.', { position: 'top-center' });
       return;
     }
-    router.push(`/dashboard?tab=market&token=${slug}`, { scroll: false }); // Updated URL
+    router.push(`/dashboard?tab=market&token=${slug}`, { scroll: false });
     setActiveTab('market');
-  };
+  }, [router]);
 
+  // Handle email sign-in
   const handleEmailSignIn = async (e) => {
     e.preventDefault();
     try {
       await signIn('email', { email, callbackUrl: '/dashboard' });
       toast.success('Sign-in email sent, please check your inbox!', { position: 'top-center' });
     } catch {
-      setError('Failed to sign in with email. Please try again.');
       toast.error('Failed to sign in with email.', { position: 'top-center' });
     }
   };
+
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        const response = await getProviders();
+        setProviders(response);
+      } catch (err) {
+        console.error('Error fetching providers:', err);
+        toast.error('Failed to fetch sign-in methods.', { position: 'top-center' });
+      }
+    };
+    fetchProviders();
+  }, []);
 
   if (!isMounted || !providers) {
     return (

@@ -594,7 +594,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className={`font-saira w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-black/80 backdrop-blur-3xl border border-white/10 rounded-3xl shadow-2xl ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
+      className={`font-saira w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-black/80 backdrop-blur-3xl ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
     >
       <div className="w-full mb-1 mt-2 sm:mt-1">
         <div className="flex flex-col gap-2">
@@ -641,7 +641,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       <img
                         src={getPlatformImage(selectedChain) || "/placeholder.svg"}
                         alt={`${chains.find((c) => c.value === selectedChain)?.label || "Chain"} logo`}
-                        className="w-3 sm:w-4 h-3 sm:h-4 rounded-full ring-1 ring-white/20"
+                        className="w-3 sm:w-4 h-3 sm:h-4 rounded-full"
                         onError={(e) => {
                           logger.error("Chain logo failed to load:", {
                             chain: selectedChain,
@@ -708,7 +708,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               <UniversalSearch
                 onSelect={handleSearchSelect}
                 placeholder="Search wallets, nametags, or exchanges..."
-                className="flex-1 max-w-[150px]"
+                className="flex-1 w-full"
                 size="default"
               />
             </div>

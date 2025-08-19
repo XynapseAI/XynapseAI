@@ -968,7 +968,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           {displayValue}
         </td>
         <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
-          <div className="flex flex-col items-center gap-0.5">
+          <div className="flex flex-col images-center gap-0.5">
             <a href={txUrl} target="_blank" rel="noopener noreferrer">
               <img
                 src="/logos/etherscan-logo.png"
@@ -1045,7 +1045,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className="font-saira w-full max-w-9xl mx-auto mt-2 p-2 sm:p-3  flex flex-row h-[calc(100vh-3rem)] rounded-xl overflow-hidden"
+      className="font-saira w-full max-w-9xl mx-auto mt-2 p-2 sm:p-3 flex flex-row h-[calc(100vh-3rem)] rounded-xl overflow-hidden"
     >
       <ToastContainer position="top-center" autoClose={5000} theme="dark" />
 
@@ -1241,7 +1241,29 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       <div className="w-full sm:w-[80%] p-2 sm:p-3 flex flex-col">
         {selectedWallet ? (
           <>
-            <div className="h-[20%] border border-white/10 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex flex-col justify-between rounded-xl">
+            <div className="h-[20%] border border-white/10 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex flex-col justify-between rounded-xl relative">
+              <div className="absolute top-4 right-4">
+                <motion.button
+                  onClick={() => copyAddress(selectedWallet.address, toast)}
+                  className="p-1 bg-white/10 rounded-xl hover:bg-red-400/20"
+                  whileHover={{ scale: 1.1, y: -2 }}
+                  whileTap={{ scale: 0.9 }}
+                  title="Copy Address"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-3 sm:w-3 h-3 sm:h-3"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#F87171"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </motion.button>
+              </div>
               <div className="flex items-center gap-2 mb-2">
                 {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.image && (
                   <img
@@ -1254,31 +1276,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     loading="lazy"
                   />
                 )}
-                <div className="relative group">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] sm:text-[12px] font-bold text-white">
-                      {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'}
-                    </span>
-                    <span className="text-[9px] sm:text-[10px] text-white/60">
-                      {selectedWallet.address}
-                    </span>
-                  </div>
-                  <motion.button
-                    className="absolute top-1/2 right-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-neon-blue hover:text-neon-blue/80 transition-opacity duration-200"
-                    onClick={() => copyAddress(selectedWallet.address, toast)}
-                    title="Copy Address"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-3 sm:h-3.5 w-3 sm:w-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </motion.button>
+                <div className="flex flex-col">
+                  <span className="text-[10px] sm:text-[12px] font-bold text-white">
+                    {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'}
+                  </span>
+                  <span className="text-[9px] sm:text-[10px] text-white/60">
+                    {selectedWallet.address}
+                  </span>
                 </div>
               </div>
               <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-3 no-scrollbar">

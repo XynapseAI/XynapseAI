@@ -92,26 +92,26 @@ model pending_wallets_to_analyze {
 }
 
 model task_completions {
-  id               String    @id @db.VarChar(255)
-  user_id          String    @db.VarChar(100)
-  task_id          String    @db.VarChar(50)
-  completed_at     DateTime  @db.Date
+  id               Int       @id @default(autoincrement())
+  user_id          String?   @db.VarChar(100)
+  task_id          String?   @db.VarChar(50)
   completion_count Int?      @default(1)
-  created_at       DateTime? @default(now()) @db.Timestamp(6)
-  updated_at       DateTime? @default(now()) @db.Timestamp(6)
-
-  @@index([completed_at], map: "idx_task_completions_completed_at")
-  @@index([task_id], map: "idx_task_completions_task_id")
-  @@index([user_id], map: "idx_task_completions_user_id")
+  points_earned    Int
+  completed_at     DateTime? @default(now()) @db.Timestamp(6)
+  tasks            tasks?    @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model tasks {
-  id              String    @id @db.VarChar(50)
-  points          Int
-  is_daily        Boolean?  @default(true)
-  max_completions Int
-  created_at      DateTime? @default(now()) @db.Timestamp(6)
-  updated_at      DateTime? @default(now()) @db.Timestamp(6)
+  id               String             @id @db.VarChar(50)
+  description      String
+  points           Int
+  is_daily         Boolean?           @default(false)
+  max_completions  Int?               @default(1)
+  task_type        String             @db.VarChar(50)
+  target_id        String?            @db.VarChar(255)
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  task_completions task_completions[]
 }
 
 model tweet_analyses {
@@ -127,32 +127,48 @@ model tweet_analyses {
   @@index([user_id], map: "idx_tweet_analyses_user_id")
 }
 
+model twitter_handles {
+  id               Int       @id @default(autoincrement())
+  user_id          String?   @unique @db.VarChar(100)
+  twitter_handle   String    @db.VarChar(255)
+  access_token     String
+  refresh_token    String?
+  token_expires_at DateTime? @db.Timestamp(6)
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+  updated_at       DateTime? @default(now()) @db.Timestamp(6)
+  users            users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
 model users {
   id                 String              @id
   email              String              @unique
-  google_id          String?             @unique
+  google_id          String?             @unique(map: "unique_google_id")
   profile_picture    String?
   email_verified     Boolean?            @default(false)
   google_name        String?
   wallet_address     String?
   points             BigInt?             @default(0)
-  tweet_points       BigInt?             @default(0)
-  ai_points          BigInt?             @default(0)
   task_points        BigInt?             @default(0)
-  is_creator         Boolean?            @default(false)
-  is_ai_rank         Boolean?            @default(false)
   tier               String?             @default("Basic")
-  is_plus            Boolean?            @default(false)
   is_premium         Boolean?            @default(false)
-  premium_expires_at DateTime?
   api_key            String?             @unique
   created_at         DateTime?           @default(now())
   updated_at         DateTime?           @updatedAt
   last_connected     DateTime?
   connected          Boolean?            @default(false)
+  ai_points          BigInt?             @default(0)
+  is_ai_rank         Boolean?            @default(false)
+  is_creator         Boolean?            @default(false)
+  is_plus            Boolean?            @default(false)
+  premium_expires_at DateTime?
+  tweet_points       BigInt?             @default(0)
+  twitter_handle     String?             @db.VarChar(255)
   accounts           Account[]           @relation("UserToAccount")
   sessions           Session[]           @relation("UserToSession")
   verificationTokens VerificationToken[] @relation("UserToVerificationToken")
+  legacyAccounts           accounts[]
+  task_completions   task_completions[]
+  twitter_handles    twitter_handles[]
 
   @@index([ai_points], map: "idx_users_ai_points")
   @@index([email], map: "idx_users_email")
@@ -197,7 +213,7 @@ model watchlists {
 }
 
 model Account {
-  id                String  @id @default(uuid())
+  id                String  @id(map: "accounts_pkey") @default(uuid())
   userId            String
   type              String
   provider          String
@@ -209,9 +225,9 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  user              users   @relation("UserToAccount", fields: [userId], references: [id], onDelete: Cascade)
+  user              users   @relation("UserToAccount", fields: [userId], references: [id], onDelete: Cascade, map: "accounts_userId_fkey")
 
-  @@unique([provider, providerAccountId])
+  @@unique([provider, providerAccountId], map: "accounts_provider_providerAccountId_key")
 }
 
 model Session {
@@ -229,4 +245,93 @@ model VerificationToken {
   user       users    @relation("UserToVerificationToken", fields: [identifier], references: [email], onDelete: Cascade)
 
   @@unique([identifier, token])
+}
+
+model accounts {
+  id                Int       @id(map: "accounts_pkey1") @default(autoincrement())
+  userid            String    @db.VarChar(255)
+  type              String    @db.VarChar(255)
+  provider          String    @db.VarChar(255)
+  provideraccountid String    @db.VarChar(255)
+  access_token      String?
+  expires_at        BigInt?
+  token_type        String?   @db.VarChar(255)
+  scope             String?
+  id_token          String?
+  created_at        DateTime? @default(now()) @db.Timestamp(6)
+  updated_at        DateTime? @default(now()) @db.Timestamp(6)
+  users             users     @relation(fields: [userid], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user")
+
+  @@unique([provider, provideraccountid], map: "unique_provider_account")
+}
+
+model exchange_holders {
+  id               Int      @id @default(autoincrement())
+  exchange         String   @db.VarChar(100)
+  chain            String   @db.VarChar(50)
+  token_address    String?  @db.VarChar(100)
+  total_tokens     Decimal  @db.Decimal
+  total_value_usd  Decimal? @db.Decimal
+  nametag          String?  @db.VarChar(100)
+  wallet_addresses Json?
+  update_date      DateTime @default(now()) @db.Timestamp(6)
+  metadata         Json?
+}
+
+model holder_nametags {
+  id               Int      @id @default(autoincrement())
+  exchange_name    String   @db.VarChar(100)
+  chain            String   @db.VarChar(50)
+  token_address    String?  @db.VarChar(100)
+  total_tokens     Decimal  @db.Decimal
+  total_value_usd  Decimal  @db.Decimal
+  nametag          String   @db.VarChar(255)
+  wallet_addresses Json
+  update_date      DateTime @db.Timestamp(6)
+  metadata         Json?
+
+  @@unique([exchange_name, chain, token_address], map: "unique_exchange_chain_token")
+}
+
+model token_holders {
+  id             Int       @id @default(autoincrement())
+  token_id       Int?
+  coingecko_id   String    @db.VarChar(255)
+  chain          String    @db.VarChar(50)
+  token_address  String?   @db.VarChar(255)
+  holder_address String    @db.VarChar(255)
+  balance        Decimal?  @db.Decimal(36, 18)
+  balance_usd    Decimal?  @db.Decimal(20, 2)
+  percentage     Decimal?  @db.Decimal(10, 6)
+  name_tag       String?   @db.VarChar(255)
+  rank           Int?
+  source         String?   @default("sim") @db.VarChar(50)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  name           String?   @db.VarChar(255)
+  image          String?   @db.VarChar(255)
+  updated_at     DateTime? @default(now()) @db.Timestamp(6)
+  tokens         tokens?   @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([coingecko_id, chain, holder_address])
+  @@index([created_at], map: "idx_holders_created_at")
+  @@index([image], map: "idx_holders_image")
+  @@index([name], map: "idx_holders_name")
+  @@index([coingecko_id, chain], map: "idx_holders_token_chain")
+  @@index([updated_at], map: "idx_holders_updated_at")
+}
+
+model tokens {
+  id               Int             @id @default(autoincrement())
+  coingecko_id     String          @unique @db.VarChar(255)
+  symbol           String          @db.VarChar(50)
+  name             String          @db.VarChar(255)
+  market_cap_rank  Int?
+  platforms        Json?
+  detail_platforms Json?
+  created_at       DateTime?       @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?       @default(now()) @db.Timestamp(6)
+  decimals         Int?
+  token_holders    token_holders[]
+
+  @@index([coingecko_id], map: "idx_tokens_coingecko_id")
 }
