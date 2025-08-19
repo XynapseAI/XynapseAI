@@ -419,7 +419,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-black text-white overflow-x-hidden font-saira">
       {/* Header */}
-      <header className="w-full py-1.5 px-6 flex justify-between items-center bg-gray-900/50 backdrop-blur-lg border-b border-white/10 z-50 sticky top-0">
+      <header className="w-full py-1.5 px-6 flex justify-between items-center z-50 sticky top-0">
         <div className="flex items-center">
           <Image
             src="/logos/logo-landscape.png"
@@ -451,7 +451,7 @@ export default function Home() {
           </span>
           <Link
             href="/dashboard"
-            className="px-3 py-1.5 text-white text-xs border border-white/20 rounded-md font-medium transition-all duration-300 hover:bg-white/10 backdrop-blur-md"
+            className="px-3 py-1.5 text-white text-xs border border-white/20 rounded-md font-medium transition-all duration-300"
           >
             <MatrixHoverEffect text="LAUNCH APP" hoverColor="#00BFFF" />
           </Link>
@@ -477,7 +477,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="#learn-more"
-              className="px-4 py-2 text-white border border-white/20 rounded-md text-xs font-medium transition-all duration-300 hover:bg-white/10 backdrop-blur-md"
+              className="px-4 py-2 text-white border border-white/20 rounded-md text-xs font-medium transition-all duration-300"
             >
               <MatrixHoverEffect text="DISCOVER NOW" hoverColor="#00BFFF" />
             </Link>

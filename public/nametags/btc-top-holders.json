@@ -21,8 +21,8 @@
       }
     }
   },
-  "1feexv6bahb8ybzjqjmjjrccrhgw9sb6uf": {
-    "Address": "1feexv6bahb8ybzjqjmjjrccrhgw9sb6uf",
+  "1feexv6bahb8ybzjqjmjjrcchrgw9sb6uf": {
+    "Address": "1feexv6bahb8ybzjqjmjjrcchrgw9sb6uf",
     "Labels": {
       "bitcoin": {
         "Name Tag": "MT Gox Hacker",
@@ -146,7 +146,7 @@
     "Address": "bc1qcardnx2pjnh0ce0rsdkce2yxxr9v6pt9a6qya3",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Kraken Cold wallet",
+        "Name Tag": "Kraken Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/kraken.png"
@@ -168,7 +168,7 @@
     "Address": "bc1q7ydrtdn8z62xhslqyqtyt38mm4e2c4h3mxjkug",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "UK - Governmemt",
+        "Name Tag": "UK - Government",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/uk.png"
@@ -179,7 +179,7 @@
     "Address": "bc1qk4m9zv5tnxf2pddd565wugsjrkqkfn90aa0wypj2530f4f7tjwrqntpens",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Bitmex Cold Walet",
+        "Name Tag": "Bitmex Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/bitmex.png"
@@ -190,7 +190,7 @@
     "Address": "1pzaqw98perfyhypfqyegg5yycjrsenre7",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "BInance Cold Wallet",
+        "Name Tag": "Binance Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/binance.png"
@@ -223,7 +223,7 @@
     "Address": "bc1qnad7erjflzm38d8p820hday79v90d09sc4gdly",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Kraken Cold wallet",
+        "Name Tag": "Kraken Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/kraken.png"
@@ -234,7 +234,7 @@
     "Address": "bc1qlt5nm3kflne7rht4alsnzdzad878ld5rcu4na0",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Crypto.com Cold wallet",
+        "Name Tag": "Crypto.com Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/crypto.png"
@@ -245,7 +245,7 @@
     "Address": "3fm9vdysn2iumpkwjacqgyahdwdruxhbj3",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "VanEck wallet",
+        "Name Tag": "VanEck Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/vaneck.png"
@@ -256,7 +256,7 @@
     "Address": "bc1qchctnvmdva5z9vrpxkkxck64v7nmzdtyxsrq64",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "BitMex Cold wallet",
+        "Name Tag": "Bitmex Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/bitmex.png"
@@ -267,7 +267,7 @@
     "Address": "1cntkwbb4grh8xtb8mhoz6armne9phgza8",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Upbit Cold wallet",
+        "Name Tag": "Upbit Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/upbit.png"
@@ -289,7 +289,7 @@
     "Address": "bc1q4vxn43l44h30nkluqfxd9eckf45vr2awz38lwa",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "UK. Government",
+        "Name Tag": "UK - Government",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/government.png"
@@ -300,7 +300,7 @@
     "Address": "bc1q32lyrhp9zpww22phqjwwmelta0c8a5q990ghs6",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Ceffu wallet",
+        "Name Tag": "Ceffu Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/ceffu.png"
@@ -322,7 +322,7 @@
     "Address": "bc1qcv8h9hp5w8c4qpze0a4tdxw6qjtvg8yps23k0g3aymxx7jlesv4q4t6f65",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Kraken Cold wallet",
+        "Name Tag": "Kraken Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/kraken.png"
@@ -333,7 +333,7 @@
     "Address": "1dcoajjmcex8ycf8h9qbzdundo2cxawxfe",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "MT Gox Cold wallet",
+        "Name Tag": "MT Gox Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/mtgox.png"
@@ -344,7 +344,7 @@
     "Address": "1q8qr5k32heximqnr6kj6fmmjn5fmwhdv9",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Binance Pool wallet",
+        "Name Tag": "Binance Pool Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/binance.png"
@@ -417,17 +417,6 @@
       }
     }
   },
-  "trump media & technology group corp": {
-    "Address": "trump media & technology group corp",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Trump Media & Technology Group Corp",
-        "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
-        "Subcategory": "Corporate",
-        "image": "/icons/trump.png"
-      }
-    }
-  },
   "metaplanet inc.": {
     "Address": "metaplanet inc.",
     "Labels": {
@@ -483,28 +472,6 @@
       }
     }
   },
-  "3mgeafwu1hksnz5zs8qf61zw18xrp5pgd": {
-    "Address": "3mgeafwu1hksnz5zs8qf61zw18xrp5pgd",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Gemini Cold Wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/gemini.png"
-      }
-    }
-  },
-  "3lquu4v9z6knch71j7kbj8gpeagu1fw6a": {
-    "Address": "3lquu4v9z6knch71j7kbj8gpeagu1fw6a",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Binance Cold Wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/binance.png"
-      }
-    }
-  },
   "bc1qzwhw94uldd3c8736lsxrda6t6x56030f8zk8nr": {
     "Address": "bc1qzwhw94uldd3c8736lsxrda6t6x56030f8zk8nr",
     "Labels": {
@@ -531,29 +498,29 @@
     "Address": "bc1qx85mcrg3cm38vksg4re035nujrldgpppqnurrg",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Kraken Cold wallet",
+        "Name Tag": "Kraken Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/kraken.png"
       }
     }
   },
-  "3fuhqlprn9s9mr3bzzr5da7mw75fuahsaU": {
-    "Address": "3fuhqlprn9s9mr3bzzr5da7mw75fuahsaU",
+  "3fuhqlprn9s9mr3bzzr5da7mw75fuahsau": {
+    "Address": "3fuhqlprn9s9mr3bzzr5da7mw75fuahsau",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Bitthumb Hot Wallet",
+        "Name Tag": "Bithumb Hot Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/bitthumb.png"
+        "image": "/icons/bithumb.png"
       }
     }
   },
-  "1n7jwmv63mkm dsyzbnuvhbeydqfcq1u8yp": {
-    "Address": "1n7jwmv63mkm dsyzbnuvhbeydqfcq1u8yp",
+  "1n7jwmv63mkmdsyzbnuvhbeydqfcq1u8yp": {
+    "Address": "1n7jwmv63mkmdsyzbnuvhbeydqfcq1u8yp",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "MT Gox wallet",
+        "Name Tag": "MT Gox Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/mtgox.png"
@@ -586,7 +553,7 @@
     "Address": "bc1qr4dl5wa7kl8yu792dceg9z5knl2gkn220lk7a9",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Crypto.com Cold wallet",
+        "Name Tag": "Crypto.com Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/crypto.png"
@@ -637,8 +604,8 @@
       }
     }
   },
-  "34hphyiyqwg69gfmCq2bghjf1dznznbebp": {
-    "Address": "34hphyiyqwg69gfmCq2bghjf1dznznbebp",
+  "34hphyiyqwg69gfmcq2bghjf1dznznbebp": {
+    "Address": "34hphyiyqwg69gfmcq2bghjf1dznznbebp",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Binance Cold Wallet",
@@ -670,28 +637,6 @@
       }
     }
   },
-  "1dcoajjmcexsycf8h9qbzdundo2cxawxfe": {
-    "Address": "1dcoajjmcexsycf8h9qbzdundo2cxawxfe",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "MT Gox Cold wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/mtgox.png"
-      }
-    }
-  },
-  "1q8qr5k32heximqnr6kj6fmmjn5fmwhdv9": {
-    "Address": "1q8qr5k32heximqnr6kj6fmmjn5fmwhdv9",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Binance Pool wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/binance.png"
-      }
-    }
-  },
   "1dzsflrdfbmqm99xm59au2srty3ymcibsb": {
     "Address": "1dzsflrdfbmqm99xm59au2srty3ymcibsb",
     "Labels": {
@@ -714,7 +659,7 @@
       }
     }
   },
-  "12hnxixee Kuvjqrbmvtytsgwnzhd5ld gct": {
+  "12hnxixeekuvjqrbmvtytsgwnzhd5ldgct": {
     "Address": "12hnxixeekuvjqrbmvtytsgwnzhd5ldgct",
     "Labels": {
       "bitcoin": {
@@ -758,8 +703,8 @@
       }
     }
   },
-  "1nhjguju8rrtwps4vopsdtqqcK4nawdlwj": {
-    "Address": "1nhjguju8rrtwps4vopsdtqqcK4nawdlwj",
+  "1nhjguju8rrtwps4vopsdtqqck4nawdlwj": {
+    "Address": "1nhjguju8rrtwps4vopsdtqqck4nawdlwj",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Upbit Cold Wallet",
@@ -868,80 +813,14 @@
       }
     }
   },
-  "1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF": {
-    "Address": "1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "MT Gox Hacker",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/mtgox.png"
-      }
-    }
-  },
-  "3MgEAFWu1HKSnZ5ZsC8qf61ZW18xrP5pgd": {
-    "Address": "3MgEAFWu1HKSnZ5ZsC8qf61ZW18xrP5pgd",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Gemini Cold Wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/gemini.png"
-      }
-    }
-  },
-  "3LQUu4v9z6KNch71j7kbj8GPeAGUo1FW6a": {
-    "Address": "3LQUu4v9z6KNch71j7kbj8GPeAGUo1FW6a",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Binance Cold Wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/binance.png"
-      }
-    }
-  },
   "bc1qjfyk39gshlamzfedthz74sx296xyjn4u2xr00phgjsmduppezsyqulgqg7": {
     "Address": "bc1qjfyk39gshlamzfedthz74sx296xyjn4u2xr00phgjsmduppezsyqulgqg7",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Kraken Cold wallet",
+        "Name Tag": "Kraken Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/kraken.png"
-      }
-    }
-  },
-  "3JZq4atUahhuA9rLhXLMhhTo133J9rF97j": {
-    "Address": "3JZq4atUahhuA9rLhXLMhhTo133J9rF97j",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Bitfinex Cold Wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/bitfinex.png"
-      }
-    }
-  },
-  "3FuhQLprN9s9MR3bZzR5da7mw75fuahsaU": {
-    "Address": "3FuhQLprN9s9MR3bZzR5da7mw75fuahsaU",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Bithunb Cold Wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/bithumb.png"
-      }
-    }
-  },
-  "1N7jWmv63mkMdsYzbNUVHbEYDQfcq1u8Yp": {
-    "Address": "1N7jWmv63mkMdsYzbNUVHbEYDQfcq1u8Yp",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "MT Gox wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/mtgox.png"
       }
     }
   },
@@ -949,21 +828,10 @@
     "Address": "bc1qxu4nfkdf8a97mey8ke3npg3aggvskvvcdgndnvxn5upv7jypxdgs3mhvvy",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Kraken Cold wallet",
+        "Name Tag": "Kraken Cold Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
         "image": "/icons/kraken.png"
-      }
-    }
-  },
-  "1NhJGUJu8rrTwPS4vopsdTqqcK4nAwdLwJ": {
-    "Address": "1NhJGUJu8rrTwPS4vopsdTqqcK4nAwdLwJ",
-    "Labels": {
-      "bitcoin": {
-        "Name Tag": "Upbit Cold Wallet",
-        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
-        "Subcategory": "Others",
-        "image": "/icons/upbit.png"
       }
     }
   }

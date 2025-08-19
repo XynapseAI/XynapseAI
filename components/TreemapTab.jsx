@@ -38,7 +38,7 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
 
   return (
     <div
-      className={`relative flex items-center justify-center p-2 rounded-xl border border-white/20 bg-black/40 backdrop-blur-md transition-all duration-300 cursor-pointer group ${isRoot ? 'w-[160px] max-w-[160px] shadow-neon-sm' : 'w-[100px]'
+      className={`relative flex items-center justify-center p-2 rounded-xl border border-white/20 bg-black/40 transition-all duration-300 cursor-pointer group ${isRoot ? 'w-[160px] max-w-[160px]' : 'w-[100px]'
         }`}
       onClick={() => onSelect(address)}
     >
@@ -66,7 +66,7 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
       <p className="text-white text-[9px] sm:text-[10px] font-medium text-center truncate mr-2" title={displayName}>
         {displayName}
       </p>
-      <div className="absolute hidden group-hover:block bg-black/80 backdrop-blur-lg border border-white/10 text-white/80 text-[9px] sm:text-[10px] py-2 px-3 rounded-xl shadow-neon-sm z-50 -top-20 sm:-top-24 left-1/2 -translate-x-1/2 w-56 sm:w-64 font-jetbrains transition-all duration-300">
+      <div className="absolute hidden group-hover:block bg-black/80 border border-white/10 text-white/80 text-[9px] sm:text-[10px] py-2 px-3 rounded-xl z-50 -top-20 sm:-top-24 left-1/2 -translate-x-1/2 w-56 sm:w-64 font-jetbrains transition-all duration-300">
         <div className="flex items-center gap-2 mb-2">
           {image && (
             <img
@@ -597,7 +597,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           <div className="relative" ref={chainDropdownRef}>
             <motion.button
               onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-              className="text-white px-2 sm:px-3 py-1 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
+              className="text-white px-2 sm:px-3 py-1 rounded-xl border border-white/10 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               aria-label="Select chain"
@@ -617,7 +617,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               <span>{isChainDropdownOpen ? '▲' : '▼'}</span>
             </motion.button>
             {isChainDropdownOpen && (
-              <div className="absolute z-20 bg-white/5 backdrop-blur-md rounded-xl mt-1 w-56 max-h-72 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-sm">
+              <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-56 max-h-72 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-sm">
                 {mappedChains.length === 0 ? (
                   <div className="px-2 sm:px-3 py-1 text-white/60 text-[9px] sm:text-[10px]">No supported chains available</div>
                 ) : (
@@ -667,7 +667,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                               className="opacity-80"
                               loading="lazy"
                             />
-                            <span className="absolute hidden group-hover:block bg-white/5 backdrop-blur-md border border-white/10 text-white/80 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
+                            <span className="absolute hidden group-hover:block bg-white/5 border border-white/10 text-white/80 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
                               Premium required
                             </span>
                           </span>
@@ -681,7 +681,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           <div className="relative" ref={limitDropdownRef}>
             <motion.button
               onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
-              className="text-white px-2 sm:px-3 py-1 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
+              className="text-white px-2 sm:px-3 py-1 rounded-xl border border-white/10 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               aria-label="Select transaction limit"
@@ -690,7 +690,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               <span>{isLimitDropdownOpen ? '▲' : '▼'}</span>
             </motion.button>
             {isLimitDropdownOpen && (
-              <div className="absolute z-20 bg-white/5 backdrop-blur-md rounded-xl mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-sm">
+              <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-sm">
                 {[100, 200, 300, 500].map((limit) => (
                   <motion.button
                     key={limit}
@@ -724,7 +724,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                           className="opacity-80"
                           loading="lazy"
                         />
-                        <span className="absolute hidden group-hover:block bg-white/5 backdrop-blur-md border border-white/10 text-white/80 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
+                        <span className="absolute hidden group-hover:block bg-white/5 border border-white/10 text-white/80 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
                           Premium required
                         </span>
                       </span>
@@ -740,7 +740,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               placeholder="Search wallet (0x...)"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
-              className="bg-white/5 backdrop-blur-md text-white px-2 sm:px-3 py-1 rounded-xl text-[9px] sm:text-[10px] w-full sm:w-64 border border-white/10 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 pr-8"
+              className="bg-white/5 text-white px-2 sm:px-3 py-1 rounded-xl text-[9px] sm:text-[10px] w-full sm:w-64 border border-white/10 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 pr-8"
               aria-label="Wallet address"
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && (
@@ -780,14 +780,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl shadow-neon-sm"
+          className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3 bg-white/5 border border-white/10 rounded-xl shadow-neon-sm"
         >
           <p className="mb-1">No transactions found for this address on {mappedChains.find((c) => c.value === selectedChain)?.label || selectedChain}.</p>
           <p>Please verify the wallet address or try a different chain.</p>
         </motion.div>
       )}
       {walletInfo.address && (
-        <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden bg-white/5 backdrop-blur-md border border-white/10 rounded-xl shadow-neon-sm">
+        <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden">
           <div className="flex gap-2 mb-2 mt-2 justify-center">
             <motion.button
               onClick={() => {

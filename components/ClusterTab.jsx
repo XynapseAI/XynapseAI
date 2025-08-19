@@ -559,7 +559,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           <SkeletonLoader count={5} isMobile={isMobile} />
         ) : Object.keys(groupedPortfolio).length > 0 ? (
           <table className="w-full text-[8px] sm:text-[10px]">
-            <thead className="border-b border-white/10 bg-white/5">
+            <thead className="border-b border-white/10 bg-black/5">
               <tr>
                 <th className="px-2 py-1 text-white text-left font-semibold ml-2 m-1">Token</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Chain</th>
@@ -627,7 +627,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                         transition={{ duration: 0.3 }}
                       >
                         <td colSpan={5} className="p-0">
-                          <table className="w-full text-[8px] sm:text-[10px] bg-white/5">
+                          <table className="w-full text-[8px] sm:text-[10px] bg-black/5">
                             <thead>
                               <tr className="border-b border-white/10">
                                 <th className="px-4 py-1 text-white text-left font-semibold">Chain</th>
@@ -684,7 +684,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           <SkeletonLoader count={5} isMobile={isMobile} />
         ) : walletData.length > 0 ? (
           <table className="w-full text-[8px] sm:text-[10px]">
-            <thead className="border-b border-white/10 bg-white/5">
+            <thead className="border-b border-white/10 bg-black/5">
               <tr>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Wallet Address</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Name Tag</th>
