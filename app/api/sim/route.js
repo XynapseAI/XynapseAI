@@ -111,7 +111,7 @@ const CHAIN_ID_MAP = {
 
 const LIMIT_CONFIG = {
   "top-holders": 100,
-  "wallet-balances": 4000,
+  "wallet-balances": 2000,
   transactions: 500,
   collectibles: 200,
 };
@@ -325,84 +325,69 @@ export async function POST(request) {
             if (isEVMAddress) {
               let allBalances = [];
               let missingImportantTokens = [...IMPORTANT_TOKENS];
+              const allChainIds = Object.values(CHAIN_ID_MAP).join(",");
 
-              // Prioritize Ethereum for USDT, USDC, WBTC, ETH
-              const priorityChains = ["1"]; // Ethereum
-              const otherChains = Object.values(CHAIN_ID_MAP).filter((id) => id !== "1").join(",");
-              const chainParams = [
-                `chain_ids=${priorityChains.join(",")}`,
-                `chain_ids=${otherChains}`,
-              ];
+              // Step 1: Fetch all native tokens first
+              let nextOffsetNative = null;
+              do {
+                const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${allChainIds}&metadata=logo&limit=1000${nextOffsetNative ? `&offset=${nextOffsetNative}` : ''}&filters=native`;
+                logger.info(`Calling Dune Sim API (Native): ${url}`, { ip });
+                const response = await axios.get(url, {
+                  headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
+                  timeout: 15000,
+                });
 
-              for (const chainParam of chainParams) {
-                // Fetch ERC20 tokens
-                let nextOffsetErc20 = null;
-                do {
-                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?${chainParam}&metadata=logo&limit=1000${nextOffsetErc20 ? `&offset=${nextOffsetErc20}` : ''}&filters=erc20`;
-                  logger.info(`Calling Dune Sim API (ERC20): ${url}`, { ip });
-                  const response = await axios.get(url, {
-                    headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
-                    timeout: 15000,
+                logger.info(
+                  `Wallet balances (Native) response for address ${address}: ${response.data.balances?.length || 0} tokens, time: ${Date.now() - startTime}ms`,
+                  { ip },
+                );
+
+                const balances = response.data.balances || [];
+                allBalances.push(...balances);
+
+                // Check for important native tokens
+                missingImportantTokens = missingImportantTokens.filter((importantToken) => {
+                  if (importantToken.address !== "native") return true;
+                  return !balances.some((balance) => {
+                    const balanceChain = balance.chain?.toLowerCase();
+                    return balanceChain === importantToken.chain && balance.address === "native";
                   });
+                });
 
-                  logger.info(
-                    `Wallet balances (ERC20) response for address ${address}: ${response.data.balances?.length || 0} tokens, time: ${Date.now() - startTime}ms`,
-                    { ip },
-                  );
+                nextOffsetNative = response.data.next_offset || null;
+              } while (nextOffsetNative && missingImportantTokens.some((token) => token.address === "native"));
 
-                  const balances = response.data.balances || [];
-                  allBalances.push(...balances);
+              // Step 2: Fetch ERC20 tokens after all native tokens are retrieved
+              let nextOffsetErc20 = null;
+              do {
+                const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${allChainIds}&metadata=logo&limit=1000${nextOffsetErc20 ? `&offset=${nextOffsetErc20}` : ''}&filters=erc20`;
+                logger.info(`Calling Dune Sim API (ERC20): ${url}`, { ip });
+                const response = await axios.get(url, {
+                  headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
+                  timeout: 15000,
+                });
 
-                  // Log USDT presence
-                  const hasUSDT = balances.some((balance) =>
-                    balance.chain === "ethereum" && balance.address.toLowerCase() === "0xdac17f958d2ee523a2206206994597c13d831ec7"
-                  );
-                  logger.info(`USDT found in response: ${hasUSDT}`, { ip });
+                logger.info(
+                  `Wallet balances (ERC20) response for address ${address}: ${response.data.balances?.length || 0} tokens, time: ${Date.now() - startTime}ms`,
+                  { ip },
+                );
 
-                  // Check for important ERC20 tokens
-                  missingImportantTokens = missingImportantTokens.filter((importantToken) => {
-                    if (importantToken.address === "native") return true;
-                    return !balances.some((balance) => {
-                      const balanceChain = balance.chain?.toLowerCase();
-                      const balanceAddress = balance.address?.toLowerCase();
-                      const importantTokenAddress = importantToken.address.toLowerCase();
-                      return balanceChain === importantToken.chain && balanceAddress === importantTokenAddress;
-                    });
+                const balances = response.data.balances || [];
+                allBalances.push(...balances);
+
+                // Check for important ERC20 tokens
+                missingImportantTokens = missingImportantTokens.filter((importantToken) => {
+                  if (importantToken.address === "native") return true;
+                  return !balances.some((balance) => {
+                    const balanceChain = balance.chain?.toLowerCase();
+                    const balanceAddress = balance.address?.toLowerCase();
+                    const importantTokenAddress = importantToken.address.toLowerCase();
+                    return balanceChain === importantToken.chain && balanceAddress === importantTokenAddress;
                   });
+                });
 
-                  nextOffsetErc20 = response.data.next_offset || null;
-                } while (nextOffsetErc20 && missingImportantTokens.some((token) => token.address !== "native"));
-
-                // Fetch native tokens
-                let nextOffsetNative = null;
-                do {
-                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?${chainParam}&metadata=logo&limit=1000${nextOffsetNative ? `&offset=${nextOffsetNative}` : ''}&filters=native`;
-                  logger.info(`Calling Dune Sim API (Native): ${url}`, { ip });
-                  const response = await axios.get(url, {
-                    headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
-                    timeout: 15000,
-                  });
-
-                  logger.info(
-                    `Wallet balances (Native) response for address ${address}: ${response.data.balances?.length || 0} tokens, time: ${Date.now() - startTime}ms`,
-                    { ip },
-                  );
-
-                  const balances = response.data.balances || [];
-                  allBalances.push(...balances);
-
-                  // Check for important native tokens
-                  missingImportantTokens = missingImportantTokens.filter((importantToken) => {
-                    if (importantToken.address !== "native") return true;
-                    return !balances.some((balance) => {
-                      const balanceChain = balance.chain?.toLowerCase();
-                      return balanceChain === importantToken.chain && balance.address === "native";
-                    });
-                  });
-
-                  nextOffsetNative = response.data.next_offset || null;
-                } while (nextOffsetNative && missingImportantTokens.some((token) => token.address === "native"));
-              }
+                nextOffsetErc20 = response.data.next_offset || null;
+              } while (nextOffsetErc20 && missingImportantTokens.some((token) => token.address !== "native"));
 
               // Remove duplicates based on chain and address
               const uniqueBalances = [];
@@ -419,21 +404,36 @@ export async function POST(request) {
               data = await Promise.all(
                 uniqueBalances.map(async (balance) => {
                   let logo = balance.token_metadata?.logo || null;
+                  if (balance.address === "native") {
+                    logo = NATIVE_TOKEN_METADATA[balance.chain]?.logo || logo;
+                  }
                   return {
                     chain: balance.chain,
                     chain_id: balance.chain_id,
                     address: balance.address,
-                    symbol: balance.symbol || "Unknown",
+                    symbol: balance.symbol || NATIVE_TOKEN_METADATA[balance.chain]?.symbol || "Unknown",
                     decimals: balance.decimals || 18,
                     amount: Number(balance.amount) / Math.pow(10, balance.decimals || 18),
                     price_usd: balance.price_usd || 0,
                     value_usd: balance.value_usd || 0,
                     logo,
                     low_liquidity: balance.low_liquidity || false,
-                    name: balance.name || "Unknown",
+                    name: balance.name || NATIVE_TOKEN_METADATA[balance.chain]?.name || "Unknown",
                   };
                 }),
               );
+
+              // Apply minValueUsd filter if provided
+              if (minValueUsd) {
+                data = data.filter((balance) => balance.value_usd >= minValueUsd);
+              }
+
+              // Sort to prioritize native tokens first
+              data.sort((a, b) => {
+                const aIsNative = a.address === "native" ? -1 : 1;
+                const bIsNative = b.address === "native" ? -1 : 1;
+                return aIsNative - bIsNative;
+              });
 
               // Apply user-specified limit
               if (effectiveLimit < data.length) {
