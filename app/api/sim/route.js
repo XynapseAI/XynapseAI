@@ -400,14 +400,14 @@ export async function POST(request) {
                 }
               }
 
-              // Process balances
+              // Process balances and filter out fake tokens
               data = await Promise.all(
                 uniqueBalances.map(async (balance) => {
                   let logo = balance.token_metadata?.logo || null;
                   if (balance.address === "native") {
                     logo = NATIVE_TOKEN_METADATA[balance.chain]?.logo || logo;
                   }
-                  return {
+                  const processedBalance = {
                     chain: balance.chain,
                     chain_id: balance.chain_id,
                     address: balance.address,
@@ -420,8 +420,30 @@ export async function POST(request) {
                     low_liquidity: balance.low_liquidity || false,
                     name: balance.name || NATIVE_TOKEN_METADATA[balance.chain]?.name || "Unknown",
                   };
+
+                  // Check if token is in IMPORTANT_TOKENS
+                  const isImportantToken = IMPORTANT_TOKENS.some(
+                    (token) =>
+                      token.chain === balance.chain &&
+                      (token.address === "native" ? balance.address === "native" : token.address.toLowerCase() === balance.address.toLowerCase())
+                  );
+
+                  // Filter out tokens with value_usd === 0 (unless important) or value_usd > 100,000,000,000
+                  if (processedBalance.value_usd > 100_000_000_000) {
+                    logger.info(`Filtered out token with excessive value_usd: ${processedBalance.symbol} on ${processedBalance.chain}, value_usd: ${processedBalance.value_usd}`, { ip });
+                    return null;
+                  }
+                  if (processedBalance.value_usd === 0 && !isImportantToken) {
+                    logger.info(`Filtered out token with zero value_usd: ${processedBalance.symbol} on ${processedBalance.chain}`, { ip });
+                    return null;
+                  }
+
+                  return processedBalance;
                 }),
               );
+
+              // Remove null entries (filtered tokens)
+              data = data.filter((balance) => balance !== null);
 
               // Apply minValueUsd filter if provided
               if (minValueUsd) {
@@ -440,12 +462,12 @@ export async function POST(request) {
                 data = data.slice(0, effectiveLimit);
               }
 
-              logger.info(`Processed wallet balances data: ${data.length} tokens after processing`, { ip });
+              logger.info(`Processed wallet balances data: ${data.length} tokens after processing and filtering`, { ip });
               controller.enqueue(JSON.stringify({ success: true, data }));
               controller.close();
               return;
             } else {
-              // SVM balances (unchanged from original)
+              // SVM balances
               const chainParam = `chains=${SUPPORTED_SVM_CHAINS.join(",")}`;
               const url = `https://api.sim.dune.com/beta/svm/balances/${address}?${chainParam}&limit=${effectiveLimit}`;
               logger.info(`Calling Dune Sim API: ${url}`, { ip });
@@ -468,7 +490,7 @@ export async function POST(request) {
                     const imageUrl = await fetchImageUrl(logo, ip);
                     logo = imageUrl;
                   }
-                  return {
+                  const processedBalance = {
                     chain: balance.chain,
                     chain_id: balance.chain_id || balance.chain,
                     address: balance.address,
@@ -481,10 +503,40 @@ export async function POST(request) {
                     low_liquidity: balance.low_liquidity || false,
                     name: balance.name || "Unknown",
                   };
+
+                  // Check if token is in IMPORTANT_TOKENS (for SVM, only native tokens are relevant)
+                  const isImportantToken = IMPORTANT_TOKENS.some(
+                    (token) => token.chain === balance.chain && token.address === "native" && balance.address === "native"
+                  );
+
+                  // Filter out tokens with value_usd === 0 (unless important) or value_usd > 100,000,000,000
+                  if (processedBalance.value_usd > 100_000_000_000) {
+                    logger.info(`Filtered out token with excessive value_usd: ${processedBalance.symbol} on ${processedBalance.chain}, value_usd: ${processedBalance.value_usd}`, { ip });
+                    return null;
+                  }
+                  if (processedBalance.value_usd === 0 && !isImportantToken) {
+                    logger.info(`Filtered out token with zero value_usd: ${processedBalance.symbol} on ${processedBalance.chain}`, { ip });
+                    return null;
+                  }
+
+                  return processedBalance;
                 }) || [],
               );
 
-              logger.info(`Processed wallet balances data: ${data.length} tokens after processing`, { ip });
+              // Remove null entries (filtered tokens)
+              data = data.filter((balance) => balance !== null);
+
+              // Apply minValueUsd filter if provided
+              if (minValueUsd) {
+                data = data.filter((balance) => balance.value_usd >= minValueUsd);
+              }
+
+              // Apply user-specified limit
+              if (effectiveLimit < data.length) {
+                data = data.slice(0, effectiveLimit);
+              }
+
+              logger.info(`Processed wallet balances data: ${data.length} tokens after processing and filtering`, { ip });
               controller.enqueue(JSON.stringify({ success: true, data }));
               controller.close();
               return;
