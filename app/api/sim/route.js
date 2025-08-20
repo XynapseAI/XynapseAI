@@ -139,7 +139,7 @@ const CHAIN_ID_MAP = {
 
 const LIMIT_CONFIG = {
   "top-holders": 100,
-  "wallet-balances": 1000,
+  "wallet-balances": 1500,
   transactions: 500,
   collectibles: 200,
 };
@@ -366,7 +366,7 @@ export async function POST(request) {
                 // Fetch ERC20 tokens
                 let nextOffsetErc20 = null;
                 do {
-                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?${chainParam}&metadata=logo&limit=1000${nextOffsetErc20 ? `&offset=${nextOffsetErc20}` : ''}&filters=erc20`;
+                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?${chainParam}&metadata=logo&limit=500${nextOffsetErc20 ? `&offset=${nextOffsetErc20}` : ''}&filters=erc20`;
                   logger.info(`Calling Dune Sim API (ERC20): ${url}`, { ip });
                   const response = await axios.get(url, {
                     headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
@@ -404,7 +404,7 @@ export async function POST(request) {
                 // Fetch native tokens
                 let nextOffsetNative = null;
                 do {
-                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?${chainParam}&metadata=logo&limit=1000${nextOffsetNative ? `&offset=${nextOffsetNative}` : ''}&filters=native`;
+                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?${chainParam}&metadata=logo&limit=500${nextOffsetNative ? `&offset=${nextOffsetNative}` : ''}&filters=native`;
                   logger.info(`Calling Dune Sim API (Native): ${url}`, { ip });
                   const response = await axios.get(url, {
                     headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
