@@ -54,8 +54,8 @@ const CACHE_DURATIONS = {
   PRICE: 5 * 60 * 1000, // 2 phút
   METADATA: 4 * 60 * 60 * 1000, // 4 giờ
   TRANSACTIONS: 2 * 60 * 1000, // 2m
-  DEFI_POOL: 15 * 60 * 1000, // 30 giây
-  DEFAULT: 5 * 60 * 1000, // 5 phút
+  DEFI_POOL: 4 * 60 * 60 * 1000, // 30 giây
+  DEFAULT: 4 * 60 * 60 * 1000, // 5 phút
   TICKERS: 60 * 60 * 1000, // 1 giờ (tăng từ 30 phút)
   TRENDING: 5 * 60 * 60 * 1000, // 1 giờ (tăng từ 30 phút)
   NAMETAGS: 48 * 60 * 60 * 1000, // 24 giờ

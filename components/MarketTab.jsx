@@ -1301,7 +1301,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       whileHover={{ scale: selectedToken && dailyMarketInteractions < 5 ? 1.05 : 1 }}
                       whileTap={{ scale: selectedToken && dailyMarketInteractions < 5 ? 0.95 : 1 }}
                     >
-                      Analyze Token
+                      Analyze
                     </motion.button>
                     <motion.button
                       onClick={debouncedHandlePrediction}
@@ -1314,7 +1314,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       whileHover={{ scale: selectedToken && dailyMarketInteractions < 5 ? 1.05 : 1 }}
                       whileTap={{ scale: selectedToken && dailyMarketInteractions < 5 ? 0.95 : 1 }}
                     >
-                      Price Prediction
+                      Prediction
                     </motion.button>
                   </div>
                   <div className="flex items-center justify-center gap-2 sm:gap-4 mt-2 sm:mt-6 mb-2 sm:mb-0">
@@ -1366,7 +1366,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               ) : priceHistory && priceHistory.length > 0 ? (
                 <div className="h-48 sm:h-58">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={priceHistory} margin={{ top: 10, right: 15, bottom: 5, left: isMobile ? 0 : 10 }}>
+                    <AreaChart data={priceHistory} margin={{ top: 10, right: 15, bottom: 0, left: isMobile ? 0 : 10 }}>
                       <XAxis dataKey="title" stroke="#FFFFFF" tick={false} hide={true} />
                       <YAxis
                         stroke="#FFFFFF"
@@ -1511,7 +1511,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   )}
 
                   {activeMarketTab === "holders" && (
-                    <div className="flex-1 overflow-y-auto tab-content hide-scrollbar">
+                    <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar">
                       <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} />
                       <div className="flex justify-center items-center p-2 border-b border-white/10 bg-white/5">
                         <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
@@ -1686,7 +1686,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   )}
 
                   {activeMarketTab === "cex" && (
-                    <div className="flex-1 overflow-x-auto overflow-y-auto tab-content hide-scrollbar">
+                    <div className="flex-1 overflow-x-auto overflow-y-auto tab-content custom-scrollbar hide-scrollbar">
                       <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} />
                       {tickerError ? (
                         <div className="text-[10px] sm:text-xs text-center p-6">
@@ -1868,7 +1868,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                   {/* DEX Tab */}
                   {activeMarketTab === "dex" && (
-                    <div className="flex-1 overflow-y-auto tab-content hide-scrollbar">
+                    <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar">
                       <LoadingOverlay isLoading={isLoadingDex && !dexData.trades?.length} isMobile={isMobile} />
                       {dexError ? (
                         <div className="text-[10px] text-xs text-center p-6">

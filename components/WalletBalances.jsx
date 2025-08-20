@@ -44,6 +44,34 @@ const WalletBalances = ({
   const walletBalancesRef = useRef(null);
   const [activeTab, setActiveTab] = useState('portfolio');
 
+  // Log sorted balances to verify USDT position
+  useEffect(() => {
+    if (!walletAddress || !balances) return;
+    const validBalances = balances.filter((balance) =>
+      isValidToken({ image: balance.logo, symbol: balance.symbol })
+    );
+    const sortedBalances = [...validBalances].sort((a, b) => {
+      const valueA = Number(a.value_usd) || 0;
+      const valueB = Number(b.value_usd) || 0;
+      return valueB - valueA; // Descending order
+    });
+    logger.log('Sorted wallet balances:', {
+      walletAddress,
+      topBalances: sortedBalances.slice(0, 5).map((b) => ({
+        symbol: b.symbol,
+        value_usd: b.value_usd,
+        chain: b.chain,
+        address: b.address,
+      })),
+      usdtIncluded: sortedBalances.some(
+        (b) =>
+          b.symbol === 'USDT' &&
+          b.address.toLowerCase() === '0xdac17f958d2ee523a2206206994597c13d831ec7' &&
+          b.chain === 'ethereum'
+      ),
+    });
+  }, [walletAddress, balances]);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (walletBalancesRef.current && !walletBalancesRef.current.contains(event.target)) {
@@ -153,6 +181,13 @@ const WalletBalances = ({
   const validBalances = balances?.filter((balance) =>
     isValidToken({ image: balance.logo, symbol: balance.symbol })
   ) || [];
+
+  // Sort balances by value_usd in descending order
+  const sortedBalances = [...validBalances].sort((a, b) => {
+    const valueA = Number(a.value_usd) || 0;
+    const valueB = Number(b.value_usd) || 0;
+    return valueB - valueA; // Descending order
+  });
 
   const validTransactions = transactions?.filter((tx) =>
     isValidToken({ image: tx.token_metadata?.logo, symbol: tx.token })
@@ -278,7 +313,7 @@ const WalletBalances = ({
                       </div>
                     ))}
                   </div>
-                ) : validBalances.length > 0 ? (
+                ) : sortedBalances.length > 0 ? (
                   <div className="relative overflow-x-auto custom-scrollbar">
                     <LoadingOverlay isLoading={isLoading} isMobile={isMobile} />
                     <table className="w-full text-[8px] sm:text-[10px]">
@@ -290,7 +325,7 @@ const WalletBalances = ({
                         </tr>
                       </thead>
                       <tbody>
-                        {validBalances.map((balance, index) => (
+                        {sortedBalances.map((balance, index) => (
                           <motion.tr
                             key={`${balance.chain}-${balance.address}-${index}`}
                             className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"

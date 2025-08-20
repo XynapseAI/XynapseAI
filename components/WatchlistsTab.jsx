@@ -34,6 +34,18 @@ const NATIVE_TOKEN_INFO = {
   eclipse: { name: 'Eclipse', symbol: 'ETH', logo: '/eclipse-logo.png' },
 };
 
+// Logger for debugging
+const logger = {
+  log: (message, data) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(message, data);
+    }
+  },
+  error: (message, data) => {
+    console.error(message, data);
+  },
+};
+
 const SkeletonLoader = ({ isMobile }) => {
   const skeletonRows = Array(5).fill(null);
   return (
@@ -135,6 +147,37 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
   const stableWatchlists = useMemo(() => watchlists, [watchlists]);
 
+  // Log sorted balances to verify USDT position
+  useEffect(() => {
+    if (!selectedWallet || !balances) return;
+    const validBalances = balances.filter((balance) =>
+      isValidToken({ image: balance.logo, symbol: balance.symbol })
+    );
+    const filteredAndSortedBalances = validBalances
+      .filter((b) => (activeChain === null ? true : b.chain === activeChain))
+      .sort((a, b) => {
+        const valueA = Number(a.value_usd) || 0;
+        const valueB = Number(b.value_usd) || 0;
+        return valueB - valueA; // Descending order
+      });
+    logger.log('Sorted wallet balances in WatchlistsTab:', {
+      walletAddress: selectedWallet.address,
+      activeChain,
+      topBalances: filteredAndSortedBalances.slice(0, 5).map((b) => ({
+        symbol: b.symbol,
+        value_usd: b.value_usd,
+        chain: b.chain,
+        address: b.address,
+      })),
+      usdtIncluded: filteredAndSortedBalances.some(
+        (b) =>
+          b.symbol === 'USDT' &&
+          b.address.toLowerCase() === '0xdac17f958d2ee523a2206206994597c13d831ec7' &&
+          b.chain === 'ethereum'
+      ),
+    });
+  }, [selectedWallet, balances, activeChain]);
+
   const updateUrl = useCallback(
     debounce((address) => {
       if (!address) {
@@ -147,7 +190,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         newParams.set('tab', 'watchlists');
         newParams.set('address', address);
         const url = `/dashboard?${newParams.toString()}`;
-        console.log('Updating URL:', url);
+        logger.log('Updating URL:', { url });
         router.replace(url, { scroll: false });
       }
     }, 300),
@@ -155,27 +198,27 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   );
 
   const handleTabClick = useCallback((tab) => {
-    console.log('Tab clicked:', tab);
+    logger.log('Tab clicked:', { tab });
     setActiveTab(tab);
     setCurrentPage((prev) => ({ ...prev, [tab]: 1 }));
   }, []);
 
   useEffect(() => {
     const addressFromUrl = searchParams.get('address');
-    console.log('useEffect triggered - searchParams:', {
+    logger.log('useEffect triggered - searchParams:', {
       addressFromUrl,
       activeTab,
       selectedWallet: selectedWallet?.address,
     });
 
     if (isUserInitiatedChange) {
-      console.log('Skipping selectedWallet update due to user-initiated change');
+      logger.log('Skipping selectedWallet update due to user-initiated change');
       setIsUserInitiatedChange(false);
       return;
     }
 
     if (addressFromUrl && addressFromUrl === lastSelectedWalletRef.current) {
-      console.log('Skipping selectedWallet update: URL matches last selected wallet');
+      logger.log('Skipping selectedWallet update: URL matches last selected wallet');
       return;
     }
 
@@ -191,7 +234,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         wallet = watchlists[0];
       }
       if (wallet && wallet.address !== selectedWallet?.address) {
-        console.log('Setting selectedWallet from URL or initialAddress:', wallet.address);
+        logger.log('Setting selectedWallet from URL or initialAddress:', { address: wallet.address });
         setSelectedWallet(wallet);
         setActiveChainType(wallet.chainType || 'EVM');
         setBalances([]);
@@ -284,7 +327,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         return cachedData;
       }
     } catch (error) {
-      console.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, error);
+      logger.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, { error });
     }
 
     const payload = {
@@ -309,7 +352,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       try {
         await cacheData(cacheKey, response.data.data);
       } catch (cacheError) {
-        console.warn(`Failed to cache data for ${cacheKey}`, cacheError);
+        logger.warn(`Failed to cache data for ${cacheKey}`, { cacheError });
       }
       return response.data.data;
     } catch (error) {
@@ -395,7 +438,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             continue;
           }
         } catch (error) {
-          console.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, error);
+          logger.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, { error });
         }
         try {
           const payload = {
@@ -426,11 +469,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             try {
               await cacheData(cacheKey, tokenInfo);
             } catch (cacheError) {
-              console.warn(`Failed to cache data for ${cacheKey}`, cacheError);
+              logger.warn(`Failed to cache data for ${cacheKey}`, { cacheError });
             }
           }
         } catch (err) {
-          console.error(`Error fetching token info for ${address} on ${chain}:`, err);
+          logger.error(`Error fetching token info for ${address} on ${chain}:`, { error: err });
           tokenInfoData[address] = [
             {
               chain,
@@ -464,7 +507,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const fetchNameTagsForAddresses = useCallback(
     async (addresses) => {
       if (!addresses || addresses.length === 0) {
-        console.log('No addresses provided for fetchNameTagsForAddresses');
+        logger.log('No addresses provided for fetchNameTagsForAddresses');
         return;
       }
 
@@ -512,7 +555,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             }
           });
         } catch (error) {
-          console.error(`fetchNameTagsForAddresses error:`, {
+          logger.error(`fetchNameTagsForAddresses error:`, {
             status: error.response?.status,
             data: error.response?.data,
             message: error.message,
@@ -535,7 +578,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         }
       } else if (evmAddresses.length > 0) {
-        console.log('Unauthenticated fetchNameTagsForAddresses attempt');
+        logger.log('Unauthenticated fetchNameTagsForAddresses attempt');
         evmAddresses.forEach((address) => {
           const normalizedAddress = address.toLowerCase();
           newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
@@ -551,7 +594,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         ...prev,
         ...newNameTags,
       }));
-      console.log(`Updated nameTags for ${Object.keys(newNameTags).length} addresses`);
+      logger.log(`Updated nameTags for ${Object.keys(newNameTags).length} addresses`);
     },
     [session, status, toast]
   );
@@ -990,24 +1033,18 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   };
 
   const filteredBalances = useMemo(() => {
-    return balances
+    const validBalances = balances
       .filter((b) => {
         if (activeChain === null) return true;
         return b.chain === activeChain;
       })
-      .filter((b) => {
-        const tokenInfoData = tokenInfo[b.address] || [];
-        const tokenDetails = tokenInfoData.find((t) => t.chain === b.chain) || {};
-        const isNative = b.address === 'native' && NATIVE_TOKEN_INFO[b.chain];
-        const hasValidLogo =
-          isNative ||
-          (b.logo && !b.logo.includes('scontent.xx.fbcdn.net') && b.logo !== '/fallback-image.png') ||
-          (tokenDetails.logo &&
-            !tokenDetails.logo.includes('scontent.xx.fbcdn.net') &&
-            tokenDetails.logo !== '/fallback-image.png');
-        return hasValidLogo;
-      });
-  }, [balances, activeChain, tokenInfo]);
+      .filter((b) => isValidToken({ image: b.logo, symbol: b.symbol }));
+    return validBalances.sort((a, b) => {
+      const valueA = Number(a.value_usd) || 0;
+      const valueB = Number(b.value_usd) || 0;
+      return valueB - valueA; // Descending order
+    });
+  }, [balances, activeChain]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
@@ -1149,7 +1186,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         }}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="text-[8px] sm:text-[9px] text-red-400/80 hover:text-red-400"
+                        className="text-[8px] sm:text-[9px] text-red-400/80 hover:text-red-red"
                       >
                         ✕
                       </motion.button>
@@ -1525,8 +1562,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md ${currentPage[activeTab] === getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-neon-blue/20'
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:bg-neon-blue/20'
                         } transition-all duration-300 rounded-xl`}
                     >
                       &gt;
