@@ -107,39 +107,11 @@ const CHAIN_ID_MAP = {
   world: "480",
   zksync: "324",
   zora: "7777777",
-
-  // redstone: "690",
-  // xai: "660279",
-  // zero_network: "543210",
-  // zkevm: "1101",
-  // wemix: "1111",
-  // superseed: "5330",
-  // swellchain: "1923",
-  // sepolia: "11155111",
-  // shape: "360",
-  // proof_of_play: "70700",
-  // rari: "1380012617",
-  // metis: "1088",
-  // mint: "185",
-  // mode: "34443",
-  // omni: "166",
-  // kaia: "8217",
-  // corn: "21000000",
-  // cyber: "7560",
-  // degen: "666666666",
-  // bob: "60808",
-  // boba: "288",
-  // ham: "5112",
-  // hychain: "2911",
-  // flare: "14",
-  // base_sepolia: "84532",
-  // avalanche_fuji: "43113",
-  // arbitrum_nova: "42170",
 };
 
 const LIMIT_CONFIG = {
   "top-holders": 100,
-  "wallet-balances": 1500,
+  "wallet-balances": 3000,
   transactions: 500,
   collectibles: 200,
 };
@@ -366,7 +338,7 @@ export async function POST(request) {
                 // Fetch ERC20 tokens
                 let nextOffsetErc20 = null;
                 do {
-                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?${chainParam}&metadata=logo&limit=500${nextOffsetErc20 ? `&offset=${nextOffsetErc20}` : ''}&filters=erc20`;
+                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?${chainParam}&metadata=logo&limit=1000${nextOffsetErc20 ? `&offset=${nextOffsetErc20}` : ''}&filters=erc20`;
                   logger.info(`Calling Dune Sim API (ERC20): ${url}`, { ip });
                   const response = await axios.get(url, {
                     headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
@@ -404,7 +376,7 @@ export async function POST(request) {
                 // Fetch native tokens
                 let nextOffsetNative = null;
                 do {
-                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?${chainParam}&metadata=logo&limit=500${nextOffsetNative ? `&offset=${nextOffsetNative}` : ''}&filters=native`;
+                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?${chainParam}&metadata=logo&limit=1000${nextOffsetNative ? `&offset=${nextOffsetNative}` : ''}&filters=native`;
                   logger.info(`Calling Dune Sim API (Native): ${url}`, { ip });
                   const response = await axios.get(url, {
                     headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
