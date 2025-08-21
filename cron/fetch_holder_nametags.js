@@ -1,3 +1,4 @@
+// cron/fetch_holder_nametags.js
 import cron from "node-cron";
 import axios from "axios";
 import { Pool } from "pg";
@@ -32,12 +33,12 @@ redisClient.on("error", (err) => console.error("Redis Client Error", err));
 
 // Rate limiters
 const coingeckoLimiter = new Bottleneck({
-  maxConcurrent: 5,
-  minTime: 1200,
+  maxConcurrent: 3,
+  minTime: 2000,
 });
 
 const simLimiter = new Bottleneck({
-  maxConcurrent: 3,
+  maxConcurrent: 1,
   minTime: 2000,
 });
 
@@ -58,7 +59,7 @@ const SUPPORTED_CHAINS = [
   "mantle",
 ];
 
-// Additional chains for nameTag lookup based on public/nametags data
+// Additional chains for nameTag lookup
 const NAME_TAG_CHAINS = ["kyberswap", "uniswap"];
 
 // Non-EVM chains for Blockchair API
@@ -77,25 +78,16 @@ class TokenHoldersCron {
     this.totalTokens = 0;
     this.nameTags = new Map();
     this.nameTagData = new Map();
+    this.holdersWithNameTags = new Map();
   }
 
-  // Map name_tag to simplified name (take first word)
+  // Map name_tag to simplified name (keep original if possible)
   mapNameTagToName(nameTag) {
     if (!nameTag) return null;
     const lowerTag = nameTag.toLowerCase();
-    const mapping = {
-      "gnosis safe proxy": "gnosis",
-      "bybit cold wallet": "bybit",
-      "okx hot wallet": "okx",
-      "chainlink: communitystakingpool": "chainlink",
-      "binance: cold wallet": "binance",
-      "aave ethereum link (aethlink)": "aave",
-    };
-    for (const [key, value] of Object.entries(mapping)) {
-      if (lowerTag.includes(key.toLowerCase())) return value;
-    }
+    // Remove fixed mapping to preserve original name_tag
     const words = lowerTag.split(/[\s:-]+/);
-    return words[0] ? words[0].trim() : null;
+    return words[0] ? words[0].trim() : nameTag; // Use first word or original name_tag
   }
 
   async initialize() {
@@ -148,7 +140,11 @@ class TokenHoldersCron {
               const nameTag = labels[chainKey]?.["Name Tag"] || null;
               const image = labels[chainKey]?.["image"] || null;
               if (nameTag) {
-                this.nameTagData.set(`${chainKey}:${address.toLowerCase()}`, { nameTag, image });
+                // Store with address as key to allow lookup across all chains
+                const key = address.toLowerCase();
+                const existing = this.nameTagData.get(key) || [];
+                existing.push({ chain: chainKey, nameTag, image });
+                this.nameTagData.set(key, existing);
               }
             }
           }
@@ -159,7 +155,7 @@ class TokenHoldersCron {
           });
         }
       }
-      console.log(`✅ Total name tags loaded: ${this.nameTagData.size}`);
+      console.log(`✅ Total addresses with name tags loaded: ${this.nameTagData.size}`);
     } catch (error) {
       console.error("❌ Error reading nametags directory:", {
         message: error.message,
@@ -205,6 +201,22 @@ class TokenHoldersCron {
       );
     `;
 
+    const createWalletHoldersTable = `
+      CREATE TABLE IF NOT EXISTS wallet_holders (
+        id SERIAL PRIMARY KEY,
+        exchange_name VARCHAR(100) NOT NULL,
+        chain VARCHAR(50) NOT NULL,
+        holder_address VARCHAR(255) NOT NULL,
+        total_value_usd DECIMAL(20, 2),
+        token_count INTEGER,
+        metadata JSONB,
+        name_tag VARCHAR(255),
+        image VARCHAR(255),
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(exchange_name, chain, holder_address)
+      );
+    `;
+
     const createIndexes = `
       CREATE INDEX IF NOT EXISTS idx_tokens_coingecko_id ON tokens(coingecko_id);
       CREATE INDEX IF NOT EXISTS idx_holders_token_chain ON token_holders(coingecko_id, chain);
@@ -212,6 +224,8 @@ class TokenHoldersCron {
       CREATE INDEX IF NOT EXISTS idx_holders_name ON token_holders(name);
       CREATE INDEX IF NOT EXISTS idx_holders_image ON token_holders(image);
       CREATE INDEX IF NOT EXISTS idx_holders_updated_at ON token_holders(updated_at);
+      CREATE INDEX IF NOT EXISTS idx_wallet_holders_exchange_name ON wallet_holders(exchange_name);
+      CREATE INDEX IF NOT EXISTS idx_wallet_holders_chain ON wallet_holders(chain);
     `;
 
     try {
@@ -222,6 +236,10 @@ class TokenHoldersCron {
       console.log("📋 Creating token_holders table...");
       await pool.query(createHoldersTable);
       console.log("✅ Token_holders table created or already exists");
+
+      console.log("📋 Creating wallet_holders table...");
+      await pool.query(createWalletHoldersTable);
+      console.log("✅ Wallet_holders table created or already exists");
 
       console.log("📋 Creating indexes...");
       await pool.query(createIndexes);
@@ -244,7 +262,7 @@ class TokenHoldersCron {
           params: {
             vs_currency: "usd",
             order: "market_cap_desc",
-            per_page: 10,
+            per_page: 200,
             page: 1,
             sparkline: false,
             price_change_percentage: "24h",
@@ -374,9 +392,12 @@ class TokenHoldersCron {
           console.error(`❌ Error processing token ${token.coingecko_id}:`, error.message);
         }
 
-        console.log("⏳ Waiting 10 seconds before next token...");
-        await new Promise((resolve) => setTimeout(resolve, 10000));
+        console.log("⏳ Waiting 15 seconds before next token...");
+        await new Promise((resolve) => setTimeout(resolve, 15000)); // Tăng từ 10s lên 15s
       }
+
+      // Process wallet balances for holders with name tags
+      await this.processWalletBalances();
 
       console.log("✅ Token holders processing completed");
     } catch (error) {
@@ -403,7 +424,7 @@ class TokenHoldersCron {
       await this.processTreasuryData(token);
 
       // Fetch holders from Blockchair
-      const chain = token.coingecko_id; // Use coingecko_id as chain (bitcoin or dogecoin)
+      const chain = token.coingecko_id;
       const blockchairHolders = await this.fetchBlockchairHolders(token, chain);
       if (blockchairHolders.length > 0) {
         await this.storeHolders(token, chain, null, blockchairHolders);
@@ -448,7 +469,7 @@ class TokenHoldersCron {
         const holders = response.data.companies
           .map((company, index) => {
             const tagData = company.address
-              ? this.nameTagData.get(`${token.coingecko_id}:${company.address.toLowerCase()}`) || {}
+              ? this.nameTagData.get(company.address.toLowerCase())?.[0] || {}
               : {};
             const nameTag = tagData.nameTag || company.name || null;
             const image = tagData.image || null;
@@ -546,7 +567,7 @@ class TokenHoldersCron {
 
       const holders = response.data.data
         .map((holder, index) => {
-          const tagData = this.nameTagData.get(`${chain}:${holder.address.toLowerCase()}`) || {};
+          const tagData = this.nameTagData.get(holder.address.toLowerCase())?.[0] || {};
           const nameTag = tagData.nameTag || null;
           const image = tagData.image || null;
           if (!nameTag) return null;
@@ -598,143 +619,439 @@ class TokenHoldersCron {
   }
 
   async fetchAndStoreHolders(token, chain, tokenAddress) {
+    const cacheKey = `sim_top_holders:${token.coingecko_id}:${chain}`;
     try {
+      // Kiểm tra cache
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        console.log(`📦 Cache hit for ${token.symbol} on ${chain}`);
+        const holders = JSON.parse(cachedData);
+        if (holders.length > 0) {
+          await this.storeHolders(token, chain, tokenAddress, holders);
+          console.log(`     ✅ Stored ${holders.length} cached holders for ${token.symbol} on ${chain}`);
+        }
+        return;
+      }
+
       const decimals = token.detail_platforms?.[chain]?.decimal_place ?? token.decimals ?? 18;
 
-      const response = await simLimiter.schedule(() =>
-        axios.post(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"}/api/sim`,
-          {
-            action: "top-holders",
-            chain: chain,
-            tokenAddress: tokenAddress,
-            limit: 100,
-            decimalPlace: decimals,
-          },
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: process.env.SIM_API_KEY ? `Bearer ${process.env.SIM_API_KEY}` : undefined,
-            },
-            timeout: 30000,
+      // Thử gọi API với retry logic
+      let attempts = 0;
+      const maxAttempts = 3;
+      while (attempts < maxAttempts) {
+        try {
+          const response = await simLimiter.schedule(() =>
+            axios.post(
+              `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"}/api/sim`,
+              {
+                action: "top-holders",
+                chain: chain,
+                tokenAddress: tokenAddress,
+                limit: 100,
+                decimalPlace: decimals,
+              },
+              {
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: process.env.SIM_API_KEY ? `Bearer ${process.env.SIM_API_KEY}` : undefined,
+                },
+                timeout: 30000,
+              }
+            )
+          );
+
+          console.log(`📡 SIM API response for ${token.symbol} on ${chain}:`, {
+            success: response.data?.success,
+            dataLength: response.data?.data?.length,
+            sample: response.data?.data?.slice(0, 2),
+          });
+
+          if (!response.data?.success || !Array.isArray(response.data.data)) {
+            console.warn(`     ⚠️ No valid holder data for ${token.symbol} on ${chain}`);
+            return;
           }
-        )
-      );
 
-      console.log(`📡 SIM API response for ${token.symbol} on ${chain}:`, {
-        success: response.data?.success,
-        dataLength: response.data?.data?.length,
-        sample: response.data?.data?.slice(0, 2),
-      });
+          const totalSupplyResponse = await coingeckoLimiter.schedule(() =>
+            axios.get(`https://api.coingecko.com/api/v3/coins/${token.coingecko_id}`, {
+              headers: {
+                "x-cg-demo-api-key": process.env.COINGECKO_API_KEY || "",
+              },
+              timeout: 15000,
+            })
+          );
+          const totalSupply = Number.parseFloat(totalSupplyResponse.data.market_data.total_supply) || 0;
+          const priceUsd = Number.parseFloat(totalSupplyResponse.data.market_data.current_price.usd) || 0;
 
-      if (!response.data?.success || !Array.isArray(response.data.data)) {
-        console.warn(`     ⚠️ No valid holder data for ${token.symbol} on ${chain}`);
-        return;
+          const totalHolders = response.data.data.length;
+          const holders = response.data.data
+            .map((holder, index) => {
+              const tagDataArray = this.nameTagData.get(holder.address.toLowerCase()) || [];
+              let nameTag = null;
+              let image = null;
+              let nameTagSource = null;
+
+              for (const tagData of tagDataArray) {
+                if (tagData.nameTag) {
+                  nameTag = tagData.nameTag;
+                  image = tagData.image || null;
+                  nameTagSource = tagData.chain;
+                  break;
+                }
+              }
+
+              console.log(`       ℹ️ NameTag lookup for ${holder.address} on ${chain}:`, {
+                triedChains: tagDataArray.map((tag) => tag.chain),
+                nameTagSource,
+                nameTag,
+                image,
+              });
+
+              if (!nameTag) return null;
+
+              const name = this.mapNameTagToName(nameTag);
+              const calculatedBalance = Number(holder.balance) || 0;
+              const balance_usd = calculatedBalance * priceUsd;
+              const percentage = totalSupply > 0 ? (calculatedBalance / totalSupply) * 100 : 0;
+
+              const holderKey = `${chain}:${holder.address.toLowerCase()}`;
+              this.holdersWithNameTags.set(holderKey, {
+                holder_address: holder.address,
+                exchange_name: name,
+                chain,
+                name_tag: nameTag,
+                image,
+              });
+
+              return {
+                holder_address: holder.address,
+                balance: calculatedBalance,
+                balance_usd: balance_usd,
+                percentage: percentage,
+                name_tag: nameTag,
+                name: name,
+                image: image,
+                rank: index + 1,
+                source: "sim",
+              };
+            })
+            .filter((holder) => holder !== null);
+
+          if (holders.length === 0) {
+            console.log(`     ⚠️ No holders with valid name tags for ${token.symbol} on ${chain} (total holders: ${totalHolders})`);
+            return;
+          }
+
+          console.log(`     ℹ️ Filtered ${holders.length} holders with valid name tags out of ${totalHolders} for ${token.symbol} on ${chain}`);
+
+          // Lưu vào cache với TTL 1 ngày (86400 giây)
+          await redisClient.setEx(cacheKey, 86400, JSON.stringify(holders));
+
+          await this.storeHolders(token, chain, tokenAddress, holders);
+          console.log(`     ✅ Stored ${holders.length} holders for ${token.symbol} on ${chain}`);
+          return;
+        } catch (error) {
+          if (error.response?.status === 429 && attempts < maxAttempts - 1) {
+            const waitTime = (attempts + 1) * 5000; // 5s, 10s, 15s
+            console.warn(`     ⚠️ Rate limit (429) for ${token.symbol} on ${chain}, retrying in ${waitTime}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
+            attempts++;
+            continue;
+          }
+          console.error(`     ❌ Error fetching holders for ${token.symbol} on ${chain}:`, {
+            message: error.message,
+            status: error.response?.status,
+            data: error.response?.data,
+          });
+          if (error.response?.status === 404) {
+            console.log(`     ℹ️ Token not found on ${chain}`);
+          } else {
+            throw error;
+          }
+          return;
+        }
       }
+    } catch (error) {
+      console.error(`     ❌ Failed after retries for ${token.symbol} on ${chain}:`, error.message);
+    }
+  }
 
-      const totalSupplyResponse = await coingeckoLimiter.schedule(() =>
-        axios.get(`https://api.coingecko.com/api/v3/coins/${token.coingecko_id}`, {
-          headers: {
-            "x-cg-demo-api-key": process.env.COINGECKO_API_KEY || "",
-          },
-          timeout: 15000,
-        })
-      );
-      const totalSupply = Number.parseFloat(totalSupplyResponse.data.market_data.total_supply) || 0;
-      const priceUsd = Number.parseFloat(totalSupplyResponse.data.market_data.current_price.usd) || 0;
+  async processWalletBalances() {
+    console.log(`🔄 Processing wallet balances for ${this.holdersWithNameTags.size} holders with name tags...`);
+    const processedWallets = new Set();
 
-      const totalHolders = response.data.data.length;
-      const holders = response.data.data
-        .map((holder, index) => {
-          // Try to lookup nameTag from NAME_TAG_CHAINS (kyberswap, uniswap)
-          let tagData = {};
-          let nameTagSource = null;
+    // Danh sách token quan trọng
+    const IMPORTANT_TOKENS = [
+      { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", chain: "ethereum", decimals: 6 },
+      { address: "0x55d398326f99059ff775485246999027b3197955", symbol: "USDT", chain: "bsc", decimals: 18 },
+      { address: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", symbol: "USDT", chain: "polygon", decimals: 6 },
+      { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", chain: "ethereum", decimals: 6 },
+      { address: "native", symbol: "ETH", chain: "ethereum", decimals: 18 },
+      { address: "0xB8c77482e45F1F44dE1745F52C74426C631bDD52", symbol: "BNB", chain: "bsc", decimals: 18 },
+      { address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", symbol: "WBTC", chain: "ethereum", decimals: 8 },
+    ];
 
-          for (const nameTagChain of NAME_TAG_CHAINS) {
-            tagData = this.nameTagData.get(`${nameTagChain}:${holder.address.toLowerCase()}`) || {};
-            if (tagData.nameTag) {
-              nameTagSource = nameTagChain;
+    // Hàm kiểm tra logo hợp lệ
+    const isValidLogo = (logo) => {
+      if (typeof logo !== "string" || logo === "") return false;
+      return /^\/[a-zA-Z0-9-_]+\.(png|jpg|jpeg|svg|webp)$/.test(logo) || /^https?:\/\/.+/.test(logo);
+    };
+
+    for (const [holderKey, holderData] of this.holdersWithNameTags) {
+      if (processedWallets.has(holderKey)) continue;
+
+      const { holder_address, exchange_name, chain, name_tag, image } = holderData;
+      console.log(`  📡 Fetching wallet balances for ${holder_address} (${exchange_name}) on ${chain}`);
+
+      const cacheKey = `sim_wallet_balances:${holder_address}:${chain}`;
+      try {
+        // Tạm thời bỏ qua cache để kiểm tra dữ liệu tươi
+        // const cachedData = await redisClient.get(cacheKey);
+        // if (cachedData) {
+        //   console.log(`📦 Cache hit for wallet ${holder_address} on ${chain}`);
+        //   const { total_value_usd, token_count, metadata } = JSON.parse(cachedData);
+        //   await this.storeWalletHolders({
+        //     exchange_name,
+        //     chain,
+        //     holder_address,
+        //     total_value_usd,
+        //     token_count,
+        //     metadata,
+        //     name_tag,
+        //     image,
+        //   });
+        //   console.log(`     ✅ Stored cached wallet balances for ${holder_address} (${exchange_name}) on ${chain}`);
+        //   processedWallets.add(holderKey);
+        //   continue;
+        // }
+
+        let allTokens = [];
+        let nextOffset = null;
+        let attempts = 0;
+        const maxAttempts = 5;
+
+        do {
+          try {
+            const response = await simLimiter.schedule(() =>
+              axios.post(
+                `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"}/api/sim`,
+                {
+                  action: "wallet-balances",
+                  address: holder_address,
+                  chain: chain,
+                  limit: 2000,
+                  minValueUsd: 100,
+                  offset: nextOffset,
+                },
+                {
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: process.env.SIM_API_KEY ? `Bearer ${process.env.SIM_API_KEY}` : undefined,
+                  },
+                  timeout: 45000,
+                }
+              )
+            );
+
+            console.log(`📡 SIM API wallet-balances response for ${holder_address} on ${chain}:`, {
+              success: response.data?.success,
+              dataLength: response.data?.data?.length,
+              nextOffset: response.data?.next_offset,
+              sample: response.data?.data?.slice(0, 2),
+            });
+
+            if (!response.data?.success || !Array.isArray(response.data.data)) {
+              console.warn(`     ⚠️ No valid wallet balances for ${holder_address} on ${chain}`);
               break;
             }
-          }
 
-          // If not found in NAME_TAG_CHAINS, try the current chain and fallback to Ethereum
-          if (!tagData.nameTag) {
-            tagData = this.nameTagData.get(`${chain}:${holder.address.toLowerCase()}`) || {};
-            if (tagData.nameTag) {
-              nameTagSource = chain;
+            allTokens.push(...response.data.data);
+            nextOffset = response.data.next_offset || null;
+
+            // Log chi tiết để kiểm tra USDT
+            const usdtToken = response.data.data.find(
+              (token) =>
+                token.chain === "ethereum" &&
+                token.address.toLowerCase() === "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+            );
+            if (usdtToken) {
+              console.log(`     ✅ Found USDT:`, {
+                address: usdtToken.address,
+                balance: usdtToken.amount,
+                value_usd: usdtToken.value_usd,
+                decimals: usdtToken.decimals,
+                logo: usdtToken.logo,
+              });
             } else {
-              tagData = this.nameTagData.get(`ethereum:${holder.address.toLowerCase()}`) || {};
-              if (tagData.nameTag) {
-                nameTagSource = "ethereum";
-              }
+              console.log(`     ⚠️ USDT not found in response for ${holder_address} on ${chain}`);
             }
+
+          } catch (error) {
+            if (error.response?.status === 429 && attempts < maxAttempts - 1) {
+              const waitTime = (attempts + 1) * 10000;
+              console.warn(`     ⚠️ Rate limit (429) for wallet ${holder_address} on ${chain}, retrying in ${waitTime}ms...`);
+              await new Promise((resolve) => setTimeout(resolve, waitTime));
+              attempts++;
+              continue;
+            }
+            console.error(`     ❌ Error fetching wallet balances for ${holder_address} on ${chain}:`, {
+              message: error.message,
+              status: error.response?.status,
+              data: error.response?.data,
+            });
+            break;
           }
+        } while (nextOffset);
 
-          const nameTag = tagData.nameTag || null;
-          const image = tagData.image || null;
+        if (allTokens.length === 0) {
+          console.warn(`     ⚠️ No tokens retrieved for ${holder_address} on ${chain}`);
+          continue;
+        }
 
-          // Log for debugging
-          console.log(`       ℹ️ NameTag lookup for ${holder.address} on ${chain}:`, {
-            triedKeys: [
-              ...NAME_TAG_CHAINS.map((c) => `${c}:${holder.address.toLowerCase()}`),
-              `${chain}:${holder.address.toLowerCase()}`,
-              `ethereum:${holder.address.toLowerCase()}`,
-            ],
-            nameTagSource: nameTagSource,
-            nameTag: nameTag,
-            image: image,
-          });
+        const filteredTokens = allTokens
+          .filter((token) => {
+            const isImportantToken = IMPORTANT_TOKENS.some(
+              (impToken) =>
+                impToken.chain === token.chain &&
+                (impToken.address === "native"
+                  ? token.address === "native"
+                  : impToken.address.toLowerCase() === token.address.toLowerCase())
+            );
 
-          const name = nameTag ? this.mapNameTagToName(nameTag) : null;
-          const calculatedBalance = Number(holder.balance) || 0;
-          const balance_usd = calculatedBalance * priceUsd;
-          const percentage = totalSupply > 0 ? (calculatedBalance / totalSupply) * 100 : 0;
+            // Lọc token có value_usd > 50 tỷ USD, trừ token quan trọng
+            if (token.value_usd > 50_000_000_000 && !isImportantToken) {
+              console.log(`     ℹ️ Filtered out token ${token.symbol} with excessive value_usd: ${token.value_usd} on ${chain}`);
+              return false;
+            }
 
-          console.log(`       ℹ️ Holder balance details:`, {
-            holder_address: holder.address,
-            name_tag: nameTag,
-            image: image,
-            final_balance: calculatedBalance,
-            balance_usd: balance_usd,
-            percentage: percentage,
-            chain: chain,
-          });
+            // Lọc token có value_usd === 0, trừ token quan trọng
+            if (token.value_usd === 0 && !isImportantToken) {
+              console.log(`     ℹ️ Filtered out token ${token.symbol} with zero value_usd on ${chain}`);
+              return false;
+            }
 
-          return {
-            holder_address: holder.address,
-            balance: calculatedBalance,
-            balance_usd: balance_usd,
-            percentage: percentage,
-            name_tag: nameTag,
-            name: name,
-            image: image,
-            rank: index + 1,
-            source: "sim",
-          };
-        })
-        .filter((holder) => holder !== null && holder.name_tag !== null);
+            // Lọc token không có logo hợp lệ, trừ token quan trọng
+            if (!isValidLogo(token.logo) && !isImportantToken) {
+              console.log(`     ℹ️ Filtered out token ${token.symbol} with invalid or missing logo: ${token.logo} on ${chain}`);
+              return false;
+            }
 
-      if (holders.length === 0) {
-        console.log(`     ⚠️ No holders with valid name tags for ${token.symbol} on ${chain} (total holders: ${totalHolders})`);
-        return;
+            return true;
+          })
+          .sort((a, b) => b.value_usd - a.value_usd)
+          .slice(0, 200);
+
+        if (filteredTokens.length === 0) {
+          console.warn(`     ⚠️ No tokens passed filtering for ${holder_address} on ${chain}`);
+          continue;
+        }
+
+        const totalValueUsd = filteredTokens.reduce((sum, token) => sum + (Number(token.value_usd) || 0), 0);
+        const tokenCount = filteredTokens.length;
+
+        const metadata = filteredTokens.map((token) => ({
+          token_address: token.address,
+          symbol: token.symbol,
+          balance: Number(token.amount) || 0,
+          balance_usd: Number(token.value_usd) || 0,
+          decimals: token.decimals || 18,
+          name: token.name || "Unknown",
+          logo: token.logo || null,
+        }));
+
+        // Lưu vào cache với TTL 1 ngày (86400 giây)
+        await redisClient.setEx(
+          cacheKey,
+          86400,
+          JSON.stringify({ total_value_usd: totalValueUsd, token_count: tokenCount, metadata })
+        );
+
+        await this.storeWalletHolders({
+          exchange_name,
+          chain,
+          holder_address,
+          total_value_usd: totalValueUsd,
+          token_count: tokenCount,
+          metadata,
+          name_tag,
+          image,
+        });
+
+        console.log(`     ✅ Stored wallet balances for ${holder_address} (${exchange_name}) on ${chain}: ${tokenCount} tokens, total_value_usd: ${totalValueUsd}`);
+        processedWallets.add(holderKey);
+      } catch (error) {
+        console.error(`     ❌ Failed after retries for wallet ${holder_address} on ${chain}:`, error.message);
       }
 
-      console.log(`     ℹ️ Filtered ${holders.length} holders with valid name tags out of ${totalHolders} for ${token.symbol} on ${chain}`);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
 
-      await this.storeHolders(token, chain, tokenAddress, holders);
-      console.log(`     ✅ Stored ${holders.length} holders for ${token.symbol} on ${chain}`);
+    console.log(`✅ Completed processing wallet balances for ${processedWallets.size} unique wallets`);
+  }
+
+  async storeWalletHolders(walletData) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const {
+        exchange_name,
+        chain,
+        holder_address,
+        total_value_usd,
+        token_count,
+        metadata,
+        name_tag,
+        image,
+      } = walletData;
+
+      const result = await client.query(
+        `
+        INSERT INTO wallet_holders (
+          exchange_name, chain, holder_address, total_value_usd, token_count, 
+          metadata, name_tag, image, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+        ON CONFLICT (exchange_name, chain, holder_address)
+        DO UPDATE SET
+          total_value_usd = EXCLUDED.total_value_usd,
+          token_count = EXCLUDED.token_count,
+          metadata = EXCLUDED.metadata,
+          name_tag = EXCLUDED.name_tag,
+          image = EXCLUDED.image,
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING id, (xmax = 0) AS is_inserted
+        `,
+        [
+          exchange_name,
+          chain,
+          holder_address,
+          total_value_usd,
+          token_count,
+          JSON.stringify(metadata),
+          name_tag,
+          image,
+        ]
+      );
+
+      console.log(
+        `      ✅ ${result.rows[0].is_inserted ? "Inserted" : "Updated"} wallet holder ${holder_address} (${exchange_name}) on ${chain}`,
+        {
+          db_id: result.rows[0]?.id,
+          token_count,
+          total_value_usd,
+        }
+      );
+
+      await client.query("COMMIT");
     } catch (error) {
-      console.error(`     ❌ Error fetching holders for ${token.symbol} on ${chain}:`, {
+      await client.query("ROLLBACK");
+      console.error(`      ❌ Error storing wallet holder ${walletData.holder_address}:`, {
         message: error.message,
-        status: error.response?.status,
-        data: error.response?.data,
+        detail: error.detail,
+        code: error.code,
       });
-      if (error.response?.status === 404) {
-        console.log(`     ℹ️ Token not found on ${chain}`);
-      } else {
-        throw error;
-      }
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
@@ -835,6 +1152,7 @@ class TokenHoldersCron {
     }
 
     this.isRunning = true;
+    this.holdersWithNameTags.clear();
     const startTime = new Date();
     let errors = [];
 
@@ -865,6 +1183,7 @@ class TokenHoldersCron {
       this.isRunning = false;
       this.currentBatch = 0;
       this.totalTokens = 0;
+      this.holdersWithNameTags.clear();
     }
   }
 

@@ -30,9 +30,38 @@ async function checkRateLimit(ip) {
     .exec();
 }
 
+export async function GET(request) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const { searchParams } = new URL(request.url);
+  const key = searchParams.get('key');
+
+  logger.info(`GET request to /api/cache from IP ${ip} with key: ${key}`);
+
+  if (!key || typeof key !== 'string' || key.trim() === '') {
+    logger.warn('Missing or invalid key parameter', { ip });
+    return NextResponse.json({ success: false, detail: 'Missing or invalid key parameter' }, { status: 400 });
+  }
+
+  try {
+    await checkRateLimit(ip);
+    const redisClient = await getRedisClient();
+    const cached = await redisClient.get(key);
+    logger.info(`Cache get: ${key}`, { ip });
+    return NextResponse.json(
+      { success: true, data: cached ? JSON.parse(cached) : null },
+      {
+        headers: { 'Content-Type': 'application/json', 'Content-Security-Policy': "default-src 'self'" },
+      }
+    );
+  } catch (error) {
+    logger.error(`Redis GET error: ${error.message}`, { stack: error.stack, ip });
+    return NextResponse.json({ success: false, detail: `Redis error: ${error.message}` }, { status: 500 });
+  }
+}
+
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  logger.info(`Request to /api/cache from IP ${ip}`);
+  logger.info(`POST request to /api/cache from IP ${ip}`);
 
   try {
     await checkRateLimit(ip);
@@ -61,7 +90,7 @@ export async function POST(request) {
     return NextResponse.json({ success: false, detail: `Invalid action: ${action}` }, { status: 400 });
   }
 
-  const maxTTL = 48 * 60 * 60; // Tăng lên 48 giờ
+  const maxTTL = 48 * 60 * 60; // 48 giờ
   const effectiveTTL = ttl && Number.isInteger(ttl) && ttl > 0 ? Math.min(ttl / 1000, maxTTL) : 60;
 
   try {
@@ -90,7 +119,7 @@ export async function POST(request) {
       );
     }
   } catch (error) {
-    logger.error(`Redis API Error: ${error.message}`, { stack: error.stack, ip });
+    logger.error(`Redis POST error: ${error.message}`, { stack: error.stack, ip });
     return NextResponse.json({ success: false, detail: `Redis error: ${error.message}` }, { status: 500 });
   }
 }

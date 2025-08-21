@@ -335,3 +335,20 @@ model tokens {
 
   @@index([coingecko_id], map: "idx_tokens_coingecko_id")
 }
+
+model wallet_holders {
+  id              Int       @id @default(autoincrement())
+  exchange_name   String    @db.VarChar(100)
+  chain           String    @db.VarChar(50)
+  holder_address  String    @db.VarChar(255)
+  total_value_usd Decimal?  @db.Decimal(20, 2)
+  token_count     Int?
+  metadata        Json?     // Contains list of top 200 tokens
+  name_tag        String?   @db.VarChar(255)
+  image           String?   @db.VarChar(255)
+  updated_at      DateTime? @default(now()) @db.Timestamp(6)
+  
+  @@unique([exchange_name, chain, holder_address], map: "unique_wallet_holder")
+  @@index([exchange_name], map: "idx_wallet_holders_exchange_name")
+  @@index([chain], map: "idx_wallet_holders_chain")
+}

@@ -261,7 +261,10 @@ export async function POST(request) {
     return NextResponse.json({ detail: "Server configuration error: Missing SIM_API_KEY" }, { status: 500 });
   }
 
-  if (["wallet-balances", "transactions", "collectibles"].includes(action)) {
+  // Bỏ qua xác thực session nếu request có Authorization header khớp với SIM_API_KEY
+  const authHeader = request.headers.get("authorization");
+  const isCronRequest = authHeader && authHeader === `Bearer ${process.env.SIM_API_KEY}`;
+  if (["wallet-balances", "transactions", "collectibles"].includes(action) && !isCronRequest) {
     const session = await auth();
     if (!session || !session.user?.id) {
       logger.error(`Authentication error: Unauthorized`, { ip });

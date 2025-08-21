@@ -917,9 +917,8 @@ export default function ProfileTab({ recaptchaRef }) {
         }}
       />
       <div className="flex flex-col flex-1 gap-4 sm:gap-6">
-
         <motion.div
-          className="border border-white/10 rounded-xl flex flex-col relative"
+          className="min-h-[30vh] border border-white/10 rounded-xl flex flex-col relative"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}

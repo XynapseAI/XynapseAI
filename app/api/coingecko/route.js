@@ -69,7 +69,7 @@ async function checkRateLimit(ip) {
 export async function GET(request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const params = Object.fromEntries(request.nextUrl.searchParams);
-  const { action = "market-info", ids, vs_currencies = "usd", limit, start, query, id, tokenType, days } = params;
+  const { action = "market-info", ids, vs_currencies = "usd", limit, start, query, id, tokenType, days, address } = params;
 
   // Validate parameters
   if (
@@ -83,7 +83,7 @@ export async function GET(request) {
     logger.warn(`Missing or invalid tokenType parameter: ${tokenType}`, { ip });
     return NextResponse.json({ success: false, detail: "Missing or invalid tokenType parameter" }, { status: 400 });
   }
-  if (action === "market INFO" && !vs_currencies) {
+  if (action === "market-info" && !vs_currencies) {
     logger.warn(`Missing vs_currencies parameter`, { ip });
     return NextResponse.json({ success: false, detail: "Missing vs_currencies parameter" }, { status: 400 });
   }
@@ -94,6 +94,10 @@ export async function GET(request) {
   if (action === "volume-chart" && (!days || isNaN(days))) {
     logger.warn(`Missing or invalid days parameter: ${days}`, { ip });
     return NextResponse.json({ success: false, detail: "Missing or invalid days parameter" }, { status: 400 });
+  }
+  if (action === "token-details" && (!address || typeof address !== "string" || address.trim() === "")) {
+    logger.warn(`Missing or invalid address parameter: ${address}`, { ip });
+    return NextResponse.json({ success: false, detail: "Missing or invalid address parameter" }, { status: 400 });
   }
 
   const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
@@ -128,6 +132,55 @@ export async function GET(request) {
     let data;
     let cacheKey;
     let cacheTTL;
+
+    if (action === "token-details") {
+      cacheKey = `coingecko_token_details_${address}`;
+      cacheTTL = 4 * 3600; // 4 hours
+      const cachedData = await redisClient.get(cacheKey);
+      if (cachedData) {
+        logger.info(`Cache hit for token-details: ${address}`, { ip });
+        return NextResponse.json(JSON.parse(cachedData));
+      }
+
+      // Xử lý đặc biệt cho Bitcoin
+      if (address.toLowerCase() === "bitcoin") {
+        data = {
+          symbol: "BTC",
+          image: { thumb: "/logos/bitcoin.png" },
+        };
+        await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
+        logger.info(`Returning hardcoded Bitcoin details for address: ${address}`, { ip });
+        return NextResponse.json({ success: true, data });
+      }
+
+      // Gọi CoinGecko cho token EVM
+      try {
+        const response = await fetchWithRateLimit(`https://api.coingecko.com/api/v3/coins/ethereum/contract/${address}`, {
+          headers: { "x-cg-demo-api-key": COINGECKO_API_KEY },
+          timeout: 30000,
+        });
+        data = {
+          symbol: response.data.symbol.toUpperCase(),
+          image: response.data.image || { thumb: "/fallback-image.png" },
+        };
+        await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
+        logger.info(`Fetched token details for address: ${address}`, { ip });
+        return NextResponse.json({ success: true, data });
+      } catch (error) {
+        logger.error(`Failed to fetch token details for ${address}: ${error.message}`, {
+          ip,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+        return NextResponse.json({
+          success: false,
+          detail: error.response?.status === 404
+            ? `No token data found for address ${address}`
+            : `Failed to fetch token details: ${error.message}`,
+          data: { symbol: address, image: { thumb: "/fallback-image.png" } },
+        });
+      }
+    }
 
     if (action === "trending") {
       cacheKey = `coingecko_trending_${selectedCurrency}`;

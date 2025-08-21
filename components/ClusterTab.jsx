@@ -1,6 +1,7 @@
+// components/ClusterTab.jsx
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts";
 import { ToastContainer, toast } from "react-toastify";
@@ -84,7 +85,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const [tokenImages, setTokenImages] = useState({});
   const [tokenSymbols, setTokenSymbols] = useState({});
   const [nametags, setNametags] = useState({});
-  const [toggledTokens, setToggledTokens] = useState({});
+  const [toggledToken, setToggledToken] = useState(null);
   const [chainLogos, setChainLogos] = useState({});
   const [activeTab, setActiveTab] = useState("portfolio");
   const [selectedWallet, setSelectedWallet] = useState(null);
@@ -96,6 +97,19 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const [walletTransactionsError, setWalletTransactionsError] = useState(null);
   const [btcPrice, setBtcPrice] = useState(null);
   const [isLoadingBtcPrice, setIsLoadingBtcPrice] = useState(false);
+  const [selectedChain, setSelectedChain] = useState("all");
+  const portfolioRef = useRef(null);
+
+  // Handle click outside to close toggle
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (portfolioRef.current && !portfolioRef.current.contains(event.target)) {
+        setToggledToken(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 640);
@@ -121,6 +135,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         }
       } catch (err) {
         logger.error("Error fetching BTC price:", { error: err.message, stack: err.stack });
+        setBtcPrice(0); // Fallback to 0 to avoid breaking UI
         toast.error(`Failed to load BTC price: ${err.message}`, { position: "top-center", autoClose: 3000 });
       } finally {
         setIsLoadingBtcPrice(false);
@@ -149,7 +164,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           acc[chain.id.toLowerCase()] = chain.image?.thumb || "/fallback-image.png";
           return acc;
         }, {});
-        logos["bitcoin"] = BITCOIN_LOGO; // Add Bitcoin logo
+        logos["bitcoin"] = BITCOIN_LOGO;
         setChainLogos(logos);
         logger.log("Fetched chain logos:", { data: logos });
       } catch (err) {
@@ -162,48 +177,79 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
   useEffect(() => {
     if (walletData.length > 0) {
-      // Filter out Bitcoin wallets for transactions
       const evmWallets = walletData.filter((w) => w.chain?.toLowerCase() !== "bitcoin");
-      fetchTransactions(evmWallets, 1000000); // Apply minValueUsd for Large Transactions
-      // Removed fetchNametags call since we use image from walletData
+      fetchTransactions(evmWallets, 1000000);
     }
   }, [walletData]);
 
   useEffect(() => {
     if (portfolioData.length > 0) {
-      const uniqueTokens = [...new Set(portfolioData.map((item) => item.token_id))];
+      logger.log("Processing portfolio data for token images:", { portfolioData });
+      const uniqueTokens = [...new Set(portfolioData.map((item) => item.token_address))];
       Promise.all(
-        uniqueTokens.map(async (id) => {
+        uniqueTokens.map(async (address) => {
           try {
-            const response = await fetch(`/api/coingecko?action=coin-details&id=${id}`, {
+            // Xử lý đặc biệt cho Bitcoin
+            if (address.toLowerCase() === "bitcoin") {
+              logger.log(`Using hardcoded Bitcoin details for address: ${address}`);
+              return [
+                address,
+                {
+                  image: { thumb: "/logos/bitcoin.png" },
+                  symbol: "BTC",
+                },
+              ];
+            }
+
+            // Kiểm tra cache trước
+            const cacheResponse = await fetch(`/api/cache?key=coingecko_token_details_${address}`, {
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+            });
+            const cacheResult = await cacheResponse.json();
+            if (cacheResponse.ok && cacheResult.success && cacheResult.data) {
+              logger.log(`Cache hit for token details: ${address}`);
+              return [address, cacheResult.data];
+            }
+
+            // Gọi API CoinGecko nếu không có cache
+            const response = await fetch(`/api/coingecko?action=token-details&address=${address}`, {
               headers: { "Content-Type": "application/json" },
               credentials: "include",
             });
             const result = await response.json();
-            if (result.data) {
-              return [
-                id,
-                {
-                  image: result.data.image?.thumb || "/fallback-image.png",
-                  symbol: result.data.symbol?.toUpperCase() || id,
-                },
-              ];
+            if (response.ok && result.success && result.data) {
+              // Lưu vào cache
+              await fetch(`/api/cache`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                  key: `coingecko_token_details_${address}`,
+                  action: "set",
+                  data: result.data,
+                  ttl: 4 * 3600 * 1000, // 4 hours
+                }),
+              });
+              logger.log(`Fetched and cached token details for address: ${address}`);
+              return [address, result.data];
             }
-            return [id, { image: "/fallback-image.png", symbol: id }];
+            throw new Error(result.detail || "Invalid response from CoinGecko API");
           } catch (err) {
-            logger.error(`Error fetching token data for ${id}:`, { error: err.message, stack: err.stack });
-            return [id, { image: "/fallback-image.png", symbol: id }];
+            logger.error(`Error fetching token data for ${address}:`, { error: err.message, stack: err.stack });
+            return [address, { image: { thumb: "/fallback-image.png" }, symbol: address }];
           }
         }),
       ).then((pairs) => {
         const images = {};
         const symbols = {};
-        pairs.forEach(([id, data]) => {
-          images[id] = data.image;
-          symbols[id] = data.symbol;
+        pairs.forEach(([address, data]) => {
+          images[address] = data.image?.thumb || data.image || "/fallback-image.png";
+          symbols[address] = data.symbol?.toUpperCase() || address;
         });
         setTokenImages(images);
         setTokenSymbols(symbols);
+        logger.log("Updated token images and symbols:", { images, symbols });
       });
     }
   }, [portfolioData]);
@@ -211,8 +257,15 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   useEffect(() => {
     if (selectedWallet) {
       logger.log("Triggering fetch for selected wallet:", { selectedWallet });
-      fetchWalletBalances(selectedWallet);
-      fetchWalletTransactions(selectedWallet);
+      if (/^0x[a-fA-F0-9]{40}$/.test(selectedWallet)) {
+        fetchWalletBalances(selectedWallet);
+        fetchWalletTransactions(selectedWallet);
+      } else {
+        setWalletBalances([]);
+        setWalletTransactions([]);
+        setWalletBalancesError("Balance data not available for Bitcoin addresses");
+        setWalletTransactionsError("Transaction data not available for Bitcoin addresses");
+      }
     }
   }, [selectedWallet]);
 
@@ -292,6 +345,11 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         throw new Error(errorMessage);
       }
       const result = await response.json();
+      logger.log("API response for portfolio/wallets:", {
+        exchangeId,
+        portfolio: result.portfolio,
+        wallets: result.wallets,
+      });
       if (!result.portfolio || !result.wallets) {
         throw new Error(`No portfolio or wallet data found for exchange: ${exchangeId}`);
       }
@@ -319,7 +377,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     try {
       const walletAddresses = Array.isArray(input)
         ? input
-          .filter((w) => w.chain?.toLowerCase() !== "bitcoin") // Filter out Bitcoin wallets
+          .filter((w) => w.chain?.toLowerCase() !== "bitcoin")
           .map((w) => (typeof w === "string" ? w : w.holder_address))
           .filter(Boolean)
         : [input].filter(Boolean);
@@ -370,6 +428,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       if (!walletAddress) {
         throw new Error("No wallet address provided");
       }
+      if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        throw new Error("Transaction data only available for EVM addresses");
+      }
 
       const response = await fetch(`/api/sim`, {
         method: "POST",
@@ -378,7 +439,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         body: JSON.stringify({
           action: "transactions",
           addresses: [walletAddress],
-          limit: 1000, // Match MarketTab's behavior
+          limit: 1000,
         }),
       });
       const text = await response.text();
@@ -414,7 +475,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         throw new Error("No wallet address provided");
       }
       if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
-        throw new Error("Invalid wallet address format");
+        throw new Error("Balance data only available for EVM addresses");
       }
 
       const response = await fetch(`/api/sim`, {
@@ -448,40 +509,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       logger.error("Error fetching wallet balances:", { walletAddress, error: errorMessage, stack: err.stack });
       setWalletBalancesError(errorMessage);
       toast.error(`Failed to load wallet balances: ${errorMessage}`, { position: "top-center", autoClose: 3000 });
-      setWalletBalances([]); // Ensure balances are cleared on error
+      setWalletBalances([]);
     } finally {
       setIsLoadingWalletBalances(false);
-    }
-  };
-
-  const fetchNametags = async (addresses) => {
-    try {
-      const batchSize = 50;
-      const nametagMap = {};
-      for (let i = 0; i < addresses.length; i += batchSize) {
-        const batch = addresses.slice(i, i + batchSize);
-        const response = await fetch("/api/nametags", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ addresses: batch }),
-          credentials: "include",
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.detail || "Failed to fetch nametags");
-        for (const [addr, data] of Object.entries(result.data || {})) {
-          const dep = data.Labels?.deposit || {};
-          nametagMap[addr.toLowerCase()] = {
-            name: dep["Name Tag"] || "N/A",
-            image: dep.image || "/icons/default.png",
-          };
-        }
-      }
-      setNametags(nametagMap);
-      logger.log("Fetched nametags:", { addresses, data: nametagMap });
-    } catch (err) {
-      const errorMessage = err.message || "Unknown error fetching nametags";
-      logger.error("Error fetching nametags:", { error: errorMessage, stack: err.stack });
-      toast.error(`Failed to load nametags: ${errorMessage}`, { position: "top-center", autoClose: 3000 });
     }
   };
 
@@ -491,7 +521,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       router.push(`/cluster?exchangeId=${mappedId}`, { scroll: false });
     } else if (result.type === "wallet" || result.type === "nametag") {
       const address = result.address?.toLowerCase();
-      if (/^0x[a-fA-F0-9]{40}$/.test(address)) {
+      if (
+        /^0x[a-fA-F0-9]{40}$/.test(address) ||
+        /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-zA-Z0-9]{39,59}$/.test(address)
+      ) {
         logger.log("Selected wallet address from search:", { address });
         setSelectedWallet(address);
       } else {
@@ -514,169 +547,196 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   };
 
   const groupedPortfolio = useMemo(() => {
-    return portfolioData.reduce((acc, item) => {
-      const tokenId = item.token_id || "Unknown";
-      if (!acc[tokenId]) {
-        acc[tokenId] = {
-          token_id: tokenId,
-          symbol: tokenSymbols[tokenId] || tokenId, // Use symbol
-          chains: [],
-          total_balance: 0,
-          total_value: 0,
-          total_percentage: 0,
-        };
-      }
-      const balanceNum = Number(item.total_balance) || 0;
-      const valueNum = Number(item.total_balance_usd) || 0;
-      const percentageNum = Number(item.percentage) || 0;
-      acc[tokenId].chains.push({
-        chain: item.chain || "Unknown",
-        chainName: CHAIN_ID_TO_NAME[item.chain?.toLowerCase()] || item.chain || "Unknown", // Use chain name
-        balance: balanceNum,
-        value: valueNum,
-        percentage: percentageNum,
-      });
-      acc[tokenId].total_balance += balanceNum;
-      acc[tokenId].total_value += valueNum;
-      acc[tokenId].total_percentage += percentageNum;
-      return acc;
-    }, {});
-  }, [portfolioData, tokenSymbols]);
+    logger.log("Portfolio data before processing:", { portfolioData });
+    const totalValue = portfolioData.reduce((sum, item) => sum + (Number(item.total_balance_usd) || 0), 0);
+
+    const grouped = portfolioData.map((item, index) => ({
+      ...item,
+      key: `${item.token_address}-${index}`, // Unique key to avoid duplication
+      percentage: totalValue > 0 ? ((Number(item.total_balance_usd) || 0) / totalValue) * 100 : 0,
+      chain_details: item.chain_details.map((chain, chainIndex) => ({
+        ...chain,
+        key: `${chain.chain}-${chainIndex}`, // Unique key for chain details
+        chainName: CHAIN_ID_TO_NAME[chain.chain?.toLowerCase()] || chain.chain || "Unknown",
+        percentage: item.total_balance_usd > 0 ? ((Number(chain.balance_usd) || 0) / item.total_balance_usd) * 100 : 0,
+      })),
+    }));
+
+    const filtered = grouped; // Remove chain filter to ensure Bitcoin is not filtered out
+    logger.log("Grouped portfolio after processing:", { filtered });
+    return filtered;
+  }, [portfolioData]);
+
+  const totalPortfolioValue = useMemo(() => {
+    return groupedPortfolio.reduce((sum, item) => sum + (Number(item.total_balance_usd) || 0), 0);
+  }, [groupedPortfolio]);
 
   const chains = useMemo(() => {
-    return Object.entries(chainLogos).map(([value, image]) => ({
-      value: value.toLowerCase(),
-      label: CHAIN_ID_TO_NAME[value.toLowerCase()] || value,
-      image: value.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : image,
+    const chainSet = new Set(["all", "bitcoin"]); // Ensure bitcoin is included
+    portfolioData.forEach((item) => {
+      item.chain_details.forEach((chain) => {
+        if (chain.chain) chainSet.add(chain.chain.toLowerCase());
+      });
+    });
+    return Array.from(chainSet).map((value) => ({
+      value,
+      label: value === "all" ? "All Chains" : CHAIN_ID_TO_NAME[value.toLowerCase()] || value,
+      image: value === "bitcoin" ? BITCOIN_LOGO : chainLogos[value.toLowerCase()] || "/fallback-image.png",
     }));
-  }, [chainLogos]);
+  }, [portfolioData, chainLogos]);
 
   const renderPortfolioContent = () => {
     return (
-      <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
-        <LoadingOverlay isLoading={isLoadingPortfolio} isMobile={isMobile} />
-        {isLoadingPortfolio ? (
-          <SkeletonLoader count={5} isMobile={isMobile} />
-        ) : Object.keys(groupedPortfolio).length > 0 ? (
-          <table className="w-full text-[8px] sm:text-[10px]">
-            <thead className="border-b border-white/10 bg-black/5">
-              <tr>
-                <th className="px-2 py-1 text-white text-left font-semibold ml-2 m-1">Token</th>
-                <th className="px-2 py-1 text-white text-left font-semibold m-1">Chain</th>
-                <th className="px-2 py-1 text-white text-left font-semibold m-1">Balance</th>
-                <th className="px-2 py-1 text-white text-left font-semibold m-1">Value ({currency.toUpperCase()})</th>
-                <th className="px-2 py-1 text-white text-left font-semibold m-1">Percentage</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.values(groupedPortfolio).map((group, index) => (
-                <React.Fragment key={group.token_id}>
-                  <motion.tr
-                    className={`border-t border-white/10 hover:bg-white/5 ${group.chains.length > 1 ? "cursor-pointer" : ""}`}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.02 }}
-                    onClick={() =>
-                      group.chains.length > 1 &&
-                      setToggledTokens((prev) => ({
-                        ...prev,
-                        [group.token_id]: !prev[group.token_id],
-                      }))
-                    }
-                  >
-                    <td className="px-2 py-2 text-white">
-                      <img
-                        src={tokenImages[group.token_id] || "/fallback-image.png"}
-                        alt={`${group.symbol} logo`}
-                        className="w-4 h-4 inline mr-2 rounded-full"
-                        onError={(e) => (e.target.src = "/fallback-image.png")}
-                      />
-                      {group.symbol} {/* Use symbol instead of token_id */}
-                    </td>
-                    <td className="px-2 py-2 text-white">
-                      {group.chains.length > 1 ? (
-                        `Multiple (${group.chains.length})`
-                      ) : (
-                        <>
-                          <img
-                            src={
-                              group.chains[0]?.chain?.toLowerCase() === "bitcoin"
-                                ? BITCOIN_LOGO
-                                : chainLogos[group.chains[0]?.chain?.toLowerCase()] || "/fallback-image.png"
-                            }
-                            alt={`${group.chains[0]?.chainName || "Unknown"} logo`}
-                            className="w-4 h-4 inline mr-2 rounded-full"
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
-                          />
-                          {group.chains[0]?.chainName || "Unknown"} {/* Use chainName */}
-                        </>
-                      )}
-                    </td>
-                    <td className="px-2 py-2 text-white">
-                      {group.total_balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-2 py-2 text-white">{formatPrice(group.total_value, currency, 2)}</td>
-                    <td className="px-2 py-2 text-white">{(group.total_percentage * 100).toFixed(2)}%</td>
-                  </motion.tr>
-                  <AnimatePresence>
-                    {toggledTokens[group.token_id] && (
-                      <motion.tr
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <td colSpan={5} className="p-0">
-                          <table className="w-full text-[8px] sm:text-[10px] bg-black/5">
-                            <thead>
-                              <tr className="border-b border-white/10">
-                                <th className="px-4 py-1 text-white text-left font-semibold">Chain</th>
-                                <th className="px-4 py-1 text-white text-left font-semibold">Balance</th>
-                                <th className="px-4 py-1 text-white text-left font-semibold">Value</th>
-                                <th className="px-4 py-1 text-white text-left font-semibold">Percentage</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {group.chains.map((ch, idx) => (
-                                <tr key={idx} className="border-t border-white/10">
-                                  <td className="px-4 py-2 text-white">
-                                    <img
-                                      src={
-                                        ch.chain?.toLowerCase() === "bitcoin"
-                                          ? BITCOIN_LOGO
-                                          : chainLogos[ch.chain?.toLowerCase()] || "/fallback-image.png"
-                                      }
-                                      alt={`${ch.chainName || "Unknown"} logo`}
-                                      className="w-4 h-4 inline mr-2 rounded-full"
-                                      onError={(e) => (e.target.src = "/fallback-image.png")}
-                                    />
-                                    {ch.chainName || "Unknown"} {/* Use chainName */}
-                                  </td>
-                                  <td className="px-4 py-2 text-white">
-                                    {ch.balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="px-4 py-2 text-white">{formatPrice(ch.value, currency, 2)}</td>
-                                  <td className="px-4 py-2 text-white">{(ch.percentage * 100).toFixed(2)}%</td>
+      <div className="flex flex-col" ref={portfolioRef}>
+        <div className="flex justify-between items-center p-4 border-b border-white/10">
+          <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+            Total Portfolio Value: {formatPrice(totalPortfolioValue, currency, 2)}
+          </h4>
+          <select
+            value={selectedChain}
+            onChange={(e) => setSelectedChain(e.target.value)}
+            className="bg-black/50 text-white text-[10px] sm:text-xs p-2 rounded-lg border border-white/10"
+          >
+            {chains.map((chain) => (
+              <option key={chain.value} value={chain.value}>
+                {chain.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
+          <LoadingOverlay isLoading={isLoadingPortfolio} isMobile={isMobile} />
+          {isLoadingPortfolio ? (
+            <SkeletonLoader count={5} isMobile={isMobile} />
+          ) : groupedPortfolio.length > 0 ? (
+            <table className="w-full text-[8px] sm:text-[10px]">
+              <thead className="border-b border-white/10 bg-black/5">
+                <tr>
+                  <th className="px-2 py-1 text-white text-left font-semibold ml-2 m-1">Token</th>
+                  <th className="px-2 py-1 text-white text-left font-semibold m-1">Chains</th>
+                  <th className="px-2 py-1 text-white text-left font-semibold m-1">Balance</th>
+                  <th className="px-2 py-1 text-white text-left font-semibold m-1">Value ({currency.toUpperCase()})</th>
+                  <th className="px-2 py-1 text-white text-left font-semibold m-1">Percentage</th>
+                  <th className="px-2 py-1 text-white text-left font-semibold m-1">Wallets</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupedPortfolio.map((group, index) => (
+                  <React.Fragment key={group.key}>
+                    <motion.tr
+                      className={`border-t border-white/10 hover:bg-white/5 ${group.chain_details.length > 1 ? "cursor-pointer" : ""}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.02 }}
+                      onClick={() => {
+                        setToggledToken(toggledToken === group.key ? null : group.key);
+                      }}
+                    >
+                      <td className="px-2 py-2 text-white">
+                        <img
+                          src={group.logo || (group.token_address === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png")}
+                          alt={`${group.symbol} logo`}
+                          className="w-4 h-4 inline mr-2 rounded-full"
+                          onError={(e) => (e.target.src = "/fallback-image.png")}
+                        />
+                        {group.symbol || (group.token_address === "bitcoin" ? "BTC" : group.token_address)}
+                      </td>
+                      <td className="px-2 py-2 text-white">
+                        <div className="flex items-center gap-1">
+                          {group.chain_details.slice(0, 3).map((chain, idx) => (
+                            <img
+                              key={`${chain.key}-${idx}`}
+                              src={chainLogos[chain.chain?.toLowerCase()] || "/fallback-image.png"}
+                              alt={`${chain.chainName} logo`}
+                              className="w-4 h-4 rounded-full"
+                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                            />
+                          ))}
+                          {group.chain_details.length > 3 && (
+                            <span className="text-white/60">+{group.chain_details.length - 3}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 text-white">
+                        {group.total_balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-2 py-2 text-white">{formatPrice(group.total_balance_usd || 0, currency, 2)}</td>
+                      <td className="px-2 py-2 text-white">{group.percentage.toFixed(2)}%</td>
+                      <td className="px-2 py-2 text-white">
+                        {group.chain_details.reduce((sum, chain) => sum + chain.wallets.length, 0)}
+                      </td>
+                    </motion.tr>
+                    <AnimatePresence>
+                      {toggledToken === group.key && (
+                        <motion.tr
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <td colSpan={6} className="p-0">
+                            <table className="w-full text-[8px] sm:text-[10px] bg-black/5">
+                              <thead>
+                                <tr className="border-b border-white/10">
+                                  <th className="px-4 py-1 text-white text-left font-semibold">Chain</th>
+                                  <th className="px-4 py-1 text-white text-left font-semibold">Balance</th>
+                                  <th className="px-4 py-1 text-white text-left font-semibold">
+                                    Value ({currency.toUpperCase()})
+                                  </th>
+                                  <th className="px-4 py-1 text-white text-left font-semibold">Percentage</th>
+                                  <th className="px-4 py-1 text-white text-left font-semibold">Wallets</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </td>
-                      </motion.tr>
-                    )}
-                  </AnimatePresence>
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-[10px] sm:text-xs text-white/60 text-center">No portfolio data available.</p>
-        )}
+                              </thead>
+                              <tbody>
+                                {group.chain_details.map((chain, idx) => (
+                                  <tr key={`${chain.key}-${idx}`} className="border-t border-white/10">
+                                    <td className="px-4 py-2 text-white">
+                                      <img
+                                        src={chainLogos[chain.chain?.toLowerCase()] || "/fallback-image.png"}
+                                        alt={`${chain.chainName} logo`}
+                                        className="w-4 h-4 inline mr-2 rounded-full"
+                                        onError={(e) => (e.target.src = "/fallback-image.png")}
+                                      />
+                                      {chain.chainName}
+                                    </td>
+                                    <td className="px-4 py-2 text-white">
+                                      {chain.balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="px-4 py-2 text-white">{formatPrice(chain.balance_usd || 0, currency, 2)}</td>
+                                    <td className="px-4 py-2 text-white">{chain.percentage.toFixed(2)}%</td>
+                                    <td className="px-4 py-2 text-white">
+                                      {chain.wallets.map((wallet, wIdx) => (
+                                        <button
+                                          key={`${wallet.holder_address}-${wIdx}`}
+                                          onClick={() => handleWalletClick(wallet.holder_address)}
+                                          className="text-white hover:text-white/80 no-hover-effect block"
+                                        >
+                                          {truncateAddress(wallet.holder_address).text}
+                                        </button>
+                                      ))}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </td>
+                        </motion.tr>
+                      )}
+                    </AnimatePresence>
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-[10px] sm:text-xs text-white/60 text-center">No portfolio data available.</p>
+          )}
+        </div>
       </div>
     );
   };
 
   const renderWalletsContent = () => {
+    const totalValue = walletData.reduce((sum, wallet) => sum + (Number(wallet.total_value_usd) || 0), 0);
     return (
       <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
         <LoadingOverlay isLoading={isLoadingWallets} isMobile={isMobile} />
@@ -690,6 +750,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Name Tag</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Value ({currency.toUpperCase()})</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Percentage</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">Token Count</th>
               </tr>
             </thead>
             <tbody>
@@ -697,11 +758,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 const addr = wallet.holder_address?.toLowerCase();
                 const ntag = {
                   name: wallet.name_tag || "N/A",
-                  image: wallet.image || "/fallback-image.png", // Use image from walletData
+                  image: wallet.image || (wallet.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
                 };
+                const percentage = totalValue > 0 ? ((Number(wallet.total_value_usd) || 0) / totalValue) * 100 : 0;
                 return (
                   <motion.tr
-                    key={index}
+                    key={`${wallet.holder_address}-${index}`}
                     className="border-t border-white/10"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -751,8 +813,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                       />
                       {ntag.name}
                     </td>
-                    <td className="px-2 py-2 text-white">{formatPrice(Number(wallet.balance_usd) || 0, currency, 2)}</td>
-                    <td className="px-2 py-2 text-white">{(Number(wallet.percentage) * 100).toFixed(2)}%</td>
+                    <td className="px-2 py-2 text-white">{formatPrice(Number(wallet.total_value_usd) || 0, currency, 2)}</td>
+                    <td className="px-2 py-2 text-white">{percentage.toFixed(2)}%</td>
+                    <td className="px-2 py-2 text-white">{wallet.token_count || 0}</td>
                   </motion.tr>
                 );
               })}
@@ -784,27 +847,24 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             </thead>
             <tbody>
               {transactions.map((tx, index) => {
-                // Standardize chain name to string
                 const chainName = typeof tx.chain === "string" ? tx.chain.toLowerCase() : (tx.chain_id || "unknown").toString().toLowerCase();
-
-                // Skip Bitcoin transactions
                 if (chainName === "bitcoin") return null;
 
                 const fromWallet = walletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
                 const toWallet = walletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
                 const fromNtag = {
                   name: fromWallet.name_tag || "N/A",
-                  image: fromWallet.image || "/fallback-image.png",
+                  image: fromWallet.image || (fromWallet.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
                 };
                 const toNtag = {
                   name: toWallet.name_tag || "N/A",
-                  image: toWallet.image || "/fallback-image.png",
+                  image: toWallet.image || (toWallet.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
                 };
-                const chain = chainName !== "unknown" ? chainName : "ethereum"; // Default to Ethereum if unknown
+                const chain = chainName !== "unknown" ? chainName : "ethereum";
                 const { txUrl } = getExplorerUrls(chain, tx.hash || "", "");
                 return (
                   <motion.tr
-                    key={index}
+                    key={`${tx.hash}-${index}`}
                     className="border-t border-white/10"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1149,9 +1209,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             ...acc,
             [w.holder_address?.toLowerCase()]: {
               name: w.name_tag || "N/A",
-              image: w.image || "/fallback-image.png",
+              image: w.image || (w.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
             },
-          }), {})} // Pass walletData-based nametags
+          }), {})}
           isMobile={isMobile}
         />
       )}
