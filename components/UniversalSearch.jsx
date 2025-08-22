@@ -265,7 +265,7 @@ export default function UniversalSearch({
             aria-modal="true"
           >
             <motion.div
-              className="w-[90vw] sm:w-[50vw] h-[50vh] bg-black/90 backdrop-blur-sm border border-white/20 rounded-xl flex flex-col overflow-hidden"
+              className="w-[90vw] sm:w-[50vw] h-[50vh] bg-black/90 backdrop-blur-sm border border-white/20 flex flex-col overflow-hidden"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}

@@ -53,6 +53,12 @@ export const SkeletonLoader = ({ count = 5, isMobile }) => (
 export const formatPrice = (price, currency = 'usd', decimals = 8) => {
   if (price == null || isNaN(price)) return 'N/A';
 
+  // Kiểm tra giá trị bất thường
+  if (price > 1_000_000_000_000_000) {
+    logger.error("Abnormal price value detected:", { price, currency });
+    return 'N/A';
+  }
+
   // Adjust fraction digits based on price magnitude
   let fractionDigits = 2;
   if (price < 0.0001) {
