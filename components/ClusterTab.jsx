@@ -84,8 +84,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [tokenImages, setTokenImages] = useState({});
   const [tokenSymbols, setTokenSymbols] = useState({});
-  const [nametags, setNametags] = useState({});
-  const [toggledToken, setToggledToken] = useState(null);
   const [chainLogos, setChainLogos] = useState({});
   const [activeTab, setActiveTab] = useState("portfolio");
   const [selectedWallet, setSelectedWallet] = useState(null);
@@ -98,6 +96,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const [btcPrice, setBtcPrice] = useState(null);
   const [isLoadingBtcPrice, setIsLoadingBtcPrice] = useState(false);
   const [selectedChain, setSelectedChain] = useState("all");
+  const [toggledToken, setToggledToken] = useState(null);
   const portfolioRef = useRef(null);
 
   // Handle click outside to close toggle
@@ -135,7 +134,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         }
       } catch (err) {
         logger.error("Error fetching BTC price:", { error: err.message, stack: err.stack });
-        setBtcPrice(0); // Fallback to 0 to avoid breaking UI
+        setBtcPrice(0);
         toast.error(`Failed to load BTC price: ${err.message}`, { position: "top-center", autoClose: 3000 });
       } finally {
         setIsLoadingBtcPrice(false);
@@ -189,7 +188,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       Promise.all(
         uniqueTokens.map(async (address) => {
           try {
-            // Xử lý đặc biệt cho Bitcoin
             if (address.toLowerCase() === "bitcoin") {
               logger.log(`Using hardcoded Bitcoin details for address: ${address}`);
               return [
@@ -201,7 +199,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               ];
             }
 
-            // Kiểm tra cache trước
             const cacheResponse = await fetch(`/api/cache?key=coingecko_token_details_${address}`, {
               headers: { "Content-Type": "application/json" },
               credentials: "include",
@@ -212,14 +209,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               return [address, cacheResult.data];
             }
 
-            // Gọi API CoinGecko nếu không có cache
             const response = await fetch(`/api/coingecko?action=token-details&address=${address}`, {
               headers: { "Content-Type": "application/json" },
               credentials: "include",
             });
             const result = await response.json();
             if (response.ok && result.success && result.data) {
-              // Lưu vào cache
               await fetch(`/api/cache`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -228,7 +223,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   key: `coingecko_token_details_${address}`,
                   action: "set",
                   data: result.data,
-                  ttl: 4 * 3600 * 1000, // 4 hours
+                  ttl: 4 * 3600 * 1000,
                 }),
               });
               logger.log(`Fetched and cached token details for address: ${address}`);
@@ -357,8 +352,8 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       setWalletData(result.wallets || []);
       logger.log("Fetched portfolio and wallet data:", {
         exchangeId,
-        portfolio: result.portfolio,
-        wallets: result.wallets,
+        portfolioCount: result.portfolio.length,
+        walletCount: result.wallets.length,
       });
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching portfolio/wallet data";
@@ -546,36 +541,101 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     setWalletTransactionsError(null);
   };
 
-  const groupedPortfolio = useMemo(() => {
-    logger.log("Portfolio data before processing:", { portfolioData });
-    const totalValue = portfolioData.reduce((sum, item) => sum + (Number(item.total_balance_usd) || 0), 0);
+  // Gộp ví trùng lặp trong walletData
+  const uniqueWalletData = useMemo(() => {
+    logger.log("Processing walletData for deduplication:", { walletData });
+    const walletMap = new Map();
 
-    const grouped = portfolioData.map((item, index) => ({
-      ...item,
-      key: `${item.token_address}-${index}`, // Unique key to avoid duplication
-      percentage: totalValue > 0 ? ((Number(item.total_balance_usd) || 0) / totalValue) * 100 : 0,
-      chain_details: item.chain_details.map((chain, chainIndex) => ({
-        ...chain,
-        key: `${chain.chain}-${chainIndex}`, // Unique key for chain details
-        chainName: CHAIN_ID_TO_NAME[chain.chain?.toLowerCase()] || chain.chain || "Unknown",
-        percentage: item.total_balance_usd > 0 ? ((Number(chain.balance_usd) || 0) / item.total_balance_usd) * 100 : 0,
-      })),
+    walletData.forEach((wallet, index) => {
+      const addr = wallet.holder_address?.toLowerCase();
+      if (!addr) return;
+
+      if (!walletMap.has(addr)) {
+        walletMap.set(addr, {
+          holder_address: wallet.holder_address,
+          exchange_name: wallet.exchange_name,
+          name_tag: wallet.name_tag || "N/A",
+          image: wallet.image || (wallet.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
+          total_value_usd: Number(wallet.total_value_usd) || 0,
+          token_count: Number(wallet.token_count) || 0,
+          chains: new Set([wallet.chain?.toLowerCase()]),
+          key: `${addr}-${index}`, // Unique key for rendering
+        });
+      } else {
+        const existing = walletMap.get(addr);
+        existing.total_value_usd += Number(wallet.total_value_usd) || 0;
+        existing.token_count += Number(wallet.token_count) || 0;
+        existing.chains.add(wallet.chain?.toLowerCase());
+      }
+    });
+
+    const deduplicated = Array.from(walletMap.values()).map((wallet) => ({
+      ...wallet,
+      chains: Array.from(wallet.chains), // Convert Set to Array
     }));
 
-    const filtered = grouped; // Remove chain filter to ensure Bitcoin is not filtered out
-    logger.log("Grouped portfolio after processing:", { filtered });
+    logger.log("Deduplicated wallet data:", { deduplicated });
+    return deduplicated;
+  }, [walletData]);
+
+  const groupedPortfolio = useMemo(() => {
+    logger.log("Processing portfolio data for chain details:", { portfolioData });
+    const totalValue = portfolioData.reduce((sum, item) => sum + (Number(item.total_balance_usd) || 0), 0);
+
+    const grouped = portfolioData.map((item, index) => {
+      // Extract unique chains from metadata
+      const metadataChains = new Set(
+        (item.metadata || []).map((token) => token.chain?.toLowerCase()).filter(Boolean),
+      );
+      const chainDetails = Array.from(metadataChains).map((chain, chainIndex) => {
+        const tokensOnChain = (item.metadata || []).filter((token) => token.chain?.toLowerCase() === chain);
+        const chainBalance = tokensOnChain.reduce((sum, token) => sum + (Number(token.balance) || 0), 0);
+        const chainBalanceUsd = tokensOnChain.reduce((sum, token) => sum + (Number(token.balance_usd) || 0), 0);
+        const wallets = tokensOnChain
+          .map((token) => ({
+            holder_address: token.holder_address || "unknown", // Fallback if holder_address is missing
+            balance: Number(token.balance) || 0,
+            value: Number(token.balance_usd) || 0,
+          }))
+          .filter((wallet) => wallet.holder_address !== "unknown");
+
+        return {
+          chain,
+          chainName: CHAIN_ID_TO_NAME[chain] || chain || "Unknown",
+          balance: chainBalance,
+          balance_usd: chainBalanceUsd,
+          wallets,
+          key: `${chain}-${chainIndex}`,
+          percentage:
+            item.total_balance_usd > 0 ? ((Number(chainBalanceUsd) || 0) / item.total_balance_usd) * 100 : 0,
+        };
+      });
+
+      return {
+        ...item,
+        key: `${item.token_address}-${index}`,
+        percentage: totalValue > 0 ? ((Number(item.total_balance_usd) || 0) / totalValue) * 100 : 0,
+        chain_details: chainDetails,
+      };
+    });
+
+    const filtered = selectedChain === "all" ? grouped : grouped.filter((item) =>
+      item.chain_details.some((chain) => chain.chain === selectedChain.toLowerCase()),
+    );
+
+    logger.log("Grouped portfolio after processing:", { filtered, selectedChain });
     return filtered;
-  }, [portfolioData]);
+  }, [portfolioData, selectedChain]);
 
   const totalPortfolioValue = useMemo(() => {
     return groupedPortfolio.reduce((sum, item) => sum + (Number(item.total_balance_usd) || 0), 0);
   }, [groupedPortfolio]);
 
   const chains = useMemo(() => {
-    const chainSet = new Set(["all", "bitcoin"]); // Ensure bitcoin is included
+    const chainSet = new Set(["all", "bitcoin"]);
     portfolioData.forEach((item) => {
-      item.chain_details.forEach((chain) => {
-        if (chain.chain) chainSet.add(chain.chain.toLowerCase());
+      (item.metadata || []).forEach((token) => {
+        if (token.chain) chainSet.add(token.chain.toLowerCase());
       });
     });
     return Array.from(chainSet).map((value) => ({
@@ -736,34 +796,30 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   };
 
   const renderWalletsContent = () => {
-    const totalValue = walletData.reduce((sum, wallet) => sum + (Number(wallet.total_value_usd) || 0), 0);
+    const totalValue = uniqueWalletData.reduce((sum, wallet) => sum + (Number(wallet.total_value_usd) || 0), 0);
     return (
       <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
         <LoadingOverlay isLoading={isLoadingWallets} isMobile={isMobile} />
         {isLoadingWallets ? (
           <SkeletonLoader count={5} isMobile={isMobile} />
-        ) : walletData.length > 0 ? (
+        ) : uniqueWalletData.length > 0 ? (
           <table className="w-full text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-black/5">
               <tr>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Wallet Address</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Name Tag</th>
+                <th className="px-2 py-1 text-white text-left font-semibold m-1">Chains</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Value ({currency.toUpperCase()})</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Percentage</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Token Count</th>
               </tr>
             </thead>
             <tbody>
-              {walletData.map((wallet, index) => {
-                const addr = wallet.holder_address?.toLowerCase();
-                const ntag = {
-                  name: wallet.name_tag || "N/A",
-                  image: wallet.image || (wallet.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
-                };
+              {uniqueWalletData.map((wallet, index) => {
                 const percentage = totalValue > 0 ? ((Number(wallet.total_value_usd) || 0) / totalValue) * 100 : 0;
                 return (
                   <motion.tr
-                    key={`${wallet.holder_address}-${index}`}
+                    key={wallet.key}
                     className="border-t border-white/10"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -806,12 +862,28 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                     </td>
                     <td className="px-2 py-2 text-white">
                       <img
-                        src={ntag.image}
+                        src={wallet.image}
                         alt="Wallet logo"
                         className="w-4 h-4 inline mr-2 rounded-full"
                         onError={(e) => (e.target.src = "/fallback-image.png")}
                       />
-                      {ntag.name}
+                      {wallet.name_tag}
+                    </td>
+                    <td className="px-2 py-2 text-white">
+                      <div className="flex items-center gap-1">
+                        {wallet.chains.slice(0, 3).map((chain, idx) => (
+                          <img
+                            key={`${chain}-${idx}`}
+                            src={chainLogos[chain] || "/fallback-image.png"}
+                            alt={`${CHAIN_ID_TO_NAME[chain] || chain} logo`}
+                            className="w-4 h-4 rounded-full"
+                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                          />
+                        ))}
+                        {wallet.chains.length > 3 && (
+                          <span className="text-white/60">+{wallet.chains.length - 3}</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-2 py-2 text-white">{formatPrice(Number(wallet.total_value_usd) || 0, currency, 2)}</td>
                     <td className="px-2 py-2 text-white">{percentage.toFixed(2)}%</td>
@@ -850,15 +922,15 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 const chainName = typeof tx.chain === "string" ? tx.chain.toLowerCase() : (tx.chain_id || "unknown").toString().toLowerCase();
                 if (chainName === "bitcoin") return null;
 
-                const fromWallet = walletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
-                const toWallet = walletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
+                const fromWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
+                const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
                 const fromNtag = {
                   name: fromWallet.name_tag || "N/A",
-                  image: fromWallet.image || (fromWallet.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
+                  image: fromWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
                 };
                 const toNtag = {
                   name: toWallet.name_tag || "N/A",
-                  image: toWallet.image || (toWallet.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
+                  image: toWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
                 };
                 const chain = chainName !== "unknown" ? chainName : "ethereum";
                 const { txUrl } = getExplorerUrls(chain, tx.hash || "", "");
@@ -1205,11 +1277,11 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           setWalletBalancesError={setWalletBalancesError}
           setTransactionsError={setWalletTransactionsError}
           setWalletAddress={setSelectedWallet}
-          nameTags={walletData.reduce((acc, w) => ({
+          nameTags={uniqueWalletData.reduce((acc, w) => ({
             ...acc,
             [w.holder_address?.toLowerCase()]: {
               name: w.name_tag || "N/A",
-              image: w.image || (w.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
+              image: w.image || (w.chains.includes("bitcoin") ? BITCOIN_LOGO : "/fallback-image.png"),
             },
           }), {})}
           isMobile={isMobile}

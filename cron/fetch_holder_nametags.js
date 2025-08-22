@@ -34,11 +34,11 @@ redisClient.on("error", (err) => console.error("Redis Client Error", err));
 // Rate limiters
 const coingeckoLimiter = new Bottleneck({
   maxConcurrent: 3,
-  minTime: 2000,
+  minTime: 1500,
 });
 
 const simLimiter = new Bottleneck({
-  maxConcurrent: 1,
+  maxConcurrent: 2,
   minTime: 2000,
 });
 
@@ -255,31 +255,47 @@ class TokenHoldersCron {
   }
 
   async fetchTokensFromCoinGecko() {
-    console.log("🔄 Fetching tokens from CoinGecko (limited to 10 for testing)...");
-    try {
-      const response = await coingeckoLimiter.schedule(() =>
-        axios.get("https://api.coingecko.com/api/v3/coins/markets", {
-          params: {
-            vs_currency: "usd",
-            order: "market_cap_desc",
-            per_page: 200,
-            page: 1,
-            sparkline: false,
-            price_change_percentage: "24h",
-          },
-          headers: {
-            "x-cg-demo-api-key": process.env.COINGECKO_API_KEY || "",
-          },
-          timeout: 30000,
-        })
-      );
+    console.log("🔄 Fetching up to 500 tokens from CoinGecko...");
+    const tokens = [];
+    const perPage = 250; // CoinGecko limits to 250 tokens per request
+    const pages = Math.ceil(500 / perPage); // Calculate number of pages needed
 
-      const tokens = response.data;
-      if (!Array.isArray(tokens) || tokens.length === 0) {
-        console.error("❌ CoinGecko returned invalid or empty data:", tokens);
-        throw new Error("Invalid or empty token data from CoinGecko");
+    try {
+      for (let page = 1; page <= pages; page++) {
+        console.log(`📡 Fetching page ${page} of ${pages} with ${perPage} tokens...`);
+        const response = await coingeckoLimiter.schedule(() =>
+          axios.get("https://api.coingecko.com/api/v3/coins/markets", {
+            params: {
+              vs_currency: "usd",
+              order: "market_cap_desc",
+              per_page: perPage,
+              page: page,
+              sparkline: false,
+              price_change_percentage: "24h",
+            },
+            headers: {
+              "x-cg-demo-api-key": process.env.COINGECKO_API_KEY || "",
+            },
+            timeout: 30000,
+          })
+        );
+
+        const pageTokens = response.data;
+        if (!Array.isArray(pageTokens) || pageTokens.length === 0) {
+          console.warn(`⚠️ Page ${page} returned invalid or empty data:`, pageTokens);
+          continue;
+        }
+
+        tokens.push(...pageTokens);
+        console.log(`✅ Fetched ${pageTokens.length} tokens from page ${page}`);
       }
-      console.log(`✅ Fetched ${tokens.length} tokens from CoinGecko`, {
+
+      if (tokens.length === 0) {
+        console.error("❌ CoinGecko returned no valid token data");
+        throw new Error("No valid token data from CoinGecko");
+      }
+
+      console.log(`✅ Fetched total ${tokens.length} tokens from CoinGecko`, {
         sample: tokens.slice(0, 3).map((t) => ({ id: t.id, symbol: t.symbol })),
       });
 
@@ -779,7 +795,6 @@ class TokenHoldersCron {
     console.log(`🔄 Processing wallet balances for ${this.holdersWithNameTags.size} holders with name tags...`);
     const processedWallets = new Set();
 
-    // Danh sách token quan trọng
     const IMPORTANT_TOKENS = [
       { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", chain: "ethereum", decimals: 6 },
       { address: "0x55d398326f99059ff775485246999027b3197955", symbol: "USDT", chain: "bsc", decimals: 18 },
@@ -790,7 +805,6 @@ class TokenHoldersCron {
       { address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", symbol: "WBTC", chain: "ethereum", decimals: 8 },
     ];
 
-    // Hàm kiểm tra logo hợp lệ
     const isValidLogo = (logo) => {
       if (typeof logo !== "string" || logo === "") return false;
       return /^\/[a-zA-Z0-9-_]+\.(png|jpg|jpeg|svg|webp)$/.test(logo) || /^https?:\/\/.+/.test(logo);
@@ -804,7 +818,6 @@ class TokenHoldersCron {
 
       const cacheKey = `sim_wallet_balances:${holder_address}:${chain}`;
       try {
-        // Tạm thời bỏ qua cache để kiểm tra dữ liệu tươi
         // const cachedData = await redisClient.get(cacheKey);
         // if (cachedData) {
         //   console.log(`📦 Cache hit for wallet ${holder_address} on ${chain}`);
@@ -867,7 +880,6 @@ class TokenHoldersCron {
             allTokens.push(...response.data.data);
             nextOffset = response.data.next_offset || null;
 
-            // Log chi tiết để kiểm tra USDT
             const usdtToken = response.data.data.find(
               (token) =>
                 token.chain === "ethereum" &&
@@ -880,6 +892,7 @@ class TokenHoldersCron {
                 value_usd: usdtToken.value_usd,
                 decimals: usdtToken.decimals,
                 logo: usdtToken.logo,
+                low_liquidity: usdtToken.low_liquidity || false,
               });
             } else {
               console.log(`     ⚠️ USDT not found in response for ${holder_address} on ${chain}`);
@@ -917,28 +930,31 @@ class TokenHoldersCron {
                   : impToken.address.toLowerCase() === token.address.toLowerCase())
             );
 
-            // Lọc token có value_usd > 50 tỷ USD, trừ token quan trọng
             if (token.value_usd > 50_000_000_000 && !isImportantToken) {
               console.log(`     ℹ️ Filtered out token ${token.symbol} with excessive value_usd: ${token.value_usd} on ${chain}`);
               return false;
             }
 
-            // Lọc token có value_usd === 0, trừ token quan trọng
             if (token.value_usd === 0 && !isImportantToken) {
               console.log(`     ℹ️ Filtered out token ${token.symbol} with zero value_usd on ${chain}`);
               return false;
             }
 
-            // Lọc token không có logo hợp lệ, trừ token quan trọng
-            if (!isValidLogo(token.logo) && !isImportantToken) {
-              console.log(`     ℹ️ Filtered out token ${token.symbol} with invalid or missing logo: ${token.logo} on ${chain}`);
+            const hasValidLogo = isValidLogo(token.logo);
+            const hasLowLiquidity = token.low_liquidity === true;
+            if (!isImportantToken && (!hasValidLogo || hasLowLiquidity)) {
+              console.log(`     ℹ️ Filtered out token ${token.symbol} on ${chain}:`, {
+                reason: !hasValidLogo ? "Invalid or missing logo" : "Low liquidity",
+                logo: token.logo,
+                low_liquidity: hasLowLiquidity,
+              });
               return false;
             }
 
             return true;
           })
           .sort((a, b) => b.value_usd - a.value_usd)
-          .slice(0, 200);
+          .slice(0, 500);
 
         if (filteredTokens.length === 0) {
           console.warn(`     ⚠️ No tokens passed filtering for ${holder_address} on ${chain}`);
@@ -956,9 +972,9 @@ class TokenHoldersCron {
           decimals: token.decimals || 18,
           name: token.name || "Unknown",
           logo: token.logo || null,
+          chain: token.chain,
         }));
 
-        // Lưu vào cache với TTL 1 ngày (86400 giây)
         await redisClient.setEx(
           cacheKey,
           86400,
@@ -1251,7 +1267,7 @@ async function main() {
 
     console.log("🎯 Token Holders Cron Job is running...");
     console.log("📅 Next run: Every 5 days at 2:00 AM UTC");
-    console.log("🔄 Processing: 10 tokens with 10-second intervals");
+    console.log("🔄 Processing: Up to 500 tokens with 15-second intervals"); // Updated log
     console.log("📊 Chains: All supported EVM chains + Bitcoin/Dogecoin treasury data");
 
     process.on("SIGINT", async () => {
