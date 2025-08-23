@@ -1,4 +1,3 @@
-// components/WalletBalances.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -92,7 +91,8 @@ const WalletBalances = ({
         walletAddress &&
         !balances?.length &&
         !isLoading &&
-        !error
+        !error &&
+        fetchOnChainData // Check if fetchOnChainData exists
       ) {
         logger.log('Fetching wallet balances for:', { walletAddress });
         try {
@@ -145,7 +145,7 @@ const WalletBalances = ({
     isLoadingTransactions,
     transactionsError,
     fetchTransactions,
-    fetchOnChainData,
+    fetchOnChainData, // Include in dependency array
     setWalletBalancesError,
     setIsLoadingWalletBalances,
     setTransactionsError,
@@ -242,7 +242,7 @@ const WalletBalances = ({
                   navigator.clipboard.writeText(walletAddress);
                   toast.success('Address copied!', { autoClose: 2000 });
                 }}
-                className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
+                className="ml-2 p-1 bg-white/10 rounded-xl flex-shrink-0 opacity-0 group-hover:opacity-100"
                 title="Copy address"
                 whileHover={{ scale: 1.1, y: -2 }}
                 whileTap={{ scale: 0.9 }}
@@ -252,7 +252,7 @@ const WalletBalances = ({
                   className="w-4 h-4"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="#F87171"
+                  stroke="#ffffffff"
                   strokeWidth={2}
                 >
                   <path
@@ -474,9 +474,9 @@ const WalletBalances = ({
                                 </div>
                               </td>
                               <td className="px-2 py-2 text-white">
-                                <div className="flex items-center gap-2 group relative">
+                                <div className="flex flex-col items-center gap-1 group relative">
                                   <span
-                                    className={`inline-flex px-2 py-0.5 rounded-lg text-[7px] sm:text-[9px] font-medium ${tx.type === 'receive' ? 'bg-emerald-400/20 text-emerald-400' : 'bg-red-400/20 text-red-400'}`}
+                                    className={`inline-flex px-2 py-0.5 rounded-xl text-[7px] sm:text-[8px] font-medium ${tx.type === 'receive' ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-500/10 text-red-500'}`}
                                   >
                                     {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
                                   </span>
@@ -539,7 +539,7 @@ const WalletBalances = ({
                                 {tx.value_usd != null ? `$${formatNumber(tx.value_usd)}` : 'N/A'}
                               </td>
                               <td className="px-2 py-2 text-white">
-                                <div className="flex items-center gap-2 group relative">
+                                <div className="flex flex-col items-center gap-1 group relative">
                                   <a
                                     href={txUrl}
                                     target="_blank"
@@ -563,14 +563,14 @@ const WalletBalances = ({
                                         navigator.clipboard.writeText(tx.hash);
                                         toast.success('Transaction hash copied!', { autoClose: 2000 });
                                       }}
-                                      className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                      className="absolute right-0 p-1 bg-white/10 rounded-xl flex-shrink-0 opacity-0 group-hover:opacity-100"
                                       title="Copy transaction hash"
                                       whileHover={{ scale: 1.1, y: -2 }}
                                       whileTap={{ scale: 0.9 }}
                                     >
                                       <svg
                                         xmlns="http://www.w3.org/2000/svg"
-                                        className="w-4 h-4"
+                                        className="w-3 h-3"
                                         fill="none"
                                         viewBox="0 0 24 24"
                                         stroke="#F87171"

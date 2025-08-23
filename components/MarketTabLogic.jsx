@@ -31,7 +31,6 @@ axiosRetry(coingeckoAxios, {
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
 });
 
-// components/MarketTabLogic.jsx
 const fetcher = async (url, params) => {
   const response = await axios.get(url, { params });
   if (!response.data.success) {
