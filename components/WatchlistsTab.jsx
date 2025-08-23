@@ -1,4 +1,3 @@
-// components/WatchlistsTab.jsx
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -50,7 +49,7 @@ const SkeletonLoader = ({ isMobile }) => {
   const skeletonRows = Array(5).fill(null);
   return (
     <div className="w-full p-2 sm:p-3">
-      <table className="w-full text-[9px] sm:text-[10px]">
+      <table className="w-full text-[9px] sm:text-[9px]">
         <tbody>
           {skeletonRows.map((_, index) => (
             <tr key={index} className="border-t border-white/10">
@@ -208,7 +207,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     logger.log('useEffect triggered - searchParams:', {
       addressFromUrl,
       activeTab,
-      selectedWallet: selectedWallet?.address,
+      selectedWallet,
     });
 
     if (isUserInitiatedChange) {
@@ -542,7 +541,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               const batchAddresses = batches[index];
               batchAddresses.forEach((address) => {
                 const normalizedAddress = address.toLowerCase();
-                const data = result.value.data.data?.[normalizedAddress];
+                const data = result.value.data.data.data?.[normalizedAddress];
                 const nameTag = data?.Labels?.deposit?.['Name Tag'] || null;
                 const image = data?.Labels?.deposit?.image || '/icons/default.png';
                 newNameTags[normalizedAddress] = { nameTag, image, timestamp: Date.now() };
@@ -609,6 +608,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
     fetchNametags();
   }, [watchlists, session, fetchNameTagsForAddresses]);
+
+  useEffect(() => {
+    if (activeTab === 'ACTIVITY' && transactions.length > 0) {
+      const uniqueAddresses = [...new Set(transactions.flatMap((tx) => [tx.from, tx.to]))].filter(Boolean);
+      fetchNameTagsForAddresses(uniqueAddresses);
+    }
+  }, [transactions, activeTab, fetchNameTagsForAddresses]);
 
   useEffect(() => {
     if (!session?.user?.id) {
@@ -909,21 +915,22 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     const addressToShow = tx.type === 'receive' ? tx.from : tx.to;
     const { text: displayAddress, image: addressImage } = truncateAddress(addressToShow, nameTags);
 
-    let displayValue = tx.value;
-    let typeDisplay = tx.type.charAt(0).toUpperCase() + tx.type.slice(1);
+    let displayValue = Number(tx.value).toLocaleString("en-US", { maximumFractionDigits: 1 });
+    let typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
+
     if (tx.type === 'swap' && tx.swap_details) {
       const sent = tx.swap_details.sent[0];
       const received = tx.swap_details.received[0];
       if (sent && received) {
-        displayValue = `${sent.amount.toFixed(4)} ${sent.symbol} → ${received.amount.toFixed(4)} ${received.symbol}`;
+        displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol} → ${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
         tokenSymbol = `${sent.symbol}/${received.symbol}`;
         tokenLogo = sent.logo || received.logo || '/icons/default.png';
       } else if (sent) {
-        displayValue = `${sent.amount.toFixed(4)} ${sent.symbol}`;
+        displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol}`;
         tokenSymbol = sent.symbol;
         tokenLogo = sent.logo || '/icons/default.png';
       } else if (received) {
-        displayValue = `${received.amount.toFixed(4)} ${received.symbol}`;
+        displayValue = `${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
         tokenSymbol = received.symbol;
         tokenLogo = received.logo || '/icons/default.png';
       }
@@ -931,8 +938,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     } else if (tx.type === 'other') {
       typeDisplay = 'Other';
       displayValue = tx.value || 'N/A';
-    } else if (tx.type === 'send' || tx.type === 'receive') {
-      displayValue = Number(tx.value).toFixed(4);
     }
 
     return (
@@ -1011,7 +1016,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           {displayValue}
         </td>
         <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
-          <div className="flex flex-col images-center gap-0.5">
+          <div className="flex flex-col items-center gap-0.5">
             <a href={txUrl} target="_blank" rel="noopener noreferrer">
               <img
                 src="/logos/etherscan-logo.png"
@@ -1129,9 +1134,18 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     onClick={() => setShowAddModal(true)}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="px-2 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
+                    className="p-1 bg-white/5 border border-white/10 rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
                   >
-                    Add +
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-3 h-3 text-white"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
                   </motion.button>
                 </div>
                 {watchlists.length === 0 ? (
@@ -1186,7 +1200,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         }}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="text-[8px] sm:text-[9px] text-red-400/80 hover:text-red-red"
+                        className="text-[8px] sm:text-[9px] text-red-400/80 hover:text-red-400"
                       >
                         ✕
                       </motion.button>
@@ -1209,9 +1223,18 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             onClick={() => setShowAddModal(true)}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
+            className="p-1 bg-white/5 border border-white/10 rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
           >
-            Add +
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-3 h-3 text-white"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
           </motion.button>
         </div>
         {watchlists.length === 0 ? (

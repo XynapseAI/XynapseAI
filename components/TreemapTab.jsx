@@ -74,7 +74,7 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
               alt={`${nametag} logo`}
               width={isMobile ? 12 : 16}
               height={isMobile ? 12 : 16}
-              className="rounded-full"
+              className="rounded-xl"
               onError={() => console.log(`Failed to load wallet image: ${image}`)}
               loading="lazy"
             />

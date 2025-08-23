@@ -263,7 +263,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           <div className="space-y-1">
             <span className="text-white/60 block">24h Change</span>
             <span
-              className={`font-semibold ${token.price_change_percentage_24h >= 0 ? "text-emerald-400" : "text-red-400"}`}
+              className={`font-semibold ${token.price_change_percentage_24h >= 0 ? "text-emerald-400" : "text-red-500"}`}
             >
               {token.price_change_percentage_24h.toFixed(2)}%
             </span>
@@ -733,7 +733,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               </div>
             ) : trendingError ? (
               <div className="text-center">
-                <p className="text-red-400 text-[10px] mb-2">{trendingError}</p>
+                <p className="text-red-500 text-[10px] mb-2">{trendingError}</p>
                 <motion.button
                   onClick={() => fetchTrendingTokens()}
                   className="px-4 py-1 text-white text-[10px] border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
@@ -822,7 +822,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     />
                     <span className="text-white text-[8px] sm:text-[10px] font-medium">{token.symbol.toUpperCase()}</span>
                     <span
-                      className={`text-[8px] sm:text-[9px] font-medium ${token.price_change_percentage_24h >= 0 ? "text-emerald-400" : "text-red-400"}`}
+                      className={`text-[8px] sm:text-[9px] font-medium ${token.price_change_percentage_24h >= 0 ? "text-emerald-400" : "text-red-500"}`}
                     >
                       {token.price_change_percentage_24h >= 0 ? "+" : ""}
                       {token.price_change_percentage_24h.toFixed(2)}%
@@ -838,7 +838,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
       {error && (
         <motion.div
-          className="text-[10px] sm:text-xs text-red-400 text-center p-2 sm:p-4 bg-red-500/10 border border-red-500/20 rounded-lg mb-2"
+          className="text-[10px] sm:text-xs text-red-500 text-center p-2 sm:p-4 bg-red-500/10 border border-red-500/20 rounded-lg mb-2"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -1003,7 +1003,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]
                           ) >= 0
                             ? "text-emerald-400 bg-emerald-400/10"
-                            : "text-red-400 bg-red-400/10"
+                            : "text-red-500 bg-red-500/10"
                             }`}
                         >
                           {(selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
@@ -1213,7 +1213,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 selectedToken?.ath_change_percentage?.[currency] ||
                                 localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.ath_change_percentage?.[currency]
                               ) >= 0
-                                ? "text-red-400"
+                                ? "text-red-500"
                                 : "text-emerald-400"
                               : "text-white"
                               }`}
@@ -1240,7 +1240,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 selectedToken?.atl_change_percentage?.[currency] ||
                                 localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.atl_change_percentage?.[currency]
                               ) >= 0
-                                ? "text-red-400"
+                                ? "text-red-500"
                                 : "text-emerald-400"
                               : "text-white"
                               }`}
@@ -1264,7 +1264,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </div>
                         <div className="flex-1 text-center">
                           <span className="text-white/60 block mb-0.5">24H Low</span>
-                          <span className="text-red-400 font-semibold">
+                          <span className="text-red-500 font-semibold">
                             {formatPrice(highLowData.low, currency, 8)}
                           </span>
                         </div>
@@ -1324,7 +1324,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         className={`font-bold ${highLowData.percentageChange !== "N/A" && typeof highLowData.percentageChange === "number"
                           ? highLowData.percentageChange >= 0
                             ? "text-emerald-400"
-                            : "text-red-400"
+                            : "text-red-500"
                           : "text-white/60"
                           }`}
                       >
@@ -1539,7 +1539,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </div>
                       ) : onChainError && !NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase()) ? (
                         <div className="text-sm text-center p-6">
-                          <p className="text-red-400">{onChainError}</p>
+                          <p className="text-red-500">{onChainError}</p>
                         </div>
                       ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                         <div className="overflow-x-auto">
@@ -1690,7 +1690,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} />
                       {tickerError ? (
                         <div className="text-[10px] sm:text-xs text-center p-6">
-                          <p className="text-red-400 mb-4">{tickerError}</p>
+                          <p className="text-red-500 mb-4">{tickerError}</p>
                           <motion.button
                             onClick={() => fetchTickerData(selectedToken?.id)}
                             className="px-4 py-2 text-white text-sm border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
@@ -1872,7 +1872,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       <LoadingOverlay isLoading={isLoadingDex && !dexData.trades?.length} isMobile={isMobile} />
                       {dexError ? (
                         <div className="text-[10px] text-xs text-center p-6">
-                          <p className="text-red-400 mb-4">{dexError}</p>
+                          <p className="text-red-500 mb-4">{dexError}</p>
                           <motion.button
                             onClick={() => {
                               const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain)
@@ -2135,7 +2135,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           ${Math.floor(Number.parseFloat(trade.volume_in_usd)).toLocaleString("en-US")}
                                         </span>
                                         <span
-                                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${trade.kind === "buy" ? "bg-emerald-400/20 text-emerald-400" : "bg-red-500/40 text-red-500"}`}
+                                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${trade.kind === "buy" ? "bg-emerald-400/10 text-emerald-400" : "bg-red-500/10 text-red-500/80"}`}
                                         >
                                           {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
                                         </span>
