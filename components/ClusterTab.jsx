@@ -146,7 +146,8 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       } catch (err) {
         logger.error("Error fetching BTC price:", { error: err.message, stack: err.stack });
         setBtcPrice(0);
-        toast.error(`Failed to load BTC price: ${err.message}`, { position: "top-center", autoClose: 3000 });
+        // Suppress toast for non-critical error
+        // toast.error(`Failed to load BTC price: ${err.message}`, { position: "top-center", autoClose: 3000 });
       } finally {
         setIsLoadingBtcPrice(false);
       }
@@ -156,9 +157,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
   useEffect(() => {
     const mappedId = mapExchangeId(exchangeIdFromQuery);
-    fetchExchangeData(mappedId);
+    fetchExchangeData(exchangeIdFromQuery, mappedId);
     if (btcPrice) {
-      fetchVolumeHistory(mappedId); // Only fetch volume history when btcPrice is available
+      fetchVolumeHistory(mappedId);
     }
     fetchPortfolioAndWallets(exchangeIdFromQuery);
   }, [exchangeIdFromQuery, currency, btcPrice]);
@@ -181,7 +182,8 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         logger.log("Fetched chain logos:", { data: logos });
       } catch (err) {
         logger.error("Error fetching chain logos:", { error: err.message, stack: err.stack });
-        toast.error(`Failed to load chain logos: ${err.message}`, { position: "top-center", autoClose: 3000 });
+        // Suppress toast for non-critical error
+        // toast.error(`Failed to load chain logos: ${err.message}`, { position: "top-center", autoClose: 3000 });
       }
     };
     fetchChainLogos();
@@ -277,64 +279,76 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     }
   }, [selectedWallet]);
 
-  const fetchExchangeData = async (exchangeId) => {
+  const fetchExchangeData = async (originalId, mappedId) => {
     setIsLoadingExchange(true);
     try {
-      const response = await fetch(`/api/coingecko?action=exchange-details&id=${exchangeId}`, {
+      const response = await fetch(`/api/coingecko?action=exchange-details&id=${mappedId}`, {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
       });
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.detail || `Failed to fetch exchange data for ${exchangeId}`);
+        throw new Error(result.detail || `Failed to fetch exchange data for ${mappedId}`);
       }
       if (!result.data) {
-        throw new Error(`No data found for exchange: ${exchangeId}`);
+        throw new Error(`No data found for exchange: ${mappedId}`);
       }
       setExchangeData(result.data);
-      logger.log("Fetched exchange data:", { exchangeId, data: result.data });
+      logger.log("Fetched exchange data:", { mappedId, data: result.data });
     } catch (err) {
+      const fallback = {
+        name: originalId.charAt(0).toUpperCase() + originalId.slice(1),
+        image: `/icons/${originalId.toLowerCase()}.png`,
+        country: "N/A",
+        year_established: "N/A",
+        trust_score: "N/A",
+        trade_volume_24h_btc: 0,
+        centralized: true,
+        twitter_handle: null,
+        url: null,
+      };
+      setExchangeData(fallback);
       const errorMessage = err.message || "Unknown error fetching exchange data";
-      logger.error("Error fetching exchange data:", { exchangeId, error: errorMessage, stack: err.stack });
-      setError(errorMessage);
-      toast.error(`Failed to load exchange data: ${errorMessage}`, { position: "top-center", autoClose: 3000 });
+      logger.error("Error fetching exchange data:", { originalId, mappedId, error: errorMessage, stack: err.stack });
+      // Suppress toast and handle in UI
+      setError(null); // Clear error to avoid displaying raw message
     } finally {
       setIsLoadingExchange(false);
     }
   };
 
- const fetchVolumeHistory = async (exchangeId) => {
-  if (!btcPrice) {
-    logger.warn("BTC price not available, skipping volume history fetch", { exchangeId });
-    return; // Skip fetch if btcPrice is not available
-  }
-  setIsLoadingVolume(true);
-  try {
-    const response = await fetch(`/api/coingecko?action=volume-chart&id=${exchangeId}&days=7`, {
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.detail || "Failed to fetch volume data");
-    if (!Array.isArray(result.data)) {
-      logger.warn("Invalid volume data format:", { exchangeId, data: result.data });
-      throw new Error("Volume data is not an array");
+  const fetchVolumeHistory = async (exchangeId) => {
+    if (!btcPrice) {
+      logger.warn("BTC price not available, skipping volume history fetch", { exchangeId });
+      return;
     }
-    const convertedData = result.data.map(([timestamp, volume]) => ({
-      title: new Date(timestamp).toLocaleDateString(),
-      volume: (Number(volume) || 0) * btcPrice, // Convert BTC to USD
-    }));
-    setVolumeHistory(convertedData);
-    logger.log("Fetched volume history:", { exchangeId, btcPrice, convertedData });
-  } catch (err) {
-    const errorMessage = err.message || "Unknown error fetching volume history";
-    logger.error("Error fetching volume history:", { exchangeId, error: errorMessage, stack: err.stack });
-    setError(errorMessage);
-    toast.error(`Failed to load volume data: ${errorMessage}`, { position: "top-center", autoClose: 3000 });
-  } finally {
-    setIsLoadingVolume(false);
-  }
-};
+    setIsLoadingVolume(true);
+    try {
+      const response = await fetch(`/api/coingecko?action=volume-chart&id=${exchangeId}&days=7`, {
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || "Failed to fetch volume data");
+      if (!Array.isArray(result.data)) {
+        logger.warn("Invalid volume data format:", { exchangeId, data: result.data });
+        throw new Error("Volume data is not an array");
+      }
+      const convertedData = result.data.map(([timestamp, volume]) => ({
+        title: new Date(timestamp).toLocaleDateString(),
+        volume: (Number(volume) || 0) * btcPrice,
+      }));
+      setVolumeHistory(convertedData);
+      logger.log("Fetched volume history:", { exchangeId, btcPrice, convertedData });
+    } catch (err) {
+      const errorMessage = err.message || "Unknown error fetching volume history";
+      logger.error("Error fetching volume history:", { exchangeId, error: errorMessage, stack: err.stack });
+      setVolumeHistory([]); // Ensure empty state for chart
+      // Suppress toast and handle in UI
+    } finally {
+      setIsLoadingVolume(false);
+    }
+  };
 
   const fetchPortfolioAndWallets = async (exchangeId) => {
     setIsLoadingPortfolio(true);
@@ -374,8 +388,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching portfolio/wallet data";
       logger.error("Error fetching portfolio/wallet data:", { exchangeId, error: errorMessage, stack: err.stack });
-      setError(errorMessage);
-      toast.error(`Failed to load portfolio/wallet data: ${errorMessage}`, { position: "top-center", autoClose: 3000 });
+      setPortfolioData([]);
+      setWalletData([]);
+      // Suppress toast and handle in UI
     } finally {
       setIsLoadingPortfolio(false);
       setIsLoadingWallets(false);
@@ -426,8 +441,8 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching transactions";
       logger.error("Error fetching transactions:", { input, minValueUsd, error: errorMessage, stack: err.stack });
-      setError(errorMessage);
-      toast.error(`Failed to load transactions: ${errorMessage}`, { position: "top-center", autoClose: 3000 });
+      setTransactions([]);
+      setTransactionsError(null); // Suppress error display, handle in UI
     } finally {
       setIsLoadingTransactions(false);
     }
@@ -471,15 +486,14 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching wallet transactions";
       logger.error("Error fetching wallet transactions:", { walletAddress, error: errorMessage, stack: err.stack });
-      setWalletTransactionsError(errorMessage);
-      toast.error(`Failed to load wallet transactions: ${errorMessage}`, { position: "top-center", autoClose: 3000 });
+      setWalletTransactions([]);
+      setWalletTransactionsError(null); // Suppress error display, handle in UI
     } finally {
       setIsLoadingWalletTransactions(false);
     }
   };
 
   const fetchWalletBalances = async (walletAddress) => {
-    setIsunion
     setIsLoadingWalletBalances(true);
     setWalletBalancesError(null);
     logger.log("Starting fetchWalletBalances", { walletAddress });
@@ -520,9 +534,8 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching wallet balances";
       logger.error("Error fetching wallet balances:", { walletAddress, error: errorMessage, stack: err.stack });
-      setWalletBalancesError(errorMessage);
-      toast.error(`Failed to load wallet balances: ${errorMessage}`, { position: "top-center", autoClose: 3000 });
       setWalletBalances([]);
+      setWalletBalancesError(null); // Suppress error display, handle in UI
     } finally {
       setIsLoadingWalletBalances(false);
     }
@@ -559,7 +572,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     setWalletTransactionsError(null);
   };
 
-  // Gộp ví trùng lặp trong walletData
   const uniqueWalletData = useMemo(() => {
     logger.log("Processing walletData for deduplication:", { walletData });
     const walletMap = new Map();
@@ -575,7 +587,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           name_tag: wallet.name_tag || "N/A",
           image: wallet.image || (wallet.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
           total_value_usd: Number(wallet.total_value_usd) || 0,
-          key: `${addr}-${index}`, // Unique key for rendering
+          key: `${addr}-${index}`,
         });
       } else {
         const existing = walletMap.get(addr);
@@ -593,7 +605,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     const totalValue = portfolioData.reduce((sum, item) => sum + (Number(item.total_balance_usd) || 0), 0);
 
     const grouped = portfolioData.map((item, index) => {
-      // Extract unique chains from metadata for filtering purposes
       const metadataChains = new Set(
         (item.metadata || []).map((token) => token.chain?.toLowerCase()).filter(Boolean),
       );
@@ -604,7 +615,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         percentage: totalValue > 0 ? ((Number(item.total_balance_usd) || 0) / totalValue) * 100 : 0,
         symbol: item.symbol || tokenSymbols[item.token_address] || item.token_address,
         logo: item.logo || tokenImages[item.token_address] || "/fallback-image.png",
-        chains: Array.from(metadataChains), // Keep chains for filtering
+        chains: Array.from(metadataChains),
       };
     });
 
@@ -684,7 +695,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               </tbody>
             </table>
           ) : (
-            <p className="text-[10px] sm:text-xs text-white/60 text-center">No portfolio data available.</p>
+            <p className="text-[10px] sm:text-xs text-white/60 text-center">No portfolio data available for this exchange.</p>
           )}
         </div>
       </div>
@@ -711,6 +722,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             <tbody>
               {uniqueWalletData.map((wallet, index) => {
                 const percentage = totalValue > 0 ? ((Number(wallet.total_value_usd) || 0) / totalValue) * 100 : 0;
+                const displayAddress = /^0x[a-fA-F0-9]{40}$/.test(wallet.holder_address)
+                  ? wallet.holder_address
+                  : wallet.holder_address;
+                const isBitcoinAddress = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-zA-Z0-9]{39,59}$/.test(wallet.holder_address);
                 return (
                   <motion.tr
                     key={wallet.key}
@@ -725,8 +740,16 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                           onClick={() => handleWalletClick(wallet.holder_address)}
                           className="text-white hover:text-white/80 no-hover-effect"
                         >
-                          {truncateAddress(wallet.holder_address).text}
+                          {displayAddress}
                         </button>
+                        {isBitcoinAddress && (
+                          <img
+                            src={BITCOIN_LOGO}
+                            alt="Bitcoin logo"
+                            className="w-4 h-4 inline ml-2 rounded-full"
+                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                          />
+                        )}
                         <motion.button
                           onClick={() => {
                             navigator.clipboard.writeText(wallet.holder_address);
@@ -771,7 +794,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             </tbody>
           </table>
         ) : (
-          <p className="text-[10px] sm:text-xs text-white/60 text-center">No wallet data available.</p>
+          <p className="text-[10px] sm:text-xs text-white/60 text-center">No wallet data available for this exchange.</p>
         )}
       </div>
     );
@@ -787,18 +810,17 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           <table className="w-full text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-white/5">
               <tr>
-                <th className="px-2 py-1 text-white text-left font-semibold w-[60px] sm:w-[80px] m-1">Chain</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Token</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">From</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">To</th>
+                <th className="px-2 py-1 text-white text-center font-semibold m-1">Token Value</th>
                 <th className="px-2 py-1 text-white text-left font-semibold m-1">Value ({currency.toUpperCase()})</th>
-                <th className="px-2 py-1 text-white text-left font-semibold m-1">Token Value</th>
                 <th className="px-2 py-1 text-white text-left font-semibold w-[120px] sm:w-[140px] m-1">Details</th>
               </tr>
             </thead>
             <tbody>
               {transactions
-                .filter((tx) => tx.type !== "approve") // Filter out approve transactions
+                .filter((tx) => tx.type !== "approve")
                 .map((tx, index) => {
                   const chainName = typeof tx.chain === "string" ? tx.chain.toLowerCase() : (tx.chain_id || "unknown").toString().toLowerCase();
                   if (chainName === "bitcoin") return null;
@@ -815,42 +837,66 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   };
                   const chain = chainName !== "unknown" ? chainName : "ethereum";
                   const { txUrl } = getExplorerUrls(chain, tx.hash || "", "");
+                  const tokenSymbol = tx.token_metadata?.symbol || "Unknown";
+                  const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
+                  let displayValue = Number(tx.value).toLocaleString("en-US", { maximumFractionDigits: 1 });
+                  let tokenLogo = tx.token_metadata?.logo || "/fallback-image.png";
 
-                  logger.log("Transaction data:", {
-                    hash: tx.hash,
-                    value_usd: tx.value_usd,
-                    value: tx.value,
-                    formatted_value_usd: formatPrice(Number(tx.value_usd) || 0, currency, 2),
-                  });
+                  if (tx.type === "swap" && tx.swap_details) {
+                    const sent = tx.swap_details.sent[0];
+                    const received = tx.swap_details.received[0];
+                    if (sent && received) {
+                      displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol} → ${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
+                      tokenSymbol = `${sent.symbol}/${received.symbol}`;
+                      tokenLogo = sent.logo || received.logo || "/fallback-image.png";
+                    } else if (sent) {
+                      displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol}`;
+                      tokenSymbol = sent.symbol;
+                      tokenLogo = sent.logo || "/fallback-image.png";
+                    } else if (received) {
+                      displayValue = `${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
+                      tokenSymbol = received.symbol;
+                      tokenLogo = received.logo || "/fallback-image.png";
+                    }
+                  } else if (tx.type === "other") {
+                    displayValue = tx.value || "N/A";
+                  }
 
                   return (
                     <motion.tr
                       key={`${tx.hash}-${index}`}
-                      className="border-t border-white/10"
+                      className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3, delay: index * 0.02 }}
                     >
-                      <td className="px-2 py-2 text-white w-[60px] sm:w-[80px]">
-                        <img
-                          src={chainLogos[chain] || "/fallback-image.png"}
-                          alt={`${CHAIN_ID_TO_NAME[chain] || chain || "Unknown"} logo`}
-                          className="w-4 h-4 inline rounded-full"
-                          onError={(e) => (e.target.src = "/fallback-image.png")}
-                        />
-                      </td>
-                      <td className="px-2 py-2 text-white">
-                        <div className="flex items-center gap-2">
-                          <img
-                            src={tx.token_metadata?.logo || "/fallback-image.png"}
-                            alt={`${tx.token_metadata?.symbol || "Unknown"} logo`}
-                            className="w-4 h-4 inline rounded-full"
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
-                          />
-                          <span>{tx.token_metadata?.symbol || "Unknown"}</span>
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
+                        <div className="flex items-center gap-2 relative">
+                          <div className="relative flex-shrink-0">
+                            <img
+                              src={tokenLogo}
+                              alt={`${tokenSymbol} logo`}
+                              width={isMobile ? 14 : 16}
+                              height={isMobile ? 14 : 16}
+                              className="rounded-full"
+                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              loading="lazy"
+                            />
+                            <img
+                              src={chainLogos[chain] || "/fallback-image.png"}
+                              alt={`${CHAIN_ID_TO_NAME[chain] || chain || "Unknown"} logo`}
+                              width={isMobile ? 8 : 10}
+                              height={isMobile ? 8 : 10}
+                              className="rounded-full absolute top-0 left-0"
+                              style={{ transform: "translate(-25%, -25%)" }}
+                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              loading="lazy"
+                            />
+                          </div>
+                          <span>{tokenSymbol}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-2 text-white">
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
                         <div className="flex items-center gap-2 group relative">
                           <img
                             src={fromNtag.image}
@@ -891,7 +937,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                           </motion.button>
                         </div>
                       </td>
-                      <td className="px-2 py-2 text-white">
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
                         <div className="flex items-center gap-2 group relative">
                           <img
                             src={toNtag.image}
@@ -932,28 +978,41 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                           </motion.button>
                         </div>
                       </td>
-                      <td className="px-2 py-2 text-white">{formatPrice(Number(tx.value_usd) || 0, currency, 2)}</td>
-                      <td className="px-2 py-2 text-white">
-                        {Number(tx.value).toLocaleString("en-US", { maximumFractionDigits: 6 })}
-                      </td>
-                      <td className="px-2 py-2 text-white w-[120px] sm:w-[140px]">
-                        <div className="flex flex-col items-center justify-center gap-1">
-                          <motion.a
-                            href={txUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-block no-hover-effect"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${
+                              tx.type === "receive"
+                                ? "bg-neon-green/20 text-neon-green"
+                                : tx.type === "send"
+                                ? "bg-neon-blue/20 text-neon-blue"
+                                : tx.type === "swap"
+                                ? "bg-purple-400/20 text-purple-400"
+                                : "bg-white/20 text-white/60"
+                            }`}
                           >
+                            {typeDisplay}
+                          </span>
+                          <span>{displayValue}</span>
+                        </div>
+                      </td>
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
+                        {formatPrice(Number(tx.value_usd) || 0, currency, 2)}
+                      </td>
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] w-[120px] sm:w-[140px]">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <a href={txUrl} target="_blank" rel="noopener noreferrer">
                             <img
                               src="/logos/etherscan-logo.png"
                               alt="Explorer"
-                              className="w-3 h-3"
+                              width={isMobile ? 12 : 14}
+                              height={isMobile ? 12 : 14}
+                              className="rounded-full"
                               onError={(e) => (e.target.src = "/fallback-image.png")}
+                              loading="lazy"
                             />
-                          </motion.a>
-                          <span className="text-[7px] sm:text-[7px]">
+                          </a>
+                          <span className="text-[8px] sm:text-[9px] text-white/60">
                             {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : "N/A"}
                           </span>
                         </div>
@@ -964,7 +1023,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             </tbody>
           </table>
         ) : (
-          <p className="text-[10px] sm:text-xs text-white/60 text-center">No large transactions available.</p>
+          <p className="text-[10px] sm:text-xs text-white/60 text-center">No large transactions available for this exchange.</p>
         )}
       </div>
     );
@@ -993,7 +1052,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          Error: {error}
+          Unable to load data. Please try again later.
         </motion.div>
       )}
 
@@ -1021,7 +1080,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                     <h4 className="text-base sm:text-lg font-bold text-white">{exchangeData.name}</h4>
                   </div>
                   <h4 className="ml-12 sm:ml-0 text-xs sm:text-lg font-bold text-white tracking-wider">
-                    Total Value : {formatPrice(totalPortfolioValue, currency, 2)}
+                    Total Value: {formatPrice(totalPortfolioValue, currency, 2)}
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1030,15 +1089,15 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                     <div className="space-y-2 text-[10px] sm:text-xs">
                       <div className="flex justify-between">
                         <span className="text-white/60">Country:</span>
-                        <span className="text-white">{exchangeData.country || "N/A"}</span>
+                        <span className="text-white">{exchangeData.country || "Not available"}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-white/60">Year Established:</span>
-                        <span className="text-white">{exchangeData.year_established || "N/A"}</span>
+                        <span className="text-white">{exchangeData.year_established || "Not available"}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-white/60">Trust Score:</span>
-                        <span className="text-white">{exchangeData.trust_score || "N/A"}</span>
+                        <span className="text-white">{exchangeData.trust_score || "Not available"}</span>
                       </div>
                     </div>
                   </div>
@@ -1050,7 +1109,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                         <span className="text-white">
                           {btcPrice && exchangeData.trade_volume_24h_btc
                             ? formatPrice(Number(exchangeData.trade_volume_24h_btc) * btcPrice, currency, 2)
-                            : "N/A"}
+                            : "Not available"}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -1088,7 +1147,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 </div>
               </div>
             ) : (
-              <p className="text-[10px] sm:text-xs text-white/60 text-center">Please select an exchange.</p>
+              <p className="text-[10px] sm:text-xs text-white/60 text-center">No exchange data available. Please select another exchange.</p>
             )}
           </div>
           <div className="flex-1 p-4">
@@ -1102,7 +1161,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   <YAxis
                     stroke="#FFFFFF"
                     tick={{ fontSize: isMobile ? 6 : 8 }}
-                    tickFormatter={(value) => formatLargeNumber(value, currency, 0)} // Use compact format for Y-axis
+                    tickFormatter={(value) => formatLargeNumber(value, currency, 0)}
                   />
                   <Tooltip content={<CustomTooltip currency={currency} />} />
                   <Area type="monotone" dataKey="volume" stroke="#FFFFFF" fill="url(#chartGradient)" strokeWidth={3} />
@@ -1124,7 +1183,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-[10px] sm:text-xs text-white/60 text-center">No volume data available.</p>
+              <p className="text-[10px] sm:text-xs text-white/60 text-center">No volume data available for this exchange.</p>
             )}
           </div>
         </motion.div>
@@ -1185,11 +1244,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           setWalletBalancesError={setWalletBalancesError}
           setTransactionsError={setWalletTransactionsError}
           setWalletAddress={setSelectedWallet}
+          setIsLoadingWalletBalances ={setIsLoadingWalletBalances}
           nameTags={uniqueWalletData.reduce((acc, w) => ({
             ...acc,
             [w.holder_address?.toLowerCase()]: {
               name: w.name_tag || "N/A",
-              image: w.image || (w.chains.includes("bitcoin") ? BITCOIN_LOGO : "/fallback-image.png"),
+              image: w.image || (w.chains?.includes("bitcoin") ? BITCOIN_LOGO : "/fallback-image.png"),
             },
           }), {})}
           isMobile={isMobile}

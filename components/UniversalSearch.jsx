@@ -58,7 +58,7 @@ export default function UniversalSearch({
     return response.json();
   };
 
-  // SWR for nametags and exchanges
+  // SWR for nametags, exchanges, and clusters
   const { data: nametagData, error: nametagError, isLoading: isLoadingNametags } = useSWR(
     searchQuery.trim() ? `/api/search-nametags?query=${encodeURIComponent(searchQuery)}` : null,
     fetcher,
@@ -67,6 +67,12 @@ export default function UniversalSearch({
 
   const { data: exchangeData, error: exchangeError, isLoading: isLoadingExchanges } = useSWR(
     searchQuery.trim() ? `/api/coingecko?action=exchange-search&query=${encodeURIComponent(searchQuery)}` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 },
+  );
+
+  const { data: clusterData, error: clusterError, isLoading: isLoadingClusters } = useSWR(
+    searchQuery.trim() ? `/api/search-clusters?query=${encodeURIComponent(searchQuery)}` : null,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 },
   );
@@ -104,6 +110,9 @@ export default function UniversalSearch({
     { id: "gate-io", name: "Gate.io", type: "organization", image: "/icons/gateio.png" },
   ];
 
+  // Capitalize function
+  const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
+
   // Process search results
   useEffect(() => {
     if (!isModalOpen) {
@@ -112,7 +121,7 @@ export default function UniversalSearch({
       return;
     }
 
-    setIsLoading(isLoadingNametags || isLoadingExchanges);
+    setIsLoading(isLoadingNametags || isLoadingExchanges || isLoadingClusters);
 
     const results = [];
 
@@ -161,6 +170,19 @@ export default function UniversalSearch({
       );
     }
 
+    // 5. Add cluster results
+    if (clusterData?.success && clusterData.data) {
+      results.push(
+        ...clusterData.data.map((cluster) => ({
+          id: `cluster-${cluster.exchange_name}`,
+          type: "organization",
+          name: capitalize(cluster.exchange_name),
+          image: cluster.image,
+          exchangeId: cluster.exchange_name,
+        })),
+      );
+    }
+
     // Sort results: organizations first, then exchanges, nametags, wallets
     const sortedResults = results.sort((a, b) => {
       const typePriority = {
@@ -196,7 +218,10 @@ export default function UniversalSearch({
     if (exchangeError) {
       console.error("Error searching exchanges:", { query: searchQuery, error: exchangeError.message });
     }
-  }, [searchQuery, nametagData, exchangeData, isLoadingNametags, isLoadingExchanges, nametagError, exchangeError, isModalOpen]);
+    if (clusterError) {
+      console.error("Error searching clusters:", { query: searchQuery, error: clusterError.message });
+    }
+  }, [searchQuery, nametagData, exchangeData, clusterData, isLoadingNametags, isLoadingExchanges, isLoadingClusters, nametagError, exchangeError, clusterError, isModalOpen]);
 
   // Handle result selection
   const handleResultSelect = (result) => {
