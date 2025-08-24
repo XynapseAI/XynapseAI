@@ -18,9 +18,9 @@ axiosRetry(axios, {
 
 // Rate limiter configuration
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === "production" ? 20 : 5,
-  minTime: process.env.NODE_ENV === "production" ? 333 : 1000, // Adjusted to ~3 req/s in production
-  reservoir: 50, // Reduced to align with free tier limits (~50 req/min)
+  maxConcurrent: process.env.NODE_ENV === "production" ? 15 : 5,
+  minTime: process.env.NODE_ENV === "production" ? 400 : 1000, // Adjusted to ~3 req/s in production
+  reservoir: 30, // Reduced to align with free tier limits (~50 req/min)
   reservoirRefreshAmount: 50,
   reservoirRefreshInterval: 60 * 1000,
 });
@@ -55,7 +55,7 @@ async function checkRateLimit(ip) {
     const key = `rate_limit:coingecko:${ip}`;
     const requests = Number.parseInt(await redisClient.get(key)) || 0;
     const windowMs = 60 * 1000;
-    if (requests >= 50) { // Reduced to prevent overloading CoinGecko
+    if (requests >= 60) { // Reduced to prevent overloading CoinGecko
       logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`, { ip });
       throw new Error("Too many requests, please try again later.");
     }

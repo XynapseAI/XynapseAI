@@ -842,7 +842,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          Error: {error}
+          An error occurred while loading data. Please try again later.
         </motion.div>
       )}
 
@@ -860,7 +860,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               transition={{ duration: 0.5, delay: 0.1 }}
             >
               <LoadingOverlay
-                isLoading={isLoadingSelectedToken && !localCache.current[`token-metadata-${selectedToken?.id}`]?.data}
+                isLoading={
+                  isLoadingSelectedToken &&
+                  !localCache.current[`token-metadata-${selectedToken?.id}`]?.data &&
+                  selectedToken // Only show if a token is selected
+                }
                 isMobile={isMobile}
               />
               {isLoadingSelectedToken && !localCache.current[`token-metadata-${selectedToken?.id}`]?.data ? (
@@ -1286,7 +1290,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <LoadingOverlay isLoading={isChartLoading} isMobile={isMobile} />
+              <LoadingOverlay
+                isLoading={isChartLoading && selectedToken} // Only show if a token is selected
+                isMobile={isMobile}
+              />
               <div className="flex flex-col items-center mb-1 sm:mb-2 mt-4 sm:mt-0">
                 <div className="flex flex-col sm:flex-row justify-between items-center w-full max-w-[90%] sm:max-w-[600px] gap-2 sm:gap-3">
                   <div className="flex space-x-2 mb-2 sm:mb-0 justify-start sm:justify-center w-full sm:w-auto">
@@ -1539,7 +1546,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </div>
                       ) : onChainError && !NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase()) ? (
                         <div className="text-sm text-center p-6">
-                          <p className="text-red-500">{onChainError}</p>
+                          <p className="text-white/60">Unable to load top holders data. Please try again.</p>
                         </div>
                       ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                         <div className="overflow-x-auto">
@@ -1690,7 +1697,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} />
                       {tickerError ? (
                         <div className="text-[10px] sm:text-xs text-center p-6">
-                          <p className="text-red-500 mb-4">{tickerError}</p>
+                          <p className="text-white/60 mb-4">Unable to load CEX markets data. Please try again.</p>
                           <motion.button
                             onClick={() => fetchTickerData(selectedToken?.id)}
                             className="px-4 py-2 text-white text-sm border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
@@ -1872,7 +1879,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       <LoadingOverlay isLoading={isLoadingDex && !dexData.trades?.length} isMobile={isMobile} />
                       {dexError ? (
                         <div className="text-[10px] text-xs text-center p-6">
-                          <p className="text-red-500 mb-4">{dexError}</p>
+                          <p className="text-white/60 mb-4">Unable to load DEX trades data. Please try again.</p>
                           <motion.button
                             onClick={() => {
                               const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain)

@@ -13,9 +13,9 @@ import Bottleneck from 'bottleneck';
 import axiosRetry from 'axios-retry';
 
 const cacheLimiter = new Bottleneck({
-  maxConcurrent: 30,
-  minTime: 100, // Giảm minTime để tăng tốc trên production
-  reservoir: 500, // Tăng reservoir để xử lý lưu lượng lớn
+  maxConcurrent: 15,
+  minTime: 200, 
+  reservoir: 500, 
   reservoirRefreshAmount: 500,
   reservoirRefreshInterval: 60 * 1000,
 });
