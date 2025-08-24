@@ -237,7 +237,7 @@ export default function Dashboard() {
   if (!isMounted || !providers) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
-        {/* <LoadingOverlay isLoading={true} message="Loading dashboard..." isMobile={typeof window !== 'undefined' && window.innerWidth <= 640} /> */}
+        <LoadingOverlay isLoading={true} message="Loading dashboard..." isMobile={typeof window !== 'undefined' && window.innerWidth <= 640} />
       </div>
     );
   }

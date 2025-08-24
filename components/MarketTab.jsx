@@ -2142,7 +2142,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           ${Math.floor(Number.parseFloat(trade.volume_in_usd)).toLocaleString("en-US")}
                                         </span>
                                         <span
-                                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${trade.kind === "buy" ? "bg-emerald-400/10 text-emerald-400" : "bg-red-500/10 text-red-500/80"}`}
+                                          className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${trade.kind === "buy" ? "bg-emerald-400/10 text-emerald-400" : "bg-red-500/10 text-red-500/80"}`}
                                         >
                                           {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
                                         </span>
@@ -2163,11 +2163,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         <img
                                           src="/logos/etherscan-logo.png"
                                           alt="Etherscan"
-                                          className="w-4 h-4"
+                                          className="w-3 h-3"
                                           onError={(e) => (e.target.src = "/fallback-image.png")}
                                         />
                                       </a>
-                                      <span className="text-[10px] text-white/60 text-center">
+                                      <span className="text-[9px] text-white/60 text-center">
                                         {formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}
                                       </span>
                                       {trade.tx_hash && typeof trade.tx_hash === "string" && (

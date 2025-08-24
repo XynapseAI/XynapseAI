@@ -156,7 +156,7 @@ export default function TokenPageClient({ initialTokenSlug, initialTokenData, in
         >
           {isLoadingToken ? (
             <div className="w-full h-full flex items-center justify-center">
-              {/* <LoadingOverlay isLoading={true} isMobile={window.innerWidth <= 640} /> */}
+              <LoadingOverlay isLoading={true} isMobile={window.innerWidth <= 640} />
             </div>
           ) : (
             <MarketTab
