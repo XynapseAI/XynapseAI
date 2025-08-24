@@ -33,6 +33,11 @@ const logger = {
       console.log(message, data || {});
     }
   },
+  warn: (message, data) => {
+    if (process.env.NODE_ENV === "development") {
+      console.warn(message, data || {});
+    }
+  },
   error: (message, data) => {
     console.error(message, data || {});
   },
@@ -109,11 +114,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Fix event listener cleanup
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 640);
     checkMobile();
     window.addEventListener("resize", checkMobile);
-    return () => window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   const fetchData = useCallback(async (url, cacheKey, ttl = 4 * 3600 * 1000) => {
@@ -135,10 +141,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         timeout: 30000,
       });
       logger.log(`Raw API response for ${url}`, { response: response.data });
-      if (!response.data.success) {
-        throw new Error(response.data.detail || `Failed to fetch data from ${url}`);
+      if (!response.data || !response.data.success) {
+        throw new Error(response.data?.detail || `Failed to fetch data from ${url}`);
       }
-      const data = response.data; // Use response.data directly, not response.data.data
+      const data = response.data.data || response.data; // Fallback to response.data if .data is not present
       await cacheData(cacheKey, data, ttl);
       logger.log(`Fetched and cached data for ${cacheKey}`, { data });
       return data;
@@ -167,10 +173,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         timeout: 30000,
       });
       logger.log(`Raw API response for sim ${payload.action}`, { response: response.data });
-      if (!response.data.success) {
-        throw new Error(response.data.detail || `Failed to fetch data for ${payload.action}`);
+      if (!response.data || !response.data.success) {
+        throw new Error(response.data?.detail || `Failed to fetch data for ${payload.action}`);
       }
-      const data = response.data.data;
+      const data = response.data.data || []; // Ensure array for transactions
       await cacheData(cacheKey, data, ttl);
       logger.log(`Fetched and cached data for ${cacheKey}`, { data });
       return data;
@@ -212,12 +218,16 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         `${API_BASE_URL}/api/coingecko?action=volume-chart&id=${mappedId}&days=7`,
         `volume_${mappedId}`,
         24 * 3600 * 1000
-      ).then((data) =>
-        data.map(([timestamp, volume]) => ({
+      ).then((data) => {
+        if (!Array.isArray(data)) {
+          logger.warn("Volume history data is not an array", { data });
+          return [];
+        }
+        return data.map(([timestamp, volume]) => ({
           title: new Date(timestamp).toLocaleDateString(),
           volume: (Number(volume) || 0) * btcPrice,
-        }))
-      );
+        }));
+      });
     },
     {
       revalidateOnFocus: false,
@@ -406,9 +416,17 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   }, [portfolioData, walletData, transactions, portfolioValidating, transactionsValidating, exchangeIdFromQuery, selectedChain, portfolioAndWalletsData]);
 
   const chainLogos = useMemo(() => {
-    if (!chainLogosData) return { bitcoin: BITCOIN_LOGO };
+    logger.log("Processing chainLogosData:", { chainLogosData });
+    if (!chainLogosData || !Array.isArray(chainLogosData)) {
+      logger.warn("chainLogosData is not an array or is falsy", { chainLogosData });
+      return { bitcoin: BITCOIN_LOGO };
+    }
     const logos = chainLogosData.reduce((acc, chain) => {
-      acc[chain.id.toLowerCase()] = chain.image?.thumb || "/fallback-image.png";
+      if (chain && chain.id && typeof chain.id === "string") {
+        acc[chain.id.toLowerCase()] = chain.image?.thumb || "/fallback-image.png";
+      } else {
+        logger.warn("Invalid chain object in chainLogosData", { chain });
+      }
       return acc;
     }, {});
     logos["bitcoin"] = BITCOIN_LOGO;
@@ -458,8 +476,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
   const handleCloseWalletBalances = () => {
     setSelectedWallet(null);
-    setWalletBalances([]);
-    setWalletTransactions([]);
   };
 
   const uniqueWalletData = useMemo(() => {
@@ -645,7 +661,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                         >
                           {displayAddress}
                         </button>
-
                         <motion.button
                           onClick={() => {
                             navigator.clipboard.writeText(wallet.holder_address);
@@ -881,12 +896,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                         <div className="flex flex-col items-center gap-1">
                           <span
                             className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === "receive"
-                                ? "bg-neon-green/20 text-neon-green"
-                                : tx.type === "send"
-                                  ? "bg-neon-blue/20 text-neon-blue"
-                                  : tx.type === "swap"
-                                    ? "bg-purple-400/20 text-purple-400"
-                                    : "bg-white/20 text-white/60"
+                              ? "bg-neon-green/20 text-neon-green"
+                              : tx.type === "send"
+                                ? "bg-neon-blue/20 text-neon-blue"
+                                : tx.type === "swap"
+                                  ? "bg-purple-400/20 text-purple-400"
+                                  : "bg-white/20 text-white/60"
                               }`}
                           >
                             {typeDisplay}
@@ -944,6 +959,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           size="default"
         />
       </div>
+
+      {chainLogosError && (
+        <p className="text-red-500 text-xs text-center mb-2">
+          Failed to load chain logos: {chainLogosError.message}
+        </p>
+      )}
 
       <div className="flex flex-col flex-1 gap-4 sm:gap-6">
         <motion.div
@@ -1129,15 +1150,15 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           transactions={walletTransactions}
           isLoadingTransactions={walletTransactionsValidating}
           transactionsError={walletTransactionsError ? "Failed to load wallet transactions" : null}
-          fetchTransactions={() => { }}
+          fetchTransactions={() => {}}
           chains={chains}
           setSelectedWallet={setSelectedWallet}
-          setWalletBalances={setWalletBalances}
-          setTransactions={setWalletTransactions}
-          setWalletBalancesError={() => { }}
-          setTransactionsError={() => { }}
+          setWalletBalances={() => {}} // Placeholder, managed by WalletBalances
+          setTransactions={() => {}} // Placeholder, managed by WalletBalances
+          setWalletBalancesError={() => {}} // Placeholder
+          setTransactionsError={() => {}} // Placeholder
           setWalletAddress={setSelectedWallet}
-          setIsLoadingWalletBalances={() => { }}
+          setIsLoadingWalletBalances={() => {}} // Placeholder
           nameTags={uniqueWalletData.reduce((acc, w) => ({
             ...acc,
             [w.holder_address?.toLowerCase()]: {
