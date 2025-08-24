@@ -15,11 +15,11 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile }) => {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.4, ease: 'easeInOut' }}
-      className="fixed inset-0 flex items-center justify-center z-50 font-saira bg-black/30 backdrop-blur-sm"
+      className="fixed inset-0 flex items-center justify-center z-50 font-saira bg-black/30 backdrop-blur-xl"
       onClick={onClose}
     >
       <div
-        className={`p-3 sm:p-4 rounded-xl max-w-[90%] sm:max-w-3xl w-full relative my-3 border border-white/10 bg-white/5 backdrop-blur-md shadow-neon-sm overflow-hidden`}
+        className={`p-3 sm:p-4 rounded-xl max-w-[90%] sm:max-w-3xl w-full relative my-3 border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         <motion.button

@@ -214,6 +214,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               ];
             }
 
+            // Check cache first
             const cacheResponse = await fetch(`/api/cache?key=coingecko_token_details_${address}`, {
               headers: { "Content-Type": "application/json" },
               credentials: "include",
@@ -224,6 +225,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               return [address, cacheResult.data];
             }
 
+            // Fetch from CoinGecko
             const response = await fetch(`/api/coingecko?action=token-details&address=${address}`, {
               headers: { "Content-Type": "application/json" },
               credentials: "include",
@@ -247,7 +249,14 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             throw new Error(result.detail || "Invalid response from CoinGecko API");
           } catch (err) {
             logger.error(`Error fetching token data for ${address}:`, { error: err.message, stack: err.stack });
-            return [address, { image: { thumb: "/fallback-image.png" }, symbol: address }];
+            // Return fallback data to prevent UI breakage
+            return [
+              address,
+              {
+                image: { thumb: "/fallback-image.png" },
+                symbol: address.slice(0, 6).toUpperCase(), // Use first 6 chars as fallback symbol
+              },
+            ];
           }
         }),
       ).then((pairs) => {
@@ -255,7 +264,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         const symbols = {};
         pairs.forEach(([address, data]) => {
           images[address] = data.image?.thumb || data.image || "/fallback-image.png";
-          symbols[address] = data.symbol?.toUpperCase() || address;
+          symbols[address] = data.symbol?.toUpperCase() || address.slice(0, 6).toUpperCase();
         });
         setTokenImages(images);
         setTokenSymbols(symbols);
@@ -981,15 +990,14 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                       <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
                         <div className="flex flex-col items-center gap-1">
                           <span
-                            className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${
-                              tx.type === "receive"
+                            className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === "receive"
                                 ? "bg-neon-green/20 text-neon-green"
                                 : tx.type === "send"
-                                ? "bg-neon-blue/20 text-neon-blue"
-                                : tx.type === "swap"
-                                ? "bg-purple-400/20 text-purple-400"
-                                : "bg-white/20 text-white/60"
-                            }`}
+                                  ? "bg-neon-blue/20 text-neon-blue"
+                                  : tx.type === "swap"
+                                    ? "bg-purple-400/20 text-purple-400"
+                                    : "bg-white/20 text-white/60"
+                              }`}
                           >
                             {typeDisplay}
                           </span>
@@ -1252,6 +1260,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             },
           }), {})}
           isMobile={isMobile}
+          chainLogos={chainLogos} // Pass chainLogos state
         />
       )}
 

@@ -1,3 +1,4 @@
+// components/WalletBalances.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -16,6 +17,14 @@ const logger = {
   error: (message, data) => {
     console.error(message, data);
   },
+};
+
+// Hardcoded fallback logos for common chains
+const FALLBACK_CHAIN_LOGOS = {
+  ethereum: '/logos/ethereum.png',
+  base: '/logos/base.png',
+  bitcoin: '/logos/bitcoin.png',
+  // Add other chains as needed
 };
 
 const WalletBalances = ({
@@ -39,6 +48,7 @@ const WalletBalances = ({
   isMobile,
   fetchOnChainData,
   setIsLoadingWalletBalances,
+  chainLogos, // Prop from ClusterTab
 }) => {
   const walletBalancesRef = useRef(null);
   const [activeTab, setActiveTab] = useState('portfolio');
@@ -52,7 +62,7 @@ const WalletBalances = ({
     const sortedBalances = [...validBalances].sort((a, b) => {
       const valueA = Number(a.value_usd) || 0;
       const valueB = Number(b.value_usd) || 0;
-      return valueB - valueA; // Descending order
+      return valueB - valueA;
     });
     logger.log('Sorted wallet balances:', {
       walletAddress,
@@ -85,14 +95,13 @@ const WalletBalances = ({
     if (!walletAddress) return;
 
     const fetchData = async () => {
-      // Fetch wallet balances for the Portfolio tab
       if (
         activeTab === 'portfolio' &&
         walletAddress &&
         !balances?.length &&
         !isLoading &&
         !error &&
-        fetchOnChainData // Check if fetchOnChainData exists
+        fetchOnChainData
       ) {
         logger.log('Fetching wallet balances for:', { walletAddress });
         try {
@@ -109,7 +118,6 @@ const WalletBalances = ({
         }
       }
 
-      // Fetch transactions for the Activity tab
       if (
         activeTab === 'activity' &&
         walletAddress &&
@@ -145,26 +153,66 @@ const WalletBalances = ({
     isLoadingTransactions,
     transactionsError,
     fetchTransactions,
-    fetchOnChainData, // Include in dependency array
+    fetchOnChainData,
     setWalletBalancesError,
     setIsLoadingWalletBalances,
     setTransactionsError,
-    toast,
   ]);
 
   if (!walletAddress) return null;
 
   const getPlatformImage = (chainValue) => {
-    const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
-    const chain = chains.find((c) => c.value === chainName);
-    const imageUrl = chain?.image || '/fallback-image.png';
-    logger.log('getPlatformImage:', { chainValue, chainName, imageUrl, found: !!chain });
-    return imageUrl;
+    // Ensure chainValue is a string or fallback to 'ethereum'
+    const normalizedChainValue = typeof chainValue === 'string' ? chainValue : 'ethereum';
+    const normalizedChain = normalizedChainValue.toLowerCase();
+    const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
+
+    // Log input for debugging
+    logger.log('getPlatformImage input:', {
+      chainValue,
+      type: typeof chainValue,
+      normalizedChain,
+      chainName,
+    });
+
+    // First, try to get logo from chainLogos prop
+    const imageFromChainLogos = chainLogos?.[normalizedChain];
+    if (imageFromChainLogos && imageFromChainLogos !== '/fallback-image.png') {
+      logger.log('getPlatformImage: Found in chainLogos', {
+        chainValue,
+        chainName,
+        imageUrl: imageFromChainLogos,
+      });
+      return imageFromChainLogos;
+    }
+
+    // Then, try to get logo from chains prop
+    const chain = chains?.find((c) => c.value.toLowerCase() === normalizedChain);
+    const imageFromChains = chain?.image;
+    if (imageFromChains && imageFromChains !== '/fallback-image.png') {
+      logger.log('getPlatformImage: Found in chains', {
+        chainValue,
+        chainName,
+        imageUrl: imageFromChains,
+      });
+      return imageFromChains;
+    }
+
+    // Fallback to hardcoded logos
+    const fallbackImage = FALLBACK_CHAIN_LOGOS[normalizedChain] || '/fallback-image.png';
+    logger.log('getPlatformImage: Using fallback', {
+      chainValue,
+      chainName,
+      imageUrl: fallbackImage,
+    });
+    return fallbackImage;
   };
 
   const getChainLabel = (chainValue) => {
-    const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
-    return chains.find((c) => c.value === chainName)?.label || chainName;
+    const normalizedChainValue = typeof chainValue === 'string' ? chainValue : 'ethereum';
+    const normalizedChain = normalizedChainValue.toLowerCase();
+    const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
+    return chains?.find((c) => c.value.toLowerCase() === normalizedChain)?.label || chainName;
   };
 
   const handleAddressClick = (address) => {
@@ -182,11 +230,10 @@ const WalletBalances = ({
     isValidToken({ image: balance.logo, symbol: balance.symbol })
   ) || [];
 
-  // Sort balances by value_usd in descending order
   const sortedBalances = [...validBalances].sort((a, b) => {
     const valueA = Number(a.value_usd) || 0;
     const valueB = Number(b.value_usd) || 0;
-    return valueB - valueA; // Descending order
+    return valueB - valueA;
   });
 
   const validTransactions = transactions?.filter((tx) =>
@@ -242,7 +289,7 @@ const WalletBalances = ({
                   navigator.clipboard.writeText(walletAddress);
                   toast.success('Address copied!', { autoClose: 2000 });
                 }}
-                className="ml-2 p-1 bg-white/10 rounded-xl flex-shrink-0 opacity-0 group-hover:opacity-100"
+                className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
                 title="Copy address"
                 whileHover={{ scale: 1.1, y: -2 }}
                 whileTap={{ scale: 0.9 }}
@@ -252,7 +299,7 @@ const WalletBalances = ({
                   className="w-4 h-4"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="#ffffffff"
+                  stroke="#F87171"
                   strokeWidth={2}
                 >
                   <path
@@ -351,11 +398,12 @@ const WalletBalances = ({
                                     />
                                     <img
                                       src={getPlatformImage(balance.chain)}
-                                      alt={`${balance.chain} logo`}
+                                      alt={`${getChainLabel(balance.chain)} logo`}
                                       className="w-3 h-3 rounded-full absolute -right-1 -bottom-1"
                                       onError={(e) => {
                                         logger.error('Platform logo failed to load:', {
                                           chain: balance.chain,
+                                          chainName: getChainLabel(balance.chain),
                                           src: getPlatformImage(balance.chain),
                                         });
                                         e.target.src = '/fallback-image.png';
@@ -476,7 +524,7 @@ const WalletBalances = ({
                               <td className="px-2 py-2 text-white">
                                 <div className="flex flex-col items-center gap-1 group relative">
                                   <span
-                                    className={`inline-flex px-2 py-0.5 rounded-xl text-[7px] sm:text-[8px] font-medium ${tx.type === 'receive' ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-500/10 text-red-500'}`}
+                                    className={`inline-flex px-2 py-0.5 rounded-lg text-[7px] sm:text-[9px] font-medium ${tx.type === 'receive' ? 'bg-emerald-400/20 text-emerald-400' : 'bg-red-400/20 text-red-400'}`}
                                   >
                                     {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
                                   </span>
@@ -563,14 +611,14 @@ const WalletBalances = ({
                                         navigator.clipboard.writeText(tx.hash);
                                         toast.success('Transaction hash copied!', { autoClose: 2000 });
                                       }}
-                                      className="absolute right-0 p-1 bg-white/10 rounded-xl flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                      className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
                                       title="Copy transaction hash"
                                       whileHover={{ scale: 1.1, y: -2 }}
                                       whileTap={{ scale: 0.9 }}
                                     >
                                       <svg
                                         xmlns="http://www.w3.org/2000/svg"
-                                        className="w-3 h-3"
+                                        className="w-4 h-4"
                                         fill="none"
                                         viewBox="0 0 24 24"
                                         stroke="#F87171"

@@ -1,0 +1,4 @@
+2025-08-24T13:22:47.420Z - error: Error fetching watchlist: getaddrinfo ENOTFOUND ${{RAILWAY_PRIVATE_DOMAIN}}
+2025-08-24T13:22:47.423Z - error: Main loop error: getaddrinfo ENOTFOUND ${{RAILWAY_PRIVATE_DOMAIN}}
+2025-08-24T13:27:57.159Z - error: Error fetching watchlist: getaddrinfo ENOTFOUND ${{RAILWAY_PRIVATE_DOMAIN}}
+2025-08-24T13:27:57.162Z - error: Main loop error: getaddrinfo ENOTFOUND ${{RAILWAY_PRIVATE_DOMAIN}}

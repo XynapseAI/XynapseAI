@@ -1,4 +1,5 @@
-import {CHAIN_EXPLORER_MAP} from './constants';
+// utils/helpers.js
+import { CHAIN_EXPLORER_MAP, CHAIN_ID_TO_NAME } from './constants';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
@@ -19,7 +20,7 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
             muted
             playsInline
             className="w-full h-full object-contain"
-            src="/logo-loading.webm" // Update with your WebM file path or URL
+            src="/logo-loading.webm"
           >
             Your browser does not support the video tag.
           </video>
@@ -30,9 +31,21 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
 );
 
 export const getExplorerUrls = (chain, hash, address) => {
-  const explorer = CHAIN_EXPLORER_MAP[chain] || CHAIN_EXPLORER_MAP.ethereum;
-  const txUrl = explorer.supportsTx ? `${explorer.baseUrl}/tx/${hash}` : '#';
-  const addressUrl = explorer.supportsAddress ? `${explorer.baseUrl}/address/${address}` : '#';
+  // Normalize chain name to lowercase to avoid case sensitivity issues
+  const normalizedChain = (chain || 'ethereum').toLowerCase();
+  const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
+  const explorer = CHAIN_EXPLORER_MAP[normalizedChain] || CHAIN_EXPLORER_MAP.ethereum;
+
+  logger.log('getExplorerUrls:', {
+    inputChain: chain,
+    normalizedChain,
+    chainName,
+    explorerBaseUrl: explorer.baseUrl,
+  });
+
+  const txUrl = explorer.supportsTx && hash ? `${explorer.baseUrl}/tx/${hash}` : '#';
+  const addressUrl = explorer.supportsAddress && address ? `${explorer.baseUrl}/address/${address}` : '#';
+
   return { txUrl, addressUrl };
 };
 
@@ -51,35 +64,49 @@ export const SkeletonLoader = ({ count = 5, isMobile }) => (
 );
 
 export const formatPrice = (price, currency = 'usd', decimals = 8) => {
-  if (price == null || isNaN(price)) return 'N/A';
+  // Handle null, undefined, NaN, or non-numeric values
+  if (price == null || isNaN(price) || typeof price !== 'number') {
+    logger.error('Invalid price value:', { price, currency });
+    return 'N/A';
+  }
 
-  // Kiểm tra giá trị bất thường
-  if (price > 1_000_000_000_000_000) {
-    logger.error("Abnormal price value detected:", { price, currency });
+  // Convert scientific notation to a regular number
+  const normalizedPrice = Number(price.toFixed(decimals));
+
+  // Validate price range
+  const MAX_REASONABLE_PRICE = 1e12; // 1 trillion USD
+  const MIN_REASONABLE_PRICE = -1e12; // Allow negative prices up to -1 trillion
+  if (normalizedPrice > MAX_REASONABLE_PRICE || normalizedPrice < MIN_REASONABLE_PRICE) {
+    logger.error('Abnormal price value detected:', { price: normalizedPrice, currency });
     return 'N/A';
   }
 
   // Adjust fraction digits based on price magnitude
   let fractionDigits = 2;
-  if (price < 0.0001) {
+  if (Math.abs(normalizedPrice) < 0.0001) {
     fractionDigits = decimals; // Use provided decimals for very small prices
-  } else if (price < 0.01) {
+  } else if (Math.abs(normalizedPrice) < 0.01) {
     fractionDigits = 4;
   }
 
   // Use toLocaleString with currency style for proper formatting
-  return price.toLocaleString('en-US', {
-    style: 'currency',
-    currency: currency.toUpperCase(),
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  });
+  try {
+    return normalizedPrice.toLocaleString('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    });
+  } catch (err) {
+    logger.error('Error formatting price:', { price: normalizedPrice, currency, error: err.message });
+    return 'N/A';
+  }
 };
 
 export const truncateAddress = (address, nameTags = {}, source) => {
   if (!address || address === 'None' || typeof address !== 'string') return { text: 'N/A', image: null };
   const normalizedAddress = address.toLowerCase();
-  const nameTag = nameTags[normalizedAddress]?.nameTag;
+  const nameTag = nameTags[normalizedAddress]?.nameTag || nameTags[normalizedAddress]?.name;
   const image = nameTags[normalizedAddress]?.image || null;
 
   const isEvmAddress = address.match(/^0x[a-fA-F0-9]{40}$/);
@@ -102,12 +129,10 @@ export const truncateAddress = (address, nameTags = {}, source) => {
 };
 
 export const truncateHash = (hash, startLength = 6, endLength = 4) => {
-  // Handle invalid inputs
   if (!hash || typeof hash !== 'string') {
     return { text: 'N/A' };
   }
 
-  // Truncate to 0x1234...abcd format
   if (hash.length > 12) {
     return {
       text: `${hash.slice(0, startLength)}...${hash.slice(-endLength)}`,
@@ -118,14 +143,19 @@ export const truncateHash = (hash, startLength = 6, endLength = 4) => {
 };
 
 export const isValidToken = (token) => {
-  if (!token.image || token.image === '') return false;
+  if (!token || !token.image || token.image === '') return false;
+  const nameOrSymbol = token.name || token.symbol || '';
   const invalidNamePatterns = [
     /https?:\/\//i, // Matches URLs
     /<[^>]+>/, // Matches HTML tags
     /[\n\r\t]/, // Matches newlines or tabs
     /[^a-zA-Z0-9\s\-$]/, // Matches non-alphanumeric characters except spaces, $, and -
   ];
-  return !invalidNamePatterns.some((pattern) => pattern.test(token.name || token.symbol));
+  const isValid = !invalidNamePatterns.some((pattern) => pattern.test(nameOrSymbol));
+  if (!isValid) {
+    logger.error('Invalid token detected:', { token });
+  }
+  return isValid;
 };
 
 export const logger = {
