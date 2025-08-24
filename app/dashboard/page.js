@@ -18,7 +18,7 @@ import styles from './page.module.css';
 import Image from 'next/image';
 import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
-// import { LoadingOverlay } from '@/utils/helpers';
+import { LoadingOverlay } from '@/utils/helpers';
 import { CurrencyProvider } from '../../components/CurrencyContext';
 
 gsap.registerPlugin(MotionPathPlugin);

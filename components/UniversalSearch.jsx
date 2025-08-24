@@ -273,7 +273,7 @@ export default function UniversalSearch({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => setIsModalOpen(true)}
-          className={`w-full sm:w-[50vw] h-[4vh] text-white border-b-2 border-b-white/20 bg-black/80 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 ${config.input}`}
+          className={`w-full sm:w-[50vw] h-[4vh] text-white border-b-2 border-b-white/20 bg-black/5 backdrop-blur-xs focus:outline-none focus:ring-2 focus:ring-neon-blue/50 ${config.input}`}
           aria-label="Search wallets, nametags, or exchanges"
         />
       </div>
@@ -290,7 +290,7 @@ export default function UniversalSearch({
             aria-modal="true"
           >
             <motion.div
-              className="w-[90vw] sm:w-[50vw] h-[50vh] bg-black/90 backdrop-blur-sm border border-white/20 flex flex-col overflow-hidden"
+              className="w-[90vw] sm:w-[50vw] h-[50vh] bg-black/90 backdrop-blur-sm border border-white/20 flex flex-col overflow-hidden rounded-xl"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -302,7 +302,7 @@ export default function UniversalSearch({
                   placeholder={placeholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`text-white border-b-2 border-b-white/20 bg-black/80 focus:border-none  ${config.modalInput}`}
+                  className={`text-white border-b-2 border-b-white/20 bg-black/5 backdrop-blur-xs focus:border-none  ${config.modalInput}`}
                   aria-label="Search wallets, nametags, or exchanges"
                   autoFocus
                 />
