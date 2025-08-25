@@ -1,21 +1,34 @@
+// app/api/clear-cache/route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '../../../utils/serverLogger';
 import { getRedisClient } from '../../../lib/redis';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 
-const rateLimiter = new RateLimiterRedis({
-  storeClient: await getRedisClient(),
-  keyPrefix: 'rate_limit:clear-cache',
-  points: 50,
-  duration: 60 * 60,
-});
+async function checkRateLimit(userId, ip) {
+  const redisClient = await getRedisClient();
+  const rateLimiter = new RateLimiterRedis({
+    storeClient: redisClient,
+    keyPrefix: `rate_limit:clear-cache:user:${userId}`,
+    points: 100, // 50 requests per user per hour
+    duration: 60 * 60,
+  });
 
-async function checkRateLimit(ip) {
   try {
-    await rateLimiter.consume(ip);
-  } catch {
-    throw new Error('Too many requests, please try again later.');
+    await rateLimiter.consume(userId);
+    return null;
+  } catch (err) {
+    const msBeforeReset = err.msBeforeNext || 60 * 60 * 1000;
+    logger.warn(`Rate limit exceeded for user ${userId}`, { ip, msBeforeReset });
+    return NextResponse.json(
+      { success: false, detail: `Too many requests. Please try again in ${Math.ceil(msBeforeReset / 1000)} seconds.` },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil(msBeforeReset / 1000).toString(),
+        },
+      }
+    );
   }
 }
 
@@ -30,18 +43,14 @@ export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   logger.info(`Request to /api/clear-cache from IP ${ip}`);
 
-  try {
-    await checkRateLimit(ip);
-  } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`, { ip });
-    return NextResponse.json({ success: false, detail: err.message }, { status: 429 });
-  }
-
   const session = await auth();
   if (!session || !session.user?.id) {
     logger.warn('Session not authenticated or missing user ID', { ip, session });
     return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
   }
+
+  const rateLimitResponse = await checkRateLimit(session.user.id, ip);
+  if (rateLimitResponse) return rateLimitResponse;
 
   if (!(await checkCSRF(request, session))) {
     return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403 });

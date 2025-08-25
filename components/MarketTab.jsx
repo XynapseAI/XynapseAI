@@ -376,7 +376,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               <img
                 src={token1.image_url || "/placeholder.svg"}
                 alt={`${token1.symbol} logo`}
-                className="w-8 h-8 rounded-full ring-2 ring-white/20"
+                className="w-8 h-8 rounded-full"
                 onError={(e) => (e.target.src = "/fallback-image.png")}
               />
               {token1.symbol}

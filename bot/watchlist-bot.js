@@ -11,7 +11,7 @@ axiosRetry(axios, {
   retryDelay: (retryCount) => Math.min(retryCount * 1000, 5000),
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
   onRetry: (retryCount, error) => {
-    logger.warn(`Retrying API request (attempt ${retryCount})`, {
+    logger?.warn?.(`Retrying API request (attempt ${retryCount})`, {
       status: error.response?.status,
       message: error.message,
     });
@@ -27,6 +27,7 @@ console.log('API_BASE_URL:', process.env.API_BASE_URL);
 console.log('SIM_API_KEY:', process.env.SIM_API_KEY);
 console.log('GEMINI_API_KEY:', process.env.GEMINI_API_KEY);
 console.log('TWITTER_CONSUMER_KEY:', process.env.TWITTER_CONSUMER_KEY ? 'Set' : 'Not set');
+
 if (!process.env.DATABASE_URL) {
   console.error('Error: DATABASE_URL is not loaded from .env. Check file path and content.');
   process.exit(1);
@@ -43,8 +44,8 @@ if (!process.env.GEMINI_API_KEY) {
   console.error('Error: GEMINI_API_KEY is not loaded from .env. Check file path and content.');
   process.exit(1);
 }
-if (!process.env.TWITTER_CONSUMER_KEY || !process.env.TWITTER_CONSUMER_SECRET || 
-    !process.env.TWITTER_ACCESS_TOKEN || !process.env.TWITTER_ACCESS_TOKEN_SECRET) {
+if (!process.env.TWITTER_CONSUMER_KEY || !process.env.TWITTER_CONSUMER_SECRET ||
+  !process.env.TWITTER_ACCESS_TOKEN || !process.env.TWITTER_ACCESS_TOKEN_SECRET) {
   console.error('Error: Twitter API credentials are not loaded from .env. Check file path and content.');
   process.exit(1);
 }
@@ -73,6 +74,9 @@ const v2Client = twitterClient.v2;
 
 // Dynamic import for postgres.js after dotenv
 const { query } = await import('../utils/postgres.js');
+
+// Track last tweet time
+let lastTweetTime = 0;
 
 // Fetch watchlist addresses from database
 async function getWatchlistAddresses() {
@@ -115,7 +119,7 @@ async function getNameTags(addresses) {
       logger.info(`Name tag for ${addr}: ${nameTag}`);
       return acc;
     }, {});
-    
+
     logger.info(`Successfully fetched ${Object.keys(result).length} name tags`);
     return result;
   } catch (err) {
@@ -185,25 +189,12 @@ async function savePostedTransaction(hash) {
   }
 }
 
-// Check Twitter API rate limit
-async function checkTwitterRateLimit() {
-  try {
-    const response = await v2Client.get('users/me');
-    const headers = response._headers;
-    const remaining = headers['x-rate-limit-remaining'];
-    const reset = headers['x-rate-limit-reset'];
-    logger.info(`Twitter API rate limit: ${remaining} requests remaining, resets at ${new Date(parseInt(reset) * 1000)}`);
-    return parseInt(remaining) > 0;
-  } catch (err) {
-    logger.error(`Error checking Twitter rate limit: ${err.message}`, { stack: err.stack });
-    return false;
-  }
-}
-
 // Call Gemini API to generate tweet content
 async function getGeminiResponse(transaction, fromName, toName, chainName, txUrl) {
   const { chain, hash, from, to, value, token, block_time } = transaction;
   const currentDate = new Date().toISOString().split('T')[0];
+  // Format number with thousand separators (e.g., 500000000 -> 500.000.000)
+  const formattedValue = Number(value).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&.');
   const prompt = `
 Write a witty, engaging tweet about a large cryptocurrency transaction. The current date is ${currentDate}. Focus on crypto trends, 20-40 words, no emojis, no @username.
 Use complete sentences with line breaks for readability. Avoid numbering (e.g., 1/, 2/). Include a clickable transaction link and a brief analysis of the transaction's significance (e.g., market impact, whale activity).
@@ -213,7 +204,7 @@ Always include the sender (${fromName}) and recipient (${toName}) names in the t
 Transaction details:
 - Chain: ${chainName}
 - Token: ${token.toUpperCase()}
-- Value: ${Number(value).toFixed(2)}
+- Value: ${formattedValue}
 - From: ${fromName} (${from})
 - To: ${toName} (${to})
 - Tx Hash: ${hash}
@@ -224,9 +215,7 @@ Transaction details:
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
     logger.info(`Calling Gemini API for transaction ${hash}`);
     const response = await axios.post(url, {
-      contents: [{
-        parts: [{ text: prompt }]
-      }]
+      contents: [{ parts: [{ text: prompt }] }]
     }, {
       headers: {
         'Content-Type': 'application/json',
@@ -240,8 +229,8 @@ Transaction details:
       logger.info(`Generated tweet content for ${hash}: ${content}`);
       return content;
     } else {
-      logger.warn(`Gemini response too long (${content?.length || 0} chars) or invalid, falling back to default`);
-      return `${Number(value).toFixed(2)} $${token.toUpperCase()} moved from ${fromName} to ${toName} on ${chainName}.
+      logger.warn(`Gemini response too long (${content?.length || 0} chars), using fallback`);
+      return `${formattedValue} $${token.toUpperCase()} moved from ${fromName} to ${toName} on ${chainName}.
 This whale transfer could signal market shifts.
 Details: ${txUrl}`;
     }
@@ -250,7 +239,7 @@ Details: ${txUrl}`;
       stack: err.stack,
       response: err.response ? err.response.data : null
     });
-    return `${Number(value).toFixed(2)} $${token.toUpperCase()} moved from ${fromName} to ${toName} on ${chainName}.
+    return `${formattedValue} $${token.toUpperCase()} moved from ${fromName} to ${toName} on ${chainName}.
 This whale transfer could signal market shifts.
 Details: ${txUrl}`;
   }
@@ -277,12 +266,6 @@ async function postTweet(transaction, fromName, toName) {
     return;
   }
 
-  // Check Twitter rate limit
-  if (!(await checkTwitterRateLimit())) {
-    logger.warn(`Twitter rate limit reached, skipping tweet for ${hash}`);
-    return;
-  }
-
   const tweetText = await getGeminiResponse(transaction, fromName, toName, chainName, txUrl);
   const maxRetries = 3;
 
@@ -291,7 +274,7 @@ async function postTweet(transaction, fromName, toName) {
       await v2Client.tweet(tweetText);
       logger.info(`Posted tweet for transaction ${hash}: ${tweetText}`);
       await savePostedTransaction(hash);
-      await new Promise(resolve => setTimeout(resolve, 30 * 60 * 1000)); // Wait 30 minutes after successful post
+      lastTweetTime = Date.now(); // update last tweet timestamp
       return;
     } catch (err) {
       logger.error(`Error posting tweet for ${hash} (attempt ${attempt}): ${err.message}`, {
@@ -302,10 +285,10 @@ async function postTweet(transaction, fromName, toName) {
         const resetTime = err.response.headers['x-rate-limit-reset'];
         if (resetTime) {
           const waitTime = (parseInt(resetTime) * 1000 - Date.now()) + 1000;
-          logger.info(`Rate limit hit for transaction ${hash}, waiting ${waitTime / 1000} seconds before retry ${attempt + 1}`);
+          logger.info(`Rate limit hit for transaction ${hash}, waiting ${waitTime / 1000}s before retry`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         } else {
-          logger.warn(`No rate limit reset time provided, waiting ${attempt * 5} seconds before retry ${attempt + 1}`);
+          logger.warn(`No rate limit reset header, waiting ${attempt * 5}s before retry`);
           await new Promise(resolve => setTimeout(resolve, attempt * 5000));
         }
       } else {
@@ -337,24 +320,45 @@ async function main() {
       const watchlist = await getWatchlistAddresses();
       const addresses = watchlist.map(w => w.address);
       const nameTags = await getNameTags(addresses);
-      
+      let transactionsInHour = [];
+
+      // Collect transactions for all addresses
       for (const wallet of watchlist) {
         const transactions = await fetchTransactions(wallet.address);
         for (const tx of transactions) {
           if (tx.value_usd >= 50_000_000) {
-            const txAddresses = [tx.from, tx.to].filter(addr => addr && addr !== 'None');
-            const txNameTags = txAddresses.length > 0 ? await getNameTags(txAddresses) : {};
-            const fromName = txNameTags[tx.from.toLowerCase()] || 'Unknown wallet';
-            const toName = tx.to === 'None' ? 'None' : (txNameTags[tx.to.toLowerCase()] || 'Unknown wallet');
-            logger.info(`Processing transaction ${tx.hash}: from ${fromName} to ${toName}`);
-            await postTweet(tx, fromName, toName);
-            await new Promise(resolve => setTimeout(resolve, 10 * 1000)); // Wait 10 seconds between tweets
+            const txTime = new Date(tx.block_time);
+            const now = new Date();
+            const hoursDiff = (now - txTime) / (1000 * 60 * 60);
+            if (hoursDiff <= 1 && !await isTransactionPosted(tx.hash)) {
+              transactionsInHour.push({
+                ...tx,
+                walletName: wallet.name || 'Unnamed Wallet'
+              });
+            }
           }
         }
+        await new Promise(resolve => setTimeout(resolve, 10 * 1000)); // Wait 10s between addresses
       }
-      
+
+      // Find the transaction with the highest USD value
+      if (transactionsInHour.length > 0) {
+        const largestTx = transactionsInHour.reduce((max, tx) =>
+          tx.value_usd > max.value_usd ? tx : max, transactionsInHour[0]);
+
+        const txAddresses = [largestTx.from, largestTx.to].filter(addr => addr && addr !== 'None');
+        const txNameTags = txAddresses.length > 0 ? await getNameTags(txAddresses) : {};
+        const fromName = txNameTags[largestTx.from.toLowerCase()] || largestTx.walletName || 'Unknown wallet';
+        const toName = largestTx.to === 'None' ? 'None' : (txNameTags[largestTx.to.toLowerCase()] || 'Unknown wallet');
+
+        logger.info(`Selected largest transaction ${largestTx.hash} with value ${largestTx.value_usd} USD`);
+        await postTweet(largestTx, fromName, toName);
+      } else {
+        logger.info('No qualifying transactions found in the last hour');
+      }
+
       logger.info('Completed watchlist scan, sleeping for 1 hour');
-      await new Promise(resolve => setTimeout(resolve, 3600000)); // Sleep 1 hour
+      await new Promise(resolve => setTimeout(resolve, 3600000)); // Sleep 1h
     } catch (err) {
       logger.error(`Main loop error: ${err.message}`, { stack: err.stack });
       await new Promise(resolve => setTimeout(resolve, 300000)); // Wait 5 min on error

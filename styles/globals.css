@@ -184,82 +184,14 @@ button:hover {
 }
 
 /* Stars and Comets */
-.star {
+.star-dot {
   position: absolute;
   width: 3px;
   height: 3px;
   background: white;
   border-radius: 50%;
   box-shadow: 0 0 5px rgba(255, 255, 255, 0.8), 0 0 10px rgba(255, 255, 255, 0.5);
-  /* Base glow */
-}
-
-/* Starburst effect with radial rays */
-.star::before,
-.star::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  background: rgba(255, 255, 255, 0.7);
-  /* Semi-transparent white for rays */
-  transform-origin: center;
-}
-
-/* Horizontal ray */
-.star::before {
-  width: 8px;
-  /* Length of the ray */
-  height: 1px;
-  /* Thin ray */
-  transform: translate(-50%, -50%) rotate(0deg);
-  /* Horizontal */
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
-  /* Glow around ray */
-}
-
-/* Vertical ray */
-.star::after {
-  width: 8px;
-  /* Length of the ray */
-  height: 1px;
-  /* Thin ray */
-  transform: translate(-50%, -50%) rotate(90deg);
-  /* Vertical */
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
-  /* Glow around ray */
-}
-
-/* Optional: Diagonal rays for a more star-like effect */
-.star-container {
-  position: absolute;
-  width: 2px;
-  height: 2px;
-}
-
-.star-container::before,
-.star-container::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  background: rgba(255, 255, 255, 0.5);
-  /* Slightly fainter diagonal rays */
-  width: 6px;
-  /* Slightly shorter */
-  height: 1px;
-  transform-origin: center;
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.4);
-}
-
-.star-container::before {
-  transform: translate(-50%, -50%) rotate(45deg);
-  /* Diagonal ray */
-}
-
-.star-container::after {
-  transform: translate(-50%, -50%) rotate(-45deg);
-  /* Diagonal ray */
+  /* Base glow for circular dot */
 }
 
 .meteor-container {

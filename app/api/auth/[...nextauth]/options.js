@@ -1,3 +1,4 @@
+// app/api/auth/[...nextauth]/options.js
 import { randomBytes } from 'crypto';
 import GoogleProvider from '@auth/core/providers/google';
 import EmailProvider from '@auth/core/providers/email';
@@ -228,4 +229,8 @@ export const authOptions = {
   },
   secret: process.env.AUTH_SECRET,
   session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
+  pages: {
+    signIn: '/dashboard', // Ensure sign-in page is /dashboard
+    error: '/auth/error',
+  },
 };

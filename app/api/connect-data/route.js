@@ -33,19 +33,21 @@ async function withRetry(fn, retries = 3, delay = 1000) {
   }
 }
 
-const rateLimiter = new RateLimiterRedis({
-  storeClient: await getRedisClient(),
-  keyPrefix: 'rate_limit:connect-data',
-  points: 100, // Giảm xuống 100 request để tránh lỗi
-  duration: 15 * 60, // 15 phút
-});
+async function checkRateLimit(userId, ip) {
+  const redisClient = await getRedisClient();
+  const rateLimiter = new RateLimiterRedis({
+    storeClient: redisClient,
+    keyPrefix: `rate_limit:connect-data:user:${userId}`,
+    points: 100, // Increase to 100 requests per user per 15 minutes
+    duration: 15 * 60, // 15 minutes
+  });
 
-async function checkRateLimit(ip) {
   try {
-    await rateLimiter.consume(ip);
+    await rateLimiter.consume(userId);
+    return null;
   } catch (err) {
     const msBeforeReset = err.msBeforeNext || 15 * 60 * 1000;
-    logger.warn(`Rate limit exceeded for IP ${ip}`, { msBeforeReset });
+    logger.warn(`Rate limit exceeded for user ${userId}`, { ip, msBeforeReset });
     return NextResponse.json(
       { detail: `Too many requests. Please try again in ${Math.ceil(msBeforeReset / 1000)} seconds.` },
       {
@@ -113,7 +115,13 @@ export async function GET(request) {
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
   }
 
-  const rateLimitResponse = await checkRateLimit(ip);
+  const session = await auth();
+  if (!session || !session.user?.id) {
+    logger.warn('Session not authenticated or missing user ID', { ip, session });
+    return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
+  }
+
+  const rateLimitResponse = await checkRateLimit(session.user.id, ip);
   if (rateLimitResponse) return rateLimitResponse;
 
   const recaptchaToken = request.headers.get('x-recaptcha-token');
@@ -132,12 +140,6 @@ export async function GET(request) {
     }
   } else if (recaptchaToken === 'development-token') {
     logger.info('Skipping reCAPTCHA in development mode', { ip });
-  }
-
-  const session = await auth();
-  if (!session || !session.user?.id) {
-    logger.warn('Session not authenticated or missing user ID', { ip, session });
-    return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
   }
 
   if (!(await checkCSRF(request, session))) {

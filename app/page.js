@@ -227,7 +227,7 @@ export default function Home() {
         const numStars = isMobile ? 8 : 12
         for (let i = 0; i < numStars; i++) {
           const star = document.createElement("div")
-          star.className = "star"
+          star.className = "star-dot" // Changed from "star" to "star-dot" to use new CSS class
           gsap.set(star, {
             left: `${Math.random() * 100}%`,
             top: `${Math.random() * 100}%`,
@@ -237,6 +237,7 @@ export default function Home() {
           animateStar(star)
         }
 
+        // Meteor animation remains unchanged
         const createMeteor = () => {
           const meteorContainer = document.createElement("div")
           meteorContainer.className = "meteor-container"
@@ -516,7 +517,7 @@ export default function Home() {
       {/* Powered by Elite AI Models */}
       <section ref={sectionRef} className="py-16 flex flex-col items-center relative z-50">
         <h2 className="text-xl sm:text-2xl font-bold text-white mb-16 text-center tracking-tight">
-          <TypingEffect text="POWERED BY ELITE AI MODELS" speed= {150} />
+          <TypingEffect text="POWERED BY ELITE AI MODELS" speed={150} />
         </h2>
         <div ref={cardsContainerRef} className="relative flex items-start justify-center pt-8">
           {[card1Ref, card2Ref, card3Ref].map((ref, index) => (

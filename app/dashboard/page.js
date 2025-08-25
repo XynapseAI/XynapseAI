@@ -25,7 +25,7 @@ gsap.registerPlugin(MotionPathPlugin);
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
-// Custom hook để xử lý trạng thái và logic của user data
+// Custom hook to handle user data state and logic
 const useUserData = (session, csrfToken, setIsAnalyzing) => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,7 +40,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
 
     setLoading(true);
     try {
-      const recaptchaToken = 'mock-recaptcha-token'; // Thay bằng logic thực tế
+      const recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : await recaptchaRef.current?.executeAsync();
       const response = await fetch(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
         method: 'GET',
         headers: {
@@ -48,12 +48,17 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
           'X-Recaptcha-Token': recaptchaToken,
           'X-CSRF-Token': csrfToken,
         },
+        credentials: 'include',
       });
       const result = await response.json();
       if (!response.ok) {
+        if (response.status === 401) {
+          // Handle 401 silently, don't redirect
+          setError('Session expired, please sign in again');
+          return;
+        }
         throw new Error(result.detail || 'Failed to fetch user data');
       }
-      // Kiểm tra header X-Clear-IndexedDB
       if (response.headers.get('X-Clear-IndexedDB') === 'true') {
         await clearAllCaches(session.user.id);
         console.log('Cleared IndexedDB cache due to server instruction');
@@ -73,6 +78,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       toast.error(`Error: ${err.message}`, { position: 'top-center' });
     } finally {
       setLoading(false);
+      if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   }, [session, csrfToken]);
 
@@ -80,7 +86,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
     setIsAnalyzing(true);
     try {
       if (!session?.user || !csrfToken) throw new Error('Authentication or CSRF token missing');
-      const recaptchaToken = 'mock-recaptcha-token'; // Thay bằng logic thực tế
+      const recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : await recaptchaRef.current?.executeAsync();
       const response = await fetch(`${API_BASE_URL}/api/analyze-tweets`, {
         method: 'POST',
         headers: {
@@ -89,9 +95,15 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
           'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify({ uid: session.user.id }),
+        credentials: 'include',
       });
       const result = await response.json();
       if (!response.ok) {
+        if (response.status === 401) {
+          // Handle 401 silently
+          setError('Session expired, please sign in again');
+          return;
+        }
         throw new Error(result.detail || 'Tweet analysis failed');
       }
       setUserData((prev) => (prev ? { ...prev, tweetPoints: result.tweet_points } : null));
@@ -101,6 +113,7 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       toast.error(`Tweet analysis error: ${err.message}`, { position: 'top-center' });
     } finally {
       setIsAnalyzing(false);
+      if (recaptchaRef.current) recaptchaRef.current.reset();
     }
   }, [session, csrfToken, setIsAnalyzing]);
 
@@ -128,9 +141,10 @@ export default function Dashboard() {
   const [email, setEmail] = useState('');
   const [csrfToken, setCsrfToken] = useState(null);
   const starsBackgroundRef = useRef(null);
+  const recaptchaRef = useRef(null);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { userData, loading, error, handleAnalyzeTweets, recaptchaRef } = useUserData(session, csrfToken, setIsAnalyzing);
+  const { userData, loading, error, handleAnalyzeTweets } = useUserData(session, csrfToken, setIsAnalyzing);
 
   useEffect(() => {
     setIsMounted(true);
@@ -149,7 +163,9 @@ export default function Dashboard() {
 
     const fetchCsrfToken = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/csrf-token`);
+        const response = await fetch(`${API_BASE_URL}/api/csrf-token`, {
+          credentials: 'include',
+        });
         const result = await response.json();
         if (response.ok) {
           setCsrfToken(result.csrfToken);
@@ -176,6 +192,7 @@ export default function Dashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Recaptcha-Token': recaptchaToken, 'X-CSRF-Token': csrfToken },
         body: JSON.stringify({ walletAddress: address, signature, message, uid: session.user.id }),
+        credentials: 'include',
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.detail || 'Wallet verification failed');
@@ -191,9 +208,12 @@ export default function Dashboard() {
   // Handle sign out
   const handleSignOut = async () => {
     try {
-      await signOut({ callbackUrl: '/' });
+      await signOut({ callbackUrl: '/dashboard', redirect: false });
       if (isConnected) disconnect();
       toast.success('Signed out successfully!', { position: 'top-center' });
+      localStorage.removeItem('csrfToken');
+      setCsrfToken(null);
+      router.push('/dashboard');
     } catch (error) {
       console.error('Error signing out:', error);
       toast.error('Failed to sign out.', { position: 'top-center' });
@@ -214,10 +234,26 @@ export default function Dashboard() {
   const handleEmailSignIn = async (e) => {
     e.preventDefault();
     try {
-      await signIn('email', { email, callbackUrl: '/dashboard' });
+      await signIn('email', { email, callbackUrl: '/dashboard', redirect: false });
       toast.success('Sign-in email sent, please check your inbox!', { position: 'top-center' });
-    } catch {
+    } catch (err) {
+      console.error('Error signing in with email:', err);
       toast.error('Failed to sign in with email.', { position: 'top-center' });
+    }
+  };
+
+  // Handle Google sign-in
+  const handleGoogleSignIn = async () => {
+    try {
+      const result = await signIn('google', { callbackUrl: '/dashboard', redirect: false });
+      if (result?.url) {
+        window.location.href = result.url;
+      } else {
+        throw new Error('No redirect URL provided by NextAuth');
+      }
+    } catch (err) {
+      console.error('Error signing in with Google:', err);
+      toast.error(`Failed to sign in with Google: ${err.message}`, { position: 'top-center' });
     }
   };
 
@@ -234,7 +270,7 @@ export default function Dashboard() {
     fetchProviders();
   }, []);
 
-  if (!isMounted || !providers) {
+  if (!isMounted || !providers || status === 'loading') {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-black text-white">
         <LoadingOverlay isLoading={true} message="Loading dashboard..." isMobile={typeof window !== 'undefined' && window.innerWidth <= 640} />
@@ -324,7 +360,7 @@ export default function Dashboard() {
           </div>
           {providers?.google && (
             <button
-              onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+              onClick={handleGoogleSignIn}
               className={`w-full px-4 py-3 bg-gray-800/50 border border-white/20 rounded-full text-white text-sm font-medium uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:bg-gray-700/50 ${styles['button-glow']}`}
             >
               <Image

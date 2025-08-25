@@ -43,6 +43,7 @@ export default function ProfileTab({ recaptchaRef }) {
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640);
   const [activeTab, setActiveTab] = useState('tasks');
   const [currentPage, setCurrentPage] = useState({ tasks: 1, leaderboard: 1, points: 1 });
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const itemsPerPage = 10;
 
   // Handle responsive design
@@ -350,24 +351,51 @@ export default function ProfileTab({ recaptchaRef }) {
 
   // Handle Sign Out
   const handleSignOut = useCallback(async () => {
+    if (!session || !session.user?.id) {
+      toast.error('Session expired. Please sign in again.', { position: 'top-center', autoClose: 5000 });
+      window.location.href = '/auth/signin';
+      return;
+    }
+
+    setIsSigningOut(true);
     try {
+      // Clear client-side caches
       await clearAllCaches(session.user.id);
-      const token = await debouncedExecuteRecaptcha('clear_cache');
-      await axios.post(
-        '/api/clear-cache',
-        { cacheKeys: [`user:${session.user.id}`] },
-        {
-          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
-          withCredentials: true,
-        }
-      );
+      console.log('Client-side caches cleared');
+
+      // Attempt to clear server-side cache (optional)
+      try {
+        const token = await debouncedExecuteRecaptcha('clear_cache');
+        await axios.post(
+          '/api/clear-cache',
+          { cacheKeys: [`user:${session.user.id}`] },
+          {
+            headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+            withCredentials: true,
+          }
+        );
+        console.log('Server-side cache cleared');
+      } catch (err) {
+        console.warn('Failed to clear server-side cache:', err.message);
+        // Suppress toast for rate limit errors or other failures
+      }
+
+      // Clear CSRF token and sign out
       localStorage.removeItem('csrfToken');
       await signOut({ redirect: false });
       window.location.href = '/auth/signin';
     } catch (err) {
-      toast.error('Unable to sign out', { position: 'top-center', autoClose: 5000 });
+      console.error('Sign-out error:', err.message);
+      toast.error(`Unable to sign out: ${err.message}`, { position: 'top-center', autoClose: 5000 });
+    } finally {
+      setIsSigningOut(false);
     }
   }, [session, csrfToken]);
+
+  const debouncedHandleSignOut = useCallback(
+    debounce(() => handleSignOut(), 1000, { leading: true, trailing: false }),
+    [handleSignOut]
+  );
 
   // Handle Task Verification
   const verifyTaskMutation = useMutation({
@@ -833,35 +861,23 @@ export default function ProfileTab({ recaptchaRef }) {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('twitterConnected') === 'true') {
       toast.success('Twitter connected successfully!', { position: 'top-center', autoClose: 5000 });
-      clearAllCaches(session?.user?.id)
-        .then(async () => {
-          try {
-            await Promise.all([
-              queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
-              queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
-              queryClient.invalidateQueries(['tasks', session?.user?.id, csrfToken]),
-              queryClient.invalidateQueries(['taskProgress', session?.user?.id, csrfToken]),
-              queryClient.invalidateQueries(['pointHistory', session?.user?.id, csrfToken]),
-            ]);
-            await Promise.all([
-              queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
-              queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
-              queryClient.refetchQueries(['tasks', session?.user?.id, csrfToken]),
-              queryClient.refetchQueries(['taskProgress', session?.user?.id, csrfToken]),
-              queryClient.refetchQueries(['pointHistory', session?.user?.id, csrfToken]),
-            ]);
-            console.log('Data refetched successfully after Twitter connection');
-          } catch (err) {
-            console.error('Error refetching data after Twitter connection:', err);
-            toast.error('Failed to refresh data after Twitter connection.', {
-              position: 'top-center',
-              autoClose: 5000,
-            });
-          }
+      // Only invalidate necessary queries
+      Promise.all([
+        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
+        queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
+      ])
+        .then(() => {
+          return Promise.all([
+            queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
+            queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
+          ]);
+        })
+        .then(() => {
+          console.log('Data refetched successfully after Twitter connection');
         })
         .catch((err) => {
-          console.error('Error clearing caches in Twitter callback:', err);
-          toast.error('Failed to clear cache after Twitter connection.', {
+          console.error('Error refetching data after Twitter connection:', err);
+          toast.error('Failed to refresh data after Twitter connection.', {
             position: 'top-center',
             autoClose: 5000,
           });
@@ -938,24 +954,29 @@ export default function ProfileTab({ recaptchaRef }) {
               <div>
                 <div className="absolute top-4 right-4">
                   <motion.button
-                    onClick={handleSignOut}
-                    className="p-1"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.9 }}
+                    onClick={debouncedHandleSignOut}
+                    disabled={isSigningOut}
+                    className={`p-1 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
+                    whileTap={{ scale: isSigningOut ? 1 : 0.9 }}
                     aria-label="Sign out"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-4 h-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#F87171"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
+                    {isSigningOut ? (
+                      <span className="text-[8px] sm:text-[10px] text-white">Signing out...</span>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#F87171"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                    )}
                   </motion.button>
                 </div>
                 <div className="flex items-center gap-2 mb-4">
