@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { motion } from "framer-motion"
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts"
@@ -9,6 +10,7 @@ import "highlight.js/styles/github-dark.css"
 import { useMarketTabLogic } from "./MarketTabLogic"
 import WalletBalances from "./WalletBalances"
 import Modal from "./Modal"
+import LoginPrompt from './LoginPrompt';
 import UniversalSearch from "./UniversalSearch"
 import "../styles/MarketTab.css"
 import { ToastContainer } from "react-toastify"
@@ -275,11 +277,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   }
 
   const handleTokenSelect = (token) => {
-    debouncedHandleTokenSelect(token)
-    if (onTokenSelect && token.id) {
-      onTokenSelect(token.id)
+    if (session) { // Chỉ gọi fetch nếu đã đăng nhập
+      debouncedHandleTokenSelect(token);
+    } else {
+      setSelectedToken(token); // Vẫn cập nhật token nhưng không gọi fetch
     }
-  }
+    if (onTokenSelect && token.id) {
+      onTokenSelect(token.id);
+    }
+  };
 
   const handleChainSelect = useCallback(
     (chainValue) => {
@@ -297,22 +303,27 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   }
 
   const handleDexTabClick = () => {
+    if (!session) {
+      setActiveMarketTab("dex");
+      setShowTrades(false);
+      return;
+    }
     if (dexRequestCount >= 5 && Date.now() - lastDexRequestTime < 60 * 1000) {
       toast.error("Too many DEX requests. Please wait a minute and try again.", {
         position: "top-center",
         autoClose: 5000,
-      })
-      return
+      });
+      return;
     }
-    setActiveMarketTab("dex")
-    setShowTrades(false)
+    setActiveMarketTab("dex");
+    setShowTrades(false);
     if (selectedToken) {
-      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain)
+      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
       if (chain && tokenAddress) {
-        fetchDexData(chain, tokenAddress)
+        fetchDexData(chain, tokenAddress);
       }
     }
-  }
+  };
 
   const handlePoolClick = (poolAddress) => {
     if (process.env.NODE_ENV === "development") {
@@ -597,29 +608,29 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
     fetchHighLowData()
   }, [selectedToken, timeRange, currency, fetchPriceHistory])
-  
+
   useEffect(() => {
-  const handleClickOutside = (event) => {
-    // Check if click is outside token dropdown
-    if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-      setIsDropdownOpen(false);
-    }
-    // Check if click is outside chain dropdown
-    if (chainDropdownRef.current && !chainDropdownRef.current.contains(event.target)) {
-      setIsChainDropdownOpen(false);
-    }
-  };
+    const handleClickOutside = (event) => {
+      // Check if click is outside token dropdown
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+      // Check if click is outside chain dropdown
+      if (chainDropdownRef.current && !chainDropdownRef.current.contains(event.target)) {
+        setIsChainDropdownOpen(false);
+      }
+    };
 
-  // Add event listeners for both click (PC) and touchstart (mobile)
-  document.addEventListener("click", handleClickOutside);
-  document.addEventListener("touchstart", handleClickOutside);
+    // Add event listeners for both click (PC) and touchstart (mobile)
+    document.addEventListener("click", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
 
-  // Cleanup event listeners on component unmount
-  return () => {
-    document.removeEventListener("click", handleClickOutside);
-    document.removeEventListener("touchstart", handleClickOutside);
-  };
-}, [setIsDropdownOpen, setIsChainDropdownOpen]);
+    // Cleanup event listeners on component unmount
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [setIsDropdownOpen, setIsChainDropdownOpen]);
 
   return (
     <motion.div
@@ -1542,175 +1553,180 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                   {activeMarketTab === "holders" && (
                     <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar">
-                      <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} />
-                      <div className="flex justify-center items-center p-2 border-b border-white/10 bg-white/5">
-                        <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
-                          Top 100
-                          {selectedToken.image && (
-                            <img
-                              src={selectedToken.image || "/placeholder.svg"}
-                              alt={`${selectedToken.symbol} logo`}
-                              className="w-5 h-5"
-                              onError={(e) => {
-                                logger.error("Token logo failed to load:", {
-                                  symbol: selectedToken.symbol,
-                                  src: selectedToken.image,
-                                })
-                                e.target.src = "/icons/default.png"
-                              }}
-                            />
-                          )}
-                          {selectedToken.symbol?.toUpperCase()} Holders
-                        </h4>
-                      </div>
-                      {isLoadingOnChain ? (
-                        <div className="text-sm text-white/60 text-center p-6">
-                          {/* Loading handled by LoadingOverlay */}
-                        </div>
-                      ) : onChainError && !NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase()) ? (
-                        <div className="text-sm text-center p-6">
-                          <p className="text-white/60">Unable to load top holders data. Please try again.</p>
-                        </div>
-                      ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-[9px] sm:text-[11px]">
-                            <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
-                              <tr>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                                      />
-                                    </svg>
-                                    Address/Name
-                                  </div>
-                                </th>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 fill-white/60"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
-                                    </svg>
-                                    Balance
-                                  </div>
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {onChainData.topHolders.slice(0, 100).map((holder, index) => {
-                                const isNonEvmChain = NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
-                                const address = holder.address?.toLowerCase()
-                                const { text: displayText, image } = truncateAddress(
-                                  holder.address,
-                                  nameTags,
-                                  holder.source,
-                                )
-                                const isValidAddress =
-                                  holder.address &&
-                                  (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || // EVM address
-                                    holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/)) // Non-EVM (e.g., Bitcoin)
-
-                                return (
-                                  <motion.tr
-                                    key={index}
-                                    className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.3, delay: index * 0.02 }}
-                                  >
-                                    <td className="px-4 py-3 text-white">
-                                      <div className="flex items-center gap-3 group relative">
-                                        {image && (
-                                          <img
-                                            src={image || "/placeholder.svg"}
-                                            alt={`${displayText} logo`}
-                                            className="w-6 h-6 flex-shrink-0 rounded-lg"
-                                            onError={(e) => {
-                                              logger.error("Name tag image failed to load:", {
-                                                address,
-                                                src: image,
-                                              })
-                                              e.target.src = "/icons/default.png"
-                                            }}
+                      {session ? (
+                        <>
+                          <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} />
+                          <div className="flex justify-center items-center p-2 border-b border-white/10 bg-white/5">
+                            <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
+                              Top 100
+                              {selectedToken.image && (
+                                <img
+                                  src={selectedToken.image || "/placeholder.svg"}
+                                  alt={`${selectedToken.symbol} logo`}
+                                  className="w-5 h-5"
+                                  onError={(e) => {
+                                    logger.error("Token logo failed to load:", {
+                                      symbol: selectedToken.symbol,
+                                      src: selectedToken.image,
+                                    })
+                                    e.target.src = "/icons/default.png"
+                                  }}
+                                />
+                              )}
+                              {selectedToken.symbol?.toUpperCase()} Holders
+                            </h4>
+                          </div>
+                          {isLoadingOnChain ? (
+                            <div className="text-sm text-white/60 text-center p-6">
+                              {/* Loading handled by LoadingOverlay */}
+                            </div>
+                          ) : onChainError && !NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase()) ? (
+                            <div className="text-sm text-center p-6">
+                              <p className="text-white/60">Unable to load top holders data. Please try again.</p>
+                            </div>
+                          ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-[9px] sm:text-[11px]">
+                                <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
+                                  <tr>
+                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
+                                      <div className="flex items-center gap-2">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="h-5 w-5 stroke-white/60 fill-none"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth="2"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
                                           />
-                                        )}
-                                        {isNonEvmChain && isValidAddress ? (
-                                          <a
-                                            href={`https://blockchair.com/${selectedToken?.id.toLowerCase()}/address/${holder.address}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="text-white hover:text-white/80 transition-colors font-medium"
-                                            title={holder.address}
-                                          >
-                                            {displayText}
-                                          </a>
-                                        ) : (
-                                          <span
-                                            className={`text-white font-medium ${isValidAddress ? "cursor-pointer hover:text-white/80 transition-colors" : "cursor-default"}`}
-                                            onClick={() => isValidAddress && handleAddressClick(holder.address)}
-                                            title={displayText}
-                                          >
-                                            {displayText}
-                                          </span>
-                                        )}
-                                        {isValidAddress && (
-                                          <motion.button
-                                            onClick={() => {
-                                              navigator.clipboard.writeText(holder.address)
-                                              toast.success("Address copied!", { autoClose: 2000 })
-                                            }}
-                                            className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-                                            title="Copy address"
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                          >
-                                            <svg
-                                              xmlns="http://www.w3.org/2000/svg"
-                                              className="w-4 h-4"
-                                              fill="none"
-                                              viewBox="0 0 24 24"
-                                              stroke="currentColor"
-                                              strokeWidth={2}
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                              />
-                                            </svg>
-                                          </motion.button>
-                                        )}
+                                        </svg>
+                                        Address/Name
                                       </div>
-                                    </td>
-                                    <td className="px-4 py-3 font-bold text-white">
-                                      <span className="px-2 py-1 rounded-lg">
-                                        {Math.floor(holder.balance).toLocaleString("en-US")}
-                                      </span>
-                                    </td>
-                                  </motion.tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                                    </th>
+                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
+                                      <div className="flex items-center gap-2">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="h-5 w-5 fill-white/60"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
+                                        </svg>
+                                        Balance
+                                      </div>
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {onChainData.topHolders.slice(0, 100).map((holder, index) => {
+                                    const isNonEvmChain = NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
+                                    const address = holder.address?.toLowerCase()
+                                    const { text: displayText, image } = truncateAddress(
+                                      holder.address,
+                                      nameTags,
+                                      holder.source,
+                                    )
+                                    const isValidAddress =
+                                      holder.address &&
+                                      (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || // EVM address
+                                        holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/)) // Non-EVM (e.g., Bitcoin)
+
+                                    return (
+                                      <motion.tr
+                                        key={index}
+                                        className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.3, delay: index * 0.02 }}
+                                      >
+                                        <td className="px-4 py-3 text-white">
+                                          <div className="flex items-center gap-3 group relative">
+                                            {image && (
+                                              <img
+                                                src={image || "/placeholder.svg"}
+                                                alt={`${displayText} logo`}
+                                                className="w-6 h-6 flex-shrink-0 rounded-lg"
+                                                onError={(e) => {
+                                                  logger.error("Name tag image failed to load:", {
+                                                    address,
+                                                    src: image,
+                                                  })
+                                                  e.target.src = "/icons/default.png"
+                                                }}
+                                              />
+                                            )}
+                                            {isNonEvmChain && isValidAddress ? (
+                                              <a
+                                                href={`https://blockchair.com/${selectedToken?.id.toLowerCase()}/address/${holder.address}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-white hover:text-white/80 transition-colors font-medium"
+                                                title={holder.address}
+                                              >
+                                                {displayText}
+                                              </a>
+                                            ) : (
+                                              <span
+                                                className={`text-white font-medium ${isValidAddress ? "cursor-pointer hover:text-white/80 transition-colors" : "cursor-default"}`}
+                                                onClick={() => isValidAddress && handleAddressClick(holder.address)}
+                                                title={displayText}
+                                              >
+                                                {displayText}
+                                              </span>
+                                            )}
+                                            {isValidAddress && (
+                                              <motion.button
+                                                onClick={() => {
+                                                  navigator.clipboard.writeText(holder.address)
+                                                  toast.success("Address copied!", { autoClose: 2000 })
+                                                }}
+                                                className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                                title="Copy address"
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
+                                              >
+                                                <svg
+                                                  xmlns="http://www.w3.org/2000/svg"
+                                                  className="w-4 h-4"
+                                                  fill="none"
+                                                  viewBox="0 0 24 24"
+                                                  stroke="currentColor"
+                                                  strokeWidth={2}
+                                                >
+                                                  <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                                  />
+                                                </svg>
+                                              </motion.button>
+                                            )}
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-3 font-bold text-white">
+                                          <span className="px-2 py-1 rounded-lg">
+                                            {Math.floor(holder.balance).toLocaleString("en-US")}
+                                          </span>
+                                        </td>
+                                      </motion.tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-white/60 text-center p-6">
+                              {NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
+                                ? `Top holders data for ${selectedToken?.symbol?.toUpperCase()} is unavailable.`
+                                : `No top holders data available for ${selectedToken?.symbol?.toUpperCase() || "selected token"} on ${chains.find((c) => c.value === selectedChain)?.label || "selected chain"}.`}
+                            </div>
+                          )}
+                        </>
                       ) : (
-                        <div className="text-sm text-white/60 text-center p-6">
-                          {NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
-                            ? `Top holders data for ${selectedToken?.symbol?.toUpperCase()} is unavailable.`
-                            : `No top holders data available for ${selectedToken?.symbol?.toUpperCase() || "selected token"} on ${chains.find((c) => c.value === selectedChain)?.label || "selected chain"
-                            }.`}
-                        </div>
+                        <LoginPrompt />
                       )}
                     </div>
                   )}
@@ -1896,386 +1912,391 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     </div>
                   )}
 
-                  {/* DEX Tab */}
                   {activeMarketTab === "dex" && (
                     <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar">
-                      <LoadingOverlay isLoading={isLoadingDex && !dexData.trades?.length} isMobile={isMobile} />
-                      {dexError ? (
-                        <div className="text-[10px] text-xs text-center p-6">
-                          <p className="text-white/60 mb-4">Unable to load DEX trades data. Please try again.</p>
-                          <motion.button
-                            onClick={() => {
-                              const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain)
-                              if (chain && tokenAddress) {
-                                fetchDexData(chain, tokenAddress)
-                              }
-                            }}
-                            className="px-4 py-2 text-white text-sm border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            Retry
-                          </motion.button>
-                        </div>
-                      ) : isLoadingDex && !dexData.trades?.length ? (
-                        <SkeletonLoader count={5} isMobile={isMobile} />
-                      ) : dexData.trades.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-[9px] sm:text-[11px]">
-                            <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
-                              <tr>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
-                                      />
-                                    </svg>
-                                    Token
-                                  </div>
-                                </th>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                                      />
-                                    </svg>
-                                    From Address
-                                  </div>
-                                </th>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                                      />
-                                    </svg>
-                                    To Address
-                                  </div>
-                                </th>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
-                                      />
-                                    </svg>
-                                    Value
-                                  </div>
-                                </th>
-                                <th className="px-3 py-1.5 text-white text-center font-semibold">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                      />
-                                    </svg>
-                                    Tx/Time
-                                  </div>
-                                </th>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M6 15h12M9 18h6" />
-                                    </svg>
-                                    Pool
-                                  </div>
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {dexData.trades.slice(0, 100).map((trade, index) => (
-                                <motion.tr
-                                  key={`${trade.tx_hash}-${index}`}
-                                  initial={{ opacity: 0, y: 10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.3, ease: "easeOut", delay: index * 0.02 }}
-                                  className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
-                                >
-                                  <td className="px-4 py-3 text-white">
-                                    <div className="flex items-center gap-2">
-                                      {selectedToken?.image && (
-                                        <img
-                                          src={selectedToken.image || "/placeholder.svg"}
-                                          alt={`${selectedToken.symbol} logo`}
-                                          className="w-4 h-4 rounded-lg flex-shrink-0"
-                                          onError={(e) => (e.target.src = "/fallback-image.png")}
-                                        />
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-white">
-                                    <div className="flex items-center gap-2 group relative">
-                                      <a
-                                        href={
-                                          getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address)
-                                            .addressUrl
-                                        }
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-white hover:text-white/80 transition-colors font-medium"
-                                        title={trade.tx_from_address}
-                                      >
-                                        {(() => {
-                                          if (!trade.tx_from_address || typeof trade.tx_from_address !== "string")
-                                            return "N/A"
-                                          return `${trade.tx_from_address.slice(0, 6)}...${trade.tx_from_address.slice(-4)}`
-                                        })()}
-                                      </a>
-                                      {trade.tx_from_address && typeof trade.tx_from_address === "string" && (
-                                        <motion.button
-                                          onClick={() => {
-                                            navigator.clipboard.writeText(trade.tx_from_address)
-                                            toast.success("Address copied!", { autoClose: 2000 })
-                                          }}
-                                          className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-                                          title="Copy address"
-                                          whileHover={{ scale: 1.1 }}
-                                          whileTap={{ scale: 0.9 }}
+                      {session ? (
+                        <>
+                          <LoadingOverlay isLoading={isLoadingDex && !dexData.trades?.length} isMobile={isMobile} />
+                          {dexError ? (
+                            <div className="text-[10px] text-xs text-center p-6">
+                              <p className="text-white/60 mb-4">Unable to load DEX trades data. Please try again.</p>
+                              <motion.button
+                                onClick={() => {
+                                  const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain)
+                                  if (chain && tokenAddress) {
+                                    fetchDexData(chain, tokenAddress)
+                                  }
+                                }}
+                                className="px-4 py-2 text-white text-sm border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                              >
+                                Retry
+                              </motion.button>
+                            </div>
+                          ) : isLoadingDex && !dexData.trades?.length ? (
+                            <SkeletonLoader count={5} isMobile={isMobile} />
+                          ) : dexData.trades.length > 0 ? (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-[9px] sm:text-[11px]">
+                                <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
+                                  <tr>
+                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
+                                      <div className="flex items-center gap-2">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="h-5 w-5 stroke-white/60 fill-none"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth="2"
                                         >
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            className="w-4 h-4"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            strokeWidth={2}
-                                          >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                            />
-                                          </svg>
-                                        </motion.button>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-white">
-                                    <div className="flex items-center gap-2 group relative">
-                                      <a
-                                        href={
-                                          getExplorerUrls(selectedChain, trade.tx_hash, trade.to_token_address)
-                                            .addressUrl
-                                        }
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-white hover:text-white/80 transition-colors font-medium"
-                                        title={trade.to_token_address}
-                                      >
-                                        {(() => {
-                                          if (!trade.to_token_address || typeof trade.to_token_address !== "string")
-                                            return "N/A"
-                                          return `${trade.to_token_address.slice(0, 6)}...${trade.to_token_address.slice(-4)}`
-                                        })()}
-                                      </a>
-                                      {trade.to_token_address && typeof trade.to_token_address === "string" && (
-                                        <motion.button
-                                          onClick={() => {
-                                            navigator.clipboard.writeText(trade.to_token_address)
-                                            toast.success("Address copied!", { autoClose: 2000 })
-                                          }}
-                                          className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-                                          title="Copy address"
-                                          whileHover={{ scale: 1.1 }}
-                                          whileTap={{ scale: 0.9 }}
-                                        >
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            className="w-4 h-4"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            strokeWidth={2}
-                                          >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                            />
-                                          </svg>
-                                        </motion.button>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-white">
-                                    <div className="flex flex-col gap-1">
-                                      <span className="font-semibold">
-                                        {Math.floor(
-                                          Number.parseFloat(
-                                            trade.kind === "sell"
-                                              ? trade.from_token_amount
-                                              : trade.to_token_amount || 0,
-                                          ),
-                                        ).toLocaleString("en-US")}{" "}
-                                        {(() => {
-                                          const tokenAddress =
-                                            trade.kind === "sell" ? trade.from_token_address : trade.to_token_address
-                                          return tokenAddress.toLowerCase() ===
-                                            selectedToken?.detail_platforms?.[
-                                              chains.find((c) => c.value === selectedChain)?.coingeckoId
-                                            ]?.contract_address?.toLowerCase()
-                                            ? selectedToken?.symbol?.toUpperCase()
-                                            : "Token"
-                                        })()}
-                                      </span>
-                                      <div className="flex items-center gap-2 text-xs">
-                                        <span className="text-white/60">
-                                          ${Math.floor(Number.parseFloat(trade.volume_in_usd)).toLocaleString("en-US")}
-                                        </span>
-                                        <span
-                                          className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${trade.kind === "buy" ? "bg-emerald-400/10 text-emerald-400" : "bg-red-500/10 text-red-500/80"}`}
-                                        >
-                                          {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
-                                        </span>
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
+                                          />
+                                        </svg>
+                                        Token
                                       </div>
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-white text-center">
-                                    <div className="flex flex-col gap-1 items-center group relative">
-                                      <a
-                                        href={
-                                          getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address).txUrl
-                                        }
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        title={trade.tx_hash}
-                                        className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 transition-all duration-300"
-                                      >
-                                        <img
-                                          src="/logos/etherscan-logo.png"
-                                          alt="Etherscan"
-                                          className="w-3 h-3"
-                                          onError={(e) => (e.target.src = "/fallback-image.png")}
-                                        />
-                                      </a>
-                                      <span className="text-[9px] text-white/60 text-center">
-                                        {formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}
-                                      </span>
-                                      {trade.tx_hash && typeof trade.tx_hash === "string" && (
-                                        <motion.button
-                                          onClick={() => {
-                                            navigator.clipboard.writeText(trade.tx_hash)
-                                            toast.success("Transaction hash copied!", { autoClose: 2000 })
-                                          }}
-                                          className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-                                          title="Copy transaction hash"
-                                          whileHover={{ scale: 1.1 }}
-                                          whileTap={{ scale: 0.9 }}
+                                    </th>
+                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
+                                      <div className="flex items-center gap-2">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="h-5 w-5 stroke-white/60 fill-none"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth="2"
                                         >
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            className="w-4 h-4"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            strokeWidth={2}
-                                          >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                            />
-                                          </svg>
-                                        </motion.button>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-white">
-                                    <motion.button
-                                      onClick={() => trade.pool_address && handlePoolClick(trade.pool_address)}
-                                      className="flex items-center gap-2 text-[10px] sm:text-xs hover:bg-white/10 p-2 rounded-xl transition-all duration-300"
-                                      title={
-                                        dexData.pools.find((p) => p.attributes.address === trade.pool_address)
-                                          ?.attributes.name || "View Pool Details"
-                                      }
-                                      disabled={!trade.pool_address || !dexData.poolTokens[trade.pool_address]}
-                                      whileHover={{ scale: 1.05 }}
-                                      whileTap={{ scale: 0.95 }}
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                                          />
+                                        </svg>
+                                        From Address
+                                      </div>
+                                    </th>
+                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
+                                      <div className="flex items-center gap-2">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="h-5 w-5 stroke-white/60 fill-none"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth="2"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                                          />
+                                        </svg>
+                                        To Address
+                                      </div>
+                                    </th>
+                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
+                                      <div className="flex items-center gap-2">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="h-5 w-5 stroke-white/60 fill-none"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth="2"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
+                                          />
+                                        </svg>
+                                        Value
+                                      </div>
+                                    </th>
+                                    <th className="px-3 py-1.5 text-white text-center font-semibold">
+                                      <div className="flex items-center justify-center gap-2">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="h-5 w-5 stroke-white/60 fill-none"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth="2"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                          />
+                                        </svg>
+                                        Tx/Time
+                                      </div>
+                                    </th>
+                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
+                                      <div className="flex items-center gap-2">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          className="h-5 w-5 stroke-white/60 fill-none"
+                                          viewBox="0 0 24 24"
+                                          strokeWidth="2"
+                                        >
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M6 15h12M9 18h6" />
+                                        </svg>
+                                        Pool
+                                      </div>
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {dexData.trades.slice(0, 100).map((trade, index) => (
+                                    <motion.tr
+                                      key={`${trade.tx_hash}-${index}`}
+                                      initial={{ opacity: 0, y: 10 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      transition={{ duration: 0.3, ease: "easeOut", delay: index * 0.02 }}
+                                      className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
                                     >
-                                      {(() => {
-                                        const poolTokens =
-                                          trade.pool_address && typeof trade.pool_address === "string"
-                                            ? dexData.poolTokens[trade.pool_address] || {}
-                                            : {}
-                                        const tokenAddresses = Object.keys(poolTokens)
-                                        const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null
-                                        const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null
-                                        return token1 && token2 ? (
-                                          <div className="flex items-center gap-2">
+                                      <td className="px-4 py-3 text-white">
+                                        <div className="flex items-center gap-2">
+                                          {selectedToken?.image && (
                                             <img
-                                              src={token1.image_url || "/placeholder.svg"}
-                                              alt={`${token1.symbol} logo`}
+                                              src={selectedToken.image || "/placeholder.svg"}
+                                              alt={`${selectedToken.symbol} logo`}
                                               className="w-4 h-4 rounded-lg flex-shrink-0"
                                               onError={(e) => (e.target.src = "/fallback-image.png")}
                                             />
-                                            <span className="text-white/40">/</span>
-                                            <img
-                                              src={token2.image_url || "/placeholder.svg"}
-                                              alt={`${token2.symbol} logo`}
-                                              className="w-4 h-4 rounded-lg flex-shrink-0"
-                                              onError={(e) => (e.target.src = "/fallback-image.png")}
-                                            />
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 text-white">
+                                        <div className="flex items-center gap-2 group relative">
+                                          <a
+                                            href={
+                                              getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address)
+                                                .addressUrl
+                                            }
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-white hover:text-white/80 transition-colors font-medium"
+                                            title={trade.tx_from_address}
+                                          >
+                                            {(() => {
+                                              if (!trade.tx_from_address || typeof trade.tx_from_address !== "string")
+                                                return "N/A"
+                                              return `${trade.tx_from_address.slice(0, 6)}...${trade.tx_from_address.slice(-4)}`
+                                            })()}
+                                          </a>
+                                          {trade.tx_from_address && typeof trade.tx_from_address === "string" && (
+                                            <motion.button
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(trade.tx_from_address)
+                                                toast.success("Address copied!", { autoClose: 2000 })
+                                              }}
+                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                              title="Copy address"
+                                              whileHover={{ scale: 1.1 }}
+                                              whileTap={{ scale: 0.9 }}
+                                            >
+                                              <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                className="w-4 h-4"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                                strokeWidth={2}
+                                              >
+                                                <path
+                                                  strokeLinecap="round"
+                                                  strokeLinejoin="round"
+                                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                                />
+                                              </svg>
+                                            </motion.button>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 text-white">
+                                        <div className="flex items-center gap-2 group relative">
+                                          <a
+                                            href={
+                                              getExplorerUrls(selectedChain, trade.tx_hash, trade.to_token_address)
+                                                .addressUrl
+                                            }
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-white hover:text-white/80 transition-colors font-medium"
+                                            title={trade.to_token_address}
+                                          >
+                                            {(() => {
+                                              if (!trade.to_token_address || typeof trade.to_token_address !== "string")
+                                                return "N/A"
+                                              return `${trade.to_token_address.slice(0, 6)}...${trade.to_token_address.slice(-4)}`
+                                            })()}
+                                          </a>
+                                          {trade.to_token_address && typeof trade.to_token_address === "string" && (
+                                            <motion.button
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(trade.to_token_address)
+                                                toast.success("Address copied!", { autoClose: 2000 })
+                                              }}
+                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                              title="Copy address"
+                                              whileHover={{ scale: 1.1 }}
+                                              whileTap={{ scale: 0.9 }}
+                                            >
+                                              <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                className="w-4 h-4"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                                strokeWidth={2}
+                                              >
+                                                <path
+                                                  strokeLinecap="round"
+                                                  strokeLinejoin="round"
+                                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                                />
+                                              </svg>
+                                            </motion.button>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 text-white">
+                                        <div className="flex flex-col gap-1">
+                                          <span className="font-semibold">
+                                            {Math.floor(
+                                              Number.parseFloat(
+                                                trade.kind === "sell"
+                                                  ? trade.from_token_amount
+                                                  : trade.to_token_amount || 0,
+                                              ),
+                                            ).toLocaleString("en-US")}{" "}
+                                            {(() => {
+                                              const tokenAddress =
+                                                trade.kind === "sell" ? trade.from_token_address : trade.to_token_address
+                                              return tokenAddress.toLowerCase() ===
+                                                selectedToken?.detail_platforms?.[
+                                                  chains.find((c) => c.value === selectedChain)?.coingeckoId
+                                                ]?.contract_address?.toLowerCase()
+                                                ? selectedToken?.symbol?.toUpperCase()
+                                                : "Token"
+                                            })()}
+                                          </span>
+                                          <div className="flex items-center gap-2 text-xs">
+                                            <span className="text-white/60">
+                                              ${Math.floor(Number.parseFloat(trade.volume_in_usd)).toLocaleString("en-US")}
+                                            </span>
+                                            <span
+                                              className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${trade.kind === "buy" ? "bg-emerald-400/10 text-emerald-400" : "bg-red-500/10 text-red-500/80"}`}
+                                            >
+                                              {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
+                                            </span>
                                           </div>
-                                        ) : (
-                                          <span className="text-white/60">N/A</span>
-                                        )
-                                      })()}
-                                    </motion.button>
-                                  </td>
-                                </motion.tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 text-white text-center">
+                                        <div className="flex flex-col gap-1 items-center group relative">
+                                          <a
+                                            href={
+                                              getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address).txUrl
+                                            }
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            title={trade.tx_hash}
+                                            className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 transition-all duration-300"
+                                          >
+                                            <img
+                                              src="/logos/etherscan-logo.png"
+                                              alt="Etherscan"
+                                              className="w-3 h-3"
+                                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                                            />
+                                          </a>
+                                          <span className="text-[9px] text-white/60 text-center">
+                                            {formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}
+                                          </span>
+                                          {trade.tx_hash && typeof trade.tx_hash === "string" && (
+                                            <motion.button
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(trade.tx_hash)
+                                                toast.success("Transaction hash copied!", { autoClose: 2000 })
+                                              }}
+                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                              title="Copy transaction hash"
+                                              whileHover={{ scale: 1.1 }}
+                                              whileTap={{ scale: 0.9 }}
+                                            >
+                                              <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                className="w-4 h-4"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                                strokeWidth={2}
+                                              >
+                                                <path
+                                                  strokeLinecap="round"
+                                                  strokeLinejoin="round"
+                                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                                />
+                                              </svg>
+                                            </motion.button>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 text-white">
+                                        <motion.button
+                                          onClick={() => trade.pool_address && handlePoolClick(trade.pool_address)}
+                                          className="flex items-center gap-2 text-[10px] sm:text-xs hover:bg-white/10 p-2 rounded-xl transition-all duration-300"
+                                          title={
+                                            dexData.pools.find((p) => p.attributes.address === trade.pool_address)
+                                              ?.attributes.name || "View Pool Details"
+                                          }
+                                          disabled={!trade.pool_address || !dexData.poolTokens[trade.pool_address]}
+                                          whileHover={{ scale: 1.05 }}
+                                          whileTap={{ scale: 0.95 }}
+                                        >
+                                          {(() => {
+                                            const poolTokens =
+                                              trade.pool_address && typeof trade.pool_address === "string"
+                                                ? dexData.poolTokens[trade.pool_address] || {}
+                                                : {}
+                                            const tokenAddresses = Object.keys(poolTokens)
+                                            const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null
+                                            const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null
+                                            return token1 && token2 ? (
+                                              <div className="flex items-center gap-2">
+                                                <img
+                                                  src={token1.image_url || "/placeholder.svg"}
+                                                  alt={`${token1.symbol} logo`}
+                                                  className="w-4 h-4 rounded-lg flex-shrink-0"
+                                                  onError={(e) => (e.target.src = "/fallback-image.png")}
+                                                />
+                                                <span className="text-white/40">/</span>
+                                                <img
+                                                  src={token2.image_url || "/placeholder.svg"}
+                                                  alt={`${token2.symbol} logo`}
+                                                  className="w-4 h-4 rounded-lg flex-shrink-0"
+                                                  onError={(e) => (e.target.src = "/fallback-image.png")}
+                                                />
+                                              </div>
+                                            ) : (
+                                              <span className="text-white/60">N/A</span>
+                                            )
+                                          })()}
+                                        </motion.button>
+                                      </td>
+                                    </motion.tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            !isLoadingDex && (
+                              <div className="text-[10px] text-white/60 text-center p-6">
+                                No DEX data available for {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
+                                {chains.find((c) => c.value === selectedChain)?.label || "selected chain"}.
+                              </div>
+                            )
+                          )}
+                        </>
                       ) : (
-                        !isLoadingDex && (
-                          <div className="text-[10px] text-white/60 text-center p-6">
-                            No DEX data available for {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
-                            {chains.find((c) => c.value === selectedChain)?.label || "selected chain"}.
-                          </div>
-                        )
+                        <LoginPrompt />
                       )}
                     </div>
                   )}

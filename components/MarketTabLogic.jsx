@@ -14,8 +14,8 @@ import axiosRetry from 'axios-retry';
 
 const cacheLimiter = new Bottleneck({
   maxConcurrent: 15,
-  minTime: 200, 
-  reservoir: 500, 
+  minTime: 200,
+  reservoir: 500,
   reservoirRefreshAmount: 500,
   reservoirRefreshInterval: 60 * 1000,
 });
@@ -986,7 +986,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setIsLoadingOnChain(false);
           setIsLoadingWalletBalances(false);
           setIsLoadingTransactions(false);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          // Xóa toast.error để tránh hiển thị thông báo
+          // toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           return;
         }
 
@@ -1034,7 +1035,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               timeout: 30000,
             });
 
-            // Axios automatically parses JSON responses, so use response.data directly
             const result = response.data;
 
             console.log(`Raw ${action} response:`, { address, response: result, status: response.status });
@@ -1087,9 +1087,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           }
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           if (retryCount < 3) {
-            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff with jitter
+            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
             await new Promise((resolve) => setTimeout(resolve, delay));
-            // Attempt to get a new reCAPTCHA token on retry
             let newRecaptchaToken = recaptchaToken;
             try {
               newRecaptchaToken = await executeRecaptcha(action);
@@ -1119,7 +1118,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           const errorMessage = 'Please log in to access DEX data.';
           setDexError(errorMessage);
           setIsLoadingDex(false);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+          // Xóa toast.error để tránh hiển thị thông báo
+          // toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           return;
         }
 
@@ -1164,7 +1164,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         setDexError(null);
 
         const cachedData = localCache.current[cacheKey]?.data;
-        if (cachedData && Date.now() - localCache.current[cacheKey].timestamp < CACHE_DURATIONS.DEFI_POOL) {
+        if (cachedData && Date.now - localCache.current[cacheKey].timestamp < CACHE_DURATIONS.DEFI_POOL) {
           setDexData(cachedData);
           console.log(`Using cached DEX data for ${geckoChain}-${tokenAddress}`);
           setIsLoadingDex(false);

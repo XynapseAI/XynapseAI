@@ -1,0 +1,41 @@
+"use client";
+
+import { motion } from "framer-motion";
+import Image from "next/image";
+
+export default function LoginPrompt() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="flex flex-col items-center justify-center w-full h-full min-h-[200px] bg-black/60 backdrop-blur-lg text-white p-4 sm:p-6 rounded-lg"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3, delay: 0.2 }}
+        className="flex flex-col items-center text-center"
+      >
+        <Image
+          src="/logos/logo-landscape.png"
+          alt="Xynapse Logo"
+          width={120}
+          height={56}
+          className="h-10 sm:h-12 w-auto mb-4"
+          priority
+        />
+        <h2 className="text-lg sm:text-xl font-bold uppercase mb-2">Sign In</h2>
+        <p className="text-xs sm:text-sm text-white/80 mb-4 max-w-xs">
+          Please sign in to access this feature.
+        </p>
+        <a
+          href="/dashboard?tab=profile"
+          className="px-4 py-2 bg-gray-800 text-white rounded-full text-sm font-medium uppercase transition-all duration-300 hover:bg-gray-700 border border-white/20"
+        >
+          Sign In
+        </a>
+      </motion.div>
+    </motion.div>
+  );
+}

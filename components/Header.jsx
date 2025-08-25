@@ -6,7 +6,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Power, Search } from 'lucide-react';
 import { useCurrency } from './CurrencyContext';
-import { logger } from '../utils/serverLogger'; // Assuming logger is available client-side or mocked
+import { logger } from '../utils/serverLogger';
+import '../styles/globals.css'
 
 export default function Header({ activeTab, setActiveTab, handleSignOut, selectedAddress }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -179,7 +180,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   return (
-    <header className="h-[4vh] sm:h-[5vh] bg-white/5 backdrop-blur-md border-b border-white/10 rounded-b-xl flex justify-between items-center sticky top-0 z-20 font-saira">
+    <header className="h-[4vh] sm:h-[5vh] bg-black/10 backdrop-blur-xs border-b border-white/10 rounded-b-xl flex justify-between items-center sticky top-0 z-20 font-saira">
       {/* Mobile Menu Toggle */}
       <div className="block sm:hidden">
         <button

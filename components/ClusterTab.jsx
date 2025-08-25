@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts";
 import { ToastContainer, toast } from "react-toastify";
@@ -10,6 +11,7 @@ import { useCurrency } from "./CurrencyContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import UniversalSearch from "./UniversalSearch";
 import WalletBalances from "./WalletBalances";
+import LoginPrompt from "./LoginPrompt";
 import { CHAIN_ID_TO_NAME } from "../utils/constants";
 import { SkeletonLoader, formatPrice, truncateAddress, LoadingOverlay, getExplorerUrls } from "../utils/helpers";
 import "../styles/MarketTab.css";
@@ -76,6 +78,7 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
 };
 
 const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
+  const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const exchangeIdFromQuery = searchParams.get("exchangeId") || initialExchangeId || "binance";
@@ -190,11 +193,11 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   }, []);
 
   useEffect(() => {
-    if (walletData.length > 0) {
+    if (status === "authenticated" && walletData.length > 0) {
       const evmWallets = walletData.filter((w) => w.chain?.toLowerCase() !== "bitcoin");
       fetchTransactions(evmWallets, 1000000);
     }
-  }, [walletData]);
+  }, [walletData, status]);
 
   useEffect(() => {
     if (portfolioData.length > 0) {
@@ -274,7 +277,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   }, [portfolioData]);
 
   useEffect(() => {
-    if (selectedWallet) {
+    if (status === "authenticated" && selectedWallet) {
       logger.log("Triggering fetch for selected wallet:", { selectedWallet });
       if (/^0x[a-fA-F0-9]{40}$/.test(selectedWallet)) {
         fetchWalletBalances(selectedWallet);
@@ -286,7 +289,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         setWalletTransactionsError("Transaction data not available for Bitcoin addresses");
       }
     }
-  }, [selectedWallet]);
+  }, [selectedWallet, status]);
 
   const fetchExchangeData = async (originalId, mappedId) => {
     setIsLoadingExchange(true);
@@ -319,8 +322,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       setExchangeData(fallback);
       const errorMessage = err.message || "Unknown error fetching exchange data";
       logger.error("Error fetching exchange data:", { originalId, mappedId, error: errorMessage, stack: err.stack });
-      // Suppress toast and handle in UI
-      setError(null); // Clear error to avoid displaying raw message
+      setError(errorMessage); // Set error for UI display
     } finally {
       setIsLoadingExchange(false);
     }
@@ -353,7 +355,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       const errorMessage = err.message || "Unknown error fetching volume history";
       logger.error("Error fetching volume history:", { exchangeId, error: errorMessage, stack: err.stack });
       setVolumeHistory([]); // Ensure empty state for chart
-      // Suppress toast and handle in UI
+      setError(errorMessage); // Set error for UI display
     } finally {
       setIsLoadingVolume(false);
     }
@@ -399,7 +401,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       logger.error("Error fetching portfolio/wallet data:", { exchangeId, error: errorMessage, stack: err.stack });
       setPortfolioData([]);
       setWalletData([]);
-      // Suppress toast and handle in UI
+      setError(errorMessage); // Set error for UI display
     } finally {
       setIsLoadingPortfolio(false);
       setIsLoadingWallets(false);
@@ -407,6 +409,11 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   };
 
   const fetchTransactions = async (input, minValueUsd = null) => {
+    if (status !== "authenticated") {
+      setTransactionsError("Please log in to access transaction data.");
+      setIsLoadingTransactions(false);
+      return;
+    }
     setIsLoadingTransactions(true);
     setTransactionsError(null);
     try {
@@ -451,13 +458,18 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       const errorMessage = err.message || "Unknown error fetching transactions";
       logger.error("Error fetching transactions:", { input, minValueUsd, error: errorMessage, stack: err.stack });
       setTransactions([]);
-      setTransactionsError(null); // Suppress error display, handle in UI
+      setTransactionsError(errorMessage);
     } finally {
       setIsLoadingTransactions(false);
     }
   };
 
   const fetchWalletTransactions = async (walletAddress) => {
+    if (status !== "authenticated") {
+      setWalletTransactionsError("Please log in to access wallet transactions.");
+      setIsLoadingWalletTransactions(false);
+      return;
+    }
     setIsLoadingWalletTransactions(true);
     setWalletTransactionsError(null);
     try {
@@ -496,13 +508,18 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       const errorMessage = err.message || "Unknown error fetching wallet transactions";
       logger.error("Error fetching wallet transactions:", { walletAddress, error: errorMessage, stack: err.stack });
       setWalletTransactions([]);
-      setWalletTransactionsError(null); // Suppress error display, handle in UI
+      setWalletTransactionsError(errorMessage);
     } finally {
       setIsLoadingWalletTransactions(false);
     }
   };
 
   const fetchWalletBalances = async (walletAddress) => {
+    if (status !== "authenticated") {
+      setWalletBalancesError("Please log in to access wallet balances.");
+      setIsLoadingWalletBalances(false);
+      return;
+    }
     setIsLoadingWalletBalances(true);
     setWalletBalancesError(null);
     logger.log("Starting fetchWalletBalances", { walletAddress });
@@ -544,7 +561,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       const errorMessage = err.message || "Unknown error fetching wallet balances";
       logger.error("Error fetching wallet balances:", { walletAddress, error: errorMessage, stack: err.stack });
       setWalletBalances([]);
-      setWalletBalancesError(null); // Suppress error display, handle in UI
+      setWalletBalancesError(errorMessage);
     } finally {
       setIsLoadingWalletBalances(false);
     }
@@ -712,6 +729,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   };
 
   const renderWalletsContent = () => {
+    if (status !== "authenticated") {
+      return <LoginPrompt />;
+    }
     const totalValue = uniqueWalletData.reduce((sum, wallet) => sum + (Number(wallet.total_value_usd) || 0), 0);
     return (
       <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
@@ -745,12 +765,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   >
                     <td className="px-2 py-2 text-white">
                       <div className="flex items-center gap-2 group relative">
-                        <button
-                          onClick={() => handleWalletClick(wallet.holder_address)}
-                          className="text-white hover:text-white/80 no-hover-effect"
-                        >
-                          {displayAddress}
-                        </button>
                         {isBitcoinAddress && (
                           <img
                             src={BITCOIN_LOGO}
@@ -759,6 +773,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                             onError={(e) => (e.target.src = "/fallback-image.png")}
                           />
                         )}
+                        <button
+                          onClick={() => handleWalletClick(wallet.holder_address)}
+                          className="text-white hover:text-white/80 no-hover-effect"
+                        >
+                          {displayAddress}
+                        </button>
                         <motion.button
                           onClick={() => {
                             navigator.clipboard.writeText(wallet.holder_address);
@@ -810,6 +830,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   };
 
   const renderTransactionsContent = () => {
+    if (status !== "authenticated") {
+      return <LoginPrompt />;
+    }
     return (
       <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
         <LoadingOverlay isLoading={isLoadingTransactions} isMobile={isMobile} />
@@ -991,12 +1014,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                         <div className="flex flex-col items-center gap-1">
                           <span
                             className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === "receive"
-                                ? "bg-neon-green/20 text-neon-green"
-                                : tx.type === "send"
-                                  ? "bg-neon-blue/20 text-neon-blue"
-                                  : tx.type === "swap"
-                                    ? "bg-purple-400/20 text-purple-400"
-                                    : "bg-white/20 text-white/60"
+                              ? "bg-neon-green/20 text-neon-green"
+                              : tx.type === "send"
+                                ? "bg-neon-blue/20 text-neon-blue"
+                                : tx.type === "swap"
+                                  ? "bg-purple-400/20 text-purple-400"
+                                  : "bg-white/20 text-white/60"
                               }`}
                           >
                             {typeDisplay}

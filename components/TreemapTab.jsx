@@ -74,7 +74,7 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
               alt={`${nametag} logo`}
               width={isMobile ? 12 : 16}
               height={isMobile ? 12 : 16}
-              className="rounded-xl"
+              className="rounded-full"
               onError={() => console.log(`Failed to load wallet image: ${image}`)}
               loading="lazy"
             />
@@ -575,7 +575,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto custom-scrollbar' : ''}`}
     >
       <ToastContainer position="top-center" autoClose={5000} theme="dark" />
-      <div className="mb-2 sm:mb-3 border-b border-white/10 pb-2">
+      <div className="mb-2 sm:mb-3 pb-2">
         <div className="flex items-center justify-between mb-2 sm:mb-3">
           <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/20 to-transparent p-2 rounded flex items-center gap-2">
             <svg
@@ -597,7 +597,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           <div className="relative" ref={chainDropdownRef}>
             <motion.button
               onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-              className="text-white px-2 sm:px-3 py-1 rounded-xl border border-white/10 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
+              className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               aria-label="Select chain"
@@ -681,7 +681,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           <div className="relative" ref={limitDropdownRef}>
             <motion.button
               onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
-              className="text-white px-2 sm:px-3 py-1 rounded-xl border border-white/10 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
+              className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               aria-label="Select transaction limit"
@@ -740,7 +740,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               placeholder="Search wallet (0x...)"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
-              className="bg-white/5 text-white px-2 sm:px-3 py-1 rounded-xl text-[9px] sm:text-[10px] w-full sm:w-64 border border-white/10 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 pr-8"
+              className="bg-white/5 text-white px-2 sm:px-3 py-1 rounded-lg text-[9px] sm:text-[10px] w-full sm:w-64 border border-white/10 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 pr-8"
               aria-label="Wallet address"
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && (
