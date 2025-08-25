@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+import defaultTheme from 'tailwindcss/defaultTheme';
+
 export default {
 	darkMode: ['class'],
 	content: [
@@ -74,32 +76,12 @@ export default {
 				}
 			},
 			fontFamily: {
-				inter: [
-					'Inter',
-					'sans-serif'
-				],
-				roboto: [
-					'Roboto',
-					'sans-serif'
-				],
-				satoshi: [
-					'Satoshi',
-					'Inter',
-					'Roboto',
-					'sans-serif'
-				],
-				mono: [
-					'Courier New',
-					'monospace'
-				],
-				plexmono: [
-					'IBM Plex Mono',
-					'monospace'
-				],
-				jetbrains: [
-					'JetBrains Mono',
-					'monospace'
-				],
+				inter: ['Inter', 'sans-serif'],
+				roboto: ['Roboto', 'sans-serif'],
+				satoshi: ['Satoshi', 'Inter', 'Roboto', 'sans-serif'],
+				mono: ['Courier New', 'monospace'],
+				plexmono: ['IBM Plex Mono', 'monospace'],
+				jetbrains: ['JetBrains Mono', 'monospace'],
 				saira: ['Saira', 'sans-serif'],
 			},
 			fontSize: {
@@ -136,98 +118,36 @@ export default {
 			},
 			keyframes: {
 				matrixFlip: {
-					'0%': {
-						transform: 'rotateX(0)'
-					},
-					'10%': {
-						transform: 'rotateX(180deg)'
-					},
-					'20%': {
-						transform: 'rotateX(360deg)'
-					},
-					'30%': {
-						transform: 'rotateX(540deg)'
-					},
-					'40%': {
-						transform: 'rotateX(720deg)'
-					},
-					'50%': {
-						transform: 'rotateX(900deg)'
-					},
-					'60%': {
-						transform: 'rotateX(1080deg)'
-					},
-					'70%': {
-						transform: 'rotateX(1260deg)'
-					},
-					'80%': {
-						transform: 'rotateX(1440deg)'
-					},
-					'100%': {
-						transform: 'rotateX(0)'
-					}
+					'0%': { transform: 'rotateX(0)' },
+					'10%': { transform: 'rotateX(180deg)' },
+					'20%': { transform: 'rotateX(360deg)' },
+					'30%': { transform: 'rotateX(540deg)' },
+					'40%': { transform: 'rotateX(720deg)' },
+					'50%': { transform: 'rotateX(900deg)' },
+					'60%': { transform: 'rotateX(1080deg)' },
+					'70%': { transform: 'rotateX(1260deg)' },
+					'80%': { transform: 'rotateX(1440deg)' },
+					'100%': { transform: 'rotateX(0)' }
 				},
 				flicker: {
-					'0%, 100%': {
-						opacity: '1',
-						color: '#C71585'
-					},
-					'10%': {
-						opacity: '0.2',
-						color: '#00BFFF'
-					},
-					'20%': {
-						opacity: '0.8',
-						color: '#C71585'
-					},
-					'30%': {
-						opacity: '0.1',
-						color: '#00BFFF'
-					},
-					'40%': {
-						opacity: '1',
-						color: '#C71585'
-					},
-					'50%': {
-						opacity: '0.5',
-						color: '#00BFFF'
-					},
-					'60%': {
-						opacity: '1',
-						color: '#C71585'
-					},
-					'70%': {
-						opacity: '0.3',
-						color: '#00BFFF'
-					},
-					'80%': {
-						opacity: '0.9',
-						color: '#C71585'
-					},
-					'90%': {
-						opacity: '0.2',
-						color: '#00BFFF'
-					}
+					'0%, 100%': { opacity: '1', color: '#C71585' },
+					'10%': { opacity: '0.2', color: '#00BFFF' },
+					'20%': { opacity: '0.8', color: '#C71585' },
+					'30%': { opacity: '0.1', color: '#00BFFF' },
+					'40%': { opacity: '1', color: '#C71585' },
+					'50%': { opacity: '0.5', color: '#00BFFF' },
+					'60%': { opacity: '1', color: '#C71585' },
+					'70%': { opacity: '0.3', color: '#00BFFF' },
+					'80%': { opacity: '0.9', color: '#C71585' },
+					'90%': { opacity: '0.2', color: '#00BFFF' }
 				},
 				shufflePosition: {
-					'0%': {
-						transform: 'translateX(0)'
-					},
-					'20%': {
-						transform: 'translateX(var(--shuffle-offset-1))'
-					},
-					'40%': {
-						transform: 'translateX(var(--shuffle-offset-2))'
-					},
-					'60%': {
-						transform: 'translateX(var(--shuffle-offset-3))'
-					},
-					'80%': {
-						transform: 'translateX(var(--shuffle-offset-1))'
-					},
-					'100%': {
-						transform: 'translateX(0)'
-					}
+					'0%': { transform: 'translateX(0)' },
+					'20%': { transform: 'translateX(var(--shuffle-offset-1))' },
+					'40%': { transform: 'translateX(var(--shuffle-offset-2))' },
+					'60%': { transform: 'translateX(var(--shuffle-offset-3))' },
+					'80%': { transform: 'translateX(var(--shuffle-offset-1))' },
+					'100%': { transform: 'translateX(0)' }
 				}
 			},
 			animation: {
@@ -250,10 +170,12 @@ export default {
 				'02': '0.02s',
 				'09': '0.09s'
 			},
+			// giữ lại default + custom radius
 			borderRadius: {
-				lg: 'var(--radius)',
-				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				...defaultTheme.borderRadius,
+				// lg: 'var(--radius)',
+				// md: 'calc(var(--radius) - 2px)',
+				// sm: 'calc(var(--radius) - 4px)',
 			}
 		}
 	},
@@ -261,12 +183,8 @@ export default {
 		require('@tailwindcss/typography'),
 		function ({ addUtilities }) {
 			const newUtilities = {
-				'.perspective-1000': {
-					perspective: '1000px',
-				},
-				'.transform-style-3d': {
-					'transform-style': 'preserve-3d',
-				},
+				'.perspective-1000': { perspective: '1000px' },
+				'.transform-style-3d': { 'transform-style': 'preserve-3d' },
 			};
 			addUtilities(newUtilities);
 		},
@@ -274,7 +192,7 @@ export default {
 	],
 	variants: {
 		extend: {
-			display: ['group-hover'], // Ensure group-hover is enabled for display
+			display: ['group-hover'],
 		},
 	},
 };

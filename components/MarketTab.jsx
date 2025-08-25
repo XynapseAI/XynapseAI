@@ -229,7 +229,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
     return createPortal(
       <motion.div
-        className="fixed z-50 bg-black/95 backdrop-blur-xl border border-white/30 p-4 rounded-2xl text-white shadow-2xl"
+        className="fixed z-50 bg-black/40 backdrop-blur-sm border border-white/30 p-4 rounded-2xl text-white shadow-2xl"
         style={{
           top: `${position.top}px`,
           left: `${position.left}px`,
@@ -597,6 +597,29 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
     fetchHighLowData()
   }, [selectedToken, timeRange, currency, fetchPriceHistory])
+  
+  useEffect(() => {
+  const handleClickOutside = (event) => {
+    // Check if click is outside token dropdown
+    if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      setIsDropdownOpen(false);
+    }
+    // Check if click is outside chain dropdown
+    if (chainDropdownRef.current && !chainDropdownRef.current.contains(event.target)) {
+      setIsChainDropdownOpen(false);
+    }
+  };
+
+  // Add event listeners for both click (PC) and touchstart (mobile)
+  document.addEventListener("click", handleClickOutside);
+  document.addEventListener("touchstart", handleClickOutside);
+
+  // Cleanup event listeners on component unmount
+  return () => {
+    document.removeEventListener("click", handleClickOutside);
+    document.removeEventListener("touchstart", handleClickOutside);
+  };
+}, [setIsDropdownOpen, setIsChainDropdownOpen]);
 
   return (
     <motion.div
@@ -633,7 +656,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               <div className="relative" ref={chainDropdownRef}>
                 <motion.button
                   onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-                  className={`text-white px-1.5 sm:px-2 py-0.5 sm:py-1 text-[8px] sm:text-[10px] flex items-center gap-1 sm:gap-2 border-2 border-white/20 bg-white/5 backdrop-blur-xl hover:bg-white/10 transition-all duration-300 rounded-xl min-w-[120px] ${selectedToken?.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase())
+                  className={`text-white px-1.5 sm:px-2 py-0.5 sm:py-1 text-[8px] sm:text-[10px] flex items-center gap-1 sm:gap-2 border-2 border-white/20 bg-white/5 backdrop-blur-xl hover:bg-white/10 transition-all duration-300 rounded-lg min-w-[120px] ${selectedToken?.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase())
                     ? "opacity-50 cursor-not-allowed"
                     : ""
                     }`}
@@ -814,7 +837,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     <img
                       src={token.thumb || token.image?.thumb || "/fallback-image.png"}
                       alt={`${token.symbol} logo`}
-                      className="w-3 sm:w-4 h-3 sm:h-4 rounded-full"
+                      className="w-3 sm:w-4 h-3 sm:h-4 rounded-lg"
                       onError={(e) => {
                         logger.error("Token logo failed to load:", { symbol: token.symbol, src: token.thumb })
                         e.target.src = "/fallback-image.png"
@@ -990,10 +1013,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-2 mb-2 sm:mb-2">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-2 mb-2 sm:mb-0">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2 mb-2">
-                        <p className="text-sm sm:text-sm font-bold text-white">
+                        <p className="text-sm sm:text-xl font-bold text-white">
                           {formatPrice(
                             selectedToken?.current_price?.[currency] ||
                             localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.current_price?.[currency],
@@ -1116,7 +1139,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                     <div className="bg-white/5 rounded-xl p-2">
-                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-white/10 to-transparent p-1">
+                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-white/10 to-transparent rounded-l-sm p-1">
                         Market Stats
                       </h5>
                       <div className="space-y-1 text-[10px] sm:text-[10px]">
@@ -1159,7 +1182,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </div>
                     </div>
                     <div className="bg-white/5 rounded-xl p-2">
-                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-white/10 to-transparent p-1">
+                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-2 tracking-wider bg-gradient-to-r from-white/10 to-transparent rounded-l-sm p-1">
                         Supply Stats
                       </h5>
                       <div className="space-y-1 text-[10px] sm:text-[10px]">
@@ -1202,7 +1225,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       </div>
                     </div>
                     <div className="bg-white/5 rounded-xl p-2 sm:col-span-2">
-                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-1 tracking-wider bg-gradient-to-r from-white/10 to-transparent p-1">
+                      <h5 className="text-[9px] sm:text-[9px] font-bold text-white uppercase mb-1 tracking-wider bg-gradient-to-r from-white/10 to-transparent rounded-l-sm p-1">
                         Price Range (24h)
                       </h5>
                       <div className="flex justify-between items-center gap-2 text-[10px] sm:text-[9px]">
@@ -1503,7 +1526,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto hide-scrollbar">
                   {activeMarketTab === "dex" && (
-                    <div className="p-4 text-right text-[10px] text-white/60 border-b border-white/10">
+                    <div className="p-4 text-right text-[9px] text-white/60 border-b border-white/10">
                       <span className="bg-white/5 px-2 py-1 rounded-lg">
                         Last Updated:{" "}
                         {lastDexFetchTime
@@ -1527,7 +1550,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             <img
                               src={selectedToken.image || "/placeholder.svg"}
                               alt={`${selectedToken.symbol} logo`}
-                              className="w-6 h-6"
+                              className="w-5 h-5"
                               onError={(e) => {
                                 logger.error("Token logo failed to load:", {
                                   symbol: selectedToken.symbol,
@@ -1612,7 +1635,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           <img
                                             src={image || "/placeholder.svg"}
                                             alt={`${displayText} logo`}
-                                            className="w-6 h-6 flex-shrink-0 rounded-full"
+                                            className="w-6 h-6 flex-shrink-0 rounded-lg"
                                             onError={(e) => {
                                               logger.error("Name tag image failed to load:", {
                                                 address,
@@ -1816,7 +1839,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         <img
                                           src={ticker.market.logo || "/placeholder.svg"}
                                           alt={`${ticker.market.name} logo`}
-                                          className="w-6 h-6 flex-shrink-0 rounded-full"
+                                          className="w-6 h-6 flex-shrink-0 rounded-lg"
                                           onError={(e) => (e.target.src = "/fallback-image.png")}
                                         />
                                       )}
@@ -2016,7 +2039,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         <img
                                           src={selectedToken.image || "/placeholder.svg"}
                                           alt={`${selectedToken.symbol} logo`}
-                                          className="w-6 h-6 rounded-full flex-shrink-0"
+                                          className="w-4 h-4 rounded-lg flex-shrink-0"
                                           onError={(e) => (e.target.src = "/fallback-image.png")}
                                         />
                                       )}
@@ -2224,14 +2247,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             <img
                                               src={token1.image_url || "/placeholder.svg"}
                                               alt={`${token1.symbol} logo`}
-                                              className="w-5 h-5 rounded-full flex-shrink-0"
+                                              className="w-4 h-4 rounded-lg flex-shrink-0"
                                               onError={(e) => (e.target.src = "/fallback-image.png")}
                                             />
                                             <span className="text-white/40">/</span>
                                             <img
                                               src={token2.image_url || "/placeholder.svg"}
                                               alt={`${token2.symbol} logo`}
-                                              className="w-5 h-5 rounded-full flex-shrink-0"
+                                              className="w-4 h-4 rounded-lg flex-shrink-0"
                                               onError={(e) => (e.target.src = "/fallback-image.png")}
                                             />
                                           </div>
@@ -2248,7 +2271,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         </div>
                       ) : (
                         !isLoadingDex && (
-                          <div className="text-sm text-white/60 text-center p-6">
+                          <div className="text-[10px] text-white/60 text-center p-6">
                             No DEX data available for {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
                             {chains.find((c) => c.value === selectedChain)?.label || "selected chain"}.
                           </div>
