@@ -48,16 +48,37 @@ async function checkIPBan(ip) {
 async function trackViolation(ip, reason = "Unknown") {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 60;
-  const windowMs = 15 * 60 * 1000;
+  const maxViolations = 100; // Tăng từ 60 lên 100
+  const windowMs = 30 * 60 * 1000; // Tăng từ 15 phút lên 30 phút
   const violations = parseInt(await redisClient.get(key)) || 0;
+
+  // Bỏ qua vi phạm cho các lỗi không nghiêm trọng
+  if (["CORS blocked", "Missing or invalid id parameter", "Missing vs_currencies parameter"].includes(reason)) {
+    logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}, violations: ${violations}`);
+    return;
+  }
+
   if (violations >= maxViolations) {
-    await banIP(ip);
+    await banIP(ip, 1800); // Giảm thời gian ban từ 3600s xuống 1800s
     logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
-    throw new Error("IP banned due to repeated violations.");
+    throw new Error("IP temporarily banned due to excessive violations.");
   }
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
   logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
+}
+
+async function checkRateLimit(ip) {
+  const redisClient = await getRedisClient();
+  const key = `rate_limit:coingecko:${ip}`;
+  const windowMs = 60 * 1000;
+  const maxRequests = 200; // Tăng từ 100 lên 200 yêu cầu/phút
+  const requests = parseInt(await redisClient.get(key)) || 0;
+  if (requests >= maxRequests) {
+    logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`);
+    throw new Error("Too many requests, please try again later.");
+  }
+  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`);
 }
 
 // ================= Rate Limit =================
@@ -76,20 +97,20 @@ async function checkRateLimit(ip) {
 }
 
 // Configure axios-retry
+// Cấu hình axios-retry
 axiosRetry(axios, {
-  retries: 5,
+  retries: 8, // Tăng từ 5 lên 8 lần thử lại
   retryDelay: (retryCount) => {
     logger.info(`Retry attempt ${retryCount} for CoinGecko API`);
-    return Math.pow(2, retryCount) * 1000 + Math.random() * 100;
+    return Math.pow(2, retryCount) * 1000 + Math.random() * 200; // Tăng random delay từ 100ms lên 200ms
   },
   retryCondition: (error) => error.response?.status === 429 || error.code === "ECONNABORTED",
 });
 
-
-// Rate limiter configuration
+// Cấu hình Bottleneck
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === "production" ? 15 : 5,
-  minTime: process.env.NODE_ENV === "production" ? 400 : 1000,
+  maxConcurrent: process.env.NODE_ENV === "production" ? 10 : 5, // Giảm từ 15 xuống 10 trong production
+  minTime: process.env.NODE_ENV === "production" ? 600 : 1000, // Tăng từ 400ms lên 600ms
   reservoir: 30,
   reservoirRefreshAmount: 50,
   reservoirRefreshInterval: 60 * 1000,
@@ -127,26 +148,30 @@ const allowedOrigins = [
   "https://xynapseai.net",
   "https://www.xynapseai.net",
   "https://xynapse-ai-xynapse-projects.vercel.app",
+  // Thêm wildcard cho Vercel preview URLs
+  ...(process.env.VERCEL_ENV === "production" ? [] : ["https://*.vercel.app"]),
 ].filter((v, i, a) => a.indexOf(v) === i);
 
-
-const vercelPreviewRegex = /^https:\/\/xynapse-ai-[a-z0-9-]+\.vercel\.app$/;
-
-function isAllowedOrigin(origin) {
-  if (allowedOrigins.includes(origin)) {
-    logger.info(`Origin allowed: ${origin}`);
+// Cập nhật hàm isAllowedOrigin
+function isAllowedOrigin(origin, referer) {
+  if (!origin && !referer) {
+    logger.info("No Origin or Referer (likely SSR or server-to-server), allowing request");
     return true;
   }
-  if (vercelPreviewRegex.test(origin || "")) {
-    logger.info(`Origin allowed by Vercel preview regex: ${origin}`);
+  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
+  if (!checkOrigin) {
+    logger.info("No valid Origin or Referer, allowing for SSR compatibility");
     return true;
   }
-  // Allow null origins for server-to-server requests (SSR, API calls)
-  if (!origin) {
-    logger.info("Origin is null (server-to-server or SSR), allowing request");
+  if (allowedOrigins.some((allowed) => allowed.includes("*") ? new RegExp(allowed.replace("*", ".*")).test(checkOrigin) : allowed === checkOrigin)) {
+    logger.info(`Origin allowed: ${checkOrigin}`);
     return true;
   }
-  logger.error(`CORS error: Origin ${origin || "null"} not allowed`);
+  if (vercelPreviewRegex.test(checkOrigin)) {
+    logger.info(`Origin allowed by Vercel preview regex: ${checkOrigin}`);
+    return true;
+  }
+  logger.error(`CORS error: Origin ${checkOrigin || "null"} not allowed`);
   return false;
 }
 
@@ -526,7 +551,7 @@ export async function GET(request) {
 
     if (action === "market-info") {
       cacheKey = `coingecko_market_info_${ids || "default"}_${selectedCurrency}_${start || 1}_${limit || 30}`;
-      cacheTTL = 2 * 60;
+      cacheTTL = 5 * 60;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
         logger.info(`Cache hit for market-info: ${selectedCurrency}`, { ip });
