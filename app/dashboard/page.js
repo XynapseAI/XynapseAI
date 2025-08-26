@@ -151,7 +151,6 @@ export default function Dashboard() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { userData, loading, error, handleAnalyzeTweets } = useUserData(session, csrfToken, setIsAnalyzing);
 
-  // Retry mechanism for fetching providers
   const fetchProvidersWithRetry = useCallback(async (retries = 3, delay = 1000) => {
     for (let i = 0; i < retries; i++) {
       try {
@@ -190,7 +189,7 @@ export default function Dashboard() {
 
     const fetchCsrfToken = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/csrf-token`, {
+        const response = await fetch(`${API_BASE_URL}/api/auth/csrf`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -254,16 +253,102 @@ export default function Dashboard() {
   };
 
   const handleSignOut = async () => {
+    if (!session || !session.user?.id) {
+      toast.error('Session expired. Please sign in again.', { position: 'top-center' });
+      router.push('/dashboard');
+      return;
+    }
+
     try {
-      await signOut({ callbackUrl: '/dashboard', redirect: false });
-      if (isConnected) disconnect();
-      toast.success('Signed out successfully!', { position: 'top-center' });
+      let currentCsrfToken = csrfToken;
+      if (!currentCsrfToken) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/auth/csrf`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session?.accessToken || ''}`,
+            },
+            credentials: 'include',
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.detail || 'Failed to fetch CSRF token');
+          currentCsrfToken = result.csrfToken;
+          setCsrfToken(result.csrfToken);
+          await update({ csrfToken: result.csrfToken });
+        } catch (csrfError) {
+          console.error('Failed to fetch CSRF token:', csrfError);
+          throw new Error('Cannot sign out: Missing CSRF token');
+        }
+      }
+
+      try {
+        await signOut({ redirect: false });
+        await update();
+      } catch (signOutError) {
+        console.error('signOut fetch error:', signOutError);
+        if (signOutError.message.includes('ClientFetchError')) {
+          const response = await fetch('/api/auth/signout', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-csrf-token': currentCsrfToken,
+            },
+            credentials: 'include',
+            body: JSON.stringify({}),
+          });
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Manual signout failed');
+          }
+          await update();
+        } else {
+          throw signOutError;
+        }
+      }
+
+      console.log('Client-side caches cleared');
+
+      try {
+        const token = await recaptchaRef.current?.executeAsync();
+        const response = await fetch(`${API_BASE_URL}/api/clear-cache`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': currentCsrfToken,
+            'X-Recaptcha-Token': token,
+          },
+          body: JSON.stringify({ cacheKeys: [`user:${session.user.id}`] }),
+          credentials: 'include',
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.warn('Failed to clear server-side cache:', errorData.detail || response.statusText);
+        } else {
+          console.log('Server-side cache cleared');
+        }
+      } catch (cacheErr) {
+        console.warn('Failed to clear server-side cache:', cacheErr.message);
+      }
+
       localStorage.removeItem('csrfToken');
       setCsrfToken(null);
+      if (isConnected) {
+        disconnect();
+      }
+
+      toast.success('Signed out successfully!', { position: 'top-center' });
+      router.refresh();
       router.push('/dashboard');
     } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error('Failed to sign out.', { position: 'top-center' });
+      console.error('Error during sign out process:', error);
+      toast.error(`Failed to sign out: ${error.message}`, { position: 'top-center' });
+      router.refresh();
+      router.push('/dashboard');
+    } finally {
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+      }
     }
   };
 
@@ -290,10 +375,25 @@ export default function Dashboard() {
   const handleGoogleSignIn = async () => {
     try {
       const result = await signIn('google', { callbackUrl: '/dashboard', redirect: false });
-      if (result?.url) {
+      console.log('Google sign-in result:', result);
+      if (result?.error) {
+        if (result.error.includes('Rate limit exceeded')) {
+          toast.error('Too many sign-in attempts. Please try again later.', { position: 'top-center' });
+          return;
+        }
+        throw new Error(result.error);
+      }
+      if (!result?.url) {
+        console.warn('No redirect URL provided by NextAuth, falling back to manual redirect');
+        window.location.href = `${API_BASE_URL}/api/auth/signin/google`;
+        return;
+      }
+      try {
+        new URL(result.url);
         window.location.href = result.url;
-      } else {
-        throw new Error('No redirect URL provided by NextAuth');
+      } catch (urlError) {
+        console.error('Invalid URL in Google sign-in:', urlError, { url: result.url });
+        window.location.href = `${API_BASE_URL}/api/auth/signin/google`;
       }
     } catch (err) {
       console.error('Error signing in with Google:', err);
@@ -313,6 +413,9 @@ export default function Dashboard() {
     );
   }
 
+  const requiresAuth = ['profile', 'ai', 'watchlists'].includes(activeTab);
+  const showLoginForm = status === 'unauthenticated' && requiresAuth;
+
   return (
     <CurrencyProvider>
       <div className="h-screen w-screen bg-black text-white overflow-x-hidden flex flex-col">
@@ -329,26 +432,12 @@ export default function Dashboard() {
             transition={{ duration: 0.5 }}
             className="w-full h-full flex items-center justify-center"
           >
-            {activeTab === 'market' ? (
-              <MarketTab
-                recaptchaRef={recaptchaRef}
-                toast={toast}
-                onTokenSelect={handleNavigateToToken}
-                initialTokenSlug={searchParams.get('token') || undefined}
-              />
-            ) : activeTab === 'cluster' ? (
-              <ClusterTab
-                recaptchaRef={recaptchaRef}
-                initialExchangeId={searchParams.get('exchangeId') || undefined}
-              />
-            ) : activeTab === 'treemap' ? (
-              <TreemapTab onTokenSelect={handleNavigateToToken} />
-            ) : status === 'unauthenticated' ? (
+            {showLoginForm ? (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.8, ease: 'easeOut' }}
-                className={`h-screen w-screen flex items-center justify-center bg-black text-white overflow-hidden font-saira relative ${styles.container}`}
+                className={`w-full h-full flex items-center justify-center bg-black text-white font-saira relative ${styles.container}`}
               >
                 <motion.div
                   ref={starsBackgroundRef}
@@ -356,7 +445,7 @@ export default function Dashboard() {
                   animate={{
                     background: [
                       'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(17, 24, 39, 0.9))',
-                      'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(0, 191, 255, 0.1))',
+                      'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(180, 180, 180, 0.1))',
                       'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(17, 24, 39, 0.9))',
                     ],
                   }}
@@ -385,7 +474,7 @@ export default function Dashboard() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: 'easeOut' }}
-                  className={`relative z-10 bg-gray-900/30 backdrop-blur-lg p-6 md:p-10 rounded-2xl border border-white/10 ${styles['shadow-glow-neon']} max-w-md w-full mx-4 flex flex-col items-center`}
+                  className={`relative z-10 bg-gray-900/30 backdrop-blur-lg p-6 md:p-10 rounded-2xl border border-white/10 max-w-md w-full mx-4 flex flex-col items-center`}
                 >
                   <motion.h1
                     initial={{ opacity: 0, y: -10 }}
@@ -448,35 +537,24 @@ export default function Dashboard() {
                     </motion.div>
                   )}
                 </motion.div>
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5, delay: 0.5 }}
-                  className="absolute bottom-2 left-2 text-[8px] text-gray-600 z-10"
-                >
-                  Protected by reCAPTCHA. See{' '}
-                  <a
-                    href="https://policies.google.com/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-neon-blue hover:underline"
-                  >
-                    Privacy Policy
-                  </a>{' '}
-                  &{' '}
-                  <a
-                    href="https://policies.google.com/terms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-neon-blue hover:underline"
-                  >
-                    Terms
-                  </a>{' '}
-                  of Google.
-                </motion.p>
               </motion.div>
             ) : (
               <>
+                {activeTab === 'market' && (
+                  <MarketTab
+                    recaptchaRef={recaptchaRef}
+                    toast={toast}
+                    onTokenSelect={handleNavigateToToken}
+                    initialTokenSlug={searchParams.get('token') || undefined}
+                  />
+                )}
+                {activeTab === 'cluster' && (
+                  <ClusterTab
+                    recaptchaRef={recaptchaRef}
+                    initialExchangeId={searchParams.get('exchangeId') || undefined}
+                  />
+                )}
+                {activeTab === 'treemap' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
                 {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
                 {activeTab === 'profile' && (
                   <ProfileTab
@@ -486,9 +564,9 @@ export default function Dashboard() {
                     isConnected={isConnected}
                     handleConnectWallet={handleConnectWallet}
                     recaptchaRef={recaptchaRef}
+                    handleSignOut={handleSignOut}
                   />
                 )}
-                {activeTab === 'treemap' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
                 {activeTab === 'watchlists' && <WatchlistsTab toast={toast} initialAddress={selectedAddress} />}
               </>
             )}

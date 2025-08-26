@@ -9,6 +9,7 @@ import { RateLimiterRedis } from "rate-limiter-flexible";
 import { query } from "@/utils/postgres";
 
 // ================= Redis Client =================
+// (Không thay đổi)
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
@@ -21,6 +22,7 @@ async function getRedisClient() {
 }
 
 // ================= Security Headers =================
+// (Không thay đổi)
 const securityHeaders = {
   "Content-Security-Policy": "default-src 'self'; frame-ancestors 'self';",
   "X-Content-Type-Options": "nosniff",
@@ -46,38 +48,40 @@ async function getAccountAge(userId) {
 }
 
 async function dynamicRateLimit(ip, session, pathname) {
-  // skip for providers/session endpoints
-  if (pathname === "/api/auth/session" || pathname === "/api/auth/providers") return;
-
+  if (
+    pathname === "/api/auth/session" ||
+    pathname === "/api/auth/providers" ||
+    pathname === "/api/auth/signout" ||
+    pathname === "/api/auth/csrf" ||
+    pathname.startsWith("/api/auth/signin/") ||
+    pathname.startsWith("/api/auth/callback/")
+  ) return;
   const redisClient = await getRedisClient();
   const userId = session?.user?.id || ip;
   const isPremium = session?.user?.isPremium || false;
   const accountAge = await getAccountAge(userId);
-
   const limits = {
     newUser: { points: 50, duration: 15 * 60 },
     regularUser: { points: 100, duration: 15 * 60 },
     premiumUser: { points: 500, duration: 15 * 60 },
   };
   const limitType = isPremium ? "premiumUser" : accountAge < 7 ? "newUser" : "regularUser";
-
   const rateLimiter = new RateLimiterRedis({
     storeClient: redisClient,
     keyPrefix: `rate_limit:auth:${userId}`,
     ...limits[limitType],
   });
-
   try {
     await rateLimiter.consume(userId);
   } catch (err) {
     logger.error("Rate limit error", { error: err.message, userId, pathname });
-    // msBeforeNext may be undefined; guard it
     const secs = err?.msBeforeNext ? Math.ceil(err.msBeforeNext / 1000) : 60;
     throw new Error(`Rate limit exceeded. Try again in ${secs} seconds.`);
   }
 }
 
 // ================= IP Ban Logic =================
+// (Không thay đổi)
 async function banIP(ip, durationSeconds = 3600) {
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, "banned");
@@ -85,8 +89,14 @@ async function banIP(ip, durationSeconds = 3600) {
 }
 
 async function checkIPBan(ip, pathname) {
-  if (pathname === "/api/auth/session" || pathname === "/api/auth/providers") return;
-
+  if (
+    pathname === "/api/auth/session" ||
+    pathname === "/api/auth/providers" ||
+    pathname === "/api/auth/signout" ||
+    pathname === "/api/auth/csrf" ||
+    pathname.startsWith("/api/auth/signin/") ||
+    pathname.startsWith("/api/auth/callback/")
+  ) return;
   const redisClient = await getRedisClient();
   const isBanned = await redisClient.get(`banned_ip:${ip}`);
   if (isBanned) {
@@ -96,13 +106,18 @@ async function checkIPBan(ip, pathname) {
 }
 
 async function trackViolation(ip, pathname, reason = "Unknown") {
-  if (pathname === "/api/auth/session" || pathname === "/api/auth/providers") return;
-
+  if (
+    pathname === "/api/auth/session" ||
+    pathname === "/api/auth/providers" ||
+    pathname === "/api/auth/signout" ||
+    pathname === "/api/auth/csrf" ||
+    pathname.startsWith("/api/auth/signin/") ||
+    pathname.startsWith("/api/auth/callback/")
+  ) return;
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
   const maxViolations = 5;
   const windowMs = 15 * 60 * 1000;
-
   const violations = parseInt(await redisClient.get(key)) || 0;
   if (violations >= maxViolations) {
     await banIP(ip);
@@ -113,6 +128,7 @@ async function trackViolation(ip, pathname, reason = "Unknown") {
 }
 
 // ================= Allowed Origins =================
+// (Không thay đổi)
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   "https://xynapseai.net",
@@ -161,7 +177,6 @@ const limiter = new Bottleneck({ maxConcurrent: 5, minTime: 200 });
 
 const rateLimitedHandler = (handler) =>
   limiter.wrap(async (req, ...args) => {
-    // robust pathname resolution (works in App Router)
     const pathname = req?.nextUrl?.pathname || new URL(req.url).pathname;
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -173,69 +188,52 @@ const rateLimitedHandler = (handler) =>
 
     logger.info(`Auth Request: IP=${ip}, Origin=${origin || "null"}, Referer=${referer || "null"}, Pathname=${pathname}`);
 
-    // === IMPORTANT: skip all checks for providers & session endpoints ===
-    if (pathname === "/api/auth/session" || pathname === "/api/auth/providers") {
-      // Return NextAuth's handler directly without touching response
+    // Bỏ qua rate limit và IP ban cho session, providers, signout, và csrf
+    if (pathname === "/api/auth/session" || pathname === "/api/auth/providers" || pathname === "/api/auth/signout" || pathname === "/api/auth/csrf") {
       try {
         return await handler(req, ...args);
       } catch (err) {
-        logger.error("NextAuth handler error (providers/session)", { error: err.message, stack: err.stack });
+        logger.error("NextAuth handler error (session/providers/signout/csrf)", { error: err.message, stack: err.stack });
         return NextResponse.json({ detail: `Internal Server Error: ${err.message}` }, { status: 500, headers: securityHeaders });
       }
     }
 
-    // CORS check for other endpoints
     if (!(await isAllowedOrigin(origin, referer, pathname))) {
       return NextResponse.json({ detail: "CORS Not Allowed" }, { status: 403, headers: securityHeaders });
     }
 
-    // IP ban & rate limit (best-effort session extraction)
     try {
       await checkIPBan(ip, pathname);
-
-      // Try to dynamically import getServerSession if available, otherwise ignore session
       let session = null;
       try {
-        // dynamic import so build won't fail if getServerSession doesn't exist in this next-auth version
         const mod = await import("next-auth");
         const getServerSession = mod.getServerSession ?? mod.getServerSession;
         if (typeof getServerSession === "function") {
           try {
-            // Many codebases call getServerSession(req, res, authOptions) or getServerSession(authOptions)
-            // We'll try both forms conservatively; it's best-effort, not required.
             session = await (getServerSession.length >= 1 ? getServerSession(authOptions) : getServerSession());
           } catch (e) {
-            // ignore failures to get session — continue with ip-only rate limit
             logger.debug("getServerSession call failed (ignored)", { error: e.message });
           }
         }
       } catch (e) {
         logger.debug("dynamic import next-auth/getServerSession failed (ok to ignore)", { error: e.message });
       }
-
       await dynamicRateLimit(ip, session, pathname);
     } catch (err) {
       logger.warn("Rate limit / IP ban triggered", { message: err.message, ip, pathname });
       return NextResponse.json({ detail: err.message }, { status: 429, headers: securityHeaders });
     }
 
-    // If passed checks, call original handler and attach security headers to its response
     try {
-      const res = await handler(req, ...args); // res is NextResponse from NextAuth
-
-      // clone/extend headers
+      const res = await handler(req, ...args);
       const newHeaders = new Headers(res.headers || {});
       Object.entries(securityHeaders).forEach(([k, v]) => newHeaders.set(k, v));
-
       if (origin) {
         newHeaders.set("Access-Control-Allow-Origin", origin);
         newHeaders.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-        // include Authorization and recaptcha & other headers used by your frontend
         newHeaders.set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token");
         newHeaders.set("Access-Control-Allow-Credentials", "true");
       }
-
-      // Return response without trying to read stream/body (just pass through)
       return new NextResponse(res.body, { status: res.status || 200, headers: newHeaders });
     } catch (err) {
       logger.error(`Handler error: ${err.message}`, { stack: err.stack, ip: ip, pathname });
@@ -244,14 +242,44 @@ const rateLimitedHandler = (handler) =>
   });
 
 // ================= NextAuth Handlers =================
+// (Không thay đổi)
+const finalAuthOptions = {
+  ...authOptions,
+  events: {
+    async signOut({ token }) {
+      if (token && token.sub) {
+        logger.info(`SignOut event triggered for user: ${token.sub}. Deleting Redis session.`);
+        try {
+          const client = await getRedisClient();
+          const key = `session:${token.sub}`;
+          const result = await client.del(key);
+          if (result > 0) {
+            logger.info(`Successfully deleted Redis session key: ${key}`);
+          } else {
+            logger.warn(`Redis session key not found for deletion: ${key}`);
+          }
+        } catch (error) {
+          logger.error("Error deleting Redis session on signOut event", {
+            error: error.message,
+            userId: token.sub,
+          });
+        }
+      } else {
+        logger.warn("SignOut event triggered, but no token.sub (user ID) found to delete Redis session.");
+      }
+    },
+  },
+};
+
 const {
   handlers: { GET: OriginalGET, POST: OriginalPOST },
-} = NextAuth(authOptions);
+} = NextAuth(finalAuthOptions);
 
 export const GET = rateLimitedHandler(OriginalGET);
 export const POST = rateLimitedHandler(OriginalPOST);
 
 // ================= Graceful shutdown =================
+// (Không thay đổi)
 process.on("SIGTERM", async () => {
   if (redisClient?.isOpen) await redisClient.quit();
   logger.info("Redis connection closed on SIGTERM");

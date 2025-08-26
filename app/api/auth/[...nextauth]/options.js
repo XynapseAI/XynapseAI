@@ -231,6 +231,12 @@ export const authOptions = {
       session.csrfToken = token.csrfToken;
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      // Chỉ cho phép redirect tới các URL trong ứng dụng
+      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      if (url === baseUrl || url === `${baseUrl}/dashboard`) return url;
+      return baseUrl + '/dashboard';
+    },
   },
   secret: process.env.AUTH_SECRET,
   session: { strategy: "jwt", maxAge: 2 * 60 * 60 }, // 2 hours

@@ -7,6 +7,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
 import { ethers } from 'ethers';
@@ -15,6 +16,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { cacheData, getCachedData, clearCache, clearAllCaches } from '../utils/indexedDB';
 import { LoadingOverlay } from '@/utils/helpers';
 import { debounce } from 'lodash';
+import LoginPrompt from './LoginPrompt';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
@@ -37,9 +39,10 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-export default function ProfileTab({ recaptchaRef }) {
+export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth <= 640);
   const [activeTab, setActiveTab] = useState('tasks');
   const [currentPage, setCurrentPage] = useState({ tasks: 1, leaderboard: 1, points: 1 });
@@ -53,6 +56,12 @@ export default function ProfileTab({ recaptchaRef }) {
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const onSignOut = async () => {
+    setIsSigningOut(true);
+    await handleSignOut();
+    setIsSigningOut(false);
+  };
 
   // Execute reCAPTCHA
   const debouncedExecuteRecaptcha = useCallback(
@@ -250,8 +259,8 @@ export default function ProfileTab({ recaptchaRef }) {
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 30 * 60 * 1000,
-    retry: 3,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
+    retry: 1, // Giảm retry để tránh spam 401
+    retryDelay: 2000,
   });
 
   // Connect Twitter
@@ -348,49 +357,6 @@ export default function ProfileTab({ recaptchaRef }) {
       toast.error(`Unable to disconnect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
     },
   });
-
-  // Handle Sign Out
-  const handleSignOut = useCallback(async () => {
-    if (!session || !session.user?.id) {
-      toast.error('Session expired. Please sign in again.', { position: 'top-center', autoClose: 5000 });
-      window.location.href = '/auth/signin';
-      return;
-    }
-
-    setIsSigningOut(true);
-    try {
-      // Clear client-side caches
-      await clearAllCaches(session.user.id);
-      console.log('Client-side caches cleared');
-
-      // Attempt to clear server-side cache (optional)
-      try {
-        const token = await debouncedExecuteRecaptcha('clear_cache');
-        await axios.post(
-          '/api/clear-cache',
-          { cacheKeys: [`user:${session.user.id}`] },
-          {
-            headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
-            withCredentials: true,
-          }
-        );
-        console.log('Server-side cache cleared');
-      } catch (err) {
-        console.warn('Failed to clear server-side cache:', err.message);
-        // Suppress toast for rate limit errors or other failures
-      }
-
-      // Clear CSRF token and sign out
-      localStorage.removeItem('csrfToken');
-      await signOut({ redirect: false });
-      window.location.href = '/auth/signin';
-    } catch (err) {
-      console.error('Sign-out error:', err.message);
-      toast.error(`Unable to sign out: ${err.message}`, { position: 'top-center', autoClose: 5000 });
-    } finally {
-      setIsSigningOut(false);
-    }
-  }, [session, csrfToken]);
 
   const debouncedHandleSignOut = useCallback(
     debounce(() => handleSignOut(), 1000, { leading: true, trailing: false }),
@@ -859,9 +825,8 @@ export default function ProfileTab({ recaptchaRef }) {
   // Handle Twitter redirect callback
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('twitterConnected') === 'true') {
-      toast.success('Twitter connected successfully!', { position: 'top-center', autoClose: 5000 });
-      // Only invalidate necessary queries
+    if (urlParams.get('twitterConnected') === 'true' && status === 'authenticated') {
+      // Chỉ refetch nếu authenticated
       Promise.all([
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
         queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
@@ -871,9 +836,6 @@ export default function ProfileTab({ recaptchaRef }) {
             queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
             queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
           ]);
-        })
-        .then(() => {
-          console.log('Data refetched successfully after Twitter connection');
         })
         .catch((err) => {
           console.error('Error refetching data after Twitter connection:', err);
@@ -886,7 +848,7 @@ export default function ProfileTab({ recaptchaRef }) {
           window.history.replaceState({}, document.title, window.location.pathname);
         });
     }
-  }, [session, csrfToken, queryClient]);
+  }, [session, csrfToken, queryClient, status]);
 
   if (status === 'loading' || csrfLoading) {
     return (
@@ -902,16 +864,7 @@ export default function ProfileTab({ recaptchaRef }) {
   }
 
   if (!session) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-black/80 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
-      >
-        <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2">Please sign in to view your profile.</p>
-      </motion.div>
-    );
+    return <LoginPrompt />;
   }
 
   return (
@@ -954,9 +907,9 @@ export default function ProfileTab({ recaptchaRef }) {
               <div>
                 <div className="absolute top-4 right-4">
                   <motion.button
-                    onClick={debouncedHandleSignOut}
+                    onClick={onSignOut}
                     disabled={isSigningOut}
-                    className={`p-1 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`p-1 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'bg-red-500/20 hover:bg-red-500/30'}`}
                     whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
                     whileTap={{ scale: isSigningOut ? 1 : 0.9 }}
                     aria-label="Sign out"
