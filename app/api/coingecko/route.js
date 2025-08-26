@@ -81,22 +81,6 @@ async function checkRateLimit(ip) {
   logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`);
 }
 
-// ================= Rate Limit =================
-async function checkRateLimit(ip) {
-  const redisClient = await getRedisClient();
-  const key = `rate_limit:coingecko:${ip}`;
-  const windowMs = 60 * 1000;
-  const maxRequests = 100;
-  const requests = parseInt(await redisClient.get(key)) || 0;
-  if (requests >= maxRequests) {
-    logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`);
-    throw new Error("Too many requests, please try again later.");
-  }
-  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
-  logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`);
-}
-
-// Configure axios-retry
 // Cấu hình axios-retry
 axiosRetry(axios, {
   retries: 8, // Tăng từ 5 lên 8 lần thử lại
