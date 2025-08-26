@@ -50,17 +50,20 @@ async function checkIPBan(ip) {
   }
 }
 
-async function trackViolation(ip) {
+// ================= Violation Tracking =================
+async function trackViolation(ip, reason = "Unknown") {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 5;
+  const maxViolations = 60; // tăng từ 5 lên 60 cho đồng bộ với coingecko
   const windowMs = 15 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
   if (violations >= maxViolations) {
     await banIP(ip);
+    logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
     throw new Error("IP banned due to repeated violations.");
   }
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
 }
 
 // ================= Dynamic Rate Limit =================
@@ -111,13 +114,24 @@ const allowedOrigins = [
   "https://xynapseai.net",
   "https://www.xynapseai.net",
   "https://xynapse-ai-xynapse-projects.vercel.app",
-].filter((v, i, a) => a.indexOf(v) === i);
+];
+const vercelPreviewRegex = /^https:\/\/xynapse-ai-[a-z0-9-]+\.vercel\.app$/;
 
-function isAllowedOrigin(origin, referer) {
-  if (allowedOrigins.includes(origin)) return true;
-  if (!origin && referer && allowedOrigins.includes(new URL(referer).origin)) return true;
-  if (!origin && !referer) return true;
-  if (!origin && process.env.NODE_ENV === "development") return true;
+function isAllowedOrigin(origin) {
+  if (allowedOrigins.includes(origin)) {
+    logger.info(`Origin allowed: ${origin}`);
+    return true;
+  }
+  if (vercelPreviewRegex.test(origin || "")) {
+    logger.info(`Origin allowed by Vercel preview regex: ${origin}`);
+    return true;
+  }
+  if (!origin) {
+    // Cho phép request server-to-server / SSR
+    logger.info("Origin is null (SSR or server-to-server), allowing request");
+    return true;
+  }
+  logger.error(`CORS error: Origin ${origin || "null"} not allowed`);
   return false;
 }
 
