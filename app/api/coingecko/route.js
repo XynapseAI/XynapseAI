@@ -44,10 +44,11 @@ async function checkIPBan(ip) {
   }
 }
 
+
 async function trackViolation(ip, reason = "Unknown") {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 10;
+  const maxViolations = 60;
   const windowMs = 15 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
   if (violations >= maxViolations) {
@@ -64,7 +65,7 @@ async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:coingecko:${ip}`;
   const windowMs = 60 * 1000;
-  const maxRequests = 100; // Increased from 20 to 50
+  const maxRequests = 100;
   const requests = parseInt(await redisClient.get(key)) || 0;
   if (requests >= maxRequests) {
     logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`);
@@ -84,6 +85,7 @@ axiosRetry(axios, {
   retryCondition: (error) => error.response?.status === 429 || error.code === "ECONNABORTED",
 });
 
+
 // Rate limiter configuration
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: process.env.NODE_ENV === "production" ? 15 : 5,
@@ -92,6 +94,7 @@ const limiterBottleneck = new Bottleneck({
   reservoirRefreshAmount: 50,
   reservoirRefreshInterval: 60 * 1000,
 });
+
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   try {
@@ -126,9 +129,17 @@ const allowedOrigins = [
   "https://xynapse-ai-xynapse-projects.vercel.app",
 ].filter((v, i, a) => a.indexOf(v) === i);
 
+
+const vercelPreviewRegex = /^https:\/\/xynapse-ai-[a-z0-9-]+\.vercel\.app$/;
+
+
 function isAllowedOrigin(origin) {
   if (allowedOrigins.includes(origin)) {
     logger.info(`Origin allowed: ${origin}`);
+    return true;
+  }
+  if (vercelPreviewRegex.test(origin || "")) {
+    logger.info(`Origin allowed by Vercel preview regex: ${origin}`);
     return true;
   }
   if (!origin && process.env.NODE_ENV === "development") {
@@ -144,6 +155,7 @@ export async function GET(request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const origin = request.headers.get("origin");
   logger.info(`Request to /api/coingecko from IP ${ip}`, { origin, timestamp: new Date().toISOString() });
+
 
   // Check CORS
   if (!isAllowedOrigin(origin)) {
