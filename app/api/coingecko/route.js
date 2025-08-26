@@ -132,7 +132,6 @@ const allowedOrigins = [
 
 const vercelPreviewRegex = /^https:\/\/xynapse-ai-[a-z0-9-]+\.vercel\.app$/;
 
-
 function isAllowedOrigin(origin) {
   if (allowedOrigins.includes(origin)) {
     logger.info(`Origin allowed: ${origin}`);
@@ -142,13 +141,15 @@ function isAllowedOrigin(origin) {
     logger.info(`Origin allowed by Vercel preview regex: ${origin}`);
     return true;
   }
-  if (!origin && process.env.NODE_ENV === "development") {
-    logger.warn("Origin is null, allowing in development mode");
+  // Allow null origins for server-to-server requests (SSR, API calls)
+  if (!origin) {
+    logger.info("Origin is null (server-to-server or SSR), allowing request");
     return true;
   }
   logger.error(`CORS error: Origin ${origin || "null"} not allowed`);
   return false;
 }
+
 
 // ================= GET Handler =================
 export async function GET(request) {
