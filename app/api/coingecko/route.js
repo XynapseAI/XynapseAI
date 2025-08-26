@@ -1,17 +1,85 @@
-// app/api/coingecko/route.js
 import { NextResponse } from "next/server";
 import axios from "axios";
 import axiosRetry from "axios-retry";
 import Bottleneck from "bottleneck";
 import { logger } from "../../../utils/serverLogger";
-import { getRedisClient } from "../../../lib/redis";
+import { createClient } from "redis";
 
-// Configure axios-retry for CoinGecko API
+// ================= Redis Client =================
+let redisClient;
+async function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+    redisClient.on("error", (err) => logger.error("Redis Client Error", { error: err.message, stack: err.stack }));
+    await redisClient.connect();
+    logger.info("Redis connected", { timestamp: new Date().toISOString() });
+  }
+  return redisClient;
+}
+
+// ================= Security Headers =================
+const securityHeaders = {
+  "Content-Security-Policy": "default-src 'self'; frame-ancestors 'self';",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+  "X-XSS-Protection": "1; mode=block",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+};
+
+// ================= IP Ban Logic =================
+async function banIP(ip, durationSeconds = 3600) {
+  const redisClient = await getRedisClient();
+  await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, "banned");
+  logger.info(`IP banned: ${ip} for ${durationSeconds} seconds`);
+}
+
+async function checkIPBan(ip) {
+  const redisClient = await getRedisClient();
+  const isBanned = await redisClient.get(`banned_ip:${ip}`);
+  if (isBanned) {
+    logger.error(`IP ban detected: ${ip}`);
+    throw new Error("IP temporarily banned due to excessive violations.");
+  }
+}
+
+async function trackViolation(ip, reason = "Unknown") {
+  const redisClient = await getRedisClient();
+  const key = `violations:${ip}`;
+  const maxViolations = 10;
+  const windowMs = 15 * 60 * 1000;
+  const violations = parseInt(await redisClient.get(key)) || 0;
+  if (violations >= maxViolations) {
+    await banIP(ip);
+    logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
+    throw new Error("IP banned due to repeated violations.");
+  }
+  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
+}
+
+// ================= Rate Limit =================
+async function checkRateLimit(ip) {
+  const redisClient = await getRedisClient();
+  const key = `rate_limit:coingecko:${ip}`;
+  const windowMs = 60 * 1000;
+  const maxRequests = 100; // Increased from 20 to 50
+  const requests = parseInt(await redisClient.get(key)) || 0;
+  if (requests >= maxRequests) {
+    logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`);
+    throw new Error("Too many requests, please try again later.");
+  }
+  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`);
+}
+
+// Configure axios-retry
 axiosRetry(axios, {
   retries: 5,
   retryDelay: (retryCount) => {
     logger.info(`Retry attempt ${retryCount} for CoinGecko API`);
-    return Math.pow(2, retryCount) * 1000 + Math.random() * 100; // Exponential backoff with jitter
+    return Math.pow(2, retryCount) * 1000 + Math.random() * 100;
   },
   retryCondition: (error) => error.response?.status === 429 || error.code === "ECONNABORTED",
 });
@@ -19,8 +87,8 @@ axiosRetry(axios, {
 // Rate limiter configuration
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: process.env.NODE_ENV === "production" ? 15 : 5,
-  minTime: process.env.NODE_ENV === "production" ? 400 : 1000, // Adjusted to ~3 req/s in production
-  reservoir: 30, // Reduced to align with free tier limits (~50 req/min)
+  minTime: process.env.NODE_ENV === "production" ? 400 : 1000,
+  reservoir: 30,
   reservoirRefreshAmount: 50,
   reservoirRefreshInterval: 60 * 1000,
 });
@@ -37,6 +105,7 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
     });
     return response;
   } catch (error) {
+    logger.error(`Axios error: ${error.message}`, { url, status: error.response?.status });
     throw error;
   }
 });
@@ -49,25 +118,52 @@ const VALID_CURRENCIES = [
   "nzd", "clp", "ars", "cop", "pen", "aed", "sar", "ils", "uah", "egp",
 ];
 
-async function checkRateLimit(ip) {
-  try {
-    const redisClient = await getRedisClient();
-    const key = `rate_limit:coingecko:${ip}`;
-    const requests = Number.parseInt(await redisClient.get(key)) || 0;
-    const windowMs = 60 * 1000;
-    if (requests >= 60) { // Reduced to prevent overloading CoinGecko
-      logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`, { ip });
-      throw new Error("Too many requests, please try again later.");
-    }
-    await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
-  } catch (err) {
-    logger.error(`Redis rate limit check failed: ${err.message}`, { ip });
-    throw err;
+// ================= Allowed Origins =================
+const allowedOrigins = [
+  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  "https://xynapseai.net",
+  "https://www.xynapseai.net",
+  "https://xynapse-ai-xynapse-projects.vercel.app",
+].filter((v, i, a) => a.indexOf(v) === i);
+
+function isAllowedOrigin(origin) {
+  if (allowedOrigins.includes(origin)) {
+    logger.info(`Origin allowed: ${origin}`);
+    return true;
   }
+  if (!origin && process.env.NODE_ENV === "development") {
+    logger.warn("Origin is null, allowing in development mode");
+    return true;
+  }
+  logger.error(`CORS error: Origin ${origin || "null"} not allowed`);
+  return false;
 }
 
+// ================= GET Handler =================
 export async function GET(request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const origin = request.headers.get("origin");
+  logger.info(`Request to /api/coingecko from IP ${ip}`, { origin, timestamp: new Date().toISOString() });
+
+  // Check CORS
+  if (!isAllowedOrigin(origin)) {
+    await trackViolation(ip, "CORS blocked");
+    return NextResponse.json({ success: false, detail: "Not allowed by CORS" }, { status: 403, headers: securityHeaders });
+  }
+
+  // Check IP ban and rate limit
+  try {
+    await checkIPBan(ip);
+    await checkRateLimit(ip);
+  } catch (err) {
+    if (err.message.includes("Too many requests")) {
+      logger.warn(`Rate limit error for IP ${ip}: ${err.message}`);
+      return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers: securityHeaders });
+    }
+    await trackViolation(ip, err.message);
+    return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers: securityHeaders });
+  }
+
   const params = Object.fromEntries(request.nextUrl.searchParams);
   const { action = "market-info", ids, vs_currencies = "usd", limit, start, query, id, tokenType, days, address } = params;
 
@@ -76,28 +172,28 @@ export async function GET(request) {
     ["tickers", "coin-details", "exchange-details", "volume-chart"].includes(action) &&
     (!id || typeof id !== "string" || id.trim() === "")
   ) {
-    logger.warn(`Missing or invalid id parameter: ${id}`, { ip });
-    return NextResponse.json({ success: false, detail: "Missing or invalid id parameter" }, { status: 400 });
+    await trackViolation(ip, "Missing or invalid id parameter");
+    return NextResponse.json({ success: false, detail: "Missing or invalid id parameter" }, { status: 400, headers: securityHeaders });
   }
   if (action === "public-treasury" && (!tokenType || typeof tokenType !== "string" || tokenType.trim() === "")) {
-    logger.warn(`Missing or invalid tokenType parameter: ${tokenType}`, { ip });
-    return NextResponse.json({ success: false, detail: "Missing or invalid tokenType parameter" }, { status: 400 });
+    await trackViolation(ip, "Missing or invalid tokenType parameter");
+    return NextResponse.json({ success: false, detail: "Missing or invalid tokenType parameter" }, { status: 400, headers: securityHeaders });
   }
   if (action === "market-info" && !vs_currencies) {
-    logger.warn(`Missing vs_currencies parameter`, { ip });
-    return NextResponse.json({ success: false, detail: "Missing vs_currencies parameter" }, { status: 400 });
+    await trackViolation(ip, "Missing vs_currencies parameter");
+    return NextResponse.json({ success: false, detail: "Missing vs_currencies parameter" }, { status: 400, headers: securityHeaders });
   }
   if (["search", "exchange-search"].includes(action) && (!query || typeof query !== "string" || query.trim() === "")) {
-    logger.warn(`Missing or invalid query parameter: ${query}`, { ip });
-    return NextResponse.json({ success: false, detail: "Missing or invalid query parameter" }, { status: 400 });
+    await trackViolation(ip, "Missing or invalid query parameter");
+    return NextResponse.json({ success: false, detail: "Missing or invalid query parameter" }, { status: 400, headers: securityHeaders });
   }
   if (action === "volume-chart" && (!days || isNaN(days))) {
-    logger.warn(`Missing or invalid days parameter: ${days}`, { ip });
-    return NextResponse.json({ success: false, detail: "Missing or invalid days parameter" }, { status: 400 });
+    await trackViolation(ip, "Missing or invalid days parameter");
+    return NextResponse.json({ success: false, detail: "Missing or invalid days parameter" }, { status: 400, headers: securityHeaders });
   }
   if (action === "token-details" && (!address || typeof address !== "string" || address.trim() === "")) {
-    logger.warn(`Missing or invalid address parameter: ${address}`, { ip });
-    return NextResponse.json({ success: false, detail: "Missing or invalid address parameter" }, { status: 400 });
+    await trackViolation(ip, "Missing or invalid address parameter");
+    return NextResponse.json({ success: false, detail: "Missing or invalid address parameter" }, { status: 400, headers: securityHeaders });
   }
 
   const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
@@ -105,7 +201,7 @@ export async function GET(request) {
     logger.error("COINGECKO_API_KEY is not configured", { ip });
     return NextResponse.json(
       { success: false, detail: "Server configuration error: Missing COINGECKO_API_KEY" },
-      { status: 500 }
+      { status: 500, headers: securityHeaders }
     );
   }
 
@@ -114,35 +210,19 @@ export async function GET(request) {
   const selectedCurrency = validCurrencies[0] || "usd";
 
   try {
-    await checkRateLimit(ip);
-  } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`, { ip });
-    return NextResponse.json({ success: false, detail: err.message }, { status: 429 });
-  }
-
-  let redisClient;
-  try {
-    redisClient = await getRedisClient();
-  } catch (err) {
-    logger.error(`Redis connection error: ${err.message}`, { ip });
-    return NextResponse.json({ success: false, detail: "Database connection error" }, { status: 500 });
-  }
-
-  try {
     let data;
     let cacheKey;
     let cacheTTL;
 
     if (action === "token-details") {
       cacheKey = `coingecko_token_details_${address}`;
-      cacheTTL = 4 * 3600; // 4 hours
+      cacheTTL = 4 * 3600;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
         logger.info(`Cache hit for token-details: ${address}`, { ip });
-        return NextResponse.json(JSON.parse(cachedData));
+        return NextResponse.json(JSON.parse(cachedData), { headers: securityHeaders });
       }
 
-      // Xử lý đặc biệt cho Bitcoin
       if (address.toLowerCase() === "bitcoin") {
         data = {
           symbol: "BTC",
@@ -150,10 +230,9 @@ export async function GET(request) {
         };
         await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
         logger.info(`Returning hardcoded Bitcoin details for address: ${address}`, { ip });
-        return NextResponse.json({ success: true, data });
+        return NextResponse.json({ success: true, data }, { headers: securityHeaders });
       }
 
-      // Gọi CoinGecko cho token EVM
       try {
         const response = await fetchWithRateLimit(`https://api.coingecko.com/api/v3/coins/ethereum/contract/${address}`, {
           headers: { "x-cg-demo-api-key": COINGECKO_API_KEY },
@@ -165,7 +244,7 @@ export async function GET(request) {
         };
         await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
         logger.info(`Fetched token details for address: ${address}`, { ip });
-        return NextResponse.json({ success: true, data });
+        return NextResponse.json({ success: true, data }, { headers: securityHeaders });
       } catch (error) {
         logger.error(`Failed to fetch token details for ${address}: ${error.message}`, {
           ip,
@@ -178,16 +257,17 @@ export async function GET(request) {
             ? `No token data found for address ${address}`
             : `Failed to fetch token details: ${error.message}`,
           data: { symbol: address, image: { thumb: "/fallback-image.png" } },
-        });
+        }, { headers: securityHeaders });
       }
     }
 
     if (action === "trending") {
       cacheKey = `coingecko_trending_${selectedCurrency}`;
-      cacheTTL = 60 * 60; // 1 hour
+      cacheTTL = 60 * 60;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
-        return NextResponse.json(JSON.parse(cachedData));
+        logger.info(`Cache hit for trending-tokens-${selectedCurrency}`, { ip });
+        return NextResponse.json(JSON.parse(cachedData), { headers: securityHeaders });
       }
 
       try {
@@ -206,7 +286,8 @@ export async function GET(request) {
           price_change_percentage_24h: coin.item.data.price_change_percentage_24h.usd,
         }));
         await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
-        return NextResponse.json({ success: true, data });
+        logger.info(`Fetched trending tokens for ${selectedCurrency}`, { ip });
+        return NextResponse.json({ success: true, data }, { headers: securityHeaders });
       } catch (error) {
         logger.error(`Failed to fetch trending tokens: ${error.message}`, {
           ip,
@@ -220,16 +301,17 @@ export async function GET(request) {
               ? "CoinGecko API rate limit exceeded. Please try again in a few minutes."
               : `Failed to fetch trending tokens: ${error.message}`,
           data: [],
-        });
+        }, { status: error.response?.status || 500, headers: securityHeaders });
       }
     }
 
     if (action === "exchange-search") {
       cacheKey = `coingecko_exchange_search_${query}`;
-      cacheTTL = 5 * 60; // 5 minutes
+      cacheTTL = 5 * 60;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
-        return NextResponse.json(JSON.parse(cachedData));
+        logger.info(`Cache hit for exchange-search: ${query}`, { ip });
+        return NextResponse.json(JSON.parse(cachedData), { headers: securityHeaders });
       }
 
       const response = await fetchWithRateLimit("https://api.coingecko.com/api/v3/exchanges", {
@@ -245,17 +327,19 @@ export async function GET(request) {
           image: exchange.image || "/fallback-image.png",
         }));
       await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
-      return NextResponse.json({ success: true, data });
+      logger.info(`Fetched exchange search results for ${query}`, { ip });
+      return NextResponse.json({ success: true, data }, { headers: securityHeaders });
     }
 
     if (action === "tickers") {
       cacheKey = `coingecko_tickers_${id}`;
-      cacheTTL = 60 * 60; // 1 hour
+      cacheTTL = 60 * 60;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
         const parsedCache = JSON.parse(cachedData);
         if (parsedCache.success && Array.isArray(parsedCache.data?.tickers)) {
-          return NextResponse.json(parsedCache);
+          logger.info(`Cache hit for tickers: ${id}`, { ip });
+          return NextResponse.json(parsedCache, { headers: securityHeaders });
         }
       }
 
@@ -267,7 +351,8 @@ export async function GET(request) {
         });
         data = { tickers: response.data.tickers || [] };
         await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
-        return NextResponse.json({ success: true, data });
+        logger.info(`Fetched tickers for ${id}`, { ip });
+        return NextResponse.json({ success: true, data }, { headers: securityHeaders });
       } catch (error) {
         logger.error(`Failed to fetch tickers for ${id}: ${error.message}`, {
           ip,
@@ -283,14 +368,17 @@ export async function GET(request) {
                 ? `No ticker data found for ${id}.`
                 : `Failed to fetch ticker data: ${error.message}`,
           data: { tickers: [] },
-        });
+        }, { status: error.response?.status || 500, headers: securityHeaders });
       }
-    } else if (action === "coin-details") {
+    }
+
+    if (action === "coin-details") {
       cacheKey = `coingecko_coin_details_${id}`;
-      cacheTTL = 4 * 3600; // 4 hours
+      cacheTTL = 4 * 3600;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
-        return NextResponse.json(JSON.parse(cachedData));
+        logger.info(`Cache hit for coin-details: ${id}`, { ip });
+        return NextResponse.json(JSON.parse(cachedData), { headers: securityHeaders });
       }
 
       const response = await fetchWithRateLimit(`https://api.coingecko.com/api/v3/coins/${id}`, {
@@ -308,13 +396,17 @@ export async function GET(request) {
       });
       data = response.data;
       await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
-      return NextResponse.json({ success: true, data });
-    } else if (action === "search") {
+      logger.info(`Fetched coin details for ${id}`, { ip });
+      return NextResponse.json({ success: true, data }, { headers: securityHeaders });
+    }
+
+    if (action === "search") {
       cacheKey = `coingecko_search_${query}`;
-      cacheTTL = 5 * 60; // 5 minutes
+      cacheTTL = 5 * 60;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
-        return NextResponse.json(JSON.parse(cachedData));
+        logger.info(`Cache hit for search: ${query}`, { ip });
+        return NextResponse.json(JSON.parse(cachedData), { headers: securityHeaders });
       }
 
       const response = await fetchWithRateLimit("https://api.coingecko.com/api/v3/search", {
@@ -330,13 +422,17 @@ export async function GET(request) {
         market_cap_rank: coin.market_cap_rank,
       }));
       await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
-      return NextResponse.json({ success: true, data });
-    } else if (action === "exchange-details") {
-      cacheKey = `coingecko_exchange18n_exchange_details_${id}`;
-      cacheTTL = 4 * 3600; // 4 hours
+      logger.info(`Fetched search results for ${query}`, { ip });
+      return NextResponse.json({ success: true, data }, { headers: securityHeaders });
+    }
+
+    if (action === "exchange-details") {
+      cacheKey = `coingecko_exchange_details_${id}`;
+      cacheTTL = 4 * 3600;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
-        return NextResponse.json(JSON.parse(cachedData));
+        logger.info(`Cache hit for exchange-details: ${id}`, { ip });
+        return NextResponse.json(JSON.parse(cachedData), { headers: securityHeaders });
       }
 
       const response = await fetchWithRateLimit(`https://api.coingecko.com/api/v3/exchanges/${id}`, {
@@ -357,13 +453,17 @@ export async function GET(request) {
         twitter_handle: response.data.twitter_handle || "",
       };
       await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
-      return NextResponse.json({ success: true, data });
-    } else if (action === "volume-chart") {
+      logger.info(`Fetched exchange details for ${id}`, { ip });
+      return NextResponse.json({ success: true, data }, { headers: securityHeaders });
+    }
+
+    if (action === "volume-chart") {
       cacheKey = `coingecko_volume_chart_${id}_${days}`;
-      cacheTTL = 2 * 3600; // 2 hours
+      cacheTTL = 2 * 3600;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
-        return NextResponse.json(JSON.parse(cachedData));
+        logger.info(`Cache hit for volume-chart: ${id}_${days}`, { ip });
+        return NextResponse.json(JSON.parse(cachedData), { headers: securityHeaders });
       }
 
       const response = await fetchWithRateLimit(
@@ -375,13 +475,17 @@ export async function GET(request) {
       );
       data = response.data;
       await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
-      return NextResponse.json({ success: true, data });
-    } else if (action === "public-treasury") {
+      logger.info(`Fetched volume chart for ${id} over ${days} days`, { ip });
+      return NextResponse.json({ success: true, data }, { headers: securityHeaders });
+    }
+
+    if (action === "public-treasury") {
       cacheKey = `coingecko_public_treasury_${tokenType}`;
-      cacheTTL = 12 * 3600; // 12 hours
+      cacheTTL = 12 * 3600;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
-        return NextResponse.json({ success: true, data: JSON.parse(cachedData) });
+        logger.info(`Cache hit for public-treasury: ${tokenType}`, { ip });
+        return NextResponse.json(JSON.parse(cachedData), { headers: securityHeaders });
       }
 
       try {
@@ -390,8 +494,9 @@ export async function GET(request) {
           { headers: { "x-cg-demo-api-key": COINGECKO_API_KEY }, timeout: 30000 }
         );
         data = response.data || { companies: [] };
-        await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify(data));
-        return NextResponse.json({ success: true, data });
+        await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
+        logger.info(`Fetched public treasury data for ${tokenType}`, { ip });
+        return NextResponse.json({ success: true, data }, { headers: securityHeaders });
       } catch (error) {
         logger.error(`Failed to fetch public treasury data for ${tokenType}: ${error.message}`, {
           ip,
@@ -402,14 +507,17 @@ export async function GET(request) {
           success: false,
           detail: `No treasury data available for ${tokenType}`,
           data: { companies: [] },
-        });
+        }, { status: error.response?.status || 500, headers: securityHeaders });
       }
-    } else if (action === "market-info") {
+    }
+
+    if (action === "market-info") {
       cacheKey = `coingecko_market_info_${ids || "default"}_${selectedCurrency}_${start || 1}_${limit || 30}`;
-      cacheTTL = 2 * 60; // 2 minutes
+      cacheTTL = 2 * 60;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
-        return NextResponse.json(JSON.parse(cachedData));
+        logger.info(`Cache hit for market-info: ${selectedCurrency}`, { ip });
+        return NextResponse.json(JSON.parse(cachedData), { headers: securityHeaders });
       }
 
       const response = await fetchWithRateLimit("https://api.coingecko.com/api/v3/coins/markets", {
@@ -430,10 +538,12 @@ export async function GET(request) {
         image: coin.image || "/fallback-image.png",
       }));
       await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
-      return NextResponse.json({ success: true, data });
+      logger.info(`Fetched market info for ${selectedCurrency}`, { ip });
+      return NextResponse.json({ success: true, data }, { headers: securityHeaders });
     }
 
-    return NextResponse.json({ success: false, detail: "Invalid action specified" }, { status: 400 });
+    await trackViolation(ip, "Invalid action specified");
+    return NextResponse.json({ success: false, detail: "Invalid action specified" }, { status: 400, headers: securityHeaders });
   } catch (error) {
     logger.error(`CoinGecko API error: ${error.message}`, {
       ip,
@@ -441,17 +551,15 @@ export async function GET(request) {
       status: error.response?.status,
       data: error.response?.data,
     });
-    return NextResponse.json(
-      {
-        success: false,
-        detail:
-          error.response?.status === 429
-            ? "CoinGecko API rate limit exceeded. Please try again in a few minutes."
-            : error.response?.status === 404
-              ? `No data found for the requested resource.`
-              : `Failed to fetch data: ${error.response?.data?.error || error.message}`,
-      },
-      { status: error.response?.status || 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      detail:
+        error.response?.status === 429
+          ? "CoinGecko API rate limit exceeded. Please try again in a few minutes."
+          : error.response?.status === 404
+            ? `No data found for the requested resource.`
+            : `Failed to fetch data: ${error.message}`,
+      data: [],
+    }, { status: error.response?.status || 500, headers: securityHeaders });
   }
 }

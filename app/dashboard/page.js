@@ -41,12 +41,14 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
     setLoading(true);
     try {
       const recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : await recaptchaRef.current?.executeAsync();
+      const jwtToken = session?.accessToken;
       const response = await fetch(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'X-Recaptcha-Token': recaptchaToken,
           'X-CSRF-Token': csrfToken,
+          Authorization: `Bearer ${jwtToken}`,
         },
         credentials: 'include',
       });
@@ -86,14 +88,21 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
     try {
       if (!session?.user || !csrfToken) throw new Error('Authentication or CSRF token missing');
       const recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : await recaptchaRef.current?.executeAsync();
+      const jwtToken = session?.accessToken;
+      const payload = { uid: session.user.id };
+      const signature = crypto.createHmac("sha256", process.env.HMAC_SECRET || "default-secret")
+        .update(JSON.stringify(payload, Object.keys(payload).sort()))
+        .digest("hex");
       const response = await fetch(`${API_BASE_URL}/api/analyze-tweets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Recaptcha-Token': recaptchaToken,
           'X-CSRF-Token': csrfToken,
+          Authorization: `Bearer ${jwtToken}`,
+          'X-HMAC-Signature': signature,
         },
-        body: JSON.stringify({ uid: session.user.id }),
+        body: JSON.stringify(payload),
         credentials: 'include',
       });
       const result = await response.json();
@@ -142,6 +151,28 @@ export default function Dashboard() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { userData, loading, error, handleAnalyzeTweets } = useUserData(session, csrfToken, setIsAnalyzing);
 
+  // Retry mechanism for fetching providers
+  const fetchProvidersWithRetry = useCallback(async (retries = 3, delay = 1000) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await getProviders();
+        setProviders(response);
+        return;
+      } catch (err) {
+        console.error(`Attempt ${i + 1} failed to fetch providers: ${err.message}`);
+        if (err.message.includes("IP banned") || err.status === 429) {
+          toast.error("Too many requests. Please try again later.", { position: 'top-center' });
+          return;
+        }
+        if (i < retries - 1) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        toast.error('Failed to fetch sign-in methods.', { position: 'top-center' });
+      }
+    }
+  }, []);
+
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
@@ -160,6 +191,11 @@ export default function Dashboard() {
     const fetchCsrfToken = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/csrf-token`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.accessToken || ''}`,
+          },
           credentials: 'include',
         });
         const result = await response.json();
@@ -177,16 +213,33 @@ export default function Dashboard() {
     fetchCsrfToken();
   }, [status, session, csrfToken, update]);
 
+  useEffect(() => {
+    if (isMounted && !providers) {
+      fetchProvidersWithRetry();
+    }
+  }, [isMounted, providers, fetchProvidersWithRetry]);
+
   const handleConnectWallet = async () => {
     try {
       if (!session?.user || !isConnected || !address || !recaptchaRef.current) throw new Error('Prerequisites not met');
       const recaptchaToken = await recaptchaRef.current.executeAsync();
       const message = `Sign this message to authenticate: ${address}`;
       const signature = await signMessageAsync({ message });
+      const jwtToken = session?.accessToken;
+      const payload = { walletAddress: address, signature, message, uid: session.user.id };
+      const hmacSignature = crypto.createHmac("sha256", process.env.HMAC_SECRET || "default-secret")
+        .update(JSON.stringify(payload, Object.keys(payload).sort()))
+        .digest("hex");
       const response = await fetch(`${API_BASE_URL}/api/verify-wallet`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Recaptcha-Token': recaptchaToken, 'X-CSRF-Token': csrfToken },
-        body: JSON.stringify({ walletAddress: address, signature, message, uid: session.user.id }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Recaptcha-Token': recaptchaToken,
+          'X-CSRF-Token': csrfToken,
+          Authorization: `Bearer ${jwtToken}`,
+          'X-HMAC-Signature': hmacSignature,
+        },
+        body: JSON.stringify(payload),
         credentials: 'include',
       });
       const result = await response.json();
@@ -247,19 +300,6 @@ export default function Dashboard() {
       toast.error(`Failed to sign in with Google: ${err.message}`, { position: 'top-center' });
     }
   };
-
-  useEffect(() => {
-    const fetchProviders = async () => {
-      try {
-        const response = await getProviders();
-        setProviders(response);
-      } catch (err) {
-        console.error('Error fetching providers:', err);
-        toast.error('Failed to fetch sign-in methods.', { position: 'top-center' });
-      }
-    };
-    fetchProviders();
-  }, []);
 
   if (!isMounted || !providers || status === 'loading') {
     return (
