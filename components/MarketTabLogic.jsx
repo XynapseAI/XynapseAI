@@ -1048,6 +1048,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const decoder = new TextDecoder();
             let data = [];
             let buffer = '';
+            let isFirstChunk = true;
 
             while (true) {
               const { done, value } = await reader.read();
@@ -1055,60 +1056,70 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
               buffer += decoder.decode(value, { stream: true });
 
-              try {
-                const trimmedBuffer = buffer.trim();
-                if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-                  const parsed = JSON.parse(trimmedBuffer);
-                  if (Array.isArray(parsed)) {
-                    data = [...data, ...parsed];
-                    buffer = '';
+              // Bỏ qua dấu '[' đầu tiên nếu là chunk đầu
+              if (isFirstChunk) {
+                buffer = buffer.trim().replace(/^\[/, '');
+                isFirstChunk = false;
+              }
+
+              // Xử lý từng object hoàn chỉnh trong buffer
+              let pos = 0;
+              while (pos < buffer.length) {
+                // Bỏ qua khoảng trắng, dấu phẩy, và các ký tự không liên quan
+                while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
+                  pos++;
+                }
+                if (pos >= buffer.length) break;
+
+                if (buffer[pos] === '{') {
+                  let openBraces = 1;
+                  let start = pos;
+                  pos++;
+                  while (pos < buffer.length && openBraces > 0) {
+                    if (buffer[pos] === '{') openBraces++;
+                    else if (buffer[pos] === '}') openBraces--;
+                    pos++;
+                  }
+
+                  if (openBraces === 0) {
+                    const objStr = buffer.substring(start, pos).trim();
+                    try {
+                      const parsedObj = JSON.parse(objStr);
+                      if (parsedObj.detail) {
+                        throw new Error(parsedObj.detail);
+                      }
+                      data.push(parsedObj);
+                    } catch (parseError) {
+                      console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
+                    }
+                  } else {
+                    // Object chưa hoàn chỉnh, giữ lại phần còn lại của buffer
+                    break;
                   }
                 } else {
-                  const items = buffer.split(',').filter((item) => item.trim());
-                  for (const item of items) {
-                    try {
-                      const cleanedItem = item.trim().startsWith('[') || item.trim().endsWith(']') ? item.trim() : `{${item}}`;
-                      const parsedItem = JSON.parse(cleanedItem);
-                      if (Array.isArray(parsedItem)) {
-                        data = [...data, ...parsedItem];
-                      } else if (parsedItem.detail) {
-                        throw new Error(parsedItem.detail);
-                      } else {
-                        data.push(parsedItem);
-                      }
-                    } catch (e) {
-                      continue;
-                    }
-                  }
-                  buffer = '';
+                  // Nếu không phải object, có thể là lỗi, bỏ qua
+                  pos++;
                 }
-              } catch (e) {
-                console.warn(`Incomplete JSON in buffer: ${e.message}, continuing...`, { buffer });
-                continue;
               }
+
+              // Cập nhật buffer với phần còn lại chưa parse
+              buffer = buffer.slice(pos).trim();
             }
 
+            // Xử lý buffer cuối nếu có
             if (buffer) {
-              try {
-                const trimmedBuffer = buffer.trim();
-                if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-                  const parsed = JSON.parse(trimmedBuffer);
-                  if (Array.isArray(parsed)) {
-                    data = [...data, ...parsed];
-                  }
-                } else if (trimmedBuffer) {
-                  const parsed = JSON.parse(trimmedBuffer);
-                  if (parsed.detail) {
-                    throw new Error(parsed.detail);
-                  } else if (Array.isArray(parsed)) {
-                    data = [...data, ...parsed];
-                  } else {
+              buffer = buffer.replace(/\]$/, '').trim(); // Bỏ dấu ']' cuối nếu có
+              if (buffer.startsWith('{')) {
+                try {
+                  const parsed = JSON.parse(buffer);
+                  if (!parsed.detail) {
                     data.push(parsed);
+                  } else {
+                    throw new Error(parsed.detail);
                   }
+                } catch (e) {
+                  console.error(`Error parsing final buffer: ${e.message}`, { buffer });
                 }
-              } catch (e) {
-                console.error(`Error parsing final JSON buffer for ${action}:`, { error: e.message, buffer });
-                throw new Error(`Invalid JSON response from ${action} API: ${e.message}`);
               }
             }
 
