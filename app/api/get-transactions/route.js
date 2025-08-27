@@ -1,3 +1,4 @@
+// app\api\get-transactions\route.js
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
@@ -24,7 +25,7 @@ async function getRedisClient() {
 
 // ================= Security Headers =================
 const securityHeaders = {
-  'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self' https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net",
+  'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self';",
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
@@ -32,38 +33,6 @@ const securityHeaders = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
-
-// ================= Allowed Origins =================
-const allowedOrigins = [
-  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  'https://xynapseai.net',
-  'https://www.xynapseai.net',
-  'https://xynapse-ai-xynapse-projects.vercel.app',
-].filter((v, i, a) => a.indexOf(v) === i);
-
-const vercelPreviewRegex = /^https:\/\/xynapse-ai-[a-z0-9-]+\.vercel\.app$/;
-
-function isAllowedOrigin(origin, referer) {
-  if (!origin && !referer) {
-    logger.info('No Origin or Referer (likely SSR or server-to-server), allowing request');
-    return true;
-  }
-  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
-  if (!checkOrigin) {
-    logger.info('No valid Origin or Referer, allowing for SSR compatibility');
-    return true;
-  }
-  if (allowedOrigins.includes(checkOrigin)) {
-    logger.info(`Origin allowed: ${checkOrigin}`);
-    return true;
-  }
-  if (process.env.VERCEL_ENV !== 'production' && vercelPreviewRegex.test(checkOrigin)) {
-    logger.info(`Origin allowed by Vercel preview regex: ${checkOrigin}`);
-    return true;
-  }
-  logger.error(`CORS error: Origin ${checkOrigin || 'null'} not allowed`);
-  return false;
-}
 
 // ================= IP Ban Logic =================
 async function banIP(ip, durationSeconds = 1800) {
@@ -84,18 +53,17 @@ async function checkIPBan(ip) {
 async function trackViolation(ip, reason = 'Unknown') {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 100; // Tăng từ ngầm định lên 100
-  const windowMs = 30 * 60 * 1000; // 30 phút
+  const maxViolations = 100;
+  const windowMs = 30 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
 
-  // Bỏ qua vi phạm không nghiêm trọng
-  if (['CORS blocked', 'Invalid JSON body', 'Invalid input data'].includes(reason)) {
+  if (['CORS blocked', 'Invalid JSON body', 'Validation error', 'Invalid wallet address'].includes(reason)) {
     logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}, violations: ${violations}`);
     return;
   }
 
   if (violations >= maxViolations) {
-    await banIP(ip);
+    await banIP(ip, 1800);
     logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
     throw new Error('IP temporarily banned due to excessive violations.');
   }
@@ -103,12 +71,12 @@ async function trackViolation(ip, reason = 'Unknown') {
   logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
 }
 
-// ================= Rate Limit =================
+// ================= Rate Limiting =================
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:get_transactions:${ip}`;
-  const windowMs = 60 * 1000; // 1 phút
-  const maxRequests = 200; // Tăng từ 60 lên 200
+  const maxRequests = 200;
+  const windowMs = 30 * 60 * 1000;
   const requests = parseInt(await redisClient.get(key)) || 0;
   if (requests >= maxRequests) {
     logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`);
@@ -118,7 +86,75 @@ async function checkRateLimit(ip) {
   logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`);
 }
 
-// ================= API Configurations =================
+// Bottleneck configuration
+const limiterBottleneck = new Bottleneck({
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 5,
+  minTime: process.env.NODE_ENV === 'production' ? 600 : 1000,
+  reservoir: 30,
+  reservoirRefreshAmount: 50,
+  reservoirRefreshInterval: 60 * 1000,
+});
+
+// Axios retry configuration
+axiosRetry(axios, {
+  retries: 8,
+  retryDelay: (retryCount) => {
+    logger.info(`Retry attempt ${retryCount} for blockchain API`);
+    return Math.pow(2, retryCount) * 1000 + Math.random() * 200;
+  },
+  retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
+});
+
+const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
+  try {
+    const response = await axios.get(url, {
+      ...config,
+      timeout: 30000,
+    });
+    return response;
+  } catch (error) {
+    logger.error(`Axios error: ${error.message}`, { url, status: error.response?.status });
+    throw error;
+  }
+});
+
+// ================= Allowed Origins =================
+const allowedOrigins = [
+  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  'https://xynapseai.net',
+  'https://www.xynapseai.net',
+  'https://xynapse-ai-xynapse-projects.vercel.app',
+  ...(process.env.VERCEL_ENV === 'production' ? [] : ['https://*.vercel.app']),
+].filter((v, i, a) => a.indexOf(v) === i);
+
+const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
+
+function isAllowedOrigin(origin, referer) {
+  if (!origin && !referer) {
+    logger.info('No Origin or Referer (likely SSR or server-to-server), allowing request');
+    return true;
+  }
+  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
+  if (!checkOrigin) {
+    logger.info('No valid Origin or Referer, allowing for SSR compatibility');
+    return true;
+  }
+  if (
+    allowedOrigins.some((allowed) =>
+      allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
+    )
+  ) {
+    logger.info(`Origin allowed: ${checkOrigin}`);
+    return true;
+  }
+  if (vercelPreviewRegex.test(checkOrigin)) {
+    logger.info(`Origin allowed by Vercel preview regex: ${checkOrigin}`);
+    return true;
+  }
+  logger.error(`CORS error: Origin ${checkOrigin || 'null'} not allowed`);
+  return false;
+}
+
 const SUPPORTED_CHAINS = {
   '1': { name: 'ethereum', explorer: 'Etherscan', apiUrl: 'https://api.etherscan.io/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'ethereum' },
   '56': { name: 'bsc', explorer: 'BscScan', apiUrl: 'https://api.bscscan.com/api', apiKey: process.env.BSCSCAN_API_KEY, coingeckoId: 'binance-smart-chain' },
@@ -136,39 +172,6 @@ const SUPPORTED_CHAINS = {
   'tron': { name: 'tron', explorer: 'TronScan', apiUrl: 'https://api.tronscan.org/api', apiKey: process.env.TRONSCAN_API_KEY, coingeckoId: 'tron' },
 };
 
-// Configure axios-retry for blockchain APIs
-axiosRetry(axios, {
-  retries: 8,
-  retryDelay: (retryCount) => {
-    logger.info(`Retry attempt ${retryCount} for blockchain API`);
-    return Math.pow(2, retryCount) * 1000 + Math.random() * 200;
-  },
-  retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
-});
-
-// Rate limiter for blockchain APIs
-const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 5,
-  minTime: process.env.NODE_ENV === 'production' ? 600 : 1000,
-  reservoir: 30,
-  reservoirRefreshAmount: 50,
-  reservoirRefreshInterval: 60 * 1000,
-});
-
-const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
-  try {
-    const response = await axios.get(url, {
-      ...config,
-      timeout: 30000,
-    });
-    return response;
-  } catch (error) {
-    logger.error(`Axios error: ${error.message}`, { url, status: error.response?.status });
-    throw error;
-  }
-});
-
-// ================= Validation Schema =================
 const bodySchema = z.object({
   wallet_address: z.string().nonempty('Wallet address is required'),
   chain: z.enum(Object.keys(SUPPORTED_CHAINS), { message: 'Invalid chain' }),
@@ -177,7 +180,6 @@ const bodySchema = z.object({
 
 const chainLogoCache = {};
 
-// ================= Helper Functions =================
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function checkIp(ip) {
   try {
@@ -185,13 +187,12 @@ async function checkIp(ip) {
     const { abuse } = response.data;
     if (abuse && abuse.score > 50) {
       logger.warn(`Suspicious IP detected: ${ip}`);
-      await trackViolation(ip, 'Suspicious IP detected');
       return false;
     }
     return true;
   } catch (error) {
     logger.error(`IP check failed: ${error.message}`);
-    return true; // Không chặn nếu IP check thất bại
+    return true;
   }
 }
 
@@ -248,7 +249,10 @@ async function verifyApiKey(apiKey, session) {
 }
 
 async function getChainLogo(coingeckoId) {
-  if (chainLogoCache[coingeckoId]) return chainLogoCache[coingeckoId];
+  if (chainLogoCache[coingeckoId]) {
+    logger.info(`Cache hit for chain logo: ${coingeckoId}, logo: ${chainLogoCache[coingeckoId]}`);
+    return chainLogoCache[coingeckoId];
+  }
   try {
     const response = await fetchWithRateLimit('https://api.coingecko.com/api/v3/asset_platforms', {
       headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY },
@@ -261,6 +265,7 @@ async function getChainLogo(coingeckoId) {
     return logo;
   } catch (error) {
     logger.error(`Error fetching logo for ${coingeckoId}: ${error.message}`);
+    chainLogoCache[coingeckoId] = '/icons/default.png';
     return '/icons/default.png';
   }
 }
@@ -336,8 +341,8 @@ async function fetchBlockchainData(walletAddress, dataType, isTestnet, limit, ch
       const response = await fetchWithRateLimit(`${chain.apiUrl}/account/transactions?account=${walletAddress}&limit=${limit}`, {
         headers: { 'Authorization': `Bearer ${chain.apiKey}` },
       });
-      const data = await response.data;
-      if (!response.status === 200) throw new Error(data.message || 'Error fetching Solana transactions');
+      const data = response.data;
+      if (!response.status.toString().startsWith('2')) throw new Error(data.message || 'Error fetching Solana transactions');
       transactions = data.map(tx => ({
         hash: tx.txHash,
         from: tx.signer,
@@ -353,7 +358,7 @@ async function fetchBlockchainData(walletAddress, dataType, isTestnet, limit, ch
       const response = await fetchWithRateLimit(`${chain.apiUrl}/transaction?address=${walletAddress}&limit=${limit}`, {
         headers: { 'TRON-PRO-API-KEY': chain.apiKey },
       });
-      const data = await response.data;
+      const data = response.data;
       if (!data.success) throw new Error(data.error || 'Error fetching TRON transactions');
       transactions = data.data.map(tx => ({
         hash: tx.hash,
@@ -371,7 +376,7 @@ async function fetchBlockchainData(walletAddress, dataType, isTestnet, limit, ch
       const nativeResponse = await fetchWithRateLimit(
         `${chain.apiUrl}?module=account&action=txlist&address=${walletAddress}&sort=desc&apikey=${chain.apiKey}&page=1&offset=${limit}`
       );
-      const nativeData = await nativeResponse.data;
+      const nativeData = nativeResponse.data;
       if (nativeData.status !== '1') throw new Error(nativeData.message || 'Error fetching EVM transactions');
       const nativeTxs = nativeData.result.map(tx => ({
         hash: tx.hash,
@@ -389,7 +394,7 @@ async function fetchBlockchainData(walletAddress, dataType, isTestnet, limit, ch
       const tokenResponse = await fetchWithRateLimit(
         `${chain.apiUrl}?module=account&action=tokentx&address=${walletAddress}&sort=desc&apikey=${chain.apiKey}&page=1&offset=${limit}`
       );
-      const tokenData = await tokenResponse.data;
+      const tokenData = tokenResponse.data;
       if (tokenData.status !== '1') throw new Error(tokenData.message || 'Error fetching EVM token transactions');
       const tokenTxs = tokenData.result.map(tx => ({
         hash: tx.hash,
@@ -412,12 +417,11 @@ async function fetchBlockchainData(walletAddress, dataType, isTestnet, limit, ch
   }
 }
 
-// ================= POST Handler =================
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
-  logger.info(`Request to /api/get-transactions from IP ${ip}`, { origin, referer, timestamp: new Date().toISOString() });
+  logger.info(`Request to /api/get-transactions from IP ${ip}`, { origin, timestamp: new Date().toISOString() });
 
   // Check CORS
   if (!isAllowedOrigin(origin, referer)) {
@@ -425,34 +429,36 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders });
   }
 
-  // Check IP ban and rate limit
+  // Check IP ban
   try {
     await checkIPBan(ip);
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 403, headers: securityHeaders });
+  }
+
+  // Check rate limit
+  try {
     await checkRateLimit(ip);
   } catch (err) {
-    if (err.message.includes('Too many requests')) {
-      logger.warn(`Rate limit error for IP ${ip}: ${err.message}`);
-      return NextResponse.json({ error: err.message }, { status: 429, headers: securityHeaders });
-    }
-    await trackViolation(ip, err.message);
+    logger.error(`Rate limit error: ${err.message}`, { ip });
     return NextResponse.json({ error: err.message }, { status: 429, headers: securityHeaders });
   }
 
-  // Validate JSON body
   let body;
   try {
     body = await request.json();
   } catch (err) {
     logger.warn(`Invalid JSON body: ${err.message}`, { ip });
+    await trackViolation(ip, 'Invalid JSON body');
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: securityHeaders });
   }
 
-  // Validate input data
   let parsedBody;
   try {
     parsedBody = bodySchema.parse(body);
   } catch (err) {
     logger.warn(`Validation error: ${err.message}`, { ip });
+    await trackViolation(ip, 'Validation error');
     return NextResponse.json({ error: 'Invalid input data', errors: err.errors }, { status: 400, headers: securityHeaders });
   }
 
@@ -462,6 +468,7 @@ export async function POST(request) {
     : isAddress(wallet_address);
   if (!isValidAddress) {
     logger.error(`Invalid wallet address: ${wallet_address} for chain ${chain}`, { ip });
+    await trackViolation(ip, 'Invalid wallet address');
     return NextResponse.json({ error: 'Wallet address is required and must be valid for the selected chain.' }, { status: 400, headers: securityHeaders });
   }
 
@@ -469,30 +476,31 @@ export async function POST(request) {
   const apiKey = request.headers.get('x-api-key') || process.env.INTERNAL_API_TOKEN || 'default-api-key';
   const signature = request.headers.get('x-hmac-signature');
 
-  // Verify API key and session
   const session = await auth();
   const { isValid, isPremium } = await verifyApiKey(apiKey, session);
   if (!isValid) {
+    logger.error(`Invalid API key: ${apiKey}`, { ip });
     await trackViolation(ip, 'Invalid API key');
     return NextResponse.json({ error: 'Unauthorized: Invalid API key.' }, { status: 401, headers: securityHeaders });
   }
 
-  // Verify HMAC signature
   if (!signature || !(await verifyHmacSignature(body, signature, process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex')))) {
+    logger.warn(`Unauthorized: Invalid HMAC signature for wallet ${lowerWalletAddress}`, { ip });
     await trackViolation(ip, 'Invalid HMAC signature');
     return NextResponse.json({ error: 'Unauthorized: Invalid HMAC signature.' }, { status: 401, headers: securityHeaders });
   }
 
-  // Check premium status
   if (!isPremium && chain !== '1') {
-    await trackViolation(ip, 'Non-Premium user attempted to access non-Ethereum chain');
+    logger.warn(`Non-Premium user attempted to access chain ${chain}`, { ip });
+    await trackViolation(ip, 'Non-Premium chain access');
     return NextResponse.json({ error: 'Premium account required to access chains other than Ethereum.' }, { status: 403, headers: securityHeaders });
   }
 
   const validLimits = [100, 200, 300, 500];
   const selectedLimit = validLimits.includes(Number(limit)) ? Number(limit) : 100;
   if (!isPremium && selectedLimit > 100) {
-    await trackViolation(ip, 'Non-Premium user attempted high limit');
+    logger.warn(`Non-Premium user attempted to use limit ${selectedLimit}`, { ip });
+    await trackViolation(ip, 'Non-Premium limit exceed');
     return NextResponse.json({ error: 'Premium account required to fetch more than 100 transactions.' }, { status: 403, headers: securityHeaders });
   }
 
@@ -622,21 +630,11 @@ export async function POST(request) {
           controller.close();
         } catch (err) {
           logger.error(`Error fetching transactions for ${lowerWalletAddress}: ${err.message}`, { stack: err.stack, ip });
-          await trackViolation(ip, `Transaction fetch error: ${err.message}`);
           controller.enqueue(JSON.stringify({ error: `Failed to fetch transactions: ${err.message}` }));
           controller.close();
         }
       },
     }),
-    {
-      headers: {
-        ...securityHeaders,
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key, X-Hmac-Signature',
-        'Access-Control-Allow-Credentials': 'true',
-      },
-    }
+    { headers: securityHeaders }
   );
 }
