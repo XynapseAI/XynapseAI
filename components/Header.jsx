@@ -287,7 +287,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                   <motion.button
                     onClick={() => handleTabClick(tab.id)}
                     onMouseEnter={handleMouseEnter}
-                    className={`w-full text-left px-2 py-1 text-[9px] font-medium transition-all duration-300 uppercase no-hover-effect ${activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'}`}
+                    className={`w-full text-left px-2 py-1 m-2 text-sm font-medium transition-all duration-300 uppercase no-hover-effect ${activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'}`}
                   >
                     <span className="matrix-text">{renderMatrixText(tab.label)}</span>
                   </motion.button>

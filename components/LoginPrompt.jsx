@@ -10,7 +10,7 @@ export default function LoginPrompt() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="flex flex-col items-center justify-center w-full h-full min-h-[200px] bg-black/60 backdrop-blur-lg text-white p-4 sm:p-6 rounded-lg"
+      className="flex flex-col items-center justify-center w-full h-full min-h-[200px] bg-transparent text-white p-4 sm:p-6"
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}

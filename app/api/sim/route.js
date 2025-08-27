@@ -69,7 +69,7 @@ async function checkRateLimit(ip, address, isSVMAddress) {
 
     const ipKey = `rate_limit:sim:ip:${ip}`;
     const addressKey = address ? `rate_limit:sim:address:${isSVMAddress ? address : address.toLowerCase()}` : null;
-    const maxRequests = 50; // Match old file's stricter limit
+    const maxRequests = 50;
     const windowMs = 60 * 1000;
 
     const ipRequests = Number.parseInt(await redisClient.get(ipKey)) || 0;
@@ -135,6 +135,7 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
     const response = await axios.get(url, {
       ...config,
       timeout: 15000,
+      responseType: config.responseType || 'json',
     });
     return response;
   } catch (error) {
@@ -347,6 +348,56 @@ async function fetchImageUrl(metadataUrl, ip) {
   }
 }
 
+// ================= Stream Helper =================
+function createJsonStream(controller, data, chunkSize = 100) {
+  if (!controller || controller.locked) {
+    logger.error("Cannot create JSON stream: Controller is closed or invalid");
+    return;
+  }
+
+  const chunks = [];
+  for (let i = 0; i < data.length; i += chunkSize) {
+    chunks.push(data.slice(i, i + chunkSize));
+  }
+
+  // Send opening array bracket
+  if (!controller.locked) {
+    controller.enqueue(new TextEncoder().encode('['));
+  }
+
+  let index = 0;
+  async function sendNextChunk() {
+    if (index >= chunks.length) {
+      if (!controller.locked) {
+        // Send closing array bracket
+        controller.enqueue(new TextEncoder().encode(']'));
+        controller.close();
+        logger.info("Stream closed after sending all chunks");
+      }
+      return;
+    }
+
+    if (controller.desiredSize <= 0) {
+      // Backpressure: Wait until buffer is ready
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      sendNextChunk();
+      return;
+    }
+
+    const chunkData = chunks[index];
+    if (!controller.locked) {
+      // Send chunk with comma if not the first chunk
+      const prefix = index > 0 ? ',' : '';
+      controller.enqueue(new TextEncoder().encode(prefix + JSON.stringify({ success: true, data: chunkData, partial: true })));
+      logger.info(`Sent chunk ${index + 1}/${chunks.length} with ${chunkData.length} items`);
+    }
+    index++;
+    sendNextChunk();
+  }
+
+  sendNextChunk();
+}
+
 // ================= Main Handler =================
 export async function POST(request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
@@ -435,8 +486,6 @@ export async function POST(request) {
     new ReadableStream({
       async start(controller) {
         try {
-          let data = [];
-
           const effectiveDecimalPlace =
             typeof decimalPlace === "number" && Number.isInteger(decimalPlace) && decimalPlace >= 0 ? decimalPlace : 18;
 
@@ -474,19 +523,17 @@ export async function POST(request) {
               finalDecimalPlace = knownTokens[tokenAddress.toLowerCase()];
             }
 
-            data =
-              response.data.holders?.map((holder) => {
-                const rawBalance = Number(holder.balance) || 0;
-                const balance = rawBalance / Math.pow(10, finalDecimalPlace);
-                return {
-                  address: holder.wallet_address || "Unknown",
-                  balance: Number(balance.toFixed(6)),
-                };
-              }) || [];
+            const data = response.data.holders?.map((holder) => {
+              const rawBalance = Number(holder.balance) || 0;
+              const balance = rawBalance / Math.pow(10, finalDecimalPlace);
+              return {
+                address: holder.wallet_address || "Unknown",
+                balance: Number(balance.toFixed(6)),
+              };
+            }) || [];
 
             logger.info(`Processed top-holders data: ${data.length} holders`, { ip });
-            controller.enqueue(JSON.stringify({ success: true, data }));
-            controller.close();
+            createJsonStream(controller, data);
             return;
           } else if (action === "wallet-balances" && address) {
             logger.info(`Processing wallet-balances for address: ${address}`, { ip });
@@ -496,63 +543,71 @@ export async function POST(request) {
               let missingImportantTokens = [...IMPORTANT_TOKENS];
               const allChainIds = Object.values(CHAIN_ID_MAP).join(",");
 
-              // Step 1: Fetch all native tokens first
-              let nextOffsetNative = null;
-              do {
-                const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${allChainIds}&metadata=logo&limit=1000${nextOffsetNative ? `&offset=${nextOffsetNative}` : ''}&filters=native`;
-                logger.info(`Calling Dune Sim API (Native): ${url}`, { ip });
-                const response = await fetchWithRateLimit(url, {
-                  headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
-                });
-
-                logger.info(
-                  `Wallet balances (Native) response for address ${address}: ${response.data.balances?.length || 0} tokens, time: ${Date.now() - startTime}ms`,
-                  { ip },
-                );
-
-                const balances = response.data.balances || [];
-                allBalances.push(...balances);
-
-                missingImportantTokens = missingImportantTokens.filter((importantToken) => {
-                  if (importantToken.address !== "native") return true;
-                  return !balances.some((balance) => {
-                    const balanceChain = balance.chain?.toLowerCase();
-                    return balanceChain === importantToken.chain && balance.address === "native";
+              // Fetch native and ERC20 tokens concurrently
+              const fetchNative = async () => {
+                let balances = [];
+                let nextOffsetNative = null;
+                do {
+                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${allChainIds}&metadata=logo&limit=2000${nextOffsetNative ? `&offset=${nextOffsetNative}` : ''}&filters=native`;
+                  logger.info(`Calling Dune Sim API (Native): ${url}`, { ip });
+                  const response = await fetchWithRateLimit(url, {
+                    headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
                   });
-                });
 
-                nextOffsetNative = response.data.next_offset || null;
-              } while (nextOffsetNative && missingImportantTokens.some((token) => token.address === "native"));
+                  logger.info(
+                    `Wallet balances (Native) response for address ${address}: ${response.data.balances?.length || 0} tokens, time: ${Date.now() - startTime}ms`,
+                    { ip },
+                  );
 
-              // Step 2: Fetch ERC20 tokens
-              let nextOffsetErc20 = null;
-              do {
-                const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${allChainIds}&metadata=logo&limit=1000${nextOffsetErc20 ? `&offset=${nextOffsetErc20}` : ''}&filters=erc20`;
-                logger.info(`Calling Dune Sim API (ERC20): ${url}`, { ip });
-                const response = await fetchWithRateLimit(url, {
-                  headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
-                });
+                  balances.push(...(response.data.balances || []));
+                  nextOffsetNative = response.data.next_offset || null;
 
-                logger.info(
-                  `Wallet balances (ERC20) response for address ${address}: ${response.data.balances?.length || 0} tokens, time: ${Date.now() - startTime}ms`,
-                  { ip },
-                );
-
-                const balances = response.data.balances || [];
-                allBalances.push(...balances);
-
-                missingImportantTokens = missingImportantTokens.filter((importantToken) => {
-                  if (importantToken.address === "native") return true;
-                  return !balances.some((balance) => {
-                    const balanceChain = balance.chain?.toLowerCase();
-                    const balanceAddress = balance.address?.toLowerCase();
-                    const importantTokenAddress = importantToken.address.toLowerCase();
-                    return balanceChain === importantToken.chain && balanceAddress === importantTokenAddress;
+                  // Update missingImportantTokens
+                  missingImportantTokens = missingImportantTokens.filter((importantToken) => {
+                    if (importantToken.address !== "native") return true;
+                    return !balances.some((balance) => {
+                      const balanceChain = balance.chain?.toLowerCase();
+                      return balanceChain === importantToken.chain && balance.address === "native";
+                    });
                   });
-                });
+                } while (nextOffsetNative && missingImportantTokens.some((token) => token.address === "native"));
+                return balances;
+              };
 
-                nextOffsetErc20 = response.data.next_offset || null;
-              } while (nextOffsetErc20 && missingImportantTokens.some((token) => token.address !== "native"));
+              const fetchErc20 = async () => {
+                let balances = [];
+                let nextOffsetErc20 = null;
+                do {
+                  const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${allChainIds}&metadata=logo&limit=2000${nextOffsetErc20 ? `&offset=${nextOffsetErc20}` : ''}&filters=erc20`;
+                  logger.info(`Calling Dune Sim API (ERC20): ${url}`, { ip });
+                  const response = await fetchWithRateLimit(url, {
+                    headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
+                  });
+
+                  logger.info(
+                    `Wallet balances (ERC20) response for address ${address}: ${response.data.balances?.length || 0} tokens, time: ${Date.now() - startTime}ms`,
+                    { ip },
+                  );
+
+                  balances.push(...(response.data.balances || []));
+                  nextOffsetErc20 = response.data.next_offset || null;
+
+                  // Update missingImportantTokens
+                  missingImportantTokens = missingImportantTokens.filter((importantToken) => {
+                    if (importantToken.address === "native") return true;
+                    return !balances.some((balance) => {
+                      const balanceChain = balance.chain?.toLowerCase();
+                      const balanceAddress = balance.address?.toLowerCase();
+                      const importantTokenAddress = importantToken.address.toLowerCase();
+                      return balanceChain === importantToken.chain && balanceAddress === importantTokenAddress;
+                    });
+                  });
+                } while (nextOffsetErc20 && missingImportantTokens.length > 0); // Continue until all important tokens are found
+                return balances;
+              };
+
+              const [nativeBalances, erc20Balances] = await Promise.all([fetchNative(), fetchErc20()]);
+              allBalances = [...nativeBalances, ...erc20Balances];
 
               // Remove duplicates
               const uniqueBalances = [];
@@ -565,7 +620,7 @@ export async function POST(request) {
                 }
               }
 
-              data = await Promise.all(
+              const data = await Promise.all(
                 uniqueBalances.map(async (balance) => {
                   let logo = balance.token_metadata?.logo || null;
                   if (balance.address === "native") {
@@ -599,32 +654,31 @@ export async function POST(request) {
                     logger.info(`Filtered out token with zero value_usd: ${processedBalance.symbol} on ${processedBalance.chain}`, { ip });
                     return null;
                   }
-
                   return processedBalance;
-                }),
+                })
               );
 
-              data = data.filter((balance) => balance !== null);
+              let filteredData = data.filter((balance) => balance !== null);
 
               if (minValueUsd) {
-                data = data.filter((balance) => balance.value_usd >= minValueUsd);
+                filteredData = filteredData.filter((balance) => balance.value_usd >= minValueUsd);
               }
 
-              data.sort((a, b) => {
+              filteredData.sort((a, b) => {
                 const aIsNative = a.address === "native" ? -1 : 1;
                 const bIsNative = b.address === "native" ? -1 : 1;
                 return aIsNative - bIsNative;
               });
 
-              if (effectiveLimit < data.length) {
-                data = data.slice(0, effectiveLimit);
+              if (effectiveLimit < filteredData.length) {
+                filteredData = filteredData.slice(0, effectiveLimit);
               }
 
-              logger.info(`Processed wallet balances data: ${data.length} tokens after processing and filtering`, { ip });
-              controller.enqueue(JSON.stringify({ success: true, data }));
-              controller.close();
+              logger.info(`Processed wallet balances data: ${filteredData.length} tokens after processing and filtering`, { ip });
+              createJsonStream(controller, filteredData);
               return;
             } else {
+              // Logic cho SVM addresses giữ nguyên
               const chainParam = `chains=${SUPPORTED_SVM_CHAINS.join(",")}`;
               const url = `https://api.sim.dune.com/beta/svm/balances/${address}?${chainParam}&limit=${effectiveLimit}`;
               logger.info(`Calling Dune Sim API: ${url}`, { ip });
@@ -637,7 +691,7 @@ export async function POST(request) {
                 { ip },
               );
 
-              data = await Promise.all(
+              const data = await Promise.all(
                 response.data.balances?.map(async (balance) => {
                   let logo = balance.uri || null;
                   if ((balance.chain === "solana" || balance.chain === "eclipse") && balance.address === "native") {
@@ -660,45 +714,41 @@ export async function POST(request) {
                     name: balance.name || "Unknown",
                   };
 
-                  const isImportantToken = IMPORTANT_TOKENS.some(
-                    (token) => token.chain === balance.chain && token.address === "native" && balance.address === "native"
-                  );
-
                   if (processedBalance.value_usd > 100_000_000_000) {
                     logger.info(`Filtered out token with excessive value_usd: ${processedBalance.symbol} on ${processedBalance.chain}, value_usd: ${processedBalance.value_usd}`, { ip });
                     return null;
                   }
-                  if (processedBalance.value_usd === 0 && !isImportantToken) {
+                  if (processedBalance.value_usd === 0 && !IMPORTANT_TOKENS.some((t) => t.chain === balance.chain && t.address === "native")) {
                     logger.info(`Filtered out token with zero value_usd: ${processedBalance.symbol} on ${processedBalance.chain}`, { ip });
                     return null;
                   }
-
                   return processedBalance;
                 }) || [],
               );
 
-              data = data.filter((balance) => balance !== null);
+              const filteredData = data.filter((balance) => balance !== null);
 
               if (minValueUsd) {
-                data = data.filter((balance) => balance.value_usd >= minValueUsd);
+                filteredData = filteredData.filter((balance) => balance.value_usd >= minValueUsd);
               }
 
-              if (effectiveLimit < data.length) {
-                data = data.slice(0, effectiveLimit);
+              if (effectiveLimit < filteredData.length) {
+                filteredData = filteredData.slice(0, effectiveLimit);
               }
 
-              logger.info(`Processed wallet balances data: ${data.length} tokens after processing and filtering`, { ip });
-              controller.enqueue(JSON.stringify({ success: true, data }));
-              controller.close();
+              logger.info(`Processed wallet balances data: ${filteredData.length} tokens after processing and filtering`, { ip });
+              createJsonStream(controller, filteredData);
               return;
             }
           } else if (action === "transactions") {
             logger.info(`Processing transactions for addresses: ${addresses || address}`, { ip });
-            const targetAddresses = addresses && addresses.length > 0 ? addresses : [address];
+            // Remove duplicate addresses to avoid redundant API calls
+            const targetAddresses = [...new Set(addresses && addresses.length > 0 ? addresses : [address])];
             const chainParam = targetAddresses.some((addr) => isValidSolanaAddress(addr))
               ? `chains=${SUPPORTED_SVM_CHAINS.join(",")}`
               : `chain_ids=${SUPPORTED_CHAIN_IDS}`;
 
+            const allTransactions = [];
             for (const addr of targetAddresses) {
               const isEVM = isAddress(addr);
               const url = isEVM
@@ -717,8 +767,8 @@ export async function POST(request) {
                 );
 
                 const transactions = (isEVM ? response.data.activity : response.data.transactions) || [];
-                const filteredTransactions = transactions
-                  .map((tx) => {
+                const filteredTransactions = await Promise.all(
+                  transactions.map(async (tx) => {
                     if (isEVM) {
                       const decimals = tx.asset_type === "native" ? 18 : tx.token_metadata?.decimals || 18;
                       const value_usd = Number(tx.value_usd || 0);
@@ -885,32 +935,33 @@ export async function POST(request) {
                       };
                     }
                   })
-                  .filter((tx) => tx !== null);
+                );
 
-                data.push(...filteredTransactions);
+                const validTransactions = filteredTransactions.filter((tx) => tx !== null);
+                allTransactions.push(...validTransactions);
               } catch (error) {
                 logger.error(`Error fetching transactions for address ${addr}: ${error.message}`, { ip });
                 if (error.response?.status === 429) {
                   controller.enqueue(
-                    JSON.stringify({ detail: "Dune Sim API rate limit exceeded, please try again later." })
+                    new TextEncoder().encode(JSON.stringify({ detail: "Dune Sim API rate limit exceeded, please try again later." }))
                   );
                   controller.close();
                   return;
                 } else if (error.response?.status === 404) {
-                  controller.enqueue(JSON.stringify({ success: true, data: [] }));
-                  controller.close();
-                  return;
+                  logger.warn(`No transactions found for address ${addr}`, { ip });
+                  continue;
                 } else {
-                  controller.enqueue(JSON.stringify({ detail: `Failed to fetch transactions: ${error.message}` }));
+                  controller.enqueue(
+                    new TextEncoder().encode(JSON.stringify({ detail: `Failed to fetch transactions: ${error.message}` }))
+                  );
                   controller.close();
                   return;
                 }
               }
             }
 
-            logger.info(`Processed transactions data: ${data.length} transactions`, { ip });
-            controller.enqueue(JSON.stringify({ success: true, data }));
-            controller.close();
+            logger.info(`Processed transactions data: ${allTransactions.length} transactions`, { ip });
+            createJsonStream(controller, allTransactions);
             return;
           } else if (action === "collectibles" && address) {
             logger.info(`Processing collectibles for address: ${address}`, { ip });
@@ -931,7 +982,7 @@ export async function POST(request) {
               { ip },
             );
 
-            data = (response.data.entries || response.data.collectibles || [])
+            const data = (response.data.entries || response.data.collectibles || [])
               .filter((nft) => nft.image_url || nft.token_metadata?.logo)
               .map((nft) => ({
                 chain: nft.chain,
@@ -948,8 +999,7 @@ export async function POST(request) {
               }));
 
             logger.info(`Processed collectibles data: ${data.length} collectibles after filtering`, { ip });
-            controller.enqueue(JSON.stringify({ success: true, data }));
-            controller.close();
+            createJsonStream(controller, data);
             return;
           } else if (action === "proxy-image" && imageUrl) {
             try {
@@ -963,7 +1013,7 @@ export async function POST(request) {
               }
 
               const response = await fetchWithRateLimit(imageUrl, {
-                responseType: "arraybuffer",
+                responseType: "stream",
                 headers: {
                   "User-Agent":
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -980,8 +1030,30 @@ export async function POST(request) {
                 return;
               }
 
-              controller.enqueue(response.data);
-              controller.close();
+              response.data.on('data', (chunk) => {
+                if (controller.desiredSize <= 0) {
+                  response.data.pause(); // Pause if buffer is full
+                } else {
+                  controller.enqueue(chunk);
+                  logger.info(`Streamed image chunk of size ${chunk.length} bytes`, { ip });
+                }
+              });
+
+              response.data.on('end', () => {
+                controller.close();
+                logger.info(`Completed streaming image: ${imageUrl}`, { ip });
+              });
+
+              response.data.on('error', (error) => {
+                logger.warn(`Error streaming image ${imageUrl}: ${error.message}`, { ip });
+                controller.enqueue(JSON.stringify({ detail: "Failed to stream image", error: error.message }));
+                controller.close();
+              });
+
+              controller.on('drain', () => {
+                response.data.resume(); // Resume when buffer is ready
+              });
+
               return;
             } catch (error) {
               logger.warn(`Failed to proxy image ${imageUrl}: ${error.message}`, { ip });
@@ -993,13 +1065,17 @@ export async function POST(request) {
 
           logger.warn(`Invalid parameters for action: ${action}`, { ip });
           await trackViolation(ip, 'Invalid parameters');
-          controller.enqueue(JSON.stringify({ detail: `Invalid parameters for action: ${action}` }));
+          controller.enqueue(
+            new TextEncoder().encode(JSON.stringify({ detail: `Invalid parameters for action: ${action}` }))
+          );
           controller.close();
           return;
         } catch (error) {
           if (action === "collectibles" && error.response?.status === 404 && isSVMAddress) {
             logger.warn(`SVM collectibles not supported for address: ${address}`, { ip });
-            controller.enqueue(JSON.stringify({ success: true, data: [] }));
+            controller.enqueue(
+              new TextEncoder().encode(JSON.stringify({ success: true, data: [] }))
+            );
             controller.close();
             return;
           }
@@ -1010,14 +1086,16 @@ export async function POST(request) {
             ip,
           });
           controller.enqueue(
-            JSON.stringify({
-              detail:
-                error.response?.status === 429
-                  ? "Dune Sim API rate limit exceeded, please try again later."
-                  : error.response?.status === 404
-                    ? "Requested data not found."
-                    : `Dune Sim API error: ${error.message}`,
-            }),
+            new TextEncoder().encode(
+              JSON.stringify({
+                detail:
+                  error.response?.status === 429
+                    ? "Dune Sim API rate limit exceeded, please try again later."
+                    : error.response?.status === 404
+                      ? "Requested data not found."
+                      : `Dune Sim API error: ${error.message}`,
+              })
+            )
           );
           controller.close();
           return;
@@ -1027,7 +1105,7 @@ export async function POST(request) {
     {
       headers: {
         ...securityHeaders,
-        "Content-Type": "application/json",
+        "Content-Type": action === "proxy-image" ? "image/*" : "application/json",
         "Access-Control-Allow-Origin": process.env.NEXT_PUBLIC_APP_URL || "https://xynapseai.net",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Api-Key",

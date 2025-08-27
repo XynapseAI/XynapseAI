@@ -535,7 +535,7 @@ export async function GET(request) {
 
     if (action === "market-info") {
       cacheKey = `coingecko_market_info_${ids || "default"}_${selectedCurrency}_${start || 1}_${limit || 30}`;
-      cacheTTL = 5 * 60;
+      cacheTTL = 30 * 60;
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
         logger.info(`Cache hit for market-info: ${selectedCurrency}`, { ip });
