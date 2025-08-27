@@ -363,6 +363,7 @@ function createJsonStream(controller, data, chunkSize = 100) {
   // Send opening array bracket
   if (!controller.locked) {
     controller.enqueue(new TextEncoder().encode('['));
+    logger.info("Stream started with opening bracket");
   }
 
   let index = 0;
@@ -379,6 +380,7 @@ function createJsonStream(controller, data, chunkSize = 100) {
 
     if (controller.desiredSize <= 0) {
       // Backpressure: Wait until buffer is ready
+      logger.info("Backpressure detected, waiting...");
       await new Promise((resolve) => setTimeout(resolve, 100));
       sendNextChunk();
       return;
@@ -388,14 +390,21 @@ function createJsonStream(controller, data, chunkSize = 100) {
     if (!controller.locked) {
       // Send chunk with comma if not the first chunk
       const prefix = index > 0 ? ',' : '';
-      controller.enqueue(new TextEncoder().encode(prefix + JSON.stringify({ success: true, data: chunkData, partial: true })));
+      const chunkString = prefix + JSON.stringify(chunkData).slice(1, -1); // Remove outer brackets of chunk
+      controller.enqueue(new TextEncoder().encode(chunkString));
       logger.info(`Sent chunk ${index + 1}/${chunks.length} with ${chunkData.length} items`);
     }
     index++;
     sendNextChunk();
   }
 
-  sendNextChunk();
+  sendNextChunk().catch((error) => {
+    logger.error(`Error in sendNextChunk: ${error.message}`, { stack: error.stack });
+    if (!controller.locked) {
+      controller.enqueue(new TextEncoder().encode(JSON.stringify({ detail: `Stream error: ${error.message}` })));
+      controller.close();
+    }
+  });
 }
 
 // ================= Main Handler =================

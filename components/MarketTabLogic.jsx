@@ -987,10 +987,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        // Ensure chains are loaded, fallback to 'ethereum' if chain is invalid
         let simChain = chains.find((c) => c.value === chain)?.value;
         if (!simChain && action === 'top-holders') {
-          simChain = 'ethereum'; // Fallback to 'ethereum'
+          simChain = 'ethereum';
           console.warn(`Invalid chain: ${chain}, falling back to 'ethereum'`);
         }
 
@@ -1014,13 +1013,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const payload = {
               action,
               recaptchaToken,
-              chain: simChain,
-              tokenAddress,
+              ...(simChain && { chain: simChain }),
+              ...(tokenAddress && tokenAddress.match(/^0x[a-fA-F0-9]{40}$/) && { tokenAddress }),
               ...(decimalPlace != null && { decimalPlace: Number(decimalPlace) }),
               ...(address && { address }),
             };
 
-            console.log(`Starting fetchOnChainData for action: ${action}, address: ${address}, chain: ${simChain}, tokenAddress: ${tokenAddress}`);
+            console.log(`Starting fetchOnChainData for action: ${action}, address: ${address}, chain: ${simChain}, tokenAddress: ${tokenAddress}, payload:`, JSON.stringify(payload));
 
             const response = await fetch(apiUrl, {
               method: 'POST',
@@ -1030,6 +1029,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 'x-recaptcha-token': recaptchaToken,
               },
               body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(30000), // Add timeout
             });
 
             if (!response.ok) {
@@ -1056,35 +1056,59 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               buffer += decoder.decode(value, { stream: true });
 
               try {
-                const parsed = JSON.parse(buffer);
-                if (Array.isArray(parsed)) {
-                  parsed.forEach((chunk) => {
-                    if (chunk.success && Array.isArray(chunk.data)) {
-                      data = [...data, ...chunk.data];
+                const trimmedBuffer = buffer.trim();
+                if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
+                  const parsed = JSON.parse(trimmedBuffer);
+                  if (Array.isArray(parsed)) {
+                    data = [...data, ...parsed];
+                    buffer = '';
+                  }
+                } else {
+                  const items = buffer.split(',').filter((item) => item.trim());
+                  for (const item of items) {
+                    try {
+                      const cleanedItem = item.trim().startsWith('[') || item.trim().endsWith(']') ? item.trim() : `{${item}}`;
+                      const parsedItem = JSON.parse(cleanedItem);
+                      if (Array.isArray(parsedItem)) {
+                        data = [...data, ...parsedItem];
+                      } else if (parsedItem.detail) {
+                        throw new Error(parsedItem.detail);
+                      } else {
+                        data.push(parsedItem);
+                      }
+                    } catch (e) {
+                      continue;
                     }
-                  });
-                  buffer = ''; // Clear buffer after successful parse
+                  }
+                  buffer = '';
                 }
               } catch (e) {
-                // If JSON is incomplete, continue reading next chunk
+                console.warn(`Incomplete JSON in buffer: ${e.message}, continuing...`, { buffer });
                 continue;
               }
             }
 
-            // Handle any remaining buffer
             if (buffer) {
               try {
-                const parsed = JSON.parse(buffer);
-                if (Array.isArray(parsed)) {
-                  parsed.forEach((chunk) => {
-                    if (chunk.success && Array.isArray(chunk.data)) {
-                      data = [...data, ...chunk.data];
-                    }
-                  });
+                const trimmedBuffer = buffer.trim();
+                if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
+                  const parsed = JSON.parse(trimmedBuffer);
+                  if (Array.isArray(parsed)) {
+                    data = [...data, ...parsed];
+                  }
+                } else if (trimmedBuffer) {
+                  const parsed = JSON.parse(trimmedBuffer);
+                  if (parsed.detail) {
+                    throw new Error(parsed.detail);
+                  } else if (Array.isArray(parsed)) {
+                    data = [...data, ...parsed];
+                  } else {
+                    data.push(parsed);
+                  }
                 }
               } catch (e) {
                 console.error(`Error parsing final JSON buffer for ${action}:`, { error: e.message, buffer });
-                throw new Error(`Invalid JSON response from ${action} API`);
+                throw new Error(`Invalid JSON response from ${action} API: ${e.message}`);
               }
             }
 
