@@ -464,6 +464,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       const decoder = new TextDecoder();
       let transactionsData = [];
       let buffer = '';
+      let isFirstChunk = true;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -471,64 +472,70 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
         buffer += decoder.decode(value, { stream: true });
 
-        try {
-          const trimmedBuffer = buffer.trim();
-          if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-            const parsed = JSON.parse(trimmedBuffer);
-            if (Array.isArray(parsed)) {
-              transactionsData = [...transactionsData, ...parsed];
-              buffer = '';
-            } else if (parsed.detail) {
-              throw new Error(parsed.detail);
+        // Bỏ qua dấu '[' đầu tiên nếu là chunk đầu
+        if (isFirstChunk) {
+          buffer = buffer.trim().replace(/^\[/, '');
+          isFirstChunk = false;
+        }
+
+        // Xử lý từng object hoàn chỉnh trong buffer
+        let pos = 0;
+        while (pos < buffer.length) {
+          // Bỏ qua khoảng trắng, dấu phẩy, và các ký tự không liên quan
+          while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
+            pos++;
+          }
+          if (pos >= buffer.length) break;
+
+          if (buffer[pos] === '{') {
+            let openBraces = 1;
+            let start = pos;
+            pos++;
+            while (pos < buffer.length && openBraces > 0) {
+              if (buffer[pos] === '{') openBraces++;
+              else if (buffer[pos] === '}') openBraces--;
+              pos++;
+            }
+
+            if (openBraces === 0) {
+              const objStr = buffer.substring(start, pos).trim();
+              try {
+                const parsedObj = JSON.parse(objStr);
+                if (parsedObj.detail) {
+                  throw new Error(parsedObj.detail);
+                }
+                transactionsData.push(parsedObj);
+              } catch (parseError) {
+                console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
+              }
+            } else {
+              // Object chưa hoàn chỉnh, giữ lại phần còn lại của buffer
+              break;
             }
           } else {
-            const items = buffer.split(',').filter((item) => item.trim());
-            for (const item of items) {
-              try {
-                const cleanedItem = item.trim().startsWith('[') || item.trim().endsWith(']') ? item.trim() : `{${item}}`;
-                const parsedItem = JSON.parse(cleanedItem);
-                if (Array.isArray(parsedItem)) {
-                  transactionsData = [...transactionsData, ...parsedItem];
-                } else if (parsedItem.detail) {
-                  throw new Error(parsedItem.detail);
-                } else {
-                  transactionsData.push(parsedItem);
-                }
-              } catch (e) {
-                continue;
-              }
-            }
-            buffer = '';
+            // Nếu không phải object, có thể là lỗi, bỏ qua
+            pos++;
           }
-        } catch (e) {
-          logger.warn(`Incomplete JSON in buffer: ${e.message}, continuing...`, { buffer });
-          continue;
         }
+
+        // Cập nhật buffer với phần còn lại chưa parse
+        buffer = buffer.slice(pos).trim();
       }
 
+      // Xử lý buffer cuối nếu có
       if (buffer) {
-        try {
-          const trimmedBuffer = buffer.trim();
-          if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-            const parsed = JSON.parse(trimmedBuffer);
-            if (Array.isArray(parsed)) {
-              transactionsData = [...transactionsData, ...parsed];
-            } else if (parsed.detail) {
-              throw new Error(parsed.detail);
-            }
-          } else if (trimmedBuffer) {
-            const parsed = JSON.parse(trimmedBuffer);
-            if (parsed.detail) {
-              throw new Error(parsed.detail);
-            } else if (Array.isArray(parsed)) {
-              transactionsData = [...transactionsData, ...parsed];
-            } else {
+        buffer = buffer.replace(/\]$/, '').trim(); // Bỏ dấu ']' cuối nếu có
+        if (buffer.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(buffer);
+            if (!parsed.detail) {
               transactionsData.push(parsed);
+            } else {
+              throw new Error(parsed.detail);
             }
+          } catch (e) {
+            console.error(`Error parsing final buffer: ${e.message}`, { buffer });
           }
-        } catch (e) {
-          logger.error(`Error parsing final JSON buffer: ${e.message}`, { buffer });
-          throw new Error(`Invalid JSON response from transactions API: ${e.message}`);
         }
       }
 
@@ -564,7 +571,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
       const response = await fetch(`/api/sim`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+        },
         credentials: "include",
         body: JSON.stringify({
           action: "transactions",
@@ -572,18 +582,99 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           limit: 1000,
         }),
       });
-      const text = await response.text();
-      logger.log("Raw wallet transactions response:", { walletAddress, response: text, status: response.status });
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch {
-        throw new Error("Invalid JSON response from wallet transactions API");
-      }
+
       if (!response.ok) {
-        throw new Error(result.detail || `Failed to fetch transactions for wallet ${walletAddress}`);
+        const text = await response.text();
+        let errorMessage = `Failed to fetch wallet transactions: ${response.status} ${response.statusText}`;
+        try {
+          const result = JSON.parse(text);
+          errorMessage = result.detail || errorMessage;
+        } catch {
+          errorMessage = `Failed to fetch wallet transactions: Invalid JSON response`;
+        }
+        throw new Error(errorMessage);
       }
-      const transactionsData = result.data || [];
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let transactionsData = [];
+      let buffer = '';
+      let isFirstChunk = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Bỏ qua dấu '[' đầu tiên nếu là chunk đầu
+        if (isFirstChunk) {
+          buffer = buffer.trim().replace(/^\[/, '');
+          isFirstChunk = false;
+        }
+
+        // Xử lý từng object hoàn chỉnh trong buffer
+        let pos = 0;
+        while (pos < buffer.length) {
+          // Bỏ qua khoảng trắng, dấu phẩy, và các ký tự không liên quan
+          while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
+            pos++;
+          }
+          if (pos >= buffer.length) break;
+
+          if (buffer[pos] === '{') {
+            let openBraces = 1;
+            let start = pos;
+            pos++;
+            while (pos < buffer.length && openBraces > 0) {
+              if (buffer[pos] === '{') openBraces++;
+              else if (buffer[pos] === '}') openBraces--;
+              pos++;
+            }
+
+            if (openBraces === 0) {
+              const objStr = buffer.substring(start, pos).trim();
+              try {
+                const parsedObj = JSON.parse(objStr);
+                if (parsedObj.detail) {
+                  throw new Error(parsedObj.detail);
+                }
+                transactionsData.push(parsedObj);
+              } catch (parseError) {
+                console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
+              }
+            } else {
+              // Object chưa hoàn chỉnh, giữ lại phần còn lại của buffer
+              break;
+            }
+          } else {
+            // Nếu không phải object, có thể là lỗi, bỏ qua
+            pos++;
+          }
+        }
+
+        // Cập nhật buffer với phần còn lại chưa parse
+        buffer = buffer.slice(pos).trim();
+      }
+
+      // Xử lý buffer cuối nếu có
+      if (buffer) {
+        buffer = buffer.replace(/\]$/, '').trim(); // Bỏ dấu ']' cuối nếu có
+        if (buffer.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(buffer);
+            if (!parsed.detail) {
+              transactionsData.push(parsed);
+            } else {
+              throw new Error(parsed.detail);
+            }
+          } catch (e) {
+            console.error(`Error parsing final buffer: ${e.message}`, { buffer });
+          }
+        }
+      }
+
+      logger.log("Parsed wallet transactions data:", { transactionsData });
       setWalletTransactions(transactionsData);
       logger.log("Fetched wallet transactions:", { walletAddress, data: transactionsData });
     } catch (err) {
@@ -615,7 +706,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
       const response = await fetch(`/api/sim`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+        },
         credentials: "include",
         body: JSON.stringify({
           action: "wallet-balances",
@@ -623,22 +717,101 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           limit: 2000,
         }),
       });
-      const text = await response.text();
-      logger.log("Raw wallet balances response:", { walletAddress, response: text, status: response.status });
-      let result;
-      try {
-        result = JSON.parse(text);
-      } catch {
-        throw new Error("Invalid JSON response from wallet balances API");
-      }
+
       if (!response.ok) {
-        throw new Error(result.detail || `Failed to fetch wallet balances: ${response.statusText}`);
+        const text = await response.text();
+        let errorMessage = `Failed to fetch wallet balances: ${response.status} ${response.statusText}`;
+        try {
+          const result = JSON.parse(text);
+          errorMessage = result.detail || errorMessage;
+        } catch {
+          errorMessage = `Failed to fetch wallet balances: Invalid JSON response`;
+        }
+        throw new Error(errorMessage);
       }
-      if (!result.success || !result.data) {
-        throw new Error(result.detail || "No balance data returned");
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let balancesData = [];
+      let buffer = '';
+      let isFirstChunk = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Bỏ qua dấu '[' đầu tiên nếu là chunk đầu
+        if (isFirstChunk) {
+          buffer = buffer.trim().replace(/^\[/, '');
+          isFirstChunk = false;
+        }
+
+        // Xử lý từng object hoàn chỉnh trong buffer
+        let pos = 0;
+        while (pos < buffer.length) {
+          // Bỏ qua khoảng trắng, dấu phẩy, và các ký tự không liên quan
+          while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
+            pos++;
+          }
+          if (pos >= buffer.length) break;
+
+          if (buffer[pos] === '{') {
+            let openBraces = 1;
+            let start = pos;
+            pos++;
+            while (pos < buffer.length && openBraces > 0) {
+              if (buffer[pos] === '{') openBraces++;
+              else if (buffer[pos] === '}') openBraces--;
+              pos++;
+            }
+
+            if (openBraces === 0) {
+              const objStr = buffer.substring(start, pos).trim();
+              try {
+                const parsedObj = JSON.parse(objStr);
+                if (parsedObj.detail) {
+                  throw new Error(parsedObj.detail);
+                }
+                balancesData.push(parsedObj);
+              } catch (parseError) {
+                console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
+              }
+            } else {
+              // Object chưa hoàn chỉnh, giữ lại phần còn lại của buffer
+              break;
+            }
+          } else {
+            // Nếu không phải object, có thể là lỗi, bỏ qua
+            pos++;
+          }
+        }
+
+        // Cập nhật buffer với phần còn lại chưa parse
+        buffer = buffer.slice(pos).trim();
       }
-      logger.log("Parsed wallet balances:", { walletAddress, data: result.data });
-      setWalletBalances(result.data || []);
+
+      // Xử lý buffer cuối nếu có
+      if (buffer) {
+        buffer = buffer.replace(/\]$/, '').trim(); // Bỏ dấu ']' cuối nếu có
+        if (buffer.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(buffer);
+            if (!parsed.detail) {
+              balancesData.push(parsed);
+            } else {
+              throw new Error(parsed.detail);
+            }
+          } catch (e) {
+            console.error(`Error parsing final buffer: ${e.message}`, { buffer });
+          }
+        }
+      }
+
+      logger.log("Parsed wallet balances data:", { balancesData });
+      setWalletBalances(balancesData);
+      logger.log("Fetched wallet balances:", { walletAddress, data: balancesData });
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching wallet balances";
       logger.error("Error fetching wallet balances:", { walletAddress, error: errorMessage, stack: err.stack });
