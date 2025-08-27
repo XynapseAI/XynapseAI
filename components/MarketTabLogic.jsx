@@ -987,20 +987,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        // Ensure chains are loaded, fallback to 'ethereum' if chain is invalid
-        let simChain = chains.find((c) => c.value === chain)?.value;
-        if (!simChain && action === 'top-holders') {
-          simChain = 'ethereum'; // Fallback to 'ethereum'
-          console.warn(`Invalid chain: ${chain}, falling back to 'ethereum'`);
-        }
-
-        if (!simChain && action !== 'wallet-balances' && action !== 'transactions') {
-          const errorMessage = `No valid chain found for ${chain}`;
-          console.error(errorMessage);
-          setOnChainError(errorMessage);
-          setIsLoadingOnChain(false);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-          return;
+        // Đặt chain mặc định là 'ethereum' cho wallet-balances nếu không có chain
+        let simChain = chains.find((c) => c.value === chain)?.value || 'ethereum';
+        if (action === 'wallet-balances' || action === 'transactions') {
+          simChain = null; // Không gửi chain cho wallet-balances hoặc transactions
         }
 
         const cacheKey = `onchain-${simChain || 'wallet'}-${tokenAddress || address}-${action}`;
@@ -1009,105 +999,87 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         else if (action === 'transactions') setIsLoadingTransactions(true);
 
         try {
-          const fetchFn = async () => {
-            const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}/api/sim`;
-            const payload = {
-              action,
-              recaptchaToken,
-              chain: simChain,
-              tokenAddress,
-              ...(decimalPlace != null && { decimalPlace: Number(decimalPlace) }),
-              ...(address && { address }),
-            };
-
-            console.log(`Starting fetchOnChainData for action: ${action}, address: ${address}, chain: ${simChain}, tokenAddress: ${tokenAddress}`);
-
-            const response = await fetch(apiUrl, {
-              method: 'POST',
-              headers: {
-                Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-                'Content-Type': 'application/json',
-                'x-recaptcha-token': recaptchaToken,
-              },
-              body: JSON.stringify(payload),
-            });
-
-            if (!response.ok) {
-              const text = await response.text();
-              let errorMessage = `Failed to fetch ${action} data: ${response.status} ${response.statusText}`;
-              try {
-                const result = JSON.parse(text);
-                errorMessage = result.detail || errorMessage;
-              } catch {
-                errorMessage = `Failed to fetch ${action} data: Invalid JSON response`;
-              }
-              throw new Error(errorMessage);
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let data = [];
-            let buffer = '';
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              buffer += decoder.decode(value, { stream: true });
-
-              try {
-                const parsed = JSON.parse(buffer);
-                if (Array.isArray(parsed)) {
-                  parsed.forEach((chunk) => {
-                    if (chunk.success && Array.isArray(chunk.data)) {
-                      data = [...data, ...chunk.data];
-                    }
-                  });
-                  buffer = ''; // Clear buffer after successful parse
-                }
-              } catch (e) {
-                // If JSON is incomplete, continue reading next chunk
-                continue;
-              }
-            }
-
-            // Handle any remaining buffer
-            if (buffer) {
-              try {
-                const parsed = JSON.parse(buffer);
-                if (Array.isArray(parsed)) {
-                  parsed.forEach((chunk) => {
-                    if (chunk.success && Array.isArray(chunk.data)) {
-                      data = [...data, ...chunk.data];
-                    }
-                  });
-                }
-              } catch (e) {
-                console.error(`Error parsing final JSON buffer for ${action}:`, { error: e.message, buffer });
-                throw new Error(`Invalid JSON response from ${action} API`);
-              }
-            }
-
-            console.log(`Parsed ${action} data:`, { address, data });
-            return data;
+          const apiUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}/api/sim`;
+          const payload = {
+            action,
+            recaptchaToken,
+            ...(action === 'top-holders' && { chain: simChain, tokenAddress }), // Chỉ gửi chain và tokenAddress cho top-holders
+            ...(action === 'wallet-balances' && { address }), // Chỉ gửi address cho wallet-balances
+            ...(action === 'transactions' && { address }), // Chỉ gửi address cho transactions
+            ...(decimalPlace != null && action === 'top-holders' && { decimalPlace: Number(decimalPlace) }),
           };
 
-          const ttl = action === 'transactions' ? CACHE_DURATIONS.TRANSACTIONS : CACHE_DURATIONS.DEFAULT;
-          const data = await getCachedData(cacheKey, fetchFn, ttl);
-          console.log(`Setting ${action} data:`, data);
+          console.log(`Starting fetchOnChainData for action: ${action}, address: ${address}, chain: ${simChain}, tokenAddress: ${tokenAddress}`);
+          console.log('Payload:', payload);
 
-          if (action === 'top-holders') {
-            setOnChainData((prev) => ({
-              ...prev,
-              topHolders: data,
-            }));
-          } else if (action === 'wallet-balances') {
-            setWalletBalances(data);
-            setWalletBalancesError(null);
-          } else if (action === 'transactions') {
-            setTransactions(data);
-            setTransactionsError(null);
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+              'Content-Type': 'application/json',
+              'x-recaptcha-token': recaptchaToken,
+            },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            const text = await response.text();
+            let errorMessage = `Failed to fetch ${action} data: ${response.status} ${response.statusText}`;
+            try {
+              const result = JSON.parse(text);
+              errorMessage = result.detail || errorMessage;
+            } catch {
+              errorMessage = `Failed to fetch ${action} data: Invalid JSON response`;
+            }
+            throw new Error(errorMessage);
           }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let data = [];
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+
+            try {
+              const parsed = JSON.parse(buffer);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((chunk) => {
+                  if (chunk.success && Array.isArray(chunk.data)) {
+                    data = [...data, ...chunk.data];
+                  }
+                });
+                buffer = ''; // Clear buffer sau khi parse thành công
+              }
+            } catch (e) {
+              // Nếu JSON không đầy đủ, tiếp tục đọc chunk tiếp theo
+              continue;
+            }
+          }
+
+          // Handle any remaining buffer
+          if (buffer) {
+            try {
+              const parsed = JSON.parse(buffer);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((chunk) => {
+                  if (chunk.success && Array.isArray(chunk.data)) {
+                    data = [...data, ...chunk.data];
+                  }
+                });
+              }
+            } catch (e) {
+              console.error(`Error parsing final JSON buffer for ${action}:`, { error: e.message, buffer });
+              throw new Error(`Invalid JSON response from ${action} API`);
+            }
+          }
+
+          console.log(`Parsed ${action} data:`, { address, data });
+          return data;
         } catch (error) {
           const errorMessage =
             error.response?.status === 429
