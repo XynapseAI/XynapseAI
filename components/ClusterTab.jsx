@@ -435,17 +435,11 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         requestBody.minValueUsd = minValueUsd;
       }
 
-      logger.log("Starting fetchTransactions", { walletAddresses, requestBody });
-
       const response = await fetch(`/api/sim`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(50000), // Add timeout
       });
 
       if (!response.ok) {
@@ -469,66 +463,41 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         const { done, value } = await reader.read();
         if (done) break;
 
+        // Decode chunk and append to buffer
         buffer += decoder.decode(value, { stream: true });
 
+        // Try to parse buffer as JSON
         try {
-          const trimmedBuffer = buffer.trim();
-          if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-            const parsed = JSON.parse(trimmedBuffer);
-            if (Array.isArray(parsed)) {
-              transactionsData = [...transactionsData, ...parsed];
-              buffer = '';
-            } else if (parsed.detail) {
-              throw new Error(parsed.detail);
-            }
-          } else {
-            const items = buffer.split(',').filter((item) => item.trim());
-            for (const item of items) {
-              try {
-                const cleanedItem = item.trim().startsWith('[') || item.trim().endsWith(']') ? item.trim() : `{${item}}`;
-                const parsedItem = JSON.parse(cleanedItem);
-                if (Array.isArray(parsedItem)) {
-                  transactionsData = [...transactionsData, ...parsedItem];
-                } else if (parsedItem.detail) {
-                  throw new Error(parsedItem.detail);
-                } else {
-                  transactionsData.push(parsedItem);
-                }
-              } catch (e) {
-                continue;
+          const parsed = JSON.parse(buffer);
+          if (Array.isArray(parsed)) {
+            // Accumulate data from each chunk
+            parsed.forEach((chunk) => {
+              if (chunk.success && Array.isArray(chunk.data)) {
+                transactionsData = [...transactionsData, ...chunk.data];
               }
-            }
-            buffer = '';
+            });
+            buffer = ''; // Clear buffer after successful parse
           }
         } catch (e) {
-          logger.warn(`Incomplete JSON in buffer: ${e.message}, continuing...`, { buffer });
+          // If JSON is incomplete, continue reading next chunk
           continue;
         }
       }
 
+      // Handle any remaining buffer
       if (buffer) {
         try {
-          const trimmedBuffer = buffer.trim();
-          if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-            const parsed = JSON.parse(trimmedBuffer);
-            if (Array.isArray(parsed)) {
-              transactionsData = [...transactionsData, ...parsed];
-            } else if (parsed.detail) {
-              throw new Error(parsed.detail);
-            }
-          } else if (trimmedBuffer) {
-            const parsed = JSON.parse(trimmedBuffer);
-            if (parsed.detail) {
-              throw new Error(parsed.detail);
-            } else if (Array.isArray(parsed)) {
-              transactionsData = [...transactionsData, ...parsed];
-            } else {
-              transactionsData.push(parsed);
-            }
+          const parsed = JSON.parse(buffer);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((chunk) => {
+              if (chunk.success && Array.isArray(chunk.data)) {
+                transactionsData = [...transactionsData, ...chunk.data];
+              }
+            });
           }
         } catch (e) {
-          logger.error(`Error parsing final JSON buffer: ${e.message}`, { buffer });
-          throw new Error(`Invalid JSON response from transactions API: ${e.message}`);
+          logger.error("Error parsing final JSON buffer:", { error: e.message, buffer });
+          throw new Error("Invalid JSON response from transactions API");
         }
       }
 
@@ -915,16 +884,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     if (status !== "authenticated") {
       return <LoginPrompt />;
     }
-    logger.log("Rendering transactions:", { transactions, transactionsError, isLoadingTransactions });
+    logger.log("Rendering transactions:", { transactions }); // Thêm log để kiểm tra
     return (
       <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
         <LoadingOverlay isLoading={isLoadingTransactions} isMobile={isMobile} />
         {isLoadingTransactions ? (
           <SkeletonLoader count={5} isMobile={isMobile} />
-        ) : transactionsError ? (
-          <p className="text-[10px] sm:text-xs text-red-400 text-center p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
-            Error: {transactionsError}
-          </p>
         ) : transactions.length > 0 ? (
           <table className="w-full text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-white/5">
@@ -939,7 +904,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             </thead>
             <tbody>
               {transactions.map((tx, index) => {
-                logger.log("Processing transaction:", { tx, index });
+                logger.log("Processing transaction:", { tx }); // Log mỗi giao dịch
                 const chainName = typeof tx.chain === "string" ? tx.chain.toLowerCase() : (tx.chain_id || "unknown").toString().toLowerCase();
                 if (chainName === "bitcoin") return null;
 
@@ -955,9 +920,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 };
                 const chain = chainName !== "unknown" ? chainName : "ethereum";
                 const { txUrl } = getExplorerUrls(chain, tx.hash || "", "");
-                const tokenSymbol = tx.token_metadata?.symbol || tx.token || "Unknown";
+                const tokenSymbol = tx.token_metadata?.symbol || "Unknown";
                 const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
-                let displayValue = Number(tx.value || 0).toLocaleString("en-US", { maximumFractionDigits: 1 });
+                let displayValue = Number(tx.value).toLocaleString("en-US", { maximumFractionDigits: 1 });
                 let tokenLogo = tx.token_metadata?.logo || "/fallback-image.png";
 
                 if (tx.type === "swap" && tx.swap_details) {
@@ -1100,12 +1065,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                       <div className="flex flex-col items-center gap-1">
                         <span
                           className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === "receive"
-                              ? "bg-neon-green/20 text-neon-green"
-                              : tx.type === "send"
-                                ? "bg-neon-blue/20 text-neon-blue"
-                                : tx.type === "swap"
-                                  ? "bg-purple-400/20 text-purple-400"
-                                  : "bg-white/20 text-white/60"
+                            ? "bg-neon-green/20 text-neon-green"
+                            : tx.type === "send"
+                              ? "bg-neon-blue/20 text-neon-blue"
+                              : tx.type === "swap"
+                                ? "bg-purple-400/20 text-purple-400"
+                                : "bg-white/20 text-white/60"
                             }`}
                         >
                           {typeDisplay}
