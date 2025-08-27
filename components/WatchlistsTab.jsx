@@ -317,18 +317,12 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
   const fetchDataQuery = async (action, address, chainType) => {
     const isValidEVM = isAddress(address);
-    const isValidSVM = isValidSolanaAddress(address);
-    if (!isValidEVM && !isValidSVM) {
-      throw new Error(`Invalid address format for ${address}`);
-    }
-
     const cacheKey = `${action}-${address}-${chainType}`;
     let cachedData = null;
 
     try {
       cachedData = await getCachedData(cacheKey);
       if (cachedData) {
-        logger.log(`Cache hit for ${cacheKey}`, { data: cachedData });
         return cachedData;
       }
     } catch (error) {
@@ -343,99 +337,25 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     };
 
     try {
-      const apiUrl = `${API_BASE_URL}/api/sim`;
-      logger.log(`Fetching ${action} for address: ${address}, chainType: ${chainType}`, { payload });
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
+      const response = await axios.post(`${API_BASE_URL}/api/sim`, payload, {
         headers: {
           'Content-Type': 'application/json',
           ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-          'x-recaptcha-token': 'no-recaptcha', // Thêm nếu API yêu cầu token reCAPTCHA
         },
-        body: JSON.stringify(payload),
-        credentials: 'include',
+        withCredentials: true,
+        timeout: 30000,
       });
 
-      if (!response.ok) {
-        const text = await response.text();
-        let errorMessage = `Failed to fetch ${action} data: ${response.status} ${response.statusText}`;
-        try {
-          const result = JSON.parse(text);
-          errorMessage = result.detail || errorMessage;
-        } catch {
-          errorMessage = `Failed to fetch ${action} data: Invalid JSON response`;
-        }
-        throw new Error(errorMessage);
+      if (!response.data.success) throw new Error(response.data.detail || `Failed to load ${action} data`);
+
+      try {
+        await cacheData(cacheKey, response.data.data);
+      } catch (cacheError) {
+        logger.warn(`Failed to cache data for ${cacheKey}`, { cacheError });
       }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let data = [];
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        try {
-          const parsed = JSON.parse(buffer);
-          if (Array.isArray(parsed)) {
-            parsed.forEach((chunk) => {
-              if (chunk.success && Array.isArray(chunk.data)) {
-                data = [...data, ...chunk.data];
-              }
-            });
-            buffer = ''; // Clear buffer after successful parse
-          }
-        } catch (e) {
-          // If JSON is incomplete, continue reading next chunk
-          continue;
-        }
-      }
-
-      // Handle any remaining buffer
-      if (buffer) {
-        try {
-          const parsed = JSON.parse(buffer);
-          if (Array.isArray(parsed)) {
-            parsed.forEach((chunk) => {
-              if (chunk.success && Array.isArray(chunk.data)) {
-                data = [...data, ...chunk.data];
-              }
-            });
-          }
-        } catch (e) {
-          logger.error(`Error parsing final JSON buffer for ${action}:`, { error: e.message, buffer });
-          throw new Error(`Invalid JSON response from ${action} API`);
-        }
-      }
-
-      logger.log(`Parsed ${action} data:`, { address, data });
-
-      if (data.length > 0) {
-        try {
-          await cacheData(cacheKey, data);
-          logger.log(`Cached data for ${cacheKey}`);
-        } catch (cacheError) {
-          logger.warn(`Failed to cache data for ${cacheKey}`, { cacheError });
-        }
-      }
-
-      return data;
+      return response.data.data;
     } catch (error) {
-      const errorMessage =
-        error.response?.status === 429
-          ? 'Too many requests. Please try again later.'
-          : error.response?.status === 401
-            ? 'Unauthorized: Please log in again.'
-            : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
-              ? 'reCAPTCHA verification failed. Please try again.'
-              : error.response?.data?.detail || `Dune Sim API error for action ${action}: ${error.message}`;
-      logger.error(`Error fetching ${action}:`, { errorMessage, stack: error.stack });
-      throw new Error(errorMessage);
+      throw new Error(error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`);
     }
   };
 
@@ -504,12 +424,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         .map((b) => ({ address: b.address, chain: b.chain }))
         .slice(0, 5);
       const tokenInfoData = {};
-
       for (const { address, chain } of tokenAddresses) {
         const isValidEVM = isAddress(address);
         const isValidSVM = isValidSolanaAddress(address);
         if (!isValidEVM && !isValidSVM) continue;
-
         const cacheKey = `tokenInfo-${address}-${chain}`;
         let cachedData = null;
         try {
@@ -521,7 +439,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         } catch (error) {
           logger.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, { error });
         }
-
         try {
           const payload = {
             action: 'wallet-balances',
@@ -530,80 +447,15 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             limit: 1,
             metadata: 'logo',
           };
-
-          logger.log(`Fetching token info for address: ${address}, chain: ${chain}`, { payload });
-
-          const response = await fetch(`${API_BASE_URL}/api/sim`, {
-            method: 'POST',
+          const response = await axios.post(`${API_BASE_URL}/api/sim`, payload, {
             headers: {
               'Content-Type': 'application/json',
               ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-              'x-recaptcha-token': 'no-recaptcha', // Thêm nếu API yêu cầu token reCAPTCHA
             },
-            body: JSON.stringify(payload),
-            credentials: 'include',
+            timeout: 30000,
           });
-
-          if (!response.ok) {
-            const text = await response.text();
-            let errorMessage = `Failed to fetch token info for ${address} on ${chain}: ${response.status} ${response.statusText}`;
-            try {
-              const result = JSON.parse(text);
-              errorMessage = result.detail || errorMessage;
-            } catch {
-              errorMessage = `Failed to fetch token info for ${address} on ${chain}: Invalid JSON response`;
-            }
-            throw new Error(errorMessage);
-          }
-
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let data = [];
-          let buffer = '';
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-
-            try {
-              const parsed = JSON.parse(buffer);
-              if (Array.isArray(parsed)) {
-                parsed.forEach((chunk) => {
-                  if (chunk.success && Array.isArray(chunk.data)) {
-                    data = [...data, ...chunk.data];
-                  }
-                });
-                buffer = ''; // Clear buffer after successful parse
-              }
-            } catch (e) {
-              // If JSON is incomplete, continue reading next chunk
-              continue;
-            }
-          }
-
-          // Handle any remaining buffer
-          if (buffer) {
-            try {
-              const parsed = JSON.parse(buffer);
-              if (Array.isArray(parsed)) {
-                parsed.forEach((chunk) => {
-                  if (chunk.success && Array.isArray(chunk.data)) {
-                    data = [...data, ...chunk.data];
-                  }
-                });
-              }
-            } catch (e) {
-              logger.error(`Error parsing final JSON buffer for token info ${address} on ${chain}:`, { error: e.message, buffer });
-              throw new Error(`Invalid JSON response from token info API`);
-            }
-          }
-
-          logger.log(`Parsed token info for ${address} on ${chain}:`, { data });
-
-          if (data.length > 0) {
-            const tokenData = data[0];
+          if (response.data.success && response.data.data.length > 0) {
+            const tokenData = response.data.data[0];
             const tokenInfo = [
               {
                 chain,
@@ -615,19 +467,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             tokenInfoData[address] = tokenInfo;
             try {
               await cacheData(cacheKey, tokenInfo);
-              logger.log(`Cached token info for ${cacheKey}`);
             } catch (cacheError) {
-              logger.warn(`Failed to cache token info for ${cacheKey}`, { cacheError });
+              logger.warn(`Failed to cache data for ${cacheKey}`, { cacheError });
             }
-          } else {
-            tokenInfoData[address] = [
-              {
-                chain,
-                symbol: 'Unknown',
-                logo: '/fallback-image.png',
-                name: 'Unknown Token',
-              },
-            ];
           }
         } catch (err) {
           logger.error(`Error fetching token info for ${address} on ${chain}:`, { error: err });
@@ -1743,8 +1585,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md ${currentPage[activeTab] === getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-neon-blue/20'
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:bg-neon-blue/20'
                         } transition-all duration-300 rounded-xl`}
                     >
                       &gt;

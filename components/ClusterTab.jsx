@@ -441,66 +441,16 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         credentials: "include",
         body: JSON.stringify(requestBody),
       });
-
-      if (!response.ok) {
-        const text = await response.text();
-        let errorMessage = `Failed to fetch transactions: ${response.status} ${response.statusText}`;
-        try {
-          const result = JSON.parse(text);
-          errorMessage = result.detail || errorMessage;
-        } catch {
-          errorMessage = `Failed to fetch transactions: Invalid JSON response`;
-        }
-        throw new Error(errorMessage);
+      const text = await response.text();
+      logger.log("Raw transactions response:", { walletAddresses, response: text });
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error("Invalid JSON response from transactions API");
       }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let transactionsData = [];
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // Decode chunk and append to buffer
-        buffer += decoder.decode(value, { stream: true });
-
-        // Try to parse buffer as JSON
-        try {
-          const parsed = JSON.parse(buffer);
-          if (Array.isArray(parsed)) {
-            // Accumulate data from each chunk
-            parsed.forEach((chunk) => {
-              if (chunk.success && Array.isArray(chunk.data)) {
-                transactionsData = [...transactionsData, ...chunk.data];
-              }
-            });
-            buffer = ''; // Clear buffer after successful parse
-          }
-        } catch (e) {
-          // If JSON is incomplete, continue reading next chunk
-          continue;
-        }
-      }
-
-      // Handle any remaining buffer
-      if (buffer) {
-        try {
-          const parsed = JSON.parse(buffer);
-          if (Array.isArray(parsed)) {
-            parsed.forEach((chunk) => {
-              if (chunk.success && Array.isArray(chunk.data)) {
-                transactionsData = [...transactionsData, ...chunk.data];
-              }
-            });
-          }
-        } catch (e) {
-          logger.error("Error parsing final JSON buffer:", { error: e.message, buffer });
-          throw new Error("Invalid JSON response from transactions API");
-        }
-      }
-
+      if (!response.ok) throw new Error(result.detail || "Failed to fetch transactions");
+      const transactionsData = result.data || [];
       logger.log("Parsed transactions data:", { transactionsData });
       setTransactions(transactionsData);
       logger.log("Fetched transactions:", { walletAddresses, minValueUsd, data: transactionsData });
@@ -509,7 +459,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       logger.error("Error fetching transactions:", { input, minValueUsd, error: errorMessage, stack: err.stack });
       setTransactions([]);
       setTransactionsError(errorMessage);
-      toast.error(errorMessage, { position: "top-center", autoClose: 3000 });
     } finally {
       setIsLoadingTransactions(false);
     }
@@ -884,7 +833,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     if (status !== "authenticated") {
       return <LoginPrompt />;
     }
-    logger.log("Rendering transactions:", { transactions }); // Thêm log để kiểm tra
     return (
       <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
         <LoadingOverlay isLoading={isLoadingTransactions} isMobile={isMobile} />
@@ -903,205 +851,206 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((tx, index) => {
-                logger.log("Processing transaction:", { tx }); // Log mỗi giao dịch
-                const chainName = typeof tx.chain === "string" ? tx.chain.toLowerCase() : (tx.chain_id || "unknown").toString().toLowerCase();
-                if (chainName === "bitcoin") return null;
+              {transactions
+                .filter((tx) => tx.type !== "approve")
+                .map((tx, index) => {
+                  const chainName = typeof tx.chain === "string" ? tx.chain.toLowerCase() : (tx.chain_id || "unknown").toString().toLowerCase();
+                  if (chainName === "bitcoin") return null;
 
-                const fromWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
-                const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
-                const fromNtag = {
-                  name: fromWallet.name_tag || "N/A",
-                  image: fromWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
-                };
-                const toNtag = {
-                  name: toWallet.name_tag || "N/A",
-                  image: toWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
-                };
-                const chain = chainName !== "unknown" ? chainName : "ethereum";
-                const { txUrl } = getExplorerUrls(chain, tx.hash || "", "");
-                const tokenSymbol = tx.token_metadata?.symbol || "Unknown";
-                const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
-                let displayValue = Number(tx.value).toLocaleString("en-US", { maximumFractionDigits: 1 });
-                let tokenLogo = tx.token_metadata?.logo || "/fallback-image.png";
+                  const fromWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
+                  const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
+                  const fromNtag = {
+                    name: fromWallet.name_tag || "N/A",
+                    image: fromWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
+                  };
+                  const toNtag = {
+                    name: toWallet.name_tag || "N/A",
+                    image: toWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
+                  };
+                  const chain = chainName !== "unknown" ? chainName : "ethereum";
+                  const { txUrl } = getExplorerUrls(chain, tx.hash || "", "");
+                  const tokenSymbol = tx.token_metadata?.symbol || "Unknown";
+                  const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
+                  let displayValue = Number(tx.value).toLocaleString("en-US", { maximumFractionDigits: 1 });
+                  let tokenLogo = tx.token_metadata?.logo || "/fallback-image.png";
 
-                if (tx.type === "swap" && tx.swap_details) {
-                  const sent = tx.swap_details.sent[0];
-                  const received = tx.swap_details.received[0];
-                  if (sent && received) {
-                    displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol} → ${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
-                    tokenSymbol = `${sent.symbol}/${received.symbol}`;
-                    tokenLogo = sent.logo || received.logo || "/fallback-image.png";
-                  } else if (sent) {
-                    displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol}`;
-                    tokenSymbol = sent.symbol;
-                    tokenLogo = sent.logo || "/fallback-image.png";
-                  } else if (received) {
-                    displayValue = `${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
-                    tokenSymbol = received.symbol;
-                    tokenLogo = received.logo || "/fallback-image.png";
+                  if (tx.type === "swap" && tx.swap_details) {
+                    const sent = tx.swap_details.sent[0];
+                    const received = tx.swap_details.received[0];
+                    if (sent && received) {
+                      displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol} → ${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
+                      tokenSymbol = `${sent.symbol}/${received.symbol}`;
+                      tokenLogo = sent.logo || received.logo || "/fallback-image.png";
+                    } else if (sent) {
+                      displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol}`;
+                      tokenSymbol = sent.symbol;
+                      tokenLogo = sent.logo || "/fallback-image.png";
+                    } else if (received) {
+                      displayValue = `${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
+                      tokenSymbol = received.symbol;
+                      tokenLogo = received.logo || "/fallback-image.png";
+                    }
+                  } else if (tx.type === "other") {
+                    displayValue = tx.value || "N/A";
                   }
-                } else if (tx.type === "other") {
-                  displayValue = tx.value || "N/A";
-                }
 
-                return (
-                  <motion.tr
-                    key={`${tx.hash}-${index}`}
-                    className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.02 }}
-                  >
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
-                      <div className="flex items-center gap-2 relative">
-                        <div className="relative flex-shrink-0">
-                          <img
-                            src={tokenLogo}
-                            alt={`${tokenSymbol} logo`}
-                            width={isMobile ? 14 : 16}
-                            height={isMobile ? 14 : 16}
-                            className="rounded-full"
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
-                            loading="lazy"
-                          />
-                          <img
-                            src={chainLogos[chain] || "/fallback-image.png"}
-                            alt={`${CHAIN_ID_TO_NAME[chain] || chain || "Unknown"} logo`}
-                            width={isMobile ? 8 : 10}
-                            height={isMobile ? 8 : 10}
-                            className="rounded-full absolute top-0 left-0"
-                            style={{ transform: "translate(-25%, -25%)" }}
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
-                            loading="lazy"
-                          />
+                  return (
+                    <motion.tr
+                      key={`${tx.hash}-${index}`}
+                      className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.02 }}
+                    >
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
+                        <div className="flex items-center gap-2 relative">
+                          <div className="relative flex-shrink-0">
+                            <img
+                              src={tokenLogo}
+                              alt={`${tokenSymbol} logo`}
+                              width={isMobile ? 14 : 16}
+                              height={isMobile ? 14 : 16}
+                              className="rounded-full"
+                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              loading="lazy"
+                            />
+                            <img
+                              src={chainLogos[chain] || "/fallback-image.png"}
+                              alt={`${CHAIN_ID_TO_NAME[chain] || chain || "Unknown"} logo`}
+                              width={isMobile ? 8 : 10}
+                              height={isMobile ? 8 : 10}
+                              className="rounded-full absolute top-0 left-0"
+                              style={{ transform: "translate(-25%, -25%)" }}
+                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              loading="lazy"
+                            />
+                          </div>
+                          <span>{tokenSymbol}</span>
                         </div>
-                        <span>{tokenSymbol}</span>
-                      </div>
-                    </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
-                      <div className="flex items-center gap-2 group relative">
-                        <img
-                          src={fromNtag.image}
-                          alt="From wallet logo"
-                          className="w-4 h-4 inline mr-2 rounded-full"
-                          onError={(e) => (e.target.src = "/fallback-image.png")}
-                        />
-                        <button
-                          onClick={() => handleWalletClick(tx.from)}
-                          className="text-white hover:text-white/80 no-hover-effect"
-                        >
-                          {fromNtag.name !== "N/A" ? fromNtag.name : truncateAddress(tx.from).text}
-                        </button>
-                        <motion.button
-                          onClick={() => {
-                            navigator.clipboard.writeText(tx.from);
-                            toast.success("Address copied!", { autoClose: 2000 });
-                          }}
-                          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          aria-label="Copy from address"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
-                          </svg>
-                        </motion.button>
-                      </div>
-                    </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
-                      <div className="flex items-center gap-2 group relative">
-                        <img
-                          src={toNtag.image}
-                          alt="To wallet logo"
-                          className="w-4 h-4 inline mr-2 rounded-full"
-                          onError={(e) => (e.target.src = "/fallback-image.png")}
-                        />
-                        <button
-                          onClick={() => handleWalletClick(tx.to)}
-                          className="text-white hover:text-white/80 no-hover-effect"
-                        >
-                          {toNtag.name !== "N/A" ? toNtag.name : truncateAddress(tx.to).text}
-                        </button>
-                        <motion.button
-                          onClick={() => {
-                            navigator.clipboard.writeText(tx.to);
-                            toast.success("Address copied!", { autoClose: 2000 });
-                          }}
-                          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          aria-label="Copy to address"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
-                          </svg>
-                        </motion.button>
-                      </div>
-                    </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <span
-                          className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === "receive"
-                            ? "bg-neon-green/20 text-neon-green"
-                            : tx.type === "send"
-                              ? "bg-neon-blue/20 text-neon-blue"
-                              : tx.type === "swap"
-                                ? "bg-purple-400/20 text-purple-400"
-                                : "bg-white/20 text-white/60"
-                            }`}
-                        >
-                          {typeDisplay}
-                        </span>
-                        <span>{displayValue}</span>
-                      </div>
-                    </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
-                      {formatPrice(Number(tx.value_usd) || 0, currency, 2)}
-                    </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] w-[120px] sm:w-[140px]">
-                      <div className="flex flex-col items-center justify-center gap-0.5">
-                        <a href={txUrl} target="_blank" rel="noopener noreferrer">
+                      </td>
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
+                        <div className="flex items-center gap-2 group relative">
                           <img
-                            src="/logos/etherscan-logo.png"
-                            alt="Explorer"
-                            width={isMobile ? 12 : 14}
-                            height={isMobile ? 12 : 14}
-                            className="rounded-full"
+                            src={fromNtag.image}
+                            alt="From wallet logo"
+                            className="w-4 h-4 inline mr-2 rounded-full"
                             onError={(e) => (e.target.src = "/fallback-image.png")}
-                            loading="lazy"
                           />
-                        </a>
-                        <span className="text-[8px] sm:text-[9px] text-white/60">
-                          {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : "N/A"}
-                        </span>
-                      </div>
-                    </td>
-                  </motion.tr>
-                );
-              })}
+                          <button
+                            onClick={() => handleWalletClick(tx.from)}
+                            className="text-white hover:text-white/80 no-hover-effect"
+                          >
+                            {fromNtag.name !== "N/A" ? fromNtag.name : truncateAddress(tx.from).text}
+                          </button>
+                          <motion.button
+                            onClick={() => {
+                              navigator.clipboard.writeText(tx.from);
+                              toast.success("Address copied!", { autoClose: 2000 });
+                            }}
+                            className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            aria-label="Copy from address"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </motion.button>
+                        </div>
+                      </td>
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
+                        <div className="flex items-center gap-2 group relative">
+                          <img
+                            src={toNtag.image}
+                            alt="To wallet logo"
+                            className="w-4 h-4 inline mr-2 rounded-full"
+                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                          />
+                          <button
+                            onClick={() => handleWalletClick(tx.to)}
+                            className="text-white hover:text-white/80 no-hover-effect"
+                          >
+                            {toNtag.name !== "N/A" ? toNtag.name : truncateAddress(tx.to).text}
+                          </button>
+                          <motion.button
+                            onClick={() => {
+                              navigator.clipboard.writeText(tx.to);
+                              toast.success("Address copied!", { autoClose: 2000 });
+                            }}
+                            className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            aria-label="Copy to address"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </motion.button>
+                        </div>
+                      </td>
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === "receive"
+                              ? "bg-neon-green/20 text-neon-green"
+                              : tx.type === "send"
+                                ? "bg-neon-blue/20 text-neon-blue"
+                                : tx.type === "swap"
+                                  ? "bg-purple-400/20 text-purple-400"
+                                  : "bg-white/20 text-white/60"
+                              }`}
+                          >
+                            {typeDisplay}
+                          </span>
+                          <span>{displayValue}</span>
+                        </div>
+                      </td>
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px]">
+                        {formatPrice(Number(tx.value_usd) || 0, currency, 2)}
+                      </td>
+                      <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] w-[120px] sm:w-[140px]">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <a href={txUrl} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src="/logos/etherscan-logo.png"
+                              alt="Explorer"
+                              width={isMobile ? 12 : 14}
+                              height={isMobile ? 12 : 14}
+                              className="rounded-full"
+                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              loading="lazy"
+                            />
+                          </a>
+                          <span className="text-[8px] sm:text-[9px] text-white/60">
+                            {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : "N/A"}
+                          </span>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
             </tbody>
           </table>
         ) : (
