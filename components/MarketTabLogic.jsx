@@ -160,7 +160,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       const localCached = localCache.current[key];
       if (localCached && Date.now() - localCached.timestamp < ttl) {
         console.log(`Local cache hit for ${key}`);
-        // Schedule background refresh only if cache is fully expired
         if (Date.now() - localCached.timestamp >= ttl) {
           cacheLimiter.schedule(async () => {
             try {
@@ -196,7 +195,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           console.log(`Redis cache hit for ${key}`);
           localCache.current[key] = { data: cacheResponse.data.data, timestamp: Date.now() };
           localCache.current[`${key}_last_update`] = Date.now();
-          // Schedule background refresh if cache is older than 75% of TTL
           if (Date.now() - (localCache.current[`${key}_last_update`] || 0) > ttl * 0.75) {
             cacheLimiter.schedule(async () => {
               try {
@@ -242,7 +240,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         console.log(`Cached data for ${key}`);
         return data || [];
       }
-      return [];
+      throw new Error(`No data returned for ${key}`);
     } catch (error) {
       if (retryCount < 3 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) {
         const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
@@ -250,7 +248,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return getCachedData(key, fetchFn, ttl, retryCount + 1);
       }
       console.error(`Cache or fetch error for ${key}:`, error.message);
-      return [];
+      throw new Error(`Failed to fetch data for ${key}: ${error.message}`);
     }
   };
 
@@ -986,15 +984,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setIsLoadingOnChain(false);
           setIsLoadingWalletBalances(false);
           setIsLoadingTransactions(false);
-          // Xóa toast.error để tránh hiển thị thông báo
-          // toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           return;
         }
 
-        // Ensure chains are loaded, fallback to 'ethereum' if chain is invalid
         let simChain = chains.find((c) => c.value === chain)?.value;
         if (!simChain && action === 'top-holders') {
-          simChain = 'ethereum'; // Fallback to 'ethereum'
+          simChain = 'ethereum';
           console.warn(`Invalid chain: ${chain}, falling back to 'ethereum'`);
         }
 
@@ -1018,37 +1013,107 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const payload = {
               action,
               recaptchaToken,
-              chain: simChain,
-              tokenAddress,
+              ...(simChain && { chain: simChain }),
+              ...(tokenAddress && tokenAddress.match(/^0x[a-fA-F0-9]{40}$/) && { tokenAddress }),
               ...(decimalPlace != null && { decimalPlace: Number(decimalPlace) }),
               ...(address && { address }),
             };
 
-            console.log(`Starting fetchOnChainData for action: ${action}, address: ${address}, chain: ${simChain}, tokenAddress: ${tokenAddress}`);
+            console.log(`Starting fetchOnChainData for action: ${action}, address: ${address}, chain: ${simChain}, tokenAddress: ${tokenAddress}, payload:`, JSON.stringify(payload));
 
-            const response = await axios.post(apiUrl, payload, {
+            const response = await fetch(apiUrl, {
+              method: 'POST',
               headers: {
                 Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
                 'Content-Type': 'application/json',
                 'x-recaptcha-token': recaptchaToken,
               },
-              timeout: 30000,
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(30000), // Add timeout
             });
 
-            const result = response.data;
-
-            console.log(`Raw ${action} response:`, { address, response: result, status: response.status });
-
-            if (!response.data.success) {
-              throw new Error(result.detail || `Failed to fetch ${action} data: ${response.statusText}`);
+            if (!response.ok) {
+              const text = await response.text();
+              let errorMessage = `Failed to fetch ${action} data: ${response.status} ${response.statusText}`;
+              try {
+                const result = JSON.parse(text);
+                errorMessage = result.detail || errorMessage;
+              } catch {
+                errorMessage = `Failed to fetch ${action} data: Invalid JSON response`;
+              }
+              throw new Error(errorMessage);
             }
 
-            if (!result.data) {
-              throw new Error(result.detail || `No ${action} data returned`);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let data = [];
+            let buffer = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+
+              try {
+                const trimmedBuffer = buffer.trim();
+                if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
+                  const parsed = JSON.parse(trimmedBuffer);
+                  if (Array.isArray(parsed)) {
+                    data = [...data, ...parsed];
+                    buffer = '';
+                  }
+                } else {
+                  const items = buffer.split(',').filter((item) => item.trim());
+                  for (const item of items) {
+                    try {
+                      const cleanedItem = item.trim().startsWith('[') || item.trim().endsWith(']') ? item.trim() : `{${item}}`;
+                      const parsedItem = JSON.parse(cleanedItem);
+                      if (Array.isArray(parsedItem)) {
+                        data = [...data, ...parsedItem];
+                      } else if (parsedItem.detail) {
+                        throw new Error(parsedItem.detail);
+                      } else {
+                        data.push(parsedItem);
+                      }
+                    } catch (e) {
+                      continue;
+                    }
+                  }
+                  buffer = '';
+                }
+              } catch (e) {
+                console.warn(`Incomplete JSON in buffer: ${e.message}, continuing...`, { buffer });
+                continue;
+              }
             }
 
-            console.log(`Parsed ${action} data:`, { address, data: result.data });
-            return result.data || [];
+            if (buffer) {
+              try {
+                const trimmedBuffer = buffer.trim();
+                if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
+                  const parsed = JSON.parse(trimmedBuffer);
+                  if (Array.isArray(parsed)) {
+                    data = [...data, ...parsed];
+                  }
+                } else if (trimmedBuffer) {
+                  const parsed = JSON.parse(trimmedBuffer);
+                  if (parsed.detail) {
+                    throw new Error(parsed.detail);
+                  } else if (Array.isArray(parsed)) {
+                    data = [...data, ...parsed];
+                  } else {
+                    data.push(parsed);
+                  }
+                }
+              } catch (e) {
+                console.error(`Error parsing final JSON buffer for ${action}:`, { error: e.message, buffer });
+                throw new Error(`Invalid JSON response from ${action} API: ${e.message}`);
+              }
+            }
+
+            console.log(`Parsed ${action} data:`, { address, data });
+            return data;
           };
 
           const ttl = action === 'transactions' ? CACHE_DURATIONS.TRANSACTIONS : CACHE_DURATIONS.DEFAULT;
@@ -1075,7 +1140,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 ? 'Unauthorized: Please log in again.'
                 : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
                   ? 'reCAPTCHA verification failed. Please try again.'
-                  : error.response?.data?.detail || `Failed to load ${action} data: ${error.message}`;
+                  : error.response?.data?.detail || `Failed to fetch ${action} data: ${error.message}`;
           console.error(`Error fetching ${action}:`, { errorMessage, stack: error.stack });
           setOnChainError(errorMessage);
           if (action === 'wallet-balances') {
@@ -2214,6 +2279,7 @@ Use natural, professional tone with recent data.
       : `${selectedToken.id}-${chain}-${tokenAddress}-${decimalPlace}`;
 
     if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
+      console.log(`Skipping fetchOnChainData: Data already fetched for ${tokenKey}`);
       return;
     }
 
@@ -2232,6 +2298,7 @@ Use natural, professional tone with recent data.
       }
 
       lastFetchedTokenRef.current = tokenKey;
+      console.log(`Fetching top-holders for chain: ${chain}, tokenAddress: ${tokenAddress}`);
       fetchOnChainData(chain, tokenAddress, 'top-holders', decimalPlace);
     }
   }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData]);

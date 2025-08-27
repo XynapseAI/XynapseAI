@@ -48,7 +48,7 @@ const WalletBalances = ({
   isMobile,
   fetchOnChainData,
   setIsLoadingWalletBalances,
-  chainLogos, // Prop from ClusterTab
+  chainLogos,
 }) => {
   const walletBalancesRef = useRef(null);
   const [activeTab, setActiveTab] = useState('portfolio');
@@ -78,6 +78,7 @@ const WalletBalances = ({
           b.address.toLowerCase() === '0xdac17f958d2ee523a2206206994597c13d831ec7' &&
           b.chain === 'ethereum'
       ),
+      totalBalances: sortedBalances.length,
     });
   }, [walletAddress, balances]);
 
@@ -162,12 +163,10 @@ const WalletBalances = ({
   if (!walletAddress) return null;
 
   const getPlatformImage = (chainValue) => {
-    // Ensure chainValue is a string or fallback to 'ethereum'
     const normalizedChainValue = typeof chainValue === 'string' ? chainValue : 'ethereum';
     const normalizedChain = normalizedChainValue.toLowerCase();
     const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
 
-    // Log input for debugging
     logger.log('getPlatformImage input:', {
       chainValue,
       type: typeof chainValue,
@@ -175,7 +174,6 @@ const WalletBalances = ({
       chainName,
     });
 
-    // First, try to get logo from chainLogos prop
     const imageFromChainLogos = chainLogos?.[normalizedChain];
     if (imageFromChainLogos && imageFromChainLogos !== '/fallback-image.png') {
       logger.log('getPlatformImage: Found in chainLogos', {
@@ -186,7 +184,6 @@ const WalletBalances = ({
       return imageFromChainLogos;
     }
 
-    // Then, try to get logo from chains prop
     const chain = chains?.find((c) => c.value.toLowerCase() === normalizedChain);
     const imageFromChains = chain?.image;
     if (imageFromChains && imageFromChains !== '/fallback-image.png') {
@@ -198,7 +195,6 @@ const WalletBalances = ({
       return imageFromChains;
     }
 
-    // Fallback to hardcoded logos
     const fallbackImage = FALLBACK_CHAIN_LOGOS[normalizedChain] || '/fallback-image.png';
     logger.log('getPlatformImage: Using fallback', {
       chainValue,
@@ -346,7 +342,7 @@ const WalletBalances = ({
               <>
                 {error ? (
                   <p className="text-[8px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
-                    Error: {error}
+                    Error: {error} {isLoading && '(Retrying...)'}
                   </p>
                 ) : isLoading ? (
                   <div className="space-y-3 p-2 sm:p-4 min-h-[calc(100vh-12rem)]">
@@ -434,7 +430,7 @@ const WalletBalances = ({
                   </div>
                 ) : (
                   <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2 min-h-[calc(100vh-12rem)] flex items-center justify-center">
-                    No valid balances found for this wallet.
+                    {isLoading ? 'Loading balances...' : 'No valid balances found for this wallet.'}
                   </p>
                 )}
               </>
