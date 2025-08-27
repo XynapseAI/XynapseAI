@@ -1,35 +1,64 @@
 // app/api/sim/route.js
 import { NextResponse } from "next/server";
 import axios from "axios";
-import { logger } from "../../../utils/serverLogger";
 import axiosRetry from "axios-retry";
+import Bottleneck from "bottleneck";
+import { z } from "zod";
+import { logger } from "../../../utils/serverLogger";
+import { getRedisClient } from "../../../lib/redis";
 import { isAddress } from "ethers";
 import { auth } from "@/lib/auth";
-import { getRedisClient } from "../../../lib/redis";
+import { query } from "../../../utils/postgres";
 
-// Configure axios-retry for Dune API requests
-axiosRetry(axios, {
-  retries: 5,
-  retryDelay: (retryCount) => Math.min(retryCount * 2000, 10000),
-  retryCondition: (error) => error.response?.status === 429 || error.code === "ECONNABORTED",
-  onRetry: (retryCount, error) => {
-    logger.warn(`Retrying Dune API request (attempt ${retryCount})`, {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
-  },
-});
+// ================= Security Headers =================
+const securityHeaders = {
+  'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self';",
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+};
 
-// Define important tokens whitelist
-const IMPORTANT_TOKENS = [
-  { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", chain: "ethereum", decimals: 6 }, // Tether
-  { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", chain: "ethereum", decimals: 6 }, // USD Coin
-  { address: "native", symbol: "ETH", chain: "ethereum", decimals: 18 }, // Ethereum native
-  { address: "0xB8c77482e45F1F44dE1745F52C74426C631bDD52", symbol: "BNB", chain: "bnb", decimals: 18 }, // BNB
-  { address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", symbol: "WBTC", chain: "ethereum", decimals: 8 }, // Wrapped Bitcoin
-];
+// ================= IP Ban Logic =================
+async function banIP(ip, durationSeconds = 1800) {
+  const redisClient = await getRedisClient();
+  await redisClient.setEx(`banned_ip:sim:${ip}`, durationSeconds, 'banned');
+  logger.info(`IP banned: ${ip} for ${durationSeconds} seconds`);
+}
 
+async function checkIPBan(ip) {
+  const redisClient = await getRedisClient();
+  const isBanned = await redisClient.get(`banned_ip:sim:${ip}`);
+  if (isBanned) {
+    logger.error(`IP ban detected: ${ip}`);
+    throw new Error('IP temporarily banned due to excessive violations.');
+  }
+}
+
+async function trackViolation(ip, reason = 'Unknown') {
+  const redisClient = await getRedisClient();
+  const key = `violations:sim:${ip}`;
+  const maxViolations = 100;
+  const windowMs = 30 * 60 * 1000;
+  const violations = parseInt(await redisClient.get(key)) || 0;
+
+  if (['CORS blocked', 'Invalid JSON body', 'Validation error', 'Invalid address'].includes(reason)) {
+    logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}, violations: ${violations}`);
+    return;
+  }
+
+  if (violations >= maxViolations) {
+    await banIP(ip, 1800);
+    logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
+    throw new Error('IP temporarily banned due to excessive violations.');
+  }
+  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
+}
+
+// ================= Rate Limiting =================
 async function checkRateLimit(ip, address, isSVMAddress) {
   try {
     const redisClient = await getRedisClient();
@@ -40,10 +69,11 @@ async function checkRateLimit(ip, address, isSVMAddress) {
 
     const ipKey = `rate_limit:sim:ip:${ip}`;
     const addressKey = address ? `rate_limit:sim:address:${isSVMAddress ? address : address.toLowerCase()}` : null;
+    const maxRequests = 50; // Match old file's stricter limit
     const windowMs = 60 * 1000;
 
     const ipRequests = Number.parseInt(await redisClient.get(ipKey)) || 0;
-    if (ipRequests >= 50) {
+    if (ipRequests >= maxRequests) {
       logger.warn(`Rate limit exceeded for IP ${ip}: ${ipRequests} requests`, { ip });
       throw new Error("Too many requests, please try again later.");
     }
@@ -51,7 +81,7 @@ async function checkRateLimit(ip, address, isSVMAddress) {
     let addressRequests = 0;
     if (addressKey) {
       addressRequests = Number.parseInt(await redisClient.get(addressKey)) || 0;
-      if (addressRequests >= 50) {
+      if (addressRequests >= maxRequests) {
         logger.warn(`Rate limit exceeded for address ${address}: ${addressRequests} requests`, { ip });
         throw new Error("Too many requests for this wallet address.");
       }
@@ -67,16 +97,166 @@ async function checkRateLimit(ip, address, isSVMAddress) {
     }
 
     await multi.exec();
+    logger.info(`Rate limit check passed for IP ${ip}: ${ipRequests + 1}/${maxRequests} requests`);
   } catch (err) {
     logger.error(`Rate limit check failed: ${err.message}`, { ip });
     throw err;
   }
 }
 
-// Validate Solana address (Base58)
-const isValidSolanaAddress = (address) => {
-  return address && address.length >= 32 && address.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
-};
+// ================= Bottleneck Configuration =================
+const limiterBottleneck = new Bottleneck({
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 5,
+  minTime: process.env.NODE_ENV === 'production' ? 600 : 1000,
+  reservoir: 30,
+  reservoirRefreshAmount: 50,
+  reservoirRefreshInterval: 60 * 1000,
+});
+
+// ================= Axios Retry Configuration =================
+axiosRetry(axios, {
+  retries: 5,
+  retryDelay: (retryCount) => {
+    logger.info(`Retry attempt ${retryCount} for Dune API`);
+    return Math.min(retryCount * 2000, 10000);
+  },
+  retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
+  onRetry: (retryCount, error) => {
+    logger.warn(`Retrying Dune API request (attempt ${retryCount})`, {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+  },
+});
+
+const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
+  try {
+    const response = await axios.get(url, {
+      ...config,
+      timeout: 15000,
+    });
+    return response;
+  } catch (error) {
+    logger.error(`Axios error: ${error.message}`, { url, status: error.response?.status });
+    throw error;
+  }
+});
+
+// ================= Allowed Origins =================
+const allowedOrigins = [
+  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  'https://xynapseai.net',
+  'https://www.xynapseai.net',
+  'https://xynapse-ai-xynapse-projects.vercel.app',
+  ...(process.env.VERCEL_ENV === 'production' ? [] : ['https://*.vercel.app']),
+].filter((v, i, a) => a.indexOf(v) === i);
+
+const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
+
+function isAllowedOrigin(origin, referer) {
+  if (!origin && !referer) {
+    logger.info('No Origin or Referer (likely SSR or server-to-server), allowing request');
+    return true;
+  }
+  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
+  if (!checkOrigin) {
+    logger.info('No valid Origin or Referer, allowing for SSR compatibility');
+    return true;
+  }
+  if (
+    allowedOrigins.some((allowed) =>
+      allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
+    )
+  ) {
+    logger.info(`Origin allowed: ${checkOrigin}`);
+    return true;
+  }
+  if (vercelPreviewRegex.test(checkOrigin)) {
+    logger.info(`Origin allowed by Vercel preview regex: ${checkOrigin}`);
+    return true;
+  }
+  logger.error(`CORS error: Origin ${checkOrigin || 'null'} not allowed`);
+  return false;
+}
+
+// ================= API Key Verification =================
+async function verifyApiKey(apiKey, session) {
+  try {
+    if (apiKey === 'default-api-key') return { isValid: true };
+    const result = await query(`SELECT id FROM users WHERE api_key = $1`, [apiKey]);
+    if (result.rows.length === 0) {
+      logger.warn(`Invalid API key: ${apiKey}`);
+      return { isValid: false };
+    }
+    const { id } = result.rows[0];
+    if (session && session.user.id !== id) {
+      logger.warn(`API key ${apiKey} does not belong to user ${session.user.id}`);
+      return { isValid: false };
+    }
+    return { isValid: true };
+  } catch (error) {
+    logger.error(`Error verifying API key: ${error.message}`, { stack: error.stack });
+    return { isValid: false };
+  }
+}
+
+// ================= IP Reputation Check =================
+async function checkIp(ip) {
+  try {
+    const response = await fetchWithRateLimit(`https://ipinfo.io/${ip}/json?token=${process.env.IPINFO_TOKEN}`);
+    const { abuse } = response.data;
+    if (abuse && abuse.score > 50) {
+      logger.warn(`Suspicious IP detected: ${ip}`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    logger.error(`IP check failed: ${error.message}`);
+    return true; // Allow request if IP check fails
+  }
+}
+
+// ================= Input Validation Schema =================
+const bodySchema = z.object({
+  action: z.enum(['top-holders', 'wallet-balances', 'transactions', 'collectibles', 'proxy-image'], {
+    message: 'Invalid action',
+  }),
+  imageUrl: z.string().url().optional(),
+  chain: z.string().optional(),
+  tokenAddress: z.string().optional().refine((val) => !val || /^0x[a-fA-F0-9]{40}$/.test(val), {
+    message: 'tokenAddress must be a valid EVM address',
+  }),
+  address: z.string().optional(),
+  addresses: z.array(z.string()).optional(),
+  decimalPlace: z.number().int().min(0).optional(),
+  limit: z.number().int().min(1).optional(),
+  minValueUsd: z.number().min(0).optional(),
+}).refine(
+  (data) => (data.action === 'proxy-image' ? !!data.imageUrl : true),
+  { message: 'imageUrl is required for proxy-image action', path: ['imageUrl'] }
+).refine(
+  (data) => (data.action === 'top-holders' ? !!data.chain && !!data.tokenAddress : true),
+  { message: 'chain and tokenAddress are required for top-holders', path: ['chain', 'tokenAddress'] }
+).refine(
+  (data) => (['wallet-balances', 'collectibles'].includes(data.action) ? !!data.address : true),
+  { message: 'address is required for wallet-balances and collectibles', path: ['address'] }
+).refine(
+  (data) =>
+    data.action === 'transactions'
+      ? !!data.address || (Array.isArray(data.addresses) && data.addresses.length > 0)
+      : true,
+  { message: 'address or addresses array is required for transactions', path: ['address', 'addresses'] }
+);
+
+// ================= Constants =================
+const IMPORTANT_TOKENS = [
+  { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", symbol: "USDT", chain: "ethereum", decimals: 6 },
+  { address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", symbol: "USDC", chain: "ethereum", decimals: 6 },
+  { address: "native", symbol: "ETH", chain: "ethereum", decimals: 18 },
+  { address: "0xB8c77482e45F1F44dE1745F52C74426C631bDD52", symbol: "BNB", chain: "bnb", decimals: 18 },
+  { address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", symbol: "WBTC", chain: "ethereum", decimals: 8 },
+];
 
 const CHAIN_ID_MAP = {
   abstract: "2741",
@@ -127,6 +307,11 @@ const NATIVE_TOKEN_METADATA = {
   polygon: { symbol: "MATIC", logo: "/polygon-logo.png", name: "Polygon" },
 };
 
+// ================= Helper Functions =================
+const isValidSolanaAddress = (address) => {
+  return address && address.length >= 32 && address.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(address);
+};
+
 async function fetchImageUrl(metadataUrl, ip) {
   try {
     const blockedDomains = ["scontent.xx.fbcdn.net", "fbcdn.net"];
@@ -135,8 +320,7 @@ async function fetchImageUrl(metadataUrl, ip) {
       return null;
     }
 
-    const response = await axios.get(metadataUrl, {
-      timeout: 5000,
+    const response = await fetchWithRateLimit(metadataUrl, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -144,7 +328,7 @@ async function fetchImageUrl(metadataUrl, ip) {
       },
     });
 
-    if (response.headers["content-type"].includes("application/json")) {
+    if (response.headers["content-type"]?.includes("application/json")) {
       const metadata = response.data;
       const imageUrl = metadata.image || metadata.logo || metadata.image_url || null;
       if (imageUrl && blockedDomains.some((domain) => imageUrl.includes(domain))) {
@@ -153,7 +337,7 @@ async function fetchImageUrl(metadataUrl, ip) {
       }
       return imageUrl;
     }
-    if (response.headers["content-type"].startsWith("image/")) {
+    if (response.headers["content-type"]?.startsWith("image/")) {
       return metadataUrl;
     }
     return null;
@@ -163,112 +347,87 @@ async function fetchImageUrl(metadataUrl, ip) {
   }
 }
 
+// ================= Main Handler =================
 export async function POST(request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
   const startTime = Date.now();
-  logger.info(`Request to /api/sim from IP ${ip}`);
+  logger.info(`Request to /api/sim from IP ${ip}`, { origin, timestamp: new Date().toISOString() });
+
+  // Check CORS
+  if (!isAllowedOrigin(origin, referer)) {
+    await trackViolation(ip, 'CORS blocked');
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders });
+  }
+
+  // Check IP ban
+  try {
+    await checkIPBan(ip);
+  } catch (err) {
+    return NextResponse.json({ detail: err.message }, { status: 403, headers: securityHeaders });
+  }
+
+  // Check IP reputation
+  if (!(await checkIp(ip))) {
+    await trackViolation(ip, 'Suspicious IP');
+    return NextResponse.json({ detail: 'Request blocked due to suspicious IP.' }, { status: 403, headers: securityHeaders });
+  }
 
   let body;
   try {
     body = await request.json();
   } catch (err) {
     logger.warn(`Invalid JSON body: ${err.message}`, { ip });
-    return NextResponse.json({ detail: "Invalid JSON body" }, { status: 400 });
+    await trackViolation(ip, 'Invalid JSON body');
+    return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400, headers: securityHeaders });
   }
 
-  const validActions = ["top-holders", "wallet-balances", "transactions", "collectibles", "proxy-image"];
-  const { action, imageUrl, chain, tokenAddress, address, addresses, decimalPlace, limit, minValueUsd } = body;
-
-  if (!action || !validActions.includes(action)) {
-    logger.warn(`Validation error: Invalid 'action' parameter.`, { ip, action });
-    return NextResponse.json(
-      {
-        detail: "Validation failed",
-        errors: [{ message: `Invalid 'action'. Must be one of ${validActions.join(", ")}` }],
-      },
-      { status: 400 },
-    );
+  // Validate input
+  let parsedBody;
+  try {
+    parsedBody = bodySchema.parse(body);
+  } catch (err) {
+    logger.warn(`Validation error: ${err.message}`, { ip });
+    await trackViolation(ip, 'Validation error');
+    return NextResponse.json({ detail: 'Validation failed', errors: err.errors }, { status: 400, headers: securityHeaders });
   }
 
-  const effectiveDecimalPlace =
-    typeof decimalPlace === "number" && Number.isInteger(decimalPlace) && decimalPlace >= 0 ? decimalPlace : 18;
+  const { action, imageUrl, chain, tokenAddress, address, addresses, decimalPlace, limit, minValueUsd } = parsedBody;
 
-  let effectiveLimit = LIMIT_CONFIG[action] || 500;
-  if (typeof limit === "number" && Number.isInteger(limit) && limit >= 1 && limit <= LIMIT_CONFIG[action]) {
-    effectiveLimit = limit;
+  // Verify API key
+  const apiKey = request.headers.get('x-api-key') || 'default-api-key';
+  const session = await auth();
+  const { isValid } = await verifyApiKey(apiKey, session);
+  if (!isValid) {
+    logger.error(`Invalid API key: ${apiKey}`, { ip });
+    await trackViolation(ip, 'Invalid API key');
+    return NextResponse.json({ detail: 'Unauthorized: Invalid API key.' }, { status: 401, headers: securityHeaders });
   }
 
-  let validationError = null;
+  // Check rate limit
   const isEVMAddress = address ? isAddress(address) : false;
   const isSVMAddress = address ? isValidSolanaAddress(address) : false;
-  const areAddressesValid = addresses ? addresses.every((addr) => isAddress(addr) || isValidSolanaAddress(addr)) : true;
-
-  switch (action) {
-    case "proxy-image":
-      if (!imageUrl || typeof imageUrl !== "string" || !/^https?:\/\/.+/.test(imageUrl)) {
-        validationError = "imageUrl must be a valid URL.";
-      }
-      break;
-    case "top-holders":
-      if (!chain || !tokenAddress) {
-        validationError = "chain and tokenAddress are required for top-holders.";
-      } else if (!/^0x[a-fA-F0-9]{40}$/.test(tokenAddress)) {
-        validationError = "tokenAddress must be a valid EVM address format.";
-      }
-      break;
-    case "wallet-balances":
-    case "collectibles":
-      if (!address) {
-        validationError = "address is required for this action.";
-      } else if (!isEVMAddress && !isSVMAddress) {
-        validationError = "address must be a valid EVM or Solana address.";
-      }
-      break;
-    case "transactions":
-      if (!address && (!addresses || !Array.isArray(addresses) || addresses.length === 0)) {
-        validationError = "address or addresses array is required for transactions.";
-      } else if (address && !isEVMAddress && !isSVMAddress) {
-        validationError = "address must be a valid EVM or Solana address.";
-      } else if (addresses && !areAddressesValid) {
-        validationError = "All addresses must be valid EVM or Solana addresses.";
-      }
-      break;
-    default:
-      validationError = `Invalid parameters for the specified action: ${action}`;
-      break;
-  }
-
-  if (validationError) {
-    logger.warn(`Validation error: ${validationError}`, { ip, body });
-    return NextResponse.json({ detail: "Validation failed", errors: [{ message: validationError }] }, { status: 400 });
-  }
-
   try {
-    const redisClient = await getRedisClient();
-    if (!redisClient.isOpen) {
-      logger.error("Redis client not connected", { ip });
-      throw new Error("Redis client not connected");
-    }
-
     await checkRateLimit(ip, address, isSVMAddress);
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`, { ip });
-    return NextResponse.json({ detail: err.message }, { status: err.message.includes("Too many requests") ? 429 : 500 });
+    return NextResponse.json({ detail: err.message }, { status: 429, headers: securityHeaders });
   }
 
+  // Check SIM_API_KEY
   if (!process.env.SIM_API_KEY) {
     logger.error("SIM_API_KEY is not configured", { ip });
-    return NextResponse.json({ detail: "Server configuration error: Missing SIM_API_KEY" }, { status: 500 });
+    return NextResponse.json({ detail: "Server configuration error: Missing SIM_API_KEY" }, { status: 500, headers: securityHeaders });
   }
 
-  // Bỏ qua xác thực session nếu request có Authorization header khớp với SIM_API_KEY
+  // Authentication for non-cron requests
   const authHeader = request.headers.get("authorization");
   const isCronRequest = authHeader && authHeader === `Bearer ${process.env.SIM_API_KEY}`;
   if (["wallet-balances", "transactions", "collectibles"].includes(action) && !isCronRequest) {
-    const session = await auth();
     if (!session || !session.user?.id) {
       logger.error(`Authentication error: Unauthorized`, { ip });
-      return NextResponse.json({ detail: "Unauthorized: Please log in." }, { status: 401 });
+      await trackViolation(ip, 'Unauthorized access');
+      return NextResponse.json({ detail: "Unauthorized: Please log in." }, { status: 401, headers: securityHeaders });
     }
   }
 
@@ -277,6 +436,14 @@ export async function POST(request) {
       async start(controller) {
         try {
           let data = [];
+
+          const effectiveDecimalPlace =
+            typeof decimalPlace === "number" && Number.isInteger(decimalPlace) && decimalPlace >= 0 ? decimalPlace : 18;
+
+          let effectiveLimit = LIMIT_CONFIG[action] || 500;
+          if (typeof limit === "number" && Number.isInteger(limit) && limit >= 1 && limit <= LIMIT_CONFIG[action]) {
+            effectiveLimit = limit;
+          }
 
           if (action === "top-holders" && chain && tokenAddress) {
             const chainId = CHAIN_ID_MAP[chain?.toLowerCase()];
@@ -289,9 +456,8 @@ export async function POST(request) {
 
             const url = `https://api.sim.dune.com/v1/evm/token-holders/${chainId}/${tokenAddress}?limit=${effectiveLimit}`;
             logger.info(`Calling Dune Sim API: ${url}`, { ip });
-            const response = await axios.get(url, {
+            const response = await fetchWithRateLimit(url, {
               headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
-              timeout: 15000,
             });
 
             logger.info(
@@ -335,9 +501,8 @@ export async function POST(request) {
               do {
                 const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${allChainIds}&metadata=logo&limit=1000${nextOffsetNative ? `&offset=${nextOffsetNative}` : ''}&filters=native`;
                 logger.info(`Calling Dune Sim API (Native): ${url}`, { ip });
-                const response = await axios.get(url, {
+                const response = await fetchWithRateLimit(url, {
                   headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
-                  timeout: 15000,
                 });
 
                 logger.info(
@@ -348,7 +513,6 @@ export async function POST(request) {
                 const balances = response.data.balances || [];
                 allBalances.push(...balances);
 
-                // Check for important native tokens
                 missingImportantTokens = missingImportantTokens.filter((importantToken) => {
                   if (importantToken.address !== "native") return true;
                   return !balances.some((balance) => {
@@ -360,14 +524,13 @@ export async function POST(request) {
                 nextOffsetNative = response.data.next_offset || null;
               } while (nextOffsetNative && missingImportantTokens.some((token) => token.address === "native"));
 
-              // Step 2: Fetch ERC20 tokens after all native tokens are retrieved
+              // Step 2: Fetch ERC20 tokens
               let nextOffsetErc20 = null;
               do {
                 const url = `https://api.sim.dune.com/v1/evm/balances/${address}?chain_ids=${allChainIds}&metadata=logo&limit=1000${nextOffsetErc20 ? `&offset=${nextOffsetErc20}` : ''}&filters=erc20`;
                 logger.info(`Calling Dune Sim API (ERC20): ${url}`, { ip });
-                const response = await axios.get(url, {
+                const response = await fetchWithRateLimit(url, {
                   headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
-                  timeout: 15000,
                 });
 
                 logger.info(
@@ -378,7 +541,6 @@ export async function POST(request) {
                 const balances = response.data.balances || [];
                 allBalances.push(...balances);
 
-                // Check for important ERC20 tokens
                 missingImportantTokens = missingImportantTokens.filter((importantToken) => {
                   if (importantToken.address === "native") return true;
                   return !balances.some((balance) => {
@@ -392,7 +554,7 @@ export async function POST(request) {
                 nextOffsetErc20 = response.data.next_offset || null;
               } while (nextOffsetErc20 && missingImportantTokens.some((token) => token.address !== "native"));
 
-              // Remove duplicates based on chain and address
+              // Remove duplicates
               const uniqueBalances = [];
               const seen = new Set();
               for (const balance of allBalances) {
@@ -403,7 +565,6 @@ export async function POST(request) {
                 }
               }
 
-              // Process balances and filter out fake tokens
               data = await Promise.all(
                 uniqueBalances.map(async (balance) => {
                   let logo = balance.token_metadata?.logo || null;
@@ -424,14 +585,12 @@ export async function POST(request) {
                     name: balance.name || NATIVE_TOKEN_METADATA[balance.chain]?.name || "Unknown",
                   };
 
-                  // Check if token is in IMPORTANT_TOKENS
                   const isImportantToken = IMPORTANT_TOKENS.some(
                     (token) =>
                       token.chain === balance.chain &&
                       (token.address === "native" ? balance.address === "native" : token.address.toLowerCase() === balance.address.toLowerCase())
                   );
 
-                  // Filter out tokens with value_usd === 0 (unless important) or value_usd > 100,000,000,000
                   if (processedBalance.value_usd > 100_000_000_000) {
                     logger.info(`Filtered out token with excessive value_usd: ${processedBalance.symbol} on ${processedBalance.chain}, value_usd: ${processedBalance.value_usd}`, { ip });
                     return null;
@@ -445,22 +604,18 @@ export async function POST(request) {
                 }),
               );
 
-              // Remove null entries (filtered tokens)
               data = data.filter((balance) => balance !== null);
 
-              // Apply minValueUsd filter if provided
               if (minValueUsd) {
                 data = data.filter((balance) => balance.value_usd >= minValueUsd);
               }
 
-              // Sort to prioritize native tokens first
               data.sort((a, b) => {
                 const aIsNative = a.address === "native" ? -1 : 1;
                 const bIsNative = b.address === "native" ? -1 : 1;
                 return aIsNative - bIsNative;
               });
 
-              // Apply user-specified limit
               if (effectiveLimit < data.length) {
                 data = data.slice(0, effectiveLimit);
               }
@@ -470,13 +625,11 @@ export async function POST(request) {
               controller.close();
               return;
             } else {
-              // SVM balances
               const chainParam = `chains=${SUPPORTED_SVM_CHAINS.join(",")}`;
               const url = `https://api.sim.dune.com/beta/svm/balances/${address}?${chainParam}&limit=${effectiveLimit}`;
               logger.info(`Calling Dune Sim API: ${url}`, { ip });
-              const response = await axios.get(url, {
+              const response = await fetchWithRateLimit(url, {
                 headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
-                timeout: 15000,
               });
 
               logger.info(
@@ -507,12 +660,10 @@ export async function POST(request) {
                     name: balance.name || "Unknown",
                   };
 
-                  // Check if token is in IMPORTANT_TOKENS (for SVM, only native tokens are relevant)
                   const isImportantToken = IMPORTANT_TOKENS.some(
                     (token) => token.chain === balance.chain && token.address === "native" && balance.address === "native"
                   );
 
-                  // Filter out tokens with value_usd === 0 (unless important) or value_usd > 100,000,000,000
                   if (processedBalance.value_usd > 100_000_000_000) {
                     logger.info(`Filtered out token with excessive value_usd: ${processedBalance.symbol} on ${processedBalance.chain}, value_usd: ${processedBalance.value_usd}`, { ip });
                     return null;
@@ -526,15 +677,12 @@ export async function POST(request) {
                 }) || [],
               );
 
-              // Remove null entries (filtered tokens)
               data = data.filter((balance) => balance !== null);
 
-              // Apply minValueUsd filter if provided
               if (minValueUsd) {
                 data = data.filter((balance) => balance.value_usd >= minValueUsd);
               }
 
-              // Apply user-specified limit
               if (effectiveLimit < data.length) {
                 data = data.slice(0, effectiveLimit);
               }
@@ -559,9 +707,8 @@ export async function POST(request) {
               logger.info(`Calling Dune Sim API: ${url}`, { ip });
 
               try {
-                const response = await axios.get(url, {
+                const response = await fetchWithRateLimit(url, {
                   headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
-                  timeout: 15000,
                 });
 
                 logger.info(
@@ -775,9 +922,8 @@ export async function POST(request) {
               ? `https://api.sim.dune.com/v1/evm/collectibles/${address}?${chainParam}&limit=${effectiveLimit}`
               : `https://api.sim.dune.com/beta/svm/collectibles/${address}?${chainParam}&limit=${effectiveLimit}`;
             logger.info(`Calling Dune Sim API: ${url}`, { ip });
-            const response = await axios.get(url, {
+            const response = await fetchWithRateLimit(url, {
               headers: { "X-Sim-Api-Key": process.env.SIM_API_KEY },
-              timeout: 15000,
             });
 
             logger.info(
@@ -816,9 +962,8 @@ export async function POST(request) {
                 return;
               }
 
-              const response = await axios.get(imageUrl, {
+              const response = await fetchWithRateLimit(imageUrl, {
                 responseType: "arraybuffer",
-                timeout: 5000,
                 headers: {
                   "User-Agent":
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -847,6 +992,7 @@ export async function POST(request) {
           }
 
           logger.warn(`Invalid parameters for action: ${action}`, { ip });
+          await trackViolation(ip, 'Invalid parameters');
           controller.enqueue(JSON.stringify({ detail: `Invalid parameters for action: ${action}` }));
           controller.close();
           return;
@@ -880,10 +1026,11 @@ export async function POST(request) {
     }),
     {
       headers: {
+        ...securityHeaders,
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": process.env.NEXT_PUBLIC_APP_URL || "https://xynapseai.net",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Api-Key",
       },
     },
   );
@@ -895,9 +1042,10 @@ export async function OPTIONS() {
     {
       status: 200,
       headers: {
+        ...securityHeaders,
         "Access-Control-Allow-Origin": process.env.NEXT_PUBLIC_APP_URL || "https://xynapseai.net",
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Api-Key",
         "Access-Control-Allow-Credentials": "true",
       },
     },
