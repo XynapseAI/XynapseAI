@@ -105,6 +105,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [streamProgress, setStreamProgress] = useState({ action: null, received: 0, total: null });
   const [showWatchlistSidebar, setShowWatchlistSidebar] = useState(false);
   const [isUserInitiatedChange, setIsUserInitiatedChange] = useState(false);
   const lastSelectedWalletRef = useRef(null);
@@ -315,7 +316,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }
   }, [supportedChains]);
 
-  const fetchDataQuery = async (action, address, chainType) => {
+  const fetchDataQuery = async (action, address, chainType, onPartialData) => {
     const isValidEVM = isAddress(address);
     const isValidSVM = isValidSolanaAddress(address);
     if (!isValidEVM && !isValidSVM) {
@@ -328,7 +329,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     try {
       cachedData = await getCachedData(cacheKey);
       if (cachedData) {
-        logger.log(`Cache hit for ${cacheKey}`, { data: cachedData });
+        logger.log(`Cache hit for ${cacheKey}`, { dataLength: cachedData.length });
         return cachedData;
       }
     } catch (error) {
@@ -351,7 +352,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         headers: {
           'Content-Type': 'application/json',
           ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-          'x-recaptcha-token': 'no-recaptcha', // Thêm nếu API yêu cầu token reCAPTCHA
+          'x-recaptcha-token': 'no-recaptcha',
         },
         body: JSON.stringify(payload),
         credentials: 'include',
@@ -359,6 +360,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
       if (!response.ok) {
         const text = await response.text();
+        logger.error(`API error response for ${action}:`, { status: response.status, text });
         let errorMessage = `Failed to fetch ${action} data: ${response.status} ${response.statusText}`;
         try {
           const result = JSON.parse(text);
@@ -373,50 +375,76 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       const decoder = new TextDecoder();
       let data = [];
       let buffer = '';
+      let openBrackets = 0;
+      let receivedItems = 0;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+        logger.log(`Received chunk for ${action}:`, { chunk }); // Thêm log để debug
 
-        // Try to parse the buffer as JSON
+        for (const char of chunk) {
+          if (char === '[') openBrackets++;
+          if (char === ']') openBrackets--;
+        }
+
+        let lastValidIndex = 0;
         try {
-          // Remove leading and trailing brackets if present
-          const trimmedBuffer = buffer.trim();
-          if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-            const parsed = JSON.parse(trimmedBuffer);
-            data = parsed;
-            buffer = ''; // Clear buffer after successful parse
-          } else {
-            // Partial JSON, continue accumulating
-            continue;
+          for (let i = 0; i < buffer.length; i++) {
+            if (buffer[i] === ']' && openBrackets === 0) {
+              const potentialJson = buffer.slice(0, i + 1);
+              try {
+                const parsed = JSON.parse(potentialJson);
+                if (Array.isArray(parsed)) {
+                  if (parsed.some((item) => item.detail)) {
+                    logger.warn(`API returned error in chunk for ${action}:`, { error: parsed });
+                    throw new Error(parsed[0].detail || 'API returned error response');
+                  }
+                  data = parsed;
+                  lastValidIndex = i + 1;
+                  receivedItems += parsed.length;
+                  onPartialData(parsed, { action, received: receivedItems });
+                  logger.log(`Parsed partial ${action} data: ${parsed.length} items`, { address, receivedItems });
+                }
+              } catch (e) {
+                logger.log(`Failed to parse chunk for ${action}:`, { error: e.message, chunk: potentialJson });
+                continue;
+              }
+            }
           }
+          buffer = buffer.slice(lastValidIndex);
         } catch (e) {
-          // If JSON is incomplete, continue reading next chunk
-          logger.log(`Incomplete JSON chunk, continuing to read: ${e.message}`);
+          logger.log(`Incomplete JSON chunk for ${action}, continuing to read: ${e.message}`, { bufferLength: buffer.length });
           continue;
         }
       }
 
-      // Handle any remaining buffer
-      if (buffer) {
+      if (buffer && openBrackets === 0) {
         try {
           const trimmedBuffer = buffer.trim();
           if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
             const parsed = JSON.parse(trimmedBuffer);
-            data = parsed;
+            if (Array.isArray(parsed)) {
+              if (parsed.some((item) => item.detail)) {
+                logger.warn(`API returned error in final buffer for ${action}:`, { error: parsed });
+                throw new Error(parsed[0].detail || 'API returned error response');
+              }
+              data = parsed;
+              receivedItems += parsed.length;
+              onPartialData(parsed, { action, received: receivedItems });
+              logger.log(`Parsed final ${action} data: ${parsed.length} items`, { address, receivedItems });
+            }
           } else {
-            logger.error(`Final buffer is not valid JSON:`, { buffer });
-            throw new Error(`Invalid JSON response from ${action} API`);
+            throw new Error(`Invalid JSON response for ${action}`);
           }
         } catch (e) {
           logger.error(`Error parsing final JSON buffer for ${action}:`, { error: e.message, buffer });
           throw new Error(`Invalid JSON response from ${action} API`);
         }
       }
-
-      logger.log(`Parsed ${action} data:`, { address, dataLength: data.length });
 
       if (data.length > 0) {
         try {
@@ -427,8 +455,18 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         }
       }
 
+      setStreamProgress({ action: null, received: 0, total: null });
       return data;
     } catch (error) {
+      if (data.length > 0) {
+        try {
+          await cacheData(cacheKey, data);
+          logger.log(`Cached partial data for ${cacheKey} due to interruption`, { dataLength: data.length });
+        } catch (cacheError) {
+          logger.warn(`Failed to cache partial data for ${cacheKey}`, { cacheError });
+        }
+      }
+      setStreamProgress({ action: null, received: 0, total: null });
       const errorMessage =
         error.response?.status === 429
           ? 'Too many requests. Please try again later.'
@@ -436,7 +474,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             ? 'Unauthorized: Please log in again.'
             : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
               ? 'reCAPTCHA verification failed. Please try again.'
-              : error.response?.data?.detail || `Dune Sim API error for action ${action}: ${error.message}`;
+              : error.response?.data?.detail || `Dune Sim API error for ${action}: ${error.message}`;
       logger.error(`Error fetching ${action}:`, { errorMessage, stack: error.stack });
       throw new Error(errorMessage);
     }
@@ -444,7 +482,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
   const { data: balancesData, error: balancesError, isValidating: balancesValidating } = useSWR(
     selectedWallet ? ['wallet-balances', selectedWallet.address, activeChainType] : null,
-    () => fetchDataQuery('wallet-balances', selectedWallet.address, activeChainType),
+    () =>
+      fetchDataQuery('wallet-balances', selectedWallet.address, activeChainType, (partialData, progress) => {
+        setBalances(partialData);
+        setStreamProgress(progress);
+        const chainsWithData = [...new Set(partialData.map((b) => CHAIN_ID_TO_NAME[b.chain] || b.chain))];
+        setChainsWithAssets(chainsWithData);
+        if (activeChain === undefined && chainsWithData.length > 0) {
+          setActiveChain(chainsWithData[0]);
+        }
+      }),
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
@@ -455,7 +502,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
   const { data: transactionsData, error: transactionsError, isValidating: transactionsValidating } = useSWR(
     selectedWallet && activeTab === 'ACTIVITY' ? ['transactions', selectedWallet.address, activeChainType] : null,
-    () => fetchDataQuery('transactions', selectedWallet.address, activeChainType),
+    () =>
+      fetchDataQuery('transactions', selectedWallet.address, activeChainType, (partialData, progress) => {
+        setTransactions(
+          partialData.map((tx) => ({
+            ...tx,
+            chain: CHAIN_ID_TO_NAME[tx.chain] || tx.chain,
+          }))
+        );
+        setStreamProgress(progress);
+      }),
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
@@ -463,6 +519,20 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       dedupingInterval: 30 * 1000,
     }
   );
+
+  const ProgressIndicator = ({ progress, isMobile }) => {
+    if (!progress.action) return null;
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="text-[9px] sm:text-[10px] text-white/80 p-2 sm:p-3 bg-white/5 border-b border-white/10"
+      >
+        Đang tải {progress.action === 'wallet-balances' ? 'số dư' : 'giao dịch'}: {progress.received} mục đã nhận
+      </motion.div>
+    );
+  };
 
   useEffect(() => {
     if (balancesError || transactionsError) {
@@ -510,7 +580,17 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       for (const { address, chain } of tokenAddresses) {
         const isValidEVM = isAddress(address);
         const isValidSVM = isValidSolanaAddress(address);
-        if (!isValidEVM && !isValidSVM) continue;
+        if (!isValidEVM && !isValidSVM) {
+          tokenInfoData[address] = [
+            {
+              chain,
+              symbol: 'Unknown',
+              logo: '/fallback-image.png',
+              name: 'Unknown Token',
+            },
+          ];
+          continue;
+        }
 
         const cacheKey = `tokenInfo-${address}-${chain}`;
         let cachedData = null;
@@ -518,6 +598,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           cachedData = await getCachedData(cacheKey);
           if (cachedData) {
             tokenInfoData[address] = cachedData;
+            logger.log(`Cache hit for tokenInfo: ${cacheKey}`);
             continue;
           }
         } catch (error) {
@@ -540,7 +621,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             headers: {
               'Content-Type': 'application/json',
               ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-              'x-recaptcha-token': 'no-recaptcha', // Thêm nếu API yêu cầu token reCAPTCHA
+              'x-recaptcha-token': 'no-recaptcha',
             },
             body: JSON.stringify(payload),
             credentials: 'include',
@@ -570,31 +651,40 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             buffer += decoder.decode(value, { stream: true });
 
             try {
-              const parsed = JSON.parse(buffer);
-              if (Array.isArray(parsed)) {
-                parsed.forEach((chunk) => {
-                  if (chunk.success && Array.isArray(chunk.data)) {
-                    data = [...data, ...chunk.data];
+              const trimmedBuffer = buffer.trim();
+              if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
+                const parsed = JSON.parse(trimmedBuffer);
+                if (Array.isArray(parsed)) {
+                  // Kiểm tra xem parsed có chứa lỗi không
+                  if (parsed.some((item) => item.detail)) {
+                    logger.warn(`API returned error for token info ${address} on ${chain}`, { error: parsed });
+                    throw new Error(parsed[0].detail || 'API returned error response');
                   }
-                });
-                buffer = ''; // Clear buffer after successful parse
+                  data = parsed;
+                  buffer = '';
+                }
               }
             } catch (e) {
-              // If JSON is incomplete, continue reading next chunk
+              logger.log(`Incomplete JSON chunk for token info ${address} on ${chain}, continuing to read: ${e.message}`);
               continue;
             }
           }
 
-          // Handle any remaining buffer
+          // Xử lý buffer cuối
           if (buffer) {
             try {
-              const parsed = JSON.parse(buffer);
-              if (Array.isArray(parsed)) {
-                parsed.forEach((chunk) => {
-                  if (chunk.success && Array.isArray(chunk.data)) {
-                    data = [...data, ...chunk.data];
+              const trimmedBuffer = buffer.trim();
+              if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
+                const parsed = JSON.parse(trimmedBuffer);
+                if (Array.isArray(parsed)) {
+                  if (parsed.some((item) => item.detail)) {
+                    logger.warn(`API returned error in final buffer for token info ${address} on ${chain}`, { error: parsed });
+                    throw new Error(parsed[0].detail || 'API returned error response');
                   }
-                });
+                  data = parsed;
+                }
+              } else {
+                throw new Error(`Invalid JSON response for token info ${address} on ${chain}`);
               }
             } catch (e) {
               logger.error(`Error parsing final JSON buffer for token info ${address} on ${chain}:`, { error: e.message, buffer });
@@ -632,7 +722,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             ];
           }
         } catch (err) {
-          logger.error(`Error fetching token info for ${address} on ${chain}:`, { error: err });
+          logger.error(`Error fetching token info for ${address} on ${chain}:`, { error: err.message });
           tokenInfoData[address] = [
             {
               chain,
@@ -980,7 +1070,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     setCurrentPage((prev) => ({ ...prev, [tab]: page }));
   };
 
-  const renderTokenRow = (token) => {
+  const renderTokenRow = useMemo(() => (token) => {
     const tokenInfoData = tokenInfo[token.address] || [];
     const tokenDetails = tokenInfoData.find((t) => t.chain === token.chain) || {};
     let logoUrl = '/icons/default.png';
@@ -1055,9 +1145,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         </td>
       </motion.tr>
     );
-  };
+  }, [isMobile, tokenInfo, getPlatformImage, formatPrice]);
 
-  const renderTransactionRow = (tx, index) => {
+  const renderTransactionRow = useMemo(() => (tx, index) => {
     const transactionKey = tx.hash || `tx-${index}`;
     const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address);
     const isSVM = SUPPORTED_SVM_CHAINS.includes(tx.chain);
@@ -1190,7 +1280,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         </td>
       </motion.tr>
     );
-  };
+  }, [isMobile, nameTags, getPlatformImage, getExplorerUrls]);
 
   const filteredBalances = useMemo(() => {
     const validBalances = balances
@@ -1457,78 +1547,78 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         {selectedWallet ? (
           <>
             <div className="h-[20%] border border-white/10 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex flex-col justify-between rounded-xl">
-  <div className="flex items-center gap-2 mb-3">
-    {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.image && (
-      <img
-        src={nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address].image}
-        alt={`${nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'} logo`}
-        width={isMobile ? 20 : 24}
-        height={isMobile ? 20 : 24}
-        className="rounded-xl"
-        onError={(e) => (e.target.src = '/icons/default.png')}
-        loading="lazy"
-      />
-    )}
-    <div className="flex flex-col">
-      <span className="text-[10px] sm:text-[12px] font-bold text-white">
-        {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'}
-      </span>
-      <div className="relative flex items-center group">
-        <span className="text-[9px] sm:text-[10px] text-white/60 break-all">
-          {selectedWallet.address}
-        </span>
-        <motion.button
-          onClick={() => copyAddress(selectedWallet.address, toast)}
-          className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-          whileHover={{ scale: 1.1, y: -2 }}
-          whileTap={{ scale: 0.9 }}
-          title="Copy Address"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-3 sm:w-3 h-3 sm:h-3"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#f6ededff"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-        </motion.button>
-      </div>
-    </div>
-  </div>
-  <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-3 no-scrollbar">
-    <Tooltip text="All Chains">
-      <motion.button
-        onClick={() => setActiveChain(null)}
-        className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl flex-shrink-0 min-w-[48px] z-10 ${activeChain === null ? 'border-neon-blue bg-neon-blue/20 shadow-neon-sm' : 'hover:bg-neon-blue/20'}`}
-      >
-        ALL
-      </motion.button>
-    </Tooltip>
-    {chainsWithAssets.map((chain) => (
-      <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
-        <motion.button
-          onClick={() => setActiveChain(chain)}
-          className={`flex items-center justify-center rounded-full flex-shrink-0 z-10 min-w-[22px] sm:min-w-[22px] m-1 ${activeChain === chain ? 'border-neon-blue bg-neon-blue/20' : 'border-white/10 bg-white/5'}`}
-        >
-          <img
-            src={getPlatformImage(chain)}
-            alt={chain}
-            width={isMobile ? 18 : 20}
-            height={isMobile ? 18 : 20}
-            className="rounded-full object-contain block flex-shrink-0"
-            onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
-            loading="lazy"
-          />
-        </motion.button>
-      </Tooltip>
-    ))}
-  </div>
-</div>
+              <div className="flex items-center gap-2 mb-3">
+                {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.image && (
+                  <img
+                    src={nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address].image}
+                    alt={`${nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'} logo`}
+                    width={isMobile ? 20 : 24}
+                    height={isMobile ? 20 : 24}
+                    className="rounded-xl"
+                    onError={(e) => (e.target.src = '/icons/default.png')}
+                    loading="lazy"
+                  />
+                )}
+                <div className="flex flex-col">
+                  <span className="text-[10px] sm:text-[12px] font-bold text-white">
+                    {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'}
+                  </span>
+                  <div className="relative flex items-center group">
+                    <span className="text-[9px] sm:text-[10px] text-white/60 break-all">
+                      {selectedWallet.address}
+                    </span>
+                    <motion.button
+                      onClick={() => copyAddress(selectedWallet.address, toast)}
+                      className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      whileHover={{ scale: 1.1, y: -2 }}
+                      whileTap={{ scale: 0.9 }}
+                      title="Copy Address"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-3 sm:w-3 h-3 sm:h-3"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#f6ededff"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-3 no-scrollbar">
+                <Tooltip text="All Chains">
+                  <motion.button
+                    onClick={() => setActiveChain(null)}
+                    className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl flex-shrink-0 min-w-[48px] z-10 ${activeChain === null ? 'border-neon-blue bg-neon-blue/20 shadow-neon-sm' : 'hover:bg-neon-blue/20'}`}
+                  >
+                    ALL
+                  </motion.button>
+                </Tooltip>
+                {chainsWithAssets.map((chain) => (
+                  <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
+                    <motion.button
+                      onClick={() => setActiveChain(chain)}
+                      className={`flex items-center justify-center rounded-full flex-shrink-0 z-10 min-w-[22px] sm:min-w-[22px] m-1 ${activeChain === chain ? 'border-neon-blue bg-neon-blue/20' : 'border-white/10 bg-white/5'}`}
+                    >
+                      <img
+                        src={getPlatformImage(chain)}
+                        alt={chain}
+                        width={isMobile ? 18 : 20}
+                        height={isMobile ? 18 : 20}
+                        className="rounded-full object-contain block flex-shrink-0"
+                        onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
+                        loading="lazy"
+                      />
+                    </motion.button>
+                  </Tooltip>
+                ))}
+              </div>
+            </div>
 
             {/* Tabs: Portfolio & Activity (80% height) */}
             <div className="h-[85%] flex flex-col">
@@ -1562,6 +1652,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   >
                     {activeTab === 'PORTFOLIO' && (
                       <>
+                        <ProgressIndicator progress={streamProgress} isMobile={isMobile} />
                         {filteredBalances.length > 0 ? (
                           <table className="w-full text-[9px] sm:text-[10px]">
                             <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5">
@@ -1626,6 +1717,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     )}
                     {activeTab === 'ACTIVITY' && (
                       <>
+                        <ProgressIndicator progress={streamProgress} isMobile={isMobile} />
                         {filteredTransactions.length > 0 ? (
                           <table className="w-full text-[9px] sm:text-[10px]">
                             <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5">
