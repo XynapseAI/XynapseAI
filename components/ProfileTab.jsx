@@ -483,7 +483,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Render Tasks Section
   const renderTasksSection = useCallback(() => (
-    <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
+    <div className="overflow-y-auto min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
       <LoadingOverlay isLoading={tasksLoading || taskProgressLoading} isMobile={isMobile} />
       {tasksError && (
         <motion.div
@@ -521,9 +521,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <table className="w-full text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-white/5">
               <tr>
-                <th className="px-2 py-1 text-white text-left font-semibold">Task</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Points</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">Action</th>
+                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Task</th>
+                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Points</th>
+                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -535,7 +535,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <td className="px-2 py-2 text-white">
+                  <td className="px-2 py-2 text-white text-xs">
                     {task.description}{' '}
                     {task.is_daily
                       ? `(Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
@@ -545,7 +545,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         href={`https://x.com/intent/follow?screen_name=XynapseAI`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[7px] sm:text-[8px] text-neon-blue underline block mt-1"
+                        className="text-[8px] sm:text-xs text-neon-blue underline block mt-1"
                       >
                         Follow @XynapseAI
                       </a>
@@ -555,14 +555,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         href={`https://x.com/intent/retweet?tweet_id=${task.target_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[7px] sm:text-[8px] text-neon-blue underline block mt-1"
+                        className="text-[8px] sm:text-xs text-neon-blue underline block mt-1"
                       >
                         Retweet this post
                       </a>
                     )}
                   </td>
-                  <td className="px-2 py-2 text-neon-green">+{task.points}</td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 py-2 text-neon-green text-xs">+{task.points}</td>
+                  <td className="px-2 py-2 text-xs">
                     <motion.button
                       onClick={() => verifyTaskMutation.mutate(task)}
                       disabled={
@@ -571,7 +571,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
                         (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
                       }
-                      className={`px-3 py-1 rounded-xl text-[8px] sm:text-[10px] font-medium transition-all duration-300 border border-white/10 bg-white/5 ${verifyTaskMutation.isLoading ||
+                      className={`px-3 py-1 rounded-xl text-[8px] sm:text-xs font-medium transition-all duration-300 border border-white/10 bg-white/5 ${verifyTaskMutation.isLoading ||
                         (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
                         (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
                         (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
@@ -636,7 +636,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Render Leaderboard Section
   const renderLeaderboardSection = useCallback(() => (
-    <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
+    <div className="overflow-y-auto min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
       <LoadingOverlay isLoading={leaderboardLoading} isMobile={isMobile} />
       {leaderboardError && (
         <motion.div
@@ -661,9 +661,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <table className="w-full text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-white/5">
               <tr>
-                <th className="px-2 py-1 text-white text-left font-semibold">Rank</th>
-                <th className="px-2 py-1 text-white text-left font-semibold">User</th>
-                <th className="px-2 py-1 text-white text-right font-semibold">Points</th>
+                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Rank</th>
+                <th className="px-2.5 py-1.5 text-white text-left font-semibold">User</th>
+                <th className="px-2.5 py-1.5 text-white text-right font-semibold">Points</th>
               </tr>
             </thead>
             <tbody>
@@ -704,7 +704,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render Points Section
   const renderPointsSection = useCallback(() => (
     <div className="flex flex-col gap-4">
-      <div className="h-[200px] bg-white/5 rounded-xl p-2 border border-white/10">
+      <div className="min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] bg-white/5 rounded-xl p-2 border border-white/10">
         <LoadingOverlay isLoading={pointLoading} isMobile={isMobile} />
         {pointError && (
           <motion.div
@@ -909,7 +909,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   <motion.button
                     onClick={onSignOut}
                     disabled={isSigningOut}
-                    className={`p-1 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'bg-red-500/20 hover:bg-red-500/30'}`}
+                    className={`p-1 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/30'}`}
                     whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
                     whileTap={{ scale: isSigningOut ? 1 : 0.9 }}
                     aria-label="Sign out"
@@ -1043,7 +1043,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
         {/* Tab Navigation */}
         <motion.div
-          className="border border-white/10 rounded-xl bg-white/5 backdrop-blur-xl flex flex-col"
+          className="border border-white/10 rounded-xl bg-black/20 flex flex-col"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}

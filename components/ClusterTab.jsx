@@ -935,7 +935,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const renderPortfolioContent = () => {
     return (
       <div className="flex flex-col" ref={portfolioRef}>
-        <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
+        <div className="overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
           <LoadingOverlay isLoading={isLoadingPortfolio} isMobile={isMobile} />
           {isLoadingPortfolio ? (
             <SkeletonLoader count={5} isMobile={isMobile} />
@@ -990,7 +990,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     }
     const totalValue = uniqueWalletData.reduce((sum, wallet) => sum + (Number(wallet.total_value_usd) || 0), 0);
     return (
-      <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <div className="overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
         <LoadingOverlay isLoading={isLoadingWallets} isMobile={isMobile} />
         {isLoadingWallets ? (
           <SkeletonLoader count={5} isMobile={isMobile} />
@@ -1091,7 +1091,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     }
     logger.log("Rendering transactions:", { transactions, transactionsError, isLoadingTransactions });
     return (
-      <div className="overflow-y-auto max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <div className="overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
         <LoadingOverlay isLoading={isLoadingTransactions} isMobile={isMobile} />
         {isLoadingTransactions ? (
           <SkeletonLoader count={5} isMobile={isMobile} />
