@@ -88,6 +88,113 @@ function MatrixHoverEffect({ text, hoverColor = "#00BFFF" }) {
   )
 }
 
+// Updated WalletNode Component with rounded corners, no border, and drag functionality
+function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
+  const truncateAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  const displayName = nametag || truncateAddress(address);
+
+  return (
+    <div
+      className="relative flex items-center justify-center p-2 rounded-2xl border-2 border-gray-400/50 bg-black/10 backdrop-blur-lg transition-all duration-300 cursor-pointer group w-[160px] z-50 hover:bg-black/60"
+      style={{ position: 'absolute', left: `${position.x}px`, top: `${position.y}px` }}
+      onClick={() => onSelect(address)}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', address);
+      }}
+      onDrag={(e) => {
+        if (e.clientX && e.clientY) {
+          onDrag(e, address);
+        }
+      }}
+    >
+      {image && (
+        <img
+          src={image}
+          alt={`${displayName} logo`}
+          className="w-5 h-5 rounded-full mr-2"
+        />
+      )}
+      <p className="text-white text-xs font-medium text-center truncate" title={displayName}>
+        {displayName}
+      </p>
+    </div>
+  );
+}
+
+// Updated SimulatedTreemap Component with dynamic line updates
+function SimulatedTreemap() {
+  const [nodes, setNodes] = useState([
+    { address: '0x123...abc', nametag: 'Binance Deposit Wallet', image: '/icons/binance.png', position: { x: 150, y: 200 } }, // Center
+    { address: '0x456...def', nametag: 'OKX Hot Wallet', image: '/icons/okx.png', position: { x: -50, y: 150 } }, // Left 1
+    { address: '0x789...ghi', nametag: 'Bybit Hot Wallet', image: '/icons/bybit.png', position: { x: -50, y: 250 } }, // Left 2
+    { address: '0xabc...123', nametag: 'Tether Treasury', image: '/icons/tether.png', position: { x: 350, y: 100 } }, // Right 1
+    { address: '0xdef...456', nametag: 'Binance Hot Wallet', image: '/icons/binance.png', position: { x: 350, y: 200 } }, // Right 2
+    { address: '0xghi...789', nametag: 'Coinbase Wallet', image: '/icons/coinbase.png', position: { x: 350, y: 300 } }, // Right 3
+  ]);
+
+  const handleDrag = (e, address) => {
+    e.preventDefault();
+    const nodeIndex = nodes.findIndex(n => n.address === address);
+    if (nodeIndex !== -1) {
+      const updatedNodes = [...nodes];
+      updatedNodes[nodeIndex].position = {
+        x: updatedNodes[nodeIndex].position.x + e.movementX,
+        y: updatedNodes[nodeIndex].position.y + e.movementY,
+      };
+      setNodes(updatedNodes);
+    }
+  };
+
+  const handleSelect = (address) => {
+    console.log(`Selected wallet: ${address}`);
+    alert(`Clicked on wallet: ${address}`);
+  };
+
+  // Calculate SVG paths dynamically based on node positions
+  const getPath = (startX, startY, endX, endY, color) => {
+    return (
+      <path
+        d={`M${startX} ${startY} C${startX + 100} ${startY}, ${endX - 100} ${endY}, ${endX} ${endY}`}
+        stroke={color}
+        strokeWidth="2"
+        fill="none"
+        strokeDasharray="5,5"
+        className="transition-all duration-300"
+      />
+    );
+  };
+
+  return (
+    <div className="relative w-full h-[500px] rounded-2xl p-6 mr-4">
+      <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%">
+        {nodes.map((node, index) => {
+          if (index === 0) return null; // Skip the center node for lines
+          const startNode = nodes[0]; // Connect all nodes to the center node
+          return getPath(
+            startNode.position.x + 60, // Center of the start node
+            startNode.position.y + 20,
+            node.position.x + 60, // Center of the target node
+            node.position.y + 20,
+            index % 2 === 0 ? "#00BFFF" : "#EF4444"
+          );
+        })}
+      </svg>
+      {nodes.map((node) => (
+        <WalletNode
+          key={node.address}
+          address={node.address}
+          nametag={node.nametag}
+          image={node.image}
+          position={node.position}
+          onDrag={handleDrag}
+          onSelect={handleSelect}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   const router = useRouter()
   const card1Ref = useRef(null)
@@ -184,7 +291,7 @@ export default function Home() {
             duration: isMobile ? 0.8 : 1,
             ease: "power3.out",
           },
-          0,
+          0
         )
         .to(
           card2Ref.current,
@@ -195,7 +302,7 @@ export default function Home() {
             duration: isMobile ? 0.8 : 1,
             ease: "power3.out",
           },
-          isMobile ? 0.3 : 0.5,
+          isMobile ? 0.3 : 0.5
         )
         .to(
           card3Ref.current,
@@ -206,7 +313,7 @@ export default function Home() {
             duration: isMobile ? 0.8 : 1,
             ease: "power3.out",
           },
-          isMobile ? 0.6 : 1,
+          isMobile ? 0.6 : 1
         )
 
       // Stars and meteors animation
@@ -227,7 +334,7 @@ export default function Home() {
         const numStars = isMobile ? 8 : 12
         for (let i = 0; i < numStars; i++) {
           const star = document.createElement("div")
-          star.className = "star-dot" // Changed from "star" to "star-dot" to use new CSS class
+          star.className = "star-dot"
           gsap.set(star, {
             left: `${Math.random() * 100}%`,
             top: `${Math.random() * 100}%`,
@@ -237,7 +344,6 @@ export default function Home() {
           animateStar(star)
         }
 
-        // Meteor animation remains unchanged
         const createMeteor = () => {
           const meteorContainer = document.createElement("div")
           meteorContainer.className = "meteor-container"
@@ -416,6 +522,15 @@ export default function Home() {
     '/logos/logo4.png',
     '/logos/logo5.png',
   ]
+
+  // Simulated top holders data with corresponding images
+  const simulatedTopHolders = [
+    { address: '', balance: 632457, source: 'MicroStrategy Inc.', image: '/icons/microstrategy.png' },
+    { address: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo', balance: 248597, source: 'Binance Cold Wallet', image: '/icons/binance.png' },
+    { address: 'bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2', balance: 140574, source: 'Robinhood Cold Wallet', image: '/icons/robinhood.png' },
+    { address: '3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6', balance: 140398, source: 'Binance Cold Wallet', image: '/icons/binance.png' },
+    { address: 'bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97', balance: 130010, source: 'Bitfinex Cold Wallet', image: '/icons/bitfinex.png' },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-black text-white overflow-x-hidden font-saira">
@@ -735,49 +850,86 @@ export default function Home() {
               viewport={{ once: true }}
               className="space-y-8"
             >
-              {[
-                {
-                  title: "SENTIMENT ANALYSIS",
-                  value: 87,
-                  description: "Current market sentiment score based on social media analysis",
-                },
-                {
-                  title: "VOLATILITY INDEX",
-                  value: 42,
-                  description: "Real-time volatility measurement across major cryptocurrencies",
-                },
-                {
-                  title: "TREND STRENGTH",
-                  value: 73,
-                  description: "AI-calculated trend momentum for optimal entry/exit points",
-                },
-              ].map((metric, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.2 }}
-                  viewport={{ once: true }}
-                  className="bg-gray-900/30 border border-white/20 rounded-lg p-6 backdrop-blur-lg"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-bold text-gray-400 tracking-wider">{metric.title}</h4>
-                    <div className="text-2xl font-bold text-white">
-                      <AnimatedCounter value={metric.value} suffix="%" />
-                    </div>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-2 mb-3">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      whileInView={{ width: `${metric.value}%` }}
-                      transition={{ duration: 1.5, delay: index * 0.2 }}
-                      viewport={{ once: true }}
-                      className="bg-white h-2 rounded-full"
+              <div className="bg-gray-900/30 border border-white/20 rounded-lg p-6 backdrop-blur-lg overflow-x-auto">
+                <div className="flex justify-center items-center p-2 border-b border-white/10 bg-white/5">
+                  <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
+                    Top 100
+                    <img
+                      src="/logos/bitcoin.png"
+                      alt="BTC logo"
+                      className="w-5 h-5"
                     />
-                  </div>
-                  <p className="text-xs text-gray-500">{metric.description}</p>
-                </motion.div>
-              ))}
+                    Holders
+                  </h4>
+                </div>
+                <table className="w-full text-[9px] sm:text-[11px]">
+                  <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
+                    <tr>
+                      <th className="px-3 py-1.5 text-white text-left font-semibold">
+                        <div className="flex items-center gap-2">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 stroke-white/60 fill-none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="2"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                            />
+                          </svg>
+                          Address/Name
+                        </div>
+                      </th>
+                      <th className="px-3 py-1.5 text-white text-left font-semibold">
+                        <div className="flex items-center gap-2">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 fill-white/60"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
+                          </svg>
+                          Balance
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {simulatedTopHolders.map((holder, index) => (
+                      <motion.tr
+                        key={index}
+                        className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.02 }}
+                      >
+                        <td className="px-4 py-3 text-white">
+                          <div className="flex items-center gap-3 group relative">
+                            <img
+                              src={holder.image}
+                              alt={`${holder.source} logo`}
+                              className="w-5 h-5 rounded-full"
+                            />
+                            <span
+                              className="text-white font-medium cursor-pointer hover:text-white/80 transition-colors"
+                              title={holder.address}
+                            >
+                              {holder.source || holder.address.slice(0, 6) + '...' + holder.address.slice(-4)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-bold text-white">
+                          <span className="px-2 py-1 rounded-lg">
+                            {holder.balance.toLocaleString("en-US")}
+                          </span>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </motion.div>
 
             <motion.div
@@ -823,33 +975,7 @@ export default function Home() {
               viewport={{ once: true }}
               className="relative"
             >
-              <div className="bg-gray-900/50 border border-white/20 rounded-lg p-6 backdrop-blur-lg">
-                <div className="flex items-center gap-3 mb-6">
-                  <Image
-                    src="/logos/bitcoin.png"
-                    alt="Bitcoin Logo"
-                    width={40}
-                    height={40}
-                    className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
-                  />
-                  <div>
-                    <span className="text-white text-sm sm:text-base font-bold uppercase">BITCOIN</span>
-                    <div className="text-gray-400 text-sm">BTC</div>
-                  </div>
-                </div>
-                <div className="h-48 relative">
-                  <svg className="w-full h-full" viewBox="0 0 400 200">
-                    <polyline
-                      points="10,180 50,160 100,120 150,180 200,100 250,160 300,80 350,120 390,20"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    <circle cx="390" cy="20" r="4" fill="white" className="animate-pulse" />
-                  </svg>
-                </div>
-              </div>
+              <SimulatedTreemap />
             </motion.div>
 
             <motion.div
@@ -1097,7 +1223,7 @@ export default function Home() {
       )}
 
       <style jsx>{`
-        .star {
+        .star-dot {
           position: absolute;
           width: 2px;
           height: 2px;

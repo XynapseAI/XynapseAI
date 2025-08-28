@@ -258,7 +258,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
             variants={menuVariants}
           >
             <div className="flex justify-between items-center mb-3">
-              <h2 className="text-[10px] font-bold text-white uppercase tracking-wider">MENU</h2>
               <div className="flex items-center gap-2">
                 <select
                   id="mobile-currency-select"
