@@ -105,7 +105,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [streamProgress, setStreamProgress] = useState({ action: null, received: 0, total: null });
   const [showWatchlistSidebar, setShowWatchlistSidebar] = useState(false);
   const [isUserInitiatedChange, setIsUserInitiatedChange] = useState(false);
   const lastSelectedWalletRef = useRef(null);
@@ -316,7 +315,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     }
   }, [supportedChains]);
 
-  const fetchDataQuery = async (action, address, chainType, onPartialData) => {
+  const fetchDataQuery = async (action, address, chainType) => {
     const isValidEVM = isAddress(address);
     const isValidSVM = isValidSolanaAddress(address);
     if (!isValidEVM && !isValidSVM) {
@@ -329,7 +328,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     try {
       cachedData = await getCachedData(cacheKey);
       if (cachedData) {
-        logger.log(`Cache hit for ${cacheKey}`, { dataLength: cachedData.length });
+        logger.log(`Cache hit for ${cacheKey}`, { data: cachedData });
         return cachedData;
       }
     } catch (error) {
@@ -352,7 +351,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         headers: {
           'Content-Type': 'application/json',
           ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-          'x-recaptcha-token': 'no-recaptcha',
+          'x-recaptcha-token': 'no-recaptcha', // Thêm nếu API yêu cầu token reCAPTCHA
         },
         body: JSON.stringify(payload),
         credentials: 'include',
@@ -360,7 +359,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
       if (!response.ok) {
         const text = await response.text();
-        logger.error(`API error response for ${action}:`, { status: response.status, text });
         let errorMessage = `Failed to fetch ${action} data: ${response.status} ${response.statusText}`;
         try {
           const result = JSON.parse(text);
@@ -375,76 +373,50 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       const decoder = new TextDecoder();
       let data = [];
       let buffer = '';
-      let openBrackets = 0;
-      let receivedItems = 0;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        buffer += chunk;
-        logger.log(`Received chunk for ${action}:`, { chunk }); // Thêm log để debug
+        buffer += decoder.decode(value, { stream: true });
 
-        for (const char of chunk) {
-          if (char === '[') openBrackets++;
-          if (char === ']') openBrackets--;
-        }
-
-        let lastValidIndex = 0;
+        // Try to parse the buffer as JSON
         try {
-          for (let i = 0; i < buffer.length; i++) {
-            if (buffer[i] === ']' && openBrackets === 0) {
-              const potentialJson = buffer.slice(0, i + 1);
-              try {
-                const parsed = JSON.parse(potentialJson);
-                if (Array.isArray(parsed)) {
-                  if (parsed.some((item) => item.detail)) {
-                    logger.warn(`API returned error in chunk for ${action}:`, { error: parsed });
-                    throw new Error(parsed[0].detail || 'API returned error response');
-                  }
-                  data = parsed;
-                  lastValidIndex = i + 1;
-                  receivedItems += parsed.length;
-                  onPartialData(parsed, { action, received: receivedItems });
-                  logger.log(`Parsed partial ${action} data: ${parsed.length} items`, { address, receivedItems });
-                }
-              } catch (e) {
-                logger.log(`Failed to parse chunk for ${action}:`, { error: e.message, chunk: potentialJson });
-                continue;
-              }
-            }
+          // Remove leading and trailing brackets if present
+          const trimmedBuffer = buffer.trim();
+          if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
+            const parsed = JSON.parse(trimmedBuffer);
+            data = parsed;
+            buffer = ''; // Clear buffer after successful parse
+          } else {
+            // Partial JSON, continue accumulating
+            continue;
           }
-          buffer = buffer.slice(lastValidIndex);
         } catch (e) {
-          logger.log(`Incomplete JSON chunk for ${action}, continuing to read: ${e.message}`, { bufferLength: buffer.length });
+          // If JSON is incomplete, continue reading next chunk
+          logger.log(`Incomplete JSON chunk, continuing to read: ${e.message}`);
           continue;
         }
       }
 
-      if (buffer && openBrackets === 0) {
+      // Handle any remaining buffer
+      if (buffer) {
         try {
           const trimmedBuffer = buffer.trim();
           if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
             const parsed = JSON.parse(trimmedBuffer);
-            if (Array.isArray(parsed)) {
-              if (parsed.some((item) => item.detail)) {
-                logger.warn(`API returned error in final buffer for ${action}:`, { error: parsed });
-                throw new Error(parsed[0].detail || 'API returned error response');
-              }
-              data = parsed;
-              receivedItems += parsed.length;
-              onPartialData(parsed, { action, received: receivedItems });
-              logger.log(`Parsed final ${action} data: ${parsed.length} items`, { address, receivedItems });
-            }
+            data = parsed;
           } else {
-            throw new Error(`Invalid JSON response for ${action}`);
+            logger.error(`Final buffer is not valid JSON:`, { buffer });
+            throw new Error(`Invalid JSON response from ${action} API`);
           }
         } catch (e) {
           logger.error(`Error parsing final JSON buffer for ${action}:`, { error: e.message, buffer });
           throw new Error(`Invalid JSON response from ${action} API`);
         }
       }
+
+      logger.log(`Parsed ${action} data:`, { address, dataLength: data.length });
 
       if (data.length > 0) {
         try {
@@ -455,18 +427,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         }
       }
 
-      setStreamProgress({ action: null, received: 0, total: null });
       return data;
     } catch (error) {
-      if (data.length > 0) {
-        try {
-          await cacheData(cacheKey, data);
-          logger.log(`Cached partial data for ${cacheKey} due to interruption`, { dataLength: data.length });
-        } catch (cacheError) {
-          logger.warn(`Failed to cache partial data for ${cacheKey}`, { cacheError });
-        }
-      }
-      setStreamProgress({ action: null, received: 0, total: null });
       const errorMessage =
         error.response?.status === 429
           ? 'Too many requests. Please try again later.'
@@ -474,7 +436,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             ? 'Unauthorized: Please log in again.'
             : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
               ? 'reCAPTCHA verification failed. Please try again.'
-              : error.response?.data?.detail || `Dune Sim API error for ${action}: ${error.message}`;
+              : error.response?.data?.detail || `Dune Sim API error for action ${action}: ${error.message}`;
       logger.error(`Error fetching ${action}:`, { errorMessage, stack: error.stack });
       throw new Error(errorMessage);
     }
@@ -482,16 +444,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
   const { data: balancesData, error: balancesError, isValidating: balancesValidating } = useSWR(
     selectedWallet ? ['wallet-balances', selectedWallet.address, activeChainType] : null,
-    () =>
-      fetchDataQuery('wallet-balances', selectedWallet.address, activeChainType, (partialData, progress) => {
-        setBalances(partialData);
-        setStreamProgress(progress);
-        const chainsWithData = [...new Set(partialData.map((b) => CHAIN_ID_TO_NAME[b.chain] || b.chain))];
-        setChainsWithAssets(chainsWithData);
-        if (activeChain === undefined && chainsWithData.length > 0) {
-          setActiveChain(chainsWithData[0]);
-        }
-      }),
+    () => fetchDataQuery('wallet-balances', selectedWallet.address, activeChainType),
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
@@ -502,16 +455,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
   const { data: transactionsData, error: transactionsError, isValidating: transactionsValidating } = useSWR(
     selectedWallet && activeTab === 'ACTIVITY' ? ['transactions', selectedWallet.address, activeChainType] : null,
-    () =>
-      fetchDataQuery('transactions', selectedWallet.address, activeChainType, (partialData, progress) => {
-        setTransactions(
-          partialData.map((tx) => ({
-            ...tx,
-            chain: CHAIN_ID_TO_NAME[tx.chain] || tx.chain,
-          }))
-        );
-        setStreamProgress(progress);
-      }),
+    () => fetchDataQuery('transactions', selectedWallet.address, activeChainType),
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
@@ -519,20 +463,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       dedupingInterval: 30 * 1000,
     }
   );
-
-  const ProgressIndicator = ({ progress, isMobile }) => {
-    if (!progress.action) return null;
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="text-[9px] sm:text-[10px] text-white/80 p-2 sm:p-3 bg-white/5 border-b border-white/10"
-      >
-        Đang tải {progress.action === 'wallet-balances' ? 'số dư' : 'giao dịch'}: {progress.received} mục đã nhận
-      </motion.div>
-    );
-  };
 
   useEffect(() => {
     if (balancesError || transactionsError) {
@@ -580,17 +510,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       for (const { address, chain } of tokenAddresses) {
         const isValidEVM = isAddress(address);
         const isValidSVM = isValidSolanaAddress(address);
-        if (!isValidEVM && !isValidSVM) {
-          tokenInfoData[address] = [
-            {
-              chain,
-              symbol: 'Unknown',
-              logo: '/fallback-image.png',
-              name: 'Unknown Token',
-            },
-          ];
-          continue;
-        }
+        if (!isValidEVM && !isValidSVM) continue;
 
         const cacheKey = `tokenInfo-${address}-${chain}`;
         let cachedData = null;
@@ -598,7 +518,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           cachedData = await getCachedData(cacheKey);
           if (cachedData) {
             tokenInfoData[address] = cachedData;
-            logger.log(`Cache hit for tokenInfo: ${cacheKey}`);
             continue;
           }
         } catch (error) {
@@ -621,7 +540,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             headers: {
               'Content-Type': 'application/json',
               ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-              'x-recaptcha-token': 'no-recaptcha',
+              'x-recaptcha-token': 'no-recaptcha', // Thêm nếu API yêu cầu token reCAPTCHA
             },
             body: JSON.stringify(payload),
             credentials: 'include',
@@ -651,40 +570,31 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             buffer += decoder.decode(value, { stream: true });
 
             try {
-              const trimmedBuffer = buffer.trim();
-              if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-                const parsed = JSON.parse(trimmedBuffer);
-                if (Array.isArray(parsed)) {
-                  // Kiểm tra xem parsed có chứa lỗi không
-                  if (parsed.some((item) => item.detail)) {
-                    logger.warn(`API returned error for token info ${address} on ${chain}`, { error: parsed });
-                    throw new Error(parsed[0].detail || 'API returned error response');
+              const parsed = JSON.parse(buffer);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((chunk) => {
+                  if (chunk.success && Array.isArray(chunk.data)) {
+                    data = [...data, ...chunk.data];
                   }
-                  data = parsed;
-                  buffer = '';
-                }
+                });
+                buffer = ''; // Clear buffer after successful parse
               }
             } catch (e) {
-              logger.log(`Incomplete JSON chunk for token info ${address} on ${chain}, continuing to read: ${e.message}`);
+              // If JSON is incomplete, continue reading next chunk
               continue;
             }
           }
 
-          // Xử lý buffer cuối
+          // Handle any remaining buffer
           if (buffer) {
             try {
-              const trimmedBuffer = buffer.trim();
-              if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-                const parsed = JSON.parse(trimmedBuffer);
-                if (Array.isArray(parsed)) {
-                  if (parsed.some((item) => item.detail)) {
-                    logger.warn(`API returned error in final buffer for token info ${address} on ${chain}`, { error: parsed });
-                    throw new Error(parsed[0].detail || 'API returned error response');
+              const parsed = JSON.parse(buffer);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((chunk) => {
+                  if (chunk.success && Array.isArray(chunk.data)) {
+                    data = [...data, ...chunk.data];
                   }
-                  data = parsed;
-                }
-              } else {
-                throw new Error(`Invalid JSON response for token info ${address} on ${chain}`);
+                });
               }
             } catch (e) {
               logger.error(`Error parsing final JSON buffer for token info ${address} on ${chain}:`, { error: e.message, buffer });
@@ -722,7 +632,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             ];
           }
         } catch (err) {
-          logger.error(`Error fetching token info for ${address} on ${chain}:`, { error: err.message });
+          logger.error(`Error fetching token info for ${address} on ${chain}:`, { error: err });
           tokenInfoData[address] = [
             {
               chain,
@@ -1070,7 +980,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     setCurrentPage((prev) => ({ ...prev, [tab]: page }));
   };
 
-  const renderTokenRow = useMemo(() => (token) => {
+  const renderTokenRow = (token) => {
     const tokenInfoData = tokenInfo[token.address] || [];
     const tokenDetails = tokenInfoData.find((t) => t.chain === token.chain) || {};
     let logoUrl = '/icons/default.png';
@@ -1145,9 +1055,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         </td>
       </motion.tr>
     );
-  }, [isMobile, tokenInfo, getPlatformImage, formatPrice]);
+  };
 
-  const renderTransactionRow = useMemo(() => (tx, index) => {
+  const renderTransactionRow = (tx, index) => {
     const transactionKey = tx.hash || `tx-${index}`;
     const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address);
     const isSVM = SUPPORTED_SVM_CHAINS.includes(tx.chain);
@@ -1280,7 +1190,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         </td>
       </motion.tr>
     );
-  }, [isMobile, nameTags, getPlatformImage, getExplorerUrls]);
+  };
 
   const filteredBalances = useMemo(() => {
     const validBalances = balances
@@ -1652,7 +1562,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   >
                     {activeTab === 'PORTFOLIO' && (
                       <>
-                        <ProgressIndicator progress={streamProgress} isMobile={isMobile} />
                         {filteredBalances.length > 0 ? (
                           <table className="w-full text-[9px] sm:text-[10px]">
                             <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5">
@@ -1717,7 +1626,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     )}
                     {activeTab === 'ACTIVITY' && (
                       <>
-                        <ProgressIndicator progress={streamProgress} isMobile={isMobile} />
                         {filteredTransactions.length > 0 ? (
                           <table className="w-full text-[9px] sm:text-[10px]">
                             <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5">

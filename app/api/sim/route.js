@@ -106,7 +106,7 @@ async function checkRateLimit(ip, address, isSVMAddress) {
 
 // ================= Bottleneck Configuration =================
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 20 : 5,
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 15 : 5,
   minTime: process.env.NODE_ENV === 'production' ? 300 : 1000,
   reservoir: 50,
   reservoirRefreshAmount: 100,
@@ -363,88 +363,45 @@ function createJsonStream(controller, data, chunkSize = 100) {
   // Send opening array bracket
   if (!controller.locked) {
     controller.enqueue(new TextEncoder().encode('['));
-    logger.info("Stream started with opening bracket", { chunkCount: chunks.length, totalItems: data.length });
+    logger.info("Stream started with opening bracket");
   }
 
   let index = 0;
-  const maxWaitTime = 30000; // Maximum wait time for backpressure (30 seconds)
-  const backpressureDelay = 500; // Delay between backpressure retries (500ms)
-  let totalWaitTime = 0;
-
   async function sendNextChunk() {
     if (index >= chunks.length) {
       if (!controller.locked) {
+        // Send closing array bracket
         controller.enqueue(new TextEncoder().encode(']'));
         controller.close();
-        logger.info("Stream closed after sending all chunks", { totalItems: data.length });
+        logger.info("Stream closed after sending all chunks");
       }
       return;
     }
 
-    if (controller.desiredSize === null || controller.desiredSize <= 0) {
+    if (controller.desiredSize <= 0) {
       // Backpressure: Wait until buffer is ready
-      if (totalWaitTime >= maxWaitTime) {
-        logger.error("Stream terminated due to excessive backpressure wait time", { totalWaitTime, index });
-        if (!controller.locked) {
-          controller.enqueue(
-            new TextEncoder().encode(
-              JSON.stringify({ detail: "Stream terminated due to excessive backpressure" })
-            )
-          );
-          controller.close();
-        }
-        return;
-      }
-
-      logger.info(`Backpressure detected, waiting ${backpressureDelay}ms at chunk ${index + 1}/${chunks.length}`);
-      await new Promise((resolve) => setTimeout(resolve, backpressureDelay));
-      totalWaitTime += backpressureDelay;
+      logger.info("Backpressure detected, waiting...");
+      await new Promise((resolve) => setTimeout(resolve, 100));
       sendNextChunk();
       return;
     }
 
-    try {
-      if (!controller.locked) {
-        const chunkData = chunks[index];
-        const prefix = index > 0 ? ',' : '';
-        const chunkString = prefix + JSON.stringify(chunkData).slice(1, -1); // Remove outer brackets of chunk
-        controller.enqueue(new TextEncoder().encode(chunkString));
-        logger.info(`Sent chunk ${index + 1}/${chunks.length} with ${chunkData.length} items`, {
-          bufferSize: controller.desiredSize,
-        });
-        totalWaitTime = 0; // Reset wait time after successful send
-        index++;
-        sendNextChunk();
-      }
-    } catch (error) {
-      logger.error(`Error sending chunk ${index + 1}: ${error.message}`, { stack: error.stack });
-      if (!controller.locked) {
-        controller.enqueue(
-          new TextEncoder().encode(
-            JSON.stringify({ detail: `Stream error at chunk ${index + 1}: ${error.message}` })
-          )
-        );
-        // Attempt to continue with next chunk instead of closing immediately
-        index++;
-        sendNextChunk();
-      }
+    const chunkData = chunks[index];
+    if (!controller.locked) {
+      // Send chunk with comma if not the first chunk
+      const prefix = index > 0 ? ',' : '';
+      const chunkString = prefix + JSON.stringify(chunkData).slice(1, -1); // Remove outer brackets of chunk
+      controller.enqueue(new TextEncoder().encode(chunkString));
+      logger.info(`Sent chunk ${index + 1}/${chunks.length} with ${chunkData.length} items`);
     }
+    index++;
+    sendNextChunk();
   }
 
-  // Handle client disconnection
-  controller.signal.addEventListener('abort', () => {
-    logger.warn("Stream aborted by client", { index, totalItems: data.length });
-    if (!controller.locked) {
-      controller.close();
-    }
-  });
-
   sendNextChunk().catch((error) => {
-    logger.error(`Fatal error in sendNextChunk: ${error.message}`, { stack: error.stack });
+    logger.error(`Error in sendNextChunk: ${error.message}`, { stack: error.stack });
     if (!controller.locked) {
-      controller.enqueue(
-        new TextEncoder().encode(JSON.stringify({ detail: `Fatal stream error: ${error.message}` }))
-      );
+      controller.enqueue(new TextEncoder().encode(JSON.stringify({ detail: `Stream error: ${error.message}` })));
       controller.close();
     }
   });

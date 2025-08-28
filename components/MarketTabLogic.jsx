@@ -13,7 +13,7 @@ import Bottleneck from 'bottleneck';
 import axiosRetry from 'axios-retry';
 
 const cacheLimiter = new Bottleneck({
-  maxConcurrent: 20,
+  maxConcurrent: 15,
   minTime: 200,
   reservoir: 500,
   reservoirRefreshAmount: 500,
@@ -52,7 +52,7 @@ const fetcher = async (url, params) => {
 const CACHE_DURATIONS = {
   PRICE: 5 * 60 * 1000, // 2 phút
   METADATA: 4 * 60 * 60 * 1000, // 4 giờ
-  TRANSACTIONS: 2 * 60 * 1000, // 2m
+  TRANSACTIONS: 5 * 60 * 1000, // 2m
   DEFI_POOL: 4 * 60 * 60 * 1000, // 30 giây
   DEFAULT: 4 * 60 * 60 * 1000, // 5 phút
   TICKERS: 60 * 60 * 1000, // 1 giờ (tăng từ 30 phút)
@@ -141,7 +141,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [trendingTokens, setTrendingTokens] = useState([]);
   const [isLoadingTrending, setIsLoadingTrending] = useState(false);
   const [trendingError, setTrendingError] = useState(null);
-  const [streamProgress, setStreamProgress] = useState({ action: null, received: 0, total: null });
   const isFetchingChainsRef = useRef(false);
   const lastFetchedChainsRef = useRef(0);
   const [availableCurrencies] = useState([
@@ -961,7 +960,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   const fetchOnChainData = useCallback(
     debounce(
-      async (chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount = 0, onPartialData) => {
+      async (chain, tokenAddress, action, decimalPlace, address, recaptchaToken, retryCount = 0) => {
         // Validate parameters
         if (
           (action === 'top-holders' && (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/))) ||
@@ -1007,7 +1006,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         setIsLoadingOnChain(action === 'top-holders');
         if (action === 'wallet-balances') setIsLoadingWalletBalances(true);
         else if (action === 'transactions') setIsLoadingTransactions(true);
-        setStreamProgress({ action, received: 0, total: null });
 
         try {
           const fetchFn = async () => {
@@ -1031,7 +1029,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 'x-recaptcha-token': recaptchaToken,
               },
               body: JSON.stringify(payload),
-              signal: AbortSignal.timeout(30000),
+              signal: AbortSignal.timeout(30000), // Add timeout
             });
 
             if (!response.ok) {
@@ -1050,74 +1048,78 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const decoder = new TextDecoder();
             let data = [];
             let buffer = '';
-            let openBrackets = 0;
-            let receivedItems = 0;
+            let isFirstChunk = true;
 
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
 
-              const chunk = decoder.decode(value, { stream: true });
-              buffer += chunk;
-              console.log(`Received chunk for ${action}:`, { chunk });
+              buffer += decoder.decode(value, { stream: true });
 
-              for (const char of chunk) {
-                if (char === '[') openBrackets++;
-                if (char === ']') openBrackets--;
+              // Bỏ qua dấu '[' đầu tiên nếu là chunk đầu
+              if (isFirstChunk) {
+                buffer = buffer.trim().replace(/^\[/, '');
+                isFirstChunk = false;
               }
 
-              let lastValidIndex = 0;
-              try {
-                for (let i = 0; i < buffer.length; i++) {
-                  if (buffer[i] === ']' && openBrackets === 0) {
-                    const potentialJson = buffer.slice(0, i + 1);
-                    try {
-                      const parsed = JSON.parse(potentialJson);
-                      if (Array.isArray(parsed)) {
-                        if (parsed.some((item) => item.detail)) {
-                          console.warn(`API returned error in chunk for ${action}:`, { error: parsed });
-                          throw new Error(parsed[0].detail || 'API returned error response');
-                        }
-                        data = parsed;
-                        lastValidIndex = i + 1;
-                        receivedItems += parsed.length;
-                        onPartialData?.(parsed, { action, received: receivedItems });
-                        console.log(`Parsed partial ${action} data: ${parsed.length} items`, { address, receivedItems });
-                      }
-                    } catch (e) {
-                      console.log(`Failed to parse chunk for ${action}:`, { error: e.message, chunk: potentialJson });
-                      continue;
-                    }
-                  }
+              // Xử lý từng object hoàn chỉnh trong buffer
+              let pos = 0;
+              while (pos < buffer.length) {
+                // Bỏ qua khoảng trắng, dấu phẩy, và các ký tự không liên quan
+                while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
+                  pos++;
                 }
-                buffer = buffer.slice(lastValidIndex);
-              } catch (e) {
-                console.log(`Incomplete JSON chunk for ${action}, continuing to read: ${e.message}`, { bufferLength: buffer.length });
-                continue;
-              }
-            }
+                if (pos >= buffer.length) break;
 
-            if (buffer && openBrackets === 0) {
-              try {
-                const trimmedBuffer = buffer.trim();
-                if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
-                  const parsed = JSON.parse(trimmedBuffer);
-                  if (Array.isArray(parsed)) {
-                    if (parsed.some((item) => item.detail)) {
-                      console.warn(`API returned error in final buffer for ${action}:`, { error: parsed });
-                      throw new Error(parsed[0].detail || 'API returned error response');
+                if (buffer[pos] === '{') {
+                  let openBraces = 1;
+                  let start = pos;
+                  pos++;
+                  while (pos < buffer.length && openBraces > 0) {
+                    if (buffer[pos] === '{') openBraces++;
+                    else if (buffer[pos] === '}') openBraces--;
+                    pos++;
+                  }
+
+                  if (openBraces === 0) {
+                    const objStr = buffer.substring(start, pos).trim();
+                    try {
+                      const parsedObj = JSON.parse(objStr);
+                      if (parsedObj.detail) {
+                        throw new Error(parsedObj.detail);
+                      }
+                      data.push(parsedObj);
+                    } catch (parseError) {
+                      console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
                     }
-                    data = parsed;
-                    receivedItems += parsed.length;
-                    onPartialData?.(parsed, { action, received: receivedItems });
-                    console.log(`Parsed final ${action} data: ${parsed.length} items`, { address, receivedItems });
+                  } else {
+                    // Object chưa hoàn chỉnh, giữ lại phần còn lại của buffer
+                    break;
                   }
                 } else {
-                  throw new Error(`Invalid JSON response for ${action}`);
+                  // Nếu không phải object, có thể là lỗi, bỏ qua
+                  pos++;
                 }
-              } catch (e) {
-                console.error(`Error parsing final JSON buffer for ${action}:`, { error: e.message, buffer });
-                throw new Error(`Invalid JSON response from ${action} API`);
+              }
+
+              // Cập nhật buffer với phần còn lại chưa parse
+              buffer = buffer.slice(pos).trim();
+            }
+
+            // Xử lý buffer cuối nếu có
+            if (buffer) {
+              buffer = buffer.replace(/\]$/, '').trim(); // Bỏ dấu ']' cuối nếu có
+              if (buffer.startsWith('{')) {
+                try {
+                  const parsed = JSON.parse(buffer);
+                  if (!parsed.detail) {
+                    data.push(parsed);
+                  } else {
+                    throw new Error(parsed.detail);
+                  }
+                } catch (e) {
+                  console.error(`Error parsing final buffer: ${e.message}`, { buffer });
+                }
               }
             }
 
@@ -1141,21 +1143,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             setTransactions(data);
             setTransactionsError(null);
           }
-
-          if (data.length > 0) {
-            try {
-              await cacheLimiter.schedule(() =>
-                axios.post(
-                  `${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}/api/cache`,
-                  { key: cacheKey, action: 'set', data, ttl },
-                  { timeout: 30000 }
-                )
-              );
-              console.log(`Cached partial data for ${cacheKey} due to interruption`);
-            } catch (cacheError) {
-              console.warn(`Failed to cache partial data for ${cacheKey}`, { cacheError });
-            }
-          }
         } catch (error) {
           const errorMessage =
             error.response?.status === 429
@@ -1175,7 +1162,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             setTransactions([]);
           }
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-
           if (retryCount < 3) {
             const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
             await new Promise((resolve) => setTimeout(resolve, delay));
@@ -1185,13 +1171,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             } catch (recaptchaError) {
               console.error(`Failed to get reCAPTCHA token on retry ${retryCount + 1}:`, recaptchaError.message);
             }
-            fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, newRecaptchaToken, retryCount + 1, onPartialData);
+            fetchOnChainData(chain, tokenAddress, action, decimalPlace, address, newRecaptchaToken, retryCount + 1);
           }
         } finally {
           setIsLoadingOnChain(false);
           if (action === 'wallet-balances') setIsLoadingWalletBalances(false);
           else if (action === 'transactions') setIsLoadingTransactions(false);
-          setStreamProgress({ action: null, received: 0, total: null });
           if (recaptchaRef.current) {
             recaptchaRef.current.reset();
           }
@@ -1457,13 +1442,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setTransactionsError(null);
       setIsLoadingWalletBalances(true);
 
+      // Fetch wallet balances with reCAPTCHA
       const fetchBalances = async () => {
         try {
           const recaptchaToken = await executeRecaptcha('wallet-balances');
-          await fetchOnChainData(null, null, 'wallet-balances', null, address, recaptchaToken, 0, (partialData, progress) => {
-            setWalletBalances(partialData);
-            setStreamProgress(progress);
-          });
+          await fetchOnChainData(null, null, 'wallet-balances', null, address, recaptchaToken);
         } catch (error) {
           const errorMessage =
             error.response?.status === 401
@@ -1514,10 +1497,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         setWalletBalancesError(null);
         setTransactionsError(null);
         setIsLoadingWalletBalances(true);
-        await fetchOnChainData(null, null, 'wallet-balances', null, walletAddress, recaptchaToken, 0, (partialData, progress) => {
-          setWalletBalances(partialData);
-          setStreamProgress(progress);
-        });
+        fetchOnChainData(null, null, 'wallet-balances', null, walletAddress, recaptchaToken);
       } catch (error) {
         setWalletBalancesError(
           error.response?.status === 401
@@ -1555,10 +1535,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         console.log(`Fetching transactions for address: ${address}`);
         setIsLoadingTransactions(true);
         setTransactionsError(null);
-        await fetchOnChainData(null, null, 'transactions', null, address, recaptchaToken, 0, (partialData, progress) => {
-          setTransactions(partialData);
-          setStreamProgress(progress);
-        });
+        await fetchOnChainData(null, null, 'transactions', null, address, recaptchaToken);
       } catch (error) {
         const errorMessage =
           error.response?.status === 401
@@ -2333,13 +2310,7 @@ Use natural, professional tone with recent data.
 
       lastFetchedTokenRef.current = tokenKey;
       console.log(`Fetching top-holders for chain: ${chain}, tokenAddress: ${tokenAddress}`);
-      fetchOnChainData(chain, tokenAddress, 'top-holders', decimalPlace, null, null, 0, (partialData, progress) => {
-        setOnChainData((prev) => ({
-          ...prev,
-          topHolders: partialData,
-        }));
-        setStreamProgress(progress);
-      });
+      fetchOnChainData(chain, tokenAddress, 'top-holders', decimalPlace);
     }
   }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData]);
 
