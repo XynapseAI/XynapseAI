@@ -124,10 +124,8 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
-  ...(process.env.VERCEL_ENV === 'production' ? [] : ['https://*.vercel.app']),
-].filter((v, i, a) => a.indexOf(v) === i);
-
-const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
+  ...(process.env.VERCEL_ENV === 'production' ? [] : ['https://*.vercel.app', process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '']),
+].filter((v, i, a) => v && a.indexOf(v) === i);
 
 function isAllowedOrigin(origin, referer) {
   if (!origin && !referer) {
@@ -139,11 +137,10 @@ function isAllowedOrigin(origin, referer) {
     logger.info('No valid Origin or Referer, allowing for SSR compatibility');
     return true;
   }
-  if (
-    allowedOrigins.some((allowed) =>
-      allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
-    )
-  ) {
+  const isAllowed = allowedOrigins.some((allowed) =>
+    allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
+  );
+  if (isAllowed) {
     logger.info(`Origin allowed: ${checkOrigin}`);
     return true;
   }
@@ -151,7 +148,7 @@ function isAllowedOrigin(origin, referer) {
     logger.info(`Origin allowed by Vercel preview regex: ${checkOrigin}`);
     return true;
   }
-  logger.error(`CORS error: Origin ${checkOrigin || 'null'} not allowed`);
+  logger.error(`CORS error: Origin ${checkOrigin || 'null'} not allowed`, { allowedOrigins });
   return false;
 }
 
@@ -510,6 +507,7 @@ export async function POST(request) {
         try {
           logger.info(`Fetching transactions for ${lowerWalletAddress} on ${chain} with limit ${selectedLimit}...`, { ip });
           const txData = await fetchBlockchainData(lowerWalletAddress, 'transactions', false, selectedLimit, chain);
+          logger.info(`Raw blockchain data: ${JSON.stringify(txData.slice(0, 5))}...`, { totalTxs: txData.length });
 
           const uniqueTxData = Array.from(new Map(txData.map((tx) => [tx.hash, tx])).values());
           const incomingTxs = uniqueTxData
@@ -518,6 +516,10 @@ export async function POST(request) {
           const outgoingTxs = uniqueTxData
             .filter((tx) => tx.from.toLowerCase() === lowerWalletAddress)
             .slice(0, Math.ceil(selectedLimit / 2));
+
+          logger.info(`Processed ${incomingTxs.length} incoming and ${outgoingTxs.length} outgoing transactions`, { ip });
+
+
 
           const chainLogo = await getChainLogo(SUPPORTED_CHAINS[chain].coingeckoId);
 

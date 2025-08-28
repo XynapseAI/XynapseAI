@@ -326,8 +326,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
       setLoadingMessage('Looking up nametags...');
       const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Error fetching transaction data.');
+
+      // Kiểm tra nếu result không chứa incoming/outgoing
+      if (!response.ok || !result.incoming || !result.outgoing) {
+        throw new Error(result.error || 'Invalid response from API: missing transaction data.');
       }
 
       const incoming = result.incoming.map((tx) => ({
@@ -382,6 +384,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         autoClose: 5000,
       });
       console.error(`Error fetching transactions for ${address}: ${err.message}`, { response: err.response });
+      // Đặt lại dữ liệu để tránh lỗi giao diện
+      setIncomingData([]);
+      setOutgoingData([]);
+      setWalletInfo({
+        address: '',
+        nametag: 'Unknown',
+        image: '/icons/default.png',
+        chainLogo: '/icons/default.png',
+      });
     } finally {
       setLoading(false);
       setLoadingMessage('');
