@@ -848,9 +848,9 @@ export default function Home() {
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
-              className="space-y-8"
+              className="space-y-8 relative"
             >
-              <div className="bg-gray-900/30 border border-white/20 rounded-lg p-6 backdrop-blur-lg overflow-x-auto">
+              <div className="bg-gray-900/30 border-t border-l border-r border-white/20 rounded-t-lg p-6 backdrop-blur-lg overflow-x-auto relative">
                 <div className="flex justify-center items-center p-2 border-b border-white/10 bg-white/5">
                   <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
                     Top 100
@@ -862,73 +862,76 @@ export default function Home() {
                     Holders
                   </h4>
                 </div>
-                <table className="w-full text-[9px] sm:text-[11px]">
-                  <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
-                    <tr>
-                      <th className="px-3 py-1.5 text-white text-left font-semibold">
-                        <div className="flex items-center gap-2">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 stroke-white/60 fill-none"
-                            viewBox="0 0 24 24"
-                            strokeWidth="2"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                            />
-                          </svg>
-                          Address/Name
-                        </div>
-                      </th>
-                      <th className="px-3 py-1.5 text-white text-left font-semibold">
-                        <div className="flex items-center gap-2">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 fill-white/60"
-                            viewBox="0 0 24 24"
-                          >
-                            <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
-                          </svg>
-                          Balance
-                        </div>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {simulatedTopHolders.map((holder, index) => (
-                      <motion.tr
-                        key={index}
-                        className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.02 }}
-                      >
-                        <td className="px-4 py-3 text-white">
-                          <div className="flex items-center gap-3 group relative">
-                            <img
-                              src={holder.image}
-                              alt={`${holder.source} logo`}
-                              className="w-5 h-5 rounded-full"
-                            />
-                            <span
-                              className="text-white font-medium cursor-pointer hover:text-white/80 transition-colors"
-                              title={holder.address}
+                <div className="relative">
+                  <table className="w-full text-[9px] sm:text-[11px]">
+                    <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
+                      <tr>
+                        <th className="px-3 py-1.5 text-white text-left font-semibold">
+                          <div className="flex items-center gap-2">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-5 w-5 stroke-white/60 fill-none"
+                              viewBox="0 0 24 24"
+                              strokeWidth="2"
                             >
-                              {holder.source || holder.address.slice(0, 6) + '...' + holder.address.slice(-4)}
-                            </span>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                              />
+                            </svg>
+                            Address/Name
                           </div>
-                        </td>
-                        <td className="px-4 py-3 font-bold text-white">
-                          <span className="px-2 py-1 rounded-lg">
-                            {holder.balance.toLocaleString("en-US")}
-                          </span>
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </th>
+                        <th className="px-3 py-1.5 text-white text-left font-semibold">
+                          <div className="flex items-center gap-2">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-5 w-5 fill-white/60"
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
+                            </svg>
+                            Balance
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {simulatedTopHolders.map((holder, index) => (
+                        <motion.tr
+                          key={index}
+                          className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: index * 0.02 }}
+                        >
+                          <td className="px-4 py-3 text-white">
+                            <div className="flex items-center gap-3 group relative">
+                              <img
+                                src={holder.image}
+                                alt={`${holder.source} logo`}
+                                className="w-5 h-5 rounded-full"
+                              />
+                              <span
+                                className="text-white font-medium cursor-pointer hover:text-white/80 transition-colors"
+                                title={holder.address}
+                              >
+                                {holder.source || holder.address.slice(0, 6) + '...' + holder.address.slice(-4)}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 font-bold text-white">
+                            <span className="px-2 py-1 rounded-lg">
+                              {holder.balance.toLocaleString("en-US")}
+                            </span>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="absolute bottom-1 left-0 right-0 w-full h-20 bg-gradient-to-t from-black to-transparent pointer-events-none"></div>
+                </div>
               </div>
             </motion.div>
 
@@ -1059,13 +1062,13 @@ export default function Home() {
       </section>
 
       {/* Partners Section */}
-      <section className="py-20 bg-black m-32">
+      <section className="py-20 bg-black m-20 sm:m-32">
         <div className="text-center mb-16">
           <p className="text-xl sm:text-1xl font-bold text-gray-400 tracking-wider">ON-CHAIN DATA ON 65+ CHAINS</p>
         </div>
         <div className="relative w-full overflow-hidden">
-          <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-black to-transparent z-10"></div>
-          <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-black to-transparent z-10"></div>
+          <div className="absolute inset-y-0 left-0 w-4 sm:w-32 bg-gradient-to-r from-black to-transparent z-10"></div>
+          <div className="absolute inset-y-0 right-0 w-4 sm:w-32 bg-gradient-to-l from-black to-transparent z-10"></div>
 
           <div className="flex animate-marquee-right-to-left mb-8">
             {[...row1Logos, ...row1Logos].map((logo, index) => (
@@ -1075,7 +1078,7 @@ export default function Home() {
                 alt="Blockchain Partner"
                 width={80}
                 height={80}
-                className="h-16 mx-8 opacity-60 hover:opacity-100 transition-opacity duration-200 object-contain"
+                className="h-14 sm:h-16 mx-4 sm:mx-8 opacity-60 hover:opacity-100 transition-opacity duration-200 object-contain"
               />
             ))}
           </div>
@@ -1088,7 +1091,7 @@ export default function Home() {
                 alt="Blockchain Partner"
                 width={80}
                 height={80}
-                className="h-16 mx-8 opacity-60 hover:opacity-100 transition-opacity duration-200 object-contain"
+                className="h-10 sm:h-16 mx-4 sm:mx-8 opacity-60 hover:opacity-100 transition-opacity duration-200 object-contain"
               />
             ))}
           </div>
@@ -1101,7 +1104,7 @@ export default function Home() {
                 alt="Blockchain Partner"
                 width={80}
                 height={80}
-                className="h-16 mx-8 opacity-60 hover:opacity-100 transition-opacity duration-200 object-contain"
+                className="h-10 sm:h-16 mx-4 sm:mx-8 opacity-60 hover:opacity-100 transition-opacity duration-200 object-contain"
               />
             ))}
           </div>

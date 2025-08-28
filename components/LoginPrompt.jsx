@@ -31,7 +31,7 @@ export default function LoginPrompt() {
           Please sign in to access this feature.
         </p>
         <Link
-          href="/dashboard?login=true"
+          href="/dashboard"
           className="px-4 py-2 bg-gray-800 text-white rounded-full text-sm font-medium uppercase transition-all duration-300 hover:bg-gray-700 border border-white/20"
         >
           Sign In

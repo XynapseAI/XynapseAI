@@ -204,7 +204,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             throw new Error(result.detail || "Failed to fetch token data")
           }
           setSelectedToken(result.data)
-          logger.log("Fetched token by slug:", { slug: initialTokenSlug, token: result.data })
         } catch (err) {
           logger.error("Error fetching token by slug:", { slug: initialTokenSlug, error: err.message })
         } finally {
@@ -525,40 +524,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         }
 
         if (process.env.NODE_ENV === "development") {
-          console.log("fetchHighLowData:", {
-            percentageField: currencyField,
-            fallbackField: fallback,
-            percentageChange,
-            currency,
-            high: highLow.high,
-            low: highLow.low,
-            selectedTokenPercentageFields: {
-              "1h": {
-                currency: selectedToken.price_change_percentage_1h_in_currency?.[currency],
-                fallback: selectedToken.price_change_percentage_1h,
-              },
-              "24h": {
-                currency: selectedToken.price_change_percentage_24h_in_currency?.[currency],
-                fallback: selectedToken.price_change_percentage_24h,
-              },
-              "7d": {
-                currency: selectedToken.price_change_percentage_7d_in_currency?.[currency],
-                fallback: selectedToken.price_change_percentage_7d,
-              },
-              "30d": {
-                currency: selectedToken.price_change_percentage_30d_in_currency?.[currency],
-                fallback: selectedToken.price_change_percentage_30d,
-              },
-              "90d": {
-                currency: selectedToken.price_change_percentage_90d_in_currency?.[currency],
-                fallback: selectedToken.price_change_percentage_90d,
-              },
-              "1y": {
-                currency: selectedToken.price_change_percentage_1y_in_currency?.[currency],
-                fallback: selectedToken.price_change_percentage_1y,
-              },
-            },
-          })
         }
 
         setHighLowData({ high: highLow.high, low: highLow.low, percentageChange })
@@ -783,21 +748,17 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 style={{ display: "inline-flex" }}
                 onMouseEnter={() => {
                   setIsTrendingHovered(true)
-                  logger.log("Mouse entered trending container")
                 }}
                 onMouseLeave={() => {
                   setIsTrendingHovered(false)
                   setTooltipToken(null)
-                  logger.log("Mouse left trending container")
                 }}
                 onTouchStart={() => {
                   setIsTrendingHovered(true)
-                  logger.log("Touch start on trending container")
                 }}
                 onTouchEnd={() => {
                   setIsTrendingHovered(false)
                   setTooltipToken(null)
-                  logger.log("Touch end on trending container")
                 }}
               >
                 {[...trendingTokens, ...trendingTokens].map((token, index) => (
@@ -807,29 +768,24 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     className="relative mx-2 sm:mx-2.5 mr-2 flex items-center gap-1 px-1.5 py-0.5 cursor-pointer transition-all duration-300"
                     onClick={() => {
                       handleTokenSelect(token)
-                      logger.log("Clicked trending token:", { id: token.id, index })
                     }}
                     onMouseEnter={() => {
                       setHoveredToken(`${token.id}-${index}`)
                       setTooltipToken(token)
                       updateTooltipPosition(token.id, index)
-                      logger.log("Hover token:", { id: token.id, index })
                     }}
                     onMouseLeave={() => {
                       setHoveredToken(null)
                       setTooltipToken(null)
-                      logger.log("Leave token:", { id: token.id, index })
                     }}
                     onTouchStart={() => {
                       setHoveredToken(`${token.id}-${index}`)
                       setTooltipToken(token)
                       updateTooltipPosition(token.id, index)
-                      logger.log("Touch token:", { id: token.id, index })
                     }}
                     onTouchEnd={() => {
                       setHoveredToken(null)
                       setTooltipToken(null)
-                      logger.log("Leave token:", { id: token.id, index })
                     }}
                     whileHover={{ scale: 1.05, y: -2 }}
                     whileTap={{ scale: 0.95 }}
