@@ -8,9 +8,10 @@ import { getExplorerUrls, truncateAddress, isValidToken, LoadingOverlay } from '
 import '../styles/MarketTab.css';
 import { toast } from 'react-toastify';
 
+const isDev = process.env.NODE_ENV === "development";
 const logger = {
   log: (message, data) => {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
       console.log(message, data);
     }
   },
@@ -113,7 +114,6 @@ const WalletBalances = ({
           const errorMessage = err.message || 'Failed to fetch wallet balances';
           logger.error('Failed to fetch wallet balances:', { walletAddress, error: errorMessage });
           setWalletBalancesError(errorMessage);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         } finally {
           setIsLoadingWalletBalances(false);
         }
@@ -131,7 +131,6 @@ const WalletBalances = ({
           const errorMessage = err.message || 'Failed to fetch transactions';
           logger.error('Failed to fetch transactions:', { walletAddress, error: errorMessage });
           setTransactionsError(errorMessage);
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         });
       }
     };

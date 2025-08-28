@@ -28,16 +28,18 @@ import {
 import "react-loading-skeleton/dist/skeleton.css"
 import { useCurrency } from './CurrencyContext';
 
+
+const isDev = process.env.NODE_ENV === "development";
 const logger = {
   log: (message, data) => {
-    if (process.env.NODE_ENV === "development") {
-      console.log(message, data)
+    if (isDev) {
+      console.log(message, data);
     }
   },
   error: (message, data) => {
-    console.error(message, data)
+    console.error(message, data);
   },
-}
+};
 
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
@@ -180,7 +182,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       fetchTrendingTokens((err) => {
         if (err) {
           console.error("Failed to fetch trending tokens:", { error: err.message })
-          toast.error("Failed to load trending tokens.", { position: "top-center", autoClose: 3000 })
         }
       })
       lastFetchedSlugRef.current = initialTokenSlug
@@ -206,7 +207,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           logger.log("Fetched token by slug:", { slug: initialTokenSlug, token: result.data })
         } catch (err) {
           logger.error("Error fetching token by slug:", { slug: initialTokenSlug, error: err.message })
-          toast.error(`Failed to load token: ${err.message}`, { position: "top-center", autoClose: 3000 })
         } finally {
           setIsChartLoading(false)
         }
@@ -309,10 +309,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       return;
     }
     if (dexRequestCount >= 5 && Date.now() - lastDexRequestTime < 60 * 1000) {
-      toast.error("Too many DEX requests. Please wait a minute and try again.", {
-        position: "top-center",
-        autoClose: 5000,
-      });
       return;
     }
     setActiveMarketTab("dex");
@@ -327,9 +323,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
   const handlePoolClick = (poolAddress) => {
     if (process.env.NODE_ENV === "development") {
-      console.log("handlePoolClick called with poolAddress:", poolAddress)
-      console.log("dexData.pools:", dexData.pools)
-      console.log("dexData.poolTokens:", dexData.poolTokens)
     }
     const pool = dexData.pools.find((p) => p.attributes.address === poolAddress)
     if (pool) {
@@ -340,9 +333,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       })
     } else {
       if (process.env.NODE_ENV === "development") {
-        console.log("Pool not found for address:", poolAddress)
       }
-      toast.error("Pool data not available.", { position: "top-center", autoClose: 3000 })
     }
   }
 
@@ -502,7 +493,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       fetchPriceHistory(tokenId, timeRange, currency, (err, data) => {
         if (err) {
           logger.error("Price history fetch failed:", { error: err.message })
-          toast.error(err.message, { position: "top-center", autoClose: 3000 })
         }
         setIsChartLoading(false)
       })
@@ -590,7 +580,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         await fetchPriceHistory(tokenId, days, (err, data) => {
           if (err) {
             logger.error("Price history fetch failed:", { error: err.message })
-            toast.error(err.message, { position: "top-center", autoClose: 3000 })
           }
           setIsChartLoading(false)
         })

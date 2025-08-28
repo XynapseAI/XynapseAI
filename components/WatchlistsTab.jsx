@@ -33,10 +33,10 @@ const NATIVE_TOKEN_INFO = {
   eclipse: { name: 'Eclipse', symbol: 'ETH', logo: '/eclipse-logo.png' },
 };
 
-// Logger for debugging
+const isDev = process.env.NODE_ENV === "development";
 const logger = {
   log: (message, data) => {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDev) {
       console.log(message, data);
     }
   },
@@ -465,11 +465,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     if (balancesError || transactionsError) {
       const errorMessage = balancesError?.message || transactionsError?.message || 'Failed to load data';
       setError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
       if (balancesError) setBalances([]);
       if (transactionsError) setTransactions([]);
     }
-  }, [balancesError, transactionsError, toast]);
+  }, [balancesError, transactionsError]);
 
   useEffect(() => {
     if (balancesData) {
@@ -655,11 +654,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     if (tokenInfoError) {
       const errorMessage = tokenInfoError.message || 'Failed to load token info';
       setError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
     }
     if (tokenInfoData) setTokenInfo(tokenInfoData);
     setLoadingStates((prev) => ({ ...prev, tokenInfo: tokenInfoValidating }));
-  }, [tokenInfoData, tokenInfoError, tokenInfoValidating, toast]);
+  }, [tokenInfoData, tokenInfoError, tokenInfoValidating]);
 
   const fetchNameTagsForAddresses = useCallback(
     async (addresses) => {
@@ -731,8 +729,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             const normalizedAddress = address.toLowerCase();
             newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
           });
-
-          toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         }
       } else if (evmAddresses.length > 0) {
         logger.log('Unauthenticated fetchNameTagsForAddresses attempt');
@@ -832,7 +828,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       } catch (err) {
         const errorMessage = err.response?.data?.detail || `Failed to load watchlists: ${err.message}`;
         setError(errorMessage);
-        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         setWatchlists([]);
       } finally {
         setLoadingStates((prev) => ({ ...prev, loading: false }));
@@ -904,7 +899,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     } catch (err) {
       const errorMessage = err.response?.data?.detail || `Failed to add wallet: ${err.message}`;
       setError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
     } finally {
       setLoadingStates((prev) => ({ ...prev, loading: false }));
     }

@@ -19,14 +19,15 @@ import "react-loading-skeleton/dist/skeleton.css";
 
 const BITCOIN_LOGO = "/logos/bitcoin.png";
 
+const isDev = process.env.NODE_ENV === "development";
 const logger = {
   log: (message, data) => {
-    if (process.env.NODE_ENV === "development") {
-      console.log(message, data || {});
+    if (isDev) {
+      console.log(message, data);
     }
   },
   error: (message, data) => {
-    console.error(message, data || {});
+    console.error(message, data);
   },
 };
 
