@@ -437,7 +437,7 @@ export default function Dashboard() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.8, ease: 'easeOut' }}
-                className={`w-full h-full flex items-center justify-center bg-black text-white font-saira relative ${styles.container}`}
+                className={`w-full h-full flex items-center justify-center bg-black/5 text-white font-saira relative ${styles.container}`}
               >
                 <motion.div
                   ref={starsBackgroundRef}
@@ -459,7 +459,7 @@ export default function Dashboard() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: 0.2 }}
-                  className={`absolute top-2 left-2 z-20 ${styles['logo-container']}`}
+                  className={`absolute top-2 left-2 ${styles['logo-container']}`}
                 >
                   <Image
                     src="/logos/logo-landscape.png"
@@ -474,7 +474,7 @@ export default function Dashboard() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: 'easeOut' }}
-                  className={`relative z-10 bg-gray-900/30 backdrop-blur-lg p-6 md:p-10 rounded-2xl border border-white/10 max-w-md w-full mx-4 flex flex-col items-center`}
+                  className={`relative z-10 bg-white/5 backdrop-blur-sm p-6 md:p-10 rounded-2xl border border-white/10 max-w-md w-full mx-4 flex flex-col items-center`}
                 >
                   <motion.h1
                     initial={{ opacity: 0, y: -10 }}
@@ -498,23 +498,23 @@ export default function Dashboard() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter your email"
-                      className={`w-full px-4 py-3 bg-gray-800/50 border border-white/10 rounded-full text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-blue ${styles['input-glow']}`}
+                      className={`w-full px-4 py-3 bg-black/50 border border-white/10 rounded-full text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-blue ${styles['input-glow']}`}
                       required
                     />
                     <button
                       type="submit"
-                      className={`w-full px-4 py-3 bg-neon-blue text-black rounded-full text-sm font-medium uppercase transition-all duration-300 hover:bg-neon-blue/80 ${styles['button-glow']}`}
+                      className={`w-full px-4 py-3 border-2 border-white/10 bg-white/5 backdrop-blur-xl text-white rounded-full text-sm font-medium uppercase transition-all duration-300`}
                     >
                       <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
                     </button>
                   </form>
                   <div className="flex items-center justify-center my-4 w-full">
-                    <span className="text-gray-500 text-sm uppercase">OR</span>
+                    <span className="text-gray-500 text-xs uppercase">OR</span>
                   </div>
                   {providers?.google && (
                     <button
                       onClick={handleGoogleSignIn}
-                      className={`w-full px-4 py-3 bg-gray-800/50 border border-white/20 rounded-full text-white text-sm font-medium uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:bg-gray-700/50 ${styles['button-glow']}`}
+                      className={`w-full px-4 py-3 bg-black/10 backdrop-blur-xl border border-white/20 rounded-full text-white text-sm font-medium uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:bg-gray-700/50 ${styles['button-glow']}`}
                     >
                       <Image
                         src="/logos/google.png"

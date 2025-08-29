@@ -1481,7 +1481,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
         <div className="flex flex-col md:flex-row gap-4 flex-1">
           <motion.div
-            className="flex-1 border border-white/10 rounded-xl bg-black/10 flex flex-col"
+            className="flex-1 border border-white/10 rounded-xl bg-white/5 flex flex-col"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
@@ -1504,12 +1504,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           </motion.div>
 
           <motion.div
-            className="flex-1 border border-white/10 rounded-xl bg-black/5 flex flex-col"
+            className="flex-1 border border-white/10 rounded-xl bg-white/5 flex flex-col"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <div className="p-4 border-b border-white/10 bg-white/5">
+            <div className="p-3.5 border-b border-white/10 bg-black/5">
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">Large Flow</h4>
             </div>
             {renderTransactionsContent()}

@@ -27,7 +27,7 @@ export default function LoginPrompt() {
           priority
         />
         <h2 className="text-lg sm:text-xl font-bold uppercase mb-2">Sign In</h2>
-        <p className="text-xs sm:text-sm text-white/80 mb-4 max-w-xs">
+        <p className="text-[10px] sm:text-xs text-white/80 mb-4 max-w-xs">
           Please sign in to access this feature.
         </p>
         <Link

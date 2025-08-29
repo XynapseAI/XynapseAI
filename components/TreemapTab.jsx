@@ -38,7 +38,7 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
 
   return (
     <div
-      className={`relative flex items-center justify-center p-2 rounded-xl border border-white/20 bg-black/40 transition-all duration-300 cursor-pointer group ${isRoot ? 'w-[160px] max-w-[160px]' : 'w-[100px]'
+      className={`relative flex items-center justify-center p-2 rounded-xl border border-white/20 bg-white/5 backdrop-blur-sm transition-all duration-300 cursor-pointer group ${isRoot ? 'w-[160px] max-w-[160px]' : 'w-[100px]'
         }`}
       onClick={() => onSelect(address)}
     >
@@ -653,7 +653,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             fetchTransactions(walletAddress);
                           }
                         }}
-                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[10px] sm:text-[11px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
+                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                         whileHover={{ scale: !isPremium && chain.value !== '1' ? 1 : 1.05 }}
                         whileTap={{ scale: !isPremium && chain.value !== '1' ? 1 : 0.95 }}

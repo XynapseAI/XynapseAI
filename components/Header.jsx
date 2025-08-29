@@ -33,11 +33,11 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   const tabs = [
     { id: 'market', label: 'Market' },
-    { id: 'ai', label: 'AI' },
-    { id: 'profile', label: 'Profile' },
+    { id: 'cluster', label: 'Cluster' },
     { id: 'treemap', label: 'Treemap' },
     { id: 'watchlists', label: 'Watchlists' },
-    { id: 'cluster', label: 'Cluster' },
+    { id: 'profile', label: 'Profile' },
+    { id: 'ai', label: 'AI' },
   ];
 
   // Handle click outside to close menu or search dropdown
@@ -180,7 +180,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   return (
-    <header className="h-[4vh] sm:h-[5vh] bg-black/10 backdrop-blur-xs border-b border-white/10 rounded-b-xl flex justify-between items-center sticky top-0 z-20 font-saira">
+    <header className="h-[4vh] sm:h-[5vh] bg-white/5 backdrop-blur-xs border-b border-white/10 rounded-b-xl flex justify-between items-center sticky top-0 z-20 font-saira">
       {/* Mobile Menu Toggle */}
       <div className="block sm:hidden">
         <button
@@ -213,7 +213,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
             <motion.button
               onClick={() => handleTabClick(tab.id)}
               onMouseEnter={handleMouseEnter}
-              className={`group px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium uppercase no-hover-effect ${activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'}`}
+              className={`group w-[100px] px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium uppercase no-hover-effect ${activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'}`}
             >
               <span className="matrix-text">{renderMatrixText(tab.label)}</span>
             </motion.button>
@@ -251,7 +251,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         {isMenuOpen && (
           <motion.div
             ref={menuRef}
-            className="fixed top-0 left-0 w-full max-w-[60%] sm:max-w-xs h-[100vh] bg-black/90 backdrop-blur-3xl z-30 flex flex-col p-3 sm:hidden rounded-r-xl border-r border-white/10 shadow-neon-sm"
+            className="fixed top-0 left-0 w-full max-w-[70%] sm:max-w-xs h-[100vh] bg-black/90 backdrop-blur-3xl z-30 flex flex-col p-3 sm:hidden rounded-r-xl border-r border-white/10 shadow-neon-sm"
             initial="closed"
             animate="open"
             exit="closed"
