@@ -1282,14 +1282,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             >
               <div className="p-2">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/20 to-transparent p-1 rounded">
+                  <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
                     Watchlist
                   </h3>
                   <motion.button
                     onClick={() => setShowAddModal(true)}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="p-1 bg-white/5 border border-white/10 rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
+                    className="p-1 hover:bg-neon-blue/20 transition-all duration-300"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -1371,14 +1371,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       {/* Left Sidebar: Watchlist (Desktop) */}
       <div className="hidden sm:block w-[20%] h-[95%] border border-white/10 rounded-xl p-3 sm:p-4 mt-3 overflow-y-auto custom-scrollbar bg-white/5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-neon-blue/20 to-transparent p-1 rounded">
+          <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
             Watchlist
           </h3>
           <motion.button
             onClick={() => setShowAddModal(true)}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="p-1 bg-white/5 border border-white/10 rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
+            className="p-1 hover:bg-neon-blue/20 transition-all duration-300"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
