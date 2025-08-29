@@ -65,35 +65,35 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Execute reCAPTCHA
   const debouncedExecuteRecaptcha = useCallback(
-  debounce(
-    async (action, retries = 4) => {
-      if (process.env.NODE_ENV === 'development') return 'development-token';
-      if (!recaptchaRef.current) {
-        console.error('reCAPTCHA ref is null');
-        throw new Error('reCAPTCHA not initialized');
-      }
-      try {
-        await recaptchaRef.current.reset();
-        const token = await Promise.race([
-          recaptchaRef.current.executeAsync({ action }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 60000)),
-        ]);
-        if (!token) throw new Error('Empty reCAPTCHA token');
-        console.log(`reCAPTCHA token for ${action}: ${token.substring(0, 10)}...`);
-        return token;
-      } catch (error) {
-        console.error(`reCAPTCHA error for ${action}: ${error.message}`);
-        if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-          return debouncedExecuteRecaptcha(action, retries - 1);
+    debounce(
+      async (action, retries = 4) => {
+        if (process.env.NODE_ENV === 'development') return 'development-token';
+        if (!recaptchaRef.current) {
+          console.error('reCAPTCHA ref is null');
+          throw new Error('reCAPTCHA not initialized');
         }
-        throw new Error(`reCAPTCHA failed after ${5 - retries} attempts: ${error.message}`);
-      }
-    },
-    1000
-  ),
-  [recaptchaRef]
-);
+        try {
+          await recaptchaRef.current.reset();
+          const token = await Promise.race([
+            recaptchaRef.current.executeAsync({ action }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 60000)),
+          ]);
+          if (!token) throw new Error('Empty reCAPTCHA token');
+          console.log(`reCAPTCHA token for ${action}: ${token.substring(0, 10)}...`);
+          return token;
+        } catch (error) {
+          console.error(`reCAPTCHA error for ${action}: ${error.message}`);
+          if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            return debouncedExecuteRecaptcha(action, retries - 1);
+          }
+          throw new Error(`reCAPTCHA failed after ${5 - retries} attempts: ${error.message}`);
+        }
+      },
+      1000
+    ),
+    [recaptchaRef]
+  );
 
   // Fetch CSRF Token
   const { data: csrfToken, isLoading: csrfLoading } = useQuery({
@@ -888,6 +888,19 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         });
     }
   }, [session, csrfToken, queryClient, status]);
+
+  const handleManualCacheClear = async () => {
+    try {
+      await clearAllCaches(session.user.id);
+      console.log('Manual cache cleared');
+      toast.success('Cache cleared successfully.', { position: 'top-center', autoClose: 5000 });
+      // Làm mới trang để đảm bảo đồng bộ
+      window.location.reload();
+    } catch (err) {
+      console.error('Error clearing cache:', err);
+      toast.error('Failed to clear cache.', { position: 'top-center', autoClose: 5000 });
+    }
+  };
 
   if (status === 'loading' || csrfLoading) {
     return (

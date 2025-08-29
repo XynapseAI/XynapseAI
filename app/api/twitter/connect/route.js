@@ -17,6 +17,8 @@ const twitterClient = new TwitterApi({
   clientSecret: process.env.TWITTER_CLIENT_SECRET,
 });
 
+const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
+
 function isAllowedOrigin(origin, referer) {
   const allowedOrigins = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
@@ -25,16 +27,24 @@ function isAllowedOrigin(origin, referer) {
     'https://www.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
-    ...(process.env.VERCEL_ENV === 'production' ? [] : ['https://*.vercel.app']),
-  ];
-  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
-  if (!checkOrigin) {
-    logger.info('No Origin or Referer, allowing request for SSR');
+    'https://api.twitter.com', // Thêm Twitter API để xử lý callback
+  ].filter((v, i, a) => a.indexOf(v) === i);
+
+  if (!origin && !referer) {
+    logger.info('No Origin or Referer (likely SSR or Twitter callback), allowing request');
     return true;
   }
+
+  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
+  if (!checkOrigin) {
+    logger.info('No valid Origin or Referer, allowing for SSR or Twitter callback compatibility');
+    return true;
+  }
+
   const isAllowed = allowedOrigins.some((allowed) =>
     allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
-  );
+  ) || vercelPreviewRegex.test(checkOrigin);
+
   logger.info(`Origin check: ${checkOrigin}, Allowed: ${isAllowed}`);
   return isAllowed;
 }
@@ -63,7 +73,16 @@ export async function GET(request) {
 
   if (!isAllowedOrigin(origin, referer)) {
     logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, {
+      status: 403,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        'Access-Control-Allow-Methods': 'GET, POST',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+    });
   }
 
   try {
@@ -146,6 +165,10 @@ export async function GET(request) {
     // Thêm header để thông báo client xóa cache IndexedDB
     const response = NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?twitterConnected=true`);
     response.headers.set('X-Clear-IndexedDB', 'true');
+    response.headers.set('Access-Control-Allow-Origin', origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-Recaptcha-Token, X-CSRF-Token');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
     return response;
   } catch (error) {
     logger.error('Error connecting Twitter account', { error: error.message, userId: session.user.id, ip });
@@ -173,7 +196,16 @@ export async function POST(request) {
 
   if (!isAllowedOrigin(origin, referer)) {
     logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, {
+      status: 403,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        'Access-Control-Allow-Methods': 'GET, POST',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+    });
   }
 
   try {
