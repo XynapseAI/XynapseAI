@@ -878,6 +878,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         .then(() => {
           console.log('Queries refetched successfully');
           window.history.replaceState({}, document.title, window.location.pathname);
+          toast.success('Twitter connected successfully!', { position: 'top-center', autoClose: 5000 });
         })
         .catch((err) => {
           console.error('Error handling Twitter connection callback:', err);
