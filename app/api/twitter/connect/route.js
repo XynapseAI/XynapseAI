@@ -64,6 +64,32 @@ async function checkRateLimit(ip) {
     .exec();
 }
 
+async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const { score } = await verifyRecaptcha(token, action, ip);
+      logger.info('reCAPTCHA verification successful', { score, action, ip });
+      return { score };
+    } catch (error) {
+      logger.warn(`reCAPTCHA verification attempt ${i + 1} failed: ${error.message}`, { action, ip });
+      if (i === retries - 1) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+}
+
+async function withRetry(fn, retries = 2, delay = 1000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      logger.warn(`Operation failed, retrying after ${delay}ms`, { attempt: i + 1, error: err.message });
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -246,9 +272,8 @@ export async function POST(request) {
 
   if (process.env.NODE_ENV !== 'development') {
     try {
-      logger.info('Attempting reCAPTCHA verification', { token: recaptchaToken.substring(0, 8) + '...' });
-      const { score } = await verifyRecaptcha(recaptchaToken, 'disconnect_twitter', ip);
-      logger.info('reCAPTCHA verification successful for disconnect_twitter', { score, ip });
+      logger.info('Attempting reCAPTCHA verification', { token: recaptchaToken.substring(0, 8) + '...', action: 'disconnect_twitter', ip });
+      await verifyRecaptchaWithRetry(recaptchaToken, 'disconnect_twitter', ip);
     } catch (error) {
       logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip, stack: error.stack });
       return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: corsHeaders });
@@ -256,18 +281,23 @@ export async function POST(request) {
   }
 
   try {
-    await prisma.$transaction([
-      prisma.twitter_handles.delete({ where: { user_id: session.user.id } }),
-      prisma.users.update({
-        where: { id: session.user.id },
-        data: { twitter_handle: null },
-      }),
-    ]);
+    await withRetry(async () => {
+      await prisma.$transaction([
+        prisma.twitter_handles.delete({ where: { user_id: session.user.id } }),
+        prisma.users.update({
+          where: { id: session.user.id },
+          data: { twitter_handle: null },
+        }),
+      ]);
+    });
     logger.info('Database operations successful', { userId: session.user.id });
-    await Promise.all([
-      redisClient.del(`user:${session.user.id}`),
-      redisClient.del(`connect-data:${session.user.id}`),
-    ]);
+
+    await withRetry(async () => {
+      await Promise.all([
+        redisClient.del(`user:${session.user.id}`),
+        redisClient.del(`connect-data:${session.user.id}`),
+      ]);
+    });
     logger.info('Twitter account disconnected and Redis caches cleared', { userId: session.user.id, ip });
     return NextResponse.json({ success: true }, { headers: corsHeaders });
   } catch (error) {

@@ -65,33 +65,31 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Execute reCAPTCHA
   const debouncedExecuteRecaptcha = useCallback(
-    debounce(
-      async (action, retries = 4) => {
-        if (process.env.NODE_ENV === 'development') return 'development-token';
-        if (!recaptchaRef.current) {
-          console.error('reCAPTCHA ref is null');
-          throw new Error('reCAPTCHA not initialized');
+    async (action, retries = 2) => { // Giảm số lần retry từ 4 xuống 2 để giảm thời gian chờ
+      if (process.env.NODE_ENV === 'development') return 'development-token';
+      if (!recaptchaRef.current) {
+        console.error('reCAPTCHA ref is null');
+        throw new Error('reCAPTCHA not initialized');
+      }
+      try {
+        // Đảm bảo reset reCAPTCHA trước khi tạo token mới
+        await recaptchaRef.current.reset();
+        const token = await Promise.race([
+          recaptchaRef.current.executeAsync({ action }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)), // Giảm timeout từ 60s xuống 30s
+        ]);
+        if (!token) throw new Error('Empty reCAPTCHA token');
+        console.log(`reCAPTCHA token for ${action}: ${token.substring(0, 10)}...`);
+        return token;
+      } catch (error) {
+        console.error(`reCAPTCHA error for ${action}: ${error.message}`);
+        if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // Giảm độ trễ retry từ 3000ms xuống 1000ms
+          return debouncedExecuteRecaptcha(action, retries - 1);
         }
-        try {
-          await recaptchaRef.current.reset();
-          const token = await Promise.race([
-            recaptchaRef.current.executeAsync({ action }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 60000)),
-          ]);
-          if (!token) throw new Error('Empty reCAPTCHA token');
-          console.log(`reCAPTCHA token for ${action}: ${token.substring(0, 10)}...`);
-          return token;
-        } catch (error) {
-          console.error(`reCAPTCHA error for ${action}: ${error.message}`);
-          if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
-            await new Promise((resolve) => setTimeout(resolve, 3000));
-            return debouncedExecuteRecaptcha(action, retries - 1);
-          }
-          throw new Error(`reCAPTCHA failed after ${5 - retries} attempts: ${error.message}`);
-        }
-      },
-      1000
-    ),
+        throw new Error(`reCAPTCHA failed after ${3 - retries} attempts: ${error.message}`);
+      }
+    },
     [recaptchaRef]
   );
 
