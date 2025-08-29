@@ -5,6 +5,7 @@ import { logger } from '@/utils/serverLogger';
 import { createClient } from 'redis';
 import { TwitterApi } from 'twitter-api-v2';
 import { PrismaClient } from '@prisma/client';
+import { verifyRecaptcha } from '@/utils/verifyRecaptcha'; // Đảm bảo import đúng
 
 const prisma = new PrismaClient();
 const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
@@ -217,10 +218,11 @@ export async function POST(request) {
 
   if (process.env.NODE_ENV !== 'development') {
     try {
+      logger.info('Attempting reCAPTCHA verification', { token: recaptchaToken.substring(0, 8) + '...' });
       const { score } = await verifyRecaptcha(recaptchaToken, 'disconnect_twitter', ip);
       logger.info('reCAPTCHA verification successful for disconnect_twitter', { score, ip });
     } catch (error) {
-      logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip });
+      logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip, stack: error.stack });
       return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403 });
     }
   }
