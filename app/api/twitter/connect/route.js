@@ -386,14 +386,3 @@ export async function POST(request) {
     await prisma.$disconnect();
   }
 }
-
-async function checkRedisConnection() {
-  const redisClient = await getRedisClient();
-  try {
-    await redisClient.ping();
-    logger.info('Redis connection successful');
-  } catch (err) {
-    logger.error('Redis connection failed', { error: err.message });
-    throw new Error('Redis connection failed');
-  }
-}

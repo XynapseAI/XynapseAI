@@ -5,7 +5,6 @@ import { createClient } from 'redis';
 import { TwitterApi } from 'twitter-api-v2';
 import { PrismaClient } from '@prisma/client';
 import { verifyRecaptcha } from '@/utils/verifyRecaptcha';
-import { z } from 'zod';
 
 const prisma = new PrismaClient();
 let redisClient;
