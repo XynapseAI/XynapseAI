@@ -7,9 +7,20 @@ import { PrismaClient } from '@prisma/client';
 import { verifyRecaptcha } from '@/utils/verifyRecaptcha';
 
 const prisma = new PrismaClient();
-const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-redisClient.on('error', (err) => logger.error('Redis Client Error:', err));
-if (!redisClient.isOpen) await redisClient.connect();
+let redisClient;
+async function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+    redisClient.on('error', (err) => logger.error('Redis Client Error:', err));
+    await redisClient.connect();
+    logger.info('Redis connected');
+  }
+  if (!redisClient.isOpen) {
+    await redisClient.connect();
+    logger.info('Redis reconnected');
+  }
+  return redisClient;
+}
 
 const twitterClient = new TwitterApi({
   clientId: process.env.TWITTER_CLIENT_ID,
@@ -30,27 +41,69 @@ const allowedOrigins = [
 
 const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
 
+const securityHeaders = {
+  'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self' https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net",
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+};
+
 function isAllowedOrigin(origin, referer) {
   if (!origin && !referer) {
     logger.info('No Origin or Referer (likely Twitter OAuth callback or SSR), allowing request');
     return true;
   }
-
   const checkOrigin = origin || (referer ? new URL(referer).origin : null);
   if (!checkOrigin) {
     logger.info('No valid Origin or Referer, allowing for Twitter OAuth callback compatibility');
     return true;
   }
-
   const isAllowed = allowedOrigins.some((allowed) =>
     allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
   ) || vercelPreviewRegex.test(checkOrigin);
-
   logger.info(`Origin check: ${checkOrigin}, Allowed: ${isAllowed}`);
   return isAllowed;
 }
 
+async function banIP(ip, durationSeconds = 1800) {
+  const redisClient = await getRedisClient();
+  await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
+}
+
+async function checkIPBan(ip) {
+  const redisClient = await getRedisClient();
+  const isBanned = await redisClient.get(`banned_ip:${ip}`);
+  if (isBanned) {
+    throw new Error('IP temporarily banned due to excessive violations.');
+  }
+}
+
+async function trackViolation(ip, reason = 'Unknown') {
+  const redisClient = await getRedisClient();
+  const key = `violations:${ip}`;
+  const maxViolations = 100;
+  const windowMs = 30 * 60 * 1000;
+  const violations = parseInt(await redisClient.get(key)) || 0;
+
+  if (['CORS blocked', 'Invalid JSON body', 'Invalid action or user ID', 'Missing reCAPTCHA token'].includes(reason)) {
+    logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}, violations: ${violations}`);
+    return;
+  }
+
+  if (violations >= maxViolations) {
+    await banIP(ip, 1800);
+    logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
+    throw new Error('IP temporarily banned due to excessive violations.');
+  }
+  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
+}
+
 async function checkRateLimit(ip) {
+  const redisClient = await getRedisClient();
   const key = `rate_limit:twitter_connect:${ip}`;
   const requests = await redisClient.get(key) || 0;
   const windowMs = 15 * 60 * 1000;
@@ -112,25 +165,27 @@ export async function GET(request) {
     'Access-Control-Allow-Methods': 'GET, POST',
     'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
     'Access-Control-Allow-Credentials': 'true',
+    ...securityHeaders,
   };
 
   if (!isAllowedOrigin(origin, referer)) {
+    await trackViolation(ip, 'CORS blocked');
     logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, {
-      status: 403,
-      headers: corsHeaders,
-    });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: corsHeaders });
   }
 
   try {
+    await checkIPBan(ip);
     await checkRateLimit(ip);
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`);
+    await trackViolation(ip, err.message);
+    logger.error(`Rate limit or IP ban error: ${err.message}`);
     return NextResponse.json({ detail: err.message }, { status: 429, headers: corsHeaders });
   }
 
   const session = await auth();
   if (!session || !session.user?.id) {
+    await trackViolation(ip, 'Session not authenticated');
     logger.warn('Session not authenticated', { ip });
     return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers: corsHeaders });
   }
@@ -140,17 +195,25 @@ export async function GET(request) {
       `${process.env.NEXT_PUBLIC_APP_URL}/api/twitter/connect`,
       { scope: ['tweet.read', 'users.read', 'follows.read', 'offline.access'] }
     );
-    await redisClient.setEx(`twitter_oauth:${session.user.id}`, 600, JSON.stringify({ codeVerifier, state: generatedState.toString() }));
+    await withRetry(async () => {
+      const redisClient = await getRedisClient();
+      await redisClient.setEx(`twitter_oauth:${session.user.id}`, 600, JSON.stringify({ codeVerifier, state: generatedState.toString() }));
+    });
     return NextResponse.redirect(url);
   }
 
-  const cached = await redisClient.get(`twitter_oauth:${session.user.id}`);
+  const cached = await withRetry(async () => {
+    const redisClient = await getRedisClient();
+    return await redisClient.get(`twitter_oauth:${session.user.id}`);
+  });
   if (!cached) {
+    await trackViolation(ip, 'OAuth state not found');
     logger.error('OAuth state not found', { ip, userId: session.user.id });
     return NextResponse.json({ detail: 'Invalid or expired OAuth state' }, { status: 400, headers: corsHeaders });
   }
   const { codeVerifier, state: storedState } = JSON.parse(cached);
   if (state !== storedState) {
+    await trackViolation(ip, 'State mismatch');
     logger.error('State mismatch', { ip, userId: session.user.id, receivedState: state, storedState });
     return NextResponse.json({ detail: 'Invalid OAuth state' }, { status: 400, headers: corsHeaders });
   }
@@ -165,35 +228,42 @@ export async function GET(request) {
     const twitterUser = await userClient.v2.me({ 'user.fields': ['username'] });
     const twitterHandle = twitterUser.data.username;
 
-    await prisma.twitter_handles.upsert({
-      where: { user_id: session.user.id },
-      update: {
-        twitter_handle: twitterHandle,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        token_expires_at: new Date(Date.now() + expiresIn * 1000),
-        updated_at: new Date(),
-      },
-      create: {
-        user_id: session.user.id,
-        twitter_handle: twitterHandle,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        token_expires_at: new Date(Date.now() + expiresIn * 1000),
-        created_at: new Date(),
-      },
+    await withRetry(async () => {
+      await prisma.twitter_handles.upsert({
+        where: { user_id: session.user.id },
+        update: {
+          twitter_handle: twitterHandle,
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_expires_at: new Date(Date.now() + expiresIn * 1000),
+          updated_at: new Date(),
+        },
+        create: {
+          user_id: session.user.id,
+          twitter_handle: twitterHandle,
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_expires_at: new Date(Date.now() + expiresIn * 1000),
+          created_at: new Date(),
+        },
+      });
     });
 
-    await prisma.users.update({
-      where: { id: session.user.id },
-      data: { twitter_handle: twitterHandle },
+    await withRetry(async () => {
+      await prisma.users.update({
+        where: { id: session.user.id },
+        data: { twitter_handle: twitterHandle },
+      });
     });
 
-    await Promise.all([
-      redisClient.del(`twitter_oauth:${session.user.id}`),
-      redisClient.del(`user:${session.user.id}`),
-      redisClient.del(`connect-data:${session.user.id}`),
-    ]);
+    await withRetry(async () => {
+      const redisClient = await getRedisClient();
+      await Promise.all([
+        redisClient.del(`twitter_oauth:${session.user.id}`),
+        redisClient.del(`user:${session.user.id}`),
+        redisClient.del(`connect-data:${session.user.id}`),
+      ]);
+    });
     logger.info('Twitter account connected successfully', { userId: session.user.id, twitterHandle, ip });
 
     const response = NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?twitterConnected=true`);
@@ -201,6 +271,7 @@ export async function GET(request) {
     Object.entries(corsHeaders).forEach(([key, value]) => response.headers.set(key, value));
     return response;
   } catch (error) {
+    await trackViolation(ip, `Error connecting Twitter: ${error.message}`);
     logger.error('Error connecting Twitter account', { error: error.message, userId: session.user.id, ip });
     return NextResponse.json({ detail: `Error connecting Twitter: ${error.message}` }, { status: 500, headers: corsHeaders });
   } finally {
@@ -220,26 +291,27 @@ export async function POST(request) {
     'Access-Control-Allow-Methods': 'GET, POST',
     'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
     'Access-Control-Allow-Credentials': 'true',
+    ...securityHeaders,
   };
 
   if (!isAllowedOrigin(origin, referer)) {
+    await trackViolation(ip, 'CORS blocked');
     logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, {
-      status: 403,
-      headers: corsHeaders,
-    });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: corsHeaders });
   }
 
   try {
-    await checkRedisConnection();
+    await checkIPBan(ip);
     await checkRateLimit(ip);
   } catch (err) {
-    logger.error(`Rate limit or Redis error: ${err.message}`);
+    await trackViolation(ip, err.message);
+    logger.error(`Rate limit or IP ban error: ${err.message}`);
     return NextResponse.json({ detail: err.message }, { status: 429, headers: corsHeaders });
   }
 
   const session = await auth();
   if (!session || !session.user?.id) {
+    await trackViolation(ip, 'Session not authenticated');
     logger.warn('Session not authenticated', { ip });
     return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers: corsHeaders });
   }
@@ -247,6 +319,7 @@ export async function POST(request) {
   const csrfToken = request.headers.get('x-csrf-token');
   logger.info(`CSRF Token: ${csrfToken}, Session CSRF: ${session.csrfToken}`);
   if (process.env.NODE_ENV !== 'development' && (!csrfToken || csrfToken !== session.csrfToken)) {
+    await trackViolation(ip, 'Invalid CSRF token');
     logger.warn('Invalid CSRF token', { ip });
     return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers: corsHeaders });
   }
@@ -255,17 +328,20 @@ export async function POST(request) {
   try {
     body = await request.json();
   } catch (err) {
+    await trackViolation(ip, 'Invalid JSON body');
     logger.warn(`Invalid JSON body: ${err.message}`, { ip });
     return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400, headers: corsHeaders });
   }
 
   if (body.action !== 'disconnect' || body.uid !== session.user.id) {
+    await trackViolation(ip, 'Invalid action or user ID');
     logger.warn(`Invalid action or user ID`, { ip, action: body.action, uid: body.uid });
     return NextResponse.json({ detail: 'Invalid request' }, { status: 400, headers: corsHeaders });
   }
 
   const recaptchaToken = body.recaptchaToken;
   if (process.env.NODE_ENV !== 'development' && !recaptchaToken) {
+    await trackViolation(ip, 'Missing reCAPTCHA token');
     logger.error('Missing reCAPTCHA token', { ip });
     return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400, headers: corsHeaders });
   }
@@ -275,6 +351,7 @@ export async function POST(request) {
       logger.info('Attempting reCAPTCHA verification', { token: recaptchaToken.substring(0, 8) + '...', action: 'disconnect_twitter', ip });
       await verifyRecaptchaWithRetry(recaptchaToken, 'disconnect_twitter', ip);
     } catch (error) {
+      await trackViolation(ip, `reCAPTCHA verification failed: ${error.message}`);
       logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip, stack: error.stack });
       return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: corsHeaders });
     }
@@ -293,6 +370,7 @@ export async function POST(request) {
     logger.info('Database operations successful', { userId: session.user.id });
 
     await withRetry(async () => {
+      const redisClient = await getRedisClient();
       await Promise.all([
         redisClient.del(`user:${session.user.id}`),
         redisClient.del(`connect-data:${session.user.id}`),
@@ -301,6 +379,7 @@ export async function POST(request) {
     logger.info('Twitter account disconnected and Redis caches cleared', { userId: session.user.id, ip });
     return NextResponse.json({ success: true }, { headers: corsHeaders });
   } catch (error) {
+    await trackViolation(ip, `Error disconnecting Twitter: ${error.message}`);
     logger.error(`Error disconnecting Twitter: ${error.message}`, { stack: error.stack, ip });
     return NextResponse.json({ detail: `Error disconnecting Twitter: ${error.message}` }, { status: 500, headers: corsHeaders });
   } finally {
@@ -309,6 +388,7 @@ export async function POST(request) {
 }
 
 async function checkRedisConnection() {
+  const redisClient = await getRedisClient();
   try {
     await redisClient.ping();
     logger.info('Redis connection successful');
