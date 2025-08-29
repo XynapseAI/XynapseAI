@@ -251,13 +251,18 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         {isMenuOpen && (
           <motion.div
             ref={menuRef}
-            className="fixed top-0 left-0 w-full max-w-[80%] sm:max-w-xs h-[100vh] bg-black/90 backdrop-blur-3xl z-30 flex flex-col p-3 sm:hidden rounded-r-xl border-r border-white/10 shadow-neon-sm"
+            className="fixed top-0 left-0 w-full max-w-[60%] sm:max-w-xs h-[100vh] bg-black/90 backdrop-blur-3xl z-30 flex flex-col p-3 sm:hidden rounded-r-xl border-r border-white/10 shadow-neon-sm"
             initial="closed"
             animate="open"
             exit="closed"
             variants={menuVariants}
           >
             <div className="flex justify-between items-center mb-3">
+              <img
+                src="/logos/logo-landscape.png" // Replace with the actual path to your PNG image
+                alt="Menu"
+                className="h-14 w-auto" // Adjust size as needed
+              />
               <div className="flex items-center gap-2">
                 <select
                   id="mobile-currency-select"
@@ -271,13 +276,13 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                     </option>
                   ))}
                 </select>
-                <button
+                {/* <button
                   onClick={() => setIsMenuOpen(false)}
                   className="text-white text-[12px] font-bold no-hover-effect"
                   aria-label="Close menu"
                 >
                   ✕
-                </button>
+                </button> */}
               </div>
             </div>
             <nav className="flex flex-col space-y-2 flex-grow overflow-y-auto custom-scrollbar">
@@ -286,7 +291,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                   <motion.button
                     onClick={() => handleTabClick(tab.id)}
                     onMouseEnter={handleMouseEnter}
-                    className={`w-full text-left px-2 py-1 m-2 text-sm font-medium transition-all duration-300 uppercase no-hover-effect ${activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'}`}
+                    className={`w-full text-left px-2 py-1 m-2 text-xs font-medium transition-all duration-300 uppercase no-hover-effect ${activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'}`}
                   >
                     <span className="matrix-text">{renderMatrixText(tab.label)}</span>
                   </motion.button>

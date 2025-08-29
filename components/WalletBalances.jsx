@@ -359,7 +359,7 @@ const WalletBalances = ({
                   <div className="relative overflow-x-auto custom-scrollbar">
                     <LoadingOverlay isLoading={isLoading} isMobile={isMobile} />
                     <table className="w-full text-[8px] sm:text-[10px]">
-                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5 backdrop-blur-xl">
+                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/10">
                         <tr>
                           <th className="px-2 py-1 text-white text-left font-semibold w-[30%]">Token</th>
                           <th className="px-2 py-1 text-white text-left font-semibold w-[35%]">Amount</th>
@@ -455,7 +455,7 @@ const WalletBalances = ({
                 ) : validTransactions.length > 0 ? (
                   <div className="relative overflow-x-auto custom-scrollbar">
                     <table className="w-full text-[8px] sm:text-[10px]">
-                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5 backdrop-blur-xl">
+                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/10">
                         <tr>
                           <th className="px-2 py-1 text-white text-left font-semibold w-[25%]">Token</th>
                           <th className="px-2 py-1 text-white text-left font-semibold w-[25%]">Address</th>

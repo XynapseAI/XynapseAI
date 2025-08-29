@@ -608,7 +608,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           <div className="relative" ref={chainDropdownRef}>
             <motion.button
               onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-              className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
+              className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/20 bg-black/10 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               aria-label="Select chain"
@@ -628,7 +628,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               <span>{isChainDropdownOpen ? '▲' : '▼'}</span>
             </motion.button>
             {isChainDropdownOpen && (
-              <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-56 max-h-72 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-sm">
+              <div className="absolute bg-black/50 rounded-xl mt-1 w-36 max-h-56 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-xs z-50">
                 {mappedChains.length === 0 ? (
                   <div className="px-2 sm:px-3 py-1 text-white/60 text-[9px] sm:text-[10px]">No supported chains available</div>
                 ) : (
@@ -653,7 +653,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             fetchTransactions(walletAddress);
                           }
                         }}
-                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
+                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[10px] sm:text-[11px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                         whileHover={{ scale: !isPremium && chain.value !== '1' ? 1 : 1.05 }}
                         whileTap={{ scale: !isPremium && chain.value !== '1' ? 1 : 0.95 }}
@@ -682,7 +682,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                               Premium required
                             </span>
                           </span>
-                        )}
+                        )}  
                       </motion.button>
                     ))
                 )}
@@ -692,7 +692,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           <div className="relative" ref={limitDropdownRef}>
             <motion.button
               onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
-              className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/10 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
+              className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/20 bg-black/10 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               aria-label="Select transaction limit"
@@ -751,7 +751,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               placeholder="Search wallet (0x...)"
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
-              className="bg-white/5 text-white px-2 sm:px-3 py-1 rounded-lg text-[9px] sm:text-[10px] w-full sm:w-64 border border-white/10 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 pr-8"
+              className="bg-black/10 text-white px-2 sm:px-3 py-1.5 rounded-lg text-[9px] sm:text-[10px] w-full sm:w-64 border border-white/20 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 pr-8"
               aria-label="Wallet address"
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && (

@@ -54,18 +54,17 @@ async function checkIPBan(ip) {
 async function trackViolation(ip, reason = "Unknown") {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 100; // Tăng từ 60 lên 100
-  const windowMs = 30 * 60 * 1000; // Tăng từ 15 phút lên 30 phút
+  const maxViolations = 100;
+  const windowMs = 30 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
 
-  // Bỏ qua vi phạm cho các lỗi không nghiêm trọng
   if (["CORS blocked", "Missing or invalid id parameter", "Missing vs_currencies parameter"].includes(reason)) {
     logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}, violations: ${violations}`);
     return;
   }
 
   if (violations >= maxViolations) {
-    await banIP(ip, 1800); // Giảm thời gian ban từ 3600s xuống 1800s
+    await banIP(ip, 1800);
     logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
     throw new Error("IP temporarily banned due to excessive violations.");
   }
@@ -111,8 +110,16 @@ async function checkRateLimit(userId, ip) {
 // ================= JWT Verification =================
 async function verifyJWT(request) {
   const token = request.headers.get("authorization")?.split(" ")[1];
-  if (!token) throw new Error("No token provided");
-  return jwt.verify(token, process.env.JWT_SECRET);
+  if (!token) {
+    logger.error("No JWT token provided");
+    throw new Error("No token provided");
+  }
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch (err) {
+    logger.error("JWT verification failed", { error: err.message });
+    throw new Error("Invalid JWT token");
+  }
 }
 
 // ================= Allowed Origins =================
@@ -121,36 +128,26 @@ const allowedOrigins = [
   "https://xynapseai.net",
   "https://www.xynapseai.net",
   "https://xynapse-ai-xynapse-projects.vercel.app",
-  // Thêm wildcard cho Vercel preview URLs
-  ...(process.env.VERCEL_ENV === "production" ? [] : ["https://*.vercel.app"]),
+  ...(process.env.VERCEL_ENV === "production" ? [] : ['https://*.vercel.app']),
 ].filter((v, i, a) => a.indexOf(v) === i);
 
-// Cập nhật hàm isAllowedOrigin
 function isAllowedOrigin(origin, referer) {
-  if (!origin && !referer) {
-    logger.info("No Origin or Referer (likely SSR or server-to-server), allowing request");
-    return true;
-  }
   const checkOrigin = origin || (referer ? new URL(referer).origin : null);
   if (!checkOrigin) {
-    logger.info("No valid Origin or Referer, allowing for SSR compatibility");
+    logger.info("No Origin or Referer, allowing request for SSR");
     return true;
   }
-  if (allowedOrigins.some((allowed) => allowed.includes("*") ? new RegExp(allowed.replace("*", ".*")).test(checkOrigin) : allowed === checkOrigin)) {
-    logger.info(`Origin allowed: ${checkOrigin}`);
-    return true;
-  }
-  if (vercelPreviewRegex.test(checkOrigin)) {
-    logger.info(`Origin allowed by Vercel preview regex: ${checkOrigin}`);
-    return true;
-  }
-  logger.error(`CORS error: Origin ${checkOrigin || "null"} not allowed`);
-  return false;
+  const isAllowed = allowedOrigins.some((allowed) =>
+    allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
+  );
+  logger.info(`Origin check: ${checkOrigin}, Allowed: ${isAllowed}`);
+  return isAllowed;
 }
 
 // ================= CSRF Check =================
 async function checkCSRF(request, session) {
   const csrfToken = request.headers.get("x-csrf-token");
+  logger.info(`CSRF check: Token=${csrfToken}, Session CSRF=${session?.csrfToken}`);
   if (process.env.NODE_ENV === "development") return true;
   if (!csrfToken || !session?.csrfToken || csrfToken !== session.csrfToken) return false;
   return true;
@@ -191,7 +188,7 @@ export async function GET(request) {
     await checkIPBan(ip);
     await verifyJWT(request);
   } catch (err) {
-    await trackViolation(ip);
+    await trackViolation(ip, err.message);
     return NextResponse.json({ detail: err.message }, { status: 401, headers: securityHeaders });
   }
 
@@ -215,7 +212,7 @@ export async function GET(request) {
       const { score } = await verifyRecaptcha(recaptchaToken, "connect_data", ip);
       logger.info("reCAPTCHA verification successful", { token: recaptchaToken.substring(0, 8) + "...", score, ip });
     } catch (error) {
-      await trackViolation(ip);
+      await trackViolation(ip, error.message);
       logger.error(`reCAPTCHA verification failed: ${error.message}`, { token: recaptchaToken.substring(0, 8) + "...", ip });
       return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: securityHeaders });
     }
@@ -224,7 +221,7 @@ export async function GET(request) {
   }
 
   if (!(await checkCSRF(request, session))) {
-    await trackViolation(ip);
+    await trackViolation(ip, "Invalid CSRF token");
     return NextResponse.json({ detail: "Invalid CSRF check." }, { status: 403, headers: securityHeaders });
   }
 

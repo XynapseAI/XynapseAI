@@ -1481,12 +1481,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
         <div className="flex flex-col md:flex-row gap-4 flex-1">
           <motion.div
-            className="flex-1 border border-white/10 rounded-xl bg-white/5 backdrop-blur-xl flex flex-col"
+            className="flex-1 border border-white/10 rounded-xl bg-black/10 flex flex-col"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <div className="p-0 border-b border-white/10 bg-white/5 flex gap-4 items-end h-[48px]">
+            <div className="p-0 border-b border-white/10 bg-black/5 flex gap-4 items-end h-[48px]">
               <motion.button
                 onClick={() => setActiveTab("portfolio")}
                 className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect ${activeTab === "portfolio" ? "border-b-2 border-white" : "text-white/80 hover:text-white"}`}
@@ -1504,7 +1504,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           </motion.div>
 
           <motion.div
-            className="flex-1 border border-white/10 rounded-xl bg-white/5 backdrop-blur-xl flex flex-col"
+            className="flex-1 border border-white/10 rounded-xl bg-black/5 flex flex-col"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}

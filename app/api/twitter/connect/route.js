@@ -24,17 +24,18 @@ function isAllowedOrigin(origin, referer) {
     'https://www.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
+    ...(process.env.VERCEL_ENV === 'production' ? [] : ['https://*.vercel.app']),
   ];
-  try {
-    if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.match(/(\.vercel\.app|xynapseai\.net)$/))) return true;
-    if (!origin && referer && allowedOrigins.includes(new URL(referer).origin)) return true;
-    if (!origin && !referer) return true;
-    if (!origin && process.env.NODE_ENV === 'development') return true;
-    return false;
-  } catch (error) {
-    logger.error('Error in isAllowedOrigin', { error: error.message, origin, referer });
-    return false;
+  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
+  if (!checkOrigin) {
+    logger.info('No Origin or Referer, allowing request for SSR');
+    return true;
   }
+  const isAllowed = allowedOrigins.some((allowed) =>
+    allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
+  );
+  logger.info(`Origin check: ${checkOrigin}, Allowed: ${isAllowed}`);
+  return isAllowed;
 }
 
 async function checkRateLimit(ip) {
@@ -153,6 +154,16 @@ export async function GET(request) {
   }
 }
 
+async function checkRedisConnection() {
+  try {
+    await redisClient.ping();
+    logger.info('Redis connection successful');
+  } catch (err) {
+    logger.error('Redis connection failed', { error: err.message });
+    throw new Error('Redis connection failed');
+  }
+}
+
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -165,9 +176,10 @@ export async function POST(request) {
   }
 
   try {
+    await checkRedisConnection();
     await checkRateLimit(ip);
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`);
+    logger.error(`Rate limit or Redis error: ${err.message}`);
     return NextResponse.json({ detail: err.message }, { status: 429 });
   }
 
@@ -178,6 +190,7 @@ export async function POST(request) {
   }
 
   const csrfToken = request.headers.get('x-csrf-token');
+  logger.info(`CSRF Token: ${csrfToken}, Session CSRF: ${session.csrfToken}`);
   if (process.env.NODE_ENV !== 'development' && (!csrfToken || csrfToken !== session.csrfToken)) {
     logger.warn('Invalid CSRF token', { ip });
     return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403 });
@@ -213,12 +226,14 @@ export async function POST(request) {
   }
 
   try {
-    await prisma.twitter_handles.delete({ where: { user_id: session.user.id } });
-    await prisma.users.update({
-      where: { id: session.user.id },
-      data: { twitter_handle: null },
-    });
-    // Xóa tất cả cache Redis liên quan
+    await prisma.$transaction([
+      prisma.twitter_handles.delete({ where: { user_id: session.user.id } }),
+      prisma.users.update({
+        where: { id: session.user.id },
+        data: { twitter_handle: null },
+      }),
+    ]);
+    logger.info('Database operations successful', { userId: session.user.id });
     await Promise.all([
       redisClient.del(`user:${session.user.id}`),
       redisClient.del(`connect-data:${session.user.id}`),

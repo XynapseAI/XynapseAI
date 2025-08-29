@@ -76,6 +76,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)),
           ]);
           if (!token) throw new Error('Empty reCAPTCHA token');
+          console.log(`reCAPTCHA token for ${action}: ${token.substring(0, 10)}...`);
           return token;
         } catch (error) {
           if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
@@ -95,6 +96,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     queryKey: ['csrfToken'],
     queryFn: async () => {
       const response = await axios.get('/api/csrf-token', { withCredentials: true });
+      console.log('CSRF Token fetched:', response.data.csrfToken);
       if (!response.data.csrfToken) throw new Error('Empty CSRF token received');
       return response.data.csrfToken;
     },
@@ -121,7 +123,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       }
 
       const token = await debouncedExecuteRecaptcha('get_user');
-      console.log('Fetching user data with UID:', session.user.id, 'CSRF:', csrfToken, 'Recaptcha:', token);
+      console.log('Fetching user data with UID:', session.user.id, 'CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
       const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
         headers: {
           'x-csrf-token': csrfToken,
@@ -129,7 +131,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         },
         withCredentials: true,
       });
-      console.log('API response:', response.data);
+      console.log('User API response:', response.data);
       if (!response.data.success) throw new Error(response.data.detail || 'Unable to fetch user data');
       const user = {
         ...response.data.user,
@@ -246,29 +248,41 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       }
 
       const token = await debouncedExecuteRecaptcha('connect_data');
+      console.log('Fetching leaderboard with CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
       const response = await axios.get('/api/connect-data', {
         headers: {
           'x-csrf-token': csrfToken,
           'X-Recaptcha-Token': token,
+          'Authorization': `Bearer ${session?.accessToken}`, // Add JWT token
         },
         withCredentials: true,
+      }).catch(err => {
+        console.error('Leaderboard fetch error:', err.response?.data || err.message);
+        throw err;
       });
+      console.log('Leaderboard API response:', response.data);
       if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch leaderboard.');
       await cacheData(cacheKey, response.data.rankings, 5 * 60 * 1000);
       return response.data.rankings;
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 30 * 60 * 1000,
-    retry: 1, // Giảm retry để tránh spam 401
+    retry: 1,
     retryDelay: 2000,
+    onError: (err) => {
+      console.error('Leaderboard error:', err);
+      toast.error(`Failed to fetch leaderboard: ${err.message}`, { position: 'top-center', autoClose: 5000 });
+    },
   });
 
   // Connect Twitter
   const connectTwitterMutation = useMutation({
     mutationFn: async () => {
+      console.log('Initiating Twitter connection for user:', session.user.id);
       window.location.href = '/api/twitter/connect';
     },
     onError: (err) => {
+      console.error('Connect Twitter error:', err);
       toast.error(`Unable to connect Twitter: ${err.message}`, { position: 'top-center', autoClose: 5000 });
     },
   });
@@ -276,7 +290,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Disconnect Twitter
   const disconnectTwitterMutation = useMutation({
     mutationFn: async () => {
+      console.log('Initiating Twitter disconnect for user:', session.user.id);
       const token = await debouncedExecuteRecaptcha('disconnect_twitter');
+      console.log('reCAPTCHA Token for disconnect:', token.substring(0, 10) + '...');
       const response = await axios.post(
         '/api/twitter/connect',
         { action: 'disconnect', uid: session.user.id, recaptchaToken: token },
@@ -284,11 +300,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
-      );
+      ).catch(err => {
+        console.error('Disconnect Twitter error:', err.response?.data || err.message);
+        throw err;
+      });
+      console.log('Disconnect Twitter response:', response.data);
       if (!response.data.success) throw new Error(response.data.detail || 'Unable to disconnect Twitter');
       await clearAllCaches(session.user.id);
     },
     onSuccess: async () => {
+      console.log('Twitter disconnected successfully');
       toast.success('Twitter disconnected successfully.', { position: 'top-center', autoClose: 5000 });
       await Promise.all([
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
@@ -300,7 +321,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       ]);
     },
     onError: (err) => {
-      toast.error(`Unable to disconnect Twitter: ${err.message}`, { position: 'top-center', autoClose: 5000 });
+      console.error('Disconnect Twitter mutation error:', err);
+      const errorMessage = err.response?.status === 429
+        ? 'Too many requests. Please try again later.'
+        : err.response?.status === 403
+          ? 'Authentication failed. Please try again.'
+          : err.response?.data?.detail || 'Unable to disconnect Twitter';
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
     },
   });
 
@@ -388,11 +415,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.error(
         err.response?.status === 429
           ? 'API rate limit exceeded. Please try again later.'
-          : err.message.includes('reCAPTCHA')
-            ? 'reCAPTCHA verification failed. Please try again.'
-            : err.message.includes('Twitter account not connected')
-              ? 'Please connect your Twitter account to perform this task.'
-              : `Verification failed: ${err.message}`,
+          : err.response?.status === 403
+            ? 'Authentication failed. Please try again.'
+            : err.message.includes('reCAPTCHA')
+              ? 'reCAPTCHA verification failed. Please try again.'
+              : err.message.includes('Twitter account not connected')
+                ? 'Please connect your Twitter account to perform this task.'
+                : `Verification failed: ${err.message}`,
         { position: 'top-center', autoClose: 5000 }
       );
     },
@@ -826,26 +855,32 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('twitterConnected') === 'true' && status === 'authenticated') {
-      // Chỉ refetch nếu authenticated
+      console.log('Detected Twitter connection callback, clearing cache and refetching data');
+      const cacheKey = `userData-${session.user.id}`;
+      const leaderboardCacheKey = `leaderboard-${session.user.id}`;
       Promise.all([
+        clearCache(cacheKey),
+        clearCache(leaderboardCacheKey),
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
         queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
       ])
         .then(() => {
+          console.log('Cache cleared, refetching queries');
           return Promise.all([
             queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
             queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
           ]);
         })
+        .then(() => {
+          console.log('Queries refetched successfully');
+          window.history.replaceState({}, document.title, window.location.pathname);
+        })
         .catch((err) => {
-          console.error('Error refetching data after Twitter connection:', err);
+          console.error('Error handling Twitter connection callback:', err);
           toast.error('Failed to refresh data after Twitter connection.', {
             position: 'top-center',
             autoClose: 5000,
           });
-        })
-        .finally(() => {
-          window.history.replaceState({}, document.title, window.location.pathname);
         });
     }
   }, [session, csrfToken, queryClient, status]);
@@ -942,10 +977,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   />
                   <h4 className="text-base sm:text-lg font-bold text-white">{userData.googleName || userData.email}</h4>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="text-[9px] sm:text-[11px] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="bg-white/5 rounded-xl p-3">
-                    <h5 className="text-[8px] sm:text-[10px] font-bold text-white uppercase mb-2">Account Info</h5>
-                    <div className="space-y-2 text-[8px] sm:text-[10px]">
+                    <h5 className="font-bold text-white uppercase mb-2">Account Info</h5>
+                    <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-white/60">Email:</span>
                         <span className="text-white">{userData.email}</span>
@@ -961,8 +996,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     </div>
                   </div>
                   <div className="bg-white/5 rounded-xl p-3">
-                    <h5 className="text-[8px] sm:text-[10px] font-bold text-white uppercase mb-2">Connections</h5>
-                    <div className="space-y-2 text-[8px] sm:text-[10px]">
+                    <h5 className="font-bold text-white uppercase mb-2">Connections</h5>
+                    <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-white/60">Twitter:</span>
                         <span className="text-white">
@@ -975,18 +1010,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           )}
                         </span>
                       </div>
-                      {/* <div className="flex justify-between">
-                        <span className="text-white/60">Wallet:</span>
-                        <span className="text-white">{userData.walletAddress ? 'Connected' : 'Not connected'}</span>
-                      </div> */}
                     </div>
                   </div>
                   <div className="bg-white/5 rounded-xl p-3">
-                    <h5 className="text-[8px] sm:text-[10px] font-bold text-white uppercase mb-2">Points</h5>
-                    <div className="space-y-2 text-[8px] sm:text-[10px]">
+                    <h5 className="font-bold text-white uppercase mb-2">Points</h5>
+                    <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-white/60">Total Points:</span>
-                        <span className="text-neon-blue">{userData?.points || 0}</span>
+                        <span className="text-neon-blue text-xs">{userData?.points || 0}</span>
                       </div>
                     </div>
                   </div>
@@ -1013,28 +1044,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       <img src="/logos/x.png" alt="Disconnect Twitter" className="w-3 h-3" />
                     </motion.button>
                   )}
-                  {/* {!userData.walletAddress && (
-                    <motion.button
-                      onClick={() => connectWalletMutation.mutate()}
-                      disabled={connectWalletMutation.isLoading}
-                      className={`p-1 bg-white/10 rounded-xl ${connectWalletMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-green/20'}`}
-                      whileHover={{ scale: connectWalletMutation.isLoading ? 1 : 1.1, y: connectWalletMutation.isLoading ? 0 : -2 }}
-                      whileTap={{ scale: connectWalletMutation.isLoading ? 1 : 0.9 }}
-                    >
-                      <img src="/logos/wallet.png" alt="Connect Wallet" className="w-3 h-3" />
-                    </motion.button>
-                  )}
-                  {userData.walletAddress && (
-                    <motion.button
-                      onClick={() => disconnectWalletMutation.mutate()}
-                      disabled={disconnectWalletMutation.isLoading}
-                      className={`p-1 bg-white/10 rounded-xl ${disconnectWalletMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'}`}
-                      whileHover={{ scale: disconnectWalletMutation.isLoading ? 1 : 1.1, y: disconnectWalletMutation.isLoading ? 0 : -2 }}
-                      whileTap={{ scale: disconnectWalletMutation.isLoading ? 1 : 0.9 }}
-                    >
-                      <img src="/logos/wallet.png" alt="Disconnect Wallet" className="w-3 h-3" />
-                    </motion.button>
-                  )} */}
                 </div>
               </div>
             )}
