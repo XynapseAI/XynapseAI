@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
 import { randomBytes } from 'crypto';
+import cookie from 'cookie';
 
 // Initialize Redis client
 const redisClient = createClient({
