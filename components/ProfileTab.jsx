@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
@@ -106,8 +106,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Set CSRF cookie
   const setCsrfCookie = (csrfToken) => {
-    const cookieOptions = `csrf_token=${csrfToken}; path=/; SameSite=Strict; ${process.env.NODE_ENV === 'production' ? 'Secure' : ''
-      }; Max-Age=${24 * 60 * 60}`;
+    const cookieOptions = `csrf_token=${csrfToken}; path=/; SameSite=Strict; ${
+      process.env.NODE_ENV === 'production' ? 'Secure' : ''
+    }; Max-Age=${24 * 60 * 60}`;
     document.cookie = cookieOptions;
   };
 
@@ -117,8 +118,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     queryFn: async () => {
       // Kiểm tra cookie trước
       const cookieCsrfToken = getCsrfTokenFromCookie();
-      if (cookieCsrfToken && (cookieCsrfToken === 'dev-csrf' || process.env.NODE_ENV === 'development')) {
+      if (cookieCsrfToken) {
         console.log('Using CSRF token from cookie:', cookieCsrfToken);
+        localStorage.setItem('csrfToken', cookieCsrfToken); // Đồng bộ với localStorage
         return cookieCsrfToken;
       }
 
@@ -130,16 +132,17 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         return cachedToken;
       }
 
-      // Gọi API nếu không có token trong cookie hoặc localStorage
+      // Gọi API nếu không có token
+      console.log('Fetching new CSRF token from API');
       const response = await axios.get(`${API_BASE_URL}/api/csrf-token`, { withCredentials: true }).catch((err) => {
         console.error('CSRF token fetch error:', err.response?.status, err.response?.data || err.message);
         if (err.response?.status === 429) {
-          const retryAfter = err.response.headers['retry-after'] ? parseInt(err.response.headers['retry-after']) * 1000 : 60000;
-          toast.error(`Too many requests for CSRF token. Retrying after ${retryAfter / 1000} seconds.`, {
+          const retryAfter = err.response.headers['retry-after'] ? parseInt(err.response.headers['retry-after']) : 60;
+          toast.error(`Too many requests for CSRF token. Please wait ${retryAfter} seconds.`, {
             position: 'top-center',
-            autoClose: 5000,
+            autoClose: retryAfter * 1000,
           });
-          throw new Error(`Rate limit exceeded, retry after ${retryAfter / 1000} seconds`);
+          throw new Error(`Rate limit exceeded, retry after ${retryAfter} seconds`);
         }
         throw err;
       });
@@ -152,9 +155,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return token;
     },
     retry: (failureCount, error) => {
-      if (error.message.includes('Rate limit exceeded')) {
-        return false; // Không retry nếu lỗi 429
-      }
+      if (error.message.includes('Rate limit exceeded')) return false; // Không retry nếu lỗi 429
       return failureCount < 3;
     },
     retryDelay: (attempt, error) => {
@@ -181,6 +182,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
+  // Memoize headers để giảm tính toán lặp lại
+  const headers = useMemo(
+    () => ({
+      'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
+      'Content-Type': 'application/json',
+      'X-Recaptcha-Token': null, // Sẽ được cập nhật trong mỗi query
+    }),
+    [csrfToken]
+  );
+
   // Fetch User Data
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
     queryKey: ['userData', session?.user?.id],
@@ -198,12 +209,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       }
 
       const token = await debouncedExecuteRecaptcha('get_user');
-      console.log('Fetching user data with UID:', session.user.id, 'CSRF:', csrfToken || 'waiting', 'Recaptcha:', token.substring(0, 10) + '...');
       const response = await axios.get(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
-        headers: {
-          'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
-          'X-Recaptcha-Token': token,
-        },
+        headers: { ...headers, 'X-Recaptcha-Token': token },
         withCredentials: true,
       });
       console.log('User API response:', response.data);
@@ -213,18 +220,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         isPremium: response.data.user.isPremium || false,
         tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
         twitterHandle: response.data.user.twitterHandle || null,
+        walletAddress: response.data.user.walletAddress || null,
       };
       console.log('Transformed user data:', user);
       await cacheData(cacheKey, user, 24 * 60 * 60 * 1000);
       return user;
     },
-    enabled: status === 'authenticated' && !!session?.user?.id,
-    staleTime: 5 * 60 * 1000, // Tăng staleTime để giảm gọi API
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    staleTime: 5 * 60 * 1000,
     cacheTime: 24 * 60 * 60 * 1000,
-    retry: (failureCount, error) => {
-      if (error.message.includes('Rate limit exceeded')) return false;
-      return failureCount < 3;
-    },
+    retry: (failureCount, error) => error.message.includes('Rate limit exceeded') ? false : failureCount < 3,
     retryDelay: (attempt, error) => {
       if (error.message.includes('Rate limit exceeded')) {
         const retryAfter = error.message.match(/retry after (\d+)/)?.[1] || 60;
@@ -235,10 +240,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     onError: async (err) => {
       console.error('Error fetching user data:', err);
       if (err.response?.status === 429) {
-        const retryAfter = err.response?.headers['retry-after'] ? parseInt(err.response.headers['retry-after']) * 1000 : 60000;
-        toast.error(`Too many requests. Retrying after ${retryAfter / 1000} seconds.`, {
+        const retryAfter = err.response?.headers['retry-after'] ? parseInt(err.response.headers['retry-after']) : 60;
+        toast.error(`Too many requests. Please wait ${retryAfter} seconds.`, {
           position: 'top-center',
-          autoClose: 5000,
+          autoClose: retryAfter * 1000,
         });
       } else if (err.response?.status === 404) {
         await signOut({ redirect: false });
@@ -262,17 +267,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
       const token = await debouncedExecuteRecaptcha('get_tasks');
       const response = await axios.get(`${API_BASE_URL}/api/tasks`, {
-        headers: {
-          'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
-          'X-Recaptcha-Token': token,
-        },
+        headers: { ...headers, 'X-Recaptcha-Token': token },
         withCredentials: true,
       });
       if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch tasks.');
       await cacheData(cacheKey, response.data.tasks, 10 * 60 * 1000);
       return response.data.tasks;
     },
-    enabled: status === 'authenticated' && !!session?.user?.id,
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 10 * 60 * 1000,
     cacheTime: 24 * 60 * 60 * 1000,
     retry: (failureCount, error) => error.message.includes('Rate limit exceeded') ? false : failureCount < 3,
@@ -302,17 +304,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
       const token = await debouncedExecuteRecaptcha('task_progress');
       const response = await axios.get(`${API_BASE_URL}/api/task-progress?uid=${session.user.id}`, {
-        headers: {
-          'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
-          'X-Recaptcha-Token': token,
-        },
+        headers: { ...headers, 'X-Recaptcha-Token': token },
         withCredentials: true,
       });
       const progress = response.data.progress || {};
       await cacheData(cacheKey, progress, 10 * 60 * 1000);
       return progress;
     },
-    enabled: status === 'authenticated' && !!session?.user?.id,
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 10 * 60 * 1000,
     cacheTime: 24 * 60 * 60 * 1000,
     retry: (failureCount, error) => error.message.includes('Rate limit exceeded') ? false : failureCount < 3,
@@ -342,17 +341,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
       const token = await debouncedExecuteRecaptcha('get_point_history');
       const response = await axios.get(`${API_BASE_URL}/api/point-history?uid=${session.user.id}`, {
-        headers: {
-          'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
-          'X-Recaptcha-Token': token,
-        },
+        headers: { ...headers, 'X-Recaptcha-Token': token },
         withCredentials: true,
       });
       if (!response.data.success) throw new Error(response.data.detail || 'Invalid point history data.');
       await cacheData(cacheKey, response.data, 10 * 60 * 1000);
       return response.data;
     },
-    enabled: status === 'authenticated' && !!session?.user?.id,
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 10 * 60 * 1000,
     cacheTime: 24 * 60 * 60 * 1000,
     retry: (failureCount, error) => error.message.includes('Rate limit exceeded') ? false : failureCount < 3,
@@ -386,16 +382,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       const token = await debouncedExecuteRecaptcha('leaderboard');
       console.log('Fetching leaderboard with CSRF:', csrfToken || 'waiting', 'Recaptcha:', token.substring(0, 10) + '...');
       const response = await axios.get(`${API_BASE_URL}/api/leaderboard?uid=${session.user.id}`, {
-        headers: {
-          'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
-          'X-Recaptcha-Token': token,
-        },
+        headers: { ...headers, 'X-Recaptcha-Token': token },
         withCredentials: true,
       }).catch((err) => {
         console.error('Leaderboard fetch error:', err.response?.data || err.message);
         if (err.response?.status === 429) {
-          const retryAfter = err.response.headers['retry-after'] ? parseInt(err.response.headers['retry-after']) * 1000 : 60000;
-          throw new Error(`Rate limit exceeded, retry after ${retryAfter / 1000} seconds`);
+          const retryAfter = err.response.headers['retry-after'] ? parseInt(err.response.headers['retry-after']) : 60;
+          throw new Error(`Rate limit exceeded, retry after ${retryAfter} seconds`);
         }
         throw err;
       });
@@ -404,7 +397,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       await cacheData(cacheKey, response.data.rankings, 5 * 60 * 1000);
       return response.data.rankings;
     },
-    enabled: status === 'authenticated' && !!session?.user?.id,
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 30 * 60 * 1000,
     cacheTime: 24 * 60 * 60 * 1000,
     retry: (failureCount, error) => error.message.includes('Rate limit exceeded') ? false : failureCount < 1,
@@ -425,7 +418,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const connectTwitterMutation = useMutation({
     mutationFn: async () => {
       console.log('Initiating Twitter connection for user:', session.user.id);
-      window.location.href = '/api/twitter/connect';
+      window.location.href = `${API_BASE_URL}/api/twitter/connect`;
     },
     onError: (err) => {
       console.error('Connect Twitter error:', err);
@@ -438,15 +431,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     mutationFn: async () => {
       console.log('Initiating Twitter disconnect for user:', session.user.id);
       const token = await debouncedExecuteRecaptcha('disconnect_twitter');
-      console.log('reCAPTCHA Token for disconnect:', token.substring(0, 10) + '...');
       const response = await axios.post(
         `${API_BASE_URL}/api/twitter/connect`,
         { action: 'disconnect', uid: session.user.id, recaptchaToken: token },
         {
-          headers: {
-            'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
-            'Content-Type': 'application/json',
-          },
+          headers,
           withCredentials: true,
         }
       ).catch((err) => {
@@ -496,10 +485,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         `${API_BASE_URL}/api/verify-wallet`,
         { action: 'verify-wallet', walletAddress, signature, message, uid: session.user.id, recaptchaToken: token },
         {
-          headers: {
-            'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
-            'Content-Type': 'application/json',
-          },
+          headers,
           withCredentials: true,
         }
       );
@@ -523,10 +509,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         `${API_BASE_URL}/api/verify-wallet`,
         { action: 'disconnect-wallet', uid: session.user.id, recaptchaToken: token },
         {
-          headers: {
-            'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
-            'Content-Type': 'application/json',
-          },
+          headers,
           withCredentials: true,
         }
       );
@@ -549,10 +532,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         `${API_BASE_URL}/api/generate-api-key`,
         { uid: session.user.id, recaptchaToken: token },
         {
-          headers: {
-            'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
-            'Content-Type': 'application/json',
-          },
+          headers,
           withCredentials: true,
         }
       );
@@ -595,10 +575,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         `${API_BASE_URL}/api/twitter/verify-task`,
         { taskId: task.id, userId: session.user.id, recaptchaToken: token },
         {
-          headers: {
-            'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
-            'Content-Type': 'application/json',
-          },
+          headers,
           withCredentials: true,
         }
       );
@@ -807,28 +784,29 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
                           (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
                         }
-                        className={`px-3 py-1 rounded-xl text-[8px] sm:text-xs font-medium transition-all duration-300 border border-white/10 bg-white/5 ${verifyTaskMutation.isLoading ||
-                            (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                            (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                            (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                        className={`px-3 py-1 rounded-xl text-[8px] sm:text-xs font-medium transition-all duration-300 border border-white/10 bg-white/5 ${
+                          verifyTaskMutation.isLoading ||
+                          (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                          (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                          (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
                             ? 'text-white/50 cursor-not-allowed opacity-50'
                             : 'text-white hover:bg-neon-blue/20'
-                          }`}
+                        }`}
                         whileHover={{
                           scale:
                             verifyTaskMutation.isLoading ||
-                              (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                              (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                              (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                            (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                            (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                            (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
                               ? 1
                               : 1.05,
                         }}
                         whileTap={{
                           scale:
                             verifyTaskMutation.isLoading ||
-                              (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                              (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                              (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                            (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                            (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                            (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
                               ? 1
                               : 0.95,
                         }}
@@ -844,8 +822,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               <motion.button
                 onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
                 disabled={currentPage.tasks === 1}
-                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                  }`}
+                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
+                  currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+                }`}
                 whileHover={{ scale: currentPage.tasks === 1 ? 1 : 1.05 }}
                 whileTap={{ scale: currentPage.tasks === 1 ? 1 : 0.95 }}
               >
@@ -857,8 +836,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               <motion.button
                 onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
                 disabled={currentPage.tasks === getTotalPages(tasks)}
-                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                  }`}
+                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
+                  currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+                }`}
                 whileHover={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 1.05 }}
                 whileTap={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 0.95 }}
               >
@@ -914,8 +894,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               <motion.button
                 onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
                 disabled={currentPage.leaderboard === 1}
-                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                  }`}
+                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
+                  currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+                }`}
                 whileHover={{ scale: currentPage.leaderboard === 1 ? 1 : 1.05 }}
                 whileTap={{ scale: currentPage.leaderboard === 1 ? 1 : 0.95 }}
               >
@@ -927,8 +908,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               <motion.button
                 onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
                 disabled={currentPage.leaderboard === getTotalPages(rankings)}
-                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                  }`}
+                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
+                  currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+                }`}
                 whileHover={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 1.05 }}
                 whileTap={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 0.95 }}
               >
@@ -1030,8 +1012,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             <div className="flex items-center justify-center gap-2">
               <p className="text-xl sm:text-2xl font-bold text-neon-blue">{pointData?.taskPoints || 0}</p>
               <motion.p
-                className={`text-[8px] sm:text-[10px] font-semibold text-${pointData?.taskGrowth?.color || 'white'
-                  } ${pointData?.taskGrowth?.value != 0 ? 'animate-pulse' : ''}`}
+                className={`text-[8px] sm:text-[10px] font-semibold text-${
+                  pointData?.taskGrowth?.color || 'white'
+                } ${pointData?.taskGrowth?.value != 0 ? 'animate-pulse' : ''}`}
                 animate={{ opacity: pointData?.taskGrowth?.value != 0 ? [1, 0.7, 1] : 1 }}
                 transition={{ duration: 1.5, repeat: pointData?.taskGrowth?.value != 0 ? Infinity : 0 }}
               >
@@ -1045,8 +1028,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <motion.button
             onClick={() => handlePageChange('points', currentPage.points - 1)}
             disabled={currentPage.points === 1}
-            className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-              }`}
+            className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
+              currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+            }`}
             whileHover={{ scale: currentPage.points === 1 ? 1 : 1.05 }}
             whileTap={{ scale: currentPage.points === 1 ? 1 : 0.95 }}
           >
@@ -1058,8 +1042,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <motion.button
             onClick={() => handlePageChange('points', currentPage.points + 1)}
             disabled={currentPage.points === getTotalPages(pointData?.history || [])}
-            className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-              }`}
+            className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
+              currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+            }`}
             whileHover={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 1.05 }}
             whileTap={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 0.95 }}
           >
@@ -1258,7 +1243,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         <span className="text-white/60">Wallet:</span>
                         <span className="text-white">
                           {userData.walletAddress ? (
-                            <span className="text-neon-blue">{userData.walletAddress.slice(0, 6)}...{userData.walletAddress.slice(-4)}</span>
+                            <span className="text-neon-blue">
+                              {userData.walletAddress.slice(0, 6)}...{userData.walletAddress.slice(-4)}
+                            </span>
                           ) : (
                             'Not connected'
                           )}
@@ -1291,8 +1278,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <motion.button
                       onClick={() => disconnectTwitterMutation.mutate()}
                       disabled={disconnectTwitterMutation.isLoading}
-                      className={`p-1 bg-white/10 rounded-xl ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'
-                        }`}
+                      className={`p-1 bg-white/10 rounded-xl ${
+                        disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'
+                      }`}
                       whileHover={{
                         scale: disconnectTwitterMutation.isLoading ? 1 : 1.1,
                         y: disconnectTwitterMutation.isLoading ? 0 : -2,
@@ -1316,8 +1304,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <motion.button
                       onClick={() => disconnectWalletMutation.mutate()}
                       disabled={disconnectWalletMutation.isLoading}
-                      className={`p-1 bg-white/10 rounded-xl ${disconnectWalletMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'
-                        }`}
+                      className={`p-1 bg-white/10 rounded-xl ${
+                        disconnectWalletMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'
+                      }`}
                       whileHover={{
                         scale: disconnectWalletMutation.isLoading ? 1 : 1.1,
                         y: disconnectWalletMutation.isLoading ? 0 : -2,
@@ -1330,8 +1319,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   <motion.button
                     onClick={() => generateApiKeyMutation.mutate()}
                     disabled={generateApiKeyMutation.isLoading}
-                    className={`p-1 bg-white/10 rounded-xl ${generateApiKeyMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                      }`}
+                    className={`p-1 bg-white/10 rounded-xl ${
+                      generateApiKeyMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+                    }`}
                     whileHover={{ scale: generateApiKeyMutation.isLoading ? 1 : 1.1, y: generateApiKeyMutation.isLoading ? 0 : -2 }}
                     whileTap={{ scale: generateApiKeyMutation.isLoading ? 1 : 0.9 }}
                   >
@@ -1355,8 +1345,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               <motion.button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect ${activeTab === tab ? 'border-b-2 border-white' : 'text-white/80 hover:text-white'
-                  }`}
+                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect ${
+                  activeTab === tab ? 'border-b-2 border-white' : 'text-white/80 hover:text-white'
+                }`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </motion.button>
