@@ -1,4 +1,3 @@
-// app/api/csrf-token/route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '../../../utils/serverLogger';
@@ -90,28 +89,43 @@ function isAllowedOrigin(request, origin, referer) {
   return isAllowed;
 }
 
-async function checkRateLimit(ip) {
+async function checkRateLimit(ip, userId) {
   // Bypass rate limiting in development for debugging
   if (process.env.NODE_ENV === 'development') {
-    logger.info('Rate limiting bypassed in development mode', { ip });
+    logger.info('Rate limiting bypassed in development mode', { ip, userId });
     return null;
   }
 
   const client = await getRedisClient();
-  const rateLimiter = new RateLimiterRedis({
+  const rateLimiterIp = new RateLimiterRedis({
     storeClient: client,
-    keyPrefix: `rate_limit:csrf:`,
-    points: 50, // 50 requests per minute in production
-    duration: 60, // 1 minute
+    keyPrefix: `rate_limit:csrf:ip:`,
+    points: 100, // Tăng lên 100 yêu cầu mỗi phút
+    duration: 60, // 1 phút
+  });
+
+  const rateLimiterUser = new RateLimiterRedis({
+    storeClient: client,
+    keyPrefix: `rate_limit:csrf:user:`,
+    points: 50, // 50 yêu cầu mỗi phút cho mỗi user
+    duration: 60, // 1 phút
   });
 
   try {
-    await rateLimiter.consume(ip);
-    logger.info('Rate limit check passed', { ip });
+    // Kiểm tra rate limit cho IP
+    await rateLimiterIp.consume(ip);
+    logger.info('IP rate limit check passed', { ip });
+
+    // Kiểm tra rate limit cho userId nếu có
+    if (userId) {
+      await rateLimiterUser.consume(userId);
+      logger.info('User rate limit check passed', { userId });
+    }
+
     return null;
   } catch (err) {
     const msBeforeReset = err && err.msBeforeNext ? err.msBeforeNext : 60 * 1000;
-    logger.warn('Rate limit exceeded for CSRF token request', { ip, msBeforeReset });
+    logger.warn('Rate limit exceeded for CSRF token request', { ip, userId, msBeforeReset });
     return NextResponse.json(
       { detail: 'Too many requests, please try again later.' },
       {
@@ -138,13 +152,16 @@ export async function GET(request) {
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders });
   }
 
-  // Rate limiting
-  const rateLimitResponse = await checkRateLimit(ip);
-  if (rateLimitResponse) return rateLimitResponse;
-
   // Check session
   const session = await auth();
-  if (!session || !session.user?.id) {
+  const userId = session?.user?.id || null;
+
+  // Rate limiting
+  const rateLimitResponse = await checkRateLimit(ip, userId);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  // Yêu cầu xác thực trong production
+  if (!session || !userId) {
     logger.warn('Session not authenticated', { ip });
     return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers: securityHeaders });
   }
@@ -152,16 +169,16 @@ export async function GET(request) {
   try {
     // Check Redis for existing CSRF token
     const client = await getRedisClient();
-    const cacheKey = `csrf_token:${session.user.id}`;
+    const cacheKey = `csrf_token:${userId}`;
     let csrfToken = await client.get(cacheKey);
 
     if (!csrfToken) {
       // Generate new CSRF token
       csrfToken = process.env.NODE_ENV === 'development' ? 'dev-csrf' : crypto.randomBytes(32).toString('hex');
       await client.setEx(cacheKey, 24 * 60 * 60, csrfToken); // Cache for 1 day
-      logger.info('New CSRF token generated and cached', { ip, userId: session.user.id, csrfToken: csrfToken.substring(0, 6) + '...' });
+      logger.info('New CSRF token generated and cached', { ip, userId, csrfToken: csrfToken.substring(0, 6) + '...' });
     } else {
-      logger.info('Using cached CSRF token', { ip, userId: session.user.id, csrfToken: csrfToken.substring(0, 6) + '...' });
+      logger.info('Using cached CSRF token', { ip, userId, csrfToken: csrfToken.substring(0, 6) + '...' });
     }
 
     const cookieOptions = {
