@@ -87,7 +87,11 @@ function isAllowedOrigin(origin, referer) {
         return false;
       }
       const originUrl = new URL(origin);
-      if (configured.includes(origin) || originUrl.hostname.endsWith('.vercel.app') || originUrl.hostname.endsWith('xynapse segai.net')) {
+      if (
+        configured.includes(origin) ||
+        originUrl.hostname.endsWith('.vercel.app') ||
+        originUrl.hostname.endsWith('xynapseai.net')
+      ) {
         return true;
       }
       return false;
@@ -98,14 +102,19 @@ function isAllowedOrigin(origin, referer) {
         logger.warn('Blocked referer: non-HTTPS in production', { referer });
         return false;
       }
-      if (configured.includes(refOrigin) || refOrigin.endsWith('xynapseai.net') || refOrigin.endsWith('.vercel.app')) {
+      if (
+        configured.includes(refOrigin) ||
+        refOrigin.endsWith('xynapseai.net') ||
+        refOrigin.endsWith('.vercel.app')
+      ) {
         return true;
       }
     }
-    if (!origin && !referer) {
+    if (!origin && !referer && process.env.NODE_ENV === 'development') {
+      logger.warn('No origin or referer, allowing in development mode');
       return true;
     }
-    if (!origin && process.env.NODE_ENV === 'development') return true;
+    logger.error('Invalid origin or referer', { origin, referer });
     return false;
   } catch (err) {
     logger.error('Error validating origin', { err: err?.message });
@@ -126,17 +135,31 @@ async function checkDoubleSubmitCSRF(request) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
   const cookieToken = cookies['csrf_token'] || '';
-  if (process.env.NODE_ENV === 'development' && (headerToken === 'dev-csrf' && cookieToken === 'dev-csrf')) {
+
+  logger.info('Checking CSRF tokens', {
+    headerToken: headerToken ? 'provided' : 'missing',
+    cookieToken: cookieToken ? 'provided' : 'missing',
+  });
+
+  if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
     logger.info('Development CSRF bypass used');
     return true;
   }
+
   if (!headerToken || !cookieToken) {
-    logger.warn('CSRF tokens missing', { headerProvided: !!headerToken, cookieProvided: !!cookieToken });
+    logger.warn('CSRF tokens missing', {
+      headerProvided: !!headerToken,
+      cookieProvided: !!cookieToken,
+    });
     return false;
   }
+
   const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
   if (!valid) {
-    logger.warn('CSRF token mismatch');
+    logger.warn('CSRF token mismatch', {
+      headerToken: mask(headerToken),
+      cookieToken: mask(cookieToken),
+    });
   }
   return valid;
 }

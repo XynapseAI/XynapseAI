@@ -127,10 +127,11 @@ function isAllowedOrigin(origin, referer) {
         return true;
       }
     }
-    if (!origin && !referer) {
+    if (!origin && !referer && process.env.NODE_ENV === 'development') {
+      logger.warn('No origin or referer, allowing in development mode');
       return true;
     }
-    if (!origin && process.env.NODE_ENV === 'development') return true;
+    logger.error('Invalid origin or referer', { origin, referer });
     return false;
   } catch (err) {
     logger.error('Error validating origin', { err: err?.message });

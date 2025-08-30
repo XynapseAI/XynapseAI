@@ -230,13 +230,14 @@ export const authOptions = {
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
         token.email = profile?.email || token.email;
         token.googleName = profile?.name || "";
+        token.csrfToken = token.csrfToken || randomBytes(32).toString("hex"); // Đảm bảo csrfToken luôn được tạo
       }
       if (Date.now() > token.expiresAt) {
         logger.info("Token expired, refreshing", { tokenId: token.id });
         token.accessToken = randomBytes(32).toString("hex");
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000;
+        token.csrfToken = randomBytes(32).toString("hex"); // Tạo lại csrfToken khi refresh
       }
-      token.csrfToken = token.csrfToken || randomBytes(32).toString("hex");
       return token;
     },
     async session({ session, token }) {

@@ -106,16 +106,26 @@ export async function GET(request) {
     // Save CSRF token to session
     session.csrfToken = csrfToken;
 
-    return NextResponse.json({ success: true, csrfToken }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Security-Policy': "default-src 'self'",
-        'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-        'Access-Control-Allow-Methods': 'GET',
-        'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token',
-        'Access-Control-Allow-Credentials': 'true',
-      },
+    // Chuẩn bị headers cho response
+    const headers = new Headers({
+      'Content-Type': 'application/json',
+      'Content-Security-Policy': "default-src 'self'",
+      'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
     });
+
+    // Thêm cookie csrf_token
+    headers.append('Set-Cookie', cookie.serialize('csrf_token', csrfToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 2 * 60 * 60, // 2 hours, đồng bộ với session
+    }));
+
+    return NextResponse.json({ success: true, csrfToken }, { headers });
   } catch (error) {
     logger.error(`Error processing /api/csrf-token: ${error.message}`, { stack: error.stack, ip });
     return NextResponse.json({ detail: `Server error: ${error.message}` }, { status: 500 });
