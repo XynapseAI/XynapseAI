@@ -65,18 +65,17 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Execute reCAPTCHA
   const debouncedExecuteRecaptcha = useCallback(
-    async (action, retries = 2) => { // Giảm số lần retry từ 4 xuống 2 để giảm thời gian chờ
+    async (action, retries = 2) => {
       if (process.env.NODE_ENV === 'development') return 'development-token';
       if (!recaptchaRef.current) {
         console.error('reCAPTCHA ref is null');
         throw new Error('reCAPTCHA not initialized');
       }
       try {
-        // Đảm bảo reset reCAPTCHA trước khi tạo token mới
         await recaptchaRef.current.reset();
         const token = await Promise.race([
           recaptchaRef.current.executeAsync({ action }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)), // Giảm timeout từ 60s xuống 30s
+          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)),
         ]);
         if (!token) throw new Error('Empty reCAPTCHA token');
         console.log(`reCAPTCHA token for ${action}: ${token.substring(0, 10)}...`);
@@ -84,7 +83,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       } catch (error) {
         console.error(`reCAPTCHA error for ${action}: ${error.message}`);
         if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // Giảm độ trễ retry từ 3000ms xuống 1000ms
+          await new Promise((resolve) => setTimeout(resolve, 1000));
           return debouncedExecuteRecaptcha(action, retries - 1);
         }
         throw new Error(`reCAPTCHA failed after ${3 - retries} attempts: ${error.message}`);
@@ -93,19 +92,59 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     [recaptchaRef]
   );
 
+  // Set CSRF cookie
+  const setCsrfCookie = (csrfToken) => {
+    if (process.env.NODE_ENV === 'development') {
+      document.cookie = `csrf_token=dev-csrf; path=/; SameSite=Strict`;
+    } else {
+      document.cookie = `csrf_token=${csrfToken}; path=/; SameSite=Strict; ${process.env.NODE_ENV === 'production' ? 'Secure' : ''}`;
+    }
+  };
+
   // Fetch CSRF Token
-  const { data: csrfToken, isLoading: csrfLoading } = useQuery({
+  const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
     queryKey: ['csrfToken'],
     queryFn: async () => {
-      const response = await axios.get('/api/csrf-token', { withCredentials: true });
+      // Check localStorage first
+      const cachedToken = localStorage.getItem('csrfToken');
+      if (cachedToken && cachedToken === 'dev-csrf' && process.env.NODE_ENV === 'development') {
+        console.log('Using cached CSRF token from localStorage:', cachedToken);
+        setCsrfCookie(cachedToken);
+        return cachedToken;
+      }
+
+      const response = await axios.get(`${API_BASE_URL}/api/csrf-token`, { withCredentials: true }).catch(err => {
+        console.error('CSRF token fetch error:', err.response?.status, err.response?.data || err.message);
+        if (err.response?.status === 429) {
+          throw new Error('Too many requests for CSRF token. Please wait and try again.');
+        }
+        throw err;
+      });
       console.log('CSRF Token fetched:', response.data.csrfToken);
       if (!response.data.csrfToken) throw new Error('Empty CSRF token received');
+      setCsrfCookie(response.data.csrfToken); // Set cookie
       return response.data.csrfToken;
     },
-    retry: 3,
+    retry: (failureCount, error) => {
+      if (error.message.includes('Too many requests')) {
+        return false; // Don't retry on 429
+      }
+      return failureCount < 3;
+    },
     retryDelay: 2000,
     enabled: status === 'authenticated',
-    onSuccess: (csrf) => localStorage.setItem('csrfToken', csrf),
+    staleTime: 24 * 60 * 60 * 1000, // Cache for 1 day
+    onSuccess: (csrf) => {
+      localStorage.setItem('csrfToken', csrf);
+      setCsrfCookie(csrf); // Ensure cookie is set on success
+    },
+    onError: (err) => {
+      console.error('CSRF token fetch failed:', err);
+      toast.error(`Failed to fetch CSRF token: ${err.message}`, {
+        position: 'top-center',
+        autoClose: 5000,
+      });
+    },
   });
 
   // Fetch User Data
@@ -126,9 +165,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
       const token = await debouncedExecuteRecaptcha('get_user');
       console.log('Fetching user data with UID:', session.user.id, 'CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
-      const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+      const response = await axios.get(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
         headers: {
-          'x-csrf-token': csrfToken,
+          'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
           'X-Recaptcha-Token': token,
         },
         withCredentials: true,
@@ -176,9 +215,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       const cached = await getCachedData(cacheKey);
       if (cached) return cached;
 
-      const response = await axios.get('/api/tasks', {
+      const response = await axios.get(`${API_BASE_URL}/api/tasks`, {
         headers: {
-          'x-csrf-token': csrfToken,
+          'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
         },
         withCredentials: true,
       });
@@ -199,9 +238,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       if (cached) return cached;
 
       const token = await debouncedExecuteRecaptcha('task_progress');
-      const response = await axios.get(`/api/task-progress?uid=${session.user.id}`, {
+      const response = await axios.get(`${API_BASE_URL}/api/task-progress?uid=${session.user.id}`, {
         headers: {
-          'x-csrf-token': csrfToken,
+          'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
           'X-Recaptcha-Token': token,
         },
         withCredentials: true,
@@ -223,9 +262,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       if (cached) return cached;
 
       const recaptchaToken = await debouncedExecuteRecaptcha('get_point_history');
-      const historyResponse = await axios.get(`/api/point-history?uid=${session.user.id}`, {
+      const historyResponse = await axios.get(`${API_BASE_URL}/api/point-history?uid=${session.user.id}`, {
         headers: {
-          'x-csrf-token': csrfToken,
+          'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
           'X-Recaptcha-Token': recaptchaToken,
         },
         withCredentials: true,
@@ -251,11 +290,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
       const token = await debouncedExecuteRecaptcha('connect_data');
       console.log('Fetching leaderboard with CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
-      const response = await axios.get('/api/connect-data', {
+      const response = await axios.get(`${API_BASE_URL}/api/connect-data`, {
         headers: {
-          'x-csrf-token': csrfToken,
+          'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
           'X-Recaptcha-Token': token,
-          'Authorization': `Bearer ${session?.accessToken}`, // Add JWT token
+          // Remove Authorization header since server supports session-based auth
         },
         withCredentials: true,
       }).catch(err => {
@@ -296,10 +335,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       const token = await debouncedExecuteRecaptcha('disconnect_twitter');
       console.log('reCAPTCHA Token for disconnect:', token.substring(0, 10) + '...');
       const response = await axios.post(
-        '/api/twitter/connect',
+        `${API_BASE_URL}/twitter/connect`,
         { action: 'disconnect', uid: session.user.id, recaptchaToken: token },
         {
-          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+          headers: { 'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
       ).catch(err => {
@@ -345,10 +384,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       const signature = await signer.signMessage(message);
       const token = await debouncedExecuteRecaptcha('verify-wallet');
       const response = await axios.post(
-        '/api/verify-wallet',
+        `${API_BASE_URL}/verify-wallet`,
         { action: 'verify-wallet', walletAddress, signature, message, uid: session.user.id, recaptchaToken: token },
         {
-          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+          headers: { 'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
       );
@@ -369,10 +408,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     mutationFn: async () => {
       const token = await debouncedExecuteRecaptcha('disconnect-wallet');
       const response = await axios.post(
-        '/api/verify-wallet',
+        `${API_BASE_URL}/verify-wallet`,
         { action: 'disconnect-wallet', uid: session.user.id, recaptchaToken: token },
         {
-          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+          headers: { 'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
       );
@@ -397,10 +436,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     mutationFn: async (task) => {
       const token = await debouncedExecuteRecaptcha('verify_task');
       const response = await axios.post(
-        '/api/twitter/verify-task',
+        `${API_BASE_URL}/api/twitter/verify-task`,
         { taskId: task.id, userId: session.user.id, recaptchaToken: token },
         {
-          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+          headers: { 'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
       );
@@ -489,14 +528,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <td className="px-2 py-2 text-white text-[8px] sm:text-[10px]">
             <div className="flex items-center">
               <Image
-                src={getProfilePictureSrc(user.profile_picture)}
-                alt={user.google_name || user.twitterHandle || 'User Avatar'}
+                src={getProfilePictureSrc(user.profilePicture || user.profile_picture)}
+                alt={user.googleName || user.twitterHandle || 'User Avatar'}
                 width={16}
                 height={16}
                 className="rounded-full border border-white/10 mr-2 object-cover"
               />
               <span className="truncate">
-                {user.google_name || user.twitterHandle || 'Anonymous'}
+                {user.googleName || user.twitterHandle || 'Anonymous'}
                 {isCurrentUser && (
                   <span className="ml-2 text-[7px] sm:text-[8px] font-medium text-neon-blue px-2 py-0.5 rounded-full border border-neon-blue/50 bg-white/5">
                     You
@@ -893,7 +932,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       await clearAllCaches(session.user.id);
       console.log('Manual cache cleared');
       toast.success('Cache cleared successfully.', { position: 'top-center', autoClose: 5000 });
-      // Làm mới trang để đảm bảo đồng bộ
       window.location.reload();
     } catch (err) {
       console.error('Error clearing cache:', err);
@@ -952,6 +990,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 className="text-red-400 text-[8px] sm:text-[10px] p-2 text-center mb-2"
               >
                 Error: {userError.message}
+                <button
+                  onClick={handleManualCacheClear}
+                  className="ml-2 px-2 py-1 bg-neon-blue text-black rounded-xl text-[8px] sm:text-[10px]"
+                >
+                  Clear Cache & Retry
+                </button>
               </motion.div>
             )}
             {userData && (

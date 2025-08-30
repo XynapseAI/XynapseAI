@@ -1573,13 +1573,67 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return { chain: tokenSymbol, tokenAddress: null, decimalPlace: null };
       }
 
-      // Ensure chains array is not empty
+      // Special case for BNB
+      if (tokenSymbol === 'bnb') {
+        const bnbChainAddress = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
+        const bnbPlatforms = {
+          'binance-smart-chain': {
+            address: bnbChainAddress,
+            decimal_place: 18,
+          },
+          'ethereum': {
+            address: token.detail_platforms?.ethereum?.contract_address?.toLowerCase() || null,
+            decimal_place: token.detail_platforms?.ethereum?.decimal_place || 18,
+          },
+        };
+
+        // Ensure chains array is not empty
+        if (!chains || chains.length === 0) {
+          console.warn('Chains array is empty, falling back to BNB chain for BNB');
+          return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
+        }
+
+        // Filter available chains for BNB, excluding testnets in production
+        const availableChains = chains.filter(
+          (chain) =>
+            bnbPlatforms[chain.value] &&
+            bnbPlatforms[chain.value].address?.match(/^0x[a-fA-F0-9]{40}$/) &&
+            (process.env.NODE_ENV === 'development' || !chain.testnet)
+        );
+
+        // Prefer BNB chain if available, otherwise fall back to Ethereum
+        if (
+          bnbPlatforms['binance-smart-chain'] &&
+          chains.some((net) => net.value === 'bnb') &&
+          bnbPlatforms['binance-smart-chain'].address.match(/^0x[a-fA-F0-9]{40}$/)
+        ) {
+          return {
+            chain: 'bnb',
+            tokenAddress: bnbPlatforms['binance-smart-chain'].address,
+            decimalPlace: bnbPlatforms['binance-smart-chain'].decimal_place,
+          };
+        } else if (
+          bnbPlatforms['ethereum'] &&
+          chains.some((net) => net.value === 'ethereum') &&
+          bnbPlatforms['ethereum'].address?.match(/^0x[a-fA-F0-9]{40}$/)
+        ) {
+          return {
+            chain: 'ethereum',
+            tokenAddress: bnbPlatforms['ethereum'].address,
+            decimalPlace: bnbPlatforms['ethereum'].decimal_place,
+          };
+        }
+
+        setOnChainError('BNB does not have on-chain data available on supported chains.');
+        return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
+      }
+
+      // Existing logic for other tokens
       if (!chains || chains.length === 0) {
         console.warn('Chains array is empty, falling back to default chain: ethereum');
         return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
       }
 
-      // Normalize platforms from token.detail_platforms
       const normalizedPlatforms = Object.keys(token.detail_platforms || {}).reduce((acc, cgId) => {
         const chain = chains.find((c) => c.coingeckoId === cgId || CHAIN_MAPPING[cgId]?.simChain === c.value);
         if (chain && token.detail_platforms[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -1592,14 +1646,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return acc;
       }, {});
 
-      // Filter available chains, excluding testnets in production
       const availableChains = chains.filter(
         (chain) =>
           normalizedPlatforms[chain.value] &&
           (process.env.NODE_ENV === 'development' || !chain.testnet)
       );
 
-      // Prefer the provided chain if valid, otherwise fallback to available chains
       if (
         normalizedPlatforms[preferredChain] &&
         chains.some((net) => net.value === preferredChain) &&
@@ -1612,7 +1664,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         };
       }
 
-      // Fallback to the first available chain
       if (availableChains.length > 0) {
         const defaultChain = availableChains[0].value;
         const tokenAddress = normalizedPlatforms[defaultChain].address;
@@ -1620,7 +1671,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return { chain: defaultChain, tokenAddress, decimalPlace };
       }
 
-      // Fallback tokens for specific cases
       const fallbackTokens = {
         usdc: {
           chain: 'ethereum',
@@ -1643,7 +1693,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return fallbackTokens[tokenSymbol];
       }
 
-      // Set error if no valid chain or address is found
       setOnChainError('This token does not have on-chain data available on supported chains.');
       return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
     },
@@ -1652,6 +1701,29 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   const getAvailableChains = useCallback(() => {
     if (!selectedToken?.detail_platforms) return [];
+
+    const tokenSymbol = selectedToken.symbol?.toLowerCase();
+    if (tokenSymbol === 'bnb') {
+      const bnbPlatforms = {
+        'binance-smart-chain': {
+          address: '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
+          decimal_place: 18,
+        },
+        'ethereum': {
+          address: selectedToken.detail_platforms?.ethereum?.contract_address?.toLowerCase() || null,
+          decimal_place: selectedToken.detail_platforms?.ethereum?.decimal_place || 18,
+        },
+      };
+
+      const availableChains = chains.filter(
+        (chain) =>
+          bnbPlatforms[chain.value] &&
+          bnbPlatforms[chain.value].address?.match(/^0x[a-fA-F0-9]{40}$/) &&
+          (process.env.NODE_ENV === 'development' || !chain.testnet)
+      );
+      prevAvailableChainsRef.current = availableChains;
+      return availableChains;
+    }
 
     const normalizedPlatforms = Object.keys(selectedToken.detail_platforms).reduce((acc, cgId) => {
       const chain = chains.find((c) => c.coingeckoId === cgId || CHAIN_MAPPING[cgId]?.simChain === c.value);
@@ -2280,14 +2352,196 @@ Use natural, professional tone with recent data.
   }, [searchQuery, debouncedSearch]);
 
   useEffect(() => {
-    if (!selectedToken?.id) return;
+    if (!selectedToken?.id || document.visibilityState !== 'visible') return;
 
     const tokenSymbol = selectedToken.id.toLowerCase();
     const isNonEvmChain = NON_EVM_CHAINS.includes(tokenSymbol);
+
+    if (isNonEvmChain) {
+      const tokenKey = `${selectedToken.id}-blockchair`;
+      if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
+        console.log(`Skipping fetchPublicTreasuryData: Data already fetched for ${tokenKey}`);
+        return;
+      }
+      setIsLoadingOnChain(true);
+      setOnChainData((prev) => ({ ...prev, topHolders: [] }));
+      setOnChainError(null);
+      lastFetchedTokenRef.current = tokenKey;
+      fetchPublicTreasuryData(tokenSymbol);
+      return;
+    }
+
+    // Special case for BNB
+    if (tokenSymbol === 'binancecoin') {
+      setIsLoadingOnChain(true);
+      setOnChainData((prev) => ({ ...prev, topHolders: [] }));
+      setOnChainError(null);
+
+      const fetchBnbHolders = async () => {
+        const chainsToFetch = [];
+        const bnbChain = {
+          chain: 'bnb',
+          tokenAddress: '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
+          decimalPlace: 18,
+        };
+        chainsToFetch.push(bnbChain);
+
+        const ethPlatform = selectedToken.detail_platforms?.ethereum;
+        if (ethPlatform?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+          chainsToFetch.push({
+            chain: 'ethereum',
+            tokenAddress: ethPlatform.contract_address.toLowerCase(),
+            decimalPlace: Number(ethPlatform.decimal_place) || 18,
+          });
+        }
+
+        const topHoldersPromises = chainsToFetch.map(async ({ chain, tokenAddress, decimalPlace }) => {
+          try {
+            const cacheKey = `onchain-${chain}-${tokenAddress}-top-holders`;
+            const fetchFn = async () => {
+              const recaptchaToken = await executeRecaptcha('top-holders');
+              const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}/api/sim`, {
+                method: 'POST',
+                headers: {
+                  Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+                  'Content-Type': 'application/json',
+                  'x-recaptcha-token': recaptchaToken,
+                },
+                body: JSON.stringify({
+                  action: 'top-holders',
+                  chain,
+                  tokenAddress,
+                  decimalPlace,
+                }),
+                signal: AbortSignal.timeout(30000),
+              });
+
+              if (!response.ok) {
+                const text = await response.text();
+                let errorMessage = `Failed to fetch top-holders data: ${response.status} ${response.statusText}`;
+                try {
+                  const result = JSON.parse(text);
+                  errorMessage = result.detail || errorMessage;
+                } catch {
+                  errorMessage = `Failed to fetch top-holders data: Invalid JSON response`;
+                }
+                throw new Error(errorMessage);
+              }
+
+              const reader = response.body.getReader();
+              const decoder = new TextDecoder();
+              let data = [];
+              let buffer = '';
+              let isFirstChunk = true;
+
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+
+                if (isFirstChunk) {
+                  buffer = buffer.trim().replace(/^\[/, '');
+                  isFirstChunk = false;
+                }
+
+                let pos = 0;
+                while (pos < buffer.length) {
+                  while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
+                    pos++;
+                  }
+                  if (pos >= buffer.length) break;
+
+                  if (buffer[pos] === '{') {
+                    let openBraces = 1;
+                    let start = pos;
+                    pos++;
+                    while (pos < buffer.length && openBraces > 0) {
+                      if (buffer[pos] === '{') openBraces++;
+                      else if (buffer[pos] === '}') openBraces--;
+                      pos++;
+                    }
+
+                    if (openBraces === 0) {
+                      const objStr = buffer.substring(start, pos).trim();
+                      try {
+                        const parsedObj = JSON.parse(objStr);
+                        if (parsedObj.detail) {
+                          throw new Error(parsedObj.detail);
+                        }
+                        data.push({ ...parsedObj, chain }); // Add chain info
+                      } catch (parseError) {
+                        console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
+                      }
+                    } else {
+                      break;
+                    }
+                  } else {
+                    pos++;
+                  }
+                }
+
+                buffer = buffer.slice(pos).trim();
+              }
+
+              if (buffer) {
+                buffer = buffer.replace(/\]$/, '').trim();
+                if (buffer.startsWith('{')) {
+                  try {
+                    const parsed = JSON.parse(buffer);
+                    if (!parsed.detail) {
+                      data.push({ ...parsed, chain });
+                    } else {
+                      throw new Error(parsed.detail);
+                    }
+                  } catch (e) {
+                    console.error(`Error parsing final buffer: ${e.message}`, { buffer });
+                  }
+                }
+              }
+
+              return data;
+            };
+
+            return await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TOP_HOLDERS);
+          } catch (error) {
+            console.error(`Error fetching top holders for ${chain}: ${error.message}`);
+            return [];
+          }
+        });
+
+        try {
+          const results = await Promise.all(topHoldersPromises);
+          const mergedHolders = results.flat().sort((a, b) => b.balance - a.balance).slice(0, 100); // Limit to top 100 holders
+          setOnChainData((prev) => ({
+            ...prev,
+            topHolders: mergedHolders,
+          }));
+          if (mergedHolders.length === 0) {
+            setOnChainError('No top holders data available for BNB on supported chains.');
+          }
+        } catch (error) {
+          setOnChainError(`Failed to fetch top holders for BNB: ${error.message}`);
+          toast.error(`Failed to fetch top holders for BNB: ${error.message}`, { position: 'top-center', autoClose: 5000 });
+        } finally {
+          setIsLoadingOnChain(false);
+          if (recaptchaRef.current) {
+            recaptchaRef.current.reset();
+          }
+        }
+      };
+
+      const tokenKey = `binancecoin-multichain`;
+      if (lastFetchedTokenRef.current !== tokenKey) {
+        lastFetchedTokenRef.current = tokenKey;
+        fetchBnbHolders();
+      }
+      return;
+    }
+
+    // Existing logic for other tokens
     const { chain, tokenAddress, decimalPlace } = getDefaultChainAndAddress(selectedToken, selectedChain);
-    const tokenKey = isNonEvmChain
-      ? `${selectedToken.id}-blockchair`
-      : `${selectedToken.id}-${chain}-${tokenAddress}-${decimalPlace}`;
+    const tokenKey = `${selectedToken.id}-${chain}-${tokenAddress}-${decimalPlace}`;
 
     if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
       console.log(`Skipping fetchOnChainData: Data already fetched for ${tokenKey}`);
@@ -2298,21 +2552,16 @@ Use natural, professional tone with recent data.
     setOnChainData((prev) => ({ ...prev, topHolders: [] }));
     setOnChainError(null);
 
-    if (isNonEvmChain) {
-      lastFetchedTokenRef.current = tokenKey;
-      fetchPublicTreasuryData(tokenSymbol);
-    } else {
-      if (!chain || !tokenAddress) {
-        setIsLoadingOnChain(false);
-        setOnChainError('This token does not have on-chain data available on supported chains.');
-        return;
-      }
-
-      lastFetchedTokenRef.current = tokenKey;
-      console.log(`Fetching top-holders for chain: ${chain}, tokenAddress: ${tokenAddress}`);
-      fetchOnChainData(chain, tokenAddress, 'top-holders', decimalPlace);
+    if (!chain || !tokenAddress) {
+      setIsLoadingOnChain(false);
+      setOnChainError('This token does not have on-chain data available on supported chains.');
+      return;
     }
-  }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData]);
+
+    lastFetchedTokenRef.current = tokenKey;
+    console.log(`Fetching top-holders for chain: ${chain}, tokenAddress: ${tokenAddress}`);
+    fetchOnChainData(chain, tokenAddress, 'top-holders', decimalPlace);
+  }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData, executeRecaptcha, session, toast]);
 
   useEffect(() => {
     prevTopHoldersRef.current = onChainData.topHolders;

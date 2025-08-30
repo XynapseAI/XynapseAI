@@ -227,7 +227,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           id="currency-select"
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
-          className="hidden sm:block text-white px-1.5 py-1 text-[8px] sm:text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 transition-all duration-300 no-hover-effect custom-scrollbar hide-scrollbar"
+          className="hidden sm:block text-white px-1.5 py-1 text-[8px] sm:text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/10 transition-all duration-300 no-hover-effect custom-scrollbar hide-scrollbar"
         >
           {availableCurrencies.map((curr) => (
             <option key={curr} value={curr} className="bg-black text-[9px]">

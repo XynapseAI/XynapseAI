@@ -5,6 +5,20 @@ import { createTransport } from "nodemailer";
 import { v4 as uuidv4 } from "uuid";
 import { query } from "@/utils/postgres";
 import { logger } from "@/utils/serverLogger";
+import crypto from 'crypto';
+import util from 'util';
+
+const scrypt = util.promisify(crypto.scrypt);
+
+// Hàm hashApiKey
+async function hashApiKey(apiKey) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = await scrypt(apiKey, salt, 64);
+  return {
+    api_key_hash: derived.toString('hex'),
+    api_key_salt: salt,
+  };
+}
 
 // ================== Email Transporter ==================
 const transporter = createTransport({
@@ -23,7 +37,7 @@ const customAdapter = {
     const { rows } = await query(
       `SELECT id,email,google_id,google_name,email_verified,profile_picture,
               connected,last_connected,points,tweet_points,ai_points,task_points,
-              is_creator,is_ai_rank,tier,is_plus,is_premium,api_key,created_at
+              is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
        FROM users WHERE email=$1`,
       [email]
     );
@@ -42,20 +56,26 @@ const customAdapter = {
   async createUser(data) {
     const id = data.google_id || data.id || uuidv4();
     logger.info("Creating user", { id, email: data.email });
+
+    // Tạo API key và hash
+    const plainApiKey = randomBytes(32).toString("hex");
+    const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
+
     const { rows } = await query(
-      `INSERT INTO users (id,email,google_id,google_name,email_verified,profile_picture,
-         connected,last_connected,points,tweet_points,ai_points,task_points,is_creator,
-         is_ai_rank,tier,is_plus,is_premium,api_key,created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
-       ON CONFLICT (google_id) DO UPDATE SET
-         email=$2,google_name=$4,email_verified=$5,profile_picture=$6,connected=$7,
-         last_connected=$8,updated_at=$19
-       RETURNING *`,
+      `INSERT INTO users (
+        id,email,google_id,google_name,email_verified,profile_picture,
+        connected,last_connected,points,tweet_points,ai_points,task_points,
+        is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+      ON CONFLICT (google_id) DO UPDATE SET
+        email=$2,google_name=$4,email_verified=$5,profile_picture=$6,connected=$7,
+        last_connected=$8,updated_at=$20
+      RETURNING *`,
       [
         id, data.email, data.google_id || null, data.google_name || null,
         data.email_verified || false, data.profile_picture || null, true,
         new Date(), 0, 0, 0, 0, false, false, "Basic", false, false,
-        randomBytes(32).toString("hex"), new Date(),
+        api_key_hash, api_key_salt, new Date(),
       ]
     );
     logger.info("User created", { id, email: data.email, rowCount: rows.length });
@@ -156,23 +176,27 @@ export const authOptions = {
           return false;
         }
 
+        const plainApiKey = randomBytes(32).toString("hex");
+        const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
+
         const existingUser = await query(`SELECT id FROM users WHERE google_id=$1`, [googleId]);
         if (existingUser.rows[0]) {
           userId = existingUser.rows[0].id;
         }
 
         const result = await query(
-          `INSERT INTO users (id,email,google_id,google_name,email_verified,profile_picture,
-             connected,last_connected,points,tweet_points,ai_points,task_points,is_creator,is_ai_rank,
-             tier,is_plus,is_premium,api_key,created_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
-           ON CONFLICT (google_id) DO UPDATE SET
-             email=$2,google_name=$4,email_verified=$5,profile_picture=$6,connected=$7,
-             last_connected=$8,updated_at=$19
-           RETURNING *`,
+          `INSERT INTO users (
+            id,email,google_id,google_name,email_verified,profile_picture,
+            connected,last_connected,points,tweet_points,ai_points,task_points,
+            is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+          ON CONFLICT (google_id) DO UPDATE SET
+            email=$2,google_name=$4,email_verified=$5,profile_picture=$6,connected=$7,
+            last_connected=$8,updated_at=$20
+          RETURNING *`,
           [
             userId, email, googleId, googleName, verified, profilePic, true, new Date(),
-            0, 0, 0, 0, false, false, "Basic", false, false, randomBytes(32).toString("hex"), new Date(),
+            0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
           ]
         );
 
@@ -181,10 +205,10 @@ export const authOptions = {
         if (account.provider === "google") {
           await query(
             `INSERT INTO accounts (userId,type,provider,providerAccountId,access_token,expires_at,
-               token_type,scope,id_token)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-             ON CONFLICT (provider,providerAccountId) DO UPDATE SET
-               access_token=$5,expires_at=$6,token_type=$7,scope=$8,id_token=$9`,
+              token_type,scope,id_token)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+            ON CONFLICT (provider,providerAccountId) DO UPDATE SET
+              access_token=$5,expires_at=$6,token_type=$7,scope=$8,id_token=$9`,
             [
               userId, account.type, account.provider, account.providerAccountId,
               account.access_token, null, account.token_type, account.scope, account.id_token,
@@ -208,15 +232,9 @@ export const authOptions = {
         token.googleName = profile?.name || "";
       }
       if (Date.now() > token.expiresAt) {
-        // Implement refresh token logic here
         logger.info("Token expired, refreshing", { tokenId: token.id });
         token.accessToken = randomBytes(32).toString("hex");
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000;
-      }
-      const { rows } = await query(`SELECT api_key,is_premium FROM users WHERE id=$1`, [token.id]);
-      if (rows[0]) {
-        token.apiKey = rows[0].api_key;
-        token.isPremium = rows[0].is_premium;
       }
       token.csrfToken = token.csrfToken || randomBytes(32).toString("hex");
       return token;
@@ -226,13 +244,11 @@ export const authOptions = {
       session.user.id = token.id;
       session.user.email = token.email;
       session.user.googleName = token.googleName;
-      session.user.apiKey = token.apiKey;
       session.user.isPremium = token.isPremium || false;
       session.csrfToken = token.csrfToken;
       return session;
     },
     async redirect({ url, baseUrl }) {
-      // Chỉ cho phép redirect tới các URL trong ứng dụng
       if (url.startsWith('/')) return `${baseUrl}${url}`;
       if (url === baseUrl || url === `${baseUrl}/dashboard`) return url;
       return baseUrl + '/dashboard';
@@ -245,3 +261,5 @@ export const authOptions = {
     error: "/auth/error",
   },
 };
+
+export default authOptions;
