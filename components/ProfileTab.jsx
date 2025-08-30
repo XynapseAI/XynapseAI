@@ -1,7 +1,8 @@
+// components/ProfileTab.jsx
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
@@ -17,7 +18,7 @@ import { LoadingOverlay } from '@/utils/helpers';
 import { debounce } from 'lodash';
 import LoginPrompt from './LoginPrompt';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapseai.net/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -36,16 +37,6 @@ const CustomTooltip = ({ active, payload, label }) => {
     );
   }
   return null;
-};
-
-// Hàm lấy CSRF token từ cookie
-const getCsrfTokenFromCookie = () => {
-  const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-    const [name, value] = cookie.trim().split('=');
-    acc[name] = value;
-    return acc;
-  }, {});
-  return cookies['csrf_token'] || null;
 };
 
 export default function ProfileTab({ recaptchaRef, handleSignOut }) {
@@ -68,26 +59,24 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   const onSignOut = async () => {
     setIsSigningOut(true);
-    try {
-      await handleSignOut();
-    } finally {
-      setIsSigningOut(false);
-    }
+    await handleSignOut();
+    setIsSigningOut(false);
   };
 
   // Execute reCAPTCHA
   const debouncedExecuteRecaptcha = useCallback(
-    async (action, retries = 2) => {
+    async (action, retries = 2) => { // Giảm số lần retry từ 4 xuống 2 để giảm thời gian chờ
       if (process.env.NODE_ENV === 'development') return 'development-token';
       if (!recaptchaRef.current) {
         console.error('reCAPTCHA ref is null');
         throw new Error('reCAPTCHA not initialized');
       }
       try {
+        // Đảm bảo reset reCAPTCHA trước khi tạo token mới
         await recaptchaRef.current.reset();
         const token = await Promise.race([
           recaptchaRef.current.executeAsync({ action }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)), // Giảm timeout từ 60s xuống 30s
         ]);
         if (!token) throw new Error('Empty reCAPTCHA token');
         console.log(`reCAPTCHA token for ${action}: ${token.substring(0, 10)}...`);
@@ -95,7 +84,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       } catch (error) {
         console.error(`reCAPTCHA error for ${action}: ${error.message}`);
         if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // Giảm độ trễ retry từ 3000ms xuống 1000ms
           return debouncedExecuteRecaptcha(action, retries - 1);
         }
         throw new Error(`reCAPTCHA failed after ${3 - retries} attempts: ${error.message}`);
@@ -104,97 +93,24 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     [recaptchaRef]
   );
 
-  // Set CSRF cookie
-  const setCsrfCookie = (csrfToken) => {
-    const cookieOptions = `csrf_token=${csrfToken}; path=/; SameSite=Strict; ${
-      process.env.NODE_ENV === 'production' ? 'Secure' : ''
-    }; Max-Age=${24 * 60 * 60}`;
-    document.cookie = cookieOptions;
-  };
-
   // Fetch CSRF Token
-  const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
+  const { data: csrfToken, isLoading: csrfLoading } = useQuery({
     queryKey: ['csrfToken'],
     queryFn: async () => {
-      // Kiểm tra cookie trước
-      const cookieCsrfToken = getCsrfTokenFromCookie();
-      if (cookieCsrfToken) {
-        console.log('Using CSRF token from cookie:', cookieCsrfToken);
-        localStorage.setItem('csrfToken', cookieCsrfToken); // Đồng bộ với localStorage
-        return cookieCsrfToken;
-      }
-
-      // Kiểm tra localStorage
-      const cachedToken = localStorage.getItem('csrfToken');
-      if (cachedToken) {
-        console.log('Using cached CSRF token from localStorage:', cachedToken);
-        setCsrfCookie(cachedToken);
-        return cachedToken;
-      }
-
-      // Gọi API nếu không có token
-      console.log('Fetching new CSRF token from API');
-      const response = await axios.get(`${API_BASE_URL}/api/csrf-token`, { withCredentials: true }).catch((err) => {
-        console.error('CSRF token fetch error:', err.response?.status, err.response?.data || err.message);
-        if (err.response?.status === 429) {
-          const retryAfter = err.response.headers['retry-after'] ? parseInt(err.response.headers['retry-after']) : 60;
-          toast.error(`Too many requests for CSRF token. Please wait ${retryAfter} seconds.`, {
-            position: 'top-center',
-            autoClose: retryAfter * 1000,
-          });
-          throw new Error(`Rate limit exceeded, retry after ${retryAfter} seconds`);
-        }
-        throw err;
-      });
-
-      const token = response.data.csrfToken;
-      if (!token) throw new Error('Empty CSRF token received');
-      console.log('CSRF Token fetched:', token);
-      setCsrfCookie(token);
-      localStorage.setItem('csrfToken', token);
-      return token;
+      const response = await axios.get('/api/csrf-token', { withCredentials: true });
+      console.log('CSRF Token fetched:', response.data.csrfToken);
+      if (!response.data.csrfToken) throw new Error('Empty CSRF token received');
+      return response.data.csrfToken;
     },
-    retry: (failureCount, error) => {
-      if (error.message.includes('Rate limit exceeded')) return false; // Không retry nếu lỗi 429
-      return failureCount < 3;
-    },
-    retryDelay: (attempt, error) => {
-      if (error.message.includes('Rate limit exceeded')) {
-        const retryAfter = error.message.match(/retry after (\d+)/)?.[1] || 60;
-        return parseInt(retryAfter) * 1000;
-      }
-      return Math.min(1000 * 2 ** attempt, 30000);
-    },
+    retry: 3,
+    retryDelay: 2000,
     enabled: status === 'authenticated',
-    staleTime: 24 * 60 * 60 * 1000, // Cache 1 ngày
-    cacheTime: 24 * 60 * 60 * 1000, // Cache 1 ngày
-    onSuccess: (csrf) => {
-      console.log('CSRF token cached and set in cookie');
-      localStorage.setItem('csrfToken', csrf);
-      setCsrfCookie(csrf);
-    },
-    onError: (err) => {
-      console.error('CSRF token fetch failed:', err);
-      toast.error(`Failed to fetch CSRF token: ${err.message}`, {
-        position: 'top-center',
-        autoClose: 5000,
-      });
-    },
+    onSuccess: (csrf) => localStorage.setItem('csrfToken', csrf),
   });
-
-  // Memoize headers để giảm tính toán lặp lại
-  const headers = useMemo(
-    () => ({
-      'x-csrf-token': process.env.NODE_ENV === 'development' ? 'dev-csrf' : csrfToken,
-      'Content-Type': 'application/json',
-      'X-Recaptcha-Token': null, // Sẽ được cập nhật trong mỗi query
-    }),
-    [csrfToken]
-  );
 
   // Fetch User Data
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
-    queryKey: ['userData', session?.user?.id],
+    queryKey: ['userData', session?.user?.id, csrfToken],
     queryFn: async () => {
       const cacheKey = `userData-${session.user.id}`;
       const cached = await getCachedData(cacheKey);
@@ -209,8 +125,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       }
 
       const token = await debouncedExecuteRecaptcha('get_user');
-      const response = await axios.get(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
-        headers: { ...headers, 'X-Recaptcha-Token': token },
+      console.log('Fetching user data with UID:', session.user.id, 'CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
+      const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+        headers: {
+          'x-csrf-token': csrfToken,
+          'X-Recaptcha-Token': token,
+        },
         withCredentials: true,
       });
       console.log('User API response:', response.data);
@@ -220,30 +140,21 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         isPremium: response.data.user.isPremium || false,
         tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
         twitterHandle: response.data.user.twitterHandle || null,
-        walletAddress: response.data.user.walletAddress || null,
       };
       console.log('Transformed user data:', user);
       await cacheData(cacheKey, user, 24 * 60 * 60 * 1000);
       return user;
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-    staleTime: 5 * 60 * 1000,
-    cacheTime: 24 * 60 * 60 * 1000,
-    retry: (failureCount, error) => error.message.includes('Rate limit exceeded') ? false : failureCount < 3,
-    retryDelay: (attempt, error) => {
-      if (error.message.includes('Rate limit exceeded')) {
-        const retryAfter = error.message.match(/retry after (\d+)/)?.[1] || 60;
-        return parseInt(retryAfter) * 1000;
-      }
-      return Math.min(1000 * 2 ** attempt, 30000);
-    },
+    staleTime: 1 * 60 * 1000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
     onError: async (err) => {
       console.error('Error fetching user data:', err);
       if (err.response?.status === 429) {
-        const retryAfter = err.response?.headers['retry-after'] ? parseInt(err.response.headers['retry-after']) : 60;
-        toast.error(`Too many requests. Please wait ${retryAfter} seconds.`, {
+        toast.error('Too many requests. Please wait and try again.', {
           position: 'top-center',
-          autoClose: retryAfter * 1000,
+          autoClose: 5000,
         });
       } else if (err.response?.status === 404) {
         await signOut({ redirect: false });
@@ -259,15 +170,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Fetch Tasks
   const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
-    queryKey: ['tasks', session?.user?.id],
+    queryKey: ['tasks', session?.user?.id, csrfToken],
     queryFn: async () => {
       const cacheKey = `tasks-${session.user.id}`;
       const cached = await getCachedData(cacheKey);
       if (cached) return cached;
 
-      const token = await debouncedExecuteRecaptcha('get_tasks');
-      const response = await axios.get(`${API_BASE_URL}/api/tasks`, {
-        headers: { ...headers, 'X-Recaptcha-Token': token },
+      const response = await axios.get('/api/tasks', {
+        headers: {
+          'x-csrf-token': csrfToken,
+        },
         withCredentials: true,
       });
       if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch tasks.');
@@ -276,35 +188,22 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 10 * 60 * 1000,
-    cacheTime: 24 * 60 * 60 * 1000,
-    retry: (failureCount, error) => error.message.includes('Rate limit exceeded') ? false : failureCount < 3,
-    retryDelay: (attempt, error) => {
-      if (error.message.includes('Rate limit exceeded')) {
-        const retryAfter = error.message.match(/retry after (\d+)/)?.[1] || 60;
-        return parseInt(retryAfter) * 1000;
-      }
-      return Math.min(1000 * 2 ** attempt, 30000);
-    },
-    onError: (err) => {
-      console.error('Error fetching tasks:', err);
-      toast.error(`Failed to fetch tasks: ${err.message}`, {
-        position: 'top-center',
-        autoClose: 5000,
-      });
-    },
   });
 
   // Fetch Task Progress
   const { data: taskProgress, isLoading: taskProgressLoading, error: taskProgressError } = useQuery({
-    queryKey: ['taskProgress', session?.user?.id],
+    queryKey: ['taskProgress', session?.user?.id, csrfToken],
     queryFn: async () => {
       const cacheKey = `taskProgress-${session.user.id}`;
       const cached = await getCachedData(cacheKey);
       if (cached) return cached;
 
       const token = await debouncedExecuteRecaptcha('task_progress');
-      const response = await axios.get(`${API_BASE_URL}/api/task-progress?uid=${session.user.id}`, {
-        headers: { ...headers, 'X-Recaptcha-Token': token },
+      const response = await axios.get(`/api/task-progress?uid=${session.user.id}`, {
+        headers: {
+          'x-csrf-token': csrfToken,
+          'X-Recaptcha-Token': token,
+        },
         withCredentials: true,
       });
       const progress = response.data.progress || {};
@@ -313,64 +212,35 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 10 * 60 * 1000,
-    cacheTime: 24 * 60 * 60 * 1000,
-    retry: (failureCount, error) => error.message.includes('Rate limit exceeded') ? false : failureCount < 3,
-    retryDelay: (attempt, error) => {
-      if (error.message.includes('Rate limit exceeded')) {
-        const retryAfter = error.message.match(/retry after (\d+)/)?.[1] || 60;
-        return parseInt(retryAfter) * 1000;
-      }
-      return Math.min(1000 * 2 ** attempt, 30000);
-    },
-    onError: (err) => {
-      console.error('Error fetching task progress:', err);
-      toast.error(`Failed to fetch task progress: ${err.message}`, {
-        position: 'top-center',
-        autoClose: 5000,
-      });
-    },
   });
 
   // Fetch Point History
   const { data: pointData, isLoading: pointLoading, error: pointError } = useQuery({
-    queryKey: ['pointHistory', session?.user?.id],
+    queryKey: ['pointHistory', session?.user?.id, csrfToken],
     queryFn: async () => {
       const cacheKey = `pointHistory-${session.user.id}`;
       const cached = await getCachedData(cacheKey);
       if (cached) return cached;
 
-      const token = await debouncedExecuteRecaptcha('get_point_history');
-      const response = await axios.get(`${API_BASE_URL}/api/point-history?uid=${session.user.id}`, {
-        headers: { ...headers, 'X-Recaptcha-Token': token },
+      const recaptchaToken = await debouncedExecuteRecaptcha('get_point_history');
+      const historyResponse = await axios.get(`/api/point-history?uid=${session.user.id}`, {
+        headers: {
+          'x-csrf-token': csrfToken,
+          'X-Recaptcha-Token': recaptchaToken,
+        },
         withCredentials: true,
       });
-      if (!response.data.success) throw new Error(response.data.detail || 'Invalid point history data.');
-      await cacheData(cacheKey, response.data, 10 * 60 * 1000);
-      return response.data;
+
+      if (!historyResponse.data.success) throw new Error('Invalid point history data.');
+      return historyResponse.data;
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 10 * 60 * 1000,
-    cacheTime: 24 * 60 * 60 * 1000,
-    retry: (failureCount, error) => error.message.includes('Rate limit exceeded') ? false : failureCount < 3,
-    retryDelay: (attempt, error) => {
-      if (error.message.includes('Rate limit exceeded')) {
-        const retryAfter = error.message.match(/retry after (\d+)/)?.[1] || 60;
-        return parseInt(retryAfter) * 1000;
-      }
-      return Math.min(1000 * 2 ** attempt, 30000);
-    },
-    onError: (err) => {
-      console.error('Error fetching point history:', err);
-      toast.error(`Failed to fetch point history: ${err.message}`, {
-        position: 'top-center',
-        autoClose: 5000,
-      });
-    },
   });
 
   // Fetch Leaderboard
   const { data: rankings, isLoading: leaderboardLoading, error: leaderboardError } = useQuery({
-    queryKey: ['leaderboard', session?.user?.id],
+    queryKey: ['leaderboard', session?.user?.id, csrfToken],
     queryFn: async () => {
       const cacheKey = `leaderboard-${session.user.id}`;
       const cached = await getCachedData(cacheKey);
@@ -379,17 +249,17 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         return cached;
       }
 
-      const token = await debouncedExecuteRecaptcha('leaderboard');
-      console.log('Fetching leaderboard with CSRF:', csrfToken || 'waiting', 'Recaptcha:', token.substring(0, 10) + '...');
-      const response = await axios.get(`${API_BASE_URL}/api/leaderboard?uid=${session.user.id}`, {
-        headers: { ...headers, 'X-Recaptcha-Token': token },
+      const token = await debouncedExecuteRecaptcha('connect_data');
+      console.log('Fetching leaderboard with CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
+      const response = await axios.get('/api/connect-data', {
+        headers: {
+          'x-csrf-token': csrfToken,
+          'X-Recaptcha-Token': token,
+          'Authorization': `Bearer ${session?.accessToken}`, // Add JWT token
+        },
         withCredentials: true,
-      }).catch((err) => {
+      }).catch(err => {
         console.error('Leaderboard fetch error:', err.response?.data || err.message);
-        if (err.response?.status === 429) {
-          const retryAfter = err.response.headers['retry-after'] ? parseInt(err.response.headers['retry-after']) : 60;
-          throw new Error(`Rate limit exceeded, retry after ${retryAfter} seconds`);
-        }
         throw err;
       });
       console.log('Leaderboard API response:', response.data);
@@ -399,15 +269,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 30 * 60 * 1000,
-    cacheTime: 24 * 60 * 60 * 1000,
-    retry: (failureCount, error) => error.message.includes('Rate limit exceeded') ? false : failureCount < 1,
-    retryDelay: (attempt, error) => {
-      if (error.message.includes('Rate limit exceeded')) {
-        const retryAfter = error.message.match(/retry after (\d+)/)?.[1] || 60;
-        return parseInt(retryAfter) * 1000;
-      }
-      return 2000;
-    },
+    retry: 1,
+    retryDelay: 2000,
     onError: (err) => {
       console.error('Leaderboard error:', err);
       toast.error(`Failed to fetch leaderboard: ${err.message}`, { position: 'top-center', autoClose: 5000 });
@@ -418,7 +281,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const connectTwitterMutation = useMutation({
     mutationFn: async () => {
       console.log('Initiating Twitter connection for user:', session.user.id);
-      window.location.href = `${API_BASE_URL}/api/twitter/connect`;
+      window.location.href = '/api/twitter/connect';
     },
     onError: (err) => {
       console.error('Connect Twitter error:', err);
@@ -431,14 +294,15 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     mutationFn: async () => {
       console.log('Initiating Twitter disconnect for user:', session.user.id);
       const token = await debouncedExecuteRecaptcha('disconnect_twitter');
+      console.log('reCAPTCHA Token for disconnect:', token.substring(0, 10) + '...');
       const response = await axios.post(
-        `${API_BASE_URL}/api/twitter/connect`,
+        '/api/twitter/connect',
         { action: 'disconnect', uid: session.user.id, recaptchaToken: token },
         {
-          headers,
+          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
-      ).catch((err) => {
+      ).catch(err => {
         console.error('Disconnect Twitter error:', err.response?.data || err.message);
         throw err;
       });
@@ -450,22 +314,21 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       console.log('Twitter disconnected successfully');
       toast.success('Twitter disconnected successfully.', { position: 'top-center', autoClose: 5000 });
       await Promise.all([
-        queryClient.invalidateQueries(['userData', session?.user?.id]),
-        queryClient.invalidateQueries(['leaderboard', session?.user?.id]),
+        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
+        queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
       ]);
       await Promise.all([
-        queryClient.refetchQueries(['userData', session?.user?.id]),
-        queryClient.refetchQueries(['leaderboard', session?.user?.id]),
+        queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
+        queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
       ]);
     },
     onError: (err) => {
       console.error('Disconnect Twitter mutation error:', err);
-      const errorMessage =
-        err.response?.status === 429
-          ? 'Too many requests. Please try again later.'
-          : err.response?.status === 403
-            ? 'Authentication failed. Please try again.'
-            : err.response?.data?.detail || 'Unable to disconnect Twitter';
+      const errorMessage = err.response?.status === 429
+        ? 'Too many requests. Please try again later.'
+        : err.response?.status === 403
+          ? 'Authentication failed. Please try again.'
+          : err.response?.data?.detail || 'Unable to disconnect Twitter';
       toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
     },
   });
@@ -482,10 +345,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       const signature = await signer.signMessage(message);
       const token = await debouncedExecuteRecaptcha('verify-wallet');
       const response = await axios.post(
-        `${API_BASE_URL}/api/verify-wallet`,
+        '/api/verify-wallet',
         { action: 'verify-wallet', walletAddress, signature, message, uid: session.user.id, recaptchaToken: token },
         {
-          headers,
+          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
       );
@@ -494,7 +357,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     onSuccess: (walletAddress) => {
       toast.success('Wallet connected successfully.', { position: 'top-center', autoClose: 5000 });
-      queryClient.invalidateQueries(['userData', session?.user?.id]);
+      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
       toast.error(`Unable to connect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
@@ -506,10 +369,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     mutationFn: async () => {
       const token = await debouncedExecuteRecaptcha('disconnect-wallet');
       const response = await axios.post(
-        `${API_BASE_URL}/api/verify-wallet`,
+        '/api/verify-wallet',
         { action: 'disconnect-wallet', uid: session.user.id, recaptchaToken: token },
         {
-          headers,
+          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
       );
@@ -517,48 +380,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     onSuccess: () => {
       toast.success('Wallet disconnected successfully.', { position: 'top-center', autoClose: 5000 });
-      queryClient.invalidateQueries(['userData', session?.user?.id]);
+      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
       toast.error(`Unable to disconnect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
-    },
-  });
-
-  // Handle Generate API Key
-  const generateApiKeyMutation = useMutation({
-    mutationFn: async () => {
-      const token = await debouncedExecuteRecaptcha('generate_api_key');
-      const response = await axios.post(
-        `${API_BASE_URL}/api/generate-api-key`,
-        { uid: session.user.id, recaptchaToken: token },
-        {
-          headers,
-          withCredentials: true,
-        }
-      );
-      if (!response.data.success || !response.data.apiKey) {
-        throw new Error(response.data.detail || 'Failed to generate API key');
-      }
-      return response.data.apiKey;
-    },
-    onSuccess: (apiKey) => {
-      toast.success(
-        <div>
-          API Key generated: <strong>{apiKey}</strong>
-          <br />
-          Please copy and store this key securely. It will not be shown again.
-        </div>,
-        { position: 'top-center', autoClose: 10000 }
-      );
-      queryClient.invalidateQueries(['userData', session?.user?.id]);
-    },
-    onError: (err) => {
-      toast.error(
-        err.response?.status === 429
-          ? 'Too many requests. Please try again later.'
-          : err.response?.data?.detail || `Failed to generate API key: ${err.message}`,
-        { position: 'top-center', autoClose: 5000 }
-      );
     },
   });
 
@@ -572,10 +397,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     mutationFn: async (task) => {
       const token = await debouncedExecuteRecaptcha('verify_task');
       const response = await axios.post(
-        `${API_BASE_URL}/api/twitter/verify-task`,
+        '/api/twitter/verify-task',
         { taskId: task.id, userId: session.user.id, recaptchaToken: token },
         {
-          headers,
+          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
           withCredentials: true,
         }
       );
@@ -583,13 +408,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return response.data;
     },
     onSuccess: (data, task) => {
-      toast.success(`Task ${task.description} verified! +${task.points} points`, {
-        position: 'top-center',
-        autoClose: 5000,
-      });
-      queryClient.invalidateQueries(['taskProgress', session?.user?.id]);
-      queryClient.invalidateQueries(['pointHistory', session?.user?.id]);
-      queryClient.invalidateQueries(['userData', session?.user?.id]);
+      toast.success(`Task ${task.description} verified! +${task.points} points`, { position: 'top-center', autoClose: 5000 });
+      queryClient.invalidateQueries(['taskProgress', session?.user?.id, csrfToken]);
+      queryClient.invalidateQueries(['pointHistory', session?.user?.id, csrfToken]);
+      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
       toast.error(
@@ -617,16 +439,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   }, [userData]);
 
   // Pagination
-  const getPaginatedData = useCallback(
-    (data, tab) => {
-      const startIndex = (currentPage[tab] - 1) * itemsPerPage;
-      const endIndex = startIndex + itemsPerPage;
-      return Array.isArray(data) ? data.slice(startIndex, endIndex) : [];
-    },
-    [currentPage]
-  );
+  const getPaginatedData = useCallback((data, tab) => {
+    const startIndex = (currentPage[tab] - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return data.slice(startIndex, endIndex);
+  }, [currentPage]);
 
-  const getTotalPages = useCallback((data) => Math.ceil((Array.isArray(data) ? data.length : 0) / itemsPerPage), []);
+  const getTotalPages = useCallback((data) => Math.ceil(data.length / itemsPerPage), []);
 
   const handlePageChange = useCallback((tab, page) => {
     setCurrentPage((prev) => ({ ...prev, [tab]: page }));
@@ -651,7 +470,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render User Row for Leaderboard
   const renderUserRow = useCallback(
     (user, index, isCurrentUser = false) => {
-      const rank = isCurrentUser ? rankings?.findIndex((u) => u.id === user.id) + 1 || 'N/A' : index + 1;
+      const rank = isCurrentUser ? rankings.findIndex((u) => u.id === user.id) + 1 || 'N/A' : index + 1;
       const rankStyles = {
         1: 'bg-gradient-to-r from-neon-blue/20 to-transparent border-neon-blue/50',
         2: 'bg-gradient-to-r from-gray-400/20 to-transparent border-gray-400/50',
@@ -670,14 +489,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <td className="px-2 py-2 text-white text-[8px] sm:text-[10px]">
             <div className="flex items-center">
               <Image
-                src={getProfilePictureSrc(user.profilePicture || user.profile_picture)}
-                alt={user.googleName || user.twitterHandle || 'User Avatar'}
+                src={getProfilePictureSrc(user.profile_picture)}
+                alt={user.google_name || user.twitterHandle || 'User Avatar'}
                 width={16}
                 height={16}
                 className="rounded-full border border-white/10 mr-2 object-cover"
               />
               <span className="truncate">
-                {user.googleName || user.twitterHandle || 'Anonymous'}
+                {user.google_name || user.twitterHandle || 'Anonymous'}
                 {isCurrentUser && (
                   <span className="ml-2 text-[7px] sm:text-[8px] font-medium text-neon-blue px-2 py-0.5 rounded-full border border-neon-blue/50 bg-white/5">
                     You
@@ -694,367 +513,345 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   );
 
   // Render Tasks Section
-  const renderTasksSection = useCallback(
-    () => (
-      <div className="overflow-y-auto min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
-        <LoadingOverlay isLoading={tasksLoading || taskProgressLoading} isMobile={isMobile} />
-        {tasksError && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
-          >
-            Error: {tasksError.message}
-          </motion.div>
-        )}
-        {!tasks?.length && !tasksError && !(tasksLoading || taskProgressLoading) && (
-          <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2">No tasks available.</p>
-        )}
-        {tasks?.length > 0 && (
-          <>
-            {!userData?.twitterHandle && (
-              <motion.div
-                className="mb-2 p-2 text-center"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <p className="text-[8px] sm:text-[10px] text-white/80 mb-2">
-                  Connect your Twitter account to perform tasks.
-                </p>
-                <motion.button
-                  onClick={() => connectTwitterMutation.mutate()}
-                  className="px-3 py-1 rounded-xl text-[8px] sm:text-[10px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Connect Twitter
-                </motion.button>
-              </motion.div>
-            )}
-            <table className="w-full text-[8px] sm:text-[10px]">
-              <thead className="border-b border-white/10 bg-white/5">
-                <tr>
-                  <th className="px-2.5 py-1.5 text-white text-left font-semibold">Task</th>
-                  <th className="px-2.5 py-1.5 text-white text-left font-semibold">Points</th>
-                  <th className="px-2.5 py-1.5 text-white text-left font-semibold">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {getPaginatedData(tasks, 'tasks').map((task) => (
-                  <motion.tr
-                    key={task.id}
-                    className="border-t border-white/10 hover:bg-white/5"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <td className="px-2 py-2 text-white text-xs">
-                      {task.description}{' '}
-                      {task.is_daily
-                        ? `(Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
-                        : ''}
-                      {task.task_type === 'follow' && (
-                        <a
-                          href={`https://x.com/intent/follow?screen_name=XynapseAI`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[8px] sm:text-xs text-neon-blue underline block mt-1"
-                        >
-                          Follow @XynapseAI
-                        </a>
-                      )}
-                      {task.task_type === 'retweet' && (
-                        <a
-                          href={`https://x.com/intent/retweet?tweet_id=${task.target_id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[8px] sm:text-xs text-neon-blue underline block mt-1"
-                        >
-                          Retweet this post
-                        </a>
-                      )}
-                    </td>
-                    <td className="px-2 py-2 text-neon-green text-xs">+{task.points}</td>
-                    <td className="px-2 py-2 text-xs">
-                      <motion.button
-                        onClick={() => verifyTaskMutation.mutate(task)}
-                        disabled={
-                          verifyTaskMutation.isLoading ||
-                          (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                          (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                          (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                        }
-                        className={`px-3 py-1 rounded-xl text-[8px] sm:text-xs font-medium transition-all duration-300 border border-white/10 bg-white/5 ${
-                          verifyTaskMutation.isLoading ||
-                          (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                          (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                          (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                            ? 'text-white/50 cursor-not-allowed opacity-50'
-                            : 'text-white hover:bg-neon-blue/20'
-                        }`}
-                        whileHover={{
-                          scale:
-                            verifyTaskMutation.isLoading ||
-                            (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                            (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                            (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                              ? 1
-                              : 1.05,
-                        }}
-                        whileTap={{
-                          scale:
-                            verifyTaskMutation.isLoading ||
-                            (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                            (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                            (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                              ? 1
-                              : 0.95,
-                        }}
-                      >
-                        {verifyTaskMutation.isLoading ? 'Verifying...' : 'Verify'}
-                      </motion.button>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="flex justify-end gap-2 mt-2">
-              <motion.button
-                onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
-                disabled={currentPage.tasks === 1}
-                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
-                  currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                }`}
-                whileHover={{ scale: currentPage.tasks === 1 ? 1 : 1.05 }}
-                whileTap={{ scale: currentPage.tasks === 1 ? 1 : 0.95 }}
-              >
-                &lt;
-              </motion.button>
-              <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
-                {currentPage.tasks} / {getTotalPages(tasks)}
-              </span>
-              <motion.button
-                onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
-                disabled={currentPage.tasks === getTotalPages(tasks)}
-                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
-                  currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                }`}
-                whileHover={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 1.05 }}
-                whileTap={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 0.95 }}
-              >
-                &gt;
-              </motion.button>
-            </div>
-          </>
-        )}
-      </div>
-    ),
-    [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, connectTwitterMutation]
-  );
-
-  // Render Leaderboard Section
-  const renderLeaderboardSection = useCallback(
-    () => (
-      <div className="overflow-y-auto min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
-        <LoadingOverlay isLoading={leaderboardLoading} isMobile={isMobile} />
-        {leaderboardError && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
-          >
-            Error: {leaderboardError.message}
-            <button
-              onClick={() => queryClient.invalidateQueries(['leaderboard', session?.user?.id])}
-              className="ml-2 px-2 py-1 bg-neon-blue text-black rounded-xl text-[8px] sm:text-[10px]"
-            >
-              Retry
-            </button>
-          </motion.div>
-        )}
-        {!leaderboardLoading && !leaderboardError && rankings?.length === 0 && (
-          <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2">No ranking data available.</p>
-        )}
-        {!leaderboardLoading && rankings?.length > 0 && (
-          <>
-            <table className="w-full text-[8px] sm:text-[10px]">
-              <thead className="border-b border-white/10 bg-white/5">
-                <tr>
-                  <th className="px-2.5 py-1.5 text-white text-left font-semibold">Rank</th>
-                  <th className="px-2.5 py-1.5 text-white text-left font-semibold">User</th>
-                  <th className="px-2.5 py-1.5 text-white text-right font-semibold">Points</th>
-                </tr>
-              </thead>
-              <tbody>
-                {userData && renderUserRow(userData, -1, true)}
-                {getPaginatedData(rankings, 'leaderboard').map((user, index) => renderUserRow(user, index, false))}
-              </tbody>
-            </table>
-            <div className="flex justify-end gap-2 mt-2">
-              <motion.button
-                onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
-                disabled={currentPage.leaderboard === 1}
-                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
-                  currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                }`}
-                whileHover={{ scale: currentPage.leaderboard === 1 ? 1 : 1.05 }}
-                whileTap={{ scale: currentPage.leaderboard === 1 ? 1 : 0.95 }}
-              >
-                &lt;
-              </motion.button>
-              <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
-                {currentPage.leaderboard} / {getTotalPages(rankings)}
-              </span>
-              <motion.button
-                onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
-                disabled={currentPage.leaderboard === getTotalPages(rankings)}
-                className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
-                  currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                }`}
-                whileHover={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 1.05 }}
-                whileTap={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 0.95 }}
-              >
-                &gt;
-              </motion.button>
-            </div>
-          </>
-        )}
-      </div>
-    ),
-    [leaderboardLoading, leaderboardError, rankings, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, renderUserRow, queryClient, session]
-  );
-
-  // Render Points Section
-  const renderPointsSection = useCallback(
-    () => (
-      <div className="flex flex-col gap-4">
-        <div className="min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] bg-white/5 rounded-xl p-2 border border-white/10">
-          <LoadingOverlay isLoading={pointLoading} isMobile={isMobile} />
-          {pointError && (
+  const renderTasksSection = useCallback(() => (
+    <div className="overflow-y-auto min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <LoadingOverlay isLoading={tasksLoading || taskProgressLoading} isMobile={isMobile} />
+      {tasksError && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
+        >
+          Error: {tasksError.message}
+        </motion.div>
+      )}
+      {!tasks?.length && !tasksError && !(tasksLoading || taskProgressLoading) && (
+        <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2">No tasks available.</p>
+      )}
+      {tasks?.length > 0 && (
+        <>
+          {!userData?.twitterHandle && (
             <motion.div
+              className="mb-2 p-2 text-center"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
             >
-              Error: {pointError.message}
+              <p className="text-[8px] sm:text-[10px] text-white/80 mb-2">
+                Connect your Twitter account to perform tasks.
+              </p>
+              <motion.button
+                onClick={() => connectTwitterMutation.mutate()}
+                className="px-3 py-1 rounded-xl text-[8px] sm:text-[10px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Connect Twitter
+              </motion.button>
             </motion.div>
           )}
-          {!pointLoading && !pointError && (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={pointData?.history || []}
-                margin={{ top: 10, right: 15, bottom: 5, left: isMobile ? 0 : 10 }}
-              >
-                <CartesianGrid stroke="#ffffff1a" strokeDasharray="5 5" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#FFFFFF"
-                  tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={50}
-                />
-                <YAxis
-                  stroke="#FFFFFF"
-                  tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
-                  tickFormatter={(value) => Math.floor(value).toLocaleString('en-US')}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="taskPoints"
-                  stroke="#FFFFFF"
-                  fill="url(#chartGradient)"
-                  strokeWidth={3}
-                  dot={false}
-                  activeDot={{ fill: '#FFFFFF', r: 4, stroke: '#FFFFFF', strokeWidth: 3 }}
-                />
-                {pointData?.history?.length > 0 && (
-                  <ReferenceDot
-                    x={pointData.history[pointData.history.length - 1].date}
-                    y={pointData.history[pointData.history.length - 1].taskPoints}
-                    r={4}
-                    fill="#FFFFFF"
-                    stroke="#FFFFFF"
-                    strokeWidth={3}
-                    className="animate-pulse"
-                  />
-                )}
-                <defs>
-                  <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <table className="w-full text-[8px] sm:text-[10px]">
+            <thead className="border-b border-white/10 bg-white/5">
+              <tr>
+                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Task</th>
+                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Points</th>
+                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {getPaginatedData(tasks, 'tasks').map((task) => (
+                <motion.tr
+                  key={task.id}
+                  className="border-t border-white/10 hover:bg-white/5"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <td className="px-2 py-2 text-white text-xs">
+                    {task.description}{' '}
+                    {task.is_daily
+                      ? `(Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+                      : ''}
+                    {task.task_type === 'follow' && (
+                      <a
+                        href={`https://x.com/intent/follow?screen_name=XynapseAI`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[8px] sm:text-xs text-neon-blue underline block mt-1"
+                      >
+                        Follow @XynapseAI
+                      </a>
+                    )}
+                    {task.task_type === 'retweet' && (
+                      <a
+                        href={`https://x.com/intent/retweet?tweet_id=${task.target_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[8px] sm:text-xs text-neon-blue underline block mt-1"
+                      >
+                        Retweet this post
+                      </a>
+                    )}
+                  </td>
+                  <td className="px-2 py-2 text-neon-green text-xs">+{task.points}</td>
+                  <td className="px-2 py-2 text-xs">
+                    <motion.button
+                      onClick={() => verifyTaskMutation.mutate(task)}
+                      disabled={
+                        verifyTaskMutation.isLoading ||
+                        (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                        (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                        (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                      }
+                      className={`px-3 py-1 rounded-xl text-[8px] sm:text-xs font-medium transition-all duration-300 border border-white/10 bg-white/5 ${verifyTaskMutation.isLoading ||
+                        (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                        (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                        (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                        ? 'text-white/50 cursor-not-allowed opacity-50'
+                        : 'text-white hover:bg-neon-blue/20'
+                        }`}
+                      whileHover={{
+                        scale:
+                          verifyTaskMutation.isLoading ||
+                            (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                            (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                            (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                            ? 1
+                            : 1.05,
+                      }}
+                      whileTap={{
+                        scale:
+                          verifyTaskMutation.isLoading ||
+                            (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                            (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                            (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                            ? 1
+                            : 0.95,
+                      }}
+                    >
+                      {verifyTaskMutation.isLoading ? 'Verifying...' : 'Verify'}
+                    </motion.button>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="flex justify-end gap-2 mt-2">
+            <motion.button
+              onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
+              disabled={currentPage.tasks === 1}
+              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+                }`}
+              whileHover={{ scale: currentPage.tasks === 1 ? 1 : 1.05 }}
+              whileTap={{ scale: currentPage.tasks === 1 ? 1 : 0.95 }}
+            >
+              &lt;
+            </motion.button>
+            <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
+              {currentPage.tasks} / {getTotalPages(tasks)}
+            </span>
+            <motion.button
+              onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
+              disabled={currentPage.tasks === getTotalPages(tasks)}
+              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+                }`}
+              whileHover={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 1.05 }}
+              whileTap={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 0.95 }}
+            >
+              &gt;
+            </motion.button>
+          </div>
+        </>
+      )}
+    </div>
+  ), [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, connectTwitterMutation]);
+
+  // Render Leaderboard Section
+  const renderLeaderboardSection = useCallback(() => (
+    <div className="overflow-y-auto min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <LoadingOverlay isLoading={leaderboardLoading} isMobile={isMobile} />
+      {leaderboardError && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
+        >
+          Error: {leaderboardError.message}
+          <button
+            onClick={() => window.location.reload()}
+            className="ml-2 px-2 py-1 bg-neon-blue text-black rounded-xl text-[8px] sm:text-[10px]"
+          >
+            Retry
+          </button>
+        </motion.div>
+      )}
+      {!leaderboardLoading && !leaderboardError && rankings?.length === 0 && (
+        <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2">No ranking data available.</p>
+      )}
+      {!leaderboardLoading && rankings?.length > 0 && (
+        <>
+          <table className="w-full text-[8px] sm:text-[10px]">
+            <thead className="border-b border-white/10 bg-white/5">
+              <tr>
+                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Rank</th>
+                <th className="px-2.5 py-1.5 text-white text-left font-semibold">User</th>
+                <th className="px-2.5 py-1.5 text-white text-right font-semibold">Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {userData && renderUserRow(userData, -1, true)}
+              {getPaginatedData(rankings, 'leaderboard').map((user, index) => renderUserRow(user, index, false))}
+            </tbody>
+          </table>
+          <div className="flex justify-end gap-2 mt-2">
+            <motion.button
+              onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
+              disabled={currentPage.leaderboard === 1}
+              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+                }`}
+              whileHover={{ scale: currentPage.leaderboard === 1 ? 1 : 1.05 }}
+              whileTap={{ scale: currentPage.leaderboard === 1 ? 1 : 0.95 }}
+            >
+              &lt;
+            </motion.button>
+            <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
+              {currentPage.leaderboard} / {getTotalPages(rankings)}
+            </span>
+            <motion.button
+              onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
+              disabled={currentPage.leaderboard === getTotalPages(rankings)}
+              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+                }`}
+              whileHover={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 1.05 }}
+              whileTap={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 0.95 }}
+            >
+              &gt;
+            </motion.button>
+          </div>
+        </>
+      )}
+    </div>
+  ), [leaderboardLoading, leaderboardError, rankings, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, renderUserRow]);
+
+  // Render Points Section
+  const renderPointsSection = useCallback(() => (
+    <div className="flex flex-col gap-4">
+      <div className="min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] bg-white/5 rounded-xl p-2 border border-white/10">
+        <LoadingOverlay isLoading={pointLoading} isMobile={isMobile} />
+        {pointError && (
           <motion.div
-            className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
           >
-            <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
-              Total Points
-            </h3>
-            <p className="text-xl sm:text-2xl font-bold text-neon-blue">{userData?.points || 0}</p>
+            Error: {pointError.message}
           </motion.div>
-          <motion.div
-            className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
-              Task Points
-            </h3>
-            <div className="flex items-center justify-center gap-2">
-              <p className="text-xl sm:text-2xl font-bold text-neon-blue">{pointData?.taskPoints || 0}</p>
-              <motion.p
-                className={`text-[8px] sm:text-[10px] font-semibold text-${
-                  pointData?.taskGrowth?.color || 'white'
-                } ${pointData?.taskGrowth?.value != 0 ? 'animate-pulse' : ''}`}
-                animate={{ opacity: pointData?.taskGrowth?.value != 0 ? [1, 0.7, 1] : 1 }}
-                transition={{ duration: 1.5, repeat: pointData?.taskGrowth?.value != 0 ? Infinity : 0 }}
-              >
-                {pointData?.taskGrowth?.value || 0}%{' '}
-                {pointData?.taskGrowth?.value > 0 ? '↑' : pointData?.taskGrowth?.value < 0 ? '↓' : '–'}
-              </motion.p>
-            </div>
-          </motion.div>
-        </div>
-        <div className="flex justify-end gap-2 mt-2">
-          <motion.button
-            onClick={() => handlePageChange('points', currentPage.points - 1)}
-            disabled={currentPage.points === 1}
-            className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
-              currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-            }`}
-            whileHover={{ scale: currentPage.points === 1 ? 1 : 1.05 }}
-            whileTap={{ scale: currentPage.points === 1 ? 1 : 0.95 }}
-          >
-            &lt;
-          </motion.button>
-          <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
-            {currentPage.points} / {getTotalPages(pointData?.history || [])}
-          </span>
-          <motion.button
-            onClick={() => handlePageChange('points', currentPage.points + 1)}
-            disabled={currentPage.points === getTotalPages(pointData?.history || [])}
-            className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${
-              currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-            }`}
-            whileHover={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 1.05 }}
-            whileTap={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 0.95 }}
-          >
-            &gt;
-          </motion.button>
-        </div>
+        )}
+        {!pointLoading && !pointError && (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={pointData?.history} margin={{ top: 10, right: 15, bottom: 5, left: isMobile ? 0 : 10 }}>
+              <CartesianGrid stroke="#ffffff1a" strokeDasharray="5 5" />
+              <XAxis
+                dataKey="date"
+                stroke="#FFFFFF"
+                tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
+                angle={-45}
+                textAnchor="end"
+                height={50}
+              />
+              <YAxis
+                stroke="#FFFFFF"
+                tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
+                tickFormatter={(value) => Math.floor(value).toLocaleString('en-US')}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Line
+                type="monotone"
+                dataKey="taskPoints"
+                stroke="#FFFFFF"
+                fill="url(#chartGradient)"
+                strokeWidth={3}
+                dot={false}
+                activeDot={{ fill: '#FFFFFF', r: 4, stroke: '#FFFFFF', strokeWidth: 3 }}
+              />
+              <ReferenceDot
+                x={pointData?.history[pointData.history.length - 1]?.date}
+                y={pointData?.history[pointData.history.length - 1]?.taskPoints}
+                r={4}
+                fill="#FFFFFF"
+                stroke="#FFFFFF"
+                strokeWidth={3}
+                className="animate-pulse"
+              />
+              <defs>
+                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
-    ),
-    [pointLoading, pointError, pointData, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange]
-  );
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <motion.div
+          className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
+            Total Points
+          </h3>
+          <p className="text-xl sm:text-2xl font-bold text-neon-blue">{userData?.points || 0}</p>
+        </motion.div>
+        <motion.div
+          className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
+            Task Points
+          </h3>
+          <div className="flex items-center justify-center gap-2">
+            <p className="text-xl sm:text-2xl font-bold text-neon-blue">{pointData?.taskPoints || 0}</p>
+            <motion.p
+              className={`text-[8px] sm:text-[10px] font-semibold text-${pointData?.taskGrowth.color} ${pointData?.taskGrowth.value != 0 ? 'animate-pulse' : ''
+                }`}
+              animate={{ opacity: pointData?.taskGrowth.value != 0 ? [1, 0.7, 1] : 1 }}
+              transition={{ duration: 1.5, repeat: pointData?.taskGrowth.value != 0 ? Infinity : 0 }}
+            >
+              {pointData?.taskGrowth.value}%{' '}
+              {pointData?.taskGrowth.value > 0 ? '↑' : pointData?.taskGrowth.value < 0 ? '↓' : '–'}
+            </motion.p>
+          </div>
+        </motion.div>
+      </div>
+      <div className="flex justify-end gap-2 mt-2">
+        <motion.button
+          onClick={() => handlePageChange('points', currentPage.points - 1)}
+          disabled={currentPage.points === 1}
+          className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+            }`}
+          whileHover={{ scale: currentPage.points === 1 ? 1 : 1.05 }}
+          whileTap={{ scale: currentPage.points === 1 ? 1 : 0.95 }}
+        >
+          &lt;
+        </motion.button>
+        <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
+          {currentPage.points} / {getTotalPages(pointData?.history || [])}
+        </span>
+        <motion.button
+          onClick={() => handlePageChange('points', currentPage.points + 1)}
+          disabled={currentPage.points === getTotalPages(pointData?.history || [])}
+          className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+            }`}
+          whileHover={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 1.05 }}
+          whileTap={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 0.95 }}
+        >
+          &gt;
+        </motion.button>
+      </div>
+    </div>
+  ), [pointLoading, pointError, pointData, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange]);
 
   // Handle Twitter redirect callback
   useEffect(() => {
@@ -1066,14 +863,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       Promise.all([
         clearCache(cacheKey),
         clearCache(leaderboardCacheKey),
-        queryClient.invalidateQueries(['userData', session?.user?.id]),
-        queryClient.invalidateQueries(['leaderboard', session?.user?.id]),
+        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
+        queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
       ])
         .then(() => {
           console.log('Cache cleared, refetching queries');
           return Promise.all([
-            queryClient.refetchQueries(['userData', session?.user?.id]),
-            queryClient.refetchQueries(['leaderboard', session?.user?.id]),
+            queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
+            queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
           ]);
         })
         .then(() => {
@@ -1089,13 +886,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           });
         });
     }
-  }, [session, queryClient, status]);
+  }, [session, csrfToken, queryClient, status]);
 
   const handleManualCacheClear = async () => {
     try {
       await clearAllCaches(session.user.id);
       console.log('Manual cache cleared');
       toast.success('Cache cleared successfully.', { position: 'top-center', autoClose: 5000 });
+      // Làm mới trang để đảm bảo đồng bộ
       window.location.reload();
     } catch (err) {
       console.error('Error clearing cache:', err);
@@ -1154,12 +952,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 className="text-red-400 text-[8px] sm:text-[10px] p-2 text-center mb-2"
               >
                 Error: {userError.message}
-                <button
-                  onClick={handleManualCacheClear}
-                  className="ml-2 px-2 py-1 bg-neon-blue text-black rounded-xl text-[8px] sm:text-[10px]"
-                >
-                  Clear Cache & Retry
-                </button>
               </motion.div>
             )}
             {userData && (
@@ -1226,26 +1018,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         <span className="text-white/60">Twitter:</span>
                         <span className="text-white">
                           {userData.twitterHandle ? (
-                            <a
-                              href={`https://x.com/${userData.twitterHandle}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-neon-blue"
-                            >
+                            <a href={`https://x.com/${userData.twitterHandle}`} target="_blank" rel="noopener noreferrer" className="text-neon-blue">
                               @{userData.twitterHandle}
                             </a>
-                          ) : (
-                            'Not connected'
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-white/60">Wallet:</span>
-                        <span className="text-white">
-                          {userData.walletAddress ? (
-                            <span className="text-neon-blue">
-                              {userData.walletAddress.slice(0, 6)}...{userData.walletAddress.slice(-4)}
-                            </span>
                           ) : (
                             'Not connected'
                           )}
@@ -1278,55 +1053,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <motion.button
                       onClick={() => disconnectTwitterMutation.mutate()}
                       disabled={disconnectTwitterMutation.isLoading}
-                      className={`p-1 bg-white/10 rounded-xl ${
-                        disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'
-                      }`}
-                      whileHover={{
-                        scale: disconnectTwitterMutation.isLoading ? 1 : 1.1,
-                        y: disconnectTwitterMutation.isLoading ? 0 : -2,
-                      }}
+                      className={`p-1 bg-white/10 rounded-xl ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'}`}
+                      whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.1, y: disconnectTwitterMutation.isLoading ? 0 : -2 }}
                       whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.9 }}
                     >
                       <img src="/logos/x.png" alt="Disconnect Twitter" className="w-3 h-3" />
                     </motion.button>
                   )}
-                  {!userData.walletAddress && (
-                    <motion.button
-                      onClick={() => connectWalletMutation.mutate()}
-                      className="p-1 bg-white/10 rounded-xl hover:bg-white/20"
-                      whileHover={{ scale: 1.1, y: -2 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <img src="/logos/metamask.png" alt="MetaMask" className="w-3 h-3" />
-                    </motion.button>
-                  )}
-                  {userData.walletAddress && (
-                    <motion.button
-                      onClick={() => disconnectWalletMutation.mutate()}
-                      disabled={disconnectWalletMutation.isLoading}
-                      className={`p-1 bg-white/10 rounded-xl ${
-                        disconnectWalletMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'
-                      }`}
-                      whileHover={{
-                        scale: disconnectWalletMutation.isLoading ? 1 : 1.1,
-                        y: disconnectWalletMutation.isLoading ? 0 : -2,
-                      }}
-                      whileTap={{ scale: disconnectWalletMutation.isLoading ? 1 : 0.9 }}
-                    >
-                      <img src="/logos/metamask.png" alt="Disconnect MetaMask" className="w-3 h-3" />
-                    </motion.button>
-                  )}
-                  <motion.button
-                    onClick={() => generateApiKeyMutation.mutate()}
-                    disabled={generateApiKeyMutation.isLoading}
-                    className={`p-1 bg-white/10 rounded-xl ${
-                      generateApiKeyMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                    }`}
-                    whileHover={{ scale: generateApiKeyMutation.isLoading ? 1 : 1.1, y: generateApiKeyMutation.isLoading ? 0 : -2 }}
-                    whileTap={{ scale: generateApiKeyMutation.isLoading ? 1 : 0.9 }}
-                  >
-                    <span className="text-[8px] sm:text-[10px] text-white">Generate API Key</span>
-                  </motion.button>
                 </div>
               </div>
             )}
@@ -1345,9 +1078,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               <motion.button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect ${
-                  activeTab === tab ? 'border-b-2 border-white' : 'text-white/80 hover:text-white'
-                }`}
+                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect ${activeTab === tab ? 'border-b-2 border-white' : 'text-white/80 hover:text-white'
+                  }`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </motion.button>
