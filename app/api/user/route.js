@@ -48,7 +48,7 @@ const redisClient = createClient({
 redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }));
 await redisClient.connect();
 
-async function checkRateLimit(ip, userId, limitForIP = null) {
+async function checkRateLimit(ip, userId = null) {
   const windowSeconds = 15 * 60;
   const ipKey = `rate:ip:${ip}`;
   const userKey = userId ? `rate:user:${userId}` : null;
@@ -117,12 +117,12 @@ function parseCookies(request) {
   const raw = request.headers.get('cookie') || '';
   try {
     return cookie.parse(raw);
-  } catch (err) {
+  } catch {
     return {};
   }
 }
 
-async function checkDoubleSubmitCSRF(request, session) {
+async function checkDoubleSubmitCSRF(request) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
   const cookieToken = cookies['csrf_token'] || '';
@@ -155,7 +155,7 @@ async function hashApiKey(apiKey) {
   };
 }
 
-function securityHeaders(origin) {
+function securityHeaders() {
   const csp = "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';";
   return {
     'Content-Security-Policy': csp,
@@ -373,7 +373,7 @@ export async function POST(request) {
     let body;
     try {
       body = await request.json();
-    } catch (err) {
+    } catch {
       logger.warn('Invalid JSON body on POST', { ip });
       return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
     }

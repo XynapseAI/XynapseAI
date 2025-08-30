@@ -142,7 +142,7 @@ function parseCookies(request) {
   const raw = request.headers.get('cookie') || '';
   try {
     return cookie.parse(raw);
-  } catch (err) {
+  } catch {
     return {};
   }
 }
@@ -184,7 +184,7 @@ async function hashApiKey(apiKey) {
   };
 }
 
-function securityHeaders(origin) {
+function securityHeaders() {
   const csp =
     "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';";
   return {
@@ -416,7 +416,7 @@ export async function POST(request) {
     let body;
     try {
       body = await request.json();
-    } catch (err) {
+    } catch {
       logger.warn('Invalid JSON body on POST', { ip });
       return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
     }

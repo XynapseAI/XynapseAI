@@ -118,7 +118,7 @@ function parseCookies(request) {
   const raw = request.headers.get('cookie') || '';
   try {
     return cookie.parse(raw);
-  } catch (err) {
+  } catch {
     return {};
   }
 }
@@ -163,7 +163,7 @@ async function hashApiKey(apiKey) {
   };
 }
 
-function securityHeaders(origin) {
+function securityHeaders() {
   const csp =
     "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';";
   return {
