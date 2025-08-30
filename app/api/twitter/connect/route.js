@@ -5,9 +5,11 @@ import { createClient } from 'redis';
 import { TwitterApi } from 'twitter-api-v2';
 import { PrismaClient } from '@prisma/client';
 import { verifyRecaptcha } from '@/utils/verifyRecaptcha';
+import { AES } from 'crypto-js';
 
 const prisma = new PrismaClient();
 let redisClient;
+
 async function getRedisClient() {
   if (!redisClient) {
     redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
@@ -28,54 +30,55 @@ const twitterClient = new TwitterApi({
 });
 
 const allowedOrigins = [
-  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  'http://localhost:3000',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
-  'https://api.twitter.com',
-  'https://x.com',
-  ...(process.env.VERCEL_ENV === 'production' ? [] : ['https://*.vercel.app']),
+  'https://api.twitter.com', // Cho Twitter OAuth callback
+  'https://x.com', // Cho Twitter OAuth callback
+  ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : []),
+  ...(process.env.VERCEL_ENV === 'production' ? [] : [/^https:\/\/([a-z0-9-]+)\.vercel\.app$/]),
 ].filter((v, i, a) => a.indexOf(v) === i);
-
-const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
 
 const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self' https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net",
   'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-  'X-XSS-Protection': '1; mode=block',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
 
+function sanitizeInput(input, maxLength = 512) {
+  if (typeof input !== 'string') return '';
+  // Relaxed sanitization to preserve OAuth code/state characters
+  return input.substring(0, maxLength);
+}
+
 function isAllowedOrigin(origin, referer) {
   if (!origin && !referer) {
-    logger.info('No Origin or Referer (likely Twitter OAuth callback or SSR), allowing request');
+    logger.info('No Origin or Referer (likely Twitter OAuth callback), allowing request');
     return true;
   }
   const checkOrigin = origin || (referer ? new URL(referer).origin : null);
   if (!checkOrigin) {
-    logger.info('No valid Origin or Referer, allowing for Twitter OAuth callback compatibility');
+    logger.info('No valid Origin or Referer, allowing for Twitter OAuth callback');
     return true;
   }
   const isAllowed = allowedOrigins.some((allowed) =>
-    allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
-  ) || vercelPreviewRegex.test(checkOrigin);
+    typeof allowed === 'string' ? allowed === checkOrigin : allowed.test(checkOrigin)
+  );
   logger.info(`Origin check: ${checkOrigin}, Allowed: ${isAllowed}`);
   return isAllowed;
 }
 
 async function banIP(ip, durationSeconds = 1800) {
   const redisClient = await getRedisClient();
-  await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
+  await redisClient.setEx(`banned_ip:${sanitizeInput(ip)}`, durationSeconds, 'banned');
 }
 
 async function checkIPBan(ip) {
   const redisClient = await getRedisClient();
-  const isBanned = await redisClient.get(`banned_ip:${ip}`);
+  const isBanned = await redisClient.get(`banned_ip:${sanitizeInput(ip)}`);
   if (isBanned) {
     throw new Error('IP temporarily banned due to excessive violations.');
   }
@@ -83,7 +86,7 @@ async function checkIPBan(ip) {
 
 async function trackViolation(ip, reason = 'Unknown') {
   const redisClient = await getRedisClient();
-  const key = `violations:${ip}`;
+  const key = `violations:${sanitizeInput(ip)}`;
   const maxViolations = 100;
   const windowMs = 30 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
@@ -95,7 +98,7 @@ async function trackViolation(ip, reason = 'Unknown') {
 
   if (violations >= maxViolations) {
     await banIP(ip, 1800);
-    logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
+    logger.error(`IP banned: ${ip}, reason: ${reason}`);
     throw new Error('IP temporarily banned due to excessive violations.');
   }
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
@@ -104,27 +107,25 @@ async function trackViolation(ip, reason = 'Unknown') {
 
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
-  const key = `rate_limit:twitter_connect:${ip}`;
-  const requests = await redisClient.get(key) || 0;
+  const key = `rate_limit:twitter_connect:${sanitizeInput(ip)}`;
+  const requests = parseInt(await redisClient.get(key)) || 0;
   const windowMs = 15 * 60 * 1000;
   const maxRequests = process.env.NODE_ENV === 'development' ? 100 : 50;
   if (requests >= maxRequests) {
     throw new Error('Too many requests, please try again later.');
   }
-  await redisClient.multi()
-    .incr(key)
-    .expire(key, windowMs / 1000)
-    .exec();
+  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
 }
 
 async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
+  token = sanitizeInput(token, 512);
   for (let i = 0; i < retries; i++) {
     try {
       const { score } = await verifyRecaptcha(token, action, ip);
       logger.info('reCAPTCHA verification successful', { score, action, ip });
       return { score };
     } catch (error) {
-      logger.warn(`reCAPTCHA verification attempt ${i + 1} failed: ${error.message}`, { action, ip });
+      logger.warn(`reCAPTCHA attempt ${i + 1} failed: ${error.message}`, { action, ip });
       if (i === retries - 1) throw error;
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
@@ -151,7 +152,7 @@ export async function GET(request) {
   const code = searchParams.get('code');
   const state = searchParams.get('state');
 
-  logger.info(`Processing Twitter connect request`, {
+  logger.info(`Processing Twitter connect GET request`, {
     ip,
     origin,
     referer,
@@ -161,7 +162,7 @@ export async function GET(request) {
 
   const corsHeaders = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': origin || 'https://xynapseai.net',
+    'Access-Control-Allow-Origin': isAllowedOrigin(origin, referer) ? (origin || 'https://xynapseai.net') : 'https://xynapseai.net',
     'Access-Control-Allow-Methods': 'GET, POST',
     'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
     'Access-Control-Allow-Credentials': 'true',
@@ -190,59 +191,68 @@ export async function GET(request) {
     return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers: corsHeaders });
   }
 
+  const sanitizedUserId = sanitizeInput(session.user.id);
+
   if (!code || !state) {
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/twitter/connect`;
     const { url, codeVerifier, state: generatedState } = twitterClient.generateOAuth2AuthLink(
-      `${process.env.NEXT_PUBLIC_APP_URL}/api/twitter/connect`,
+      redirectUri,
       { scope: ['tweet.read', 'users.read', 'follows.read', 'offline.access'] }
     );
     await withRetry(async () => {
       const redisClient = await getRedisClient();
-      await redisClient.setEx(`twitter_oauth:${session.user.id}`, 600, JSON.stringify({ codeVerifier, state: generatedState.toString() }));
+      await redisClient.setEx(`twitter_oauth:${sanitizedUserId}`, 600, JSON.stringify({ codeVerifier, state: generatedState.toString() }));
     });
     return NextResponse.redirect(url);
   }
 
   const cached = await withRetry(async () => {
     const redisClient = await getRedisClient();
-    return await redisClient.get(`twitter_oauth:${session.user.id}`);
+    return await redisClient.get(`twitter_oauth:${sanitizedUserId}`);
   });
   if (!cached) {
     await trackViolation(ip, 'OAuth state not found');
-    logger.error('OAuth state not found', { ip, userId: session.user.id });
+    logger.error('OAuth state not found', { ip, userId: sanitizedUserId });
     return NextResponse.json({ detail: 'Invalid or expired OAuth state' }, { status: 400, headers: corsHeaders });
   }
   const { codeVerifier, state: storedState } = JSON.parse(cached);
-  if (state !== storedState) {
+  if (sanitizeInput(state, 512) !== storedState) {
     await trackViolation(ip, 'State mismatch');
-    logger.error('State mismatch', { ip, userId: session.user.id, receivedState: state, storedState });
+    logger.error('State mismatch', { ip, userId: sanitizedUserId });
     return NextResponse.json({ detail: 'Invalid OAuth state' }, { status: 400, headers: corsHeaders });
   }
 
   try {
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/twitter/connect`;
     const { accessToken, refreshToken, expiresIn, client: userClient } = await twitterClient.loginWithOAuth2({
-      code,
+      code: sanitizeInput(code, 512),
       codeVerifier,
-      redirectUri: `${process.env.NEXT_PUBLIC_APP_URL}/api/twitter/connect`,
+      redirectUri,
     });
 
     const twitterUser = await userClient.v2.me({ 'user.fields': ['username'] });
     const twitterHandle = twitterUser.data.username;
 
+    // Validate ENCRYPTION_KEY
+    if (!process.env.ENCRYPTION_KEY) {
+      throw new Error('ENCRYPTION_KEY environment variable is missing');
+    }
+
     await withRetry(async () => {
       await prisma.twitter_handles.upsert({
-        where: { user_id: session.user.id },
+        where: { user_id: sanitizedUserId },
         update: {
           twitter_handle: twitterHandle,
-          access_token: accessToken,
-          refresh_token: refreshToken,
+          access_token: AES.encrypt(accessToken, process.env.ENCRYPTION_KEY).toString(),
+          refresh_token: AES.encrypt(refreshToken, process.env.ENCRYPTION_KEY).toString(),
           token_expires_at: new Date(Date.now() + expiresIn * 1000),
           updated_at: new Date(),
         },
         create: {
-          user_id: session.user.id,
+          user_id: sanitizedUserId,
           twitter_handle: twitterHandle,
-          access_token: accessToken,
-          refresh_token: refreshToken,
+          access_token: AES.encrypt(accessToken, process.env.ENCRYPTION_KEY).toString(),
+          refresh_token: AES.encrypt(refreshToken, process.env.ENCRYPTION_KEY).toString(),
           token_expires_at: new Date(Date.now() + expiresIn * 1000),
           created_at: new Date(),
         },
@@ -251,7 +261,7 @@ export async function GET(request) {
 
     await withRetry(async () => {
       await prisma.users.update({
-        where: { id: session.user.id },
+        where: { id: sanitizedUserId },
         data: { twitter_handle: twitterHandle },
       });
     });
@@ -259,20 +269,20 @@ export async function GET(request) {
     await withRetry(async () => {
       const redisClient = await getRedisClient();
       await Promise.all([
-        redisClient.del(`twitter_oauth:${session.user.id}`),
-        redisClient.del(`user:${session.user.id}`),
-        redisClient.del(`connect-data:${session.user.id}`),
+        redisClient.del(`twitter_oauth:${sanitizedUserId}`),
+        redisClient.del(`user:${sanitizedUserId}`),
+        redisClient.del(`connect-data:${sanitizedUserId}`),
       ]);
     });
-    logger.info('Twitter account connected successfully', { userId: session.user.id, twitterHandle, ip });
 
+    logger.info('Twitter account connected successfully', { userId: sanitizedUserId, twitterHandle, ip });
     const response = NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard?twitterConnected=true`);
     response.headers.set('X-Clear-IndexedDB', 'true');
     Object.entries(corsHeaders).forEach(([key, value]) => response.headers.set(key, value));
     return response;
   } catch (error) {
     await trackViolation(ip, `Error connecting Twitter: ${error.message}`);
-    logger.error('Error connecting Twitter account', { error: error.message, userId: session.user.id, ip });
+    logger.error('Error connecting Twitter', { error: error.message, userId: sanitizedUserId, ip });
     return NextResponse.json({ detail: `Error connecting Twitter: ${error.message}` }, { status: 500, headers: corsHeaders });
   } finally {
     await prisma.$disconnect();
@@ -287,7 +297,7 @@ export async function POST(request) {
 
   const corsHeaders = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': origin || 'https://xynapseai.net',
+    'Access-Control-Allow-Origin': isAllowedOrigin(origin, referer) ? (origin || 'https://xynapseai.net') : 'https://xynapseai.net',
     'Access-Control-Allow-Methods': 'GET, POST',
     'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
     'Access-Control-Allow-Credentials': 'true',
@@ -317,7 +327,6 @@ export async function POST(request) {
   }
 
   const csrfToken = request.headers.get('x-csrf-token');
-  logger.info(`CSRF Token: ${csrfToken}, Session CSRF: ${session.csrfToken}`);
   if (process.env.NODE_ENV !== 'development' && (!csrfToken || csrfToken !== session.csrfToken)) {
     await trackViolation(ip, 'Invalid CSRF token');
     logger.warn('Invalid CSRF token', { ip });
@@ -333,13 +342,15 @@ export async function POST(request) {
     return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400, headers: corsHeaders });
   }
 
-  if (body.action !== 'disconnect' || body.uid !== session.user.id) {
+  const { action, recaptchaToken } = body;
+  const sanitizedUserId = sanitizeInput(session.user.id);
+
+  if (action !== 'disconnect' || body.uid !== session.user.id) {
     await trackViolation(ip, 'Invalid action or user ID');
-    logger.warn(`Invalid action or user ID`, { ip, action: body.action, uid: body.uid });
+    logger.warn(`Invalid action or user ID`, { ip, action, uid: body.uid });
     return NextResponse.json({ detail: 'Invalid request' }, { status: 400, headers: corsHeaders });
   }
 
-  const recaptchaToken = body.recaptchaToken;
   if (process.env.NODE_ENV !== 'development' && !recaptchaToken) {
     await trackViolation(ip, 'Missing reCAPTCHA token');
     logger.error('Missing reCAPTCHA token', { ip });
@@ -348,11 +359,10 @@ export async function POST(request) {
 
   if (process.env.NODE_ENV !== 'development') {
     try {
-      logger.info('Attempting reCAPTCHA verification', { token: recaptchaToken.substring(0, 8) + '...', action: 'disconnect_twitter', ip });
       await verifyRecaptchaWithRetry(recaptchaToken, 'disconnect_twitter', ip);
     } catch (error) {
       await trackViolation(ip, `reCAPTCHA verification failed: ${error.message}`);
-      logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip, stack: error.stack });
+      logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip });
       return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: corsHeaders });
     }
   }
@@ -360,27 +370,27 @@ export async function POST(request) {
   try {
     await withRetry(async () => {
       await prisma.$transaction([
-        prisma.twitter_handles.delete({ where: { user_id: session.user.id } }),
+        prisma.twitter_handles.delete({ where: { user_id: sanitizedUserId } }),
         prisma.users.update({
-          where: { id: session.user.id },
+          where: { id: sanitizedUserId },
           data: { twitter_handle: null },
         }),
       ]);
     });
-    logger.info('Database operations successful', { userId: session.user.id });
 
     await withRetry(async () => {
       const redisClient = await getRedisClient();
       await Promise.all([
-        redisClient.del(`user:${session.user.id}`),
-        redisClient.del(`connect-data:${session.user.id}`),
+        redisClient.del(`user:${sanitizedUserId}`),
+        redisClient.del(`connect-data:${sanitizedUserId}`),
       ]);
     });
-    logger.info('Twitter account disconnected and Redis caches cleared', { userId: session.user.id, ip });
+
+    logger.info('Twitter account disconnected', { userId: sanitizedUserId, ip });
     return NextResponse.json({ success: true }, { headers: corsHeaders });
   } catch (error) {
     await trackViolation(ip, `Error disconnecting Twitter: ${error.message}`);
-    logger.error(`Error disconnecting Twitter: ${error.message}`, { stack: error.stack, ip });
+    logger.error(`Error disconnecting Twitter: ${error.message}`, { ip });
     return NextResponse.json({ detail: `Error disconnecting Twitter: ${error.message}` }, { status: 500, headers: corsHeaders });
   } finally {
     await prisma.$disconnect();

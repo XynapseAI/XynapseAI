@@ -1252,5 +1252,16 @@
         "image": "/icons/wintermute.png"
       }
     }
+  },
+  "0x18b0F4547A89fe4C5FE84F258BeA3601FA281e9f": {
+    "Address": "0x18b0F4547A89fe4C5FE84F258BeA3601FA281e9f",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Kucoin Hot Wallet",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/kucoin.png"
+      }
+    }
   }
 }

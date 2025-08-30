@@ -32,6 +32,87 @@ async function withRetry(operation, maxAttempts = 3, delayMs = 1000) {
 }
 
 /**
+ * Core logic: process one JSON object of addresses -> insert/update into DB
+ */
+async function processJsonData(jsonData) {
+  let totalImported = 0;
+  let totalUpdated = 0;
+  let totalSkipped = 0;
+  let totalNoNameTag = 0;
+
+  const addresses = Object.keys(jsonData);
+  logger.info(`Processing JSON data with ${addresses.length} addresses`);
+  console.log(`Processing JSON data with ${addresses.length} addresses`);
+
+  for (const [address, data] of Object.entries(jsonData)) {
+    if (!isAddress(address)) {
+      logger.warn(`Invalid address in JSON data: ${address}. Skipping.`);
+      console.log(`Invalid address: ${address}. Skipping.`);
+      totalSkipped++;
+      continue;
+    }
+
+    const normalizedAddress = address.toLowerCase();
+    const labels = data.Labels || {};
+    const labelType = Object.keys(labels)[0] || 'unknown';
+    const labelData = labels[labelType] || {};
+
+    if (!labelData['Name Tag']) {
+      logger.warn(`No Name Tag for address ${normalizedAddress}. Skipping.`);
+      console.log(`No Name Tag for address ${normalizedAddress}. Skipping.`);
+      totalNoNameTag++;
+      continue;
+    }
+
+    const nametagData = {
+      name: labelData['Name Tag'],
+      description: labelData.Description || '',
+      subcategory: labelData.Subcategory || 'Others',
+      image: labelData.image || '/icons/default.png',
+    };
+
+    logger.info(`Processing address ${normalizedAddress}: ${nametagData.name}`);
+    console.log(`Processing address ${normalizedAddress}: ${nametagData.name}`);
+
+    try {
+      const result = await withRetry(() =>
+        query(
+          `INSERT INTO nametags (address, nametag, image, description, subcategory)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (address) DO UPDATE
+           SET nametag = EXCLUDED.nametag,
+               image = EXCLUDED.image,
+               description = EXCLUDED.description,
+               subcategory = EXCLUDED.subcategory
+           RETURNING CASE WHEN xmax = 0 THEN 'inserted' ELSE 'updated' END AS action`,
+          [
+            normalizedAddress,
+            nametagData.name,
+            nametagData.image,
+            nametagData.description,
+            nametagData.subcategory,
+          ]
+        )
+      );
+
+      if (result.rows[0].action === 'inserted') {
+        totalImported++;
+        console.log(`Imported nametag for ${normalizedAddress}: ${JSON.stringify(nametagData)}`);
+      } else {
+        totalUpdated++;
+        console.log(`Updated nametag for ${normalizedAddress}: ${JSON.stringify(nametagData)}`);
+      }
+    } catch (error) {
+      console.error(`Error importing/updating nametag for ${normalizedAddress}: ${error.message}`);
+    }
+  }
+
+  console.log(
+    `Summary: ${totalImported} imported, ${totalUpdated} updated, ${totalSkipped} skipped (invalid), ${totalNoNameTag} skipped (no Name Tag).`
+  );
+}
+
+/**
  * Reads all JSON files in the specified directory and returns their content
  */
 async function readJsonFiles(directoryPath) {
@@ -73,114 +154,44 @@ async function readJsonFiles(directoryPath) {
 }
 
 /**
- * Imports nametag data from all JSON files in the directory into PostgreSQL nametags table
+ * Imports all JSON files from directory
  */
 async function importNametags(directoryPath) {
-  logger.info('Starting nametag import process...');
   console.log('Starting nametag import process...');
   const jsonDataArray = await readJsonFiles(directoryPath);
-  let totalImported = 0;
-  let totalUpdated = 0; // Thêm biến để đếm số bản ghi được cập nhật
-  let totalSkipped = 0;
-  let totalNoNameTag = 0;
-
   for (const jsonData of jsonDataArray) {
-    const addresses = Object.keys(jsonData);
-    logger.info(`Processing JSON data with ${addresses.length} addresses`);
-    console.log(`Processing JSON data with ${addresses.length} addresses`);
-
-    for (const [address, data] of Object.entries(jsonData)) {
-      if (!isAddress(address)) {
-        logger.warn(`Invalid address in JSON data: ${address}. Skipping.`);
-        console.log(`Invalid address: ${address}. Skipping.`);
-        totalSkipped++;
-        continue;
-      }
-
-      const normalizedAddress = address.toLowerCase();
-      const labels = data.Labels || {};
-      const labelType = Object.keys(labels)[0] || 'unknown';
-      const labelData = labels[labelType] || {};
-
-      // Skip entries without a Name Tag
-      if (!labelData['Name Tag']) {
-        logger.warn(`No Name Tag for address ${normalizedAddress}. Skipping.`);
-        console.log(`No Name Tag for address ${normalizedAddress}. Skipping.`);
-        totalNoNameTag++;
-        continue;
-      }
-
-      const nametagData = {
-        name: labelData['Name Tag'],
-        description: labelData.Description || '',
-        subcategory: labelData.Subcategory || 'Others',
-        image: labelData.image || '/icons/default.png',
-      };
-
-      logger.info(`Processing address ${normalizedAddress}: ${nametagData.name}`);
-      console.log(`Processing address ${normalizedAddress}: ${nametagData.name}`);
-
-      try {
-        const result = await withRetry(() =>
-          query(
-            `INSERT INTO nametags (address, nametag, image, description, subcategory)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (address) DO UPDATE
-             SET nametag = EXCLUDED.nametag,
-                 image = EXCLUDED.image,
-                 description = EXCLUDED.description,
-                 subcategory = EXCLUDED.subcategory
-             RETURNING CASE WHEN xmax = 0 THEN 'inserted' ELSE 'updated' END AS action`,
-            [
-              normalizedAddress,
-              nametagData.name,
-              nametagData.image,
-              nametagData.description,
-              nametagData.subcategory,
-            ]
-          )
-        );
-
-        if (result.rows[0].action === 'inserted') {
-          totalImported++;
-          logger.info(`Imported nametag for ${normalizedAddress}: ${nametagData.name}`);
-          console.log(`Imported nametag for ${normalizedAddress}: ${JSON.stringify(nametagData)}`);
-        } else {
-          totalUpdated++;
-          logger.info(`Updated nametag for ${normalizedAddress}: ${nametagData.name}`);
-          console.log(`Updated nametag for ${normalizedAddress}: ${JSON.stringify(nametagData)}`);
-        }
-      } catch (error) {
-        logger.error(`Error importing/updating nametag for ${normalizedAddress}: ${error.message}`, { stack: error.stack });
-        console.error(`Error importing/updating nametag for ${normalizedAddress}: ${error.message}`);
-      }
-    }
+    await processJsonData(jsonData);
   }
+}
 
-  logger.info(
-    `Import completed: ${totalImported} nametags imported, ${totalUpdated} updated, ${totalSkipped} skipped (invalid addresses), ${totalNoNameTag} skipped (no Name Tag).`
-  );
-  console.log(
-    `Import completed: ${totalImported} imported, ${totalUpdated} updated, ${totalSkipped} skipped (invalid addresses), ${totalNoNameTag} skipped (no Name Tag).`
-  );
+/**
+ * Import only a specific file
+ */
+async function importNametagsForFile(filePath) {
+  try {
+    const content = await fs.readFile(filePath, 'utf-8');
+    const jsonData = JSON.parse(content);
+    await processJsonData(jsonData);
+  } catch (error) {
+    console.error(`Error reading file ${filePath}: ${error.message}`);
+  }
 }
 
 /**
  * Main function to run the import
  */
 async function main() {
-  const directoryPath = path.join(__dirname, '../public/nametags');
-  logger.info(`Starting import from directory: ${directoryPath}`);
-  console.log(`Starting import from directory: ${directoryPath}`);
-  try {
+  const args = process.argv.slice(2);
+  if (args.length > 0) {
+    const targetPath = path.join(__dirname, '../public/nametags', args[0]);
+    console.log(`Starting import from file: ${targetPath}`);
+    await importNametagsForFile(targetPath);
+  } else {
+    const directoryPath = path.join(__dirname, '../public/nametags');
+    console.log(`Starting import from directory: ${directoryPath}`);
     await importNametags(directoryPath);
-    logger.info('Nametag import process completed successfully.');
-    console.log('Nametag import process completed successfully.');
-  } catch (error) {
-    logger.error(`Fatal error during nametag import: ${error.message}`, { stack: error.stack });
-    console.error(`Fatal error during nametag import: ${error.message}`);
-    process.exit(1);
   }
+  console.log('Nametag import process completed successfully.');
 }
 
 main();
