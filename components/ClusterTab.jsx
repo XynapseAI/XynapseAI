@@ -935,19 +935,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const renderPortfolioContent = () => {
     return (
       <div className="flex flex-col" ref={portfolioRef}>
-        <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
-          <select
-            className="bg-black/50 border border-white/20 rounded-lg p-1 text-white text-xs focus:outline-none focus:ring-2 focus:ring-white/20"
-            value={selectedChain}
-            onChange={(e) => setSelectedChain(e.target.value)}
-          >
-            {chains.map((chain) => (
-              <option key={chain.value} value={chain.value} className="bg-black text-white">
-                {chain.label}
-              </option>
-            ))}
-          </select>
-        </div>
         <div className="overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
           <LoadingOverlay isLoading={isLoadingPortfolio} isMobile={isMobile} />
           {isLoadingPortfolio ? (
