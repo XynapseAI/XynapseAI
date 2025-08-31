@@ -6,19 +6,28 @@ import { randomBytes } from 'crypto';
 import cookie from 'cookie';
 
 // Initialize Redis client
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-});
-redisClient.on('error', (err) => logger.error('Redis Client Error', err));
-if (!redisClient.isOpen) {
-  await redisClient.connect();
+let redisClient;
+async function getRedisClient() {
+  if (!redisClient || !redisClient.isOpen) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+    });
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }));
+    try {
+      await redisClient.connect();
+      logger.info('Redis connected for CSRF token');
+    } catch (err) {
+      logger.error('Redis connection failed', { err: err?.message });
+      throw new Error('Redis connection failed');
+    }
+  }
+  return redisClient;
 }
 
 // List of allowed origins
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   'http://localhost:3000',
-  'http://localhost:3000/api',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
@@ -28,30 +37,15 @@ const allowedOrigins = [
 // Function to check Origin/Referer
 function isAllowedOrigin(origin, referer) {
   try {
-    if (origin) {
-      if (allowedOrigins.includes(origin)) {
-        return true;
-      }
-      const hostname = new URL(origin).hostname;
-      if (hostname.endsWith('.vercel.app')) {
-        return true;
-      }
-    }
-    if (!origin && referer) {
-      const refOrigin = new URL(referer).origin;
-      if (allowedOrigins.includes(refOrigin)) {
-        return true;
-      }
-      const hostname = new URL(refOrigin).hostname;
-      if (hostname.endsWith('.vercel.app')) {
-        return true;
-      }
-    }
-    if (!origin && !referer) {
+    if (origin && allowedOrigins.includes(origin)) {
       return true;
     }
-    if (!origin && process.env.NODE_ENV === 'development') {
-      logger.warn('Origin is null, allowing in development mode');
+    const hostname = origin ? new URL(origin).hostname : referer ? new URL(referer).hostname : null;
+    if (hostname && (hostname.endsWith('.vercel.app') || hostname.endsWith('xynapseai.net'))) {
+      return true;
+    }
+    if (!origin && !referer && process.env.NODE_ENV === 'development') {
+      logger.warn('No origin or referer, allowing in development mode');
       return true;
     }
     logger.error('CORS blocked', { origin, referer });
@@ -62,24 +56,48 @@ function isAllowedOrigin(origin, referer) {
   }
 }
 
+// Rate limiting
 async function checkRateLimit(ip) {
+  const client = await getRedisClient();
   const key = `rate_limit:csrf:${ip}`;
-  const requests = await redisClient.get(key) || 0;
-  const windowMs = 60 * 1000;
+  const windowMs = 60 * 1000; // 1 minute
   const maxRequests = process.env.NODE_ENV === 'development' ? 100 : 50;
+
+  const requests = Number(await client.get(key)) || 0;
   if (requests >= maxRequests) {
+    logger.warn('Rate limit exceeded for CSRF token request', { ip, requests });
     throw new Error('Too many requests, please try again later.');
   }
-  await redisClient.multi()
+
+  await client.multi()
     .incr(key)
     .expire(key, windowMs / 1000)
     .exec();
+  logger.info('Rate limit check passed', { ip, requests: requests + 1 });
+}
+
+// Security headers
+function securityHeaders(origin) {
+  const csp = "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';";
+  return {
+    'Content-Security-Policy': csp,
+    'X-Frame-Options': 'DENY',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+    'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    'Access-Control-Allow-Methods': 'GET',
+    'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token',
+    'Access-Control-Allow-Credentials': 'true',
+  };
 }
 
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
+  logger.info('GET /api/csrf-token requested', { ip, origin, referer });
 
   // Check CORS
   if (!isAllowedOrigin(origin, referer)) {
@@ -87,61 +105,69 @@ export async function GET(request) {
     return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
   }
 
+  // Check rate limit
   try {
     await checkRateLimit(ip);
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`);
+    logger.error(`Rate limit error: ${err.message}`, { ip });
     return NextResponse.json({ detail: err.message }, { status: 429 });
   }
 
+  // Check authentication
   const session = await auth();
   if (!session || !session.user?.id) {
-    logger.warn('Session not authenticated', { ip, session });
+    logger.warn('Session not authenticated', { ip });
     return NextResponse.json({ detail: 'Not signed in' }, { status: 401 });
   }
 
   try {
-    // Use existing CSRF token from session or generate new one
-    const csrfToken = session.csrfToken || randomBytes(32).toString('hex');
+    const client = await getRedisClient();
+    const userId = session.user.id;
+    const csrfKey = `csrf:${userId}`;
 
-    // Save CSRF token to session
-    session.csrfToken = csrfToken;
+    // Try to get existing CSRF token from Redis
+    let csrfToken = await client.get(csrfKey);
+    if (!csrfToken) {
+      // Generate new CSRF token
+      csrfToken = randomBytes(32).toString('hex');
+      await client.setEx(csrfKey, 2 * 60 * 60, csrfToken); // Store for 2 hours
+      logger.info('Generated new CSRF token', { userId, csrfTokenLength: csrfToken.length });
+    } else {
+      logger.info('Reusing existing CSRF token from Redis', { userId, csrfTokenLength: csrfToken.length });
+    }
 
-    // Chuẩn bị headers cho response
-    const headers = new Headers({
-      'Content-Type': 'application/json',
-      'Content-Security-Policy': "default-src 'self'",
-      'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-      'Access-Control-Allow-Methods': 'GET',
-      'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token',
-      'Access-Control-Allow-Credentials': 'true',
-    });
-
-    // Thêm cookie csrf_token
-    headers.append('Set-Cookie', cookie.serialize('csrf_token', csrfToken, {
+    // Set CSRF token in cookie
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
-      maxAge: 2 * 60 * 60, // 2 hours, đồng bộ với session
-    }));
+      maxAge: 2 * 60 * 60, // 2 hours
+    };
+    const csrfCookie = cookie.serialize('csrf_token', csrfToken, cookieOptions);
+    logger.info('Setting CSRF cookie', { userId, cookieOptions });
+
+    // Prepare response headers
+    const headers = new Headers(securityHeaders(origin));
+    headers.append('Set-Cookie', csrfCookie);
 
     return NextResponse.json({ success: true, csrfToken }, { headers });
   } catch (error) {
-    logger.error(`Error processing /api/csrf-token: ${error.message}`, { stack: error.stack, ip });
+    logger.error('Error processing /api/csrf-token', { error: error.message, ip, stack: error.stack });
     return NextResponse.json({ detail: `Server error: ${error.message}` }, { status: 500 });
   }
 }
 
-// Close Redis connection on termination
+// Handle process termination
 process.on('SIGTERM', async () => {
-  if (redisClient.isOpen) {
+  if (redisClient?.isOpen) {
     await redisClient.quit();
     logger.info('Redis connection closed on SIGTERM');
   }
 });
+
 process.on('SIGINT', async () => {
-  if (redisClient.isOpen) {
+  if (redisClient?.isOpen) {
     await redisClient.quit();
     logger.info('Redis connection closed on SIGINT');
   }
