@@ -152,45 +152,23 @@ async function checkDoubleSubmitCSRF(request) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
   const cookieToken = cookies['csrf_token'] || '';
-
-  logger.info('Checking CSRF tokens', {
-    headerToken: headerToken ? 'provided' : 'missing',
-    cookieToken: cookieToken ? 'provided' : 'missing',
-    headerTokenLength: headerToken.length,
-    cookieTokenLength: cookieToken.length,
-  });
-
-  if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
+  if (
+    process.env.NODE_ENV === 'development' &&
+    headerToken === 'dev-csrf' &&
+    cookieToken === 'dev-csrf'
+  ) {
     logger.info('Development CSRF bypass used');
     return true;
   }
-
   if (!headerToken || !cookieToken) {
-    logger.warn('CSRF tokens missing', {
-      headerProvided: !!headerToken,
-      cookieProvided: !!cookieToken,
-    });
+    logger.warn('CSRF tokens missing', { headerProvided: !!headerToken, cookieProvided: !!cookieToken });
     return false;
   }
-
-  if (headerToken.length !== cookieToken.length) {
-    logger.warn('CSRF token length mismatch', {
-      headerTokenLength: headerToken.length,
-      cookieTokenLength: cookieToken.length,
-    });
-    return false;
+  const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
+  if (!valid) {
+    logger.warn('CSRF token mismatch');
   }
-
-  try {
-    const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
-    if (!valid) {
-      logger.warn('CSRF token mismatch');
-    }
-    return valid;
-  } catch (err) {
-    logger.error('Error in CSRF token comparison', { err: err?.message });
-    return false;
-  }
+  return valid;
 }
 
 function mask(value, keep = 6) {

@@ -139,8 +139,6 @@ async function checkDoubleSubmitCSRF(request) {
   logger.info('Checking CSRF tokens', {
     headerToken: headerToken ? 'provided' : 'missing',
     cookieToken: cookieToken ? 'provided' : 'missing',
-    headerTokenLength: headerToken.length,
-    cookieTokenLength: cookieToken.length,
   });
 
   if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
@@ -156,24 +154,14 @@ async function checkDoubleSubmitCSRF(request) {
     return false;
   }
 
-  if (headerToken.length !== cookieToken.length) {
-    logger.warn('CSRF token length mismatch', {
-      headerTokenLength: headerToken.length,
-      cookieTokenLength: cookieToken.length,
+  const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
+  if (!valid) {
+    logger.warn('CSRF token mismatch', {
+      headerToken: mask(headerToken),
+      cookieToken: mask(cookieToken),
     });
-    return false;
   }
-
-  try {
-    const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
-    if (!valid) {
-      logger.warn('CSRF token mismatch');
-    }
-    return valid;
-  } catch (err) {
-    logger.error('Error in CSRF token comparison', { err: err?.message });
-    return false;
-  }
+  return valid;
 }
 
 function mask(value, keep = 6) {
