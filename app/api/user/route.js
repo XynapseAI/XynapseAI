@@ -94,11 +94,14 @@ async function checkRateLimit(ip, userId) {
   logger.debug('Rate limit check latency', { ms: Date.now() - start, timestamp: new Date().toISOString() });
 }
 
-function isAllowedOrigin(origin, host) {
+function isAllowedOrigin(origin, referer) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL,
+    'https://xynapseai.net',
     'https://www.xynapseai.net',
     'http://localhost:3000',
+    'https://xynapse-ai-xynapse-projects.vercel.app',
+    'https://xynapse-ai.vercel.app',
     ...(process.env.NODE_ENV === 'production' ? [] : ['https://[a-z0-9-]+\.vercel\.app']),
   ].filter(Boolean);
 

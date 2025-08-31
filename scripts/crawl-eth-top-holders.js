@@ -1,105 +1,124 @@
-// scripts/crawl-eth-top-holders.js
+// scripts/crawl-top-holders.js
+// (Đã đổi tên file để phù hợp hơn)
 import axios from "axios";
-import * as cheerio from "cheerio";
+import { load } from "cheerio";
 import fs from "fs";
 import path from "path";
 import cron from "node-cron";
 
-const URL = "https://etherscan.io/accounts/1?ps=100";
-const OUTPUT_FILE = path.join(process.cwd(), "public", "nametags", "eth-top-holders.json");
+// --- CẤU HÌNH CÁC TRANG CẦN CRAWL ---
+const TARGETS = [
+    {
+        name: "Ethereum",
+        url: "https://etherscan.io/accounts/1?ps=100",
+        outputFile: path.join(process.cwd(), "public", "nametags", "eth-top-holders.json"),
+        chainLabel: "ethereum", // Thêm nhãn để định danh
+    },
+    {
+        name: "BNB Smart Chain",
+        url: "https://bscscan.com/accounts/1?ps=100",
+        outputFile: path.join(process.cwd(), "public", "nametags", "bnb-top-holders.json"),
+        chainLabel: "binance-smart-chain", // Thêm nhãn để định danh
+    },
+    // Bạn có thể dễ dàng thêm các trang khác ở đây, ví dụ: Polygonscan
+];
 
-// Utility: normalize whitespace and remove "Image:" junk
+// Utility: Chuẩn hóa khoảng trắng
 function cleanText(s = "") {
-  return s.replace(/Image:\s*/gi, "").replace(/\s+/g, " ").trim();
+    return s.replace(/\s+/g, " ").trim();
 }
 
-async function crawlEtherscan(pageUrl = URL) {
-  try {
-    const { data } = await axios.get(pageUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-      timeout: 15000,
-    });
-
-    const $ = cheerio.load(data);
-    const result = {};
-
-    $("table tbody tr").each((_, el) => {
-      try {
-        const tds = $(el).find("td");
-        if (tds.length < 3) return; // skip malformed rows
-
-        // 1) Address: prefer anchor with /address/
-        const addrAnchor = $(tds[1]).find('a[href^="/address/"], a[href*="/address/"]').first();
-        let address = addrAnchor.attr("href") ? addrAnchor.attr("href").split("/").pop() : null;
-        if (address) address = address.toLowerCase();
-
-        // fallback: try to find any 0x... in the cell
-        if (!address) {
-          const maybe = $(tds[1]).text().match(/0x[a-fA-F0-9]{40}/);
-          if (maybe) address = maybe[0].toLowerCase();
-        }
-        if (!address) return;
-
-        // 2) Name Tag: clone the cell, remove anchors/images/svg/icons, then read remaining text
-        const cellClone = $(tds[1]).clone();
-        cellClone.find("a, img, svg, i, button").remove();
-        let nameTag = cleanText(cellClone.text());
-
-        // Some pages put the name in a span; if clone approach yields empty, try explicit selectors
-        if (!nameTag) {
-          const spanCandidate = $(tds[1]).find("span.d-block, span.text-truncate, small, div").filter(function () {
-            const txt = $(this).text().trim();
-            // accept if not an address and not empty and not "Image:" etc
-            return txt && !/0x[a-fA-F0-9]{6,}/.test(txt) && !/^Image:/i.test(txt);
-          }).first();
-          nameTag = cleanText(spanCandidate.text() || "");
-        }
-
-        if (!nameTag) nameTag = null;
-
-        // 3) Balance: use regex to extract first numeric token (remove commas)
-        const balanceRaw = $(tds[2]).text().trim();
-        const numericMatch = balanceRaw.replace(/,/g, "").match(/-?\d+(\.\d+)?/);
-        const balance = numericMatch ? parseFloat(numericMatch[0]) : null;
-
-        // Debug log (uncomment if you want detailed per-row logs)
-        // console.log({ address, nameTag, balanceRaw, balance });
-
-        result[address] = {
-          Address: address,
-          Balance: balance,
-          Labels: {
-            ethereum: {
-              "Name Tag": nameTag,
-              Description: null,
-              Subcategory: "Others",
-              image: null,
+/**
+ * Hàm crawl chung cho các trang explorer (Etherscan, BscScan, ...)
+ * @param {string} url - URL của trang accounts
+ * @param {string} outputFile - Đường dẫn file JSON để lưu kết quả
+ * @param {string} chainName - Tên của chuỗi (vd: "Ethereum") để log
+ * @param {string} chainLabel - Nhãn để dùng trong cấu trúc JSON
+ */
+async function crawlTopHolders(url, outputFile, chainName, chainLabel) {
+    console.log(`🚀 Bắt đầu crawl dữ liệu cho ${chainName}...`);
+    try {
+        const { data } = await axios.get(url, {
+            headers: {
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept-Language": "en-US,en;q=0.9",
             },
-          },
-        };
-      } catch (rowErr) {
-        // ignore single-row parse failures
-        console.warn("Row parse error:", rowErr?.message || rowErr);
-      }
-    });
+            timeout: 20000,
+        });
 
-    fs.mkdirSync(path.dirname(OUTPUT_FILE), { recursive: true });
-    fs.writeFileSync(OUTPUT_FILE, JSON.stringify(result, null, 2), "utf8");
-    console.log(`[${new Date().toISOString()}] ✅ Saved ${Object.keys(result).length} entries to ${OUTPUT_FILE}`);
-  } catch (err) {
-    console.error("❌ Error crawling Etherscan:", err.message || err);
-  }
+        const $ = load(data);
+        const result = {};
+
+        $("div.table-responsive table tbody tr").each((_, el) => {
+            try {
+                const tds = $(el).find("td");
+                if (tds.length < 6) return;
+
+                // Cột 2: Address
+                const addressAnchor = $(tds[1]).find('a[href^="/address/"]').first();
+                if (!addressAnchor.length) return;
+                const address = addressAnchor.attr("href").split("/").pop().toLowerCase();
+                if (!address) return;
+
+                // Cột 3: Name Tag
+                let nameTag = cleanText($(tds[2]).text());
+                if (!nameTag || nameTag.length === 0) {
+                    nameTag = null;
+                }
+
+                // Cột 4: Balance
+                const balanceRaw = $(tds[3]).text().trim();
+                const numericMatch = balanceRaw.replace(/,/g, "").match(/[\d.]+/);
+                const balance = numericMatch ? parseFloat(numericMatch[0]) : null;
+
+                if (address && balance !== null) {
+                    result[address] = {
+                        Address: address,
+                        Balance: balance,
+                        Labels: {
+                            [chainLabel]: { // Sử dụng nhãn chuỗi động
+                                "Name Tag": nameTag,
+                                Description: null,
+                                Subcategory: "Others",
+                                image: null,
+                            },
+                        },
+                    };
+                }
+            } catch (rowErr) {
+                console.warn(`[${chainName}] Lỗi khi xử lý một hàng:`, rowErr?.message || rowErr);
+            }
+        });
+
+        if (Object.keys(result).length === 0) {
+            console.warn(`⚠️ [${chainName}] Không lấy được dữ liệu nào. Có thể cấu trúc trang đã thay đổi hoặc request bị chặn.`);
+            return;
+        }
+
+        fs.mkdirSync(path.dirname(outputFile), { recursive: true });
+        fs.writeFileSync(outputFile, JSON.stringify(result, null, 2), "utf8");
+        console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Đã lưu ${Object.keys(result).length} địa chỉ vào ${outputFile}`);
+
+    } catch (err) {
+        console.error(`❌ [${chainName}] Lỗi nghiêm trọng trong quá trình crawl:`, err.message || err);
+    }
 }
 
-// Run once immediately
-crawlEtherscan();
+// --- HÀM CHẠY CHÍNH ---
+async function runAllCrawlers() {
+    console.log(`[${new Date().toISOString()}] Bắt đầu chu trình crawl dữ liệu...`);
+    for (const target of TARGETS) {
+        await crawlTopHolders(target.url, target.outputFile, target.name, target.chainLabel);
+    }
+    console.log(`[${new Date().toISOString()}] Hoàn tất chu trình crawl.`);
+}
 
-// Cron job: chạy mỗi ngày lúc 01:00 sáng
+// Chạy ngay lần đầu
+runAllCrawlers();
+
+// Lập lịch chạy hằng ngày
 cron.schedule("0 1 * * *", () => {
-  console.log(`[${new Date().toISOString()}] Starting scheduled crawl...`);
-  crawlEtherscan();
+    console.log(`[${new Date().toISOString()}] Bắt đầu chạy crawl theo lịch...`);
+    runAllCrawlers();
 });
