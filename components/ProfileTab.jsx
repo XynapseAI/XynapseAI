@@ -66,11 +66,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Execute reCAPTCHA
   const debouncedExecuteRecaptcha = useCallback(
     async (action, retries = 2) => {
-      console.log('Executing reCAPTCHA for action:', action);
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Returning development-token');
-        return 'development-token';
-      }
+      if (process.env.NODE_ENV === 'development') return 'development-token';
       if (!recaptchaRef.current) {
         console.error('reCAPTCHA ref is null');
         throw new Error('reCAPTCHA not initialized');
@@ -90,7 +86,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           return debouncedExecuteRecaptcha(action, retries - 1);
         }
-        throw error;
+        throw new Error(`reCAPTCHA failed after ${3 - retries} attempts: ${error.message}`);
       }
     },
     [recaptchaRef]
@@ -100,7 +96,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const { data: csrfToken, isLoading: csrfLoading } = useQuery({
     queryKey: ['csrfToken'],
     queryFn: async () => {
-      console.log('Fetching CSRF token...');
       const response = await axios.get('/api/csrf-token', { withCredentials: true });
       console.log('CSRF Token fetched:', response.data.csrfToken);
       if (!response.data.csrfToken) throw new Error('Empty CSRF token received');
@@ -111,10 +106,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     enabled: status === 'authenticated',
     onSuccess: (csrf) => localStorage.setItem('csrfToken', csrf),
   });
-
-  useEffect(() => {
-    console.log('Session status:', { status, session, csrfToken, csrfLoading });
-  }, [status, session, csrfToken, csrfLoading]);
 
   // Fetch User Data
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
@@ -661,28 +652,29 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
                         (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
                       }
-                      className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl transition-all duration-300 ${verifyTaskMutation.isLoading ||
-                          (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                          (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                          (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                      className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl transition-all duration-300 ${
+                        verifyTaskMutation.isLoading ||
+                        (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                        (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                        (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
                           ? 'opacity-50 cursor-not-allowed'
                           : 'hover:bg-neon-blue/20'
-                        }`}
+                      }`}
                       whileHover={{
                         scale:
                           verifyTaskMutation.isLoading ||
-                            (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                            (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                            (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                          (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                          (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                          (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
                             ? 1
                             : 1.05,
                       }}
                       whileTap={{
                         scale:
                           verifyTaskMutation.isLoading ||
-                            (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                            (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                            (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                          (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                          (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                          (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
                             ? 1
                             : 0.95,
                       }}
@@ -698,8 +690,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             <motion.button
               onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
               disabled={currentPage.tasks === 1}
-              className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                } transition-all duration-300`}
+              className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${
+                currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+              } transition-all duration-300`}
               whileHover={{ scale: currentPage.tasks === 1 ? 1 : 1.05 }}
               whileTap={{ scale: currentPage.tasks === 1 ? 1 : 0.95 }}
             >
@@ -711,8 +704,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             <motion.button
               onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
               disabled={currentPage.tasks === getTotalPages(tasks)}
-              className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                } transition-all duration-300`}
+              className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${
+                currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+              } transition-all duration-300`}
               whileHover={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 1.05 }}
               whileTap={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 0.95 }}
             >
@@ -817,8 +811,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             <motion.button
               onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
               disabled={currentPage.leaderboard === 1}
-              className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                } transition-all duration-300`}
+              className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${
+                currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+              } transition-all duration-300`}
               whileHover={{ scale: currentPage.leaderboard === 1 ? 1 : 1.05 }}
               whileTap={{ scale: currentPage.leaderboard === 1 ? 1 : 0.95 }}
             >
@@ -830,8 +825,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             <motion.button
               onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
               disabled={currentPage.leaderboard === getTotalPages(rankings)}
-              className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                } transition-all duration-300`}
+              className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${
+                currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+              } transition-all duration-300`}
               whileHover={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 1.05 }}
               whileTap={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 0.95 }}
             >
@@ -939,8 +935,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         <motion.button
           onClick={() => handlePageChange('points', currentPage.points - 1)}
           disabled={currentPage.points === 1}
-          className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-            } transition-all duration-300`}
+          className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${
+            currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+          } transition-all duration-300`}
           whileHover={{ scale: currentPage.points === 1 ? 1 : 1.05 }}
           whileTap={{ scale: currentPage.points === 1 ? 1 : 0.95 }}
         >
@@ -952,8 +949,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         <motion.button
           onClick={() => handlePageChange('points', currentPage.points + 1)}
           disabled={currentPage.points === getTotalPages(pointData?.history || [])}
-          className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-            } transition-all duration-300`}
+          className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl ${
+            currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+          } transition-all duration-300`}
           whileHover={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 1.05 }}
           whileTap={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 0.95 }}
         >
@@ -1093,8 +1091,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   <motion.button
                     onClick={onSignOut}
                     disabled={isSigningOut}
-                    className={`p-1 text-[9px] sm:text-[10px] rounded-xl ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'
-                      } transition-all duration-300`}
+                    className={`p-1 text-[9px] sm:text-[10px] rounded-xl ${
+                      isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'
+                    } transition-all duration-300`}
                     whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
                     whileTap={{ scale: isSigningOut ? 1 : 0.95 }}
                     aria-label="Sign out"
@@ -1196,8 +1195,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <motion.button
                       onClick={() => disconnectTwitterMutation.mutate()}
                       disabled={disconnectTwitterMutation.isLoading}
-                      className={`p-1 bg-white/5 border border-white/10 backdrop-blur-md rounded-xl ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'
-                        } transition-all duration-300`}
+                      className={`p-1 bg-white/5 border border-white/10 backdrop-blur-md rounded-xl ${
+                        disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'
+                      } transition-all duration-300`}
                       whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05, y: disconnectTwitterMutation.isLoading ? 0 : -2 }}
                       whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
                     >
@@ -1222,8 +1222,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               <motion.button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white/80 hover:text-white'
-                  } transition-all duration-300`}
+                className={`flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium ${
+                  activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white/80 hover:text-white'
+                } transition-all duration-300`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </motion.button>
