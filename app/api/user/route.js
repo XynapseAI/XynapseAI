@@ -154,14 +154,25 @@ async function checkDoubleSubmitCSRF(request) {
     return false;
   }
 
-  const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
-  if (!valid) {
-    logger.warn('CSRF token mismatch', {
-      headerToken: mask(headerToken),
-      cookieToken: mask(cookieToken),
+  // Kiểm tra độ dài trước khi so sánh
+  if (headerToken.length !== cookieToken.length) {
+    logger.warn('CSRF token length mismatch', {
+      headerTokenLength: headerToken.length,
+      cookieTokenLength: cookieToken.length,
     });
+    return false;
   }
-  return valid;
+
+  try {
+    const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
+    if (!valid) {
+      logger.warn('CSRF token mismatch');
+    }
+    return valid;
+  } catch (err) {
+    logger.error('Error in CSRF token comparison', { err: err?.message });
+    return false;
+  }
 }
 
 function mask(value, keep = 6) {
