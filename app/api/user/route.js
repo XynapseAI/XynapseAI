@@ -94,7 +94,7 @@ async function checkRateLimit(ip, userId) {
   logger.debug('Rate limit check latency', { ms: Date.now() - start, timestamp: new Date().toISOString() });
 }
 
-function isAllowedOrigin(origin, referer) {
+function isAllowedOrigin(origin) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL,
     'https://xynapseai.net',
