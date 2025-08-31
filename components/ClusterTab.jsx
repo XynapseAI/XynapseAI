@@ -456,7 +456,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           const result = JSON.parse(text);
           errorMessage = result.detail || errorMessage;
         } catch {
-          errorMessage = `Failed to fetch transactions: Invalid JSON response`;
         }
         throw new Error(errorMessage);
       }
@@ -572,7 +571,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
       const response = await fetch(`/api/sim`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
         },
@@ -707,7 +706,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
       const response = await fetch(`/api/sim`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
         },
@@ -932,6 +931,41 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     }));
   }, [portfolioData, walletData, chainLogos]);
 
+  const truncateAddressWithHover = (address, nameTag) => {
+    const truncated = truncateAddress(address).text;
+    return (
+      <div className="flex items-center gap-2 group relative">
+        <span className="truncate">{nameTag !== "N/A" ? nameTag : truncated}</span>
+        <motion.button
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent click from bubbling up to parent
+            navigator.clipboard.writeText(address);
+            toast.success("Address copied!", { autoClose: 2000 });
+          }}
+          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          aria-label="Copy address"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+            />
+          </svg>
+        </motion.button>
+      </div>
+    );
+  };
+
   const renderPortfolioContent = () => {
     return (
       <div className="flex flex-col" ref={portfolioRef}>
@@ -943,10 +977,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             <table className="w-full table-fixed text-[8px] sm:text-[10px]">
               <thead className="border-b border-white/10 bg-black/5">
                 <tr>
-                  <th className="w-[25%] px-2 py-1 text-white text-left font-semibold ml-2 m-1 truncate">Token</th>
-                  <th className="w-[25%] px-2 py-1 text-white text-left font-semibold m-1 truncate">Balance</th>
-                  <th className="w-[25%] px-2 py-1 text-white text-left font-semibold m-1 truncate">Value ({currency.toUpperCase()})</th>
-                  <th className="w-[25%] px-2 py-1 text-white text-left font-semibold m-1 truncate">Percentage</th>
+                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-2 py-1 text-white text-left font-semibold ml-2 m-1 truncate`}>Token</th>
+                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Balance</th>
+                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Value ({currency.toUpperCase()})</th>
+                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Percentage</th>
                 </tr>
               </thead>
               <tbody>
@@ -1002,16 +1036,14 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           <table className="w-full table-fixed text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-black/5">
               <tr>
-                <th className="w-[30%] px-2 py-1 text-white text-left font-semibold m-1 truncate">Wallet Address</th>
-                <th className="w-[30%] px-2 py-1 text-white text-left font-semibold m-1 truncate">Name Tag</th>
-                <th className="w-[20%] px-2 py-1 text-white text-left font-semibold m-1 truncate">Value ({currency.toUpperCase()})</th>
-                <th className="w-[20%] px-2 py-1 text-white text-left font-semibold m-1 truncate">Percentage</th>
+                <th className={`${isMobile ? "w-[50%]" : "w-[60%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Wallet</th>
+                <th className={`${isMobile ? "w-[30%]" : "w-[20%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Value ({currency.toUpperCase()})</th>
+                <th className={`${isMobile ? "w-[20%]" : "w-[20%]"}-2 py-1 text-white text-left font-semibold m-1 truncate`}>Percentage</th>
               </tr>
             </thead>
             <tbody>
               {uniqueWalletData.map((wallet, index) => {
                 const percentage = totalValue > 0 ? ((Number(wallet.total_value_usd) || 0) / totalValue) * 100 : 0;
-                const displayAddress = truncateAddress(wallet.holder_address).text;
                 const isBitcoinAddress = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-zA-Z0-9]{39,59}$/.test(wallet.holder_address);
                 return (
                   <motion.tr
@@ -1022,56 +1054,28 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                     transition={{ duration: 0.3, delay: index * 0.02 }}
                   >
                     <td className="px-2 py-2 text-white truncate">
-                      <div className="flex items-center gap-2 group relative">
+                      <div className="flex items-center gap-2">
                         {isBitcoinAddress && (
                           <img
                             src={BITCOIN_LOGO}
                             alt="Bitcoin logo"
-                            className="w-4 h-4 inline ml-2 rounded-full"
+                            className="w-4 h-4 inline rounded-full"
                             onError={(e) => (e.target.src = "/fallback-image.png")}
                           />
                         )}
+                        <img
+                          src={wallet.image}
+                          alt="Wallet logo"
+                          className="w-4 h-4 inline mr-2 rounded-full"
+                          onError={(e) => (e.target.src = "/fallback-image.png")}
+                        />
                         <button
                           onClick={() => handleWalletClick(wallet.holder_address)}
                           className="text-white hover:text-white/80 no-hover-effect truncate"
                         >
-                          {displayAddress}
+                          {truncateAddressWithHover(wallet.holder_address, wallet.name_tag)}
                         </button>
-                        <motion.button
-                          onClick={() => {
-                            navigator.clipboard.writeText(wallet.holder_address);
-                            toast.success("Address copied!", { autoClose: 2000 });
-                          }}
-                          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          aria-label="Copy address"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
-                          </svg>
-                        </motion.button>
                       </div>
-                    </td>
-                    <td className="px-2 py-2 text-white truncate">
-                      <img
-                        src={wallet.image}
-                        alt="Wallet logo"
-                        className="w-4 h-4 inline mr-2 rounded-full"
-                        onError={(e) => (e.target.src = "/fallback-image.png")}
-                      />
-                      {wallet.name_tag}
                     </td>
                     <td className="px-2 py-2 text-white truncate">
                       <span className="font-semibold">{formatPrice(Number(wallet.total_value_usd) || 0, currency, 2)}</span>
@@ -1109,12 +1113,11 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           <table className="w-full table-fixed text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-white/5">
               <tr>
-                <th className="w-[15%] px-2 py-1 text-white text-left font-semibold m-1 truncate">Token</th>
-                <th className="w-[20%] px-2 py-1 text-white text-left font-semibold m-1 truncate">From</th>
-                <th className="w-[20%] px-2 py-1 text-white text-left font-semibold m-1 truncate">To</th>
-                <th className="w-[15%] px-2 py-1 text-white text-center font-semibold m-1 truncate">Token Value</th>
-                <th className="w-[15%] px-2 py-1 text-white text-left font-semibold m-1 truncate">Value ({currency.toUpperCase()})</th>
-                <th className="w-[15%] px-2 py-1 text-white text-left font-semibold m-1 truncate">Details</th>
+                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Token</th>
+                <th className={`${isMobile ? "w-[35%]" : "w-[40%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>From/To</th>
+                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-2 py-1 text-white text-center font-semibold m-1 truncate`}>Token Value</th>
+                <th className={`${isMobile ? "w-[15%]" : "w-[15%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Value ({currency.toUpperCase()})</th>
+                <th className={`${isMobile ? "w-[10%]" : "w-[15%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Details</th>
               </tr>
             </thead>
             <tbody>
@@ -1124,7 +1127,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 if (chainName === "bitcoin") return null;
 
                 const fromWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
-                const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
+                const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) ||
+
+                  {};
                 const fromNtag = {
                   name: fromWallet.name_tag || "N/A",
                   image: fromWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
@@ -1195,97 +1200,48 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                       </div>
                     </td>
                     <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] truncate">
-                      <div className="flex items-center gap-2 group relative">
-                        <img
-                          src={fromNtag.image}
-                          alt="From wallet logo"
-                          className="w-4 h-4 inline mr-2 rounded-full"
-                          onError={(e) => (e.target.src = "/fallback-image.png")}
-                        />
-                        <button
-                          onClick={() => handleWalletClick(tx.from)}
-                          className="text-white hover:text-white/80 no-hover-effect truncate"
-                        >
-                          {fromNtag.name !== "N/A" ? fromNtag.name : truncateAddress(tx.from).text}
-                        </button>
-                        <motion.button
-                          onClick={() => {
-                            navigator.clipboard.writeText(tx.from);
-                            toast.success("Address copied!", { autoClose: 2000 });
-                          }}
-                          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          aria-label="Copy from address"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 group relative">
+                          <img
+                            src={fromNtag.image}
+                            alt="From wallet logo"
+                            className="w-3 h-3 inline rounded-full"
+                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                          />
+                          <button
+                            onClick={() => handleWalletClick(tx.from)}
+                            className="text-white hover:text-white/80 no-hover-effect truncate"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
-                          </svg>
-                        </motion.button>
-                      </div>
-                    </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] truncate">
-                      <div className="flex items-center gap-2 group relative">
-                        <img
-                          src={toNtag.image}
-                          alt="To wallet logo"
-                          className="w-4 h-4 inline mr-2 rounded-full"
-                          onError={(e) => (e.target.src = "/fallback-image.png")}
-                        />
-                        <button
-                          onClick={() => handleWalletClick(tx.to)}
-                          className="text-white hover:text-white/80 no-hover-effect truncate"
-                        >
-                          {toNtag.name !== "N/A" ? toNtag.name : truncateAddress(tx.to).text}
-                        </button>
-                        <motion.button
-                          onClick={() => {
-                            navigator.clipboard.writeText(tx.to);
-                            toast.success("Address copied!", { autoClose: 2000 });
-                          }}
-                          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          aria-label="Copy to address"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
+                            {truncateAddressWithHover(tx.from, fromNtag.name)}
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2 group relative">
+                          <img
+                            src={toNtag.image}
+                            alt="To wallet logo"
+                            className="w-3 h-3 inline rounded-full"
+                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                          />
+                          <button
+                            onClick={() => handleWalletClick(tx.to)}
+                            className="text-white hover:text-white/80 no-hover-effect truncate"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            />
-                          </svg>
-                        </motion.button>
+                            {truncateAddressWithHover(tx.to, toNtag.name)}
+                          </button>
+                        </div>
                       </div>
                     </td>
                     <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center truncate">
+                      juxtapose
                       <div className="flex flex-col items-center gap-1">
                         <span
                           className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === "receive"
-                              ? "bg-neon-green/20 text-neon-green"
-                              : tx.type === "send"
-                                ? "bg-neon-blue/20 text-neon-blue"
-                                : tx.type === "swap"
-                                  ? "bg-purple-400/20 text-purple-400"
-                                  : "bg-white/20 text-white/60"
+                            ? "bg-neon-green/20 text-neon-green"
+                            : tx.type === "send"
+                              ? "bg-neon-blue/20 text-neon-blue"
+                              : tx.type === "swap"
+                                ? "bg-purple-400/20 text-purple-400"
+                                : "bg-white/20 text-white/60"
                             }`}
                         >
                           {typeDisplay}
@@ -1321,8 +1277,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           </table>
         ) : (
           <p className="text-[10px] sm:text-xs text-white/60 text-center">No large transactions available for this exchange.</p>
-        )}
-      </div>
+        )
+        }
+      </div >
     );
   };
 
@@ -1499,8 +1456,8 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 whileHover={{ scale: 1.05 }}
               >
                 <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12H12V2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12H12V2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Portfolio
               </motion.button>

@@ -857,7 +857,7 @@ export default function Home() {
                     <img
                       src="/logos/bitcoin.png"
                       alt="BTC logo"
-                      className="w-5 h-5"
+                      className="w-4 h-4"
                     />
                     Holders
                   </h4>
@@ -911,7 +911,7 @@ export default function Home() {
                               <img
                                 src={holder.image}
                                 alt={`${holder.source} logo`}
-                                className="w-5 h-5 rounded-full"
+                                className="w-5 h-5 rounded-lg"
                               />
                               <span
                                 className="text-white font-medium cursor-pointer hover:text-white/80 transition-colors"
@@ -1053,7 +1053,7 @@ export default function Home() {
           >
             <Link
               href="/signup"
-              className="inline-block px-8 py-4 bg-white text-black rounded-md text-sm font-medium transition-all duration-300 hover:bg-gray-200"
+              className="inline-block px-6 py-3 bg-white text-black rounded-md text-sm font-medium transition-all duration-300 hover:bg-gray-200"
             >
               <MatrixHoverEffect text="SIGN UP" hoverColor="#000000" />
             </Link>
@@ -1129,9 +1129,8 @@ export default function Home() {
             </div>
 
             {[
-              { title: "PRODUCT", links: ["Features", "Pricing", "Docs"] },
-              { title: "RESOURCES", links: ["Blog", "Support", "Brand Kit"] },
-              { title: "COMPANY", links: ["About", "Careers", "Contact"] },
+              { title: "PRODUCT", links: ["About" , "Features", "Pricing", "Docs"] },
+              { title: "RESOURCES", links: ["Blog", "Support", "Brand Kit" , "Contact"] },
             ].map((col, index) => (
               <div key={index}>
                 <h3 className="text-sm font-bold text-white mb-4 tracking-wider">{col.title}</h3>

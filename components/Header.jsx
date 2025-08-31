@@ -251,7 +251,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         {isMenuOpen && (
           <motion.div
             ref={menuRef}
-            className="fixed top-0 left-0 w-full max-w-[70%] sm:max-w-xs h-[100vh] bg-black/90 backdrop-blur-3xl z-30 flex flex-col p-3 sm:hidden rounded-r-xl border-r border-white/10 shadow-neon-sm"
+            className="fixed top-0 left-0 w-full max-w-[70%] sm:max-w-xs h-[100vh] bg-black/90 backdrop-blur-3xl z-30 flex flex-col p-3 sm:hidden rounded-r-xl border-r border-white/10 shadow-neon-sm z-50"
             initial="closed"
             animate="open"
             exit="closed"
