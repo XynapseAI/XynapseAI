@@ -109,10 +109,12 @@ function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
       }}
     >
       {image && (
-        <img
+        <Image
           src={image}
           alt={`${displayName} logo`}
           className="w-5 h-5 rounded-full mr-2"
+          width={500}
+          height={500}
         />
       )}
       <p className="text-white text-xs font-medium text-center truncate" title={displayName}>
@@ -854,10 +856,12 @@ export default function Home() {
                 <div className="flex justify-center items-center p-2 border-b border-white/10 bg-white/5">
                   <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
                     Top 100
-                    <img
+                    <Image
                       src="/logos/bitcoin.png"
                       alt="BTC logo"
                       className="w-4 h-4"
+                      width={500}
+                      height={500}
                     />
                     Holders
                   </h4>
@@ -908,10 +912,12 @@ export default function Home() {
                         >
                           <td className="px-4 py-3 text-white">
                             <div className="flex items-center gap-3 group relative">
-                              <img
+                              <Image
                                 src={holder.image}
                                 alt={`${holder.source} logo`}
                                 className="w-5 h-5 rounded-lg"
+                                width={500}
+                                height={500}
                               />
                               <span
                                 className="text-white font-medium cursor-pointer hover:text-white/80 transition-colors"
@@ -1129,8 +1135,8 @@ export default function Home() {
             </div>
 
             {[
-              { title: "PRODUCT", links: ["About" , "Features", "Pricing", "Docs"] },
-              { title: "RESOURCES", links: ["Blog", "Support", "Brand Kit" , "Contact"] },
+              { title: "PRODUCT", links: ["About", "Features", "Pricing", "Docs"] },
+              { title: "RESOURCES", links: ["Blog", "Support", "Brand Kit", "Contact"] },
             ].map((col, index) => (
               <div key={index}>
                 <h3 className="text-sm font-bold text-white mb-4 tracking-wider">{col.title}</h3>

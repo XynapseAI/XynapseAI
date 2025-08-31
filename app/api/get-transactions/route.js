@@ -5,17 +5,19 @@ import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
 import { query } from '../../../utils/postgres';
 import { isAddress } from 'ethers';
-import crypto from 'crypto';
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import Bottleneck from 'bottleneck';
-import { auth } from '@/lib/auth';
 
 // ================= Redis Client =================
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
-    redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      throw new Error('REDIS_URL environment variable is required.');
+    }
+    redisClient = createClient({ url: redisUrl });
     redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message, stack: err.stack }));
     await redisClient.connect();
     logger.info('Redis connected', { timestamp: new Date().toISOString() });
@@ -74,7 +76,7 @@ async function trackViolation(ip, reason = 'Unknown') {
 // ================= Rate Limiting =================
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
-  const key = `rate_limit:get_transactions:${ip}`;
+  const key = `rate_limit:get_transactions:ip:${ip}`;
   const maxRequests = 200;
   const windowMs = 30 * 60 * 1000;
   const requests = parseInt(await redisClient.get(key)) || 0;
@@ -84,6 +86,42 @@ async function checkRateLimit(ip) {
   }
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
   logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`);
+}
+
+// ================= Circuit Breaker =================
+let circuitOpen = false;
+let failureCount = 0;
+const maxFailures = 5;
+const resetTimeout = 60000;
+
+async function fetchWithRateLimit(url, config) {
+  if (circuitOpen) {
+    throw new Error('Service temporarily unavailable due to repeated failures.');
+  }
+  try {
+    const response = await limiterBottleneck.schedule(async () => {
+      const res = await axios.get(url, {
+        ...config,
+        timeout: 30000,
+      });
+      return res;
+    });
+    failureCount = 0;
+    return response;
+  } catch (error) {
+    failureCount++;
+    logger.error(`Axios error: ${error.message}`, { url, status: error.response?.status });
+    if (failureCount >= maxFailures) {
+      circuitOpen = true;
+      logger.error(`Circuit breaker opened after ${failureCount} failures.`);
+      setTimeout(() => {
+        circuitOpen = false;
+        failureCount = 0;
+        logger.info('Circuit breaker reset.');
+      }, resetTimeout);
+    }
+    throw error;
+  }
 }
 
 // Bottleneck configuration
@@ -103,19 +141,6 @@ axiosRetry(axios, {
     return Math.pow(2, retryCount) * 1000 + Math.random() * 200;
   },
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
-});
-
-const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
-  try {
-    const response = await axios.get(url, {
-      ...config,
-      timeout: 30000,
-    });
-    return response;
-  } catch (error) {
-    logger.error(`Axios error: ${error.message}`, { url, status: error.response?.status });
-    throw error;
-  }
 });
 
 // ================= Allowed Origins =================
@@ -144,6 +169,7 @@ function isAllowedOrigin(origin, referer) {
     logger.info(`Origin allowed: ${checkOrigin}`);
     return true;
   }
+  const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
   if (vercelPreviewRegex.test(checkOrigin)) {
     logger.info(`Origin allowed by Vercel preview regex: ${checkOrigin}`);
     return true;
@@ -177,7 +203,6 @@ const bodySchema = z.object({
 
 const chainLogoCache = {};
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function checkIp(ip) {
   try {
     const response = await fetchWithRateLimit(`https://ipinfo.io/${ip}/json?token=${process.env.IPINFO_TOKEN}`);
@@ -206,48 +231,65 @@ async function withRetry(operation, maxAttempts = 3, delayMs = 1000) {
   }
 }
 
-async function verifyHmacSignature(payload, signature, secret) {
-  try {
-    const hmac = crypto.createHmac('sha256', secret);
-    const payloadString = JSON.stringify(payload, Object.keys(payload).sort());
-    hmac.update(payloadString);
-    const expectedSignature = hmac.digest('hex');
-    return crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'));
-  } catch (error) {
-    logger.error(`HMAC verification error: ${error.message}`, { stack: error.stack });
-    return false;
-  }
-}
+// async function verifyHmacSignature(payload, signature, secret) {
+//   try {
+//     const hmac = crypto.createHmac('sha256', secret);
+//     const payloadString = JSON.stringify(payload, Object.keys(payload).sort());
+//     hmac.update(payloadString);
+//     const expectedSignature = hmac.digest('hex');
+//     if (signature.length !== expectedSignature.length) {
+//       return false;
+//     }
+//     return crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'));
+//   } catch (error) {
+//     logger.error(`HMAC verification error: ${error.message}`, { stack: error.stack });
+//     return false;
+//   }
+// }
 
-async function verifyApiKey(apiKey, session) {
-  try {
-    if (apiKey === 'default-api-key') return { isValid: true, isPremium: false };
-    const result = await withRetry(() =>
-      query(`SELECT is_premium, premium_expires_at, id FROM users WHERE api_key = $1`, [apiKey])
-    );
-    if (result.rows.length === 0) {
-      logger.warn(`Invalid API key: ${apiKey}`);
-      return { isValid: false, isPremium: false };
-    }
-    const { is_premium, premium_expires_at, id } = result.rows[0];
-    if (session && session.user.id !== id) {
-      logger.warn(`API key ${apiKey} does not belong to user ${session.user.id}`);
-      return { isValid: false, isPremium: false };
-    }
-    if (premium_expires_at && new Date(premium_expires_at) < new Date()) {
-      logger.warn(`Premium expired for API key: ${apiKey}`);
-      return { isValid: true, isPremium: false };
-    }
-    return { isValid: true, isPremium: is_premium || false };
-  } catch (error) {
-    logger.error(`Error verifying API key: ${error.message}`, { stack: error.stack });
-    return { isValid: false, isPremium: false };
-  }
-}
+// async function verifyApiKey(apiKey, session) {
+//   try {
+//     // Lấy tất cả người dùng để tìm salt và hash
+//     const result = await withRetry(() =>
+//       query(`SELECT id, is_premium, premium_expires_at, api_key_hash, api_key_salt FROM users`)
+//     );
+//     let user = null;
+
+//     // Kiểm tra từng người dùng
+//     for (const row of result.rows) {
+//       const { api_key_hash, api_key_salt, id, is_premium, premium_expires_at } = row;
+//       const derived = await scrypt(apiKey, api_key_salt, 64);
+//       const computedHash = derived.toString('hex');
+//       if (computedHash === api_key_hash) {
+//         user = { id, is_premium, premium_expires_at };
+//         break;
+//       }
+//     }
+
+//     if (!user) {
+//       logger.warn(`Invalid API key`, { apiKey: apiKey.slice(0, 6) });
+//       return { isValid: false, isPremium: false };
+//     }
+
+//     const { id, is_premium, premium_expires_at } = user;
+//     if (session && session.user.id !== id.toString()) {
+//       logger.warn(`API key does not belong to user ${session.user.id}`, { apiKey: apiKey.slice(0, 6) });
+//       return { isValid: false, isPremium: false };
+//     }
+//     if (premium_expires_at && new Date(premium_expires_at) < new Date()) {
+//       logger.warn(`Premium expired for API key`, { apiKey: apiKey.slice(0, 6) });
+//       return { isValid: true, isPremium: false, userId: id.toString() };
+//     }
+//     return { isValid: true, isPremium: is_premium || false, userId: id.toString() };
+//   } catch (error) {
+//     logger.error(`Error verifying API key: ${error.message}`, { stack: error.stack });
+//     return { isValid: false, isPremium: false };
+//   }
+// }
 
 async function getChainLogo(coingeckoId) {
   if (chainLogoCache[coingeckoId]) {
-    logger.info(`Cache hit for chain logo: ${coingeckoId}, logo: ${chainLogoCache[coingeckoId]}`);
+    logger.info(`Cache hit for chain logo: ${coingeckoId}`);
     return chainLogoCache[coingeckoId];
   }
   try {
@@ -258,7 +300,7 @@ async function getChainLogo(coingeckoId) {
     const chain = response.data.find(c => c.id === coingeckoId);
     const logo = chain?.image?.thumb || '/icons/default.png';
     chainLogoCache[coingeckoId] = logo;
-    logger.info(`Fetched logo for ${coingeckoId}: ${logo}`);
+    logger.info(`Fetched logo for ${coingeckoId}`);
     return logo;
   } catch (error) {
     logger.error(`Error fetching logo for ${coingeckoId}: ${error.message}`);
@@ -269,7 +311,7 @@ async function getChainLogo(coingeckoId) {
 
 async function getNametagsBatch(addresses) {
   const uniqueAddresses = [...new Set(addresses.map(addr => addr.toLowerCase()).filter(isAddress))];
-  logger.info(`Fetching nametags for ${uniqueAddresses.length} addresses`, { addresses: uniqueAddresses.slice(0, 5) });
+  logger.info(`Fetching nametags for ${uniqueAddresses.length} addresses`);
   const nametags = {};
   if (uniqueAddresses.length === 0) {
     logger.info('No valid addresses provided for nametag fetch.');
@@ -314,7 +356,7 @@ async function getNametagsBatch(addresses) {
     logger.info(`Fetched ${Object.keys(nametags).length} nametags, Unknown: ${Object.values(nametags).filter(tag => tag.name === 'Unknown').length}`);
     return nametags;
   } catch (error) {
-    logger.error(`Error fetching nametags: ${error.message}`, { stack: error.stack, addresses: uniqueAddresses.slice(0, 5) });
+    logger.error(`Error fetching nametags: ${error.message}`, { stack: error.stack });
     uniqueAddresses.forEach(addr => {
       nametags[addr] = {
         address: addr,
@@ -369,7 +411,6 @@ async function fetchBlockchainData(walletAddress, dataType, isTestnet, limit, ch
         contractAddress: null,
       }));
     } else {
-      // Fetch native transactions (txlist)
       const nativeResponse = await fetchWithRateLimit(
         `${chain.apiUrl}?module=account&action=txlist&address=${walletAddress}&sort=desc&apikey=${chain.apiKey}&page=1&offset=${limit}`
       );
@@ -387,7 +428,6 @@ async function fetchBlockchainData(walletAddress, dataType, isTestnet, limit, ch
         contractAddress: null,
       }));
 
-      // Fetch token transactions (tokentx)
       const tokenResponse = await fetchWithRateLimit(
         `${chain.apiUrl}?module=account&action=tokentx&address=${walletAddress}&sort=desc&apikey=${chain.apiKey}&page=1&offset=${limit}`
       );
@@ -420,20 +460,32 @@ export async function POST(request) {
   const referer = request.headers.get('referer');
   logger.info(`Request to /api/get-transactions from IP ${ip}`, { origin, timestamp: new Date().toISOString() });
 
-  // Check CORS
+  // 1. Check CORS
   if (!isAllowedOrigin(origin, referer)) {
     await trackViolation(ip, 'CORS blocked');
     return NextResponse.json({ error: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders });
   }
 
-  // Check IP ban
+  // 2. Check IP ban (nội bộ)
   try {
     await checkIPBan(ip);
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 403, headers: securityHeaders });
   }
 
-  // Check rate limit
+  // 3. Check IP reputation (ipinfo.io)
+  try {
+    const isSafeIp = await checkIp(ip);
+    if (!isSafeIp) {
+      await trackViolation(ip, 'Suspicious IP');
+      return NextResponse.json({ error: 'Suspicious IP detected' }, { status: 403, headers: securityHeaders });
+    }
+  } catch (err) {
+    logger.error(`IP reputation check failed for ${ip}: ${err.message}`);
+    // Cho phép đi tiếp nếu checkIp lỗi (fail-open) để tránh chặn toàn bộ request khi ipinfo.io down
+  }
+
+  // 4. Check rate limit
   try {
     await checkRateLimit(ip);
   } catch (err) {
@@ -441,6 +493,7 @@ export async function POST(request) {
     return NextResponse.json({ error: err.message }, { status: 429, headers: securityHeaders });
   }
 
+  // 5. Parse body
   let body;
   try {
     body = await request.json();
@@ -466,40 +519,15 @@ export async function POST(request) {
   if (!isValidAddress) {
     logger.error(`Invalid wallet address: ${wallet_address} for chain ${chain}`, { ip });
     await trackViolation(ip, 'Invalid wallet address');
-    return NextResponse.json({ error: 'Wallet address is required and must be valid for the selected chain.' }, { status: 400, headers: securityHeaders });
+    return NextResponse.json(
+      { error: 'Wallet address is required and must be valid for the selected chain.' },
+      { status: 400, headers: securityHeaders }
+    );
   }
 
   const lowerWalletAddress = wallet_address.toLowerCase();
-  const apiKey = request.headers.get('x-api-key') || process.env.INTERNAL_API_TOKEN || 'default-api-key';
-  const signature = request.headers.get('x-hmac-signature');
-
-  const session = await auth();
-  const { isValid, isPremium } = await verifyApiKey(apiKey, session);
-  if (!isValid) {
-    logger.error(`Invalid API key: ${apiKey}`, { ip });
-    await trackViolation(ip, 'Invalid API key');
-    return NextResponse.json({ error: 'Unauthorized: Invalid API key.' }, { status: 401, headers: securityHeaders });
-  }
-
-  if (!signature || !(await verifyHmacSignature(body, signature, process.env.HMAC_SECRET || crypto.randomBytes(32).toString('hex')))) {
-    logger.warn(`Unauthorized: Invalid HMAC signature for wallet ${lowerWalletAddress}`, { ip });
-    await trackViolation(ip, 'Invalid HMAC signature');
-    return NextResponse.json({ error: 'Unauthorized: Invalid HMAC signature.' }, { status: 401, headers: securityHeaders });
-  }
-
-  if (!isPremium && chain !== '1') {
-    logger.warn(`Non-Premium user attempted to access chain ${chain}`, { ip });
-    await trackViolation(ip, 'Non-Premium chain access');
-    return NextResponse.json({ error: 'Premium account required to access chains other than Ethereum.' }, { status: 403, headers: securityHeaders });
-  }
-
   const validLimits = [100, 200, 300, 500];
   const selectedLimit = validLimits.includes(Number(limit)) ? Number(limit) : 100;
-  if (!isPremium && selectedLimit > 100) {
-    logger.warn(`Non-Premium user attempted to use limit ${selectedLimit}`, { ip });
-    await trackViolation(ip, 'Non-Premium limit exceed');
-    return NextResponse.json({ error: 'Premium account required to fetch more than 100 transactions.' }, { status: 403, headers: securityHeaders });
-  }
 
   return new NextResponse(
     new ReadableStream({
@@ -507,7 +535,7 @@ export async function POST(request) {
         try {
           logger.info(`Fetching transactions for ${lowerWalletAddress} on ${chain} with limit ${selectedLimit}...`, { ip });
           const txData = await fetchBlockchainData(lowerWalletAddress, 'transactions', false, selectedLimit, chain);
-          logger.info(`Raw blockchain data: ${JSON.stringify(txData.slice(0, 5))}...`, { totalTxs: txData.length });
+          logger.info(`Raw blockchain data: ${txData.length} transactions`);
 
           const uniqueTxData = Array.from(new Map(txData.map((tx) => [tx.hash, tx])).values());
           const incomingTxs = uniqueTxData
@@ -519,18 +547,18 @@ export async function POST(request) {
 
           logger.info(`Processed ${incomingTxs.length} incoming and ${outgoingTxs.length} outgoing transactions`, { ip });
 
-
-
           const chainLogo = await getChainLogo(SUPPORTED_CHAINS[chain].coingeckoId);
 
           let incomingTxsWithNametags = [];
           let outgoingTxsWithNametags = [];
           let walletInfo = {
             address: lowerWalletAddress,
-            nametag: ['solana', 'tron'].includes(chain) ? lowerWalletAddress.slice(0, 6) + '...' + lowerWalletAddress.slice(-4) : 'Unknown',
+            nametag: ['solana', 'tron'].includes(chain)
+              ? lowerWalletAddress.slice(0, 6) + '...' + lowerWalletAddress.slice(-4)
+              : 'Unknown',
             image: '/icons/default.png',
             chainLogo,
-            isPremium,
+            isPremium: false, // API công khai, không có Premium
           };
 
           if (!['solana', 'tron'].includes(chain)) {
@@ -583,7 +611,7 @@ export async function POST(request) {
               nametag: nametags[lowerWalletAddress]?.name || 'Unknown',
               image: nametags[lowerWalletAddress]?.image || '/icons/default.png',
               chainLogo,
-              isPremium,
+              isPremium: false,
             };
           } else {
             incomingTxsWithNametags = incomingTxs.map((tx) => ({
@@ -624,11 +652,13 @@ export async function POST(request) {
           }
 
           logger.info(`Fetched ${incomingTxsWithNametags.length} incoming and ${outgoingTxsWithNametags.length} outgoing transactions for ${lowerWalletAddress}`, { ip });
-          controller.enqueue(JSON.stringify({
-            incoming: incomingTxsWithNametags,
-            outgoing: outgoingTxsWithNametags,
-            wallet: walletInfo,
-          }));
+          controller.enqueue(
+            JSON.stringify({
+              incoming: incomingTxsWithNametags,
+              outgoing: outgoingTxsWithNametags,
+              wallet: walletInfo,
+            })
+          );
           controller.close();
         } catch (err) {
           logger.error(`Error fetching transactions for ${lowerWalletAddress}: ${err.message}`, { stack: err.stack, ip });

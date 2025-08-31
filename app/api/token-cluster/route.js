@@ -1,34 +1,50 @@
+// app\api\token-cluster\route.js
 import { NextResponse } from 'next/server';
 import { query } from '../../../utils/postgres';
 import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
 
+// ================= Redis Client =================
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
-    redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-    redisClient.on('error', (err) => logger.error('Redis Client Error', err));
+    const redisUrl = process.env.REDIS_URL;
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (!redisUrl) {
+      logger.error('REDIS_URL is not defined in environment variables');
+      throw new Error('Server configuration error: REDIS_URL is required');
+    }
+    if (isProduction && (!redisUrl.startsWith('rediss://') || !redisUrl.includes('@'))) {
+      logger.error('Invalid REDIS_URL: Must use rediss:// protocol with authentication in production');
+      throw new Error('Server configuration error: Invalid REDIS_URL for production');
+    }
+    if (!isProduction && !redisUrl.startsWith('redis://') && !redisUrl.startsWith('rediss://')) {
+      logger.error('Invalid REDIS_URL: Must use redis:// or rediss:// protocol in development');
+      throw new Error('Server configuration error: Invalid REDIS_URL for development');
+    }
+    redisClient = createClient({ url: redisUrl });
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message, stack: err.stack }));
     await redisClient.connect();
-    logger.info('Redis connected');
+    logger.info('Redis connected', { timestamp: new Date().toISOString() });
   }
   if (!redisClient.isOpen) {
     await redisClient.connect();
-    logger.info('Redis reconnected');
+    logger.info('Redis reconnected', { timestamp: new Date().toISOString() });
   }
   return redisClient;
 }
 
+// ================= Allowed Origins =================
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  'http://localhost:3000',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
-  ...(process.env.VERCEL_ENV === 'production' ? [] : ['https://*.vercel.app']),
-].filter((v, i, a) => a.indexOf(v) === i);
+  ...(process.env.NODE_ENV === 'production' ? [] : ['https://[a-z0-9-]+\.vercel\.app']),
+].filter((v, i, a) => v && a.indexOf(v) === i);
 
-const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
+const vercelPreviewRegex = /^https:\/\/[a-z0-9-]+\.vercel\.app$/;
 
 const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self' https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net",
@@ -42,30 +58,35 @@ const securityHeaders = {
 
 function isAllowedOrigin(origin, referer) {
   if (!origin && !referer) {
-    logger.info('No Origin or Referer (likely SSR or server-to-server), allowing request');
+    logger.info('No Origin or Referer (likely SSR or server-to-server), allowing request', { timestamp: new Date().toISOString() });
     return true;
   }
   const checkOrigin = origin || (referer ? new URL(referer).origin : null);
   if (!checkOrigin) {
-    logger.info('No valid Origin or Referer, allowing for SSR compatibility');
+    logger.info('No valid Origin or Referer, allowing for SSR compatibility', { timestamp: new Date().toISOString() });
     return true;
   }
   const isAllowed = allowedOrigins.some((allowed) =>
-    allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
+    allowed.includes('[a-z0-9-]+\.vercel\.app')
+      ? new RegExp('^https://[a-z0-9-]+\.vercel\.app$').test(checkOrigin)
+      : allowed === checkOrigin
   ) || vercelPreviewRegex.test(checkOrigin);
-  logger.info(`Origin check: ${checkOrigin}, Allowed: ${isAllowed}`);
+  logger.info(`Origin check: ${checkOrigin}, Allowed: ${isAllowed}`, { timestamp: new Date().toISOString() });
   return isAllowed;
 }
 
+// ================= IP Ban Logic =================
 async function banIP(ip, durationSeconds = 1800) {
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
+  logger.info(`IP banned: ${ip} for ${durationSeconds} seconds`, { timestamp: new Date().toISOString() });
 }
 
 async function checkIPBan(ip) {
   const redisClient = await getRedisClient();
   const isBanned = await redisClient.get(`banned_ip:${ip}`);
   if (isBanned) {
+    logger.error(`IP ban detected: ${ip}`, { timestamp: new Date().toISOString() });
     throw new Error('IP temporarily banned due to excessive violations.');
   }
 }
@@ -73,51 +94,54 @@ async function checkIPBan(ip) {
 async function trackViolation(ip, reason = 'Unknown') {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 100;
+  const maxViolations = 20;
   const windowMs = 30 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
 
   if (['CORS blocked', 'Missing or invalid exchange parameter'].includes(reason)) {
-    logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}, violations: ${violations}`);
+    logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}, violations: ${violations}`, { timestamp: new Date().toISOString() });
     return;
   }
 
   if (violations >= maxViolations) {
     await banIP(ip, 1800);
-    logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
+    logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`, { timestamp: new Date().toISOString() });
     throw new Error('IP temporarily banned due to excessive violations.');
   }
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
-  logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
+  logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`, { timestamp: new Date().toISOString() });
 }
 
+// ================= Rate Limiting =================
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:token_cluster:${ip}`;
-  const requests = Number.parseInt(await redisClient.get(key)) || 0;
-  const windowMs = 60 * 1000; // 1 minute
   const maxRequests = process.env.NODE_ENV === 'development' ? 100 : 50;
+  const windowMs = 60 * 1000; // 1 minute
+  const requests = parseInt(await redisClient.get(key)) || 0;
   if (requests >= maxRequests) {
+    logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`, { timestamp: new Date().toISOString() });
     throw new Error('Too many requests, please try again later.');
   }
-  await redisClient.multi()
-    .incr(key)
-    .expire(key, windowMs / 1000)
-    .exec();
+  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`, { timestamp: new Date().toISOString() });
 }
 
+// ================= Retry Logic =================
 async function withRetry(fn, retries = 2, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
       return await fn();
     } catch (err) {
       if (i === retries - 1) throw err;
-      logger.warn(`Operation failed, retrying after ${delay}ms`, { attempt: i + 1, error: err.message });
+      logger.warn(`Operation failed, retrying after ${delay}ms`, { attempt: i + 1, error: err.message, timestamp: new Date().toISOString() });
       await new Promise((resolve) => setTimeout(resolve, delay));
+      delay *= 2; // Exponential backoff
     }
   }
 }
 
+// ================= Exchange Mapping =================
 const EXCHANGE_MAPPING = {
   okex: 'okx',
   bybit_spot: 'bybit',
@@ -135,27 +159,53 @@ function mapExchangeName(exchangeId) {
   return EXCHANGE_MAPPING[exchangeId.toLowerCase()] || exchangeId.toLowerCase();
 }
 
+// ================= BTC Price Caching =================
 async function fetchBtcPrice() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  const redisClient = await getRedisClient();
+  const cacheKey = 'btc_price_usd';
+  const cacheTTL = 300; // 5 minutes
+
   try {
+    const cachedPrice = await redisClient.get(cacheKey);
+    if (cachedPrice) {
+      logger.info('Cache hit for BTC price', { price: cachedPrice, timestamp: new Date().toISOString() });
+      return parseFloat(cachedPrice);
+    }
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     const response = await fetch(`${apiUrl}/api/coingecko?action=coin-details&id=bitcoin`, {
       headers: { 'Content-Type': 'application/json' },
     });
     const result = await response.json();
     if (response.ok && result.data?.market_data?.current_price?.usd) {
-      logger.info('Fetched BTC price:', { price: result.data.market_data.current_price.usd });
-      return result.data.market_data.current_price.usd;
+      const price = result.data.market_data.current_price.usd;
+      await redisClient.setEx(cacheKey, cacheTTL, price.toString());
+      logger.info('Fetched and cached BTC price', { price, timestamp: new Date().toISOString() });
+      return price;
     }
     throw new Error('Failed to fetch BTC price');
   } catch (error) {
-    await trackViolation(null, `Error fetching BTC price: ${error.message}`);
-    logger.error('Error fetching BTC price:', { error: error.message, stack: error.stack });
+    await trackViolation(null, 'Error fetching BTC price');
+    logger.error('Error fetching BTC price', { error: error.message, stack: error.stack, timestamp: new Date().toISOString() });
     return 0; // Fallback to 0 to avoid breaking the query
   }
 }
 
+// ================= Main GET Handler =================
 export async function GET(request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  // Handle IP spoofing by validating x-forwarded-for
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const ip = forwardedFor
+    ? forwardedFor.split(',')[0].trim()
+    : request.headers.get('x-real-ip') || 'unknown';
+  if (!ip || ip === 'unknown' || !/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|^[0-9a-f:]+$/i.test(ip)) {
+    logger.warn('Invalid or missing IP address', { forwardedFor, ip, timestamp: new Date().toISOString() });
+    return NextResponse.json(
+      { success: false, detail: 'Invalid request source' },
+      { status: 400, headers: securityHeaders }
+    );
+  }
+
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
   const params = Object.fromEntries(request.nextUrl.searchParams);
@@ -163,7 +213,7 @@ export async function GET(request) {
 
   const corsHeaders = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    'Access-Control-Allow-Origin': isAllowedOrigin(origin, referer) ? (origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') : '',
     'Access-Control-Allow-Methods': 'GET',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Credentials': 'true',
@@ -172,13 +222,13 @@ export async function GET(request) {
 
   if (!isAllowedOrigin(origin, referer)) {
     await trackViolation(ip, 'CORS blocked');
-    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
+    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`, { timestamp: new Date().toISOString() });
     return NextResponse.json({ success: false, detail: 'Not allowed by CORS' }, { status: 403, headers: corsHeaders });
   }
 
   if (!exchange || typeof exchange !== 'string' || exchange.trim() === '') {
     await trackViolation(ip, 'Missing or invalid exchange parameter');
-    logger.warn(`Missing or invalid exchange parameter: ${exchange}`, { ip });
+    logger.warn(`Missing or invalid exchange parameter: ${exchange}`, { ip, timestamp: new Date().toISOString() });
     return NextResponse.json({ success: false, detail: 'Missing or invalid exchange parameter' }, { status: 400, headers: corsHeaders });
   }
 
@@ -186,9 +236,9 @@ export async function GET(request) {
     await checkIPBan(ip);
     await checkRateLimit(ip);
   } catch (err) {
-    await trackViolation(ip, err.message);
-    logger.error(`Rate limit or IP ban error: ${err.message}`);
-    return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers: corsHeaders });
+    await trackViolation(ip, 'Rate limit or IP ban error');
+    logger.error(`Rate limit or IP ban error`, { ip, error: err.message, timestamp: new Date().toISOString() });
+    return NextResponse.json({ success: false, detail: 'Request limit exceeded or IP banned' }, { status: 429, headers: corsHeaders });
   }
 
   try {
@@ -198,12 +248,12 @@ export async function GET(request) {
     const cachedData = await withRetry(async () => await redisClient.get(cacheKey));
 
     if (cachedData) {
-      logger.info(`Cache hit for exchange: ${mappedExchange}`, { ip });
+      logger.info(`Cache hit for exchange: ${mappedExchange}`, { ip, timestamp: new Date().toISOString() });
       return NextResponse.json(JSON.parse(cachedData), { headers: corsHeaders });
     }
 
     const btcPrice = await fetchBtcPrice();
-    logger.info('BTC price for calculations:', { btcPrice });
+    logger.info('BTC price for calculations:', { btcPrice, timestamp: new Date().toISOString() });
 
     const portfolioQuery = `
       WITH wallet_tokens AS (
@@ -262,7 +312,7 @@ export async function GET(request) {
       LIMIT 50
     `;
     const portfolioResult = await withRetry(async () => await query(portfolioQuery, [mappedExchange]));
-    logger.info('Portfolio result from wallet_holders:', { rows: portfolioResult.rows });
+    logger.info('Portfolio result from wallet_holders:', { rows: portfolioResult.rows.length, timestamp: new Date().toISOString() });
 
     const bitcoinPortfolioQuery = `
       SELECT 
@@ -294,7 +344,7 @@ export async function GET(request) {
       LIMIT 50
     `;
     const bitcoinPortfolioResult = await withRetry(async () => await query(bitcoinPortfolioQuery, [mappedExchange, btcPrice]));
-    logger.info('Bitcoin portfolio result:', { rows: bitcoinPortfolioResult.rows });
+    logger.info('Bitcoin portfolio result:', { rows: bitcoinPortfolioResult.rows.length, timestamp: new Date().toISOString() });
 
     const walletQuery = `
       SELECT 
@@ -312,7 +362,7 @@ export async function GET(request) {
       LIMIT 100
     `;
     const walletResult = await withRetry(async () => await query(walletQuery, [mappedExchange]));
-    logger.info('Wallet result from wallet_holders:', { rows: walletResult.rows });
+    logger.info('Wallet result from wallet_holders:', { rows: walletResult.rows.length, timestamp: new Date().toISOString() });
 
     const bitcoinWalletQuery = `
       SELECT 
@@ -331,7 +381,7 @@ export async function GET(request) {
       LIMIT 100
     `;
     const bitcoinWalletResult = await withRetry(async () => await query(bitcoinWalletQuery, [mappedExchange, btcPrice]));
-    logger.info('Bitcoin wallet result:', { rows: bitcoinWalletResult.rows });
+    logger.info('Bitcoin wallet result:', { rows: bitcoinWalletResult.rows.length, timestamp: new Date().toISOString() });
 
     if (
       portfolioResult.rows.length === 0 &&
@@ -340,9 +390,9 @@ export async function GET(request) {
       bitcoinWalletResult.rows.length === 0
     ) {
       await trackViolation(ip, `No data found for exchange: ${exchange}`);
-      logger.warn(`No data found for exchange: ${exchange} (mapped to: ${mappedExchange})`, { ip });
+      logger.warn(`No data found for exchange: ${exchange} (mapped to: ${mappedExchange})`, { ip, timestamp: new Date().toISOString() });
       return NextResponse.json(
-        { success: false, detail: `No portfolio or wallet data found for exchange: ${exchange}` },
+        { success: false, detail: 'No portfolio or wallet data found for the specified exchange' },
         { status: 404, headers: corsHeaders }
       );
     }
@@ -398,12 +448,16 @@ export async function GET(request) {
       ip,
       portfolioCount: portfolioResult.rows.length + bitcoinPortfolioResult.rows.length,
       walletCount: walletResult.rows.length + bitcoinWalletResult.rows.length,
+      timestamp: new Date().toISOString(),
     });
 
     return NextResponse.json(responseData, { headers: corsHeaders });
   } catch (error) {
-    await trackViolation(ip, `Error in token-cluster API: ${error.message}`);
-    logger.error(`Error in token-cluster API: ${error.message}`, { ip, stack: error.stack });
-    return NextResponse.json({ success: false, detail: `Error: ${error.message}` }, { status: 500, headers: corsHeaders });
+    await trackViolation(ip, 'Internal server error');
+    logger.error(`Error in token-cluster API`, { error: error.message, stack: error.stack, ip, timestamp: new Date().toISOString() });
+    return NextResponse.json(
+      { success: false, detail: 'Internal server error' },
+      { status: 500, headers: corsHeaders }
+    );
   }
 }
