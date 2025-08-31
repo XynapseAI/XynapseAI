@@ -257,18 +257,73 @@
   }
 
   .market-tab-container {
-      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease;
+  }
+
+  .trending-container {
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+      border-radius: 12px;
+      padding: 4px 8px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
 
   /* Ensure tab content is scrollable */
   .tab-content {
-      overflow-y: auto;
+      padding: 12px;
   }
 
-  /* Ensure table containers are scrollable */
   .table-container {
-      overflow-x: auto;
-      overflow-y: auto;
+      padding: 0 8px;
+  }
+
+  .table-container table {
+      border-collapse: separate;
+      border-spacing: 0 4px;
+  }
+
+  .table-container tr {
+      background: rgba(255, 255, 255, 0.03);
+      transition: transform 0.3s ease, background 0.3s ease;
+  }
+
+  .table-container tr:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 0.08);
+  }
+
+  .chart-container {
+      position: relative;
+      overflow: hidden;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+
+  .glass-card {
+      background: rgba(28, 2, 2, 0.6);
+      backdrop-filter: blur(5px);
+      border-radius: 12px;
+      border: 1px solid rgba(61, 35, 102, 0.1);
+      box-shadow: 0 4px 16px rgba(12, 10, 27, 0.2);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .glass-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  }
+
+  .header-icon {
+      filter: brightness(0) invert(1);
+      transition: transform 0.3s ease;
+  }
+
+  .header-icon:hover {
+      transform: scale(1.2);
   }
 
   /* Hide scrollbar for all scrollable elements */

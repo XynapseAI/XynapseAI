@@ -8,6 +8,8 @@ import rateLimit from 'axios-rate-limit';
 import pLimit from 'p-limit';
 import { GECKOTERMINAL_CHAIN_MAPPING, SUPPORTED_CHAINS, CHAIN_MAPPING } from '../utils/constants';
 import btcNameTags from '../public/nametags/btc-top-holders.json';
+import bnbNameTags from '../public/nametags/bnb-top-holders.json';
+import ethNameTags from '../public/nametags/eth-top-holders.json';
 import useSWR from 'swr';
 import Bottleneck from 'bottleneck';
 import axiosRetry from 'axios-retry';
@@ -771,7 +773,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
         const normalizedTokenSymbol = tokenSymbol?.toLowerCase();
         if (!NON_EVM_CHAINS.includes(normalizedTokenSymbol)) {
-          setOnChainError(`Unsupported chain: ${normalizedTokenSymbol}`);
+          setOnChainError(`Không hỗ trợ chain: ${normalizedTokenSymbol}`);
           setIsLoadingOnChain(false);
           return;
         }
@@ -781,14 +783,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         setIsLoadingOnChain(true);
         setOnChainError(null);
 
-        // Check local cache first
+        // Kiểm tra cache cục bộ trước
         const cachedData = localCache.current[cacheKey]?.data;
         if (cachedData) {
           setOnChainData((prev) => ({
             ...prev,
             topHolders: cachedData,
           }));
-          console.log(`Using cached top holders for ${chain}`);
+          console.log(`Sử dụng cache cục bộ cho top holders của ${chain}`);
         }
 
         try {
@@ -808,18 +810,63 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             );
 
             if (!blockchairResponse.data.success || !Array.isArray(blockchairResponse.data.data)) {
-              throw new Error(blockchairResponse.data.detail || `No top holders data for ${chain}`);
+              throw new Error(blockchairResponse.data.detail || `Không có dữ liệu top holders cho ${chain}`);
             }
 
+            // Ánh xạ dữ liệu từ Blockchair, sử dụng đúng nameTags cho chain
             let topHolders = blockchairResponse.data.data.map((holder) => ({
               address: holder.address,
               balance: parseFloat(holder.balance) || 0,
               share: parseFloat(holder.share) || 0,
-              nameTag: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
-              image: btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.image || null,
+              nameTag:
+                chain === 'bitcoin'
+                  ? btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null
+                  : chain === 'ethereum'
+                    ? ethNameTags[holder.address.toLowerCase()]?.Labels?.ethereum?.['Name Tag'] || null
+                    : null,
+              image:
+                chain === 'bitcoin'
+                  ? btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.image || null
+                  : chain === 'ethereum'
+                    ? ethNameTags[holder.address.toLowerCase()]?.Labels?.ethereum?.image || null
+                    : null,
               source: 'Blockchair',
             }));
 
+            // Hợp nhất với eth-top-holders.json cho Ethereum
+            if (chain === 'ethereum') {
+              const jsonHolders = Object.values(ethNameTags).map((holder) => ({
+                address: holder.Address.toLowerCase(),
+                balance: parseFloat(holder.Balance) || 0,
+                share: 0, // JSON không cung cấp share, đặt là 0
+                nameTag: holder.Labels['ethereum']?.['Name Tag'] || null,
+                image: holder.Labels['ethereum']?.image || null,
+                source: 'JSON',
+              }));
+
+              // Hợp nhất holders từ Blockchair và JSON, loại bỏ trùng lặp theo địa chỉ
+              const uniqueAddresses = new Set();
+              topHolders = [
+                ...topHolders.filter((holder) => {
+                  const addr = holder.address.toLowerCase();
+                  if (!uniqueAddresses.has(addr)) {
+                    uniqueAddresses.add(addr);
+                    return true;
+                  }
+                  return false;
+                }),
+                ...jsonHolders.filter((holder) => {
+                  const addr = holder.address.toLowerCase();
+                  if (!uniqueAddresses.has(addr)) {
+                    uniqueAddresses.add(addr);
+                    return true;
+                  }
+                  return false;
+                }),
+              ];
+            }
+
+            // Lấy dữ liệu treasury từ CoinGecko cho Bitcoin hoặc Ethereum
             if (['bitcoin', 'ethereum'].includes(chain)) {
               try {
                 const coingeckoResponse = await coingeckoAxios.get(`${API_BASE_URL}/api/coingecko`, {
@@ -840,19 +887,30 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                     source: 'CoinGecko',
                   }));
 
+                  // Loại bỏ các địa chỉ trùng lặp từ CoinGecko
                   const uniqueAddresses = new Set(topHolders.map((holder) => holder.address.toLowerCase()));
                   topHolders = [
                     ...topHolders,
-                    ...treasuryData.filter((company) => !uniqueAddresses.has(company.address.toLowerCase())),
-                  ].sort((a, b) => b.balance - a.balance).slice(0, 100);
+                    ...treasuryData.filter((company) => {
+                      const addr = company.address.toLowerCase();
+                      if (!uniqueAddresses.has(addr)) {
+                        uniqueAddresses.add(addr);
+                        return true;
+                      }
+                      return false;
+                    }),
+                  ];
                 }
               } catch (coingeckoError) {
-                console.warn(`CoinGecko treasury fetch failed for ${chain}:`, coingeckoError.message);
+                console.warn(`Lấy dữ liệu treasury từ CoinGecko thất bại cho ${chain}:`, coingeckoError.message);
               }
             }
 
+            // Sắp xếp theo balance và lấy top 100
+            topHolders = topHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
+
             if (topHolders.length === 0) {
-              throw new Error(`No top holders data available for ${chain}`);
+              throw new Error(`Không có dữ liệu top holders cho ${chain}`);
             }
 
             return topHolders;
@@ -866,8 +924,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         } catch (error) {
           const errorMessage =
             error.response?.status === 429
-              ? 'API rate limit exceeded. Please try again later.'
-              : error.response?.data?.detail || `Failed to fetch top holders for ${chain}`;
+              ? 'Vượt quá giới hạn API. Vui lòng thử lại sau.'
+              : error.response?.data?.detail || `Không thể lấy dữ liệu top holders cho ${chain}`;
           setOnChainError(errorMessage);
           if (retryCount < 3) {
             const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
@@ -875,7 +933,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             fetchPublicTreasuryData(tokenSymbol, retryCount + 1);
           } else {
             toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-            // Keep cached data if available
+            // Giữ dữ liệu cache nếu có
             if (!cachedData) {
               setOnChainData((prev) => ({
                 ...prev,
@@ -2503,7 +2561,45 @@ Use natural, professional tone with recent data.
               return data;
             };
 
-            return await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TOP_HOLDERS);
+            let holders = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TOP_HOLDERS);
+
+            // If chain is 'bnb', merge with bnb-top-holders.json
+            if (chain === 'bnb') {
+              const jsonHolders = Object.values(bnbNameTags).map((holder) => ({
+                address: holder.Address.toLowerCase(),
+                balance: parseFloat(holder.Balance) || 0,
+                nameTag: holder.Labels['binance-smart-chain']?.['Name Tag'] || null,
+                image: holder.Labels['binance-smart-chain']?.image || null,
+                source: 'JSON',
+                chain: 'bnb',
+              }));
+
+              // Merge holders from API and JSON, remove duplicates by address
+              const uniqueAddresses = new Set();
+              const mergedHolders = [
+                ...holders.filter((holder) => {
+                  const addr = holder.address.toLowerCase();
+                  if (!uniqueAddresses.has(addr)) {
+                    uniqueAddresses.add(addr);
+                    return true;
+                  }
+                  return false;
+                }),
+                ...jsonHolders.filter((holder) => {
+                  const addr = holder.address.toLowerCase();
+                  if (!uniqueAddresses.has(addr)) {
+                    uniqueAddresses.add(addr);
+                    return true;
+                  }
+                  return false;
+                }),
+              ];
+
+              // Sort by balance and take top 100
+              holders = mergedHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
+            }
+
+            return holders;
           } catch (error) {
             console.error(`Error fetching top holders for ${chain}: ${error.message}`);
             return [];

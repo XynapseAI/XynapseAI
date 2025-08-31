@@ -621,10 +621,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               <div className="relative" ref={chainDropdownRef}>
                 <motion.button
                   onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-                  className={`text-white px-1.5 sm:px-2 py-1 sm:py-1 text-[8px] sm:text-[10px] flex items-center gap-1 sm:gap-2 border-2 border-white/20 bg-white/5 hover:bg-white/10 transition-all duration-300 rounded-lg min-w-[120px] ${selectedToken?.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase())
+                  className={`glass-card text-white px-1.5 sm:px-2 py-1 sm:py-1 text-[8px] sm:text-[10px] flex items-center gap-1 sm:gap-2 border-2 border-white/20 bg-white/5 hover:bg-white/10 transition-all duration-300 rounded-lg min-w-[120px] ${selectedToken?.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase())
                     ? "opacity-50 cursor-not-allowed"
                     : ""
-                    }`}
+                    }`} 
                   disabled={
                     !selectedToken ||
                     (selectedToken.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase()))
@@ -664,7 +664,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 </motion.button>
                 {isChainDropdownOpen && (
                   <motion.div
-                    className="absolute z-50 mt-2 w-32 sm:w-48 max-h-48 sm:max-h-64 overflow-y-auto border border-white/20 bg-black/90 backdrop-blur-2xl rounded-lg shadow-2xl"
+                    className="glass-card absolute z-50 mt-2 w-32 sm:w-48 max-h-48 sm:max-h-64 overflow-y-auto border border-white/20 bg-black/90 backdrop-blur-2xl rounded-lg shadow-2xl"
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
@@ -887,7 +887,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     </motion.button>
                     {isDropdownOpen && (
                       <motion.div
-                        className="absolute bg-black/95 backdrop-blur-2xl mt-2 w-full max-h-40 sm:max-h-48 overflow-y-auto border border-white/20 rounded-lg shadow-2xl z-50 hide-scrollbar"
+                        className="glass-card absolute bg-black/95 mt-2 w-full max-h-40 sm:max-h-48 overflow-y-auto border border-white/20 rounded-lg shadow-2xl z-50 hide-scrollbar"
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2 }}
