@@ -1,4 +1,3 @@
-// components/ProfileTab.jsx
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -63,20 +62,19 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     setIsSigningOut(false);
   };
 
-  // Execute reCAPTCHA
+  // Execute reCAPTCHA (only for user-sensitive actions)
   const debouncedExecuteRecaptcha = useCallback(
-    async (action, retries = 2) => { // Giảm số lần retry từ 4 xuống 2 để giảm thời gian chờ
+    async (action, retries = 2) => {
       if (process.env.NODE_ENV === 'development') return 'development-token';
       if (!recaptchaRef.current) {
         console.error('reCAPTCHA ref is null');
         throw new Error('reCAPTCHA not initialized');
       }
       try {
-        // Đảm bảo reset reCAPTCHA trước khi tạo token mới
         await recaptchaRef.current.reset();
         const token = await Promise.race([
           recaptchaRef.current.executeAsync({ action }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)), // Giảm timeout từ 60s xuống 30s
+          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)), // Giảm timeout xuống 20s
         ]);
         if (!token) throw new Error('Empty reCAPTCHA token');
         console.log(`reCAPTCHA token for ${action}: ${token.substring(0, 10)}...`);
@@ -84,7 +82,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       } catch (error) {
         console.error(`reCAPTCHA error for ${action}: ${error.message}`);
         if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // Giảm độ trễ retry từ 3000ms xuống 1000ms
+          await new Promise((resolve) => setTimeout(resolve, 1000));
           return debouncedExecuteRecaptcha(action, retries - 1);
         }
         throw new Error(`reCAPTCHA failed after ${3 - retries} attempts: ${error.message}`);
@@ -108,7 +106,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     onSuccess: (csrf) => localStorage.setItem('csrfToken', csrf),
   });
 
-  // Fetch User Data
+  // Fetch User Data (keep reCAPTCHA)
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
     queryKey: ['userData', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -168,7 +166,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Fetch Tasks
+  // Fetch Tasks (remove reCAPTCHA)
   const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
     queryKey: ['tasks', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -190,7 +188,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch Task Progress
+  // Fetch Task Progress (keep reCAPTCHA)
   const { data: taskProgress, isLoading: taskProgressLoading, error: taskProgressError } = useQuery({
     queryKey: ['taskProgress', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -214,7 +212,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch Point History
+  // Fetch Point History (remove reCAPTCHA)
   const { data: pointData, isLoading: pointLoading, error: pointError } = useQuery({
     queryKey: ['pointHistory', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -222,23 +220,21 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       const cached = await getCachedData(cacheKey);
       if (cached) return cached;
 
-      const recaptchaToken = await debouncedExecuteRecaptcha('get_point_history');
-      const historyResponse = await axios.get(`/api/point-history?uid=${session.user.id}`, {
+      const response = await axios.get(`/api/point-history?uid=${session.user.id}`, {
         headers: {
           'x-csrf-token': csrfToken,
-          'X-Recaptcha-Token': recaptchaToken,
         },
         withCredentials: true,
       });
 
-      if (!historyResponse.data.success) throw new Error('Invalid point history data.');
-      return historyResponse.data;
+      if (!response.data.success) throw new Error('Invalid point history data.');
+      return response.data;
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch Leaderboard
+  // Fetch Leaderboard (remove reCAPTCHA)
   const { data: rankings, isLoading: leaderboardLoading, error: leaderboardError } = useQuery({
     queryKey: ['leaderboard', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -249,13 +245,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         return cached;
       }
 
-      const token = await debouncedExecuteRecaptcha('connect_data');
-      console.log('Fetching leaderboard with CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
+      console.log('Fetching leaderboard with CSRF:', csrfToken);
       const response = await axios.get('/api/connect-data', {
         headers: {
           'x-csrf-token': csrfToken,
-          'X-Recaptcha-Token': token,
-          'Authorization': `Bearer ${session?.accessToken}`, // Add JWT token
+          'Authorization': `Bearer ${session?.accessToken}`,
         },
         withCredentials: true,
       }).catch(err => {
@@ -277,7 +271,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Connect Twitter
+  // Connect Twitter (keep reCAPTCHA)
   const connectTwitterMutation = useMutation({
     mutationFn: async () => {
       console.log('Initiating Twitter connection for user:', session.user.id);
@@ -289,7 +283,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Disconnect Twitter
+  // Disconnect Twitter (keep reCAPTCHA)
   const disconnectTwitterMutation = useMutation({
     mutationFn: async () => {
       console.log('Initiating Twitter disconnect for user:', session.user.id);
@@ -333,7 +327,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Handle Wallet Connection
+  // Connect Wallet (keep reCAPTCHA)
   const connectWalletMutation = useMutation({
     mutationFn: async () => {
       if (!window.ethereum) throw new Error('Please install MetaMask.');
@@ -364,7 +358,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Handle Wallet Disconnection
+  // Disconnect Wallet (keep reCAPTCHA)
   const disconnectWalletMutation = useMutation({
     mutationFn: async () => {
       const token = await debouncedExecuteRecaptcha('disconnect-wallet');
@@ -392,7 +386,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     [handleSignOut]
   );
 
-  // Handle Task Verification
+  // Handle Task Verification (keep reCAPTCHA)
   const verifyTaskMutation = useMutation({
     mutationFn: async (task) => {
       const token = await debouncedExecuteRecaptcha('verify_task');
@@ -893,7 +887,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       await clearAllCaches(session.user.id);
       console.log('Manual cache cleared');
       toast.success('Cache cleared successfully.', { position: 'top-center', autoClose: 5000 });
-      // Làm mới trang để đảm bảo đồng bộ
       window.location.reload();
     } catch (err) {
       console.error('Error clearing cache:', err);
