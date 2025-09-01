@@ -153,7 +153,8 @@ model users {
   is_premium         Boolean?            @default(false)
   api_key            String?             @unique
   api_key_hash       String? 
-  api_key_salt       String?   
+  api_key_salt       String?
+  api_key_expires_at DateTime?
   created_at         DateTime?           @default(now())
   updated_at         DateTime?           @updatedAt
   last_connected     DateTime?

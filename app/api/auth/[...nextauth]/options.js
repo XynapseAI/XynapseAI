@@ -7,6 +7,7 @@ import { query } from "@/utils/postgres";
 import { logger } from "@/utils/serverLogger";
 import crypto from 'crypto';
 import util from 'util';
+import { encrypt, decrypt } from "@/utils/encryption"; // Thêm import encrypt và decrypt
 
 const scrypt = util.promisify(crypto.scrypt);
 
@@ -17,6 +18,7 @@ async function hashApiKey(apiKey) {
   return {
     api_key_hash: derived.toString('hex'),
     api_key_salt: salt,
+    api_key_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // Thêm expires_at
   };
 }
 
@@ -37,11 +39,19 @@ const customAdapter = {
     const { rows } = await query(
       `SELECT id,email,google_id,google_name,email_verified,profile_picture,
               connected,last_connected,points,tweet_points,ai_points,task_points,
-              is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
+              is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,api_key_expires_at,created_at
        FROM users WHERE email=$1`,
-      [email]
+      [await encrypt(email)] // Mã hóa email khi truy vấn
     );
-    return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
+    if (rows[0]) {
+      return {
+        ...rows[0],
+        id: rows[0].id.toString(),
+        email: rows[0].email ? await decrypt(rows[0].email) : null, // Giải mã email
+        google_id: rows[0].google_id ? await decrypt(rows[0].google_id) : null, // Giải mã google_id
+      };
+    }
+    return null;
   },
   async getUserByAccount({ provider, providerAccountId }) {
     logger.info("Fetching user by account", { provider, providerAccountId });
@@ -51,7 +61,15 @@ const customAdapter = {
        WHERE a.provider=$1 AND a.providerAccountId=$2`,
       [provider, providerAccountId]
     );
-    return rows[0] ? { ...rows[0], id: rows[0].id.toString() } : null;
+    if (rows[0]) {
+      return {
+        ...rows[0],
+        id: rows[0].id.toString(),
+        email: rows[0].email ? await decrypt(rows[0].email) : null, // Giải mã email
+        google_id: rows[0].google_id ? await decrypt(rows[0].google_id) : null, // Giải mã google_id
+      };
+    }
+    return null;
   },
   async createUser(data) {
     const id = data.google_id || data.id || uuidv4();
@@ -59,59 +77,84 @@ const customAdapter = {
 
     // Tạo API key và hash
     const plainApiKey = randomBytes(32).toString("hex");
-    const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
+    const { api_key_hash, api_key_salt, api_key_expires_at } = await hashApiKey(plainApiKey);
+
+    // Mã hóa dữ liệu nhạy cảm
+    const encryptedEmail = data.email ? await encrypt(data.email) : null;
+    const encryptedGoogleId = data.google_id ? await encrypt(data.google_id) : null;
 
     const { rows } = await query(
       `INSERT INTO users (
         id,email,google_id,google_name,email_verified,profile_picture,
         connected,last_connected,points,tweet_points,ai_points,task_points,
-        is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,api_key_expires_at,created_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
       ON CONFLICT (google_id) DO UPDATE SET
         email=$2,google_name=$4,email_verified=$5,profile_picture=$6,connected=$7,
-        last_connected=$8,updated_at=$20
+        last_connected=$8,updated_at=$21
       RETURNING *`,
       [
-        id, data.email, data.google_id || null, data.google_name || null,
+        id, encryptedEmail, encryptedGoogleId, data.google_name || null,
         data.email_verified || false, data.profile_picture || null, true,
         new Date(), 0, 0, 0, 0, false, false, "Basic", false, false,
-        api_key_hash, api_key_salt, new Date(),
+        api_key_hash, api_key_salt, api_key_expires_at, new Date(),
       ]
     );
     logger.info("User created", { id, email: data.email, rowCount: rows.length });
-    return { ...rows[0], id: rows[0].id.toString() };
+    return {
+      ...rows[0],
+      id: rows[0].id.toString(),
+      email: rows[0].email ? await decrypt(rows[0].email) : null,
+      google_id: rows[0].google_id ? await decrypt(rows[0].google_id) : null,
+    };
   },
   async updateUser(data) {
     logger.info("Updating user", { id: data.id });
+    // Mã hóa dữ liệu nhạy cảm
+    const encryptedEmail = data.email ? await encrypt(data.email) : null;
+    const encryptedGoogleId = data.google_id ? await encrypt(data.google_id) : null;
+
     const { rows } = await query(
       `UPDATE users SET email=$2,google_id=$3,google_name=$4,email_verified=$5,
          profile_picture=$6,connected=$7,last_connected=$8,updated_at=$9
        WHERE id=$1 RETURNING *`,
       [
-        data.id, data.email, data.google_id || null, data.google_name || null,
+        data.id, encryptedEmail, encryptedGoogleId, data.google_name || null,
         data.email_verified || false, data.profile_picture || null, true,
         new Date(), new Date(),
       ]
     );
     logger.info("User updated", { id: data.id, rowCount: rows.length });
-    return { ...rows[0], id: rows[0].id.toString() };
+    return {
+      ...rows[0],
+      id: rows[0].id.toString(),
+      email: rows[0].email ? await decrypt(rows[0].email) : null,
+      google_id: rows[0].google_id ? await decrypt(rows[0].google_id) : null,
+    };
   },
   async createVerificationToken({ identifier, expires, token }) {
     logger.info("Creating verification token", { identifier });
+    const encryptedIdentifier = identifier ? await encrypt(identifier) : null;
     const { rows } = await query(
       `INSERT INTO verification_tokens (identifier,token,expires)
        VALUES ($1,$2,$3) RETURNING *`,
-      [identifier, token, expires]
+      [encryptedIdentifier, token, expires]
     );
-    return rows[0];
+    return {
+      ...rows[0],
+      identifier: rows[0].identifier ? await decrypt(rows[0].identifier) : null,
+    };
   },
   async useVerificationToken({ identifier, token }) {
     logger.info("Using verification token", { identifier });
+    const encryptedIdentifier = identifier ? await encrypt(identifier) : null;
     const { rows } = await query(
       `DELETE FROM verification_tokens WHERE identifier=$1 AND token=$2 RETURNING *`,
-      [identifier, token]
+      [encryptedIdentifier, token]
     );
-    return rows[0] || null;
+    return rows[0]
+      ? { ...rows[0], identifier: rows[0].identifier ? await decrypt(rows[0].identifier) : null }
+      : null;
   },
 };
 
@@ -177,9 +220,13 @@ export const authOptions = {
         }
 
         const plainApiKey = randomBytes(32).toString("hex");
-        const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
+        const { api_key_hash, api_key_salt, api_key_expires_at } = await hashApiKey(plainApiKey);
 
-        const existingUser = await query(`SELECT id FROM users WHERE google_id=$1`, [googleId]);
+        // Mã hóa dữ liệu nhạy cảm
+        const encryptedEmail = email ? await encrypt(email) : null;
+        const encryptedGoogleId = googleId ? await encrypt(googleId) : null;
+
+        const existingUser = await query(`SELECT id FROM users WHERE google_id=$1`, [encryptedGoogleId]);
         if (existingUser.rows[0]) {
           userId = existingUser.rows[0].id;
         }
@@ -188,15 +235,15 @@ export const authOptions = {
           `INSERT INTO users (
             id,email,google_id,google_name,email_verified,profile_picture,
             connected,last_connected,points,tweet_points,ai_points,task_points,
-            is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+            is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,api_key_expires_at,created_at
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
           ON CONFLICT (google_id) DO UPDATE SET
             email=$2,google_name=$4,email_verified=$5,profile_picture=$6,connected=$7,
-            last_connected=$8,updated_at=$20
+            last_connected=$8,updated_at=$21
           RETURNING *`,
           [
-            userId, email, googleId, googleName, verified, profilePic, true, new Date(),
-            0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
+            userId, encryptedEmail, encryptedGoogleId, googleName, verified, profilePic, true, new Date(),
+            0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, api_key_expires_at, new Date(),
           ]
         );
 
