@@ -2,24 +2,29 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
-import crypto from 'crypto'; // Đảm bảo import crypto
+import crypto from 'crypto';
 import cookie from 'cookie';
 
-// Initialize Redis client with authentication and TLS
+// Khởi tạo Redis
 const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379',
   socket: {
     tls: process.env.REDIS_URL?.startsWith('rediss://'),
+    connectTimeout: 10000,
   },
 });
 
-
-redisClient.on('error', (err) => logger.error('Redis Client Error', err));
+redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message, stack: err?.stack }));
 if (!redisClient.isOpen) {
-  await redisClient.connect();
+  try {
+    await redisClient.connect();
+    logger.info('Redis connected for CSRF');
+  } catch (err) {
+    logger.error('Redis connect failed for CSRF', { err: err?.message, stack: err?.stack });
+    throw new Error('Redis connection failed');
+  }
 }
 
-// List of allowed origins
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   'http://localhost:3000',
@@ -31,6 +36,7 @@ const allowedOrigins = [
 
 function isAllowedOrigin(origin, referer) {
   try {
+    logger.info('CORS Check for CSRF', { origin, referer, allowedOrigins });
     if (origin) {
       if (allowedOrigins.includes(origin)) {
         return true;
@@ -57,7 +63,7 @@ function isAllowedOrigin(origin, referer) {
     logger.error('CORS blocked', { origin, referer });
     return false;
   } catch (error) {
-    logger.error('Error in isAllowedOrigin', { error: error.message, origin, referer });
+    logger.error('Error in isAllowedOrigin', { error: error.message, stack: error.stack, origin, referer });
     return false;
   }
 }
@@ -67,8 +73,9 @@ async function checkRateLimit(ip) {
   const windowMs = 60 * 1000;
   const maxRequests = process.env.NODE_ENV === 'development' ? 200 : 100;
   const requests = Number(await redisClient.get(key)) || 0;
+  logger.info('CSRF Rate Limit Check', { ip, requests });
   if (requests >= maxRequests) {
-    logger.warn('Rate limit exceeded for CSRF token request', { ip });
+    logger.warn('Rate limit exceeded for CSRF token request', { ip, requests });
     throw new Error('Too many requests, please try again later');
   }
   await redisClient.multi()
@@ -77,7 +84,6 @@ async function checkRateLimit(ip) {
     .exec();
 }
 
-// Cải tiến CSP, tạo nonce trước
 function securityHeaders(nonce) {
   const csp = `
     default-src 'self';
@@ -104,30 +110,32 @@ export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
+  logger.info('GET /api/csrf-token requested', { ip, origin, referer });
 
   if (!isAllowedOrigin(origin, referer)) {
-    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`, { allowedOrigins });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    logger.error('CORS error: Origin not allowed', { origin, referer, allowedOrigins });
+    return NextResponse.json({ detail: 'Not allowed by CORS', errorCode: 'CORS_DENIED' }, { status: 403 });
   }
 
   try {
     await checkRateLimit(ip);
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`);
-    return NextResponse.json({ detail: 'Too many requests' }, { status: 429 });
+    logger.error('Rate limit error', { err: err.message, stack: err.stack });
+    return NextResponse.json({ detail: 'Too many requests', errorCode: 'RATE_LIMIT_EXCEEDED' }, { status: 429 });
   }
 
   const session = await auth();
+  logger.info('Session Check for CSRF', { sessionExists: !!session, userId: session?.user?.id });
   if (!session || !session.user?.id) {
     logger.warn('Session not authenticated', { ip });
-    return NextResponse.json({ detail: 'Not signed in' }, { status: 401 });
+    return NextResponse.json({ detail: 'Not signed in', errorCode: 'UNAUTHENTICATED' }, { status: 401 });
   }
 
   try {
-    // Tạo nonce và CSRF token
     const nonce = crypto.randomBytes(16).toString('base64');
     const csrfToken = crypto.randomBytes(32).toString('hex');
-    await redisClient.setEx(`csrf:${csrfToken}`, 30 * 60, csrfToken); // TTL 30 phút
+    await redisClient.setEx(`csrf:${csrfToken}`, 30 * 60, csrfToken);
+    logger.info('CSRF Token Generated', { csrfToken: mask(csrfToken) });
 
     const headers = new Headers({
       ...securityHeaders(nonce),
@@ -142,13 +150,13 @@ export async function GET(request) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
-      maxAge: 30 * 60, // 30 phút
+      maxAge: 30 * 60,
     }));
 
     return NextResponse.json({ success: true, csrfToken }, { headers });
   } catch (error) {
-    logger.error(`Error processing /api/csrf-token: ${error.message}`, { stack: error.stack, ip });
-    return NextResponse.json({ detail: 'Internal server error' }, { status: 500 });
+    logger.error('Error processing /api/csrf-token', { error: error.message, stack: error.stack, ip });
+    return NextResponse.json({ detail: 'Internal server error', errorCode: 'INTERNAL_SERVER_ERROR' }, { status: 500 });
   }
 }
 

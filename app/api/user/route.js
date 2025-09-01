@@ -21,16 +21,24 @@ const prisma = new PrismaClient({
   },
 });
 
-// Redis client
 const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379',
   socket: {
     tls: process.env.REDIS_URL?.startsWith('rediss://'),
+    connectTimeout: 10000,
   },
 });
 
-redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }));
-await redisClient.connect();
+redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message, stack: err?.stack }));
+if (!redisClient.isOpen) {
+  try {
+    await redisClient.connect();
+    logger.info('Redis connected for user');
+  } catch (err) {
+    logger.error('Redis connect failed for user', { err: err?.message, stack: err?.stack });
+    throw new Error('Redis connection failed');
+  }
+}
 
 const serializeBigInt = (obj) => {
   return JSON.parse(
@@ -43,30 +51,32 @@ async function withRetry(fn, retries = 3, delay = 1000) {
     try {
       return await fn();
     } catch (err) {
+      logger.error('Database retry failed', { attempt: i + 1, error: err.message, stack: err.stack });
       if (i === retries - 1) throw err;
-      logger.warn(`Database connection failed, retrying...`, { attempt: i + 1 });
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
 
 async function checkRateLimit(ip, userId = null) {
-  const windowSeconds = 15 * 60;
+  const windowSeconds = 5 * 60; // Giảm window để debug
   const ipKey = `rate:ip:${ip}`;
   const userKey = userId ? `rate:user:${userId}` : null;
-  const ipMax = process.env.NODE_ENV === 'development' ? 500 : 200;
-  const userMax = process.env.NODE_ENV === 'development' ? 300 : 100;
+  const ipMax = process.env.NODE_ENV === 'development' ? 1000 : 500;
+  const userMax = process.env.NODE_ENV === 'development' ? 500 : 300;
   const ipCount = Number(await redisClient.incr(ipKey));
+  logger.info('Rate Limit Check', { ip, ipCount, userId, userKey });
   if (ipCount === 1) await redisClient.expire(ipKey, windowSeconds);
   if (ipCount > ipMax) {
-    logger.warn('Rate limit exceeded for IP', { ip });
+    logger.warn('Rate limit exceeded for IP', { ip, ipCount });
     throw new Error('Too many requests from this IP');
   }
   if (userKey) {
     const uCount = Number(await redisClient.incr(userKey));
+    logger.info('User Rate Limit Check', { userId, uCount });
     if (uCount === 1) await redisClient.expire(userKey, windowSeconds);
     if (uCount > userMax) {
-      logger.warn('Rate limit exceeded for user', { userId });
+      logger.warn('Rate limit exceeded for user', { userId, uCount });
       throw new Error('Too many requests for this user');
     }
   }
@@ -82,7 +92,7 @@ function isAllowedOrigin(origin, referer) {
     'https://xynapse-ai.vercel.app',
   ].filter(Boolean);
 
-  logger.info('Checking origin', { origin, referer });
+  logger.info('CORS Check', { origin, referer, configured });
 
   try {
     if (origin) {
@@ -98,7 +108,6 @@ function isAllowedOrigin(origin, referer) {
       ) {
         return true;
       }
-      return false;
     }
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
@@ -108,8 +117,8 @@ function isAllowedOrigin(origin, referer) {
       }
       if (
         configured.includes(refOrigin) ||
-        refOrigin.endsWith('xynapseai.net') ||
-        refOrigin.endsWith('.vercel.app')
+        refOrigin.endsWith('.vercel.app') ||
+        refOrigin.endsWith('xynapseai.net')
       ) {
         return true;
       }
@@ -121,7 +130,7 @@ function isAllowedOrigin(origin, referer) {
     logger.error('Invalid origin or referer', { origin, referer });
     return false;
   } catch (err) {
-    logger.error('Error validating origin', { err: err?.message });
+    logger.error('Error validating origin', { err: err?.message, stack: err?.stack });
     return false;
   }
 }
@@ -139,6 +148,7 @@ async function checkDoubleSubmitCSRF(request) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
   const cookieToken = cookies['csrf_token'] || '';
+  logger.info('CSRF Validation', { headerToken: mask(headerToken), cookieToken: mask(cookieToken) });
 
   if (
     process.env.NODE_ENV === 'development' &&
@@ -155,6 +165,7 @@ async function checkDoubleSubmitCSRF(request) {
   }
 
   const storedToken = await redisClient.get(`csrf:${cookieToken}`);
+  logger.info('CSRF Redis Check', { storedToken: mask(storedToken), headerToken: mask(headerToken) });
   if (!storedToken || storedToken !== headerToken) {
     logger.warn('CSRF token invalid or expired', { headerToken: mask(headerToken), cookieToken: mask(cookieToken) });
     return false;
@@ -213,7 +224,6 @@ const postSchema = z.object({
   emailVerified: z.boolean().optional(),
 });
 
-// ---------- GET handler ----------
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -223,30 +233,31 @@ export async function GET(request) {
 
   if (!isAllowedOrigin(origin, referer)) {
     logger.warn('CORS origin not allowed for GET', { origin, referer });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    return NextResponse.json({ detail: 'Not allowed by CORS', errorCode: 'CORS_DENIED' }, { status: 403 });
   }
 
   try {
     const nonce = crypto.randomBytes(16).toString('base64');
     const session = await auth();
     const userId = session?.user?.id || null;
+    logger.info('Session Data', { userId, sessionExists: !!session });
 
     try {
       await checkRateLimit(ip, userId);
     } catch {
       logger.warn('Rate limit exceeded', { ip, userId });
-      return NextResponse.json({ detail: 'Too many requests' }, { status: 429 });
+      return NextResponse.json({ detail: 'Too many requests', errorCode: 'RATE_LIMIT_EXCEEDED' }, { status: 429 });
     }
 
     if (!session || !session.user?.id) {
       logger.warn('Unauthenticated GET request', { ip });
-      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ detail: 'Not authenticated', errorCode: 'UNAUTHENTICATED' }, { status: 401 });
     }
 
     const csrfOk = await checkDoubleSubmitCSRF(request);
     if (!csrfOk) {
       logger.warn('CSRF check failed', { ip });
-      return NextResponse.json({ detail: 'Invalid CSRF token' }, { status: 403 });
+      return NextResponse.json({ detail: 'Invalid CSRF token', errorCode: 'CSRF_INVALID' }, { status: 403 });
     }
 
     let parsedParams;
@@ -254,31 +265,31 @@ export async function GET(request) {
       parsedParams = getSchema.parse(params);
     } catch (err) {
       logger.warn('GET validation failed', { ip, errors: err?.errors });
-      return NextResponse.json({ detail: 'Invalid input data' }, { status: 400 });
+      return NextResponse.json({ detail: 'Invalid input data', errorCode: 'INVALID_INPUT' }, { status: 400 });
     }
     const { uid } = parsedParams;
 
     if (uid !== session.user.id) {
       logger.warn('Access denied: UID mismatch', { uid, sessionUserId: mask(session.user.id) });
-      return NextResponse.json({ detail: 'Access denied' }, { status: 403 });
+      return NextResponse.json({ detail: 'Access denied', errorCode: 'UID_MISMATCH' }, { status: 403 });
     }
 
     const recaptchaToken = request.headers.get('x-recaptcha-token');
     if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
       logger.warn('Missing reCAPTCHA token header', { ip });
-      return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400 });
+      return NextResponse.json({ detail: 'Missing reCAPTCHA token', errorCode: 'RECAPTCHA_MISSING' }, { status: 400 });
     }
     if (process.env.NODE_ENV !== 'development') {
       try {
         const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-        if (score < 0.5) {
+        logger.info('reCAPTCHA Verification', { ip, score });
+        if (score < 0.3) {
           logger.warn('reCAPTCHA score too low', { ip, score });
-          return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403 });
+          return NextResponse.json({ detail: 'reCAPTCHA verification failed', errorCode: 'RECAPTCHA_FAILED' }, { status: 403 });
         }
-        logger.info('reCAPTCHA OK', { ip, score });
       } catch (err) {
-        logger.warn('reCAPTCHA failed', { ip, reason: err?.message });
-        return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403 });
+        logger.warn('reCAPTCHA failed', { ip, reason: err?.message, stack: err?.stack });
+        return NextResponse.json({ detail: 'reCAPTCHA verification failed', errorCode: 'RECAPTCHA_ERROR' }, { status: 403 });
       }
     } else if (recaptchaToken === 'development-token') {
       logger.info('Development reCAPTCHA bypass used');
@@ -330,10 +341,9 @@ export async function GET(request) {
 
       if (!user) {
         logger.warn('User not found in DB', { uid });
-        return NextResponse.json({ detail: 'User not found' }, { status: 404 });
+        return NextResponse.json({ detail: 'User not found', errorCode: 'USER_NOT_FOUND' }, { status: 404 });
       }
 
-      // Giải mã dữ liệu nhạy cảm, xử lý trường hợp null
       const decryptedUser = {
         ...user,
         email: user.email ? await decrypt(user.email) || '' : '',
@@ -343,7 +353,7 @@ export async function GET(request) {
 
       if (user.api_key_expires_at && new Date() > user.api_key_expires_at) {
         logger.warn('API key expired', { uid });
-        return NextResponse.json({ detail: 'API key expired' }, { status: 403 });
+        return NextResponse.json({ detail: 'API key expired', errorCode: 'API_KEY_EXPIRED' }, { status: 403 });
       }
 
       const data = {
@@ -381,18 +391,17 @@ export async function GET(request) {
       };
       return NextResponse.json(data, { headers });
     } catch (err) {
-      logger.error('Error in GET /api/user', { err: err.message });
-      return NextResponse.json({ detail: 'Internal server error' }, { status: 500 });
+      logger.error('Error in GET /api/user', { err: err.message, stack: err.stack });
+      return NextResponse.json({ detail: 'Internal server error', errorCode: 'INTERNAL_SERVER_ERROR' }, { status: 500 });
     } finally {
       await prisma.$disconnect();
     }
   } catch (err) {
-    logger.error('Unexpected error in GET', { err: err.message });
-    return NextResponse.json({ detail: 'Internal server error' }, { status: 500 });
+    logger.error('Unexpected error in GET', { err: err.message, stack: err.stack });
+    return NextResponse.json({ detail: 'Internal server error', errorCode: 'UNEXPECTED_ERROR' }, { status: 500 });
   }
 }
 
-// ---------- POST handler ----------
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -401,30 +410,31 @@ export async function POST(request) {
 
   if (!isAllowedOrigin(origin, referer)) {
     logger.warn('CORS origin not allowed for POST', { origin, referer });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    return NextResponse.json({ detail: 'Not allowed by CORS', errorCode: 'CORS_DENIED' }, { status: 403 });
   }
 
   try {
     const nonce = crypto.randomBytes(16).toString('base64');
     const session = await auth();
     const userId = session?.user?.id || null;
+    logger.info('Session Data', { userId, sessionExists: !!session });
 
     try {
       await checkRateLimit(ip, userId);
     } catch {
       logger.warn('Rate limit exceeded', { ip, userId });
-      return NextResponse.json({ detail: 'Too many requests' }, { status: 429 });
+      return NextResponse.json({ detail: 'Too many requests', errorCode: 'RATE_LIMIT_EXCEEDED' }, { status: 429 });
     }
 
     if (!session || !session.user?.id) {
       logger.warn('Unauthenticated POST request', { ip });
-      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ detail: 'Not authenticated', errorCode: 'UNAUTHENTICATED' }, { status: 401 });
     }
 
     const csrfOk = await checkDoubleSubmitCSRF(request);
     if (!csrfOk) {
       logger.warn('CSRF check failed', { ip });
-      return NextResponse.json({ detail: 'Invalid CSRF token' }, { status: 403 });
+      return NextResponse.json({ detail: 'Invalid CSRF token', errorCode: 'CSRF_INVALID' }, { status: 403 });
     }
 
     let body;
@@ -432,7 +442,7 @@ export async function POST(request) {
       body = await request.json();
     } catch {
       logger.warn('Invalid JSON body on POST', { ip });
-      return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
+      return NextResponse.json({ detail: 'Invalid JSON body', errorCode: 'INVALID_JSON' }, { status: 400 });
     }
 
     let parsedBody;
@@ -440,14 +450,14 @@ export async function POST(request) {
       parsedBody = postSchema.parse(body);
     } catch (err) {
       logger.warn('POST validation failed', { ip, errors: err?.errors });
-      return NextResponse.json({ detail: 'Invalid input data' }, { status: 400 });
+      return NextResponse.json({ detail: 'Invalid input data', errorCode: 'INVALID_INPUT' }, { status: 400 });
     }
 
     const { id, email, profilePicture, googleId, googleName, emailVerified } = parsedBody;
 
     if (session.user.id !== id) {
       logger.warn('Not authorized to update this user', { id, sessionUserId: mask(session.user.id) });
-      return NextResponse.json({ detail: 'Not authorized' }, { status: 401 });
+      return NextResponse.json({ detail: 'Not authorized', errorCode: 'UNAUTHORIZED' }, { status: 401 });
     }
 
     try {
@@ -477,7 +487,7 @@ export async function POST(request) {
       const plainApiKey = crypto.randomBytes(32).toString('hex');
       const { api_key_hash, api_key_salt, api_key_expires_at } = await hashApiKey(plainApiKey);
 
-      logger.info('Creating/updating user (safely)', { id: mask(id) });
+      logger.info('Creating/updating user', { id: mask(id) });
       const updatedUser = await withRetry(() =>
         prisma.users.upsert({
           where: { id },
@@ -534,13 +544,13 @@ export async function POST(request) {
         }),
       }, { headers });
     } catch (err) {
-      logger.error('Unexpected error in POST', { err: err?.message });
-      return NextResponse.json({ detail: 'Internal server error' }, { status: 500 });
+      logger.error('Error in POST /api/user', { err: err.message, stack: err.stack });
+      return NextResponse.json({ detail: 'Internal server error', errorCode: 'INTERNAL_SERVER_ERROR' }, { status: 500 });
     } finally {
       await prisma.$disconnect();
     }
   } catch (err) {
-    logger.error('Unexpected error in POST', { err: err?.message });
-    return NextResponse.json({ detail: 'Internal server error' }, { status: 500 });
+    logger.error('Unexpected error in POST', { err: err.message, stack: err.stack });
+    return NextResponse.json({ detail: 'Internal server error', errorCode: 'UNEXPECTED_ERROR' }, { status: 500 });
   }
 }
