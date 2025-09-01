@@ -8,11 +8,9 @@ import { createClient } from 'redis';
 import crypto from 'crypto';
 import util from 'util';
 import cookie from 'cookie';
-import { encrypt, decrypt } from '../../../utils/encryption';
 
 const scrypt = util.promisify(crypto.scrypt);
 
-// Khởi tạo Prisma
 let prisma;
 if (!global.__prisma) {
   global.__prisma = new PrismaClient({
@@ -22,24 +20,24 @@ if (!global.__prisma) {
 }
 prisma = global.__prisma;
 
-// Khởi tạo Redis
 let redisClient;
 async function getRedisClient() {
-  if (!redisClient || !redisClient.isOpen) {
-    redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
-      password: process.env.REDIS_AUTH,
-      socket: {
-        tls: process.env.NODE_ENV === 'production',
-        connectTimeout: 10000, // Thêm timeout
-      },
-    });
-    redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message, stack: err?.stack }));
+  if (!redisClient) {
+    redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }));
     try {
       await redisClient.connect();
-      logger.info('Redis connected');
+      logger.info('Redis connected (initial)');
     } catch (err) {
-      logger.error('Redis connect failed', { err: err?.message, stack: err?.stack });
+      logger.error('Redis initial connect failed', { err });
+      throw new Error('Redis connection failed');
+    }
+  } else if (!redisClient.isOpen) {
+    try {
+      await redisClient.connect();
+      logger.info('Redis reconnected');
+    } catch (err) {
+      logger.error('Redis reconnect failed', { err });
       throw new Error('Redis connection failed');
     }
   }
@@ -57,36 +55,31 @@ async function withRetry(fn, retries = 3, delay = 1000) {
     try {
       return await fn();
     } catch (err) {
-      logger.error('Database retry failed', { attempt: i + 1, error: err.message, stack: err.stack });
       if (i === retries - 1) throw err;
+      logger.warn(`Database connection failed, retrying...`, { attempt: i + 1 });
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
 
-// Rate Limiting
 async function checkRateLimit(ip, userId) {
   const client = await getRedisClient();
-  const windowSeconds = 5 * 60; // Giảm window để debug
+  const windowSeconds = 15 * 60;
   const ipKey = `rate:ip:${ip}`;
   const userKey = userId ? `rate:user:${userId}` : null;
-  const ipMax = process.env.NODE_ENV === 'development' ? 1000 : 500; // Tăng giới hạn
-  const userMax = process.env.NODE_ENV === 'development' ? 500 : 300;
+  const ipMax = process.env.NODE_ENV === 'development' ? 500 : 500;
+  const userMax = process.env.NODE_ENV === 'development' ? 300 : 300;
 
   const ipCount = Number(await client.incr(ipKey));
-  logger.info('Rate Limit Check', { ip, ipCount, userId, userKey });
   if (ipCount === 1) await client.expire(ipKey, windowSeconds);
   if (ipCount > ipMax) {
-    logger.warn('Rate limit exceeded for IP', { ip, ipCount });
     throw new Error('Too many requests from this IP');
   }
 
   if (userKey) {
     const uCount = Number(await client.incr(userKey));
-    logger.info('User Rate Limit Check', { userId, uCount });
     if (uCount === 1) await client.expire(userKey, windowSeconds);
     if (uCount > userMax) {
-      logger.warn('Rate limit exceeded for user', { userId, uCount });
       throw new Error('Too many requests for this user');
     }
   }
@@ -102,7 +95,7 @@ function isAllowedOrigin(origin, referer) {
     'https://xynapse-ai.vercel.app',
   ].filter(Boolean);
 
-  logger.info('CORS Check', { origin, referer, configured });
+  logger.info('Checking origin', { origin, referer });
 
   try {
     if (origin) {
@@ -118,6 +111,7 @@ function isAllowedOrigin(origin, referer) {
       ) {
         return true;
       }
+      return false;
     }
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
@@ -127,8 +121,8 @@ function isAllowedOrigin(origin, referer) {
       }
       if (
         configured.includes(refOrigin) ||
-        refOrigin.endsWith('.vercel.app') ||
-        refOrigin.endsWith('xynapseai.net')
+        refOrigin.endsWith('xynapseai.net') ||
+        refOrigin.endsWith('.vercel.app')
       ) {
         return true;
       }
@@ -140,7 +134,7 @@ function isAllowedOrigin(origin, referer) {
     logger.error('Invalid origin or referer', { origin, referer });
     return false;
   } catch (err) {
-    logger.error('Error validating origin', { err: err?.message, stack: err?.stack });
+    logger.error('Error validating origin', { err: err?.message });
     return false;
   }
 }
@@ -158,8 +152,6 @@ async function checkDoubleSubmitCSRF(request) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
   const cookieToken = cookies['csrf_token'] || '';
-  logger.info('CSRF Validation', { headerToken: mask(headerToken), cookieToken: mask(cookieToken) });
-
   if (
     process.env.NODE_ENV === 'development' &&
     headerToken === 'dev-csrf' &&
@@ -168,21 +160,15 @@ async function checkDoubleSubmitCSRF(request) {
     logger.info('Development CSRF bypass used');
     return true;
   }
-
   if (!headerToken || !cookieToken) {
     logger.warn('CSRF tokens missing', { headerProvided: !!headerToken, cookieProvided: !!cookieToken });
     return false;
   }
-
-  const client = await getRedisClient();
-  const storedToken = await client.get(`csrf:${cookieToken}`);
-  logger.info('CSRF Redis Check', { storedToken: mask(storedToken), headerToken: mask(headerToken) });
-  if (!storedToken || storedToken !== headerToken) {
-    logger.warn('CSRF token invalid or expired', { headerToken: mask(headerToken), cookieToken: mask(cookieToken) });
-    return false;
+  const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
+  if (!valid) {
+    logger.warn('CSRF token mismatch');
   }
-
-  return true;
+  return valid;
 }
 
 function mask(value, keep = 6) {
@@ -196,22 +182,12 @@ async function hashApiKey(apiKey) {
   return {
     api_key_hash: derived.toString('hex'),
     api_key_salt: salt,
-    api_key_expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
   };
 }
 
-function securityHeaders(nonce) {
-  const csp = `
-    default-src 'self';
-    script-src 'self' 'nonce-${nonce}';
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' data:;
-    connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || 'https://api.xynapseai.net'};
-    object-src 'none';
-    frame-ancestors 'none';
-    base-uri 'self';
-    report-uri /csp-report;
-  `.replace(/\s+/g, ' ').trim();
+function securityHeaders() {
+  const csp =
+    "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';";
   return {
     'Content-Security-Policy': csp,
     'X-Frame-Options': 'DENY',
@@ -223,7 +199,7 @@ function securityHeaders(nonce) {
 }
 
 const getSchema = z.object({
-  uid: z.string().max(100).optional(),
+  uid: z.string().max(100).optional(), // Làm cho uid tùy chọn
 });
 
 const postSchema = z.object({
@@ -235,6 +211,7 @@ const postSchema = z.object({
   emailVerified: z.boolean().optional(),
 });
 
+// ---------- GET handler ----------
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -244,42 +221,44 @@ export async function GET(request) {
 
   if (!isAllowedOrigin(origin, referer)) {
     logger.warn('CORS origin not allowed for GET', { origin, referer });
-    return NextResponse.json({ detail: 'Not allowed by CORS', errorCode: 'CORS_DENIED' }, { status: 403 });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
   }
 
   try {
-    const nonce = crypto.randomBytes(16).toString('base64');
     const session = await auth();
     const userId = session?.user?.id || null;
-    logger.info('Session Data', { userId, sessionExists: !!session });
 
     try {
       await checkRateLimit(ip, userId);
-    } catch {
+    } catch (err) {
       logger.warn('Rate limit exceeded', { ip, userId });
-      return NextResponse.json({ detail: 'Too many requests', errorCode: 'RATE_LIMIT_EXCEEDED' }, { status: 429 });
+      return NextResponse.json({ detail: err.message }, { status: 429 });
     }
 
     if (!session || !session.user?.id) {
       logger.warn('Unauthenticated GET request', { ip });
-      return NextResponse.json({ detail: 'Not authenticated', errorCode: 'UNAUTHENTICATED' }, { status: 401 });
+      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
     }
 
     const csrfOk = await checkDoubleSubmitCSRF(request);
     if (!csrfOk) {
-      logger.warn('CSRF check failed', { ip });
-      return NextResponse.json({ detail: 'Invalid CSRF token', errorCode: 'CSRF_INVALID' }, { status: 403 });
+      return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403 });
     }
 
     let parsedParams;
     try {
       parsedParams = getSchema.parse(params);
     } catch (err) {
-      logger.warn('GET validation failed', { ip, errors: err?.errors });
-      return NextResponse.json({ detail: 'Invalid input data', errorCode: 'INVALID_INPUT' }, { status: 400 });
+      logger.warn('GET validation failed', { ip, err: err?.errors ?? err?.message });
+      return NextResponse.json(
+        { detail: 'Invalid input data', errors: err.errors },
+        { status: 400 }
+      );
     }
 
     const { uid } = parsedParams;
+
+    // Nếu uid không được cung cấp, sử dụng session.user.id
     const effectiveUid = uid || session.user.id;
 
     if (effectiveUid !== session.user.id) {
@@ -287,25 +266,21 @@ export async function GET(request) {
         uid: effectiveUid,
         sessionUserId: mask(session.user.id),
       });
-      return NextResponse.json({ detail: 'Access denied', errorCode: 'UID_MISMATCH' }, { status: 403 });
+      return NextResponse.json({ detail: 'Access denied: Invalid UID' }, { status: 403 });
     }
 
     const recaptchaToken = request.headers.get('x-recaptcha-token');
     if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
-      logger.warn('Missing reCAPTCHA token header', { ip });
-      return NextResponse.json({ detail: 'Missing reCAPTCHA token', errorCode: 'RECAPTCHA_MISSING' }, { status: 400 });
+      logger.warn('Missing reCAPTCHA token header');
+      return NextResponse.json({ detail: 'Missing reCAPTCHA token in header' }, { status: 400 });
     }
     if (process.env.NODE_ENV !== 'development') {
       try {
         const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-        logger.info('reCAPTCHA Verification', { ip, score });
-        if (score < 0.3) { // Giảm threshold để debug
-          logger.warn('reCAPTCHA score too low', { ip, score });
-          return NextResponse.json({ detail: 'reCAPTCHA verification failed', errorCode: 'RECAPTCHA_FAILED' }, { status: 403 });
-        }
+        logger.info('reCAPTCHA OK', { ip, score });
       } catch (err) {
-        logger.warn('reCAPTCHA failed', { ip, reason: err?.message, stack: err?.stack });
-        return NextResponse.json({ detail: 'reCAPTCHA verification failed', errorCode: 'RECAPTCHA_ERROR' }, { status: 403 });
+        logger.warn('reCAPTCHA failed', { ip, reason: err?.message });
+        return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403 });
       }
     } else if (recaptchaToken === 'development-token') {
       logger.info('Development reCAPTCHA bypass used');
@@ -319,7 +294,7 @@ export async function GET(request) {
         logger.info('Cache hit for user', { uid: effectiveUid });
         const parsed = JSON.parse(cached);
         const headers = {
-          ...securityHeaders(nonce),
+          ...securityHeaders(origin),
           'Access-Control-Allow-Origin':
             origin ||
             (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
@@ -352,55 +327,42 @@ export async function GET(request) {
             wallet_address: true,
             last_connected: true,
             twitter_handle: true,
-            api_key_expires_at: true,
           },
         })
       );
 
       if (!user) {
         logger.warn('User not found in DB', { uid: effectiveUid });
-        return NextResponse.json({ detail: 'User not found', errorCode: 'USER_NOT_FOUND' }, { status: 404 });
-      }
-
-      const decryptedUser = {
-        ...user,
-        email: user.email ? await decrypt(user.email) || '' : '',
-        google_id: user.google_id ? await decrypt(user.google_id) || null : null,
-        wallet_address: user.wallet_address ? await decrypt(user.wallet_address) || null : null,
-      };
-
-      if (user.api_key_expires_at && new Date() > user.api_key_expires_at) {
-        logger.warn('API key expired', { uid: effectiveUid });
-        return NextResponse.json({ detail: 'API key expired', errorCode: 'API_KEY_EXPIRED' }, { status: 403 });
+        return NextResponse.json({ detail: 'User not found' }, { status: 404 });
       }
 
       const data = {
         success: true,
         user: {
-          id: decryptedUser.id,
-          email: decryptedUser.email || '',
-          googleId: decryptedUser.google_id || null,
-          profilePicture: decryptedUser.profile_picture || '',
-          googleName: decryptedUser.google_name || '',
-          emailVerified: decryptedUser.email_verified || false,
-          points: Number(decryptedUser.points || 0),
-          tweetPoints: Number(decryptedUser.tweet_points || 0),
-          aiPoints: Number(decryptedUser.ai_points || 0),
-          taskPoints: Number(decryptedUser.task_points || 0),
-          isCreator: decryptedUser.is_creator || false,
-          isAiRank: decryptedUser.is_ai_rank || false,
-          tier: decryptedUser.tier || 'Basic',
-          isPremium: decryptedUser.is_premium || false,
-          walletAddress: decryptedUser.wallet_address || null,
-          lastConnected: decryptedUser.last_connected ? new Date(decryptedUser.last_connected).toISOString() : null,
-          twitterHandle: decryptedUser.twitter_handle || null,
+          id: user.id,
+          email: user.email || '',
+          googleId: user.google_id || null,
+          profilePicture: user.profile_picture || '',
+          googleName: user.google_name || '',
+          emailVerified: user.email_verified || false,
+          points: Number(user.points || 0),
+          tweetPoints: Number(user.tweet_points || 0),
+          aiPoints: Number(user.ai_points || 0),
+          taskPoints: Number(user.task_points || 0),
+          isCreator: user.is_creator || false,
+          isAiRank: user.is_ai_rank || false,
+          tier: user.tier || 'Basic',
+          isPremium: user.is_premium || false,
+          walletAddress: user.wallet_address || null,
+          lastConnected: user.last_connected ? new Date(user.last_connected).toISOString() : null,
+          twitterHandle: user.twitter_handle || null,
         },
       };
 
       await client.setEx(cacheKey, 300, JSON.stringify(serializeBigInt(data)));
       logger.info('Fetched and cached user', { uid: effectiveUid });
       const headers = {
-        ...securityHeaders(nonce),
+        ...securityHeaders(origin),
         'Access-Control-Allow-Origin':
           origin ||
           (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
@@ -410,15 +372,16 @@ export async function GET(request) {
       };
       return NextResponse.json(data, { headers });
     } catch (err) {
-      logger.error('Error in GET /api/connect-data', { err: err.message, stack: err.stack });
-      return NextResponse.json({ detail: 'Internal server error', errorCode: 'INTERNAL_SERVER_ERROR' }, { status: 500 });
+      logger.error('Error in GET /api/connect-data', { err: err?.message });
+      return NextResponse.json({ detail: `Server error` }, { status: 500 });
     }
   } catch (err) {
-    logger.error('Unexpected error in GET', { err: err.message, stack: err.stack });
-    return NextResponse.json({ detail: 'Internal server error', errorCode: 'UNEXPECTED_ERROR' }, { status: 500 });
+    logger.error('Unexpected error in GET', { err: err?.message });
+    return NextResponse.json({ detail: 'Server error' }, { status: 500 });
   }
 }
 
+// ---------- POST handler ----------
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -427,31 +390,28 @@ export async function POST(request) {
 
   if (!isAllowedOrigin(origin, referer)) {
     logger.warn('CORS origin not allowed for POST', { origin, referer });
-    return NextResponse.json({ detail: 'Not allowed by CORS', errorCode: 'CORS_DENIED' }, { status: 403 });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
   }
 
   try {
-    const nonce = crypto.randomBytes(16).toString('base64');
     const session = await auth();
     const userId = session?.user?.id || null;
-    logger.info('Session Data', { userId, sessionExists: !!session });
 
     try {
       await checkRateLimit(ip, userId);
-    } catch {
+    } catch (err) {
       logger.warn('Rate limit exceeded', { ip, userId });
-      return NextResponse.json({ detail: 'Too many requests', errorCode: 'RATE_LIMIT_EXCEEDED' }, { status: 429 });
+      return NextResponse.json({ detail: err.message }, { status: 429 });
     }
 
     if (!session || !session.user?.id) {
       logger.warn('Unauthenticated POST request', { ip });
-      return NextResponse.json({ detail: 'Not authenticated', errorCode: 'UNAUTHENTICATED' }, { status: 401 });
+      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
     }
 
     const csrfOk = await checkDoubleSubmitCSRF(request);
     if (!csrfOk) {
-      logger.warn('CSRF check failed', { ip });
-      return NextResponse.json({ detail: 'Invalid CSRF token', errorCode: 'CSRF_INVALID' }, { status: 403 });
+      return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403 });
     }
 
     let body;
@@ -459,31 +419,28 @@ export async function POST(request) {
       body = await request.json();
     } catch {
       logger.warn('Invalid JSON body on POST', { ip });
-      return NextResponse.json({ detail: 'Invalid JSON body', errorCode: 'INVALID_JSON' }, { status: 400 });
+      return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
     }
 
     let parsedBody;
     try {
       parsedBody = postSchema.parse(body);
     } catch (err) {
-      logger.warn('POST validation failed', { ip, errors: err?.errors });
-      return NextResponse.json({ detail: 'Invalid input data', errorCode: 'INVALID_INPUT' }, { status: 400 });
+      logger.warn('POST validation failed', { ip, errors: err?.errors ?? err?.message });
+      return NextResponse.json({ detail: 'Invalid input data', errors: err.errors }, { status: 400 });
     }
 
     const { id, email, profilePicture, googleId, googleName, emailVerified } = parsedBody;
 
     if (session.user.id !== id) {
       logger.warn('Not authorized to update this user', { id, sessionUserId: mask(session.user.id) });
-      return NextResponse.json({ detail: 'Not authorized', errorCode: 'UNAUTHORIZED' }, { status: 401 });
+      return NextResponse.json({ detail: 'Not authorized' }, { status: 401 });
     }
 
     try {
-      const encryptedEmail = await encrypt(email);
-      const encryptedGoogleId = googleId ? await encrypt(googleId) : null;
-
       const userData = {
-        email: encryptedEmail,
-        google_id: encryptedGoogleId,
+        email,
+        google_id: googleId || null,
         profile_picture: profilePicture || '',
         google_name: googleName || '',
         email_verified: emailVerified || false,
@@ -502,9 +459,9 @@ export async function POST(request) {
       };
 
       const plainApiKey = crypto.randomBytes(32).toString('hex');
-      const { api_key_hash, api_key_salt, api_key_expires_at } = await hashApiKey(plainApiKey);
+      const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
 
-      logger.info('Creating/updating user', { id: mask(id) });
+      logger.info('Creating/updating user (safely)', { id: mask(id) });
       const updatedUser = await withRetry(() =>
         prisma.users.upsert({
           where: { id },
@@ -512,7 +469,6 @@ export async function POST(request) {
             ...userData,
             api_key_hash,
             api_key_salt,
-            api_key_expires_at,
           },
           create: {
             ...userData,
@@ -520,7 +476,6 @@ export async function POST(request) {
             created_at: new Date(),
             api_key_hash,
             api_key_salt,
-            api_key_expires_at,
           },
         })
       );
@@ -528,35 +483,25 @@ export async function POST(request) {
       const client = await getRedisClient();
       try {
         await client.del(`user:${id}`);
-        const newCsrfToken = crypto.randomBytes(32).toString('hex');
-        await client.setEx(`csrf:${newCsrfToken}`, 30 * 60, newCsrfToken);
-        await client.del(`csrf:${cookies['csrf_token']}`);
       } catch (err) {
-        logger.warn('Failed to clear cache or update CSRF', { id, err: err?.message });
+        logger.warn('Failed to clear cache for user', { id, err: err?.message });
       }
 
       logger.info('User created/updated successfully', { id: mask(id) });
       const headers = {
-        ...securityHeaders(nonce),
-        'Access-Control-Allow-Origin':
-          origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+        ...securityHeaders(origin),
+        'Access-Control-Allow-Origin': origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
         'Access-Control-Allow-Methods': 'GET, POST',
         'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
         'Access-Control-Allow-Credentials': 'true',
-        'Set-Cookie': cookie.serialize('csrf_token', newCsrfToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'strict',
-          path: '/',
-          maxAge: 30 * 60,
-        }),
       };
+
       return NextResponse.json(
         {
           success: true,
           user: serializeBigInt({
             id: updatedUser.id,
-            email: await decrypt(updatedUser.email),
+            email: updatedUser.email,
             profile_picture: updatedUser.profile_picture,
             google_name: updatedUser.google_name,
             email_verified: updatedUser.email_verified,
@@ -565,11 +510,11 @@ export async function POST(request) {
         { headers }
       );
     } catch (err) {
-      logger.error('Error in POST /api/connect-data', { err: err.message, stack: err.stack });
-      return NextResponse.json({ detail: 'Internal server error', errorCode: 'INTERNAL_SERVER_ERROR' }, { status: 500 });
+      logger.error('Error processing POST /api/user', { err: err?.message });
+      return NextResponse.json({ detail: 'Server error' }, { status: 500 });
     }
   } catch (err) {
-    logger.error('Unexpected error in POST', { err: err.message, stack: err.stack });
-    return NextResponse.json({ detail: 'Internal server error', errorCode: 'UNEXPECTED_ERROR' }, { status: 500 });
+    logger.error('Unexpected error in POST', { err: err?.message });
+    return NextResponse.json({ detail: 'Server error' }, { status: 500 });
   }
 }
