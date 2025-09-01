@@ -435,7 +435,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         },
         credentials: "include",
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(50000), // Add timeout
+        signal: AbortSignal.timeout(70000), // Add timeout
       });
 
       if (!response.ok) {
@@ -1102,11 +1102,91 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           <table className="w-full table-fixed text-[8px] sm:text-[10px]">
             <thead className="border-b border-white/10 bg-white/5">
               <tr>
-                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Token</th>
-                <th className={`${isMobile ? "w-[35%]" : "w-[40%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>From/To</th>
-                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-2 py-1 text-white text-center font-semibold m-1 truncate`}>Token Value</th>
-                <th className={`${isMobile ? "w-[15%]" : "w-[15%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Value ({currency.toUpperCase()})</th>
-                <th className={`${isMobile ? "w-[10%]" : "w-[15%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Details</th>
+                <th className="w-[12%] sm:w-[10%] px-1 sm:px-3 py-1 text-white font-medium text-center">
+                  <div className="flex items-center justify-center gap-1 sm:gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
+                      />
+                    </svg>
+                    <span>Token</span>
+                  </div>
+                </th>
+                <th className="w-[30%] sm:w-[30%] px-1 sm:px-3 py-1 text-white font-medium text-center">
+                  <div className="flex items-center justify-center gap-1 sm:gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                      />
+                    </svg>
+                    <span>From/To</span>
+                  </div>
+                </th>
+                <th className="w-[20%] sm:w-[25%] px-1 sm:px-3 py-1 text-white font-medium text-center">
+                  <div className="flex items-center justify-center gap-1 sm:gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
+                      />
+                    </svg>
+                    <span>Token Value</span>
+                  </div>
+                </th>
+                <th className="w-[30%] sm:w-[20%] px-1 sm:px-3 py-1 text-white font-medium text-center">
+                  <div className="flex items-center justify-center gap-1 sm:gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5"
+                      />
+                    </svg>
+                    <span>Value ({currency.toUpperCase()})</span>
+                  </div>
+                </th>
+                <th className="w-[10%] sm:w-[15%] px-1 sm:px-3 py-1 text-white font-medium text-center">
+                  <div className="flex items-center justify-center gap-1 sm:gap-2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span>Details</span>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -1116,9 +1196,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 if (chainName === "bitcoin") return null;
 
                 const fromWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
-                const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) ||
-
-                  {};
+                const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
                 const fromNtag = {
                   name: fromWallet.name_tag || "N/A",
                   image: fromWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
@@ -1129,7 +1207,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 };
                 const chain = chainName !== "unknown" ? chainName : "ethereum";
                 const { txUrl } = getExplorerUrls(chain, tx.hash || "", "");
-                const tokenSymbol = tx.token_metadata?.symbol || tx.token || "Unknown";
+                let tokenSymbol = tx.token_metadata?.symbol || tx.token || "Unknown";
                 const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
                 let displayValue = Number(tx.value || 0).toLocaleString("en-US", { maximumFractionDigits: 1 });
                 let tokenLogo = tx.token_metadata?.logo || "/fallback-image.png";
@@ -1162,15 +1240,15 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.02 }}
                   >
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] truncate">
-                      <div className="flex items-center gap-2 relative">
+                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[12%] sm:w-[10%] overflow-hidden text-ellipsis">
+                      <div className="flex flex-col items-center justify-center gap-1 relative">
                         <div className="relative flex-shrink-0">
                           <img
                             src={tokenLogo}
                             alt={`${tokenSymbol} logo`}
                             width={isMobile ? 14 : 16}
                             height={isMobile ? 14 : 16}
-                            className="rounded-full"
+                            className="rounded-full mx-auto"
                             onError={(e) => (e.target.src = "/fallback-image.png")}
                             loading="lazy"
                           />
@@ -1179,51 +1257,67 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                             alt={`${CHAIN_ID_TO_NAME[chain] || chain || "Unknown"} logo`}
                             width={isMobile ? 8 : 10}
                             height={isMobile ? 8 : 10}
-                            className="rounded-full absolute top-0 left-0"
-                            style={{ transform: "translate(-25%, -25%)" }}
+                            className="rounded-full absolute top-0 right-0"
+                            style={{ transform: "translate(25%, -25%)" }}
                             onError={(e) => (e.target.src = "/fallback-image.png")}
                             loading="lazy"
                           />
                         </div>
-                        <span className="truncate">{tokenSymbol}</span>
+                        <span className="text-[7px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
                       </div>
                     </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] truncate">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 group relative">
-                          <img
-                            src={fromNtag.image}
-                            alt="From wallet logo"
-                            className="w-3 h-3 inline rounded-full"
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
-                          />
-                          <button
-                            onClick={() => handleWalletClick(tx.from)}
-                            className="text-white hover:text-white/80 no-hover-effect truncate"
-                          >
-                            {truncateAddressWithHover(tx.from, fromNtag.name)}
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-2 group relative">
-                          <img
-                            src={toNtag.image}
-                            alt="To wallet logo"
-                            className="w-3 h-3 inline rounded-full"
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
-                          />
-                          <button
-                            onClick={() => handleWalletClick(tx.to)}
-                            className="text-white hover:text-white/80 no-hover-effect truncate"
-                          >
-                            {truncateAddressWithHover(tx.to, toNtag.name)}
-                          </button>
+                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[8px] sm:text-[10px] text-center w-[30%] sm:w-[30%] overflow-hidden text-ellipsis">
+                      <div className="flex items-center justify-center gap-2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3 sm:h-4 w-3 sm:w-4 text-neon-blue"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 5v14m7-7l-7 7-7-7" />
+                        </svg>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 group relative">
+                            <img
+                              src={fromNtag.image}
+                              alt="From wallet logo"
+                              className="w-3 h-3 rounded-full"
+                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              loading="lazy"
+                            />
+                            <button
+                              onClick={() => handleWalletClick(tx.from)}
+                              className="text-white hover:text-white/80 no-hover-effect truncate"
+                            >
+                              {truncateAddressWithHover(tx.from, fromNtag.name)}
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2 group relative">
+                            <img
+                              src={toNtag.image}
+                              alt="To wallet logo"
+                              className="w-3 h-3 rounded-full"
+                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              loading="lazy"
+                            />
+                            <button
+                              onClick={() => handleWalletClick(tx.to)}
+                              className="text-white hover:text-white/80 no-hover-effect truncate"
+                            >
+                              {truncateAddressWithHover(tx.to, toNtag.name)}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center truncate">
+                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[20%] sm:w-[25%] overflow-hidden text-ellipsis">
                       <div className="flex flex-col items-center gap-1">
                         <span
-                          className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === "receive"
+                          className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium ${tx.type === "receive"
                             ? "bg-neon-green/20 text-neon-green"
                             : tx.type === "send"
                               ? "bg-neon-blue/20 text-neon-blue"
@@ -1234,14 +1328,14 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                         >
                           {typeDisplay}
                         </span>
-                        <span className="truncate font-semibold">{displayValue}</span>
+                        <span className="truncate font-semibold text-[8px] sm:text-[10px]">{displayValue}</span>
                       </div>
                     </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] truncate">
+                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[8px] sm:text-[10px] text-center w-[30%] sm:w-[20%] overflow-hidden text-ellipsis">
                       <span className="font-semibold">{formatPrice(Number(tx.value_usd) || 0, currency, 2)}</span>
                     </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] truncate">
-                      <div className="flex flex-col items-center justify-center gap-0.5">
+                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[10%] sm:w-[15%] overflow-hidden text-ellipsis">
+                      <div className="flex flex-col items-center gap-0.5">
                         <a href={txUrl} target="_blank" rel="noopener noreferrer">
                           <img
                             src="/logos/etherscan-logo.png"
@@ -1253,7 +1347,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                             loading="lazy"
                           />
                         </a>
-                        <span className="text-[8px] sm:text-[9px] text-white/60 truncate">
+                        <span className="text-[6px] sm:text-[7px] text-white/60 truncate">
                           {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : "N/A"}
                         </span>
                       </div>
@@ -1265,9 +1359,8 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           </table>
         ) : (
           <p className="text-[10px] sm:text-xs text-white/60 text-center">No large transactions available for this exchange.</p>
-        )
-        }
-      </div >
+        )}
+      </div>
     );
   };
 
@@ -1289,12 +1382,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
       {error && (
         <motion.div
-          className="text-[10px] sm:text-xs text-red-400 text-center p-2 sm:p-4 bg-red-500/10 border border-red-500/20 rounded-lg mb-2"
+          className="text-[9px] sm:text-[10px] text-emerald-400 text-center p-2 sm:p-4 bg-text-emerald-400/10 border border-text-emerald-400/20 rounded-lg mb-2"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          Unable to load data. Please try again later.
+          Some entities without complete organization information may not be displayed. Note: Token/coin data is aggregated from on-chain sources and is for reference only. Certain exchanges or organizations may have incomplete.
         </motion.div>
       )}
 

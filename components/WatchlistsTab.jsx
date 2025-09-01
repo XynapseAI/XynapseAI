@@ -1046,6 +1046,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     );
   };
 
+  // Trong components/WatchlistsTab.jsx, thay thế hàm renderTransactionRow
   const renderTransactionRow = (tx, index) => {
     const transactionKey = tx.hash || `tx-${index}`;
     const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address);
@@ -1092,15 +1093,15 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
-        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
-          <div className="flex items-center justify-center gap-2 relative">
+        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[12%] sm:w-[10%] overflow-hidden text-ellipsis">
+          <div className="flex flex-col items-center justify-center gap-1 relative">
             <div className="relative flex-shrink-0">
               <img
                 src={tokenLogo}
                 alt={`${tokenSymbol} logo`}
                 width={isMobile ? 14 : 16}
                 height={isMobile ? 14 : 16}
-                className="rounded-full"
+                className="rounded-full mx-auto"
                 onError={(e) => (e.target.src = '/icons/default.png')}
                 loading="lazy"
               />
@@ -1115,10 +1116,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 loading="lazy"
               />
             </div>
-            <span>{tokenSymbol}</span>
+            <span className="text-[8px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
           </div>
         </td>
-        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
+        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[35%] sm:w-[30%] overflow-hidden text-ellipsis">
           <div className="flex flex-col items-center gap-1">
             <span
               className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === 'receive'
@@ -1156,10 +1157,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             </div>
           </div>
         </td>
-        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
+        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[38%] sm:w-[40%] overflow-hidden text-ellipsis">
           {displayValue}
         </td>
-        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
+        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[15%] sm:w-[20%] overflow-hidden text-ellipsis">
           <div className="flex flex-col items-center gap-0.5">
             <a href={txUrl} target="_blank" rel="noopener noreferrer">
               <img
@@ -1172,7 +1173,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 loading="lazy"
               />
             </a>
-            <span className="text-[8px] sm:text-[9px] text-white/60">
+            <span className="text-[6px] sm:text-[7px] text-white/60">
               {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
             </span>
           </div>
@@ -1239,7 +1240,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       {!showWatchlistSidebar && (
         <motion.button
           className="sm:hidden fixed top-8 left-0 p-2 bg-white/5 border border-white/20 rounded-r-lg text-white hover:bg-neon-blue/20 transition-all duration-300 overflow-hidden"
-          style={{ width: '25px', height: '40px' , marginLeft: '-7px' }} // 40px width, -8px margin-left to hide 20%
+          style={{ width: '25px', height: '40px', marginLeft: '-7px' }} // 40px width, -8px margin-left to hide 20%
           onClick={() => setShowWatchlistSidebar(true)}
         >
           <svg
@@ -1619,7 +1620,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           <table className="w-full text-[9px] sm:text-[10px] table-fixed">
                             <thead className="sticky top-0 z-10 border-b border-white/10 bg-white/5">
                               <tr>
-                                <th className="w-[25%] sm:w-auto px-1 sm:px-3 py-1 text-white font-medium text-center">
+                                <th className="w-[12%] sm:w-[10%] px-1 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-1 sm:gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -1636,7 +1637,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                     <span>Token</span>
                                   </div>
                                 </th>
-                                <th className="w-[35%] sm:w-auto px-1 sm:px-3 py-1 text-white font-medium text-center">
+                                <th className="w-[35%] sm:w-[30%] px-1 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-1 sm:gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -1653,7 +1654,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                     <span>Address</span>
                                   </div>
                                 </th>
-                                <th className="w-[25%] sm:w-auto px-1 sm:px-3 py-1 text-white font-medium text-center">
+                                <th className="w-[38%] sm:w-[40%] px-1 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-1 sm:gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -1670,7 +1671,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                                     <span>Value</span>
                                   </div>
                                 </th>
-                                <th className="w-[15%] sm:w-auto px-1 sm:px-3 py-1 text-white font-medium text-center">
+                                <th className="w-[15%] sm:w-[20%] px-1 sm:px-3 py-1 text-white font-medium text-center">
                                   <div className="flex items-center justify-center gap-1 sm:gap-2">
                                     <svg
                                       xmlns="http://www.w3.org/2000/svg"
@@ -1852,67 +1853,68 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       </AnimatePresence>
 
       <style jsx>{`
-        .shadow-neon-sm {
-          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.15);
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 2px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.4);
-        }
-        .custom-scrollbar {
-          -ms-overflow-style: auto;
-          scrollbar-width: thin;
-          scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-        }
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .animate-pulse {
-          animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
-        }
-        @keyframes pulse {
-          0%,
-          100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-        }
-        table {
-          table-layout: auto;
-          width: 100%;
-        }
-        th,
-        td {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        @media (max-width: 640px) {
-          table {
-            font-size: 8px;
-          }
-          th,
-          td {
-            padding: 0.4rem;
-          }
-        }
-      `}</style>
+  .shadow-neon-sm {
+    box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.15);
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+  }
+  .custom-scrollbar {
+    -ms-overflow-style: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .animate-pulse {
+    animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+  table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  th,
+  td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-sizing: border-box;
+  }
+  @media (max-width: 640px) {
+    table {
+      font-size: 8px;
+    }
+    th,
+    td {
+      padding: 0.4rem;
+    }
+  }
+`}</style>
     </motion.div>
   );
 }

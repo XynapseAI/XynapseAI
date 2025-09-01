@@ -10,6 +10,19 @@ import { isAddress } from "ethers";
 import { auth } from "@/lib/auth";
 import { query } from "../../../utils/postgres";
 
+const isValidTokenSymbol = (symbol) => {
+  if (!symbol || typeof symbol !== 'string') return false;
+  // Loại bỏ các symbol chứa URL, từ khóa không mong muốn, hoặc ký tự đặc biệt không hợp lệ
+  const invalidPatterns = [
+    /t\.me/i,
+    /http/i,
+    /www\./i,
+    /claim/i,
+    /[^a-zA-Z0-9\s\-\+\.]/, // Chỉ cho phép chữ, số, khoảng trắng, dấu gạch ngang, dấu cộng, dấu chấm
+  ];
+  return !invalidPatterns.some((pattern) => pattern.test(symbol)) && symbol.length <= 10; // Giới hạn độ dài tối đa
+};
+
 // ================= Security Headers =================
 const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self';",
@@ -552,7 +565,6 @@ export async function POST(request) {
               let missingImportantTokens = [...IMPORTANT_TOKENS];
               const allChainIds = Object.values(CHAIN_ID_MAP).join(",");
 
-              // Fetch native and ERC20 tokens concurrently
               const fetchNative = async () => {
                 let balances = [];
                 let nextOffsetNative = null;
@@ -571,7 +583,6 @@ export async function POST(request) {
                   balances.push(...(response.data.balances || []));
                   nextOffsetNative = response.data.next_offset || null;
 
-                  // Update missingImportantTokens
                   missingImportantTokens = missingImportantTokens.filter((importantToken) => {
                     if (importantToken.address !== "native") return true;
                     return !balances.some((balance) => {
@@ -601,7 +612,6 @@ export async function POST(request) {
                   balances.push(...(response.data.balances || []));
                   nextOffsetErc20 = response.data.next_offset || null;
 
-                  // Update missingImportantTokens
                   missingImportantTokens = missingImportantTokens.filter((importantToken) => {
                     if (importantToken.address === "native") return true;
                     return !balances.some((balance) => {
@@ -611,14 +621,13 @@ export async function POST(request) {
                       return balanceChain === importantToken.chain && balanceAddress === importantTokenAddress;
                     });
                   });
-                } while (nextOffsetErc20 && missingImportantTokens.length > 0); // Continue until all important tokens are found
+                } while (nextOffsetErc20 && missingImportantTokens.length > 0);
                 return balances;
               };
 
               const [nativeBalances, erc20Balances] = await Promise.all([fetchNative(), fetchErc20()]);
               allBalances = [...nativeBalances, ...erc20Balances];
 
-              // Remove duplicates
               const uniqueBalances = [];
               const seen = new Set();
               for (const balance of allBalances) {
@@ -655,6 +664,10 @@ export async function POST(request) {
                       (token.address === "native" ? balance.address === "native" : token.address.toLowerCase() === balance.address.toLowerCase())
                   );
 
+                  if (!isValidTokenSymbol(processedBalance.symbol) && !isImportantToken) {
+                    logger.info(`Filtered out invalid token symbol: ${processedBalance.symbol} on ${processedBalance.chain}`, { ip });
+                    return null;
+                  }
                   if (processedBalance.value_usd > 100_000_000_000) {
                     logger.info(`Filtered out token with excessive value_usd: ${processedBalance.symbol} on ${processedBalance.chain}, value_usd: ${processedBalance.value_usd}`, { ip });
                     return null;
@@ -687,7 +700,6 @@ export async function POST(request) {
               createJsonStream(controller, filteredData);
               return;
             } else {
-              // Logic cho SVM addresses giữ nguyên
               const chainParam = `chains=${SUPPORTED_SVM_CHAINS.join(",")}`;
               const url = `https://api.sim.dune.com/beta/svm/balances/${address}?${chainParam}&limit=${effectiveLimit}`;
               logger.info(`Calling Dune Sim API: ${url}`, { ip });
@@ -723,11 +735,19 @@ export async function POST(request) {
                     name: balance.name || "Unknown",
                   };
 
+                  const isImportantToken = IMPORTANT_TOKENS.some(
+                    (token) => token.chain === balance.chain && token.address === "native"
+                  );
+
+                  if (!isValidTokenSymbol(processedBalance.symbol) && !isImportantToken) {
+                    logger.info(`Filtered out invalid token symbol: ${processedBalance.symbol} on ${processedBalance.chain}`, { ip });
+                    return null;
+                  }
                   if (processedBalance.value_usd > 100_000_000_000) {
                     logger.info(`Filtered out token with excessive value_usd: ${processedBalance.symbol} on ${processedBalance.chain}, value_usd: ${processedBalance.value_usd}`, { ip });
                     return null;
                   }
-                  if (processedBalance.value_usd === 0 && !IMPORTANT_TOKENS.some((t) => t.chain === balance.chain && t.address === "native")) {
+                  if (processedBalance.value_usd === 0 && !isImportantToken) {
                     logger.info(`Filtered out token with zero value_usd: ${processedBalance.symbol} on ${processedBalance.chain}`, { ip });
                     return null;
                   }
@@ -735,7 +755,7 @@ export async function POST(request) {
                 }) || [],
               );
 
-              const filteredData = data.filter((balance) => balance !== null);
+              let filteredData = data.filter((balance) => balance !== null);
 
               if (minValueUsd) {
                 filteredData = filteredData.filter((balance) => balance.value_usd >= minValueUsd);
@@ -751,7 +771,6 @@ export async function POST(request) {
             }
           } else if (action === "transactions") {
             logger.info(`Processing transactions for addresses: ${addresses || address}`, { ip });
-            // Remove duplicate addresses to avoid redundant API calls
             const targetAddresses = [...new Set(addresses && addresses.length > 0 ? addresses : [address])];
             const chainParam = targetAddresses.some((addr) => isValidSolanaAddress(addr))
               ? `chains=${SUPPORTED_SVM_CHAINS.join(",")}`
@@ -782,6 +801,12 @@ export async function POST(request) {
                       const decimals = tx.asset_type === "native" ? 18 : tx.token_metadata?.decimals || 18;
                       const value_usd = Number(tx.value_usd || 0);
                       if (minValueUsd && value_usd < minValueUsd) return null;
+                      const tokenSymbol = tx.token_metadata?.symbol ||
+                        (tx.asset_type === "native" ? NATIVE_TOKEN_METADATA[tx.chain]?.symbol || "Native" : "Unknown");
+                      if (!isValidTokenSymbol(tokenSymbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                        logger.info(`Filtered out invalid token symbol: ${tokenSymbol} on ${tx.chain}`, { ip });
+                        return null;
+                      }
                       return {
                         chain:
                           Object.keys(CHAIN_ID_MAP).find((key) => CHAIN_ID_MAP[key] === tx.chain_id) ||
@@ -793,16 +818,10 @@ export async function POST(request) {
                         value_usd,
                         block_time: tx.block_time || null,
                         block_slot: tx.block_number || null,
-                        token:
-                          tx.token_metadata?.symbol ||
-                          (tx.asset_type === "native" ? NATIVE_TOKEN_METADATA[tx.chain]?.symbol || "Native" : "Unknown"),
+                        token: tokenSymbol,
                         type: tx.type || "Unknown",
                         token_metadata: {
-                          symbol:
-                            tx.token_metadata?.symbol ||
-                            (tx.asset_type === "native"
-                              ? NATIVE_TOKEN_METADATA[tx.chain]?.symbol || "Native"
-                              : "Unknown"),
+                          symbol: tokenSymbol,
                           logo: tx.token_metadata?.logo || NATIVE_TOKEN_METADATA[tx.chain]?.logo || null,
                           name: tx.token_metadata?.name || NATIVE_TOKEN_METADATA[tx.chain]?.name || "Unknown",
                         },
@@ -830,18 +849,28 @@ export async function POST(request) {
                               const delta =
                                 Number(postBalance.uiTokenAmount.amount) - Number(preBalance.uiTokenAmount.amount);
                               if (delta > 0) {
+                                const symbol = postBalance.mint.slice(0, 4) + "..." || "Unknown";
+                                if (!isValidTokenSymbol(symbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                                  logger.info(`Filtered out invalid token symbol: ${symbol} on ${tx.chain}`, { ip });
+                                  return;
+                                }
                                 receivedTokens.push({
                                   mint: postBalance.mint,
                                   amount: delta / Math.pow(10, postBalance.uiTokenAmount.decimals || 9),
-                                  symbol: postBalance.mint.slice(0, 4) + "..." || "Unknown",
+                                  symbol,
                                   logo: null,
                                   decimals: postBalance.uiTokenAmount.decimals || 9,
                                 });
                               } else if (delta < 0) {
+                                const symbol = postBalance.mint.slice(0, 4) + "..." || "Unknown";
+                                if (!isValidTokenSymbol(symbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                                  logger.info(`Filtered out invalid token symbol: ${symbol} on ${tx.chain}`, { ip });
+                                  return;
+                                }
                                 sentTokens.push({
                                   mint: postBalance.mint,
                                   amount: -delta / Math.pow(10, postBalance.uiTokenAmount.decimals || 9),
-                                  symbol: postBalance.mint.slice(0, 4) + "..." || "Unknown",
+                                  symbol,
                                   logo: null,
                                   decimals: postBalance.uiTokenAmount.decimals || 9,
                                 });
@@ -922,6 +951,11 @@ export async function POST(request) {
                         type = "other";
                         value = "N/A";
                         value_usd = 0;
+                      }
+
+                      if (!isValidTokenSymbol(tokenSymbol) && !IMPORTANT_TOKENS.some((t) => t.chain === tx.chain && t.address === "native")) {
+                        logger.info(`Filtered out invalid token symbol: ${tokenSymbol} on ${tx.chain}`, { ip });
+                        return null;
                       }
 
                       return {
