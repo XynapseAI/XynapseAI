@@ -27,19 +27,7 @@ import {
 } from "../utils/helpers"
 import "react-loading-skeleton/dist/skeleton.css"
 import { useCurrency } from './CurrencyContext';
-
-
-const isDev = process.env.NODE_ENV === "development";
-const logger = {
-  log: (message, data) => {
-    if (isDev) {
-      console.log(message, data);
-    }
-  },
-  error: (message, data) => {
-    console.error(message, data);
-  },
-};
+import { logger } from '../utils/clientLogger';
 
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {

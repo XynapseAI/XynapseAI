@@ -7,18 +7,7 @@ import { CHAIN_ID_TO_NAME } from '../utils/constants';
 import { getExplorerUrls, truncateAddress, isValidToken, LoadingOverlay } from '../utils/helpers';
 import '../styles/MarketTab.css';
 import { toast } from 'react-toastify';
-
-const isDev = process.env.NODE_ENV === "development";
-const logger = {
-  log: (message, data) => {
-    if (isDev) {
-      console.log(message, data);
-    }
-  },
-  error: (message, data) => {
-    console.error(message, data);
-  },
-};
+import { logger } from '../utils/clientLogger';
 
 // Hardcoded fallback logos for common chains
 const FALLBACK_CHAIN_LOGOS = {

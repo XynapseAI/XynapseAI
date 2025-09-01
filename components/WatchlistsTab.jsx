@@ -16,6 +16,7 @@ import { formatDistanceToNow } from 'date-fns';
 import useSWR from 'swr';
 import { cacheData, getCachedData } from '../utils/indexedDB';
 import { LoadingOverlay, truncateAddress, formatPrice, isValidToken, getExplorerUrls } from '../utils/helpers';
+import { logger } from '../utils/clientLogger';
 import { debounce } from 'lodash';
 
 axiosRetry(axios, {
@@ -31,18 +32,6 @@ const NATIVE_TOKEN_INFO = {
   bnb: { name: 'BNB', symbol: 'BNB', logo: '/bnb-logo.png' },
   solana: { name: 'Solana', symbol: 'SOL', logo: '/solana-logo.png' },
   eclipse: { name: 'Eclipse', symbol: 'ETH', logo: '/eclipse-logo.png' },
-};
-
-const isDev = process.env.NODE_ENV === "development";
-const logger = {
-  log: (message, data) => {
-    if (isDev) {
-      console.log(message, data);
-    }
-  },
-  error: (message, data) => {
-    console.error(message, data);
-  },
 };
 
 const SkeletonLoader = ({ isMobile }) => {
@@ -339,7 +328,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       action,
       address,
       ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
-      limit: 500,
+      limit: 1000,
     };
 
     try {

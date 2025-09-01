@@ -16,20 +16,9 @@ import { CHAIN_ID_TO_NAME } from "../utils/constants";
 import { SkeletonLoader, formatPrice, truncateAddress, LoadingOverlay, getExplorerUrls } from "../utils/helpers";
 import "../styles/MarketTab.css";
 import "react-loading-skeleton/dist/skeleton.css";
+import { logger } from '../utils/clientLogger';
 
 const BITCOIN_LOGO = "/logos/bitcoin.png";
-
-const isDev = process.env.NODE_ENV === "development";
-const logger = {
-  log: (message, data) => {
-    if (isDev) {
-      console.log(message, data);
-    }
-  },
-  error: (message, data) => {
-    console.error(message, data);
-  },
-};
 
 const EXCHANGE_MAPPING = {
   okx: "okex",
@@ -1232,7 +1221,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                       </div>
                     </td>
                     <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center truncate">
-                      juxtapose
                       <div className="flex flex-col items-center gap-1">
                         <span
                           className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === "receive"

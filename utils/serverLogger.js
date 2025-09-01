@@ -1,30 +1,31 @@
+// utils/serverLogger.js
 import winston from 'winston';
 import path from 'path';
 import fs from 'fs/promises';
 
-// Xác định môi trường
+// Determine environment
 const isVercel = process.env.VERCEL === '1';
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Xác định thư mục log
+// Define log directory
 const logsDir = isVercel ? '/tmp/logs' : path.join(process.cwd(), 'logs');
 
-// Hàm đảm bảo thư mục log tồn tại
+// Ensure log directory exists
 const ensureLogDir = async (dir) => {
   try {
     await fs.mkdir(dir, { recursive: true });
     return true;
   } catch (error) {
     if (error.code !== 'EEXIST') {
-      // Ghi log lỗi bằng console vì logger chưa được khởi tạo
+      // Use console.error as a fallback since logger isn't initialized yet
       console.error(`Failed to create log directory ${dir}: ${error.message}`);
       return false;
     }
-    return true; // Thư mục đã tồn tại
+    return true; // Directory already exists
   }
 };
 
-// Định dạng log tùy chỉnh
+// Custom log format
 const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
@@ -35,34 +36,34 @@ const logFormat = winston.format.combine(
   )
 );
 
-// Base transports
+// Initialize transports array
 const transports = [];
 
-// Console transport với mức log khác nhau giữa production và development
-transports.push(
-  new winston.transports.Console({
-    level: isProduction ? 'info' : 'debug', // Chỉ ghi log mức info trở lên trong production
-    format: isProduction
-      ? logFormat // Không sử dụng colorize trong production
-      : winston.format.combine(
-          winston.format.colorize(),
-          winston.format.simple(),
-          logFormat
-        ),
-  })
-);
+// Only add console transport in non-production environments
+if (!isProduction) {
+  transports.push(
+    new winston.transports.Console({
+      level: 'debug', // Allow verbose logging in development
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple(),
+        logFormat
+      ),
+    })
+  );
+}
 
-// Khởi tạo logger
+// Create logger
 const logger = winston.createLogger({
-  level: isProduction ? 'info' : 'debug', // Mức log mặc định
+  level: isProduction ? 'info' : 'debug', // Info level in production, debug in development
   format: logFormat,
   transports,
 });
 
-// Thêm file transports dựa trên môi trường
+// Add file transports based on environment
 (async () => {
   if (!isVercel) {
-    // Môi trường local: Ghi log vào ./logs
+    // Local environment: Write logs to ./logs
     const logDirCreated = await ensureLogDir(logsDir);
     if (logDirCreated) {
       transports.push(
@@ -72,7 +73,7 @@ const logger = winston.createLogger({
         }),
         new winston.transports.File({
           filename: path.join(logsDir, 'combined.log'),
-          level: 'debug', // Ghi tất cả log từ debug trở lên
+          level: isProduction ? 'info' : 'debug', // Match logger level
         })
       );
       logger.info(`File transports added for directory: ${logsDir}`);
@@ -80,10 +81,10 @@ const logger = winston.createLogger({
       logger.warn('File transports not added due to directory creation failure');
     }
   } else if (isProduction) {
-    // Môi trường Vercel trong production: Chỉ sử dụng console
-    logger.info('File transports skipped on Vercel in production; using console only');
+    // Vercel in production: Rely on Vercel's logging, no additional file transports
+    logger.info('File transports skipped on Vercel in production; using Vercel logging');
   } else {
-    // Môi trường Vercel trong development: Có thể thêm file transports nếu cần
+    // Vercel in development: Add file transports
     const logDirCreated = await ensureLogDir(logsDir);
     if (logDirCreated) {
       transports.push(
