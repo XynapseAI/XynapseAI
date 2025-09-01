@@ -76,7 +76,7 @@ export default function MatrixHoverEffect({ text, hoverColor = '#00BFFF' }) {
       onMouseEnter={handleMouseEnter}
       className="group inline-block perspective-1000"
     >
-      <span className={`matrix-text inline-block group-hover:text-[${hoverColor}]`}>
+      <span className={`matrix-text inline-block`}>
         {renderMatrixText(text)}
       </span>
     </span>

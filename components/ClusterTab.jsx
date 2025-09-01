@@ -958,7 +958,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const renderPortfolioContent = () => {
     return (
       <div className="flex flex-col relative" ref={portfolioRef}>
-        <div className="bg-black-80 overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+        <div className="bg-black-80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
           {isLoadingPortfolio && (
             <LoadingOverlay
               isLoading={isLoadingPortfolio}
@@ -1023,7 +1023,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     }
     const totalValue = uniqueWalletData.reduce((sum, wallet) => sum + (Number(wallet.total_value_usd) || 0), 0);
     return (
-      <div className="relative bg-black-80 overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <div className="relative bg-black-80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
         {isLoadingWallets && (
           <LoadingOverlay
             isLoading={isLoadingWallets}
@@ -1101,7 +1101,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       return <LoginPrompt />;
     }
     return (
-      <div className="relative overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <div className="relative overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
         {isLoadingTransactions && (
           <LoadingOverlay
             isLoading={isLoadingTransactions}
@@ -1319,7 +1319,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
       {error && (
         <motion.div
-          className="text-[9px] sm:text-[10px] text-emerald-400 text-center p-2 sm:p-4 bg-text-emerald-400/10 border border-text-emerald-400/20 rounded-lg mb-2"
+          className="text-[9px] sm:text-[10px] text-emerald-400/80 text-center p-1 border border-emerald-400/80 rounded-lg mb-2"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -1328,7 +1328,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         </motion.div>
       )}
 
-      <div className="flex flex-col flex-1 gap-4 sm:gap-6">
+      <div className="flex flex-col flex-1 gap-4 sm:gap-5">
         <motion.div
           className="min-h-[30vh] border border-white/20 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col md:flex-row"
           initial={{ opacity: 0, y: 20 }}

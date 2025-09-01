@@ -255,10 +255,10 @@ class TokenHoldersCron {
   }
 
   async fetchTokensFromCoinGecko() {
-    console.log("🔄 Fetching up to 500 tokens from CoinGecko...");
+    console.log("🔄 Fetching up to 300 tokens from CoinGecko...");
     const tokens = [];
     const perPage = 250; // CoinGecko limits to 250 tokens per request
-    const pages = Math.ceil(250 / perPage); // Calculate number of pages needed
+    const pages = Math.ceil(300 / perPage); // Calculate number of pages needed
 
     try {
       for (let page = 1; page <= pages; page++) {
@@ -1203,31 +1203,124 @@ class TokenHoldersCron {
     }
   }
 
+  async runAnalyzeBalancesOnly() {
+    if (this.isRunning) {
+      console.log("⚠️ Cron job is already running, skipping...");
+      return;
+    }
+
+    this.isRunning = true;
+    const startTime = new Date();
+    let errors = [];
+
+    try {
+      console.log(`\n🚀 Starting wallet balances analysis at ${startTime.toISOString()}`);
+
+      // Kiểm tra dữ liệu trong bảng Tokens
+      const tokensResult = await pool.query(`
+        SELECT COUNT(*) as count FROM tokens
+      `);
+      const tokenCount = parseInt(tokensResult.rows[0].count, 10);
+      if (tokenCount === 0) {
+        console.error("❌ No tokens found in the database. Please run full sync first.");
+        throw new Error("No tokens found in the database");
+      }
+      console.log(`✅ Found ${tokenCount} tokens in the database`);
+
+      // Kiểm tra dữ liệu trong bảng Token_Holders
+      const holdersResult = await pool.query(`
+        SELECT COUNT(*) as count FROM token_holders
+      `);
+      const holderCount = parseInt(holdersResult.rows[0].count, 10);
+      if (holderCount === 0) {
+        console.error("❌ No holders found in the database. Please run full sync first.");
+        throw new Error("No holders found in the database");
+      }
+      console.log(`✅ Found ${holderCount} holders in the database`);
+
+      // Load lại name tags để đảm bảo dữ liệu mới nhất
+      await this.loadNameTags();
+      console.log("✅ Name tags reloaded for balance analysis");
+
+      // Xóa holdersWithNameTags cũ và rebuild từ token_holders
+      this.holdersWithNameTags.clear();
+      const holdersData = await pool.query(`
+        SELECT DISTINCT holder_address, chain, name_tag, name, image
+        FROM token_holders
+        WHERE name_tag IS NOT NULL
+      `);
+      holdersData.rows.forEach((holder) => {
+        const holderKey = `${holder.chain}:${holder.holder_address.toLowerCase()}`;
+        this.holdersWithNameTags.set(holderKey, {
+          holder_address: holder.holder_address,
+          exchange_name: holder.name,
+          chain: holder.chain,
+          name_tag: holder.name_tag,
+          image: holder.image,
+        });
+      });
+      console.log(`✅ Loaded ${this.holdersWithNameTags.size} holders with name tags from database`);
+
+      // Chạy phân tích wallet balances
+      console.log("📊 Starting processWalletBalances...");
+      await this.processWalletBalances();
+      console.log("✅ Completed processWalletBalances");
+
+      const endTime = new Date();
+      const duration = Math.round((endTime - startTime) / 1000 / 60);
+      console.log(`\n✅ Wallet balances analysis completed successfully!`);
+      console.log(`⏱️ Total duration: ${duration} minutes`);
+      console.log(`📊 Processed ${this.holdersWithNameTags.size} holders`);
+      if (errors.length > 0) {
+        console.warn(`⚠️ Encountered ${errors.length} errors during processing:`, errors);
+      }
+    } catch (error) {
+      errors.push({ message: error.message, stack: error.stack });
+      console.error("❌ Wallet balances analysis failed:", error.message, error.stack);
+      throw error;
+    } finally {
+      this.isRunning = false;
+      this.holdersWithNameTags.clear();
+    }
+  }
+
   startCronJob() {
-    console.log("⏰ Setting up cron job to run every 5 days at 2:00 AM...");
+    const mode = process.argv[2]; // Lấy tham số command line (e.g., 'analyze-balances' hoặc để trống)
+    console.log(`⏰ Setting up cron job in ${mode || 'full'} mode...`);
 
-    cron.schedule(
-      "0 2 */5 * *",
-      async () => {
-        console.log("⏰ Cron job triggered at", new Date().toISOString());
-        await this.runFullCycle();
-      },
-      {
-        scheduled: true,
-        timezone: "UTC",
-      }
-    );
+    if (mode === 'analyze-balances') {
+      console.log("🔄 Running initial balances analysis...");
+      setTimeout(async () => {
+        try {
+          await this.runAnalyzeBalancesOnly();
+        } catch (error) {
+          console.error("❌ Initial balances analysis failed:", error.message, error.stack);
+        }
+      }, 5000);
+    } else {
+      console.log("⏰ Scheduling full sync to run every 5 days at 2:00 AM...");
+      cron.schedule(
+        "0 2 */5 * *",
+        async () => {
+          console.log("⏰ Cron job triggered at", new Date().toISOString());
+          await this.runFullCycle();
+        },
+        {
+          scheduled: true,
+          timezone: "UTC",
+        }
+      );
+      console.log("✅ Cron job scheduled successfully");
 
-    console.log("✅ Cron job scheduled successfully");
-
-    console.log("🔄 Running initial sync...");
-    setTimeout(async () => {
-      try {
-        await this.runFullCycle();
-      } catch (error) {
-        console.error("❌ Initial sync failed:", error.message, error.stack);
-      }
-    }, 5000);
+      console.log("🔄 Running initial full sync...");
+      setTimeout(async () => {
+        try {
+          await this.runFullCycle();
+        } catch (error) {
+          console.error("❌ Initial sync failed:", error.message, error.stack);
+        }
+      }, 5000);
+    }
 
     process.on("uncaughtException", (err) => {
       console.error("Uncaught Exception:", err.message, err.stack);
@@ -1265,10 +1358,15 @@ async function main() {
     await cronJob.initialize();
     cronJob.startCronJob();
 
-    console.log("🎯 Token Holders Cron Job is running...");
-    console.log("📅 Next run: Every 5 days at 2:00 AM UTC");
-    console.log("🔄 Processing: Up to 500 tokens with 15-second intervals"); // Updated log
-    console.log("📊 Chains: All supported EVM chains + Bitcoin/Dogecoin treasury data");
+    const mode = process.argv[2] || 'full';
+    console.log(`🎯 Token Holders Cron Job is running in ${mode} mode...`);
+    if (mode === 'analyze-balances') {
+      console.log("📊 Mode: Analyze wallet balances only");
+    } else {
+      console.log("📅 Next full sync: Every 5 days at 2:00 AM UTC");
+      console.log("🔄 Processing: Up to 500 tokens with 15-second intervals");
+      console.log("📊 Chains: All supported EVM chains + Bitcoin/Dogecoin treasury data");
+    }
 
     process.on("SIGINT", async () => {
       console.log("\n🛑 Received SIGINT, shutting down gracefully...");

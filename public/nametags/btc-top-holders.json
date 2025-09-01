@@ -395,8 +395,8 @@
       }
     }
   },
-  "riot platforms, inc": {
-    "Address": "riot platforms, inc",
+  "riot platforms": {
+    "Address": "riot platforms",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Riot Platforms, Inc",
@@ -417,8 +417,8 @@
       }
     }
   },
-  "metaplanet inc.": {
-    "Address": "metaplanet inc.",
+  "metaplanet": {
+    "Address": "metaplanet",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Metaplanet Inc.",
@@ -439,8 +439,8 @@
       }
     }
   },
-  "cleanspark inc.": {
-    "Address": "cleanspark inc.",
+  "cleanspark": {
+    "Address": "cleanspark",
     "Labels": {
       "bitcoin": {
         "Name Tag": "CleanSpark Inc.",
@@ -450,8 +450,19 @@
       }
     }
   },
-  "tesla, inc.": {
-    "Address": "tesla, inc.",
+  "coinbase global": {
+    "Address": "coinbase global",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Coinbase Global",
+        "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
+        "Subcategory": "Corporate",
+        "image": "/icons/coinbase.png"
+      }
+    }
+  },
+  "tesla": {
+    "Address": "tesla",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Tesla, Inc.",

@@ -852,7 +852,7 @@ export default function Home() {
               viewport={{ once: true }}
               className="space-y-8 relative"
             >
-              <div className="bg-gray-900/30 border-t border-l border-r border-white/20 rounded-t-lg p-6 backdrop-blur-lg overflow-x-auto relative">
+              <div className="bg-gray-900/30 border-t border-l border-r border-white/20 rounded-t-lg p-2 backdrop-blur-lg overflow-x-auto relative">
                 <div className="flex justify-center items-center p-2 border-b border-white/10 bg-white/5">
                   <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
                     Top 100
@@ -1059,7 +1059,7 @@ export default function Home() {
           >
             <Link
               href="/signup"
-              className="inline-block px-6 py-3 bg-white text-black rounded-md text-sm font-medium transition-all duration-300 hover:bg-gray-200"
+              className="inline-block px-5 py-2.5 bg-white text-black rounded-md text-sm font-medium transition-all duration-300 hover:bg-gray-200"
             >
               <MatrixHoverEffect text="SIGN UP" hoverColor="#000000" />
             </Link>
