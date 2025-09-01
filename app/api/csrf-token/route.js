@@ -5,6 +5,12 @@ import { createClient } from 'redis';
 import crypto from 'crypto';
 import cookie from 'cookie';
 
+// Mask function to obscure sensitive data in logs
+function mask(value, keep = 6) {
+  if (!value) return '';
+  return value.length <= keep ? '••••' : value.slice(0, keep) + '••••';
+}
+
 // Khởi tạo Redis
 const redisClient = createClient({
   url: process.env.REDIS_URL || 'redis://localhost:6379',
@@ -21,7 +27,10 @@ if (!redisClient.isOpen) {
     logger.info('Redis connected for CSRF');
   } catch (err) {
     logger.error('Redis connect failed for CSRF', { err: err?.message, stack: err?.stack });
-    throw new Error('Redis connection failed');
+    return NextResponse.json(
+      { detail: 'Internal server error', errorCode: 'REDIS_CONNECTION_FAILED' },
+      { status: 500 }
+    );
   }
 }
 
@@ -78,10 +87,7 @@ async function checkRateLimit(ip) {
     logger.warn('Rate limit exceeded for CSRF token request', { ip, requests });
     throw new Error('Too many requests, please try again later');
   }
-  await redisClient.multi()
-    .incr(key)
-    .expire(key, windowMs / 1000)
-    .exec();
+  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
 }
 
 function securityHeaders(nonce) {
@@ -139,19 +145,25 @@ export async function GET(request) {
 
     const headers = new Headers({
       ...securityHeaders(nonce),
-      'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      'Access-Control-Allow-Origin':
+        origin && allowedOrigins.includes(origin)
+          ? origin
+          : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
       'Access-Control-Allow-Methods': 'GET',
       'Access-Control-Allow-Headers': 'Content-Type, X-CSRF-Token',
       'Access-Control-Allow-Credentials': 'true',
     });
 
-    headers.append('Set-Cookie', cookie.serialize('csrf_token', csrfToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 30 * 60,
-    }));
+    headers.append(
+      'Set-Cookie',
+      cookie.serialize('csrf_token', csrfToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 30 * 60,
+      })
+    );
 
     return NextResponse.json({ success: true, csrfToken }, { headers });
   } catch (error) {
