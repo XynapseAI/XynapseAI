@@ -74,7 +74,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         await recaptchaRef.current.reset();
         const token = await Promise.race([
           recaptchaRef.current.executeAsync({ action }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)), // Giảm timeout xuống 20s
+          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)), // Giảm timeout xuống 20s
         ]);
         if (!token) throw new Error('Empty reCAPTCHA token');
         console.log(`reCAPTCHA token for ${action}: ${token.substring(0, 10)}...`);
@@ -108,22 +108,23 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Fetch User Data (keep reCAPTCHA)
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
-    queryKey: ['userData', session?.user?.id, csrfToken],
-    queryFn: async () => {
-      const cacheKey = `userData-${session.user.id}`;
-      const cached = await getCachedData(cacheKey);
-      if (cached) {
-        console.log('Using cached userData:', cached);
-        if (cached.twitterHandle && window.location.search.includes('twitterConnected=true')) {
-          console.log('Invalidating cache due to recent Twitter connection');
-          await clearCache(cacheKey);
-          throw new Error('Cache invalidated due to Twitter connection');
-        }
-        return cached;
+  queryKey: ['userData', session?.user?.id, csrfToken],
+  queryFn: async () => {
+    const cacheKey = `userData-${session.user.id}`;
+    const cached = await getCachedData(cacheKey);
+    if (cached) {
+      console.log('Using cached userData:', cached);
+      if (cached.twitterHandle && window.location.search.includes('twitterConnected=true')) {
+        console.log('Invalidating cache due to recent Twitter connection');
+        await clearCache(cacheKey);
+        throw new Error('Cache invalidated due to Twitter connection');
       }
+      return cached;
+    }
 
-      const token = await debouncedExecuteRecaptcha('get_user');
-      console.log('Fetching user data with UID:', session.user.id, 'CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
+    const token = await debouncedExecuteRecaptcha('get_user');
+    console.log('Fetching user data with UID:', session.user.id, 'CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
+    try {
       const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
         headers: {
           'x-csrf-token': csrfToken,
@@ -142,29 +143,40 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       console.log('Transformed user data:', user);
       await cacheData(cacheKey, user, 24 * 60 * 60 * 1000);
       return user;
-    },
-    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-    staleTime: 1 * 60 * 1000,
-    retry: 3,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
-    onError: async (err) => {
-      console.error('Error fetching user data:', err);
-      if (err.response?.status === 429) {
-        toast.error('Too many requests. Please wait and try again.', {
-          position: 'top-center',
-          autoClose: 5000,
-        });
-      } else if (err.response?.status === 404) {
-        await signOut({ redirect: false });
-        window.location.href = '/auth/signin';
-      } else {
-        toast.error(`Failed to fetch user data: ${err.message}`, {
-          position: 'top-center',
-          autoClose: 5000,
-        });
-      }
-    },
-  });
+    } catch (err) {
+      console.error('Error fetching user data:', err.response?.data || err.message);
+      throw err; // Để onError xử lý
+    }
+  },
+  enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+  staleTime: 1 * 60 * 1000,
+  retry: 3,
+  retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
+  onError: async (err) => {
+    console.error('Error fetching user data:', err.response?.data || err.message);
+    if (err.response?.status === 429) {
+      toast.error('Too many requests. Please wait and try again.', {
+        position: 'top-center',
+        autoClose: 5000,
+      });
+    } else if (err.response?.status === 403) {
+      toast.error('Authentication failed. Please try logging in again.', {
+        position: 'top-center',
+        autoClose: 5000,
+      });
+      await signOut({ redirect: false });
+      window.location.href = '/auth/signin';
+    } else if (err.response?.status === 404) {
+      await signOut({ redirect: false });
+      window.location.href = '/auth/signin';
+    } else {
+      toast.error(`Failed to fetch user data: ${err.message}`, {
+        position: 'top-center',
+        autoClose: 5000,
+      });
+    }
+  },
+});
 
   // Fetch Tasks (remove reCAPTCHA)
   const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({

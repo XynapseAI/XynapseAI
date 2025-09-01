@@ -65,7 +65,7 @@ function isAllowedOrigin(origin, referer) {
 async function checkRateLimit(ip) {
   const key = `rate_limit:csrf:${ip}`;
   const windowMs = 60 * 1000;
-  const maxRequests = process.env.NODE_ENV === 'development' ? 50 : 20;
+  const maxRequests = process.env.NODE_ENV === 'development' ? 200 : 100;
   const requests = Number(await redisClient.get(key)) || 0;
   if (requests >= maxRequests) {
     logger.warn('Rate limit exceeded for CSRF token request', { ip });

@@ -77,8 +77,8 @@ async function checkRateLimit(ip, userId) {
   const windowSeconds = 15 * 60;
   const ipKey = `rate:ip:${ip}`;
   const userKey = userId ? `rate:user:${userId}` : null;
-  const ipMax = process.env.NODE_ENV === 'development' ? 100 : 50; // Giảm ngưỡng
-  const userMax = process.env.NODE_ENV === 'development' ? 50 : 30;
+  const ipMax = process.env.NODE_ENV === 'development' ? 500 : 200; // Giảm ngưỡng
+  const userMax = process.env.NODE_ENV === 'development' ? 300 : 100;
 
   const ipCount = Number(await client.incr(ipKey));
   if (ipCount === 1) await client.expire(ipKey, windowSeconds);
