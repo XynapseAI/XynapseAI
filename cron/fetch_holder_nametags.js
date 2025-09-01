@@ -33,8 +33,8 @@ redisClient.on("error", (err) => console.error("Redis Client Error", err));
 
 // Rate limiters
 const coingeckoLimiter = new Bottleneck({
-  maxConcurrent: 3,
-  minTime: 1500,
+  maxConcurrent: 2,
+  minTime: 2000,
 });
 
 const simLimiter = new Bottleneck({
@@ -672,17 +672,74 @@ class TokenHoldersCron {
                   Authorization: process.env.SIM_API_KEY ? `Bearer ${process.env.SIM_API_KEY}` : undefined,
                 },
                 timeout: 30000,
+                responseType: 'stream', // Sử dụng responseType stream để xử lý dữ liệu streaming
               }
             )
           );
 
-          console.log(`📡 SIM API response for ${token.symbol} on ${chain}:`, {
-            success: response.data?.success,
-            dataLength: response.data?.data?.length,
-            sample: response.data?.data?.slice(0, 2),
+          // Xử lý dữ liệu từ stream
+          const holders = [];
+          let buffer = '';
+          let isFirstChunk = true;
+
+          console.log(`📡 Starting to read SIM API stream for ${token.symbol} on ${chain}`);
+
+          // Đọc từng chunk từ stream
+          for await (const chunk of response.data) {
+            const chunkString = chunk.toString();
+            buffer += chunkString;
+
+            // Xử lý JSON từng phần
+            try {
+              // Loại bỏ dấu ngoặc mở đầu '[' nếu là chunk đầu tiên
+              if (isFirstChunk && buffer.startsWith('[')) {
+                buffer = buffer.slice(1);
+                isFirstChunk = false;
+              }
+
+              // Tách các object JSON hoàn chỉnh
+              let lastIndex = 0;
+              for (let i = 0; i < buffer.length; i++) {
+                if (buffer[i] === '}' && (buffer[i + 1] === ',' || buffer[i + 1] === ']')) {
+                  const jsonStr = buffer.slice(lastIndex, i + 1);
+                  try {
+                    const holder = JSON.parse(jsonStr);
+                    if (holder.address && typeof holder.balance !== 'undefined') {
+                      holders.push({ wallet_address: holder.address, balance: holder.balance });
+                    }
+                  } catch (parseError) {
+                    console.warn(`     ⚠️ Failed to parse JSON chunk: ${parseError.message}`);
+                  }
+                  lastIndex = i + 2; // Bỏ qua dấu ',' hoặc ']'
+                }
+              }
+              buffer = buffer.slice(lastIndex); // Giữ lại phần chưa xử lý
+            } catch (error) {
+              console.warn(`     ⚠️ Error processing stream chunk: ${error.message}`);
+            }
+          }
+
+          // Xử lý phần còn lại của buffer (nếu có)
+          if (buffer.trim().endsWith(']') && buffer.trim().length > 1) {
+            try {
+              const lastJsonStr = buffer.trim().slice(0, -1); // Loại bỏ dấu ']'
+              if (lastJsonStr) {
+                const holder = JSON.parse(lastJsonStr);
+                if (holder.address && typeof holder.balance !== 'undefined') {
+                  holders.push({ wallet_address: holder.address, balance: holder.balance });
+                }
+              }
+            } catch (parseError) {
+              console.warn(`     ⚠️ Failed to parse final JSON chunk: ${parseError.message}`);
+            }
+          }
+
+          console.log(`📡 SIM API stream completed for ${token.symbol} on ${chain}:`, {
+            dataLength: holders.length,
+            sample: holders.slice(0, 2),
           });
 
-          if (!response.data?.success || !Array.isArray(response.data.data)) {
+          if (holders.length === 0) {
             console.warn(`     ⚠️ No valid holder data for ${token.symbol} on ${chain}`);
             return;
           }
@@ -698,10 +755,10 @@ class TokenHoldersCron {
           const totalSupply = Number.parseFloat(totalSupplyResponse.data.market_data.total_supply) || 0;
           const priceUsd = Number.parseFloat(totalSupplyResponse.data.market_data.current_price.usd) || 0;
 
-          const totalHolders = response.data.data.length;
-          const holders = response.data.data
+          const totalHolders = holders.length;
+          const processedHolders = holders
             .map((holder, index) => {
-              const tagDataArray = this.nameTagData.get(holder.address.toLowerCase()) || [];
+              const tagDataArray = this.nameTagData.get(holder.wallet_address.toLowerCase()) || [];
               let nameTag = null;
               let image = null;
               let nameTagSource = null;
@@ -715,7 +772,7 @@ class TokenHoldersCron {
                 }
               }
 
-              console.log(`       ℹ️ NameTag lookup for ${holder.address} on ${chain}:`, {
+              console.log(`       ℹ️ NameTag lookup for ${holder.wallet_address} on ${chain}:`, {
                 triedChains: tagDataArray.map((tag) => tag.chain),
                 nameTagSource,
                 nameTag,
@@ -729,9 +786,9 @@ class TokenHoldersCron {
               const balance_usd = calculatedBalance * priceUsd;
               const percentage = totalSupply > 0 ? (calculatedBalance / totalSupply) * 100 : 0;
 
-              const holderKey = `${chain}:${holder.address.toLowerCase()}`;
+              const holderKey = `${chain}:${holder.wallet_address.toLowerCase()}`;
               this.holdersWithNameTags.set(holderKey, {
-                holder_address: holder.address,
+                holder_address: holder.wallet_address,
                 exchange_name: name,
                 chain,
                 name_tag: nameTag,
@@ -739,7 +796,7 @@ class TokenHoldersCron {
               });
 
               return {
-                holder_address: holder.address,
+                holder_address: holder.wallet_address,
                 balance: calculatedBalance,
                 balance_usd: balance_usd,
                 percentage: percentage,
@@ -752,18 +809,18 @@ class TokenHoldersCron {
             })
             .filter((holder) => holder !== null);
 
-          if (holders.length === 0) {
+          if (processedHolders.length === 0) {
             console.log(`     ⚠️ No holders with valid name tags for ${token.symbol} on ${chain} (total holders: ${totalHolders})`);
             return;
           }
 
-          console.log(`     ℹ️ Filtered ${holders.length} holders with valid name tags out of ${totalHolders} for ${token.symbol} on ${chain}`);
+          console.log(`     ℹ️ Filtered ${processedHolders.length} holders with valid name tags out of ${totalHolders} for ${token.symbol} on ${chain}`);
 
           // Lưu vào cache với TTL 1 ngày (86400 giây)
-          await redisClient.setEx(cacheKey, 86400, JSON.stringify(holders));
+          await redisClient.setEx(cacheKey, 86400, JSON.stringify(processedHolders));
 
-          await this.storeHolders(token, chain, tokenAddress, holders);
-          console.log(`     ✅ Stored ${holders.length} holders for ${token.symbol} on ${chain}`);
+          await this.storeHolders(token, chain, tokenAddress, processedHolders);
+          console.log(`     ✅ Stored ${processedHolders.length} holders for ${token.symbol} on ${chain}`);
           return;
         } catch (error) {
           if (error.response?.status === 429 && attempts < maxAttempts - 1) {
