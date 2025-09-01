@@ -12,26 +12,26 @@ function mask(value, keep = 6) {
 }
 
 // Khởi tạo Redis
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-  socket: {
-    tls: process.env.REDIS_URL?.startsWith('rediss://'),
-    connectTimeout: 10000,
-  },
-});
-
-redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message, stack: err?.stack }));
-if (!redisClient.isOpen) {
-  try {
-    await redisClient.connect();
-    logger.info('Redis connected for CSRF');
-  } catch (err) {
-    logger.error('Redis connect failed for CSRF', { err: err?.message, stack: err?.stack });
-    return NextResponse.json(
-      { detail: 'Internal server error', errorCode: 'REDIS_CONNECTION_FAILED' },
-      { status: 500 }
-    );
+let redisClient;
+async function getRedisClient() {
+  if (!redisClient || !redisClient.isOpen) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      socket: {
+        tls: process.env.REDIS_URL?.startsWith('rediss://'),
+        connectTimeout: 10000,
+      },
+    });
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message, stack: err?.stack }));
+    try {
+      await redisClient.connect();
+      logger.info('Redis connected for CSRF');
+    } catch (err) {
+      logger.error('Redis connect failed for CSRF', { err: err?.message, stack: err?.stack });
+      throw new Error('Redis connection failed');
+    }
   }
+  return redisClient;
 }
 
 const allowedOrigins = [
@@ -78,16 +78,17 @@ function isAllowedOrigin(origin, referer) {
 }
 
 async function checkRateLimit(ip) {
+  const client = await getRedisClient();
   const key = `rate_limit:csrf:${ip}`;
   const windowMs = 60 * 1000;
   const maxRequests = process.env.NODE_ENV === 'development' ? 200 : 100;
-  const requests = Number(await redisClient.get(key)) || 0;
+  const requests = Number(await client.get(key)) || 0;
   logger.info('CSRF Rate Limit Check', { ip, requests });
   if (requests >= maxRequests) {
     logger.warn('Rate limit exceeded for CSRF token request', { ip, requests });
     throw new Error('Too many requests, please try again later');
   }
-  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  await client.multi().incr(key).expire(key, windowMs / 1000).exec();
 }
 
 function securityHeaders(nonce) {
@@ -140,7 +141,8 @@ export async function GET(request) {
   try {
     const nonce = crypto.randomBytes(16).toString('base64');
     const csrfToken = crypto.randomBytes(32).toString('hex');
-    await redisClient.setEx(`csrf:${csrfToken}`, 30 * 60, csrfToken);
+    const client = await getRedisClient();
+    await client.setEx(`csrf:${csrfToken}`, 30 * 60, csrfToken);
     logger.info('CSRF Token Generated', { csrfToken: mask(csrfToken) });
 
     const headers = new Headers({
@@ -173,13 +175,13 @@ export async function GET(request) {
 }
 
 process.on('SIGTERM', async () => {
-  if (redisClient.isOpen) {
+  if (redisClient?.isOpen) {
     await redisClient.quit();
     logger.info('Redis connection closed on SIGTERM');
   }
 });
 process.on('SIGINT', async () => {
-  if (redisClient.isOpen) {
+  if (redisClient?.isOpen) {
     await redisClient.quit();
     logger.info('Redis connection closed on SIGINT');
   }
