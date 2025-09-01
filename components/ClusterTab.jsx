@@ -957,46 +957,52 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
   const renderPortfolioContent = () => {
     return (
-      <div className="flex flex-col" ref={portfolioRef}>
-        <div className="overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
-          <LoadingOverlay isLoading={isLoadingPortfolio} isMobile={isMobile} />
+      <div className="flex flex-col relative" ref={portfolioRef}>
+        <div className="bg-black-80 overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+          {isLoadingPortfolio && (
+            <LoadingOverlay
+              isLoading={isLoadingPortfolio}
+              isMobile={isMobile}
+              className="h-full z-10"
+            />
+          )}
           {isLoadingPortfolio ? (
             <SkeletonLoader count={5} isMobile={isMobile} />
           ) : groupedPortfolio.length > 0 ? (
-            <table className="w-full table-fixed text-[8px] sm:text-[10px]">
-              <thead className="border-b border-white/10 bg-black/5">
+            <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/80 rounded-xl">
+              <thead className="border-b border-white/10 bg-black/80">
                 <tr>
-                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-2 py-1 text-white text-left font-semibold ml-2 m-1 truncate`}>Token</th>
-                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Balance</th>
-                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Value ({currency.toUpperCase()})</th>
-                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Percentage</th>
+                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Token</th>
+                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Balance</th>
+                  <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
+                  <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Percentage</th>
                 </tr>
               </thead>
               <tbody>
                 {groupedPortfolio.map((group, index) => (
                   <motion.tr
                     key={group.key}
-                    className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                    className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.02 }}
                   >
-                    <td className="px-2 py-2 text-white truncate">
+                    <td className="px-3 py-2.5 text-white truncate">
                       <img
                         src={group.logo || (group.token_address === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png")}
                         alt={`${group.symbol} logo`}
-                        className="w-4 h-4 inline mr-2 rounded-full"
+                        className="w-5 h-5 inline mr-2 rounded-full"
                         onError={(e) => (e.target.src = "/fallback-image.png")}
                       />
                       {group.symbol || (group.token_address === "bitcoin" ? "BTC" : group.token_address)}
                     </td>
-                    <td className="px-2 py-2 text-white truncate">
+                    <td className="px-3 py-2.5 text-white truncate">
                       <span className="font-semibold">{group.total_balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
                     </td>
-                    <td className="px-2 py-2 text-white truncate">
+                    <td className="px-3 py-2.5 text-white truncate">
                       <span className="font-semibold">{formatPrice(group.total_balance_usd || 0, currency, 2)}</span>
                     </td>
-                    <td className="px-2 py-2 text-white truncate">
+                    <td className="px-3 py-2.5 text-white truncate">
                       <span className="font-semibold">{group.percentage.toFixed(2)}%</span>
                     </td>
                   </motion.tr>
@@ -1004,7 +1010,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               </tbody>
             </table>
           ) : (
-            <p className="text-[10px] sm:text-xs text-white/60 text-center">No portfolio data available for this exchange.</p>
+            <p className="text-[10px] sm:text-sm text-white/60 text-center py-4">No portfolio data available for this exchange.</p>
           )}
         </div>
       </div>
@@ -1017,17 +1023,23 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     }
     const totalValue = uniqueWalletData.reduce((sum, wallet) => sum + (Number(wallet.total_value_usd) || 0), 0);
     return (
-      <div className="overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
-        <LoadingOverlay isLoading={isLoadingWallets} isMobile={isMobile} />
+      <div className="relative bg-black-80 overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+        {isLoadingWallets && (
+          <LoadingOverlay
+            isLoading={isLoadingWallets}
+            isMobile={isMobile}
+            className="z-10"
+          />
+        )}
         {isLoadingWallets ? (
           <SkeletonLoader count={5} isMobile={isMobile} />
         ) : uniqueWalletData.length > 0 ? (
-          <table className="w-full table-fixed text-[8px] sm:text-[10px]">
-            <thead className="border-b border-white/10 bg-black/5">
+          <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
+            <thead className="border-b border-white/10 bg-black/10">
               <tr>
-                <th className={`${isMobile ? "w-[50%]" : "w-[60%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Wallet</th>
-                <th className={`${isMobile ? "w-[30%]" : "w-[20%]"} px-2 py-1 text-white text-left font-semibold m-1 truncate`}>Value ({currency.toUpperCase()})</th>
-                <th className={`${isMobile ? "w-[20%]" : "w-[20%]"}-2 py-1 text-white text-left font-semibold m-1 truncate`}>Percentage</th>
+                <th className={`${isMobile ? "w-[50%]" : "w-[60%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Wallet</th>
+                <th className={`${isMobile ? "w-[30%]" : "w-[20%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
+                <th className={`${isMobile ? "w-[20%]" : "w-[20%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Percentage</th>
               </tr>
             </thead>
             <tbody>
@@ -1037,25 +1049,25 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 return (
                   <motion.tr
                     key={wallet.key}
-                    className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                    className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.02 }}
                   >
-                    <td className="px-2 py-2 text-white truncate">
+                    <td className="px-3 py-2.5 text-white truncate">
                       <div className="flex items-center gap-2">
                         {isBitcoinAddress && (
                           <img
                             src={BITCOIN_LOGO}
                             alt="Bitcoin logo"
-                            className="w-4 h-4 inline rounded-full"
+                            className="w-5 h-5 inline rounded-full"
                             onError={(e) => (e.target.src = "/fallback-image.png")}
                           />
                         )}
                         <img
                           src={wallet.image}
                           alt="Wallet logo"
-                          className="w-4 h-4 inline mr-2 rounded-full"
+                          className="w-5 h-5 inline mr-2 rounded-full"
                           onError={(e) => (e.target.src = "/fallback-image.png")}
                         />
                         <button
@@ -1066,10 +1078,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                         </button>
                       </div>
                     </td>
-                    <td className="px-2 py-2 text-white truncate">
+                    <td className="px-3 py-2.5 text-white truncate">
                       <span className="font-semibold">{formatPrice(Number(wallet.total_value_usd) || 0, currency, 2)}</span>
                     </td>
-                    <td className="px-2 py-2 text-white truncate">
+                    <td className="px-3 py-2.5 text-white truncate">
                       <span className="font-semibold">{percentage.toFixed(2)}%</span>
                     </td>
                   </motion.tr>
@@ -1078,7 +1090,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             </tbody>
           </table>
         ) : (
-          <p className="text-[10px] sm:text-xs text-white/60 text-center">No wallet data available for this exchange.</p>
+          <p className="text-[10px] sm:text-sm text-white/60 text-center py-4">No wallet data available for this exchange.</p>
         )}
       </div>
     );
@@ -1088,105 +1100,30 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     if (status !== "authenticated") {
       return <LoginPrompt />;
     }
-    logger.log("Rendering transactions:", { transactions, transactionsError, isLoadingTransactions });
     return (
-      <div className="overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
-        <LoadingOverlay isLoading={isLoadingTransactions} isMobile={isMobile} />
+      <div className="relative overflow-y-auto max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+        {isLoadingTransactions && (
+          <LoadingOverlay
+            isLoading={isLoadingTransactions}
+            isMobile={isMobile}
+            className="rounded-xl z-10"
+          />
+        )}
         {isLoadingTransactions ? (
           <SkeletonLoader count={5} isMobile={isMobile} />
         ) : transactionsError ? (
-          <p className="text-[10px] sm:text-xs text-red-400 text-center p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <p className="text-[10px] sm:text-sm text-red-400 text-center p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
             Error: {transactionsError}
           </p>
         ) : transactions.length > 0 ? (
-          <table className="w-full table-fixed text-[8px] sm:text-[10px]">
-            <thead className="border-b border-white/10 bg-white/5">
+          <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
+            <thead className="border-b border-white/10 bg-black/10">
               <tr>
-                <th className="w-[12%] sm:w-[10%] px-1 sm:px-3 py-1 text-white font-medium text-center">
-                  <div className="flex items-center justify-center gap-1 sm:gap-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="2"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
-                      />
-                    </svg>
-                    <span>Token</span>
-                  </div>
-                </th>
-                <th className="w-[30%] sm:w-[30%] px-1 sm:px-3 py-1 text-white font-medium text-center">
-                  <div className="flex items-center justify-center gap-1 sm:gap-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="2"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-                      />
-                    </svg>
-                    <span>From/To</span>
-                  </div>
-                </th>
-                <th className="w-[20%] sm:w-[25%] px-1 sm:px-3 py-1 text-white font-medium text-center">
-                  <div className="flex items-center justify-center gap-1 sm:gap-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="2"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
-                      />
-                    </svg>
-                    <span>Token Value</span>
-                  </div>
-                </th>
-                <th className="w-[30%] sm:w-[20%] px-1 sm:px-3 py-1 text-white font-medium text-center">
-                  <div className="flex items-center justify-center gap-1 sm:gap-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="2"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5"
-                      />
-                    </svg>
-                    <span>Value ({currency.toUpperCase()})</span>
-                  </div>
-                </th>
-                <th className="w-[10%] sm:w-[15%] px-1 sm:px-3 py-1 text-white font-medium text-center">
-                  <div className="flex items-center justify-center gap-1 sm:gap-2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-3 sm:h-4 w-3 sm:w-4 stroke-neon-blue fill-none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="2"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span>Details</span>
-                  </div>
-                </th>
+                <th className="w-[12%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Token</th>
+                <th className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">From/To</th>
+                <th className="w-[20%] sm:w-[20%] px-3 py-2 text-white font-medium text-center">Token Value</th>
+                <th className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">Value ({currency.toUpperCase()})</th>
+                <th className="w-[10%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Details</th>
               </tr>
             </thead>
             <tbody>
@@ -1347,7 +1284,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                             loading="lazy"
                           />
                         </a>
-                        <span className="text-[6px] sm:text-[7px] text-white/60 truncate">
+                        <span className="text-[6px] sm:text-[9px] text-white/60 truncate">
                           {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : "N/A"}
                         </span>
                       </div>
@@ -1369,7 +1306,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-black/80 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
+      className="font-saira w-full max-w-9xl mx-auto p-4 sm:p-6 bg-black/80 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
     >
       <div className="w-full mb-2">
         <UniversalSearch
@@ -1393,7 +1330,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
       <div className="flex flex-col flex-1 gap-4 sm:gap-6">
         <motion.div
-          className="border border-white/10 rounded-xl bg-white/5 backdrop-blur-xl flex flex-col md:flex-row"
+          className="min-h-[30vh] border border-white/20 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col md:flex-row"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -1525,16 +1462,15 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
         <div className="flex flex-col md:flex-row gap-4 flex-1">
           <motion.div
-            className="flex-1 border border-white/10 rounded-xl bg-white/5 flex flex-col"
+            className="flex-1 border border-white/20 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <div className="p-0 border-b border-white/10 bg-black/5 flex gap-4 items-end h-[48px]">
+            <div className="p-0 border-b border-white/10 bg-black/10 flex gap-4 items-end h-[52px]">
               <motion.button
                 onClick={() => setActiveTab("portfolio")}
-                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${activeTab === "portfolio" ? "border-b-2 border-white" : "text-white/80 hover:text-white"}`}
-                whileHover={{ scale: 1.05 }}
+                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${activeTab === "portfolio" ? "border-b-2 border-white/60" : "text-white/80 hover:text-neon-blue"}`}
               >
                 <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -1544,8 +1480,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               </motion.button>
               <motion.button
                 onClick={() => setActiveTab("wallets")}
-                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${activeTab === "wallets" ? "border-b-2 border-white" : "text-white/80 hover:text-white"}`}
-                whileHover={{ scale: 1.05 }}
+                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${activeTab === "wallets" ? "border-b-2 border-white/60" : "text-white/80 hover:text-neon-blue"}`}
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -1557,12 +1492,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           </motion.div>
 
           <motion.div
-            className="flex-1 border border-white/10 rounded-xl bg-white/5 flex flex-col"
+            className="flex-1 border border-white/20 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <div className="p-3.5 border-b border-white/10 bg-black/5 flex items-center">
+            <div className="p-2 border-b border-white/10 bg-black/10 flex items-center h-[52px]">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
               </svg>

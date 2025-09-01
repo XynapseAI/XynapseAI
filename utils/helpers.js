@@ -10,10 +10,10 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className={`absolute inset-0 flex items-center justify-center bg-black/80 ${!isMobile ? "backdrop-blur-2xl" : ""} ${className}`}
+        className={`absolute inset-0 flex items-center justify-center bg-black/80 ${!isMobile ? "bg-black/80 backdrop-blur-sm" : "bg-black/80 backdrop-blur-sm"} ${className}`}
         aria-label="Loading animation"
       >
-        <div className={`relative rounded-xl z-50 ${isMobile ? "w-10 h-10" : "w-12 h-12"}`}>
+        <div className={`relative rounded-xl z-50 ${isMobile ? "w-12 h-12" : "w-14 h-14"}`}>
           {/* Logo */}
           <video
             autoPlay
@@ -25,18 +25,11 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
           >
             Your browser does not support the video tag.
           </video>
-
-          {/* Hiệu ứng mờ đồng đều 4 phía */}
-          <div className="absolute inset-0 -z-0">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.9)_20%,rgba(0,0,0,0)_80%)] blur-2xl" />
-          </div>
         </div>
       </motion.div>
     )}
   </AnimatePresence>
 );
-
-
 
 export const getExplorerUrls = (chain, hash, address) => {
   // Normalize chain name to lowercase to avoid case sensitivity issues

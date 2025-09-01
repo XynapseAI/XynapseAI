@@ -1403,7 +1403,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
           {/* Right Column - Market Data Tabs */}
           <motion.div
-            className="flex flex-col border border-white/10 rounded-xl min-h-[600px] sm:min-h-[500px] sm:max-h-full bg-white/5 market-tab-container hide-scrollbar"
+            className="flex flex-col border border-white/10 rounded-xl min-h-[600px] sm:min-h-[500px] max-h-full sm:max-h-[605px] bg-white/5 market-tab-container hide-scrollbar"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
