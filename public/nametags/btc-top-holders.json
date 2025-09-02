@@ -406,8 +406,8 @@
       }
     }
   },
-  "trump media & technology group corp": {
-    "Address": "trump media & technology group corp",
+  "trump media & technology group corp.": {
+    "Address": "trump media & technology group corp.",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Trump Media & Technology Group Corp",
@@ -428,11 +428,11 @@
       }
     }
   },
-  "galaxy digital holdings": {
-    "Address": "galaxy digital holdings",
+  "galaxy digital holdings ltd": {
+    "Address": "galaxy digital holdings ltd",
     "Labels": {
       "bitcoin": {
-        "Name Tag": "Galaxy Digital Holdings",
+        "Name Tag": "galaxy digital holdings ltd",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
         "image": "/icons/galaxy.png"
