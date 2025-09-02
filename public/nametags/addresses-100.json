@@ -546,12 +546,12 @@
     "Labels": {
       "fiat-gateway": {
         "Name Tag": "Gemini 4",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       },
       "gemini": {
         "Name Tag": "Gemini 4",
         "Description": "Gemini a secure place to buy, sell, and store cryptocurrency",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       }
     }
   },
@@ -809,7 +809,7 @@
         "Name Tag": "Tornado.Cash: Fee Manager",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },

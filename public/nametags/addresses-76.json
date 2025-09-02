@@ -3634,14 +3634,14 @@
         "Description": "C.R.E.A.M: Crypto Rules Everything Around Me.",
         "Subcategory": "Others",
         "Token Name": "Yearn Tether USD (cyUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       },
       "defi": {
         "Name Tag": "Iron Bank: cyUSDT",
         "Description": "List of decentralized finance products.",
         "Subcategory": "Others",
         "Token Name": "Yearn Tether USD (cyUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

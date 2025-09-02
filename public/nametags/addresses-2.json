@@ -337,7 +337,7 @@
         "Name Tag": "Tornado.Cash: Team 2 Vesting",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -3626,7 +3626,7 @@
         "Name Tag": "MyEtherWallet: ETHB Token",
         "Description": "MyEtherWallet (MEW) is a free, client-side interface helping you to interact with the Ethereum blockchain. The easy-to-use, open-source platform allows you to generate wallets, interact with smart contracts, and much more.",
         "Token Name": "ETH Blocks (ETHB)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -5047,7 +5047,7 @@
         "Name Tag": "Augmented Finance: Stable Debt USDT",
         "Description": "Augmented Finance is a DeFi liquidity protocol that enables users to lend and borrow any asset on any chain.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

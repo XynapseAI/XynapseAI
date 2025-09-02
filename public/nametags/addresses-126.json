@@ -902,7 +902,7 @@
         "Name Tag": "Set: Ethereum High Yield Set",
         "Description": "Set Protocol helps you easily manage your crypto and enhance your portfolio with automated asset management strategies.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "set-social-trading": {
         "Token Name": "Ethereum High Yield Set (EHY)",
@@ -9327,7 +9327,7 @@
         "Name Tag": "Augmented Finance: Supply USDT",
         "Description": "Augmented Finance is a DeFi liquidity protocol that enables users to lend and borrow any asset on any chain.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

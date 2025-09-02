@@ -6966,12 +6966,12 @@
     "Labels": {
       "cold-wallet": {
         "Name Tag": "Gemini 3",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       },
       "gemini": {
         "Name Tag": "Gemini 3",
         "Description": "Gemini a secure place to buy, sell, and store cryptocurrency",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       }
     }
   },

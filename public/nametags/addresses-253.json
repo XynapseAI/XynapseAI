@@ -6771,7 +6771,7 @@
         "Description": "Idle.finance: Earn the yield you deserve without worry about finding the best option, either if you want to optimize returns or risks.",
         "Subcategory": "Main",
         "Token Name": "IdleUSDT v4 [Best yield] (idleUSDTYield)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -7691,7 +7691,7 @@
       "etheremon": {
         "Name Tag": "Etheremon: Contract 2",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

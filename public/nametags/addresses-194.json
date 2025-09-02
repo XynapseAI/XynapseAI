@@ -891,7 +891,7 @@
       "typhoon-cash": {
         "Name Tag": "Typhoon.Cash: 500,000 cUSDT",
         "Description": "Typhoon.Cash: A protocol for yield-capable private transactions.",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -2947,7 +2947,7 @@
         "Name Tag": "Tornado.Cash: 50,000 cDAI",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -5754,7 +5754,7 @@
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
         "Token Name": "Ethereum Pro (EPRO)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

@@ -1430,7 +1430,7 @@
       "oracle-dao": {
         "Name Tag": "beaconcha.in: Oracle DAO Node",
         "Description": "Rocket Pool's Oracle DAO members provide duties to the protocol such as oracle tasks and providing staking liveliness for the protocol.",
-        "image": "/icons/default.png"
+        "image": "/icons/beacon.png"
       }
     }
   },
@@ -2881,7 +2881,7 @@
         "Name Tag": "PoolTogether: v3 USDC Ticket",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
         "Token Name": "PoolTogether USDC Ticket (Compound) (PcUSDC)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "protocol": {
         "Token Name": "PoolTogether USDC Ticket (Compound) (PcUSDC)",
@@ -3646,7 +3646,7 @@
         "Name Tag": "Tornado.Cash: Poseidon 3",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },

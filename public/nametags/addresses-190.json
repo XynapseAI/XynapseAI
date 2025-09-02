@@ -6068,14 +6068,14 @@
       "etheremon": {
         "Name Tag": "Etheremon: Old Token",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "old-contract": {
         "Name Tag": "Etheremon: Old Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
         "Token Name": "Etheremon (EMON)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -6275,7 +6275,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor BAL Pool Token (bnBAL)",
-        "image": "/icons/default.png"
+        "image": "/icons/binance.png"
       },
       "defi": {
         "Token Name": "Bancor BAL Pool Token (bnBAL)",

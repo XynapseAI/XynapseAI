@@ -3082,7 +3082,7 @@
       "website-down": {
         "Name Tag": "EtherLife.io",
         "Description": "The last checked status of a website.\nPlease contact us (1. General Inquiry) if the website is back online.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -5771,7 +5771,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: DAI",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

@@ -2195,7 +2195,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: Lawyer Token",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -7710,7 +7710,7 @@
         "Name Tag": "Gitcoin Grants: HumansOfEthereum",
         "Description": "Gitcoin Grants: Get substantial sustainable funding for your projects.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

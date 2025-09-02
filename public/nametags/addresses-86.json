@@ -7394,7 +7394,7 @@
         "Name Tag": "Tornado.Cash: Trees",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Legacy",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -7682,7 +7682,7 @@
       "across-protocol": {
         "Name Tag": "Across Protocol: Ethereum Adapter V2",
         "Description": "Across Protocol is a bridging method that combines an optimistic oracle, bonded relayers and single-sided liquidity pools to provide decentralized instant transactions from rollup chains to Ethereum mainnet.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

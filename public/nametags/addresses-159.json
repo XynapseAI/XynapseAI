@@ -8591,12 +8591,12 @@
       "compound-governance": {
         "Name Tag": "PoolTogether: MultiSig",
         "Description": "Top voters in Compound's Governance Leaderboard.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "pooltogether": {
         "Name Tag": "PoolTogether: MultiSig",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -9105,7 +9105,7 @@
       "bridge": {
         "Name Tag": "Wormhole: Ethereum Core Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

@@ -3924,7 +3924,7 @@
       "gemini": {
         "Name Tag": "Gemini: Contract 1",
         "Description": "Gemini a secure place to buy, sell, and store cryptocurrency",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       }
     }
   },
@@ -5025,7 +5025,7 @@
       "oracle-dao": {
         "Name Tag": "Etherscan: Oracle DAO Rewards",
         "Description": "Rocket Pool's Oracle DAO members provide duties to the protocol such as oracle tasks and providing staking liveliness for the protocol.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -7012,7 +7012,7 @@
         "Name Tag": "Tornado.Cash: 1,000 USDT",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },

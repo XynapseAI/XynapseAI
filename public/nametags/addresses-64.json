@@ -1822,7 +1822,7 @@
       "beacon-depositor": {
         "Name Tag": "Cake DeFi: Beacon Depositor",
         "Description": "An address that has deposited ETH into the Beacon Chain to become a validator.",
-        "image": "/icons/default.png"
+        "image": "/icons/beacon.png"
       }
     }
   },
@@ -5360,7 +5360,7 @@
       "token-sale": {
         "Name Tag": "EthereumSoft: Token Sale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -9911,7 +9911,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: USDC Prize Strategy",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

@@ -4126,7 +4126,7 @@
       "etheremon": {
         "Name Tag": "Etheremon: Rank Battle 2",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -8430,7 +8430,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: Multisig 2",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

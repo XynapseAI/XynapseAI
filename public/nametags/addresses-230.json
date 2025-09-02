@@ -5916,13 +5916,13 @@
         "Name Tag": "Gitcoin Grants: Tornado.cash",
         "Description": "Gitcoin Grants: Get substantial sustainable funding for your projects.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       },
       "tornado-cash": {
         "Name Tag": "Gitcoin Grants: Tornado.cash",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -6258,7 +6258,7 @@
       "gemini": {
         "Name Tag": "Gemini: Deployer 1",
         "Description": "Gemini a secure place to buy, sell, and store cryptocurrency",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       }
     }
   },

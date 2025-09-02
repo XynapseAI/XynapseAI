@@ -6915,7 +6915,7 @@
         "Name Tag": "Tornado.Cash: 500,000 cDAI",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -7766,7 +7766,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: RNG Blockhash",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

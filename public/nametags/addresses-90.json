@@ -851,7 +851,7 @@
       "lido": {
         "Name Tag": "Lido: Composite Post Rebase Report Receiver",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.png"
+        "image": "/icons/base.png"
       }
     }
   },
@@ -9448,7 +9448,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: Deployer",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

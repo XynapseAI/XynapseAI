@@ -6460,7 +6460,7 @@
       "gambling": {
         "Name Tag": "Xether.io: Games",
         "Description": "The wagering of Ethers or something of value on an event with an uncertain outcome with the primary intent of winning more Ethers or material goods.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -7909,7 +7909,7 @@
       "etheremon": {
         "Name Tag": "Etheremon: Battle 1",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

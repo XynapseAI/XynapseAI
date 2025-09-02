@@ -7794,7 +7794,7 @@
       "hop-protocol": {
         "Name Tag": "Hop Protocol: USDT Bonder",
         "Description": "Hop Protocol is a rollup-to-rollup general token bridge. It allows users to send tokens from one rollup to another almost immediately without having to wait for the rollup’s challenge period.",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

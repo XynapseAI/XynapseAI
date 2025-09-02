@@ -6790,14 +6790,14 @@
         "Description": "Idle.finance: Earn the yield you deserve without worry about finding the best option, either if you want to optimize returns or risks.",
         "Subcategory": "Legacy",
         "Token Name": "IdleUSDT v3 [Max yield] (idleUSDTYield)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       },
       "old-contract": {
         "Name Tag": "Idle.finance: Old idleUSDTYield Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
         "Token Name": "IdleUSDT v3 [Max yield] (idleUSDTYield)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -8317,7 +8317,7 @@
       "deribit": {
         "Name Tag": "Deribit 10",
         "Description": "Deribit is a cryptocurrency derivatives platform for traders of all backgrounds and trading styles",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       }
     }
   },

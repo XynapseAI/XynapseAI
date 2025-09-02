@@ -612,7 +612,7 @@
         "Name Tag": "Tornado.Cash: Governance Vault",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -1155,7 +1155,7 @@
         "Description": "FTX: Cryptocurrency derivatives exchange.",
         "Subcategory": "Main",
         "Token Name": "3X Short Ethereum Token (ETHBEAR)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -3943,7 +3943,7 @@
       "gambling": {
         "Name Tag": "Etherdice.io",
         "Description": "The wagering of Ethers or something of value on an event with an uncertain outcome with the primary intent of winning more Ethers or material goods.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -5181,7 +5181,7 @@
         "Name Tag": "Tornado.Cash: Governance Staking",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },

@@ -3224,7 +3224,7 @@
         "Name Tag": "Augmented Finance: Supply aUSDT",
         "Description": "Augmented Finance is a DeFi liquidity protocol that enables users to lend and borrow any asset on any chain.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -6938,7 +6938,7 @@
         "Name Tag": "Tornado.Cash: 10,000 USDC",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -7292,12 +7292,12 @@
     "Labels": {
       "fiat-gateway": {
         "Name Tag": "Gemini 7",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       },
       "gemini": {
         "Name Tag": "Gemini 7",
         "Description": "Gemini a secure place to buy, sell, and store cryptocurrency",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       }
     }
   },
@@ -7742,7 +7742,7 @@
         "Name Tag": "Ethermon: EMON Token",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
         "Token Name": "EthermonToken (EMON)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "gaming": {
         "Token Name": "EthermonToken (EMON)",

@@ -4103,7 +4103,7 @@
         "Name Tag": "Idle.finance: Euler eUSDT AA/BB",
         "Description": "Idle.finance: Earn the yield you deserve without worry about finding the best option, either if you want to optimize returns or risks.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -5316,7 +5316,7 @@
         "Name Tag": "Gitcoin Grants: Mintbase",
         "Description": "Gitcoin Grants: Get substantial sustainable funding for your projects.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/base.png"
       }
     }
   },
@@ -10021,7 +10021,7 @@
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
         "Token Name": "Ethereum Meta (ETHM)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

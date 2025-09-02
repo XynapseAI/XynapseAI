@@ -4103,7 +4103,7 @@
       "etheremon": {
         "Name Tag": "Etheremon: Contract 6",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -6552,7 +6552,7 @@
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
         "Token Name": "Ethereum Rush (ETR)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -9202,7 +9202,7 @@
       "e-commerce": {
         "Name Tag": "Ethereum eRush: Market",
         "Description": "E-Commerce is the online process of buying and selling of goods and/or services.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

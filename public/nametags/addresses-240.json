@@ -2639,7 +2639,7 @@
         "Name Tag": "ChronoBase: Old BASE Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/base.png"
       }
     }
   },
@@ -5000,7 +5000,7 @@
         "Description": "C.R.E.A.M: Crypto Rules Everything Around Me.",
         "Subcategory": "Others",
         "Token Name": "Cream Uniswap V2 ETH-USDT (crUNI-V2-ETH-USDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       },
       "defi": {
         "Token Name": "Cream Uniswap V2 ETH-USDT (crUNI-V2-ETH-USDT)",
@@ -7998,13 +7998,13 @@
       "etheroll": {
         "Name Tag": "Etheroll: Old Contract 1",
         "Description": "Etheroll is an Ethereum smart contract for placing bets on their provably-fair dice game using Ether with no deposits or sign-ups. Each dice roll is provably random and cryptographically secure thanks to the nature of the Ethereum blockchain.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "old-contract": {
         "Name Tag": "Etheroll: Old Contract 1",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

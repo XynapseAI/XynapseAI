@@ -5512,7 +5512,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: Controlled Token Builder",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -6183,7 +6183,7 @@
         "Name Tag": "Tornado.Cash: 10,000 DAI",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -9058,7 +9058,7 @@
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
         "Token Name": "Compound USDT (cUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       },
       "defi": {
         "Token Name": "Compound USDT (cUSDT)",

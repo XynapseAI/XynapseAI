@@ -2061,12 +2061,12 @@
       "beacon-depositor": {
         "Name Tag": "Gemini: Deployer 2",
         "Description": "An address that has deposited ETH into the Beacon Chain to become a validator.",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       },
       "gemini": {
         "Name Tag": "Gemini: Deployer 2",
         "Description": "Gemini a secure place to buy, sell, and store cryptocurrency",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       }
     }
   },

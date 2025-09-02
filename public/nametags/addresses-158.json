@@ -1857,7 +1857,7 @@
     "Labels": {
       "swipeswap": {
         "Name Tag": "Swipe: USDC-USDT",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -6432,7 +6432,7 @@
         "Name Tag": "Ether Cards: ECF Token",
         "Description": "Ether Cards provides an advanced set of tools for the NFT ecosystem. Create dynamic cards that activate discounts, enable access, unlock features, connect to physical items, grant upgrades, and trigger changes based on real-world events.",
         "Token Name": "Ether Cards Founder (ECF)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

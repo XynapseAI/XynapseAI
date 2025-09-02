@@ -2504,7 +2504,7 @@
       "etheremon": {
         "Name Tag": "Etheremon: Adventure Presale 2",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -3735,11 +3735,11 @@
       "deribit": {
         "Name Tag": "Deribit 4",
         "Description": "Deribit is a cryptocurrency derivatives platform for traders of all backgrounds and trading styles",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       },
       "derivatives": {
         "Name Tag": "Deribit 4",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       }
     }
   },
@@ -9066,12 +9066,12 @@
       "etheroll": {
         "Name Tag": "Etheroll: MultiSig 2",
         "Description": "Etheroll is an Ethereum smart contract for placing bets on their provably-fair dice game using Ether with no deposits or sign-ups. Each dice roll is provably random and cryptographically secure thanks to the nature of the Ethereum blockchain.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "ico-wallets": {
         "Name Tag": "Etheroll: MultiSig 2",
         "Description": "Wallets where Token Sale proceeds are/were being stored.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

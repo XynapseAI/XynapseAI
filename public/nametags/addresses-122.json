@@ -4045,7 +4045,7 @@
       "token-sale": {
         "Name Tag": "Dether: Token Sale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

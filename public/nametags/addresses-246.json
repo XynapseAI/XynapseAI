@@ -65,7 +65,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: DAI Prize Pool",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

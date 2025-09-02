@@ -454,7 +454,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor bDIGG Pool Token (bnbDIGG)",
-        "image": "/icons/default.png"
+        "image": "/icons/binance.png"
       },
       "defi": {
         "Token Name": "Bancor bDIGG Pool Token (bnbDIGG)",
@@ -7080,7 +7080,7 @@
         "Name Tag": "Etheroll Token",
         "Description": "Etheroll is an Ethereum smart contract for placing bets on their provably-fair dice game using Ether with no deposits or sign-ups. Each dice roll is provably random and cryptographically secure thanks to the nature of the Ethereum blockchain.",
         "Token Name": "DICE (ROL)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "gambling": {
         "Token Name": "DICE (ROL)",

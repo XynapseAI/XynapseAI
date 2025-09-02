@@ -5769,7 +5769,7 @@
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
         "Token Name": "ETERBASE (XBASE)",
-        "image": "/icons/default.png"
+        "image": "/icons/base.png"
       }
     }
   },
@@ -8280,7 +8280,7 @@
         "Name Tag": "PoolTogether: plDai Token",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
         "Token Name": "Pool Dai (plDai)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

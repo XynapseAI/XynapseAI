@@ -5154,7 +5154,7 @@
         "Description": "C.R.E.A.M: Crypto Rules Everything Around Me.",
         "Subcategory": "Others",
         "Token Name": "Yearn Compound USDT (cyCUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       },
       "defi": {
         "Token Name": "Yearn Compound USDT (cyCUSDT)",
@@ -6254,7 +6254,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: Upgradeable Proxy",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -7969,7 +7969,7 @@
         "Name Tag": "Tornado.Cash: 10 WBTC",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -8185,7 +8185,7 @@
       "etheremon": {
         "Name Tag": "Etheremon: Rank Battle 1",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

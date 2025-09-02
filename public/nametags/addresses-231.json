@@ -4115,7 +4115,7 @@
       "ethereum-foundation": {
         "Name Tag": "EthDev",
         "Description": "The Ethereum Foundation’s mission is to promote and support Ethereum platform and base layer research, development and education to bring decentralized protocols and tools to the world that empower developers to produce next-generation decentralized applications (Dapps), and together build a more globally accessible, freer and more trustworthy Internet.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -7635,7 +7635,7 @@
         "Name Tag": "Wormhole: USDTbs Token",
         "Description": "Wormhole is a generic message-passing protocol that connects to multiple chains including Ethereum, Solana, Terra, Binance Smart Chain, Polygon, Avalanche, and Oasis.",
         "Token Name": "Tether USD (Wormhole) (USDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -9802,7 +9802,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: USDC Prize Pool",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

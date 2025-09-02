@@ -2731,7 +2731,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: Vault Prize Pool Builder",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -6199,7 +6199,7 @@
       "typhoon-cash": {
         "Name Tag": "Typhoon.Cash: Reward Pool 5,000,000 cUSDT",
         "Description": "Typhoon.Cash: A protocol for yield-capable private transactions.",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

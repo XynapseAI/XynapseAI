@@ -7216,7 +7216,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor BMI Pool Token (bnBMI)",
-        "image": "/icons/default.png"
+        "image": "/icons/binance.png"
       },
       "defi": {
         "Token Name": "Bancor BMI Pool Token (bnBMI)",
@@ -7828,7 +7828,7 @@
         "Name Tag": "Tornado.Cash: L1 Helper",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },

@@ -1349,7 +1349,7 @@
         "Description": "Yearn.Finance: Yield aggregator for lending platforms that rebalances for highest yield whenever the contract is interacted with.",
         "Subcategory": "Main",
         "Token Name": "iearn USDT (yUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -1520,7 +1520,7 @@
       "website-down": {
         "Name Tag": "Ethernity.top",
         "Description": "The last checked status of a website.\nPlease contact us (1. General Inquiry) if the website is back online.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

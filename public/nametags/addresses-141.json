@@ -3463,7 +3463,7 @@
         "Description": "FTX: Cryptocurrency derivatives exchange.",
         "Subcategory": "Main",
         "Token Name": "3X Long Ethereum Token (ETHBULL)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -5841,11 +5841,11 @@
       "gambling": {
         "Name Tag": "Bitsler.com: USDT",
         "Description": "The wagering of Ethers or something of value on an event with an uncertain outcome with the primary intent of winning more Ethers or material goods.",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       },
       "hot-wallet": {
         "Name Tag": "Bitsler.com: USDT",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

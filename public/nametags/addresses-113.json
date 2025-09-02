@@ -6137,7 +6137,7 @@
         "Description": "Ether Legends is a ground breaking collectible trading card game utilizing Blockchain technology for its fast, safe and reliable transactions while providing digital content ownership for all players!",
         "Subcategory": "Main",
         "Token Name": "Elementeum (ELET)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "gaming": {
         "Token Name": "Elementeum (ELET)",
@@ -9599,7 +9599,7 @@
       "etheremon": {
         "Name Tag": "Etheremon: Energy",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

@@ -435,7 +435,7 @@
         "Name Tag": "LGBTQ WorldWide Network: Old LGBTQ Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/wlfi.png"
       }
     }
   },
@@ -488,7 +488,7 @@
       "token-sale": {
         "Name Tag": "Etherparty: Token Sale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -4533,7 +4533,7 @@
         "Name Tag": "Tornado.Cash: Relayer Registry",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },

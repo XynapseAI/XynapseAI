@@ -7276,7 +7276,7 @@
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
         "Token Name": "$BASED ($BASED)",
-        "image": "/icons/default.png"
+        "image": "/icons/base.png"
       }
     }
   },
@@ -8344,7 +8344,7 @@
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
         "Token Name": "Ether Token (WETH)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

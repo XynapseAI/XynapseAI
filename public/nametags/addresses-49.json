@@ -727,7 +727,7 @@
         "Name Tag": "Zapper.Fi: PoolTogether Add",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -1113,7 +1113,7 @@
       "polkastarter": {
         "Name Tag": "Polkastarter: Ethermon 2",
         "Description": "Polkastarter is a protocol built for cross-chain token pools and auctions, enabling projects to raise capital on a decentralized and interoperable environment based on Polkadot.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -6836,11 +6836,11 @@
       "deribit": {
         "Name Tag": "Deribit 6",
         "Description": "Deribit is a cryptocurrency derivatives platform for traders of all backgrounds and trading styles",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       },
       "derivatives": {
         "Name Tag": "Deribit 6",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       }
     }
   },
@@ -7903,14 +7903,14 @@
       "vaults": {
         "Name Tag": "yearn: yUSDT Vault",
         "Token Name": "yearn Tether USD (yUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       },
       "yearn-finance": {
         "Name Tag": "yearn: yUSDT Vault",
         "Description": "Yearn.Finance: Yield aggregator for lending platforms that rebalances for highest yield whenever the contract is interacted with.",
         "Subcategory": "Others",
         "Token Name": "yearn Tether USD (yUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

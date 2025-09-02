@@ -4039,7 +4039,7 @@
         "Name Tag": "Tornado.Cash: 0.1 WBTC",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -4392,7 +4392,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: DAI Prize Strategy",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -4510,7 +4510,7 @@
         "Description": "unagii.com: The best of DeFi on the only app you need for your digital asset yields.",
         "Subcategory": "Legacy",
         "Token Name": "unagii_Tether USD (uUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -5356,7 +5356,7 @@
         "Name Tag": "Tornado.Cash: Governance Vesting",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },

@@ -4556,12 +4556,12 @@
     "Labels": {
       "escrow": {
         "Name Tag": "StarkNet: L1 Escrow",
-        "image": "/icons/default.png"
+        "image": "/icons/starknet.png"
       },
       "starknet": {
         "Name Tag": "StarkNet: L1 Escrow",
         "Description": "StarkNet is a permissionless decentralized ZK-Rollup. It operates as an L2 network over Ethereum, enabling any dApp to achieve unlimited scale for its computation – without compromising Ethereum's composability and security.",
-        "image": "/icons/default.png"
+        "image": "/icons/starknet.png"
       }
     }
   },

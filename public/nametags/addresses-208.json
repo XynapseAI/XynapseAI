@@ -109,7 +109,7 @@
         "Name Tag": "Ether Legends: Deployer",
         "Description": "Ether Legends is a ground breaking collectible trading card game utilizing Blockchain technology for its fast, safe and reliable transactions while providing digital content ownership for all players!",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -1605,7 +1605,7 @@
       "hop-protocol": {
         "Name Tag": "Hop Protocol: USDT Messenger",
         "Description": "Hop Protocol is a rollup-to-rollup general token bridge. It allows users to send tokens from one rollup to another almost immediately without having to wait for the rollup’s challenge period.",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -8892,11 +8892,11 @@
         "Name Tag": "NEST Protocol: Oracle ETH/USDT",
         "Description": "NEST Protocol: A distributed price oracle network that solves the problem of price on-chain through a decentralized incentive scheme.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       },
       "oracle": {
         "Name Tag": "NEST Protocol: Oracle ETH/USDT",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

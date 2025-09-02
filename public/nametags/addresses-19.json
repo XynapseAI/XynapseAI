@@ -3381,12 +3381,12 @@
         "Name Tag": "Ether.Camp: Price Feed",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "website-down": {
         "Name Tag": "Ether.Camp: Price Feed",
         "Description": "The last checked status of a website.\nPlease contact us (1. General Inquiry) if the website is back online.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

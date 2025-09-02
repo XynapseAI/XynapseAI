@@ -5355,7 +5355,7 @@
         "Name Tag": "Tornado.Cash: 500,000 cDAI 2",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -9107,7 +9107,7 @@
         "Name Tag": "EtherDiamond: ETD Token",
         "Description": "The last checked status of a website.\nPlease contact us (1. General Inquiry) if the website is back online.",
         "Token Name": "EtherDiamond (ETD)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

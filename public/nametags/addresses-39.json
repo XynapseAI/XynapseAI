@@ -1164,12 +1164,12 @@
       "etheroll": {
         "Name Tag": "Etheroll: MultiSig 1",
         "Description": "Etheroll is an Ethereum smart contract for placing bets on their provably-fair dice game using Ether with no deposits or sign-ups. Each dice roll is provably random and cryptographically secure thanks to the nature of the Ethereum blockchain.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "ico-wallets": {
         "Name Tag": "Etheroll: MultiSig 1",
         "Description": "Wallets where Token Sale proceeds are/were being stored.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -2751,7 +2751,7 @@
         "Name Tag": "Gitcoin Grants: EtherLoans",
         "Description": "Gitcoin Grants: Get substantial sustainable funding for your projects.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

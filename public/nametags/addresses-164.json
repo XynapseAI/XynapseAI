@@ -4499,7 +4499,7 @@
         "Name Tag": "Gitcoin Grants: beaconcha.in",
         "Description": "Gitcoin Grants: Get substantial sustainable funding for your projects.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/beacon.png"
       }
     }
   },
@@ -4801,7 +4801,7 @@
       "mining": {
         "Name Tag": "EthereumPool",
         "Description": "Cryptocurrency mining is the validation of transactions on the blockchain. Once validated, these transactions are added to the blockchain's public ledger of past transactions.\nFor this effort, successful miners receive new cryptocurrency as a reward.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

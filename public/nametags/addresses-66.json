@@ -1079,7 +1079,7 @@
       "blocked": {
         "Name Tag": "Linear Finance: LINA Token",
         "Description": "These addresses have been blocked by a custodial stablecoin provider (such as USDT and USDC).",
-        "image": "/icons/default.png"
+        "image": "/icons/linea.png"
       }
     }
   },
@@ -2498,7 +2498,7 @@
       "etheremon": {
         "Name Tag": "Etheremon: Contract 3",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -2817,7 +2817,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: COMP Prize Strategy",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -3047,7 +3047,7 @@
       "charity": {
         "Name Tag": "Mask On: USDT Donation",
         "Description": "An organization that raises money to help people in need.",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -3708,7 +3708,7 @@
       "typhoon-cash": {
         "Name Tag": "Typhoon.Cash: 50,000 cUSDT",
         "Description": "Typhoon.Cash: A protocol for yield-capable private transactions.",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -4997,7 +4997,7 @@
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
         "Token Name": "Tornado.Cash Voucher (vTORN)",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -8202,7 +8202,7 @@
         "Name Tag": "Rari Capital: Ether Rari Pool Controller",
         "Description": "Rari Capital aims to deliver the best yield to all users with various risk tolerances. Easy, sustainable and built for the future.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

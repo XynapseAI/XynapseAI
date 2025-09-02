@@ -864,7 +864,7 @@
       "donate": {
         "Name Tag": "EtherAddressLookup: Donate",
         "Description": "The act of giving to help and support someone in need.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -3390,7 +3390,7 @@
         "Name Tag": "Betherchip: Old BEC Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -6378,7 +6378,7 @@
       "bridge": {
         "Name Tag": "LayerZero: Ethereum Endpoint",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

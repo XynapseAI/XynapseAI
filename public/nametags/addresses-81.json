@@ -688,7 +688,7 @@
     "Labels": {
       "liquidity": {
         "Name Tag": "MADworld: Liquidity Pool",
-        "image": "/icons/default.png"
+        "image": "/icons/wlfi.png"
       }
     }
   },
@@ -3960,7 +3960,7 @@
         "Name Tag": "Etherisc: Old Contract",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -4893,7 +4893,7 @@
         "Name Tag": "PoolTogether: Loot Box ERC721",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
         "Token Name": "PoolTogether Loot Box (PTLOOT)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

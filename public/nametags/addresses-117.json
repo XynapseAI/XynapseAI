@@ -2151,12 +2151,12 @@
     "Labels": {
       "fiat-gateway": {
         "Name Tag": "Gemini 2",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       },
       "gemini": {
         "Name Tag": "Gemini 2",
         "Description": "Gemini a secure place to buy, sell, and store cryptocurrency",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       }
     }
   },
@@ -5296,7 +5296,7 @@
       "website-down": {
         "Name Tag": "EthereumPyramid.com",
         "Description": "The last checked status of a website.\nPlease contact us (1. General Inquiry) if the website is back online.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -5328,7 +5328,7 @@
       "typhoon-cash": {
         "Name Tag": "Typhoon.Cash: Reward Pool 500,000 cUSDT",
         "Description": "Typhoon.Cash: A protocol for yield-capable private transactions.",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

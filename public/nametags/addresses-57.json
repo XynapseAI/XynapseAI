@@ -6648,7 +6648,7 @@
       "polkastarter": {
         "Name Tag": "Polkastarter: Ethermon 1",
         "Description": "Polkastarter is a protocol built for cross-chain token pools and auctions, enabling projects to raise capital on a decentralized and interoperable environment based on Polkadot.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -9094,7 +9094,7 @@
       "gambling": {
         "Name Tag": "Ethermagic.net",
         "Description": "The wagering of Ethers or something of value on an event with an uncertain outcome with the primary intent of winning more Ethers or material goods.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

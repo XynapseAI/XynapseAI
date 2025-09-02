@@ -4533,7 +4533,7 @@
     "Labels": {
       "yield-farming": {
         "Name Tag": "Harvest.Finance: fUSDT Pool",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -7755,7 +7755,7 @@
         "Description": "C.R.E.A.M: Crypto Rules Everything Around Me.",
         "Subcategory": "Others",
         "Token Name": "Cream SushiSwap LP Token ETH-USDT (crSLP-ETH-USDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       },
       "defi": {
         "Token Name": "Cream SushiSwap LP Token ETH-USDT (crSLP-ETH-USDT)",

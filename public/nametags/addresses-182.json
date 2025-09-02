@@ -4259,7 +4259,7 @@
         "Name Tag": "Tornado.Cash: 5,000 cUSDC",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -5296,7 +5296,7 @@
       "gambling": {
         "Name Tag": "Dicether",
         "Description": "The wagering of Ethers or something of value on an event with an uncertain outcome with the primary intent of winning more Ethers or material goods.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -8779,7 +8779,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: Contract",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

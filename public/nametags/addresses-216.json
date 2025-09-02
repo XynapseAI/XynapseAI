@@ -9455,11 +9455,11 @@
       "deribit": {
         "Name Tag": "Deribit 7",
         "Description": "Deribit is a cryptocurrency derivatives platform for traders of all backgrounds and trading styles",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       },
       "derivatives": {
         "Name Tag": "Deribit 7",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       }
     }
   },

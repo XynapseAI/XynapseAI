@@ -6449,7 +6449,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: ERC721 Controlled Factory",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

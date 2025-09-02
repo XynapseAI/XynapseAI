@@ -8989,11 +8989,11 @@
       "deribit": {
         "Name Tag": "Deribit",
         "Description": "Deribit is a cryptocurrency derivatives platform for traders of all backgrounds and trading styles",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       },
       "derivatives": {
         "Name Tag": "Deribit",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       }
     }
   },
@@ -9618,7 +9618,7 @@
         "Name Tag": "Tornado.Cash: Old Proxy",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Legacy",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },

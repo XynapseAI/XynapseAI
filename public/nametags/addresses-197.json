@@ -5350,7 +5350,7 @@
       "etheremon": {
         "Name Tag": "Etheremon: Trade 2",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -7708,7 +7708,7 @@
         "Name Tag": "PoolTogether: plUsdc Token",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
         "Token Name": "Pool Usdc (plUsdc)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

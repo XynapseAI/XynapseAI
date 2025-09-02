@@ -2796,7 +2796,7 @@
         "Name Tag": "Tornado.Cash: Reward Swap",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -6131,7 +6131,7 @@
         "Name Tag": "PoolTogether: v3 UNI Sponsorship",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
         "Token Name": "PoolTogether UNI Sponsorship (Compo... (ScUNI)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -6343,7 +6343,7 @@
         "Name Tag": "Etheremon Monster Token",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
         "Token Name": "EtheremonMonster (EMONA)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "vr": {
         "Token Name": "EtheremonMonster (EMONA)"

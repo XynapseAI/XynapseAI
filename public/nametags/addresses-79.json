@@ -5074,7 +5074,7 @@
         "Name Tag": "Gemini: eFIL Token",
         "Description": "Gemini a secure place to buy, sell, and store cryptocurrency",
         "Token Name": "Ethereum Wrapped Filecoin (eFIL)",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       }
     }
   },
@@ -6596,7 +6596,7 @@
       "etheremon": {
         "Name Tag": "Etheremon: Trade 1",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

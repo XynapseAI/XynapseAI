@@ -3010,7 +3010,7 @@
       "token-sale": {
         "Name Tag": "EtherDelta: Token Sale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -5668,7 +5668,7 @@
         "Name Tag": "Kyber: DMM ETH-USDT",
         "Description": "KyberSwap is an on-chain liquidity protocol that aggregates liquidity and enables users to source liquidity across different decentralized exchanges to achieve the best rate for any token swap, on any supported network.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -9569,7 +9569,7 @@
       "ether-cards": {
         "Name Tag": "Ether Cards: DUST Allocator",
         "Description": "Ether Cards provides an advanced set of tools for the NFT ecosystem. Create dynamic cards that activate discounts, enable access, unlock features, connect to physical items, grant upgrades, and trigger changes based on real-world events.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

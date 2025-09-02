@@ -4549,7 +4549,7 @@
         "Description": "ENS offers a secure & decentralised way to address resources both on and off the blockchain using simple, human-readable names.",
         "Subcategory": "Others",
         "Token Name": "Ethereum Name Service (ENS)",
-        "image": "/icons/default.png"
+        "image": "/icons/base.png"
       }
     }
   },
@@ -9280,7 +9280,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor BOBA Pool Token (bnBOBA)",
-        "image": "/icons/default.png"
+        "image": "/icons/binance.png"
       },
       "defi": {
         "Token Name": "Bancor BOBA Pool Token (bnBOBA)",

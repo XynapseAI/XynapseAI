@@ -1075,7 +1075,7 @@
       "typhoon-cash": {
         "Name Tag": "Typhoon.Cash: cUSDT Reserve",
         "Description": "Typhoon.Cash: A protocol for yield-capable private transactions.",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

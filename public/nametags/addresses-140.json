@@ -7381,7 +7381,7 @@
       "marketplace": {
         "Name Tag": "LocalEthereum 1",
         "Description": "A marketplace is a place where goods and/or services are bought and sold.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -7469,7 +7469,7 @@
         "Description": "dForce advocates to develop and promote blockchain-native DeFi and monetary protocols serving as back-bone infrastructure for DeFi and open finance applications.",
         "Subcategory": "Main",
         "Token Name": "dForce USDT (dUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

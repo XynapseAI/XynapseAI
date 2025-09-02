@@ -1823,7 +1823,7 @@
         "Name Tag": "PoolTogether: v3 COMP Ticket",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
         "Token Name": "PT Compound cCOMP Ticket (PCcCOMP)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "protocol": {
         "Token Name": "PT Compound cCOMP Ticket (PCcCOMP)",

@@ -9673,7 +9673,7 @@
         "Name Tag": "Wormhole: USDTso Token",
         "Description": "Wormhole is a generic message-passing protocol that connects to multiple chains including Ethereum, Solana, Terra, Binance Smart Chain, Polygon, Avalanche, and Oasis.",
         "Token Name": "USDT (Wormhole) (USDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

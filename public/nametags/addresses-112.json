@@ -4862,7 +4862,7 @@
         "Name Tag": "X World Games: Old XWG Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/wlfi.png"
       }
     }
   },
@@ -5696,11 +5696,11 @@
       "deribit": {
         "Name Tag": "Deribit 5",
         "Description": "Deribit is a cryptocurrency derivatives platform for traders of all backgrounds and trading styles",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       },
       "derivatives": {
         "Name Tag": "Deribit 5",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       }
     }
   },

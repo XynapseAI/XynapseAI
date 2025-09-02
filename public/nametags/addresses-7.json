@@ -5265,11 +5265,11 @@
       "deribit": {
         "Name Tag": "Deribit 3",
         "Description": "Deribit is a cryptocurrency derivatives platform for traders of all backgrounds and trading styles",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       },
       "derivatives": {
         "Name Tag": "Deribit 3",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       }
     }
   },
@@ -6933,7 +6933,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: UNI Prize Pool",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

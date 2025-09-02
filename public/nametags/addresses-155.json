@@ -3639,13 +3639,13 @@
       "ethereum-mixer": {
         "Name Tag": "Tornado.Cash: Mixer 1",
         "Description": "A service that helps you mix your Ethereum transactions to secure your identity.",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       },
       "tornado-cash": {
         "Name Tag": "Tornado.Cash: Mixer 1",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -5042,7 +5042,7 @@
         "Name Tag": "Tornado.Cash: Poseidon 2",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },

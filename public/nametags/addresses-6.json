@@ -6453,7 +6453,7 @@
         "Name Tag": "Gitcoin Grants: wolfofethereum",
         "Description": "Gitcoin Grants: Get substantial sustainable funding for your projects.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -7450,7 +7450,7 @@
         "Name Tag": "Gemini: GUSD Token",
         "Description": "Gemini a secure place to buy, sell, and store cryptocurrency",
         "Token Name": "Gemini dollar (GUSD)",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       },
       "stablecoin": {
         "Token Name": "Gemini dollar (GUSD)"

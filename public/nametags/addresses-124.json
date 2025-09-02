@@ -7266,11 +7266,11 @@
       "deribit": {
         "Name Tag": "Deribit 9",
         "Description": "Deribit is a cryptocurrency derivatives platform for traders of all backgrounds and trading styles",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       },
       "derivatives": {
         "Name Tag": "Deribit 9",
-        "image": "/icons/default.png"
+        "image": "/icons/deribit.png"
       }
     }
   },
@@ -7886,7 +7886,7 @@
         "Name Tag": "Gitcoin Grants: Wildcards.world",
         "Description": "Gitcoin Grants: Get substantial sustainable funding for your projects.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/wlfi.png"
       }
     }
   },
@@ -9453,7 +9453,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: Multisig 1",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

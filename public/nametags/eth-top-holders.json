@@ -7,7 +7,7 @@
         "Name Tag": "Beacon Deposit Contract",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/beacon.png"
       }
     }
   },
@@ -19,7 +19,7 @@
         "Name Tag": "Wrapped Ether",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -31,7 +31,7 @@
         "Name Tag": "Binance 7",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/binance.png"
       }
     }
   },
@@ -43,7 +43,7 @@
         "Name Tag": "Robinhood",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/robinhood.png"
       }
     }
   },
@@ -55,7 +55,7 @@
         "Name Tag": "Binance: Hot Wallet 20",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/binance.png"
       }
     }
   },
@@ -67,7 +67,7 @@
         "Name Tag": "Arbitrum: Bridge",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/arbitrum.png"
       }
     }
   },
@@ -79,7 +79,7 @@
         "Name Tag": "Base: Base Portal",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/base.png"
       }
     }
   },
@@ -91,7 +91,7 @@
         "Name Tag": "Upbit 41",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/upbit.png"
       }
     }
   },
@@ -103,7 +103,7 @@
         "Name Tag": "Binance: Binance-Peg Tokens",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/binance.png"
       }
     }
   },
@@ -115,7 +115,7 @@
         "Name Tag": "Bitfinex 19",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -127,7 +127,7 @@
         "Name Tag": "Ceffu: Custody Hot Wallet 2",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/ceffu.png"
       }
     }
   },
@@ -163,7 +163,7 @@
         "Name Tag": "Gemini 3",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/gemini.png"
       }
     }
   },
@@ -175,7 +175,7 @@
         "Name Tag": "Polkadot: MultiSig",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/polkadot.png"
       }
     }
   },
@@ -199,7 +199,7 @@
         "Name Tag": "Bitfinex 20",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -211,7 +211,7 @@
         "Name Tag": "Kraken 74",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/kraken.png"
       }
     }
   },
@@ -247,7 +247,7 @@
         "Name Tag": "OKX 73",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/okx.png"
       }
     }
   },
@@ -259,7 +259,7 @@
         "Name Tag": "Rain Lohmus",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.png"
       }
     }
   },
@@ -271,7 +271,7 @@
         "Name Tag": "OKX 93",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/okx.png"
       }
     }
   },
@@ -283,7 +283,7 @@
         "Name Tag": "OKX 76",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/okx.png"
       }
     }
   },
@@ -307,7 +307,7 @@
         "Name Tag": "Vb 3",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.png"
       }
     }
   },
@@ -331,7 +331,7 @@
         "Name Tag": "Bitfinex: MultiSig 2",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -403,7 +403,7 @@
         "Name Tag": "EthDev",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -415,7 +415,7 @@
         "Name Tag": "Kraken 4",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/kraken.png"
       }
     }
   },
@@ -427,7 +427,7 @@
         "Name Tag": "QuadrigaCX 4",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.png"
       }
     }
   },
@@ -463,7 +463,7 @@
         "Name Tag": "Binance 14",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/binance.png"
       }
     }
   },
@@ -475,7 +475,7 @@
         "Name Tag": "Bitfinex 2",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -487,7 +487,7 @@
         "Name Tag": "Linea: L1 Message Service",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/linea.png"
       }
     }
   },
@@ -499,7 +499,7 @@
         "Name Tag": "Robinhood 6",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/robinhood.png"
       }
     }
   },
@@ -523,7 +523,7 @@
         "Name Tag": "Tornado.Cash: 100 ETH",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/tornado.png"
       }
     }
   },
@@ -547,7 +547,7 @@
         "Name Tag": "Crypto.com 22",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/crypto.png"
       }
     }
   },
@@ -583,7 +583,7 @@
         "Name Tag": "Iconomi: MultiSig 1",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.png"
       }
     }
   },
@@ -595,7 +595,7 @@
         "Name Tag": "Polygon (Matic): Ether Bridge",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/polygon.png"
       }
     }
   },
@@ -715,7 +715,7 @@
         "Name Tag": "Bitfinex 15",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -823,7 +823,7 @@
         "Name Tag": "Bitfinex 5",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -919,7 +919,7 @@
         "Name Tag": "Bitfinex 16",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -931,7 +931,7 @@
         "Name Tag": "Bitfinex 11",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitfinex.png"
       }
     }
   },
@@ -1099,7 +1099,7 @@
         "Name Tag": "Bitbank 2",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitbank.png"
       }
     }
   },
@@ -1123,7 +1123,7 @@
         "Name Tag": "Liquity: Active Pool",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.png"
       }
     }
   },

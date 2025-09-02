@@ -1799,7 +1799,7 @@
         "Name Tag": "Etheremon: Adventure Token",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
         "Token Name": "EtheremonAdventure (EMOND)",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "gaming": {
         "Token Name": "EtheremonAdventure (EMOND)",
@@ -8579,7 +8579,7 @@
       "hop-protocol": {
         "Name Tag": "Hop Protocol: USDT XDai Wrapper",
         "Description": "Hop Protocol is a rollup-to-rollup general token bridge. It allows users to send tokens from one rollup to another almost immediately without having to wait for the rollup’s challenge period.",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

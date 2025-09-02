@@ -7314,13 +7314,13 @@
       "donate": {
         "Name Tag": "Tornado.Cash: Donate",
         "Description": "The act of giving to help and support someone in need.",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       },
       "tornado-cash": {
         "Name Tag": "Tornado.Cash: Donate",
         "Description": "Tornado.Cash: Non-custodial anonymous transactions on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/tornado.png"
       }
     }
   },

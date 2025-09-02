@@ -6618,13 +6618,13 @@
         "Name Tag": "unFederalReserve: unUSDT Token",
         "Description": "ReserveLending: Lending protocol",
         "Token Name": "unFederal USDT (unUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       },
       "unfederalreserve": {
         "Name Tag": "unFederalReserve: unUSDT Token",
         "Description": "unFederalReserve is a banking Saas company built on the blockchain with products designed for smaller U.S. Treasury chartered banks and non-bank lenders.",
         "Token Name": "unFederal USDT (unUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },
@@ -9458,7 +9458,7 @@
     "Labels": {
       "swipeswap": {
         "Name Tag": "Swipe: WETH-USDT",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       }
     }
   },

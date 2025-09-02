@@ -5671,7 +5671,7 @@
       "etheremon": {
         "Name Tag": "Etheremon: Adventure Presale 1",
         "Description": "Etheremon is the first game opening an era of Game 3.0. It creates a world of Mons (Etheremons) where you can capture, train, transform, and trade them with others.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -6219,7 +6219,7 @@
         "Name Tag": "Rari Capital: cEther Implementation",
         "Description": "Rari Capital aims to deliver the best yield to all users with various risk tolerances. Easy, sustainable and built for the future.",
         "Subcategory": "Main",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

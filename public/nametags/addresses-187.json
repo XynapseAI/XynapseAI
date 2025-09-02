@@ -188,12 +188,12 @@
     "Labels": {
       "fiat-gateway": {
         "Name Tag": "Gemini 5",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       },
       "gemini": {
         "Name Tag": "Gemini 5",
         "Description": "Gemini a secure place to buy, sell, and store cryptocurrency",
-        "image": "/icons/default.png"
+        "image": "/icons/gemini.png"
       }
     }
   },
@@ -2444,7 +2444,7 @@
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
         "Token Name": "Compound 0x (cZRX)",
-        "image": "/icons/default.png"
+        "image": "/icons/cz.png"
       },
       "defi": {
         "Token Name": "Compound 0x (cZRX)",
@@ -4222,7 +4222,7 @@
         "Name Tag": "Ethereum Magicians: Multisig",
         "Description": "A contract that requires one or more signers to execute a transaction.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -9851,7 +9851,7 @@
       "donate": {
         "Name Tag": "Ethervm: Donate",
         "Description": "The act of giving to help and support someone in need.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

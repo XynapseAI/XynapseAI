@@ -5127,7 +5127,7 @@
       "gambling": {
         "Name Tag": "WorldFomo",
         "Description": "The wagering of Ethers or something of value on an event with an uncertain outcome with the primary intent of winning more Ethers or material goods.",
-        "image": "/icons/default.png"
+        "image": "/icons/wlfi.png"
       }
     }
   },
@@ -6599,7 +6599,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: v3 COMP Sponsorship",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

@@ -3424,7 +3424,7 @@
         "Description": "C.R.E.A.M: Crypto Rules Everything Around Me.",
         "Subcategory": "Main",
         "Token Name": "Cream USDT (crUSDT)",
-        "image": "/icons/default.png"
+        "image": "/icons/tether.png"
       },
       "defi": {
         "Token Name": "Cream USDT (crUSDT)",
@@ -6389,12 +6389,12 @@
         "Name Tag": "Ether Legends: Token Sale",
         "Description": "Ether Legends is a ground breaking collectible trading card game utilizing Blockchain technology for its fast, safe and reliable transactions while providing digital content ownership for all players!",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "token-sale": {
         "Name Tag": "Ether Legends: Token Sale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

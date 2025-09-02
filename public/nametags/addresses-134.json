@@ -1471,7 +1471,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: v2-v3 Migration",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },
@@ -3611,13 +3611,13 @@
       "etheroll": {
         "Name Tag": "Etheroll: Old Contract 2",
         "Description": "Etheroll is an Ethereum smart contract for placing bets on their provably-fair dice game using Ether with no deposits or sign-ups. Each dice roll is provably random and cryptographically secure thanks to the nature of the Ethereum blockchain.",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       },
       "old-contract": {
         "Name Tag": "Etheroll: Old Contract 2",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/eth.png"
       }
     }
   },

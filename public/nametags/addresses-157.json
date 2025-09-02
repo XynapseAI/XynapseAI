@@ -180,7 +180,7 @@
       "starknet": {
         "Name Tag": "StarkNet: Memory Page Fact Registry",
         "Description": "StarkNet is a permissionless decentralized ZK-Rollup. It operates as an L2 network over Ethereum, enabling any dApp to achieve unlimited scale for its computation – without compromising Ethereum's composability and security.",
-        "image": "/icons/default.png"
+        "image": "/icons/starknet.png"
       }
     }
   },
