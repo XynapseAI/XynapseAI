@@ -875,24 +875,25 @@ class TokenHoldersCron {
 
       const cacheKey = `sim_wallet_balances:${holder_address}:${chain}`;
       try {
-        // const cachedData = await redisClient.get(cacheKey);
-        // if (cachedData) {
-        //   console.log(`📦 Cache hit for wallet ${holder_address} on ${chain}`);
-        //   const { total_value_usd, token_count, metadata } = JSON.parse(cachedData);
-        //   await this.storeWalletHolders({
-        //     exchange_name,
-        //     chain,
-        //     holder_address,
-        //     total_value_usd,
-        //     token_count,
-        //     metadata,
-        //     name_tag,
-        //     image,
-        //   });
-        //   console.log(`     ✅ Stored cached wallet balances for ${holder_address} (${exchange_name}) on ${chain}`);
-        //   processedWallets.add(holderKey);
-        //   continue;
-        // }
+        // Kiểm tra cache
+        const cachedData = await redisClient.get(cacheKey);
+        if (cachedData) {
+          console.log(`📦 Cache hit for wallet ${holder_address} on ${chain}`);
+          const { total_value_usd, token_count, metadata } = JSON.parse(cachedData);
+          await this.storeWalletHolders({
+            exchange_name,
+            chain,
+            holder_address,
+            total_value_usd,
+            token_count,
+            metadata,
+            name_tag,
+            image,
+          });
+          console.log(`     ✅ Stored cached wallet balances for ${holder_address} (${exchange_name}) on ${chain}`);
+          processedWallets.add(holderKey);
+          continue;
+        }
 
         let allTokens = [];
         let nextOffset = null;
@@ -918,26 +919,97 @@ class TokenHoldersCron {
                     Authorization: process.env.SIM_API_KEY ? `Bearer ${process.env.SIM_API_KEY}` : undefined,
                   },
                   timeout: 45000,
+                  responseType: 'stream', // Sử dụng responseType stream để xử lý dữ liệu streaming
                 }
               )
             );
 
-            console.log(`📡 SIM API wallet-balances response for ${holder_address} on ${chain}:`, {
-              success: response.data?.success,
-              dataLength: response.data?.data?.length,
-              nextOffset: response.data?.next_offset,
-              sample: response.data?.data?.slice(0, 2),
-            });
+            // Xử lý dữ liệu từ stream
+            let buffer = '';
+            let isFirstChunk = true;
 
-            if (!response.data?.success || !Array.isArray(response.data.data)) {
-              console.warn(`     ⚠️ No valid wallet balances for ${holder_address} on ${chain}`);
-              break;
+            console.log(`📡 Starting to read SIM API stream for wallet balances of ${holder_address} on ${chain}`);
+
+            for await (const chunk of response.data) {
+              const chunkString = chunk.toString();
+              buffer += chunkString;
+
+              // Xử lý JSON từng phần
+              try {
+                if (isFirstChunk && buffer.startsWith('[')) {
+                  buffer = buffer.slice(1);
+                  isFirstChunk = false;
+                }
+
+                let lastIndex = 0;
+                for (let i = 0; i < buffer.length; i++) {
+                  if (buffer[i] === '}' && (buffer[i + 1] === ',' || buffer[i + 1] === ']')) {
+                    const jsonStr = buffer.slice(lastIndex, i + 1);
+                    try {
+                      const token = JSON.parse(jsonStr);
+                      if (token.address && token.chain && typeof token.amount !== 'undefined') {
+                        allTokens.push({
+                          chain: token.chain,
+                          address: token.address,
+                          symbol: token.symbol || 'Unknown',
+                          decimals: token.decimals || 18,
+                          amount: Number(token.amount) || 0,
+                          price_usd: Number(token.price_usd) || 0,
+                          value_usd: Number(token.value_usd) || 0,
+                          logo: token.logo || null,
+                          low_liquidity: token.low_liquidity || false,
+                          name: token.name || 'Unknown'
+                        });
+                      }
+                    } catch (parseError) {
+                      console.warn(`     ⚠️ Failed to parse JSON chunk for ${holder_address}: ${parseError.message}`);
+                    }
+                    lastIndex = i + 2; // Bỏ qua dấu ',' hoặc ']'
+                  }
+                }
+                buffer = buffer.slice(lastIndex);
+              } catch (error) {
+                console.warn(`     ⚠️ Error processing stream chunk for ${holder_address}: ${error.message}`);
+              }
             }
 
-            allTokens.push(...response.data.data);
-            nextOffset = response.data.next_offset || null;
+            // Xử lý phần còn lại của buffer
+            if (buffer.trim().endsWith(']') && buffer.trim().length > 1) {
+              try {
+                const lastJsonStr = buffer.trim().slice(0, -1);
+                if (lastJsonStr) {
+                  const token = JSON.parse(lastJsonStr);
+                  if (token.address && token.chain && typeof token.amount !== 'undefined') {
+                    allTokens.push({
+                      chain: token.chain,
+                      address: token.address,
+                      symbol: token.symbol || 'Unknown',
+                      decimals: token.decimals || 18,
+                      amount: Number(token.amount) || 0,
+                      price_usd: Number(token.price_usd) || 0,
+                      value_usd: Number(token.value_usd) || 0,
+                      logo: token.logo || null,
+                      low_liquidity: token.low_liquidity || false,
+                      name: token.name || 'Unknown'
+                    });
+                  }
+                }
+              } catch (parseError) {
+                console.warn(`     ⚠️ Failed to parse final JSON chunk for ${holder_address}: ${parseError.message}`);
+              }
+            }
 
-            const usdtToken = response.data.data.find(
+            console.log(`📡 SIM API stream completed for ${holder_address} on ${chain}:`, {
+              dataLength: allTokens.length,
+              sample: allTokens.slice(0, 2),
+            });
+
+            // Cập nhật nextOffset từ response headers hoặc logic stream
+            // Lưu ý: SIM API có thể không trả về next_offset trong stream, giả định tiếp tục cho đến khi stream kết thúc
+            nextOffset = null; // Stream không hỗ trợ phân trang, reset để thoát vòng lặp
+
+            // Kiểm tra USDT như trước
+            const usdtToken = allTokens.find(
               (token) =>
                 token.chain === "ethereum" &&
                 token.address.toLowerCase() === "0xdAC17F958D2ee523a2206206994597C13D831ec7"
