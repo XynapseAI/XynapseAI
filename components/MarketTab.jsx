@@ -825,7 +825,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           <div className="flex flex-col gap-4 max-h-full min-h-[800px] sm:max-h-full overflow-y-auto hide-scrollbar">
             {/* Token Information Panel */}
             <motion.div
-              className="border border-white/10 p-4 sm:p-4 rounded-xl min-h-[280px] sm:min-h-[310px] sm:max-h-[310px] overflow-y-auto custom-scrollbar bg-white/5 backdrop-blur-xl relative"
+              className="border border-white/10 p-4 sm:p-4 rounded-xl min-h-[280px] sm:min-h-[310px] sm:max-h-[310px] overflow-y-auto custom-scrollbar bg-black/80 backdrop-blur-xl relative"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
@@ -1256,7 +1256,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
             {/* Chart Panel */}
             <motion.div
-              className="border border-white/10 p-2 sm:p-2 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-white/5 backdrop-blur-xl overflow-hidden relative"
+              className="border border-white/10 p-2 sm:p-2 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-black/80 backdrop-blur-xl overflow-hidden relative"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
@@ -1404,7 +1404,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
           {/* Right Column - Market Data Tabs */}
           <motion.div
-            className="flex flex-col border border-white/10 rounded-xl min-h-[600px] sm:min-h-[500px] max-h-full sm:max-h-[605px] bg-white/5 market-tab-container hide-scrollbar"
+            className="flex flex-col border border-white/10 rounded-xl min-h-[600px] sm:min-h-[500px] max-h-full sm:max-h-[605px] bg-black/80 market-tab-container hide-scrollbar"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
@@ -1521,7 +1521,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                             <div className="overflow-x-auto">
                               <table className="w-full text-[9px] sm:text-[11px]">
-                                <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
+                                <thead className="top-0 z-10 border-b border-white/10 bg-black/80">
                                   <tr>
                                     <th className="px-3 py-1.5 text-white text-left font-semibold">
                                       <div className="flex items-center gap-2">
@@ -1571,7 +1571,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     return (
                                       <motion.tr
                                         key={index}
-                                        className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                                        className="border-t border-white/10 bg-black/80 transition-all duration-300"
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ duration: 0.3, delay: index * 0.02 }}
@@ -1685,7 +1685,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       ) : tickerData.length > 0 ? (
                         <div className="table-container">
                           <table className="w-full text-[9px] sm:text-[11px]">
-                            <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
+                            <thead className="top-0 z-10 border-b border-white/10 bg-black/80">
                               <tr>
                                 <th className="px-3 py-1.5 text-white text-left font-semibold">
                                   <div className="flex items-center gap-2">
@@ -1778,7 +1778,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               {tickerData.slice(0, 30).map((ticker, index) => (
                                 <motion.tr
                                   key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}
-                                  className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                                  className="border-t border-white/10 hover:bg-black/80 transition-all duration-300"
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ duration: 0.3, delay: index * 0.02 }}
@@ -1873,7 +1873,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           ) : dexData.trades.length > 0 ? (
                             <div className="overflow-x-auto">
                               <table className="w-full text-[9px] sm:text-[11px]">
-                                <thead className="top-0 z-10 border-b border-white/10 bg-white/5">
+                                <thead className="top-0 z-10 border-b border-white/10 bg-black/80">
                                   <tr>
                                     <th className="px-3 py-1.5 text-white text-left font-semibold">
                                       <div className="flex items-center gap-2">
@@ -1982,7 +1982,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       initial={{ opacity: 0, y: 10 }}
                                       animate={{ opacity: 1, y: 0 }}
                                       transition={{ duration: 0.3, ease: "easeOut", delay: index * 0.02 }}
-                                      className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
+                                      className="border-t border-white/10 bg-black/80 transition-all duration-300"
                                     >
                                       <td className="px-4 py-3 text-white">
                                         <div className="flex items-center gap-2">

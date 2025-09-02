@@ -1330,7 +1330,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
       <div className="flex flex-col flex-1 gap-4 sm:gap-5">
         <motion.div
-          className="min-h-[30vh] border border-white/20 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col md:flex-row"
+          className="min-h-[30vh] border border-white/10 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col md:flex-row"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -1462,7 +1462,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
         <div className="flex flex-col md:flex-row gap-4 flex-1">
           <motion.div
-            className="flex-1 border border-white/20 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col"
+            className="flex-1 border border-white/10 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
@@ -1492,7 +1492,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           </motion.div>
 
           <motion.div
-            className="flex-1 border border-white/20 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col"
+            className="flex-1 border border-white/10 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}

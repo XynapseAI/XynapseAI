@@ -108,75 +108,75 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Fetch User Data (keep reCAPTCHA)
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
-  queryKey: ['userData', session?.user?.id, csrfToken],
-  queryFn: async () => {
-    const cacheKey = `userData-${session.user.id}`;
-    const cached = await getCachedData(cacheKey);
-    if (cached) {
-      console.log('Using cached userData:', cached);
-      if (cached.twitterHandle && window.location.search.includes('twitterConnected=true')) {
-        console.log('Invalidating cache due to recent Twitter connection');
-        await clearCache(cacheKey);
-        throw new Error('Cache invalidated due to Twitter connection');
+    queryKey: ['userData', session?.user?.id, csrfToken],
+    queryFn: async () => {
+      const cacheKey = `userData-${session.user.id}`;
+      const cached = await getCachedData(cacheKey);
+      if (cached) {
+        console.log('Using cached userData:', cached);
+        if (cached.twitterHandle && window.location.search.includes('twitterConnected=true')) {
+          console.log('Invalidating cache due to recent Twitter connection');
+          await clearCache(cacheKey);
+          throw new Error('Cache invalidated due to Twitter connection');
+        }
+        return cached;
       }
-      return cached;
-    }
 
-    const token = await debouncedExecuteRecaptcha('get_user');
-    console.log('Fetching user data with UID:', session.user.id, 'CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
-    try {
-      const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
-        headers: {
-          'x-csrf-token': csrfToken,
-          'X-Recaptcha-Token': token,
-        },
-        withCredentials: true,
-      });
-      console.log('User API response:', response.data);
-      if (!response.data.success) throw new Error(response.data.detail || 'Unable to fetch user data');
-      const user = {
-        ...response.data.user,
-        isPremium: response.data.user.isPremium || false,
-        tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
-        twitterHandle: response.data.user.twitterHandle || null,
-      };
-      console.log('Transformed user data:', user);
-      await cacheData(cacheKey, user, 24 * 60 * 60 * 1000);
-      return user;
-    } catch (err) {
+      const token = await debouncedExecuteRecaptcha('get_user');
+      console.log('Fetching user data with UID:', session.user.id, 'CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
+      try {
+        const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+          headers: {
+            'x-csrf-token': csrfToken,
+            'X-Recaptcha-Token': token,
+          },
+          withCredentials: true,
+        });
+        console.log('User API response:', response.data);
+        if (!response.data.success) throw new Error(response.data.detail || 'Unable to fetch user data');
+        const user = {
+          ...response.data.user,
+          isPremium: response.data.user.isPremium || false,
+          tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
+          twitterHandle: response.data.user.twitterHandle || null,
+        };
+        console.log('Transformed user data:', user);
+        await cacheData(cacheKey, user, 24 * 60 * 60 * 1000);
+        return user;
+      } catch (err) {
+        console.error('Error fetching user data:', err.response?.data || err.message);
+        throw err; // Để onError xử lý
+      }
+    },
+    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+    staleTime: 1 * 60 * 1000,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
+    onError: async (err) => {
       console.error('Error fetching user data:', err.response?.data || err.message);
-      throw err; // Để onError xử lý
-    }
-  },
-  enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-  staleTime: 1 * 60 * 1000,
-  retry: 3,
-  retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
-  onError: async (err) => {
-    console.error('Error fetching user data:', err.response?.data || err.message);
-    if (err.response?.status === 429) {
-      toast.error('Too many requests. Please wait and try again.', {
-        position: 'top-center',
-        autoClose: 5000,
-      });
-    } else if (err.response?.status === 403) {
-      toast.error('Authentication failed. Please try logging in again.', {
-        position: 'top-center',
-        autoClose: 5000,
-      });
-      await signOut({ redirect: false });
-      window.location.href = '/auth/signin';
-    } else if (err.response?.status === 404) {
-      await signOut({ redirect: false });
-      window.location.href = '/auth/signin';
-    } else {
-      toast.error(`Failed to fetch user data: ${err.message}`, {
-        position: 'top-center',
-        autoClose: 5000,
-      });
-    }
-  },
-});
+      if (err.response?.status === 429) {
+        toast.error('Too many requests. Please wait and try again.', {
+          position: 'top-center',
+          autoClose: 5000,
+        });
+      } else if (err.response?.status === 403) {
+        toast.error('Authentication failed. Please try logging in again.', {
+          position: 'top-center',
+          autoClose: 5000,
+        });
+        await signOut({ redirect: false });
+        window.location.href = '/auth/signin';
+      } else if (err.response?.status === 404) {
+        await signOut({ redirect: false });
+        window.location.href = '/auth/signin';
+      } else {
+        toast.error(`Failed to fetch user data: ${err.message}`, {
+          position: 'top-center',
+          autoClose: 5000,
+        });
+      }
+    },
+  });
 
   // Fetch Tasks (remove reCAPTCHA)
   const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
@@ -486,32 +486,32 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return (
         <motion.tr
           key={user.id}
-          className={`border-t border-white/10 hover:bg-white/5 ${rankStyles[rank] || ''}`}
+          className={`border-t border-white/10 hover:bg-white/5 transition-all duration-300 ${rankStyles[rank] || ''}`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: index * 0.02 }}
         >
-          <td className="px-2 py-2 text-white text-[8px] sm:text-[10px]">{rank}</td>
-          <td className="px-2 py-2 text-white text-[8px] sm:text-[10px]">
+          <td className="px-3 py-2.5 text-white text-[9px] sm:text-[11px] truncate">{rank}</td>
+          <td className="px-3 py-2.5 text-white text-[9px] sm:text-[11px] truncate">
             <div className="flex items-center">
               <Image
                 src={getProfilePictureSrc(user.profile_picture)}
                 alt={user.google_name || user.twitterHandle || 'User Avatar'}
-                width={16}
-                height={16}
+                width={isMobile ? 14 : 16}
+                height={isMobile ? 14 : 16}
                 className="rounded-full border border-white/10 mr-2 object-cover"
               />
               <span className="truncate">
                 {user.google_name || user.twitterHandle || 'Anonymous'}
                 {isCurrentUser && (
-                  <span className="ml-2 text-[7px] sm:text-[8px] font-medium text-neon-blue px-2 py-0.5 rounded-full border border-neon-blue/50 bg-white/5">
+                  <span className="ml-2 text-[8px] sm:text-[9px] font-medium text-neon-blue px-2 py-0.5 rounded-full border border-neon-blue/50 bg-white/5">
                     You
                   </span>
                 )}
               </span>
             </div>
           </td>
-          <td className="px-2 py-2 text-neon-blue text-[8px] sm:text-[10px] text-right">{user.points || 0}</td>
+          <td className="px-3 py-2.5 text-neon-blue text-[9px] sm:text-[11px] text-right truncate">{user.points || 0}</td>
         </motion.tr>
       );
     },
@@ -519,20 +519,21 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   );
 
   // Render Tasks Section
+
   const renderTasksSection = useCallback(() => (
-    <div className="overflow-y-auto min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
-      <LoadingOverlay isLoading={tasksLoading || taskProgressLoading} isMobile={isMobile} />
+    <div className="relative bg-black/80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <LoadingOverlay isLoading={tasksLoading || taskProgressLoading} isMobile={isMobile} className="z-10" />
       {tasksError && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
+          className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
         >
           Error: {tasksError.message}
         </motion.div>
       )}
       {!tasks?.length && !tasksError && !(tasksLoading || taskProgressLoading) && (
-        <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2">No tasks available.</p>
+        <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4">No tasks available.</p>
       )}
       {tasks?.length > 0 && (
         <>
@@ -542,12 +543,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <p className="text-[8px] sm:text-[10px] text-white/80 mb-2">
+              <p className="text-[9px] sm:text-[11px] text-white/80 mb-2">
                 Connect your Twitter account to perform tasks.
               </p>
               <motion.button
                 onClick={() => connectTwitterMutation.mutate()}
-                className="px-3 py-1 rounded-xl text-[8px] sm:text-[10px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300"
+                className="px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -555,24 +556,24 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               </motion.button>
             </motion.div>
           )}
-          <table className="w-full text-[8px] sm:text-[10px]">
-            <thead className="border-b border-white/10 bg-white/5">
+          <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/80 rounded-xl">
+            <thead className="border-b border-white/10 bg-black/80">
               <tr>
-                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Task</th>
-                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Points</th>
-                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Action</th>
+                <th className={`${isMobile ? 'w-[50%]' : 'w-[60%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Task</th>
+                <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Points</th>
+                <th className={`${isMobile ? 'w-[30%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {getPaginatedData(tasks, 'tasks').map((task) => (
+              {getPaginatedData(tasks, 'tasks').map((task, index) => (
                 <motion.tr
                   key={task.id}
-                  className="border-t border-white/10 hover:bg-white/5"
+                  className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ duration: 0.3, delay: index * 0.02 }}
                 >
-                  <td className="px-2 py-2 text-white text-xs">
+                  <td className="px-3 py-2.5 text-white truncate">
                     {task.description}{' '}
                     {task.is_daily
                       ? `(Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
@@ -582,7 +583,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         href={`https://x.com/intent/follow?screen_name=XynapseAI`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[8px] sm:text-xs text-neon-blue underline block mt-1"
+                        className="text-[8px] sm:text-[10px] text-neon-blue underline block mt-1"
                       >
                         Follow @XynapseAI
                       </a>
@@ -592,14 +593,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         href={`https://x.com/intent/retweet?tweet_id=${task.target_id}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[8px] sm:text-xs text-neon-blue underline block mt-1"
+                        className="text-[8px] sm:text-[10px] text-neon-blue underline block mt-1"
                       >
                         Retweet this post
                       </a>
                     )}
                   </td>
-                  <td className="px-2 py-2 text-neon-green text-xs">+{task.points}</td>
-                  <td className="px-2 py-2 text-xs">
+                  <td className="px-3 py-2.5 text-neon-green truncate">+{task.points}</td>
+                  <td className="px-3 py-2.5 text-white truncate">
                     <motion.button
                       onClick={() => verifyTaskMutation.mutate(task)}
                       disabled={
@@ -608,7 +609,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
                         (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
                       }
-                      className={`px-3 py-1 rounded-xl text-[8px] sm:text-xs font-medium transition-all duration-300 border border-white/10 bg-white/5 ${verifyTaskMutation.isLoading ||
+                      className={`px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium transition-all duration-300 border border-white/10 bg-white/5 ${verifyTaskMutation.isLoading ||
                         (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
                         (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
                         (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
@@ -645,20 +646,20 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             <motion.button
               onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
               disabled={currentPage.tasks === 1}
-              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+              className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
                 }`}
               whileHover={{ scale: currentPage.tasks === 1 ? 1 : 1.05 }}
               whileTap={{ scale: currentPage.tasks === 1 ? 1 : 0.95 }}
             >
               &lt;
             </motion.button>
-            <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
+            <span className="text-[9px] sm:text-[11px] text-white/60 mt-1">
               {currentPage.tasks} / {getTotalPages(tasks)}
             </span>
             <motion.button
               onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
               disabled={currentPage.tasks === getTotalPages(tasks)}
-              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+              className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
                 }`}
               whileHover={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 1.05 }}
               whileTap={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 0.95 }}
@@ -673,34 +674,34 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Render Leaderboard Section
   const renderLeaderboardSection = useCallback(() => (
-    <div className="overflow-y-auto min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
-      <LoadingOverlay isLoading={leaderboardLoading} isMobile={isMobile} />
+    <div className="relative bg-black/5 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <LoadingOverlay isLoading={leaderboardLoading} isMobile={isMobile} className="z-10" />
       {leaderboardError && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
+          className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
         >
           Error: {leaderboardError.message}
           <button
             onClick={() => window.location.reload()}
-            className="ml-2 px-2 py-1 bg-neon-blue text-black rounded-xl text-[8px] sm:text-[10px]"
+            className="ml-2 px-2 py-1 bg-neon-blue text-black rounded-xl text-[9px] sm:text-[11px]"
           >
             Retry
           </button>
         </motion.div>
       )}
       {!leaderboardLoading && !leaderboardError && rankings?.length === 0 && (
-        <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2">No ranking data available.</p>
+        <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4">No ranking data available.</p>
       )}
       {!leaderboardLoading && rankings?.length > 0 && (
         <>
-          <table className="w-full text-[8px] sm:text-[10px]">
-            <thead className="border-b border-white/10 bg-white/5">
+          <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
+            <thead className="border-b border-white/10 bg-black/10">
               <tr>
-                <th className="px-2.5 py-1.5 text-white text-left font-semibold">Rank</th>
-                <th className="px-2.5 py-1.5 text-white text-left font-semibold">User</th>
-                <th className="px-2.5 py-1.5 text-white text-right font-semibold">Points</th>
+                <th className={`${isMobile ? 'w-[20%]' : 'w-[15%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Rank</th>
+                <th className={`${isMobile ? 'w-[60%]' : 'w-[65%]'} px-3 py-2 text-white text-left font-semibold truncate`}>User</th>
+                <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-right font-semibold truncate`}>Points</th>
               </tr>
             </thead>
             <tbody>
@@ -712,20 +713,20 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             <motion.button
               onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
               disabled={currentPage.leaderboard === 1}
-              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+              className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
                 }`}
               whileHover={{ scale: currentPage.leaderboard === 1 ? 1 : 1.05 }}
               whileTap={{ scale: currentPage.leaderboard === 1 ? 1 : 0.95 }}
             >
               &lt;
             </motion.button>
-            <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
+            <span className="text-[9px] sm:text-[11px] text-white/60 mt-1">
               {currentPage.leaderboard} / {getTotalPages(rankings)}
             </span>
             <motion.button
               onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
               disabled={currentPage.leaderboard === getTotalPages(rankings)}
-              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
+              className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
                 }`}
               whileHover={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 1.05 }}
               whileTap={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 0.95 }}
@@ -992,11 +993,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   <Image
                     src={getProfilePictureSrc(userData.profilePicture)}
                     alt={userData.googleName || 'Google User'}
-                    width={32}
-                    height={32}
-                    className="rounded-full border border-white/10"
+                    width={38}
+                    height={38}
+                    className="rounded-lg border border-white/10"
                   />
-                  <h4 className="text-base sm:text-lg font-bold text-white">{userData.googleName || userData.email}</h4>
+                  <h4 className="text-base sm:text-xl font-bold text-white">{userData.googleName || userData.email}</h4>
                 </div>
                 <div className="text-[9px] sm:text-[11px] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="bg-white/5 rounded-xl p-3">
@@ -1004,7 +1005,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-white/60">Email:</span>
-                        <span className="text-white">{userData.email}</span>
+                        <span className="text-neon-blue">{userData.email}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-white/60">Tier:</span>
@@ -1016,11 +1017,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white/5 rounded-xl p-3">
+                  <div className="bg-white/5 rounded-xl p-3 relative">
                     <h5 className="font-bold text-white uppercase mb-2">Connections</h5>
                     <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-white/60">Twitter:</span>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <img src="/logos/x.png" alt="Twitter Logo" className="w-3 h-3" />
+                          <span className="text-white/60">Twitter:</span>
+                        </div>
                         <span className="text-white">
                           {userData.twitterHandle ? (
                             <a href={`https://x.com/${userData.twitterHandle}`} target="_blank" rel="noopener noreferrer" className="text-neon-blue">
@@ -1032,6 +1036,28 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         </span>
                       </div>
                     </div>
+                    {userData.twitterHandle && (
+                      <motion.button
+                        onClick={() => disconnectTwitterMutation.mutate()}
+                        disabled={disconnectTwitterMutation.isLoading}
+                        className={`absolute bottom-2 right-2 px-3 py-1 rounded-xl text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/20 hover:bg-text-500/20'
+                          }`}
+                        whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
+                        whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
+                      >
+                        {disconnectTwitterMutation.isLoading ? 'Disconnecting...' : 'Disconnect'}
+                      </motion.button>
+                    )}
+                    {!userData.twitterHandle && (
+                      <motion.button
+                        onClick={() => connectTwitterMutation.mutate()}
+                        className="absolute bottom-2 right-2 px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        Connect Twitter
+                      </motion.button>
+                    )}
                   </div>
                   <div className="bg-white/5 rounded-xl p-3">
                     <h5 className="font-bold text-white uppercase mb-2">Points</h5>
@@ -1043,7 +1069,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2 mt-4">
+                {/* <div className="flex gap-2 mt-4">
                   {!userData.twitterHandle && (
                     <motion.button
                       onClick={() => connectTwitterMutation.mutate()}
@@ -1065,7 +1091,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       <img src="/logos/x.png" alt="Disconnect Twitter" className="w-3 h-3" />
                     </motion.button>
                   )}
-                </div>
+                </div> */}
               </div>
             )}
           </div>
@@ -1078,14 +1104,30 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <div className="p-0 border-b border-white/10 bg-white/5 flex gap-4 items-end h-[48px]">
+          <div className="p-0 border-b border-white/10 bg-black/10 flex h-[52px]">
             {['tasks', 'leaderboard', 'points'].map((tab) => (
               <motion.button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect ${activeTab === tab ? 'border-b-2 border-white' : 'text-white/80 hover:text-white'
+                className={`flex-1 text-xs font-bold text-white uppercase tracking-wider py-2 no-hover-effect flex items-center justify-center gap-2 ${activeTab === tab ? 'border-b-2 border-white/60' : 'text-white/80 hover:text-neon-blue'
                   }`}
               >
+                {tab === 'tasks' && (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12H12V2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+                {tab === 'leaderboard' && (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                )}
+                {tab === 'points' && (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                )}
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </motion.button>
             ))}
@@ -1099,67 +1141,60 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       </div>
 
       <style jsx>{`
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .animate-pulse {
-          animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
-        }
-        @keyframes pulse {
-          0%,
-          100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
-        }
-        @media (max-width: 640px) {
-          .text-base {
-            font-size: 0.875rem;
-          }
-          .text-lg {
-            font-size: 1rem;
-          }
-          .text-xl {
-            font-size: 1rem;
-          }
-          .text-2xl {
-            font-size: 1.25rem;
-          }
-          .text-[10px] {
-            font-size: 8px;
-          }
-          .text-[8px] {
-            font-size: 6px;
-          }
-          .text-[7px] {
-            font-size: 5px;
-          }
-          .h-[200px] {
-            height: 150px;
-          }
-          .grid-cols-2 {
-            grid-template-columns: 1fr;
-          }
-          .w-32 {
-            width: 24px;
-            height: 24px;
-          }
-          .min-h-[100px] {
-            min-height: 80px;
-          }
-        }
-        @media (min-width: 641px) and (max-width: 1024px) {
-          .grid-cols-3 {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-      `}</style>
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .animate-pulse {
+    animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+  @media (max-width: 640px) {
+    .text-base {
+      font-size: 0.875rem;
+    }
+    .text-lg {
+      font-size: 1rem;
+    }
+    .text-xl {
+      font-size: 1rem;
+    }
+    .text-2xl {
+      font-size: 1.25rem;
+    }
+    .text-[11px] {
+      font-size: 9px;
+    }
+    .text-[9px] {
+      font-size: 7px;
+    }
+    .text-[8px] {
+      font-size: 6px;
+    }
+    .h-[52px] {
+      height: 48px;
+    }
+    .min-h-[100px] {
+      min-height: 80px;
+    }
+  }
+  @media (min-width: 641px) and (max-width: 1024px) {
+    .grid-cols-3 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+`}</style>
     </motion.div>
   );
 }
