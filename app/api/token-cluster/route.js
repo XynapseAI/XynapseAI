@@ -259,7 +259,7 @@ export async function GET(request) {
       FROM wallet_agg
       GROUP BY token_address, symbol, logo
       ORDER BY total_balance_usd DESC NULLS LAST
-      LIMIT 50
+      LIMIT 200
     `;
     const portfolioResult = await withRetry(async () => await query(portfolioQuery, [mappedExchange]));
     logger.info('Portfolio result from wallet_holders:', { rows: portfolioResult.rows });
