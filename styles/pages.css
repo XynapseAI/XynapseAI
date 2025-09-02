@@ -123,6 +123,43 @@
   }
 }
 
+/* Header Dropdown and Mobile Menu Styles */
+.header-dropdown {
+  transform-origin: top;
+  transition: all 0.3s ease;
+}
+
+.header-dropdown a:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.mobile-menu {
+  transform-origin: right;
+}
+
+/* Smooth transitions for menu items */
+.mobile-menu a {
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.mobile-menu a:hover {
+  transform: translateX(5px);
+}
+
+.card-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.card {
+  transform-origin: center;
+  z-index: 10; /* Ensure cards are above other elements */
+}
+
 /* Custom scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;

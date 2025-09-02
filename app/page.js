@@ -27,10 +27,8 @@ function AnimatedCounter({ value, duration = 2000, suffix = "" }) {
       const animate = (currentTime) => {
         if (startTime === null) startTime = currentTime
         const progress = Math.min((currentTime - startTime) / duration, 1)
-
         const easeOutQuart = 1 - Math.pow(1 - progress, 4)
         setCount(Math.floor(easeOutQuart * value))
-
         if (progress < 1) {
           requestAnimationFrame(animate)
         }
@@ -88,10 +86,10 @@ function MatrixHoverEffect({ text, hoverColor = "#00BFFF" }) {
   )
 }
 
-// Updated WalletNode Component with rounded corners, no border, and drag functionality
+// Updated WalletNode Component
 function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
-  const truncateAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  const displayName = nametag || truncateAddress(address);
+  const truncateAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`
+  const displayName = nametag || truncateAddress(address)
 
   return (
     <div
@@ -100,11 +98,11 @@ function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
       onClick={() => onSelect(address)}
       draggable
       onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', address);
+        e.dataTransfer.setData('text/plain', address)
       }}
       onDrag={(e) => {
         if (e.clientX && e.clientY) {
-          onDrag(e, address);
+          onDrag(e, address)
         }
       }}
     >
@@ -121,39 +119,38 @@ function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
         {displayName}
       </p>
     </div>
-  );
+  )
 }
 
-// Updated SimulatedTreemap Component with dynamic line updates
+// Updated SimulatedTreemap Component
 function SimulatedTreemap() {
   const [nodes, setNodes] = useState([
-    { address: '0x123...abc', nametag: 'Binance Deposit Wallet', image: '/icons/binance.png', position: { x: 150, y: 200 } }, // Center
-    { address: '0x456...def', nametag: 'OKX Hot Wallet', image: '/icons/okx.png', position: { x: -50, y: 150 } }, // Left 1
-    { address: '0x789...ghi', nametag: 'Bybit Hot Wallet', image: '/icons/bybit.png', position: { x: -50, y: 250 } }, // Left 2
-    { address: '0xabc...123', nametag: 'Tether Treasury', image: '/icons/tether.png', position: { x: 350, y: 100 } }, // Right 1
-    { address: '0xdef...456', nametag: 'Binance Hot Wallet', image: '/icons/binance.png', position: { x: 350, y: 200 } }, // Right 2
-    { address: '0xghi...789', nametag: 'Coinbase Wallet', image: '/icons/coinbase.png', position: { x: 350, y: 300 } }, // Right 3
-  ]);
+    { address: '0x123...abc', nametag: 'Binance Deposit Wallet', image: '/icons/binance.png', position: { x: 150, y: 200 } },
+    { address: '0x456...def', nametag: 'OKX Hot Wallet', image: '/icons/okx.png', position: { x: -50, y: 150 } },
+    { address: '0x789...ghi', nametag: 'Bybit Hot Wallet', image: '/icons/bybit.png', position: { x: -50, y: 250 } },
+    { address: '0xabc...123', nametag: 'Tether Treasury', image: '/icons/tether.png', position: { x: 350, y: 100 } },
+    { address: '0xdef...456', nametag: 'Binance Hot Wallet', image: '/icons/binance.png', position: { x: 350, y: 200 } },
+    { address: '0xghi...789', nametag: 'Coinbase Wallet', image: '/icons/coinbase.png', position: { x: 350, y: 300 } },
+  ])
 
   const handleDrag = (e, address) => {
-    e.preventDefault();
-    const nodeIndex = nodes.findIndex(n => n.address === address);
+    e.preventDefault()
+    const nodeIndex = nodes.findIndex(n => n.address === address)
     if (nodeIndex !== -1) {
-      const updatedNodes = [...nodes];
+      const updatedNodes = [...nodes]
       updatedNodes[nodeIndex].position = {
         x: updatedNodes[nodeIndex].position.x + e.movementX,
         y: updatedNodes[nodeIndex].position.y + e.movementY,
-      };
-      setNodes(updatedNodes);
+      }
+      setNodes(updatedNodes)
     }
-  };
+  }
 
   const handleSelect = (address) => {
-    console.log(`Selected wallet: ${address}`);
-    alert(`Clicked on wallet: ${address}`);
-  };
+    console.log(`Selected wallet: ${address}`)
+    alert(`Clicked on wallet: ${address}`)
+  }
 
-  // Calculate SVG paths dynamically based on node positions
   const getPath = (startX, startY, endX, endY, color) => {
     return (
       <path
@@ -164,22 +161,22 @@ function SimulatedTreemap() {
         strokeDasharray="5,5"
         className="transition-all duration-300"
       />
-    );
-  };
+    )
+  }
 
   return (
     <div className="relative w-full h-[500px] rounded-2xl p-6 mr-4">
       <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%">
         {nodes.map((node, index) => {
-          if (index === 0) return null; // Skip the center node for lines
-          const startNode = nodes[0]; // Connect all nodes to the center node
+          if (index === 0) return null
+          const startNode = nodes[0]
           return getPath(
-            startNode.position.x + 60, // Center of the start node
+            startNode.position.x + 60,
             startNode.position.y + 20,
-            node.position.x + 60, // Center of the target node
+            node.position.x + 60,
             node.position.y + 20,
             index % 2 === 0 ? "#00BFFF" : "#EF4444"
-          );
+          )
         })}
       </svg>
       {nodes.map((node) => (
@@ -194,7 +191,7 @@ function SimulatedTreemap() {
         />
       ))}
     </div>
-  );
+  )
 }
 
 export default function Home() {
@@ -207,6 +204,9 @@ export default function Home() {
   const starsRef = useRef(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalContent, setModalContent] = useState(null)
+  const [isProductOpen, setIsProductOpen] = useState(false)
+  const [isResourcesOpen, setIsResourcesOpen] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     const path = router.asPath
@@ -253,28 +253,30 @@ export default function Home() {
       const cardHeight = isMobile ? viewportHeight * 0.35 : viewportHeight * 0.3
 
       if (cardsContainerRef.current) {
-        cardsContainerRef.current.style.minHeight = `${cardHeight * 1.4 + 150}px`
+        cardsContainerRef.current.style.minHeight = `${cardHeight * 3}px` // Increased for more spacing
       }
       if (sectionRef.current) {
-        sectionRef.current.style.minHeight = `${viewportHeight * 1.2}px`
+        sectionRef.current.style.minHeight = `${viewportHeight * 2}px` // Extended section height
         sectionRef.current.style.marginTop = isMobile ? "-10vh" : "0"
       }
 
       gsap.set([card1Ref.current, card2Ref.current, card3Ref.current], {
         opacity: 0,
-        y: 150,
+        y: 300, // Start further off-screen for smoother entrance
         scale: isMobile ? 0.95 : 0.9,
         width: cardWidth,
         height: cardHeight,
+        xPercent: -50, // Center horizontally
+        left: "50%", // Ensure cards are centered
         overwrite: "auto",
       })
 
       const cardTl = gsap.timeline({
         scrollTrigger: {
           trigger: sectionRef.current,
-          start: isMobile ? "top 10%" : "top 20%",
-          end: isMobile ? `+=${viewportHeight * 1.5}` : `+=${viewportHeight * 2}`,
-          scrub: 0.5,
+          start: isMobile ? "top 10%" : "top 15%",
+          end: isMobile ? `+=${viewportHeight * 3.5}` : `+=${viewportHeight * 4}`, // Longer scroll duration
+          scrub: 1.5, // Smoother scrub for fluid transitions
           pin: true,
           pinSpacing: true,
           markers: false,
@@ -290,35 +292,68 @@ export default function Home() {
             opacity: 1,
             y: 0,
             scale: 1,
-            duration: isMobile ? 0.8 : 1,
-            ease: "power3.out",
+            duration: isMobile ? 1.2 : 1.5,
+            ease: "power4.out", // Modern, smooth easing
           },
           0
+        )
+        .to(
+          card1Ref.current,
+          {
+            opacity: 0.2,
+            y: -cardHeight * 0.8, // Move up more to avoid overlap
+            scale: 0.9,
+            duration: isMobile ? 0.8 : 1,
+            ease: "power4.in",
+          },
+          isMobile ? 1.8 : 2.5 // Delayed to keep card 1 visible longer
         )
         .to(
           card2Ref.current,
           {
             opacity: 1,
-            y: isMobile ? cardHeight * 0.2 : 20,
+            y: 0,
             scale: 1,
-            duration: isMobile ? 0.8 : 1,
-            ease: "power3.out",
+            duration: isMobile ? 1.2 : 1.5,
+            ease: "power4.out",
           },
-          isMobile ? 0.3 : 0.5
+          isMobile ? 1.5 : 2.2 // Start card 2 after card 1 is fully visible
+        )
+        .to(
+          card2Ref.current,
+          {
+            opacity: 0.2,
+            y: -cardHeight * 0.8,
+            scale: 0.9,
+            duration: isMobile ? 0.8 : 1,
+            ease: "power4.in",
+          },
+          isMobile ? 3.3 : 4.7 // Delayed to keep card 2 visible longer
         )
         .to(
           card3Ref.current,
           {
             opacity: 1,
-            y: isMobile ? cardHeight * 0.4 : 40,
+            y: 0,
             scale: 1,
-            duration: isMobile ? 0.8 : 1,
-            ease: "power3.out",
+            duration: isMobile ? 1.2 : 1.5,
+            ease: "power4.out",
           },
-          isMobile ? 0.6 : 1
+          isMobile ? 3.0 : 4.4 // Start card 3 after card 2 is fully visible
+        )
+        .to(
+          card3Ref.current,
+          {
+            opacity: 0.2,
+            y: -cardHeight * 0.8,
+            scale: 0.9,
+            duration: isMobile ? 0.8 : 1,
+            ease: "power4.in",
+          },
+          isMobile ? 4.8 : 6.9 // Fade out card 3 at the end
         )
 
-      // Stars and meteors animation
+      // Stars and meteors animation (unchanged)
       if (starsRef.current) {
         starsRef.current.innerHTML = ""
 
@@ -525,19 +560,18 @@ export default function Home() {
     '/logos/logo5.png',
   ]
 
-  // Simulated top holders data with corresponding images
   const simulatedTopHolders = [
     { address: '', balance: 632457, source: 'MicroStrategy Inc.', image: '/icons/microstrategy.png' },
     { address: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo', balance: 248597, source: 'Binance Cold Wallet', image: '/icons/binance.png' },
     { address: 'bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2', balance: 140574, source: 'Robinhood Cold Wallet', image: '/icons/robinhood.png' },
     { address: '3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6', balance: 140398, source: 'Binance Cold Wallet', image: '/icons/binance.png' },
     { address: 'bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97', balance: 130010, source: 'Bitfinex Cold Wallet', image: '/icons/bitfinex.png' },
-  ];
+  ]
 
   return (
     <div className="min-h-screen flex flex-col bg-black text-white overflow-x-hidden font-saira">
       {/* Header */}
-      <header className="w-full py-1.5 px-6 flex justify-between items-center z-50 sticky top-0">
+      <header className="w-full py-1.5 px-6 flex justify-between items-center z-50 sticky top-0 bg-black/50 backdrop-blur-lg">
         <div className="flex items-center">
           <Image
             src="/logos/logo-landscape.png"
@@ -549,32 +583,176 @@ export default function Home() {
           />
         </div>
         <div className="flex items-center gap-4">
-          <Link href="https://x.com" className="transition-all duration-300">
-            <Image
-              src="/logos/x.png"
-              alt="X Logo"
-              width={24}
-              height={24}
-              className="h-4 sm:h-5 w-auto"
-            />
-          </Link>
-          <span>
-            <Image
-              src="/logos/discord.png"
-              alt="Discord Logo"
-              width={24}
-              height={24}
-              className="h-4 sm:h-5 w-auto opacity-50"
-            />
-          </span>
-          <Link
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center gap-10 m-2">
+            <div className="relative group">
+              <button
+                className="text-white text-sm font-medium transition-all duration-300"
+                onMouseEnter={() => setIsProductOpen(true)}
+                onMouseLeave={() => setIsProductOpen(false)}
+              >
+                <MatrixHoverEffect text="PRODUCT" hoverColor="#00BFFF" />
+              </button>
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={isProductOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="absolute left-[-15px] top-full mt-2 w-48 bg-transparent backdrop-blur-xs"
+                onMouseEnter={() => setIsProductOpen(true)}
+                onMouseLeave={() => setIsProductOpen(false)}
+              >
+                {["About", "Features", "Pricing", "Docs"].map((link) => (
+                  <Link
+                    key={link}
+                    href={`/${link.toLowerCase()}`}
+                    className="block px-4 py-2 text-sm text-white/80 hover:text-neon-blue transition-all duration-300"
+                  >
+                    {link}
+                  </Link>
+                ))}
+              </motion.div>
+            </div>
+            <div className="relative group">
+              <button
+                className="text-white text-sm font-medium transition-all duration-300"
+                onMouseEnter={() => setIsResourcesOpen(true)}
+                onMouseLeave={() => setIsResourcesOpen(false)}
+              >
+                <MatrixHoverEffect text="RESOURCES" hoverColor="#00BFFF" />
+              </button>
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={isResourcesOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="absolute left-[-15px] top-full mt-2 w-48 bg-transparent backdrop-blur-xs"
+                onMouseEnter={() => setIsResourcesOpen(true)}
+                onMouseLeave={() => setIsResourcesOpen(false)}
+              >
+                {["Blog", "Support", "Brand Kit", "Contact"].map((link) => (
+                  <Link
+                    key={link}
+                    href={`/${link.toLowerCase()}`}
+                    className="block px-4 py-2 text-sm text-white/80 hover:text-neon-blue transition-all duration-300"
+                  >
+                    {link}
+                  </Link>
+                ))}
+              </motion.div>
+            </div>
+          </div>
+          {/* Social Logos (Visible only on Desktop) */}
+          {/* <div className="hidden md:flex items-center gap-4">
+            <Link href="https://x.com" className="transition-all duration-300">
+              <Image
+                src="/logos/x.png"
+                alt="X Logo"
+                width={24}
+                height={24}
+                className="h-4 sm:h-5 w-auto"
+              />
+            </Link>
+            <span>
+              <Image
+                src="/logos/discord.png"
+                alt="Discord Logo"
+                width={24}
+                height={24}
+                className="h-4 sm:h-5 w-auto opacity-50"
+              />
+            </span>
+          </div> */}
+          {/* LAUNCH APP Button */}
+          {/* <Link
             href="/dashboard"
             className="px-3 py-1.5 text-white text-xs border border-white/20 rounded-md font-medium transition-all duration-300"
           >
             <MatrixHoverEffect text="LAUNCH APP" hoverColor="#00BFFF" />
-          </Link>
+          </Link> */}
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="text-white text-[9px] font-medium transition-all duration-300 relative w-3 h-3"
+            >
+              <span
+                className={`hamburger-icon ${isMobileMenuOpen ? 'open' : ''}`}
+              ></span>
+            </button>
+          </div>
         </div>
       </header>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="fixed right-0 top-0 w-3/5 h-full bg-black/80 backdrop-blur-lg border-l border-white/20 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="text-white text-xl font-bold mb-6"
+            >
+              ✕
+            </button>
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-sm font-bold text-white mb-4 tracking-wider">PRODUCT</h3>
+                {["About", "Features", "Pricing", "Docs"].map((link) => (
+                  <Link
+                    key={link}
+                    href={`/${link.toLowerCase()}`}
+                    className="block text-xs text-gray-400 mb-2 hover:text-white transition-all duration-300"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {link}
+                  </Link>
+                ))}
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white mb-4 tracking-wider">RESOURCES</h3>
+                {["Blog", "Support", "Brand Kit", "Contact"].map((link) => (
+                  <Link
+                    key={link}
+                    href={`/${link.toLowerCase()}`}
+                    className="block text-xs text-gray-400 mb-2 hover:text-white transition-all duration-300"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {link}
+                  </Link>
+                ))}
+              </div>
+              <div className="flex gap-6">
+                <Link href="https://x.com" className="text-gray-500 hover:text-white transition-colors">
+                  <Image
+                    src="/logos/x.png"
+                    alt="X Logo"
+                    width={24}
+                    height={24}
+                    className="h-5 w-auto"
+                  />
+                </Link>
+                <span>
+                  <Image
+                    src="/logos/discord.png"
+                    alt="Discord Logo"
+                    width={24}
+                    height={24}
+                    className="h-6 w-auto opacity-50"
+                  />
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Hero Section */}
       <section className="min-h-screen flex flex-col items-center justify-center py-16 bg-gradient-to-b from-black via-gray-900 to-black relative overflow-hidden">
@@ -593,15 +771,15 @@ export default function Home() {
             Unlock real-time insights, predictive analytics, and social sentiment analysis powered by elite AI models.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
+            {/* <Link
               href="#learn-more"
               className="px-4 py-2 text-white border border-white/20 rounded-md text-xs font-medium transition-all duration-300"
             >
               <MatrixHoverEffect text="DISCOVER NOW" hoverColor="#00BFFF" />
-            </Link>
+            </Link> */}
             <Link
               href="/dashboard"
-              className="px-4 py-2 bg-white text-black rounded-md text-xs font-medium transition-all duration-300 hover:bg-gray-200"
+              className="px-4 py-2 bg-white text-black rounded-lg text-xs font-medium transition-all duration-300 hover:bg-gray-200"
             >
               <MatrixHoverEffect text="LAUNCH APP" hoverColor="#000000" />
             </Link>
@@ -641,7 +819,7 @@ export default function Home() {
             <motion.div
               key={index}
               ref={ref}
-              className="absolute bg-gradient-to-br from-gray-900 via-black to-gray-800 backdrop-blur-md border border-white/20 rounded-lg shadow-2xl flex flex-row items-center justify-between p-8 w-full max-w-4xl sm:h-[300px] h-[240px] hover:border-white/40 transition-all duration-300"
+              className="absolute bg-gradient-to-br from-gray-900 via-black to-gray-800 backdrop-blur-md border border-white/20 rounded-lg shadow-2xl flex flex-row items-center justify-between p-8 w-full max-w-4xl sm:h-[300px] h-[240px] transition-all duration-300 card"
             >
               <div className="flex-1 pr-8">
                 <h3 className="text-2xl sm:text-3xl font-bold text-white mb-4 tracking-tight">
@@ -1059,7 +1237,7 @@ export default function Home() {
           >
             <Link
               href="/signup"
-              className="inline-block px-5 py-2.5 bg-white text-black rounded-md text-sm font-medium transition-all duration-300 hover:bg-gray-200"
+              className="inline-block px-5 py-2.5 bg-white/90 text-black rounded-lg text-sm font-medium transition-all duration-300 hover:bg-gray-200"
             >
               <MatrixHoverEffect text="SIGN UP" hoverColor="#000000" />
             </Link>
@@ -1231,47 +1409,90 @@ export default function Home() {
       )}
 
       <style jsx>{`
-        .star-dot {
-          position: absolute;
-          width: 2px;
-          height: 2px;
-          background: white;
-          border-radius: 50%;
-          opacity: 0.7;
-        }
+  .hamburger-icon {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: white;
+    position: relative;
+    left: 0; /* Ensure no left offset */
+    transition: all 0.3s ease;
+  }
 
-        .meteor-container {
-          position: absolute;
-          width: 2px;
-          height: 2px;
-        }
+  .hamburger-icon::before,
+  .hamburger-icon::after {
+    content: '';
+    position: absolute;
+    width: 24px; /* Match width of middle bar */
+    height: 2px;
+    background: white;
+    left: 0; /* Align with middle bar */
+    transition: all 0.3s ease;
+  }
 
-        .meteor-tail {
-          position: absolute;
-          width: 2px;
-          height: 100px;
-          background: linear-gradient(to bottom, white, transparent);
-          transform-origin: top center;
-        }
+  .hamburger-icon::before {
+    top: -8px; /* Position above middle bar */
+  }
 
-        @keyframes marquee-right-to-left {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
+  .hamburger-icon::after {
+    top: 8px; /* Position below middle bar */
+  }
 
-        @keyframes reverse-marquee {
-          0% { transform: translateX(-50%); }
-          100% { transform: translateX(0); }
-        }
+  .hamburger-icon.open {
+    background: transparent; /* Hide middle bar when open */
+  }
 
-        .animate-marquee-right-to-left {
-          animation: marquee-right-to-left 30s linear infinite;
-        }
+  .hamburger-icon.open::before {
+    transform: rotate(45deg);
+    top: 0; /* Center on middle bar */
+  }
 
-        .animate-reverse-marquee {
-          animation: reverse-marquee 35s linear infinite;
-        }
-      `}</style>
+  .hamburger-icon.open::after {
+    transform: rotate(-45deg);
+    top: 0; /* Center on middle bar */
+  }
+
+  .star-dot {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: white;
+    border-radius: 50%;
+    opacity: 0.7;
+  }
+
+  .meteor-container {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+  }
+
+  .meteor-tail {
+    position: absolute;
+    width: 2px;
+    height: 100px;
+    background: linear-gradient(to bottom, white, transparent);
+    transform-origin: top center;
+  }
+
+  @keyframes marquee-right-to-left {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  @keyframes reverse-marquee {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(0); }
+  }
+
+  .animate-marquee-right-to-left {
+    animation: marquee-right-to-left 30s linear infinite;
+  }
+
+  .animate-reverse-marquee {
+    animation: reverse-marquee 35s linear infinite;
+  }
+`}</style>
     </div>
   )
 }
