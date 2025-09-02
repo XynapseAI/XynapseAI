@@ -1422,7 +1422,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               <p className="text-[10px] sm:text-xs text-white/60 text-center">No exchange data available. Please select another exchange.</p>
             )}
           </div>
-          <div className="flex-1 p-4">
+          <div className="flex-1 p-2 sm:p-4 mr-2 sm:mr-0">
             <LoadingOverlay isLoading={isLoadingVolume} isMobile={isMobile} />
             {isLoadingVolume ? (
               <SkeletonLoader count={1} isMobile={isMobile} />

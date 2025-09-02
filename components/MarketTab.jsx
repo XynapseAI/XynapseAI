@@ -612,7 +612,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   className={`bg-black/40 backdrop-blur-sm text-white px-1.5 sm:px-2 py-1 sm:py-1 text-[8px] sm:text-[10px] flex items-center gap-1 sm:gap-2 border-2 border-white/20 hover:bg-white/10 transition-all duration-300 rounded-lg min-w-[120px] ${selectedToken?.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase())
                     ? "opacity-50 cursor-not-allowed"
                     : ""
-                    }`} 
+                    }`}
                   disabled={
                     !selectedToken ||
                     (selectedToken.id && ["bitcoin", "ethereum"].includes(selectedToken.id.toLowerCase()))
@@ -701,11 +701,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
           {/* Trending Tokens Ticker */}
           <div
-            className="relative w-full rounded-lg trending-container"
+            className="relative w-full rounded-lg trending-container overflow-hidden"
             ref={trendingRef}
           >
             {isLoadingTrending && !trendingTokens?.length ? (
               <div className="flex items-center justify-center h-8">
+                <LoadingOverlay isLoading={isLoadingTrending} isMobile={isMobile} />
               </div>
             ) : trendingError ? (
               <div className="text-center">
@@ -722,81 +723,84 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             ) : trendingTokens.length === 0 ? (
               <div className="text-white/60 text-[10px] text-center"></div>
             ) : (
-              <motion.div
-                className="flex items-center whitespace-nowrap w-full"
-                animate={isTrendingHovered ? { x: 0 } : { x: ["0%", "-100%"] }}
-                transition={{
-                  x: {
-                    repeat: Number.POSITIVE_INFINITY,
-                    repeatType: "loop",
-                    duration: trendingTokens.length * 4,
-                    ease: "linear",
-                  },
-                }}
-                style={{ display: "inline-flex" }}
-                onMouseEnter={() => {
-                  setIsTrendingHovered(true)
-                }}
-                onMouseLeave={() => {
-                  setIsTrendingHovered(false)
-                  setTooltipToken(null)
-                }}
-                onTouchStart={() => {
-                  setIsTrendingHovered(true)
-                }}
-                onTouchEnd={() => {
-                  setIsTrendingHovered(false)
-                  setTooltipToken(null)
-                }}
-              >
-                {[...trendingTokens, ...trendingTokens].map((token, index) => (
-                  <motion.div
-                    key={`${token.id}-${index}`}
-                    ref={(el) => (tokenRefs.current[`${token.id}-${index}`] = el)}
-                    className="relative mx-2 sm:mx-2.5 mr-2 flex items-center gap-1 px-1.5 py-0.5 cursor-pointer transition-all duration-300"
-                    onClick={() => {
-                      handleTokenSelect(token)
-                    }}
-                    onMouseEnter={() => {
-                      setHoveredToken(`${token.id}-${index}`)
-                      setTooltipToken(token)
-                      updateTooltipPosition(token.id, index)
-                    }}
-                    onMouseLeave={() => {
-                      setHoveredToken(null)
-                      setTooltipToken(null)
-                    }}
-                    onTouchStart={() => {
-                      setHoveredToken(`${token.id}-${index}`)
-                      setTooltipToken(token)
-                      updateTooltipPosition(token.id, index)
-                    }}
-                    onTouchEnd={() => {
-                      setHoveredToken(null)
-                      setTooltipToken(null)
-                    }}
-                    whileHover={{ scale: 1.05, y: -2 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <img
-                      src={token.thumb || token.image?.thumb || "/fallback-image.png"}
-                      alt={`${token.symbol} logo`}
-                      className="w-3 sm:w-4 h-3 sm:h-4 rounded-lg"
-                      onError={(e) => {
-                        logger.error("Token logo failed to load:", { symbol: token.symbol, src: token.thumb })
-                        e.target.src = "/fallback-image.png"
+              <div className="overflow-hidden">
+                <motion.div
+                  className="flex items-center whitespace-nowrap"
+                  animate={isTrendingHovered ? { x: 0 } : { x: ["0%", "-50%"] }}
+                  transition={{
+                    x: {
+                      repeat: Number.POSITIVE_INFINITY,
+                      repeatType: "loop",
+                      duration: trendingTokens.length * 4,
+                      ease: "linear",
+                    },
+                  }}
+                  style={{ display: "inline-flex", width: "max-content" }}
+                  onMouseEnter={() => {
+                    setIsTrendingHovered(true);
+                  }}
+                  onMouseLeave={() => {
+                    setIsTrendingHovered(false);
+                    setTooltipToken(null);
+                  }}
+                  onTouchStart={() => {
+                    setIsTrendingHovered(true);
+                  }}
+                  onTouchEnd={() => {
+                    setIsTrendingHovered(false);
+                    setTooltipToken(null);
+                  }}
+                >
+                  {[...trendingTokens, ...trendingTokens].map((token, index) => (
+                    <motion.div
+                      key={`${token.id}-${index}`}
+                      ref={(el) => (tokenRefs.current[`${token.id}-${index}`] = el)}
+                      className="relative mx-2 sm:mx-2.5 flex items-center gap-1 px-1.5 py-0.5 cursor-pointer transition-all duration-300"
+                      onClick={() => {
+                        handleTokenSelect(token);
                       }}
-                    />
-                    <span className="text-white text-[8px] sm:text-[10px] font-medium">{token.symbol.toUpperCase()}</span>
-                    <span
-                      className={`text-[8px] sm:text-[9px] font-medium ${token.price_change_percentage_24h >= 0 ? "text-emerald-400" : "text-red-500"}`}
+                      onMouseEnter={() => {
+                        setHoveredToken(`${token.id}-${index}`);
+                        setTooltipToken(token);
+                        updateTooltipPosition(token.id, index);
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredToken(null);
+                        setTooltipToken(null);
+                      }}
+                      onTouchStart={() => {
+                        setHoveredToken(`${token.id}-${index}`);
+                        setTooltipToken(token);
+                        updateTooltipPosition(token.id, index);
+                      }}
+                      onTouchEnd={() => {
+                        setHoveredToken(null);
+                        setTooltipToken(null);
+                      }}
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      {token.price_change_percentage_24h >= 0 ? "+" : ""}
-                      {token.price_change_percentage_24h.toFixed(2)}%
-                    </span>
-                  </motion.div>
-                ))}
-              </motion.div>
+                      <img
+                        src={token.thumb || token.image?.thumb || "/fallback-image.png"}
+                        alt={`${token.symbol} logo`}
+                        className="w-3 sm:w-4 h-3 sm:h-4 rounded-lg"
+                        onError={(e) => {
+                          logger.error("Token logo failed to load:", { symbol: token.symbol, src: token.thumb });
+                          e.target.src = "/fallback-image.png";
+                        }}
+                      />
+                      <span className="text-white text-[8px] sm:text-[10px] font-medium">{token.symbol.toUpperCase()}</span>
+                      <span
+                        className={`text-[8px] sm:text-[9px] font-medium ${token.price_change_percentage_24h >= 0 ? "text-emerald-400" : "text-red-500"
+                          }`}
+                      >
+                        {token.price_change_percentage_24h >= 0 ? "+" : ""}
+                        {token.price_change_percentage_24h.toFixed(2)}%
+                      </span>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </div>
             )}
             <TrendingTooltip token={tooltipToken} position={tooltipPosition} />
           </div>
@@ -960,7 +964,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-2 mb-2 sm:mb-0">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2 mb-2">
-                        <p className="text-sm sm:text-xl font-bold text-white">
+                        <p className="text-lg sm:text-xl font-bold text-white">
                           {formatPrice(
                             selectedToken?.current_price?.[currency] ||
                             localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.current_price?.[currency],
@@ -969,7 +973,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           )}
                         </p>
                         <span
-                          className={`text-[9px] sm:text-[9px] font-medium px-3 py-1 rounded-xl ${(
+                          className={`text-[8px] sm:text-[9px] font-medium px-3 py-1 rounded-xl ${(
                             selectedToken?.price_change_percentage_24h_in_currency?.[currency] ||
                             localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.price_change_percentage_24h_in_currency?.[currency]
                           ) >= 0
@@ -1000,7 +1004,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             href={`https://twitter.com/${selectedToken?.links?.twitter_screen_name || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.links?.twitter_screen_name}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
                             title="Twitter"
                             whileHover={{ scale: 1.1, y: -2 }}
                             whileTap={{ scale: 0.9 }}
@@ -1022,7 +1026,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
                             title="Discord"
                             whileHover={{ scale: 1.1, y: -2 }}
                             whileTap={{ scale: 0.9 }}
@@ -1044,7 +1048,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
                             title="Website"
                             whileHover={{ scale: 1.1, y: -2 }}
                             whileTap={{ scale: 0.9 }}
@@ -1066,7 +1070,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 bg-white/10 rounded-xl hover:bg-white/20 transition-all duration-300"
+                            className="p-1 bg-white/10 rounded-lg hover:bg-white/20 transition-all duration-300"
                             title="GitHub"
                             whileHover={{ scale: 1.1, y: -2 }}
                             whileTap={{ scale: 0.9 }}
@@ -1252,15 +1256,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
             {/* Chart Panel */}
             <motion.div
-              className="border border-white/10 p-2 sm:p-2 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-white/5 backdrop-blur-xl overflow-y-auto  hide-scrollbar"
+              className="border border-white/10 p-2 sm:p-2 rounded-xl flex-1 min-h-[320px] sm:min-h-[280px] max-h-[200px] sm:max-h-[280px] bg-white/5 backdrop-blur-xl overflow-hidden relative"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <LoadingOverlay
-                isLoading={isChartLoading && selectedToken} // Only show if a token is selected
-                isMobile={isMobile}
-              />
+              <LoadingOverlay isLoading={isChartLoading && selectedToken} isMobile={isMobile} />
               <div className="flex flex-col items-center mb-1 sm:mb-2 mt-4 sm:mt-0">
                 <div className="flex flex-col sm:flex-row justify-between items-center w-full max-w-[90%] sm:max-w-[600px] gap-2 sm:gap-3">
                   <div className="flex space-x-2 mb-2 sm:mb-0 justify-start sm:justify-center w-full sm:w-auto">
@@ -1470,8 +1471,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto hide-scrollbar">
                   {activeMarketTab === "dex" && (
-                    <div className="p-4 text-right text-[9px] text-white/60 border-b border-white/10">
-                      <span className="bg-white/5 px-2 py-1 rounded-lg">
+                    <div className="p-4 text-right text-[9px] text-white/60">
+                      <span className="px-2 py-1">
                         Last Updated:{" "}
                         {lastDexFetchTime
                           ? new Date(lastDexFetchTime).toLocaleTimeString("en-US", {
@@ -1485,7 +1486,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   )}
 
                   {activeMarketTab === "holders" && (
-                    <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar">
+                    <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative">
                       {session ? (
                         <>
                           <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} />
@@ -1665,8 +1666,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   )}
 
                   {activeMarketTab === "cex" && (
-                    <div className="flex-1 overflow-x-auto overflow-y-auto tab-content custom-scrollbar hide-scrollbar">
-                      <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} />
+                    <div className="flex-1 overflow-x-auto overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative">
+                      <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} className="h-full w-auto" />
                       {tickerError ? (
                         <div className="text-[10px] sm:text-xs text-center p-6">
                           <p className="text-white/60 mb-4">Unable to load CEX markets data. Please try again.</p>
@@ -1846,7 +1847,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   )}
 
                   {activeMarketTab === "dex" && (
-                    <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar">
+                    <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative">
                       {session ? (
                         <>
                           <LoadingOverlay isLoading={isLoadingDex && !dexData.trades?.length} isMobile={isMobile} />

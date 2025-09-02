@@ -666,7 +666,7 @@
         "Name Tag": "Lighter: ZkLighter",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/lighter.png"
       }
     }
   },
@@ -1150,7 +1150,7 @@
         "Name Tag": "Hashnode",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/default.png"
+        "image": "/icons/hashnode.png"
       }
     }
   },
@@ -1261,6 +1261,72 @@
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
         "image": "/icons/kucoin.png"
+      }
+    }
+  },
+  "0x5AB26169051d0D96217949ADb91E86e51a5FDA74": {
+    "Address": "0x5AB26169051d0D96217949ADb91E86e51a5FDA74",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Justin Sun",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/justinsun.png"
+      }
+    }
+  },
+  "0x28816c4C4792467390C90e5B426F198570E29307": {
+    "Address": "0x28816c4C4792467390C90e5B426F198570E29307",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "CZ Binance",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/cz.png"
+      }
+    }
+  },
+  "0xe217E15b3C19cC0427F9492dC3bcfe8220aFAD10": {
+    "Address": "0xe217E15b3C19cC0427F9492dC3bcfe8220aFAD10",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "World Liberty Fi : Gnosis Safe Proxy",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/wlfi.png"
+      }
+    }
+  },
+  "0x5be9a4959308A0D0c7bC0870E319314d8D957dBB": {
+    "Address": "0x5be9a4959308A0D0c7bC0870E319314d8D957dBB",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "World Liberty Fi : Gnosis Safe Proxy",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/wlfi.png"
+      }
+    }
+  },
+  "0xaC2Ea402314c50987478aBAFB2922DfBe3560C22": {
+    "Address": "0xaC2Ea402314c50987478aBAFB2922DfBe3560C22",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "World Liberty Fi : Gnosis Safe Proxy",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/wlfi.png"
+      }
+    }
+  },
+  "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B": {
+    "Address": "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Vitalik Buterin",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/vitalik.png"
       }
     }
   }

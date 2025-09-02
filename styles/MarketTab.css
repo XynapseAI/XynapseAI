@@ -8,6 +8,27 @@
   --text-white: rgba(255, 255, 255, 0.8);
 }
 
+.trending-container {
+  width: 100%;
+  overflow: hidden;
+  /* Ensure content doesn't overflow */
+  position: relative;
+  height: 1.5rem;
+  /* Fixed height for consistency */
+}
+
+.trending-container>div {
+  width: 100%;
+  overflow: hidden;
+}
+
+.trending-container .flex {
+  flex-wrap: nowrap;
+  /* Prevent wrapping */
+  min-width: max-content;
+  /* Ensure content doesn't shrink */
+}
+
 /* Table Styling */
 .table-fixed {
   border-collapse: separate;
@@ -26,7 +47,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   border-bottom: 1px solid var(--border-color);
-  font-size: 11px; /* Matches updated font size */
+  font-size: 11px;
+  /* Matches updated font size */
 }
 
 .table-fixed th {
@@ -144,8 +166,30 @@ button:hover:not(:disabled) {
   box-shadow: 0 4px 12px rgba(0, 191, 255, 0.3);
 }
 
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: inherit;
+}
+
+.loading-overlay .animate-spin {
+  border-color: rgba(255, 255, 255, 0.3);
+  border-top-color: var(--neon-blue);
+  border-bottom-color: var(--neon-blue);
+}
+
 /* Responsive Adjustments */
 @media (max-width: 640px) {
+
   .table-fixed th,
   .table-fixed td {
     padding: 0.5rem 0.75rem;
@@ -154,5 +198,34 @@ button:hover:not(:disabled) {
 
   .tab-content {
     padding: 0.25rem;
+  }
+
+  .trending-container {
+    height: 1.5rem;
+    /* Slightly smaller height on mobile */
+  }
+
+  .trending-container .flex {
+    gap: 0.3rem;
+    /* Reduce gap between items on mobile */
+  }
+
+  .trending-container .flex>div {
+    margin-left: 0.3rem;
+    margin-right: 0.3rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 8px;
+    /* Match font size for mobile */
+  }
+
+  .trending-container .flex img {
+    width: 12px;
+    height: 12px;
+    /* Smaller logos on mobile */
+  }
+
+  .loading-overlay .animate-spin {
+    width: 24px;
+    height: 24px;
   }
 }
