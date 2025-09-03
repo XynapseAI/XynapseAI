@@ -100,17 +100,16 @@ async function trackViolation(ip, reason) {
   logger.warn('Violation recorded', { ip, reason, violations: violations + 1 });
 }
 
-async function isAllowedOrigin(origin, referer) {
+async function isAllowedOrigin(origin, referer, pathname) {
   const configured = [
-    process.env.NEXT_PUBLIC_APP_URL,
-    'http://localhost:3000',
+    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
     'https://xynapseai.net',
     'https://www.xynapseai.net',
     'https://xynapse-ai-xynapse-projects.vercel.app',
     'https://xynapse-ai.vercel.app',
   ].filter(Boolean);
 
-  logger.info('Checking origin', { origin, referer, configured });
+  logger.info('Checking origin', { origin, referer, pathname, configured });
 
   try {
     // Kiểm tra origin hợp lệ
@@ -120,12 +119,7 @@ async function isAllowedOrigin(origin, referer) {
         await trackViolation('unknown', 'Non-HTTPS origin in production');
         return false;
       }
-      const originUrl = new URL(origin);
-      if (
-        configured.includes(origin) ||
-        originUrl.hostname.endsWith('.vercel.app') ||
-        originUrl.hostname.endsWith('xynapseai.net')
-      ) {
+      if (configured.includes(origin)) {
         logger.info('Origin allowed', { origin });
         return true;
       }
@@ -141,11 +135,7 @@ async function isAllowedOrigin(origin, referer) {
         await trackViolation('unknown', 'Non-HTTPS referer in production');
         return false;
       }
-      if (
-        configured.includes(refOrigin) ||
-        refOrigin.endsWith('xynapseai.net') ||
-        refOrigin.endsWith('.vercel.app')
-      ) {
+      if (configured.includes(refOrigin)) {
         logger.info('Referer origin allowed', { referer, refOrigin });
         return true;
       }
@@ -161,7 +151,7 @@ async function isAllowedOrigin(origin, referer) {
 
     // Chặn null origin trong production
     if (!origin && process.env.NODE_ENV === 'production') {
-      logger.error('Null origin blocked in production', { referer });
+      logger.error('Null origin blocked in production', { pathname });
       await trackViolation('unknown', 'Null origin in production');
       return false;
     }
@@ -176,7 +166,7 @@ async function isAllowedOrigin(origin, referer) {
     await trackViolation('unknown', 'Invalid origin or referer');
     return false;
   } catch (err) {
-    logger.error('Error validating origin', { err: err?.message, origin, referer });
+    logger.error('Error validating origin', { err: err?.message, origin, referer, pathname });
     await trackViolation('unknown', 'Error validating origin');
     return false;
   }
@@ -259,13 +249,25 @@ export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
+  const pathname = new URL(request.url).pathname;
   const params = Object.fromEntries(request.nextUrl.searchParams);
   logger.info('GET /api/connect-data requested', { ip, origin, referer, query: Object.keys(params) });
 
-  if (!isAllowedOrigin(origin, referer)) {
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+    await trackViolation(ip, 'CORS blocked');
     logger.warn('CORS origin not allowed for GET', { origin, referer });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
   }
+
+  const headers = {
+    ...securityHeaders(),
+    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+  };
 
   try {
     const session = await auth();
@@ -274,56 +276,55 @@ export async function GET(request) {
     try {
       await checkRateLimit(ip, userId);
     } catch (err) {
+      await trackViolation(ip, err.message);
       logger.warn('Rate limit exceeded', { ip, userId });
-      return NextResponse.json({ detail: err.message }, { status: 429 });
+      return NextResponse.json({ detail: err.message }, { status: 429, headers });
     }
 
     if (!session || !session.user?.id) {
+      await trackViolation(ip, 'Unauthenticated request');
       logger.warn('Unauthenticated GET request', { ip });
-      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers });
     }
 
     const csrfOk = await checkDoubleSubmitCSRF(request);
     if (!csrfOk) {
-      return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403 });
+      await trackViolation(ip, 'Invalid CSRF token');
+      return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers });
     }
 
     let parsedParams;
     try {
       parsedParams = getSchema.parse(params);
     } catch (err) {
+      await trackViolation(ip, 'Invalid input data');
       logger.warn('GET validation failed', { ip, err: err?.errors ?? err?.message });
-      return NextResponse.json(
-        { detail: 'Invalid input data', errors: err.errors },
-        { status: 400 }
-      );
+      return NextResponse.json({ detail: 'Invalid input data', errors: err.errors }, { status: 400, headers });
     }
 
     const { uid } = parsedParams;
-
-    // Nếu uid không được cung cấp, sử dụng session.user.id
     const effectiveUid = uid || session.user.id;
 
     if (effectiveUid !== session.user.id) {
-      logger.warn('Access denied: UID mismatch', {
-        uid: effectiveUid,
-        sessionUserId: mask(session.user.id),
-      });
-      return NextResponse.json({ detail: 'Access denied: Invalid UID' }, { status: 403 });
+      await trackViolation(ip, 'UID mismatch');
+      logger.warn('Access denied: UID mismatch', { uid: effectiveUid, sessionUserId: mask(session.user.id) });
+      return NextResponse.json({ detail: 'Access denied: Invalid UID' }, { status: 403, headers });
     }
 
     const recaptchaToken = request.headers.get('x-recaptcha-token');
     if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
+      await trackViolation(ip, 'Missing reCAPTCHA token');
       logger.warn('Missing reCAPTCHA token header');
-      return NextResponse.json({ detail: 'Missing reCAPTCHA token in header' }, { status: 400 });
+      return NextResponse.json({ detail: 'Missing reCAPTCHA token in header' }, { status: 400, headers });
     }
     if (process.env.NODE_ENV !== 'development') {
       try {
         const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
         logger.info('reCAPTCHA OK', { ip, score });
       } catch (err) {
+        await trackViolation(ip, 'reCAPTCHA verification failed');
         logger.warn('reCAPTCHA failed', { ip, reason: err?.message });
-        return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403 });
+        return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers });
       }
     } else if (recaptchaToken === 'development-token') {
       logger.info('Development reCAPTCHA bypass used');
@@ -335,18 +336,8 @@ export async function GET(request) {
       const cached = await client.get(cacheKey);
       if (cached) {
         logger.info('Cache hit for user', { uid: effectiveUid });
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const parsed = JSON.parse(cached);
-        const headers = {
-          ...securityHeaders(),
-          ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer) && {
-            'Access-Control-Allow-Origin': origin,
-            'Access-Control-Allow-Methods': 'GET, POST',
-            'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-            'Access-Control-Allow-Credentials': 'true',
-          }),
-        };
-        return NextResponse.json(data, { headers });
+        return NextResponse.json(parsed, { headers });
       }
 
       logger.info('Cache miss, querying DB for user', { uid: effectiveUid });
@@ -376,8 +367,9 @@ export async function GET(request) {
       );
 
       if (!user) {
+        await trackViolation(ip, 'User not found');
         logger.warn('User not found in DB', { uid: effectiveUid });
-        return NextResponse.json({ detail: 'User not found' }, { status: 404 });
+        return NextResponse.json({ detail: 'User not found' }, { status: 404, headers });
       }
 
       const data = {
@@ -405,23 +397,16 @@ export async function GET(request) {
 
       await client.setEx(cacheKey, 300, JSON.stringify(serializeBigInt(data)));
       logger.info('Fetched and cached user', { uid: effectiveUid });
-      const headers = {
-        ...securityHeaders(origin),
-        'Access-Control-Allow-Origin':
-          origin ||
-          (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-        'Access-Control-Allow-Methods': 'GET, POST',
-        'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-        'Access-Control-Allow-Credentials': 'true',
-      };
       return NextResponse.json(data, { headers });
     } catch (err) {
       logger.error('Error in GET /api/connect-data', { err: err?.message });
-      return NextResponse.json({ detail: `Server error` }, { status: 500 });
+      return NextResponse.json({ detail: `Server error` }, { status: 500, headers });
     }
   } catch (err) {
     logger.error('Unexpected error in GET', { err: err?.message });
-    return NextResponse.json({ detail: 'Server error' }, { status: 500 });
+    return NextResponse.json({ detail: 'Server error' }, { status: 500, headers });
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
@@ -430,12 +415,24 @@ export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
+  const pathname = new URL(request.url).pathname;
   logger.info('POST /api/connect-data requested', { ip, origin, referer });
 
-  if (!isAllowedOrigin(origin, referer)) {
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+    await trackViolation(ip, 'CORS blocked');
     logger.warn('CORS origin not allowed for POST', { origin, referer });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403 });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
   }
+
+  const headers = {
+    ...securityHeaders(),
+    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+  };
 
   try {
     const session = await auth();
@@ -444,41 +441,47 @@ export async function POST(request) {
     try {
       await checkRateLimit(ip, userId);
     } catch (err) {
+      await trackViolation(ip, err.message);
       logger.warn('Rate limit exceeded', { ip, userId });
-      return NextResponse.json({ detail: err.message }, { status: 429 });
+      return NextResponse.json({ detail: err.message }, { status: 429, headers });
     }
 
     if (!session || !session.user?.id) {
+      await trackViolation(ip, 'Unauthenticated request');
       logger.warn('Unauthenticated POST request', { ip });
-      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers });
     }
 
     const csrfOk = await checkDoubleSubmitCSRF(request);
     if (!csrfOk) {
-      return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403 });
+      await trackViolation(ip, 'Invalid CSRF token');
+      return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers });
     }
 
     let body;
     try {
       body = await request.json();
     } catch {
+      await trackViolation(ip, 'Invalid JSON body');
       logger.warn('Invalid JSON body on POST', { ip });
-      return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400 });
+      return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400, headers });
     }
 
     let parsedBody;
     try {
       parsedBody = postSchema.parse(body);
     } catch (err) {
+      await trackViolation(ip, 'Invalid input data');
       logger.warn('POST validation failed', { ip, errors: err?.errors ?? err?.message });
-      return NextResponse.json({ detail: 'Invalid input data', errors: err.errors }, { status: 400 });
+      return NextResponse.json({ detail: 'Invalid input data', errors: err.errors }, { status: 400, headers });
     }
 
     const { id, email, profilePicture, googleId, googleName, emailVerified } = parsedBody;
 
     if (session.user.id !== id) {
+      await trackViolation(ip, 'Unauthorized user update');
       logger.warn('Not authorized to update this user', { id, sessionUserId: mask(session.user.id) });
-      return NextResponse.json({ detail: 'Not authorized' }, { status: 401 });
+      return NextResponse.json({ detail: 'Not authorized' }, { status: 401, headers });
     }
 
     try {
@@ -532,15 +535,6 @@ export async function POST(request) {
       }
 
       logger.info('User created/updated successfully', { id: mask(id) });
-      const headers = {
-        ...securityHeaders(),
-        ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer) && {
-          'Access-Control-Allow-Origin': origin,
-          'Access-Control-Allow-Methods': 'GET, POST',
-          'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-          'Access-Control-Allow-Credentials': 'true',
-        }),
-      };
       return NextResponse.json(
         {
           success: true,
@@ -555,11 +549,13 @@ export async function POST(request) {
         { headers }
       );
     } catch (err) {
-      logger.error('Error processing POST /api/user', { err: err?.message });
-      return NextResponse.json({ detail: 'Server error' }, { status: 500 });
+      logger.error('Error processing POST /api/connect-data', { err: err?.message });
+      return NextResponse.json({ detail: 'Server error' }, { status: 500, headers });
     }
   } catch (err) {
     logger.error('Unexpected error in POST', { err: err?.message });
-    return NextResponse.json({ detail: 'Server error' }, { status: 500 });
+    return NextResponse.json({ detail: 'Server error' }, { status: 500, headers });
+  } finally {
+    await prisma.$disconnect();
   }
 }

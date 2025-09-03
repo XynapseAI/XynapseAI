@@ -20,12 +20,10 @@ async function getRedisClient() {
 
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  'http://localhost:3000',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
-  ...(process.env.VERCEL_ENV === 'production' ? [] : ['https://*.vercel.app']),
 ].filter((v, i, a) => a.indexOf(v) === i);
 
 const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
@@ -40,21 +38,68 @@ const securityHeaders = {
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
 
-function isAllowedOrigin(origin, referer) {
-  if (!origin && !referer) {
-    logger.info('No Origin or Referer (likely SSR or server-to-server), allowing request');
-    return true;
+async function isAllowedOrigin(origin, referer, pathname) {
+  logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
+
+  try {
+    // Kiểm tra origin hợp lệ
+    if (origin && origin !== 'null') {
+      if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
+        logger.warn('Blocked origin: non-HTTPS origin in production', { origin });
+        await trackViolation('unknown', 'Non-HTTPS origin in production');
+        return false;
+      }
+      if (allowedOrigins.includes(origin)) {
+        logger.info('Origin allowed', { origin });
+        return true;
+      }
+      await trackViolation('unknown', 'Invalid origin');
+      return false;
+    }
+
+    // Kiểm tra referer nếu không có origin
+    if (!origin && referer) {
+      const refOrigin = new URL(referer).origin;
+      if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
+        logger.warn('Blocked referer: non-HTTPS in production', { referer });
+        await trackViolation('unknown', 'Non-HTTPS referer in production');
+        return false;
+      }
+      if (allowedOrigins.includes(refOrigin)) {
+        logger.info('Referer origin allowed', { referer, refOrigin });
+        return true;
+      }
+      await trackViolation('unknown', 'Invalid referer');
+      return false;
+    }
+
+    // Cho phép internal/SSR request
+    if (!origin && !referer) {
+      logger.info('Allowing internal/SSR request');
+      return true;
+    }
+
+    // Chặn null origin trong production
+    if (!origin && process.env.NODE_ENV === 'production') {
+      logger.error('Null origin blocked in production', { pathname });
+      await trackViolation('unknown', 'Null origin in production');
+      return false;
+    }
+
+    // Cho phép null origin trong development
+    if (!origin && process.env.NODE_ENV === 'development') {
+      logger.warn('Origin is null, allowing in development mode');
+      return true;
+    }
+
+    logger.error('Invalid origin or referer', { origin, referer });
+    await trackViolation('unknown', 'Invalid origin or referer');
+    return false;
+  } catch (err) {
+    logger.error('Error validating origin', { err: err?.message, origin, referer, pathname });
+    await trackViolation('unknown', 'Error validating origin');
+    return false;
   }
-  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
-  if (!checkOrigin) {
-    logger.info('No valid Origin or Referer, allowing for SSR compatibility');
-    return true;
-  }
-  const isAllowed = allowedOrigins.some((allowed) =>
-    allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
-  ) || vercelPreviewRegex.test(checkOrigin);
-  logger.info(`Origin check: ${checkOrigin}, Allowed: ${isAllowed}`);
-  return isAllowed;
 }
 
 async function banIP(ip, durationSeconds = 1800) {
@@ -158,28 +203,31 @@ export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
+  const pathname = new URL(request.url).pathname;
   const params = Object.fromEntries(request.nextUrl.searchParams);
   const { exchange } = params;
 
-  const corsHeaders = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    'Access-Control-Allow-Methods': 'GET',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Credentials': 'true',
+  const headers = {
     ...securityHeaders,
+    'Content-Type': 'application/json',
+    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
   };
 
-  if (!isAllowedOrigin(origin, referer)) {
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
     await trackViolation(ip, 'CORS blocked');
     logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
-    return NextResponse.json({ success: false, detail: 'Not allowed by CORS' }, { status: 403, headers: corsHeaders });
+    return NextResponse.json({ success: false, detail: 'Not allowed by CORS' }, { status: 403, headers });
   }
 
   if (!exchange || typeof exchange !== 'string' || exchange.trim() === '') {
     await trackViolation(ip, 'Missing or invalid exchange parameter');
     logger.warn(`Missing or invalid exchange parameter: ${exchange}`, { ip });
-    return NextResponse.json({ success: false, detail: 'Missing or invalid exchange parameter' }, { status: 400, headers: corsHeaders });
+    return NextResponse.json({ success: false, detail: 'Missing or invalid exchange parameter' }, { status: 400, headers });
   }
 
   try {
@@ -188,7 +236,7 @@ export async function GET(request) {
   } catch (err) {
     await trackViolation(ip, err.message);
     logger.error(`Rate limit or IP ban error: ${err.message}`);
-    return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers: corsHeaders });
+    return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers });
   }
 
   try {
@@ -199,7 +247,7 @@ export async function GET(request) {
 
     if (cachedData) {
       logger.info(`Cache hit for exchange: ${mappedExchange}`, { ip });
-      return NextResponse.json(JSON.parse(cachedData), { headers: corsHeaders });
+      return NextResponse.json(JSON.parse(cachedData), { headers });
     }
 
     const btcPrice = await fetchBtcPrice();
@@ -343,7 +391,7 @@ export async function GET(request) {
       logger.warn(`No data found for exchange: ${exchange} (mapped to: ${mappedExchange})`, { ip });
       return NextResponse.json(
         { success: false, detail: `No portfolio or wallet data found for exchange: ${exchange}` },
-        { status: 404, headers: corsHeaders }
+        { status: 404, headers }
       );
     }
 
@@ -400,10 +448,10 @@ export async function GET(request) {
       walletCount: walletResult.rows.length + bitcoinWalletResult.rows.length,
     });
 
-    return NextResponse.json(responseData, { headers: corsHeaders });
+    return NextResponse.json(responseData, { headers });
   } catch (error) {
     await trackViolation(ip, `Error in token-cluster API: ${error.message}`);
     logger.error(`Error in token-cluster API: ${error.message}`, { ip, stack: error.stack });
-    return NextResponse.json({ success: false, detail: `Error: ${error.message}` }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ success: false, detail: `Error: ${error.message}` }, { status: 500, headers });
   }
 }

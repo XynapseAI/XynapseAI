@@ -149,33 +149,71 @@ const allowedOrigins = [
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
-  ...(process.env.VERCEL_ENV === 'production' ? [] : ['https://*.vercel.app', process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '']),
+  'https://xynapse-ai.vercel.app',
 ].filter((v, i, a) => v && a.indexOf(v) === i);
 
-function isAllowedOrigin(origin, referer) {
-  if (!origin && !referer) {
-    logger.info('No Origin or Referer (likely SSR or server-to-server), allowing request');
-    return true;
+async function isAllowedOrigin(origin, referer, pathname) {
+  logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
+
+  try {
+    // Kiểm tra origin hợp lệ
+    if (origin && origin !== 'null') {
+      if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
+        logger.warn('Blocked origin: non-HTTPS origin in production', { origin });
+        await trackViolation('unknown', 'Non-HTTPS origin in production');
+        return false;
+      }
+      if (allowedOrigins.includes(origin)) {
+        logger.info('Origin allowed', { origin });
+        return true;
+      }
+      await trackViolation('unknown', 'Invalid origin');
+      return false;
+    }
+
+    // Kiểm tra referer nếu không có origin
+    if (!origin && referer) {
+      const refOrigin = new URL(referer).origin;
+      if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
+        logger.warn('Blocked referer: non-HTTPS in production', { referer });
+        await trackViolation('unknown', 'Non-HTTPS referer in production');
+        return false;
+      }
+      if (allowedOrigins.includes(refOrigin)) {
+        logger.info('Referer origin allowed', { referer, refOrigin });
+        return true;
+      }
+      await trackViolation('unknown', 'Invalid referer');
+      return false;
+    }
+
+    // Cho phép internal/SSR request
+    if (!origin && !referer) {
+      logger.info('Allowing internal/SSR request');
+      return true;
+    }
+
+    // Chặn null origin trong production
+    if (!origin && process.env.NODE_ENV === 'production') {
+      logger.error('Null origin blocked in production', { pathname });
+      await trackViolation('unknown', 'Null origin in production');
+      return false;
+    }
+
+    // Cho phép null origin trong development
+    if (!origin && process.env.NODE_ENV === 'development') {
+      logger.warn('Origin is null, allowing in development mode');
+      return true;
+    }
+
+    logger.error('Invalid origin or referer', { origin, referer });
+    await trackViolation('unknown', 'Invalid origin or referer');
+    return false;
+  } catch (err) {
+    logger.error('Error validating origin', { err: err?.message, origin, referer, pathname });
+    await trackViolation('unknown', 'Error validating origin');
+    return false;
   }
-  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
-  if (!checkOrigin) {
-    logger.info('No valid Origin or Referer, allowing for SSR compatibility');
-    return true;
-  }
-  const isAllowed = allowedOrigins.some((allowed) =>
-    allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
-  );
-  if (isAllowed) {
-    logger.info(`Origin allowed: ${checkOrigin}`);
-    return true;
-  }
-  const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
-  if (vercelPreviewRegex.test(checkOrigin)) {
-    logger.info(`Origin allowed by Vercel preview regex: ${checkOrigin}`);
-    return true;
-  }
-  logger.error(`CORS error: Origin ${checkOrigin || 'null'} not allowed`, { allowedOrigins });
-  return false;
 }
 
 const SUPPORTED_CHAINS = {
@@ -458,19 +496,32 @@ export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
-  logger.info(`Request to /api/get-transactions from IP ${ip}`, { origin, timestamp: new Date().toISOString() });
+  const pathname = new URL(request.url).pathname;
+  logger.info(`Request to /api/get-transactions from IP ${ip}`, { origin, referer, timestamp: new Date().toISOString() });
 
   // 1. Check CORS
-  if (!isAllowedOrigin(origin, referer)) {
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
     await trackViolation(ip, 'CORS blocked');
+    logger.warn(`CORS origin not allowed for POST`, { origin, referer });
     return NextResponse.json({ error: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders });
   }
 
-  // 2. Check IP ban (nội bộ)
+  const headers = {
+    ...securityHeaders,
+    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'POST',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+  };
+
+  // 2. Check IP ban
   try {
     await checkIPBan(ip);
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 403, headers: securityHeaders });
+    await trackViolation(ip, err.message);
+    return NextResponse.json({ error: err.message }, { status: 403, headers });
   }
 
   // 3. Check IP reputation (ipinfo.io)
@@ -478,19 +529,20 @@ export async function POST(request) {
     const isSafeIp = await checkIp(ip);
     if (!isSafeIp) {
       await trackViolation(ip, 'Suspicious IP');
-      return NextResponse.json({ error: 'Suspicious IP detected' }, { status: 403, headers: securityHeaders });
+      return NextResponse.json({ error: 'Suspicious IP detected' }, { status: 403, headers });
     }
   } catch (err) {
     logger.error(`IP reputation check failed for ${ip}: ${err.message}`);
-    // Cho phép đi tiếp nếu checkIp lỗi (fail-open) để tránh chặn toàn bộ request khi ipinfo.io down
+    // Fail-open to avoid blocking all requests if ipinfo.io is down
   }
 
   // 4. Check rate limit
   try {
     await checkRateLimit(ip);
   } catch (err) {
+    await trackViolation(ip, err.message);
     logger.error(`Rate limit error: ${err.message}`, { ip });
-    return NextResponse.json({ error: err.message }, { status: 429, headers: securityHeaders });
+    return NextResponse.json({ error: err.message }, { status: 429, headers });
   }
 
   // 5. Parse body
@@ -498,18 +550,18 @@ export async function POST(request) {
   try {
     body = await request.json();
   } catch (err) {
-    logger.warn(`Invalid JSON body: ${err.message}`, { ip });
     await trackViolation(ip, 'Invalid JSON body');
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers: securityHeaders });
+    logger.warn(`Invalid JSON body: ${err.message}`, { ip });
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers });
   }
 
   let parsedBody;
   try {
     parsedBody = bodySchema.parse(body);
   } catch (err) {
-    logger.warn(`Validation error: ${err.message}`, { ip });
     await trackViolation(ip, 'Validation error');
-    return NextResponse.json({ error: 'Invalid input data', errors: err.errors }, { status: 400, headers: securityHeaders });
+    logger.warn(`Validation error: ${err.message}`, { ip });
+    return NextResponse.json({ error: 'Invalid input data', errors: err.errors }, { status: 400, headers });
   }
 
   const { wallet_address, chain, limit } = parsedBody;
@@ -517,11 +569,11 @@ export async function POST(request) {
     ? /^[A-Za-z0-9]{32,44}$/.test(wallet_address)
     : isAddress(wallet_address);
   if (!isValidAddress) {
-    logger.error(`Invalid wallet address: ${wallet_address} for chain ${chain}`, { ip });
     await trackViolation(ip, 'Invalid wallet address');
+    logger.error(`Invalid wallet address: ${wallet_address} for chain ${chain}`, { ip });
     return NextResponse.json(
       { error: 'Wallet address is required and must be valid for the selected chain.' },
-      { status: 400, headers: securityHeaders }
+      { status: 400, headers }
     );
   }
 
@@ -558,7 +610,7 @@ export async function POST(request) {
               : 'Unknown',
             image: '/icons/default.png',
             chainLogo,
-            isPremium: false, // API công khai, không có Premium
+            isPremium: false,
           };
 
           if (!['solana', 'tron'].includes(chain)) {
@@ -661,12 +713,13 @@ export async function POST(request) {
           );
           controller.close();
         } catch (err) {
+          await trackViolation(ip, `Error fetching transactions: ${err.message}`);
           logger.error(`Error fetching transactions for ${lowerWalletAddress}: ${err.message}`, { stack: err.stack, ip });
           controller.enqueue(JSON.stringify({ error: `Failed to fetch transactions: ${err.message}` }));
           controller.close();
         }
       },
     }),
-    { headers: securityHeaders }
+    { headers }
   );
 }

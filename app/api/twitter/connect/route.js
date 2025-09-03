@@ -30,14 +30,13 @@ const twitterClient = new TwitterApi({
 });
 
 const allowedOrigins = [
+  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
   'https://api.twitter.com', // Cho Twitter OAuth callback
   'https://x.com', // Cho Twitter OAuth callback
-  ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : []),
-  ...(process.env.VERCEL_ENV === 'production' ? [] : [/^https:\/\/([a-z0-9-]+)\.vercel\.app$/]),
 ].filter((v, i, a) => a.indexOf(v) === i);
 
 const securityHeaders = {
@@ -50,30 +49,83 @@ const securityHeaders = {
 
 function sanitizeInput(input, maxLength = 512) {
   if (typeof input !== 'string') return '';
-  // Relaxed sanitization to preserve OAuth code/state characters
   return input.substring(0, maxLength);
 }
 
-function isAllowedOrigin(origin, referer) {
-  if (!origin && !referer) {
-    logger.info('No Origin or Referer (likely Twitter OAuth callback), allowing request');
-    return true;
+async function isAllowedOrigin(origin, referer, pathname) {
+  logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
+
+  try {
+    // Cho phép Twitter OAuth callback
+    if (pathname.includes('/api/twitter/connect') && referer?.startsWith('https://api.twitter.com/')) {
+      logger.info('Allowing Twitter OAuth callback', { referer });
+      return true;
+    }
+
+    // Kiểm tra origin hợp lệ
+    if (origin && origin !== 'null') {
+      if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
+        logger.warn('Blocked origin: non-HTTPS origin in production', { origin });
+        await trackViolation('unknown', 'Non-HTTPS origin in production');
+        return false;
+      }
+      if (allowedOrigins.includes(origin)) {
+        logger.info('Origin allowed', { origin });
+        return true;
+      }
+      await trackViolation('unknown', 'Invalid origin');
+      return false;
+    }
+
+    // Kiểm tra referer nếu không có origin
+    if (!origin && referer) {
+      const refOrigin = new URL(referer).origin;
+      if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
+        logger.warn('Blocked referer: non-HTTPS in production', { referer });
+        await trackViolation('unknown', 'Non-HTTPS referer in production');
+        return false;
+      }
+      if (allowedOrigins.includes(refOrigin)) {
+        logger.info('Referer origin allowed', { referer, refOrigin });
+        return true;
+      }
+      await trackViolation('unknown', 'Invalid referer');
+      return false;
+    }
+
+    // Cho phép internal/SSR request
+    if (!origin && !referer) {
+      logger.info('Allowing internal/SSR request');
+      return true;
+    }
+
+    // Chặn null origin trong production
+    if (!origin && process.env.NODE_ENV === 'production') {
+      logger.error('Null origin blocked in production', { pathname });
+      await trackViolation('unknown', 'Null origin in production');
+      return false;
+    }
+
+    // Cho phép null origin trong development
+    if (!origin && process.env.NODE_ENV === 'development') {
+      logger.warn('Origin is null, allowing in development mode');
+      return true;
+    }
+
+    logger.error('Invalid origin or referer', { origin, referer });
+    await trackViolation('unknown', 'Invalid origin or referer');
+    return false;
+  } catch (err) {
+    logger.error('Error validating origin', { err: err?.message, origin, referer, pathname });
+    await trackViolation('unknown', 'Error validating origin');
+    return false;
   }
-  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
-  if (!checkOrigin) {
-    logger.info('No valid Origin or Referer, allowing for Twitter OAuth callback');
-    return true;
-  }
-  const isAllowed = allowedOrigins.some((allowed) =>
-    typeof allowed === 'string' ? allowed === checkOrigin : allowed.test(checkOrigin)
-  );
-  logger.info(`Origin check: ${checkOrigin}, Allowed: ${isAllowed}`);
-  return isAllowed;
 }
 
 async function banIP(ip, durationSeconds = 1800) {
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${sanitizeInput(ip)}`, durationSeconds, 'banned');
+  logger.info('IP banned', { ip, durationSeconds });
 }
 
 async function checkIPBan(ip) {
@@ -148,6 +200,7 @@ export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
+  const pathname = new URL(request.url).pathname;
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const state = searchParams.get('state');
@@ -160,20 +213,22 @@ export async function GET(request) {
     state: state ? '[present]' : '[missing]',
   });
 
-  const corsHeaders = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': isAllowedOrigin(origin, referer) ? (origin || 'https://xynapseai.net') : 'https://xynapseai.net',
-    'Access-Control-Allow-Methods': 'GET, POST',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-    'Access-Control-Allow-Credentials': 'true',
-    ...securityHeaders,
-  };
-
-  if (!isAllowedOrigin(origin, referer)) {
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
     await trackViolation(ip, 'CORS blocked');
     logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: corsHeaders });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders });
   }
+
+  const corsHeaders = {
+    'Content-Type': 'application/json',
+    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+    ...securityHeaders,
+  };
 
   try {
     await checkIPBan(ip);
@@ -233,7 +288,6 @@ export async function GET(request) {
     const twitterUser = await userClient.v2.me({ 'user.fields': ['username'] });
     const twitterHandle = twitterUser.data.username;
 
-    // Validate ENCRYPTION_KEY
     if (!process.env.ENCRYPTION_KEY) {
       throw new Error('ENCRYPTION_KEY environment variable is missing');
     }
@@ -293,22 +347,25 @@ export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
+  const pathname = new URL(request.url).pathname;
   logger.info(`POST Request to /api/twitter/connect from IP ${ip}`, { origin, referer });
+
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+    await trackViolation(ip, 'CORS blocked');
+    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders });
+  }
 
   const corsHeaders = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': isAllowedOrigin(origin, referer) ? (origin || 'https://xynapseai.net') : 'https://xynapseai.net',
-    'Access-Control-Allow-Methods': 'GET, POST',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-    'Access-Control-Allow-Credentials': 'true',
+    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
     ...securityHeaders,
   };
-
-  if (!isAllowedOrigin(origin, referer)) {
-    await trackViolation(ip, 'CORS blocked');
-    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: corsHeaders });
-  }
 
   try {
     await checkIPBan(ip);

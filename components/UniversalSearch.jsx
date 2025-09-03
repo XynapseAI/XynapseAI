@@ -254,7 +254,7 @@ export default function UniversalSearch({
       case "wallet":
         return "Wallet";
       case "nametag":
-        return "Nametag";
+        return "Wallet";
       case "organization":
         return "Organization";
       case "exchange":

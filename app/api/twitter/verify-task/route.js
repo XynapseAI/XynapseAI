@@ -5,9 +5,11 @@ import { createClient } from 'redis';
 import { TwitterApi } from 'twitter-api-v2';
 import { PrismaClient } from '@prisma/client';
 import { verifyRecaptcha } from '@/utils/verifyRecaptcha';
+import { z } from 'zod';
 
 const prisma = new PrismaClient();
 let redisClient;
+
 async function getRedisClient() {
   if (!redisClient) {
     redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
@@ -29,15 +31,11 @@ const twitterClient = new TwitterApi({
 
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  'http://localhost:3000',
   'https://xynapseai.net',
   'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
-  ...(process.env.VERCEL_ENV === 'production' ? [] : ['https://*.vercel.app']),
 ].filter((v, i, a) => a.indexOf(v) === i);
-
-const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
 
 const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self' https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net",
@@ -49,26 +47,80 @@ const securityHeaders = {
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
 
-function isAllowedOrigin(origin, referer) {
-  if (!origin && !referer) {
-    logger.info('No Origin or Referer (likely SSR or server-to-server), allowing request');
-    return true;
+const schema = z.object({
+  taskId: z.string().max(100),
+  userId: z.string().max(100),
+  recaptchaToken: z.string().max(512),
+});
+
+async function isAllowedOrigin(origin, referer, pathname) {
+  logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
+
+  try {
+    // Kiểm tra origin hợp lệ
+    if (origin && origin !== 'null') {
+      if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
+        logger.warn('Blocked origin: non-HTTPS origin in production', { origin });
+        await trackViolation('unknown', 'Non-HTTPS origin in production');
+        return false;
+      }
+      if (allowedOrigins.includes(origin)) {
+        logger.info('Origin allowed', { origin });
+        return true;
+      }
+      await trackViolation('unknown', 'Invalid origin');
+      return false;
+    }
+
+    // Kiểm tra referer nếu không có origin
+    if (!origin && referer) {
+      const refOrigin = new URL(referer).origin;
+      if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
+        logger.warn('Blocked referer: non-HTTPS in production', { referer });
+        await trackViolation('unknown', 'Non-HTTPS referer in production');
+        return false;
+      }
+      if (allowedOrigins.includes(refOrigin)) {
+        logger.info('Referer origin allowed', { referer, refOrigin });
+        return true;
+      }
+      await trackViolation('unknown', 'Invalid referer');
+      return false;
+    }
+
+    // Cho phép internal/SSR request
+    if (!origin && !referer) {
+      logger.info('Allowing internal/SSR request');
+      return true;
+    }
+
+    // Chặn null origin trong production
+    if (!origin && process.env.NODE_ENV === 'production') {
+      logger.error('Null origin blocked in production', { pathname });
+      await trackViolation('unknown', 'Null origin in production');
+      return false;
+    }
+
+    // Cho phép null origin trong development
+    if (!origin && process.env.NODE_ENV === 'development') {
+      logger.warn('Origin is null, allowing in development mode');
+      return true;
+    }
+
+    logger.error('Invalid origin or referer', { origin, referer });
+    await trackViolation('unknown', 'Invalid origin or referer');
+    return false;
+  } catch (err) {
+    logger.error('Error validating origin', { err: err?.message, origin, referer, pathname });
+    await trackViolation('unknown', 'Error validating origin');
+    return false;
   }
-  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
-  if (!checkOrigin) {
-    logger.info('No valid Origin or Referer, allowing for SSR compatibility');
-    return true;
-  }
-  const isAllowed = allowedOrigins.some((allowed) =>
-    allowed.includes('*') ? new RegExp(allowed.replace('*', '.*')).test(checkOrigin) : allowed === checkOrigin
-  ) || vercelPreviewRegex.test(checkOrigin);
-  logger.info(`Origin check: ${checkOrigin}, Allowed: ${isAllowed}`);
-  return isAllowed;
 }
 
 async function banIP(ip, durationSeconds = 1800) {
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
+  logger.info('IP banned', { ip, durationSeconds });
 }
 
 async function checkIPBan(ip) {
@@ -103,16 +155,13 @@ async function trackViolation(ip, reason = 'Unknown') {
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:verify_task:${ip}`;
-  const requests = await redisClient.get(key) || 0;
+  const requests = parseInt(await redisClient.get(key)) || 0;
   const windowMs = 15 * 60 * 1000;
   const maxRequests = process.env.NODE_ENV === 'development' ? 100 : 50;
   if (requests >= maxRequests) {
     throw new Error('Too many requests, please try again later.');
   }
-  await redisClient.multi()
-    .incr(key)
-    .expire(key, windowMs / 1000)
-    .exec();
+  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
 }
 
 async function checkCSRF(request, session) {
@@ -169,22 +218,25 @@ export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
+  const pathname = new URL(request.url).pathname;
   logger.info(`Request to /api/twitter/verify-task from IP ${ip}`, { origin, referer });
+
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+    await trackViolation(ip, 'CORS blocked');
+    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders });
+  }
 
   const corsHeaders = {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    'Access-Control-Allow-Methods': 'POST',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-    'Access-Control-Allow-Credentials': 'true',
+    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'POST',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
     ...securityHeaders,
   };
-
-  if (!isAllowedOrigin(origin, referer)) {
-    await trackViolation(ip, 'CORS blocked');
-    logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: corsHeaders });
-  }
 
   try {
     await checkIPBan(ip);
