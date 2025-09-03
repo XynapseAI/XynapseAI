@@ -28,6 +28,8 @@ import {
 import "react-loading-skeleton/dist/skeleton.css"
 import { useCurrency } from './CurrencyContext';
 import { logger } from '../utils/clientLogger';
+import remarkGfm from 'remark-gfm';
+import ReactMarkdown from "react-markdown";
 
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
@@ -1266,27 +1268,27 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   <div className="flex space-x-2 mb-2 sm:mb-0 justify-start sm:justify-center w-full sm:w-auto">
                     <motion.button
                       onClick={debouncedHandleAnalysis}
-                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl ${selectedToken && dailyMarketInteractions < 5
-                        ? "text-white border-white/20 bg-white/5 hover:bg-white/10"
-                        : "text-white/40 border-white/10 cursor-not-allowed opacity-50"
+                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl ${selectedToken
+                        ? 'text-white border-white/20 bg-white/5 hover:bg-white/10'
+                        : 'text-white/40 border-white/10 cursor-not-allowed opacity-50'
                         }`}
-                      disabled={!selectedToken || dailyMarketInteractions >= 5}
+                      disabled={!selectedToken}
                       aria-label="Analyze token"
-                      whileHover={{ scale: selectedToken && dailyMarketInteractions < 5 ? 1.05 : 1 }}
-                      whileTap={{ scale: selectedToken && dailyMarketInteractions < 5 ? 0.95 : 1 }}
+                      whileHover={{ scale: selectedToken ? 1.05 : 1 }}
+                      whileTap={{ scale: selectedToken ? 0.95 : 1 }}
                     >
                       Analyze
                     </motion.button>
                     <motion.button
                       onClick={debouncedHandlePrediction}
-                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl ${selectedToken && dailyMarketInteractions < 5
-                        ? "text-black border-white bg-white hover:bg-white/90"
-                        : "text-white/40 border-white/10 cursor-not-allowed opacity-50"
+                      className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium transition-all duration-300 border rounded-xl ${selectedToken
+                        ? 'text-black border-white bg-white hover:bg-white/90'
+                        : 'text-white/40 border-white/10 cursor-not-allowed opacity-50'
                         }`}
-                      disabled={!selectedToken || dailyMarketInteractions >= 5}
+                      disabled={!selectedToken}
                       aria-label="Predict token price"
-                      whileHover={{ scale: selectedToken && dailyMarketInteractions < 5 ? 1.05 : 1 }}
-                      whileTap={{ scale: selectedToken && dailyMarketInteractions < 5 ? 0.95 : 1 }}
+                      whileHover={{ scale: selectedToken ? 1.05 : 1 }}
+                      whileTap={{ scale: selectedToken ? 0.95 : 1 }}
                     >
                       Prediction
                     </motion.button>
@@ -2277,21 +2279,71 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       <Modal
         isOpen={!!analysis}
         onClose={() => {
-          setAnalysis(null)
-          setAnalysisLinks([])
+          setAnalysis(null);
+          setAnalysisLinks([]);
         }}
-        title="Analysis"
-        content={analysis}
+        title="Market Analysis"
+        content={
+          <div className="prose prose-invert max-w-none text-white/90 leading-relaxed">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({ node, ...props }) => <h1 className="text-xl sm:text-2xl font-bold mt-4 mb-2" {...props} />,
+                h2: ({ node, ...props }) => <h2 className="text-lg sm:text-xl font-semibold mt-3 mb-1" {...props} />,
+                p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                table: ({ node, ...props }) => (
+                  <table className="table-auto w-full border-collapse border border-white/20 my-2" {...props} />
+                ),
+                th: ({ node, ...props }) => (
+                  <th className="border border-white/20 px-4 py-2 bg-white/5" {...props} />
+                ),
+                td: ({ node, ...props }) => (
+                  <td className="border border-white/20 px-4 py-2" {...props} />
+                ),
+              }}
+            >
+              {analysis}
+            </ReactMarkdown>
+          </div>
+        }
         links={analysisLinks}
         isMobile={isMobile}
+        isLoading={isAnalyzing}
       />
+
+      {/* Prediction Modal */}
       <Modal
         isOpen={!!prediction}
         onClose={() => setPrediction(null)}
-        title="Prediction"
-        content={prediction}
+        title="Price Prediction"
+        content={
+          <div className="prose prose-invert max-w-none text-white/90 leading-relaxed">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({ node, ...props }) => <h1 className="text-xl sm:text-2xl font-bold mt-4 mb-2" {...props} />,
+                h2: ({ node, ...props }) => <h2 className="text-lg sm:text-xl font-semibold mt-3 mb-1" {...props} />,
+                p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                table: ({ node, ...props }) => (
+                  <table className="table-auto w-full border-collapse border border-white/20 my-2" {...props} />
+                ),
+                th: ({ node, ...props }) => (
+                  <th className="border border-white/20 px-4 py-2 bg-white/5" {...props} />
+                ),
+                td: ({ node, ...props }) => (
+                  <td className="border border-white/20 px-4 py-2" {...props} />
+                ),
+              }}
+            >
+              {prediction}
+            </ReactMarkdown>
+          </div>
+        }
         isMobile={isMobile}
+        isLoading={isPredicting}
       />
+
+      {/* Pool Details Modal */}
       <Modal
         isOpen={!!selectedPool}
         onClose={() => setSelectedPool(null)}

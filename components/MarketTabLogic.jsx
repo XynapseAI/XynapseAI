@@ -14,6 +14,17 @@ import useSWR from 'swr';
 import Bottleneck from 'bottleneck';
 import axiosRetry from 'axios-retry';
 
+const axiosWithRetry = axios.create();
+axiosRetry(axiosWithRetry, {
+  retries: 5, // Tăng số lần thử lại
+  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100, // Backoff với jitter
+  retryCondition: (error) =>
+    error.response?.status === 429 ||
+    error.response?.status === 503 ||
+    error.code === 'ECONNABORTED' ||
+    error.code === 'ERR_NETWORK',
+});
+
 const cacheLimiter = new Bottleneck({
   maxConcurrent: 15,
   minTime: 200,
@@ -288,30 +299,32 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     await Promise.all([cacheTrending(), cacheTopTokens()]);
   }, [currency]);
 
-  const executeRecaptcha = useCallback(
-    async (action, retryCount = 0) => {
-      if (!recaptchaRef.current) {
-        throw new Error('reCAPTCHA is not initialized.');
-      }
+  const executeRecaptcha = useCallback(async (action, retries = 3) => {
+    if (process.env.NEXT_PUBLIC_DISABLE_RECAPTCHA === 'true') {
+      console.log(`reCAPTCHA disabled for action: ${action}`);
+      return 'disabled';
+    }
+    if (!recaptchaRef.current) {
+      throw new Error('reCAPTCHA không khả dụng. Vui lòng kiểm tra cấu hình.');
+    }
+    for (let i = 0; i < retries; i++) {
       try {
-        const token = await Promise.race([
-          recaptchaRef.current.executeAsync({ action }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 10000)),
-        ]);
+        const token = await recaptchaRef.current.executeAsync();
         if (!token) {
-          throw new Error('Empty reCAPTCHA token.');
+          throw new Error('Không nhận được token reCAPTCHA.');
         }
+        console.log(`reCAPTCHA token generated for ${action}: ${token.substring(0, 10)}...`);
         return token;
-      } catch (error) {
-        if (retryCount < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)));
-          return executeRecaptcha(action, retryCount + 1);
+      } catch (err) {
+        console.error(`reCAPTCHA attempt ${i + 1} failed for ${action}: ${err.message}`);
+        if (i === retries - 1) {
+          throw new Error(`Lỗi xác minh reCAPTCHA sau ${retries} lần thử: ${err.message}`);
         }
-        throw new Error('Unable to execute reCAPTCHA: ' + error.message);
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1))); // Đợi với backoff
       }
-    },
-    [recaptchaRef]
-  );
+    }
+  }, [recaptchaRef]);
+
 
   const fetchSupportedChains = useCallback(async (retryCount = 0) => {
     const cacheKey = 'supported-chains';
@@ -1965,186 +1978,66 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const debouncedHandleAnalysis = useCallback(
     debounce(async () => {
       if (!selectedToken) {
-        setError('No token selected.');
+        setError('Vui lòng chọn một token để phân tích.');
+        toast.error('Vui lòng chọn một token.', { position: 'top-center', autoClose: 3000 });
         return;
       }
       if (status !== 'authenticated') {
-        setError('Please log in to analyze token.');
+        setError('Vui lòng đăng nhập để thực hiện phân tích.');
+        toast.error('Vui lòng đăng nhập để thực hiện phân tích.', { position: 'top-center', autoClose: 5000 });
         return;
       }
-      setIsAnalyzing(true);
-      try {
-        const tokenAnalysisRecaptchaToken = await executeRecaptcha('analyze');
-        const analysisResponse = await axios.post(
-          '/api/token-analysis',
-          {
-            tokenSymbol: selectedToken.symbol,
-            recaptchaToken: tokenAnalysisRecaptchaToken,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${session?.accessToken}`,
-            },
-          }
-        );
-        const { aiAnalysis, links } = analysisResponse.data;
 
+      setIsAnalyzing(true);
+      const startTime = Date.now();
+      try {
+        // Xác minh reCAPTCHA
+        let recaptchaToken;
+        try {
+          recaptchaToken = await executeRecaptcha('analyze');
+        } catch (recaptchaError) {
+          console.error(`reCAPTCHA error in analysis: ${recaptchaError.message}`);
+          setError('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.');
+          toast.error('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.', { position: 'top-center', autoClose: 3000 });
+          return;
+        }
+
+        // Tạo prompt cho Gemini API
         const prompt = `
-Analyze **${selectedToken.symbol}** in Markdown format (250-300 words). Use **bold**, *italics*, tables, and concise language. Include *not investment advice*.
+Analyze **${selectedToken.symbol}** in Markdown format (300-400 words). Use **bold**, *italics*, tables, and concise language. Ensure *not investment advice*. Format with clear headings, line breaks, and professional tone.
 
 **Data**:
-- **Current Price**: $${selectedToken.current_price?.toFixed(2) || 'N/A'}
+- **Current Price**: $${selectedToken.current_price?.[currency]?.toFixed(2) || 'N/A'}
 - **24h Price Change**: ${selectedToken.price_change_percentage_24h?.toFixed(2) || 'N/A'}%
-- **Market Cap**: $${selectedToken.market_cap?.toLocaleString() || 'N/A'}
-- **Social Media/Web**: ${aiAnalysis || 'No analysis available.'}
-- **Links**: ${JSON.stringify(links.map((link) => ({ link })))}
+- **Market Cap**: $${selectedToken.market_cap?.[currency]?.toLocaleString() || 'N/A'}
+- **24h Volume**: $${selectedToken.total_volume?.[currency]?.toLocaleString() || 'N/A'}
+- **Social Media/Web**: Fetch recent sentiment from Twitter/X and web articles via Brave API.
 
 **Requirements**:
-- **Overview**: Market performance, recent trends, and volatility.
-- **US Economic Impact**: Effects of CPI, Non-Farm Payrolls, GDP, Fed rates with specific data points.
-- **Stock Market Correlation**: Relation with S&P 500, Nasdaq, including recent index movements.
-- **Political News Impact**: Influence of recent political events or policies on crypto market.
-- **Sentiment**:
-  - *Social Media*: Sentiment from Twitter/X posts, including key influencers.
-  - *Web*: Insights from articles, focusing on credible sources.
+- **Overview**: Summarize market performance, recent trends, and volatility with specific data points.
+- **US Economic Impact**: Analyze effects of recent CPI (e.g., latest value), Non-Farm Payrolls, GDP growth, and Federal Reserve interest rate decisions. Include specific figures and dates.
+- **Stock Market Correlation**: Discuss correlation with S&P 500 and Nasdaq, referencing their recent performance (e.g., index changes over past 7 days).
+- **Political News Impact**: Evaluate influence of recent political events or policies on the crypto market, citing specific events.
+- **Sentiment Analysis**:
+  - *Social Media*: Summarize Twitter/X sentiment, highlighting key influencers or trends.
+  - *Web*: Extract insights from recent articles (via Brave API), prioritizing credible sources.
 - **Technical Analysis**:
-  - *Price Patterns*: Support/resistance, moving averages (50-day, 200-day).
-  - *Volume Trends*: Trading volume changes and implications.
-- **Conclusion**: Summarize insights with actionable observations.
+  - *Price Patterns*: Identify support/resistance levels, moving averages (50-day, 200-day).
+  - *Volume Trends*: Analyze trading volume changes and implications.
+- **Conclusion**: Provide actionable insights with a neutral tone.
 
 **Example Table**:
 | Indicator       | Value       | Impact on ${selectedToken.symbol} |
 |-----------------|-------------|-----------------------------------|
-| CPI             | Latest      | Effect on token price             |
-| Fed Rates       | Current     | Effect on market sentiment        |
+| CPI             | [Latest %]  | [Effect on token price]           |
+| Fed Rates       | [Current %] | [Effect on market sentiment]      |
 
-Use natural, professional tone with recent data.
-      `.slice(0, 1000);
+**Sources**: Include relevant links in [text](url) format from Brave API results.
+`;
 
-        const geminiRecaptchaToken = await executeRecaptcha('analyze');
-        const geminiResponse = await axios.post(
-          '/api/gemini',
-          {
-            prompt,
-            deepSearch: true,
-            tokenSymbol: selectedToken.symbol?.toUpperCase(),
-            recaptchaToken: geminiRecaptchaToken,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${session?.accessToken}`,
-            },
-          }
-        );
-        const analysisResult = geminiResponse.data?.answer || 'No analysis data received';
-        setAnalysis(analysisResult);
-        setAnalysisLinks(links);
-
-        if (session?.user?.id) {
-          try {
-            const interactionRecaptchaToken = await executeRecaptcha('ai_interaction');
-            const interactionRes = await axios.post(
-              '/api/ai-interaction',
-              {
-                uid: session.user.id,
-                query: `Analysis of token ${selectedToken.symbol}`,
-                response: analysisResult,
-                interactionType: 'market',
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${session?.accessToken}`,
-                  'x-recaptcha-token': interactionRecaptchaToken,
-                },
-              }
-            );
-            if (interactionRes.data.pointsAwarded > 0 || dailyMarketInteractions < 5) {
-              setDailyMarketInteractions((prev) => Math.min(prev + 1, 5));
-            }
-          } catch (interactionError) {
-            if (interactionError.response?.data?.detail?.includes('maximum of 5 daily market interactions')) {
-              setDailyMarketInteractions(5);
-              toast.error('You have reached the maximum of 5 daily market interactions. Try again tomorrow.', {
-                position: 'top-center',
-                autoClose: 5000,
-              });
-            } else {
-              setError(`Failed to save analysis: ${interactionError.response?.data?.detail || interactionError.message}`);
-            }
-          }
-        }
-      } catch (error) {
-        let errorMessage;
-        if (error.response?.status === 401) {
-          errorMessage = 'Unauthorized: Please log in again.';
-        } else if (error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')) {
-          errorMessage = 'reCAPTCHA verification failed. Please try again.';
-        } else if (error.response?.status === 413) {
-          errorMessage = 'Request too large. Please try again later.';
-        } else if (error.response?.data?.detail?.includes('FAILED_PRECONDITION')) {
-          errorMessage = 'Server indexing issue. Please try again in a few minutes or contact support.';
-          toast.error(errorMessage, {
-            position: 'top-center',
-            autoClose: 5000,
-          });
-        } else if (error.response?.data?.errors) {
-          errorMessage = `Validation error: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
-        } else {
-          errorMessage = error.response?.data?.detail || 'Failed to analyze token.';
-        }
-        setError(errorMessage);
-      } finally {
-        setIsAnalyzing(false);
-        if (recaptchaRef.current) {
-          recaptchaRef.current.reset();
-        }
-      }
-    }, 500),
-    [selectedToken, status, session, executeRecaptcha, toast]
-  );
-
-  const debouncedHandlePrediction = useCallback(
-    debounce(async () => {
-      if (!selectedToken) {
-        setError('No token selected.');
-        return;
-      }
-      if (status !== 'authenticated') {
-        setError('Please log in to predict price.');
-        return;
-      }
-      setIsPredicting(true);
-      try {
-        const recaptchaToken = await executeRecaptcha('predict');
-        const prompt = `
-Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown format (250-300 words). Use **bold**, *italics*, tables, and *not investment advice*.
-
-**Data**:
-- **Current Price**: $${selectedToken.current_price?.toFixed(2) || 'N/A'}
-- **24h Price Change**: ${selectedToken.price_change_percentage_24h?.toFixed(2) || 'N/A'}%
-- **Market Cap**: $${selectedToken.market_cap?.toLocaleString() || 'N/A'}
-- **24h Volume**: $${selectedToken.total_volume?.toLocaleString() || 'N/A'}
-- **Price History**: ${JSON.stringify(priceHistory.slice(-10))}
-- **Recent Analysis**: ${analysis || 'No prior analysis available.'}
-
-**Requirements**:
-- **Price Trend**: Predict movement using RSI, MACD, moving averages, sentiment, economic indicators, stock market trends, and political news.
-- **Likelihood**:
-  - *Increase*: % likelihood of price increase.
-  - *Decrease*: % likelihood of price decrease (total 100%).
-- **Key Factors**: 3-4 factors (e.g., RSI, volume, economic data, political events).
-- **Conclusion**: Summarize prediction with actionable observations.
-
-**Example Table**:
-| Trend     | Likelihood | Key Factors                     |
-|-----------|------------|---------------------------------|
-| Increase  | 65%        | RSI, volume, positive sentiment |
-| Decrease  | 35%        | Fed rates, political uncertainty |
-
-Use natural, professional tone with recent data.
-      `.slice(0, 1000);
-
-        const response = await axios.post(
+        // Gửi yêu cầu tới Gemini API
+        console.log(`Sending request to /api/gemini for token: ${selectedToken.symbol}`);
+        const geminiResponse = await axiosWithRetry.post(
           '/api/gemini',
           {
             prompt,
@@ -2154,58 +2047,156 @@ Use natural, professional tone with recent data.
           },
           {
             headers: {
-              Authorization: `Bearer ${session?.accessToken}`,
+              Authorization: `Bearer ${session?.accessToken || ''}`,
             },
+            timeout: 90000, // Tăng timeout lên 90 giây
           }
         );
-        const predictionResult = response.data.answer;
-        setPrediction(predictionResult);
-
-        if (session?.user?.id) {
-          try {
-            const interactionRecaptchaToken = await executeRecaptcha('ai_interaction');
-            const interactionRes = await axios.post(
-              '/api/ai-interaction',
-              {
-                uid: session.user.id,
-                query: `Prediction for token ${selectedToken.symbol}`,
-                response: predictionResult,
-                interactionType: 'market',
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${session?.accessToken}`,
-                  'x-recaptcha-token': interactionRecaptchaToken,
-                },
-              }
-            );
-            if (interactionRes.data.pointsAwarded > 0 || dailyMarketInteractions < 5) {
-              setDailyMarketInteractions((prev) => Math.min(prev + 1, 5));
-            }
-          } catch (interactionError) {
-            if (interactionError.response?.data?.detail?.includes('maximum of 5 daily market interactions')) {
-              setDailyMarketInteractions(5);
-              toast.error('You have reached the maximum of 5 daily market interactions. Try again tomorrow.', {
-                position: 'top-center',
-                autoClose: 5000,
-              });
-            } else {
-              setError(`Failed to save prediction: ${interactionError.response?.data?.detail || interactionError.message}`);
-            }
-          }
-        }
+        const analysisResult = geminiResponse.data?.answer || 'Không nhận được dữ liệu phân tích.';
+        const links = geminiResponse.data?.links || [];
+        console.log(`Received Gemini response for ${selectedToken.symbol} in ${Date.now() - startTime}ms:`, { analysisResult, links });
+        setAnalysis(analysisResult);
+        setAnalysisLinks(links);
+        toast.success('Phân tích hoàn tất!', { position: 'top-center', autoClose: 3000 });
       } catch (error) {
-        setError(
-          error.response?.status === 401
-            ? 'Unauthorized: Please log in again.'
-            : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
-              ? 'reCAPTCHA verification failed. Please try again.'
-              : error.response?.status === 413
-                ? 'Request too large. Please try again later.'
-                : error.response?.data?.errors
-                  ? `Validation error: ${error.response.data.errors.map((e) => e.msg).join(', ')}`
-                  : error.response?.data?.detail || 'Failed to predict trend.'
+        let errorMessage = 'Lỗi khi phân tích token. Vui lòng thử lại.';
+        if (error.code === 'ECONNABORTED') {
+          errorMessage = 'Yêu cầu mất quá nhiều thời gian. Vui lòng kiểm tra kết nối mạng và thử lại.';
+        } else if (error.response?.status === 401) {
+          errorMessage = 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
+        } else if (error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')) {
+          errorMessage = 'Xác minh reCAPTCHA thất bại. Vui lòng thử lại.';
+        } else if (error.response?.status === 429) {
+          errorMessage = 'Quá nhiều yêu cầu. Vui lòng thử lại sau một phút.';
+        } else if (error.response?.status === 413) {
+          errorMessage = 'Yêu cầu quá lớn. Vui lòng thử lại sau.';
+        } else if (error.response?.data?.detail?.includes('FAILED_PRECONDITION')) {
+          errorMessage = 'Lỗi server. Vui lòng thử lại sau vài phút.';
+        } else if (error.response?.data?.errors) {
+          errorMessage = `Lỗi dữ liệu: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
+        } else if (error.message.includes('reCAPTCHA')) {
+          errorMessage = 'Lỗi xác minh reCAPTCHA. Vui lòng thử lại.';
+        }
+        console.error(`Analysis error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
+          error,
+          url: error.config?.url,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+        setError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      } finally {
+        setIsAnalyzing(false);
+        if (recaptchaRef.current) {
+          recaptchaRef.current.reset();
+        }
+      }
+    }, 500),
+    [selectedToken, session, status, executeRecaptcha, toast, currency]
+  );
+
+  // Hàm dự đoán giá
+  const debouncedHandlePrediction = useCallback(
+    debounce(async () => {
+      if (!selectedToken) {
+        setError('Vui lòng chọn một token để dự đoán.');
+        toast.error('Vui lòng chọn một token.', { position: 'top-center', autoClose: 3000 });
+        return;
+      }
+      if (status !== 'authenticated') {
+        setError('Vui lòng đăng nhập để thực hiện dự đoán.');
+        toast.error('Vui lòng đăng nhập để thực hiện dự đoán.', { position: 'top-center', autoClose: 5000 });
+        return;
+      }
+
+      setIsPredicting(true);
+      const startTime = Date.now();
+      try {
+        // Xác minh reCAPTCHA
+        let recaptchaToken;
+        try {
+          recaptchaToken = await executeRecaptcha('predict');
+        } catch (recaptchaError) {
+          console.error(`reCAPTCHA error in prediction: ${recaptchaError.message}`);
+          setError('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.');
+          toast.error('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.', { position: 'top-center', autoClose: 3000 });
+          return;
+        }
+
+        // Tạo prompt cho dự đoán
+        const prompt = `
+Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown format (300-400 words). Use **bold**, *italics*, tables, and concise language. Ensure *not investment advice*. Format with clear headings, line breaks, and professional tone.
+
+**Data**:
+- **Current Price**: $${selectedToken.current_price?.[currency]?.toFixed(2) || 'N/A'}
+- **24h Price Change**: ${selectedToken.price_change_percentage_24h?.toFixed(2) || 'N/A'}%
+- **Market Cap**: $${selectedToken.market_cap?.[currency]?.toLocaleString() || 'N/A'}
+- **24h Volume**: $${selectedToken.total_volume?.[currency]?.toLocaleString() || 'N/A'}
+- **Price History**: ${JSON.stringify(priceHistory.slice(-10))}
+- **Recent Analysis**: ${analysis || 'No prior analysis available.'}
+
+**Requirements**:
+- **Price Trend**: Predict short-term movement (increase, decrease, sideways) using RSI, MACD, moving averages (50-day, 200-day), sentiment, economic indicators, stock market trends, and political news.
+- **Likelihood Table**: Provide probabilities for each trend (total 100%).
+- **Key Factors**: List 3-5 factors influencing the prediction (e.g., RSI, volume, Fed rates, political events).
+- **Conclusion**: Summarize prediction with actionable observations.
+
+**Example Table**:
+| Trend     | Likelihood | Key Factors                     |
+|-----------|------------|---------------------------------|
+| Increase  | [XX%]      | RSI oversold, positive sentiment|
+| Decrease  | [XX%]      | High Fed rates, bearish volume  |
+| Sideways  | [XX%]      | Neutral MACD, stable news       |
+
+**Sources**: Include relevant links in [text](url) format from Brave API results.
+`;
+
+        // Gửi yêu cầu tới Gemini API
+        console.log(`Sending request to /api/gemini for token: ${selectedToken.symbol}`);
+        const response = await axiosWithRetry.post(
+          '/api/gemini',
+          {
+            prompt,
+            deepSearch: true,
+            tokenSymbol: selectedToken.symbol?.toUpperCase(),
+            recaptchaToken,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${session?.accessToken || ''}`,
+            },
+            timeout: 90000, // Tăng timeout lên 90 giây
+          }
         );
+        const predictionResult = response.data.answer || 'Không nhận được dữ liệu dự đoán.';
+        console.log(`Received Gemini response for ${selectedToken.symbol} in ${Date.now() - startTime}ms:`, predictionResult);
+        setPrediction(predictionResult);
+        toast.success('Dự đoán hoàn tất!', { position: 'top-center', autoClose: 3000 });
+      } catch (error) {
+        let errorMessage = 'Lỗi khi dự đoán giá. Vui lòng thử lại.';
+        if (error.code === 'ECONNABORTED') {
+          errorMessage = 'Yêu cầu mất quá nhiều thời gian. Vui lòng kiểm tra kết nối mạng và thử lại.';
+        } else if (error.response?.status === 401) {
+          errorMessage = 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
+        } else if (error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')) {
+          errorMessage = 'Xác minh reCAPTCHA thất bại. Vui lòng thử lại.';
+        } else if (error.response?.status === 429) {
+          errorMessage = 'Quá nhiều yêu cầu. Vui lòng thử lại sau một phút.';
+        } else if (error.response?.status === 413) {
+          errorMessage = 'Yêu cầu quá lớn. Vui lòng thử lại sau.';
+        } else if (error.response?.data?.errors) {
+          errorMessage = `Lỗi dữ liệu: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
+        } else if (error.message.includes('reCAPTCHA')) {
+          errorMessage = 'Lỗi xác minh reCAPTCHA. Vui lòng thử lại.';
+        }
+        console.error(`Prediction error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
+          error,
+          url: error.config?.url,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+        setError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
       } finally {
         setIsPredicting(false);
         if (recaptchaRef.current) {
@@ -2213,7 +2204,7 @@ Use natural, professional tone with recent data.
         }
       }
     }, 500),
-    [selectedToken, priceHistory, analysis, executeRecaptcha, status, session, toast]
+    [selectedToken, priceHistory, analysis, session, status, executeRecaptcha, toast, currency]
   );
 
   const debouncedSearch = useCallback(

@@ -48,18 +48,18 @@ async function checkIPBan(ip) {
 async function trackViolation(ip, reason = "Unknown") {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 100; // Tăng từ 60 lên 100
-  const windowMs = 30 * 60 * 1000; // Tăng từ 15 phút lên 30 phút
+  const maxViolations = 100; 
+  const windowMs = 30 * 60 * 1000; 
   const violations = parseInt(await redisClient.get(key)) || 0;
 
-  // Bỏ qua vi phạm cho các lỗi không nghiêm trọng
+
   if (["CORS blocked", "Missing or invalid id parameter", "Missing vs_currencies parameter"].includes(reason)) {
     logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}, violations: ${violations}`);
     return;
   }
 
   if (violations >= maxViolations) {
-    await banIP(ip, 1800); // Giảm thời gian ban từ 3600s xuống 1800s
+    await banIP(ip, 1800);
     logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
     throw new Error("IP temporarily banned due to excessive violations.");
   }
@@ -71,7 +71,7 @@ async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:coingecko:${ip}`;
   const windowMs = 60 * 1000;
-  const maxRequests = 200; // Tăng từ 100 lên 200 yêu cầu/phút
+  const maxRequests = 200;
   const requests = parseInt(await redisClient.get(key)) || 0;
   if (requests >= maxRequests) {
     logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`);
@@ -81,20 +81,18 @@ async function checkRateLimit(ip) {
   logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`);
 }
 
-// Cấu hình axios-retry
 axiosRetry(axios, {
-  retries: 8, // Tăng từ 5 lên 8 lần thử lại
+  retries: 8,
   retryDelay: (retryCount) => {
     logger.info(`Retry attempt ${retryCount} for CoinGecko API`);
-    return Math.pow(2, retryCount) * 1000 + Math.random() * 200; // Tăng random delay từ 100ms lên 200ms
+    return Math.pow(2, retryCount) * 1000 + Math.random() * 200;
   },
   retryCondition: (error) => error.response?.status === 429 || error.code === "ECONNABORTED",
 });
 
-// Cấu hình Bottleneck
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === "production" ? 10 : 5, // Giảm từ 15 xuống 10 trong production
-  minTime: process.env.NODE_ENV === "production" ? 600 : 1000, // Tăng từ 400ms lên 600ms
+  maxConcurrent: process.env.NODE_ENV === "production" ? 15 : 5,
+  minTime: process.env.NODE_ENV === "production" ? 600 : 1000, 
   reservoir: 30,
   reservoirRefreshAmount: 50,
   reservoirRefreshInterval: 60 * 1000,

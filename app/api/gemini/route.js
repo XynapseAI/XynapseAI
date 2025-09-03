@@ -6,17 +6,34 @@ import { createClient } from 'redis';
 import { auth } from '@/lib/auth';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
 import { braveSearch } from '../../../utils/braveSearch';
+import axiosRetry from 'axios-retry';
+
+// Configure axios with retry for Gemini API
+const geminiAxios = axios.create();
+axiosRetry(geminiAxios, {
+  retries: 3,
+  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100, // Exponential backoff with jitter
+  retryCondition: (error) =>
+    error.code === 'ECONNABORTED' || // Timeout
+    error.response?.status === 429 || // Rate limit
+    error.response?.status >= 500, // Server errors
+});
 
 const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
 redisClient.on('error', (err) => logger.error('Redis Client Error', err));
 await redisClient.connect();
+
+// Cache durations
+const BRAVE_SEARCH_CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+const TOKEN_ANALYSIS_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+const GEMINI_API_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 async function checkRateLimit(ip) {
   const key = `rate_limit:gemini:${ip}`;
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
   if (requests >= 5) {
-    throw new Error('Too many requests, please try again later.');
+    throw new Error('Quá nhiều yêu cầu, vui lòng thử lại sau.');
   }
   await redisClient.multi()
     .incr(key)
@@ -28,26 +45,27 @@ const bodySchema = z.object({
   prompt: z.string().min(1).max(3000, 'Prompt must be between 1 and 3000 characters'),
   deepSearch: z.boolean().optional().default(false),
   tokenSymbol: z.string().max(20, 'tokenSymbol must not exceed 20 characters').optional(),
-  recaptchaToken: z.string().nonempty('reCAPTCHA token is required'),
+  recaptchaToken: z.string().optional(),
 });
 
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   logger.info(`Request to /api/gemini from IP ${ip}`);
 
+  const startTime = Date.now();
   try {
     await checkRateLimit(ip);
   } catch (err) {
-    logger.error(`Rate limit error: ${err.message}`);
+    logger.error(`Rate limit error: ${err.message}`, { ip });
     return NextResponse.json({ detail: err.message }, { status: 429 });
   }
 
   const internalToken = request.headers.get('x-internal-token');
   if (process.env.NODE_ENV !== 'development' || internalToken !== process.env.INTERNAL_API_TOKEN) {
     const session = await auth();
-    if (!session) {
+    if (!session || !session.user?.id) {
       logger.warn('Unauthorized request', { ip });
-      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ detail: 'Not authenticated. Please log in.' }, { status: 401 });
     }
   }
 
@@ -69,46 +87,136 @@ export async function POST(request) {
 
   const { prompt, deepSearch, tokenSymbol, recaptchaToken } = parsedBody;
 
-  if (process.env.NODE_ENV !== 'development') {
+  // Verify reCAPTCHA
+  if (process.env.DISABLE_RECAPTCHA !== 'true' && recaptchaToken !== 'disabled') {
     try {
       let action = 'chat';
       if (prompt.match(/\bPredict\b/i)) action = 'predict';
       else if (prompt.match(/\b(Analyze|Analysis)\b/i) || tokenSymbol) action = 'analyze';
       await verifyRecaptcha(recaptchaToken, action, ip);
-      logger.info(`reCAPTCHA verification successful for ${action}`, { token: recaptchaToken.substring(0, 8) + '...', ip });
+      logger.info(`reCAPTCHA verification successful for ${action}`, { ip });
     } catch (error) {
       logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip });
       return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403 });
     }
+  } else {
+    logger.info(`reCAPTCHA verification skipped for action: ${prompt.match(/\bPredict\b/i) ? 'predict' : 'analyze'}`, { ip });
   }
 
   if (!process.env.GEMINI_API_KEY) {
-    logger.error('GEMINI_API_KEY is not configured');
+    logger.error('GEMINI_API_KEY is not configured', { ip });
     return NextResponse.json({ detail: 'Server configuration error: Missing GEMINI_API_KEY' }, { status: 500 });
   }
 
-  return new NextResponse(
-    new ReadableStream({
-      async start(controller) {
+  try {
+    // Check cache
+    const geminiCacheKey = `gemini:${tokenSymbol || 'general'}:${prompt.slice(0, 50)}`;
+    const cachedGeminiResult = await redisClient.get(geminiCacheKey);
+    if (cachedGeminiResult) {
+      const { answer, links } = JSON.parse(cachedGeminiResult);
+      logger.info(`Using cached Gemini result for ${tokenSymbol || 'general'}`, { ip });
+      return NextResponse.json({ answer, links: deepSearch ? links.slice(0, 5) : [] });
+    }
+
+    let tokenAnalysis = '';
+    let links = [];
+
+    if (prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i) && (prompt.match(/\b(Analyze|Analysis|Predict)\b/i) || tokenSymbol)) {
+      const effectiveTokenSymbol = tokenSymbol?.toUpperCase() || prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge)\b/i)?.[0]?.toUpperCase() || 'BTC';
+      const tokenAnalysisCacheKey = `token_analysis:${effectiveTokenSymbol}`;
+      const cachedTokenAnalysis = await redisClient.get(tokenAnalysisCacheKey);
+
+      if (cachedTokenAnalysis) {
+        const { aiAnalysis, links: cachedLinks } = JSON.parse(cachedTokenAnalysis);
+        tokenAnalysis = aiAnalysis;
+        links = cachedLinks;
+        logger.info(`Using cached token analysis for ${effectiveTokenSymbol}`, { ip });
+      } else {
         try {
-          let tokenAnalysis = '';
-          let links = [];
-          if (prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i) && (prompt.match(/\b(Analyze|Analysis|Predict)\b/i) || tokenSymbol)) {
-            try {
-              const effectiveTokenSymbol = tokenSymbol?.toUpperCase() || prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge)\b/i)?.[0]?.toUpperCase() || 'BTC';
-              const analysisResponse = await axios.post(`${process.env.NEXTAUTH_URL}/api/token-analysis`, {
-                tokenSymbol: effectiveTokenSymbol,
-                recaptchaToken,
-              });
-              tokenAnalysis = analysisResponse.data.aiAnalysis || 'No social media analysis available.';
-              links = analysisResponse.data.links || [];
+          const analysisResponse = await axios.post(
+            `${process.env.NEXTAUTH_URL}/api/token-analysis`,
+            {
+              tokenSymbol: effectiveTokenSymbol,
+              recaptchaToken,
+            },
+            { timeout: 10000 }
+          );
+          tokenAnalysis = analysisResponse.data.aiAnalysis || 'No social media analysis available.';
+          links = analysisResponse.data.links || [];
+          await redisClient.setEx(
+            tokenAnalysisCacheKey,
+            TOKEN_ANALYSIS_CACHE_DURATION / 1000,
+            JSON.stringify({ aiAnalysis: tokenAnalysis, links })
+          );
+          logger.info(`Fetched token analysis for ${effectiveTokenSymbol}`, { ip });
+        } catch (analysisError) {
+          logger.error(`Token analysis error: ${analysisError.message}`, { ip });
+          tokenAnalysis = 'Unable to fetch social media analysis or additional data.';
+        }
+      }
 
-              if (prompt.match(/\b(Analyze|Analysis|Predict)\b/i)) {
-                const economicSearch = await braveSearch({ query: `${effectiveTokenSymbol} crypto price CPI Non-Farm Payrolls GDP Federal Reserve`, count: 3, freshness: '1m' });
-                const stockMarketSearch = await braveSearch({ query: `${effectiveTokenSymbol} crypto price S&P 500 Nasdaq correlation`, count: 3, freshness: '1m' });
-                const politicalSearch = await braveSearch({ query: `${effectiveTokenSymbol} crypto price political news`, count: 3, freshness: '1m' });
+      if (prompt.match(/\b(Analyze|Analysis|Predict)\b/i)) {
+        const economicCacheKey = `brave_economic:${effectiveTokenSymbol}`;
+        const stockMarketCacheKey = `brave_stock:${effectiveTokenSymbol}`;
+        const politicalCacheKey = `brave_political:${effectiveTokenSymbol}`;
 
-                tokenAnalysis += `
+        const [cachedEconomic, cachedStockMarket, cachedPolitical] = await redisClient.mGet([
+          economicCacheKey,
+          stockMarketCacheKey,
+          politicalCacheKey,
+        ]);
+
+        let economicSearch, stockMarketSearch, politicalSearch;
+
+        if (cachedEconomic) {
+          economicSearch = JSON.parse(cachedEconomic);
+        } else {
+          try {
+            economicSearch = await braveSearch({
+              query: `${effectiveTokenSymbol} crypto price impact CPI "Non-Farm Payrolls" GDP "Federal Reserve" site:*.gov | site:*.edu | site:*.org`,
+              count: 3,
+              freshness: '1m',
+            });
+            await redisClient.setEx(economicCacheKey, BRAVE_SEARCH_CACHE_DURATION / 1000, JSON.stringify(economicSearch));
+          } catch (braveError) {
+            logger.error(`Economic search error: ${braveError.message}`, { ip });
+            economicSearch = { snippets: 'No recent economic data available.', links: [] };
+          }
+        }
+
+        if (cachedStockMarket) {
+          stockMarketSearch = JSON.parse(cachedStockMarket);
+        } else {
+          try {
+            stockMarketSearch = await braveSearch({
+              query: `${effectiveTokenSymbol} crypto price correlation "S&P 500" Nasdaq site:*.gov | site:*.edu | site:*.org`,
+              count: 3,
+              freshness: '1m',
+            });
+            await redisClient.setEx(stockMarketCacheKey, BRAVE_SEARCH_CACHE_DURATION / 1000, JSON.stringify(stockMarketSearch));
+          } catch (braveError) {
+            logger.error(`Stock market search error: ${braveError.message}`, { ip });
+            stockMarketSearch = { snippets: 'No recent stock market correlation data available.', links: [] };
+          }
+        }
+
+        if (cachedPolitical) {
+          politicalSearch = JSON.parse(cachedPolitical);
+        } else {
+          try {
+            politicalSearch = await braveSearch({
+              query: `${effectiveTokenSymbol} crypto price impact political news policy site:*.gov | site:*.edu | site:*.org`,
+              count: 3,
+              freshness: '1m',
+            });
+            await redisClient.setEx(politicalCacheKey, BRAVE_SEARCH_CACHE_DURATION / 1000, JSON.stringify(politicalSearch));
+          } catch (braveError) {
+            logger.error(`Political search error: ${braveError.message}`, { ip });
+            politicalSearch = { snippets: 'No recent political news impacting the market.', links: [] };
+          }
+        }
+
+        tokenAnalysis += `
 ### US Economic Impact
 ${economicSearch.snippets || 'No recent economic data available.'}
 
@@ -117,69 +225,81 @@ ${stockMarketSearch.snippets || 'No recent stock market correlation data availab
 
 ### Political News Impact
 ${politicalSearch.snippets || 'No recent political news impacting the market.'}
-                `;
-                links = links.concat(
-                  (economicSearch.links || []),
-                  (stockMarketSearch.links || []),
-                  (politicalSearch.links || [])
-                );
-              }
-            } catch (analysisError) {
-              logger.error(`Token analysis error: ${analysisError.message}`);
-              tokenAnalysis = 'Unable to fetch social media analysis or additional data.';
-            }
+        `;
+        links = links.concat(
+          (economicSearch.links || []),
+          (stockMarketSearch.links || []),
+          (politicalSearch.links || [])
+        );
+      }
+    }
+
+    let recentInteractions = '';
+    if (process.env.NODE_ENV !== 'development') {
+      const session = await auth();
+      if (session?.user?.id) {
+        try {
+          const interactions = await axios.get(`${process.env.NEXTAUTH_URL}/api/ai-interaction`, {
+            params: { uid: session.user.id, limit: 5 },
+            timeout: 8000,
+          });
+          recentInteractions = interactions.data.interactions
+            .map((i) => `Query: ${i.query}\nResponse: ${i.response}`)
+            .join('\n---\n');
+        } catch (interactionError) {
+          logger.error(`AI interactions error: ${interactionError.message}`, { ip });
+          recentInteractions = 'Unable to fetch recent interactions.';
+        }
+      }
+    }
+
+    let searchContext = '';
+    if (deepSearch) {
+      const braveCacheKey = `brave_search:${prompt.slice(0, 50)}`;
+      const cachedBraveResult = await redisClient.get(braveCacheKey);
+      if (cachedBraveResult) {
+        const { snippets, links: searchLinks } = JSON.parse(cachedBraveResult);
+        searchContext += snippets ? `### Web Insights\n${snippets}\n` : '';
+        links = links.concat(searchLinks || []);
+        logger.info(`Using cached Brave search for prompt`, { ip });
+      } else {
+        try {
+          const { snippets, links: searchLinks } = await braveSearch({ query: prompt, count: 3, freshness: 'pm' });
+          searchContext += snippets ? `### Web Insights\n${snippets}\n` : '';
+          links = links.concat(searchLinks || []);
+          await redisClient.setEx(braveCacheKey, BRAVE_SEARCH_CACHE_DURATION / 1000, JSON.stringify({ snippets, links: searchLinks }));
+        } catch (braveError) {
+          logger.error(`Brave search error: ${braveError.message}`, { ip });
+          searchContext += '\n### Web Insights\nUnable to fetch insights from Brave Search.';
+        }
+      }
+
+      if (prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i)) {
+        const twitterCacheKey = `twitter_search:${tokenSymbol || 'general'}`;
+        const cachedTwitterResult = await redisClient.get(twitterCacheKey);
+        if (cachedTwitterResult) {
+          const { message, tweets } = JSON.parse(cachedTwitterResult);
+          searchContext += `\n### Twitter/X Insights\n${message}\n`;
+          if (tweets?.length > 0) {
+            searchContext += tweets
+              .map((tweet) => `- @${tweet.author} (${tweet.verified ? 'Verified' : 'Unverified'}): "${tweet.text.slice(0, 100)}..." (${tweet.likes} likes, ${tweet.retweets} retweets)`)
+              .join('\n');
+            links = links.concat(tweets.map((tweet) => tweet.link));
           }
-
-          let recentInteractions = '';
-          if (process.env.NODE_ENV !== 'development') {
-            const session = await auth();
-            if (session?.user?.id) {
-              try {
-                const interactions = await axios.get(`${process.env.NEXTAUTH_URL}/api/ai-interaction`, {
-                  params: { uid: session.user.id, limit: 5 },
-                });
-                recentInteractions = interactions.data.interactions
-                  .map((i) => `Query: ${i.query}\nResponse: ${i.response}`)
-                  .join('\n---\n');
-              } catch (interactionError) {
-                logger.error(`AI interactions error: ${interactionError.message}`);
-                recentInteractions = 'Unable to fetch recent interactions.';
-              }
-            }
+          logger.info(`Using cached Twitter search for ${tokenSymbol || 'general'}`, { ip });
+        } else {
+          try {
+            // Placeholder for Twitter/X search (disabled for testing)
+            searchContext += '\n### Twitter/X Insights\nTwitter search disabled for testing.';
+          } catch (twitterError) {
+            logger.error(`Twitter search error: ${twitterError.message}`, { ip });
+            searchContext += '\n### Twitter/X Insights\nUnable to fetch Twitter/X data.';
           }
+        }
+      }
+    }
 
-          let searchContext = '';
-          if (deepSearch) {
-            try {
-              const { snippets, links: searchLinks } = await braveSearch({ query: prompt, count: 5, freshness: 'pm' });
-              searchContext += snippets ? `### Web Insights\n${snippets}\n` : '';
-              links = links.concat(searchLinks || []);
-            } catch (braveError) {
-              logger.error(`Brave search error: ${braveError.message}`);
-              searchContext += '\n### Web Insights\nUnable to fetch insights from Brave Search.';
-            }
-
-            if (prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i)) {
-              try {
-                const twitterResponse = await axios.post(`${process.env.NEXTAUTH_URL}/api/twitter-search`, {
-                  query: prompt,
-                  tokenSymbol: tokenSymbol?.toUpperCase() || 'BTC',
-                });
-                searchContext += `\n### Twitter/X Insights\n${twitterResponse.data.message}\n`;
-                if (twitterResponse.data.success && twitterResponse.data.tweets?.length > 0) {
-                  searchContext += twitterResponse.data.tweets
-                    .map((tweet) => `- @${tweet.author} (${tweet.verified ? 'Verified' : 'Unverified'}): "${tweet.text.slice(0, 100)}..." (${tweet.likes} likes, ${tweet.retweets} retweets)`)
-                    .join('\n');
-                  links = links.concat(twitterResponse.data.tweets.map((tweet) => tweet.link));
-                }
-              } catch (twitterError) {
-                logger.error(`Twitter search error: ${twitterError.message}`);
-                searchContext += '\n### Twitter/X Insights\nUnable to fetch Twitter/X data.';
-              }
-            }
-          }
-
-          const aiPrompt = `
+    const aiPrompt = `
 Answer in a natural, professional tone (150-200 words for analysis/prediction, concise for general queries) using Markdown with **bold**, *italics*, and tables. Include *not investment advice* for financial queries. Add links as [text](url).
 
 **Data**:
@@ -194,39 +314,44 @@ Answer in a natural, professional tone (150-200 words for analysis/prediction, c
 - If code is included, add **Explanation** (2-3 sentences) and library installation commands.
 
 **Question**: ${prompt.replace(/[<>{}]/g, '')}
-          `.slice(0, 2000);
+    `.slice(0, 2000);
 
-          const response = await axios.post(
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent',
-            {
-              contents: [{ parts: [{ text: aiPrompt }] }],
-            },
-            {
-              params: { key: process.env.GEMINI_API_KEY },
-              headers: { 'Content-Type': 'application/json' },
-            }
-          );
-
-          const data = response.data;
-          if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-            logger.error(`Invalid Gemini response: ${JSON.stringify(data)}`);
-            throw new Error('No valid response from Gemini');
-          }
-
-          controller.enqueue(JSON.stringify({ answer: data.candidates[0].content.parts[0].text, links: deepSearch ? links.slice(0, 5) : [] }));
-          controller.close();
-        } catch (error) {
-          logger.error(`Gemini API error: ${error.message}`, { stack: error.stack, response: error.response?.data });
-          const status = error.response?.status || 500;
-          const detail =
-            status === 429
-              ? 'Gemini API rate limit exceeded, please try again later.'
-              : error.response?.data?.error?.message || 'Unable to fetch response from Gemini.';
-          controller.enqueue(JSON.stringify({ detail }));
-          controller.close();
-        }
+    const response = await geminiAxios.post(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent',
+      {
+        contents: [{ parts: [{ text: aiPrompt }] }],
       },
-    }),
-    { headers: { 'Content-Type': 'application/json', 'Content-Security-Policy': "default-src 'self'" } }
-  );
+      {
+        params: { key: process.env.GEMINI_API_KEY },
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000, // Increased timeout to 30 seconds
+      }
+    );
+
+    const data = response.data;
+    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      logger.error(`Invalid Gemini response: ${JSON.stringify(data)}`, { ip });
+      return NextResponse.json({ detail: 'No valid response from Gemini' }, { status: 500 });
+    }
+
+    const answer = data.candidates[0].content.parts[0].text;
+    await redisClient.setEx(geminiCacheKey, GEMINI_API_CACHE_DURATION / 1000, JSON.stringify({ answer, links }));
+    logger.info(`Gemini API request completed in ${Date.now() - startTime}ms`, { ip });
+
+    return NextResponse.json({ answer, links: deepSearch ? links.slice(0, 5) : [] });
+  } catch (error) {
+    logger.error(`Gemini API error: ${error.message}`, {
+      stack: error.stack,
+      response: error.response?.data,
+      ip,
+    });
+    const status = error.response?.status || 500;
+    const detail =
+      error.code === 'ECONNABORTED'
+        ? 'Request to Gemini API timed out. Please try again later or simplify the request.'
+        : error.response?.status === 429
+        ? 'Gemini API rate limit exceeded, please try again later.'
+        : error.response?.data?.error?.message || 'Unable to fetch response from Gemini.';
+    return NextResponse.json({ detail }, { status });
+  }
 }

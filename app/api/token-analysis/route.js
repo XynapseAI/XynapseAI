@@ -1,3 +1,4 @@
+// app\api\token-analysis\route.js
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
@@ -18,7 +19,7 @@ async function checkRateLimit(ip) {
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
   if (requests >= 10) {
-    throw new Error('Too many requests, please try again later.');
+    throw new Error('Quá nhiều yêu cầu, vui lòng thử lại sau.');
   }
   await redisClient.multi()
     .incr(key)
@@ -40,6 +41,7 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
         Authorization: `Bearer ${process.env.XAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
+      timeout: 30000,
     });
   } catch (error) {
     if (error.response?.status === 429 && config.retryCount < 3) {
@@ -53,7 +55,7 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
 
 const bodySchema = z.object({
   tokenSymbol: z.string().min(1).max(20, 'tokenSymbol must be between 1 and 20 characters'),
-  recaptchaToken: z.string().nonempty('reCAPTCHA token is required'),
+  recaptchaToken: z.string().optional(), // reCAPTCHA là tùy chọn
 });
 
 export async function POST(request) {
@@ -96,12 +98,17 @@ export async function POST(request) {
     return NextResponse.json({ detail: 'Invalid token symbol' }, { status: 400 });
   }
 
-  try {
-    await verifyRecaptcha(recaptchaToken, 'analyze', ip);
-    logger.info(`reCAPTCHA verified for action: analyze`, { ip });
-  } catch (error) {
-    logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip });
-    return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403 });
+  // Bỏ qua xác minh reCAPTCHA nếu DISABLE_RECAPTCHA được bật
+  if (process.env.DISABLE_RECAPTCHA !== 'true' && recaptchaToken !== 'disabled') {
+    try {
+      await verifyRecaptcha(recaptchaToken, 'analyze', ip);
+      logger.info(`reCAPTCHA verified for action: analyze`, { ip });
+    } catch (error) {
+      logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip });
+      return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403 });
+    }
+  } else {
+    logger.info(`reCAPTCHA verification skipped for action: analyze`, { ip });
   }
 
   return new NextResponse(
@@ -216,4 +223,4 @@ export async function POST(request) {
     }),
     { headers: { 'Content-Type': 'application/json', 'Content-Security-Policy': "default-src 'self'" } }
   );
-}
+};
