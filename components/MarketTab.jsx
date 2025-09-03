@@ -706,7 +706,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           >
             {isLoadingTrending && !trendingTokens?.length ? (
               <div className="flex items-center justify-center h-8">
-                <LoadingOverlay isLoading={isLoadingTrending} isMobile={isMobile} />
               </div>
             ) : trendingError ? (
               <div className="text-center">

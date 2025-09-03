@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { isAddress } from 'ethers';
 import throttle from 'lodash.throttle';
@@ -38,8 +38,7 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
 
   return (
     <div
-      className={`relative flex items-center justify-center p-2 rounded-xl border border-white/20 bg-white/5 backdrop-blur-sm transition-all duration-300 cursor-pointer group ${isRoot ? 'w-[160px] max-w-[160px]' : 'w-[100px]'
-        }`}
+      className={`relative flex items-center justify-center p-2 rounded-xl border border-white/20 bg-white/5 backdrop-blur-sm transition-all duration-300 cursor-pointer group ${isRoot ? 'w-[160px] max-w-[160px]' : 'w-[100px]'}`}
       onClick={() => onSelect(address)}
     >
       <button
@@ -101,8 +100,7 @@ const WalletNode = memo(({ address, nametag, image, txHash, type, block_time, va
           <p>
             <strong>Type:</strong>{' '}
             <span
-              className={`inline-block px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${type === 'Incoming' ? 'bg-neon-blue/20 text-neon-blue' : 'bg-red-400/20 text-red-400'
-                }`}
+              className={`inline-block px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${type === 'Incoming' ? 'bg-neon-blue/20 text-neon-blue' : 'bg-red-400/20 text-red-400'}`}
             >
               {type}
             </span>
@@ -183,10 +181,110 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   }, [searchParams, initialChain, initialAddress]);
 
   useEffect(() => {
-    if (session?.user) {
-      setIsPremium(session.user.isPremium || false);
+    const refreshSession = async () => {
+      if (status === 'authenticated' && session?.user) {
+        try {
+          console.log('Refreshing session for user:', session.user.id);
+          // Gọi API session của next-auth để làm mới
+          const response = await fetch('/api/auth/session', {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          const sessionData = await response.json();
+          console.log('Session refreshed:', sessionData);
+          if (sessionData?.user) {
+            setIsPremium(sessionData.user.isPremium || false);
+            console.log('Set isPremium from session:', sessionData.user.isPremium || false);
+          } else {
+            console.warn('No user data in session response');
+          }
+        } catch (err) {
+          console.error('Error refreshing session:', err.message);
+        }
+      }
+    };
+    refreshSession();
+  }, [session, status]);
+
+  useEffect(() => {
+    const fetchCsrfToken = async () => {
+      try {
+        const response = await axios.get('/api/csrf-token', { withCredentials: true });
+        const csrfToken = response.data.csrfToken;
+        if (csrfToken) {
+          localStorage.setItem('csrfToken', csrfToken);
+          console.log('Fetched CSRF token:', csrfToken);
+        } else {
+          console.error('Empty CSRF token received');
+        }
+      } catch (err) {
+        console.error('Error fetching CSRF token:', err.message);
+      }
+    };
+
+    const fetchUserData = async (retries = 2) => {
+      if (status === 'authenticated' && session?.user?.id) {
+        let csrfToken = localStorage.getItem('csrfToken');
+        if (!csrfToken) {
+          await fetchCsrfToken();
+          csrfToken = localStorage.getItem('csrfToken');
+        }
+        try {
+          console.log('Fetching user data for UID:', session.user.id);
+          const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+            headers: {
+              'x-csrf-token': csrfToken || '',
+            },
+            withCredentials: true,
+          });
+          console.log('API /api/user response:', response.data);
+          if (response.data.success) {
+            setIsPremium(response.data.user.isPremium || false);
+            console.log('Set isPremium from API:', response.data.user.isPremium);
+          } else {
+            console.error('Failed to fetch user data:', response.data.detail);
+            toast.error('Failed to fetch user data: ' + response.data.detail, {
+              position: 'top-center',
+              autoClose: 5000,
+            });
+          }
+        } catch (err) {
+          console.error('Error fetching user data:', err.message, err.response?.data);
+          if (retries > 0) {
+            console.log(`Retrying fetch user data... (${retries} attempts left)`);
+            await fetchCsrfToken(); // Lấy lại CSRF token trước khi thử lại
+            return fetchUserData(retries - 1);
+          }
+          toast.error('Error fetching user data: ' + err.message, {
+            position: 'top-center',
+            autoClose: 5000,
+          });
+        }
+      }
+    };
+    fetchUserData();
+  }, [session, status]);
+
+  useEffect(() => {
+    const clearTransactionCache = () => {
+      try {
+        const transactionCacheKey = `wallet_transactions_${selectedChain}_${walletAddress.toLowerCase()}_${selectedLimit}`;
+        localStorage.removeItem(transactionCacheKey);
+        console.log(`Cleared transaction cache for ${transactionCacheKey}`);
+        const userCacheKey = `userData-${session?.user?.id}`;
+        localStorage.removeItem(userCacheKey);
+        console.log(`Cleared user cache for ${userCacheKey}`);
+      } catch (err) {
+        console.error('Error clearing cache:', err.message);
+      }
+    };
+
+    if (isPremium && walletAddress) {
+      clearTransactionCache();
+      fetchTransactions(walletAddress);
     }
-  }, [session]);
+  }, [isPremium, walletAddress, selectedChain, selectedLimit, session?.user?.id]);
 
   useEffect(() => {
     const fetchCoingeckoChains = async () => {
@@ -272,7 +370,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setIncomingData(cachedData.incoming);
       setOutgoingData(cachedData.outgoing);
       setWalletInfo(cachedData.wallet);
-      setIsPremium(cachedData.wallet.isPremium || false);
       setWalletAddress(address);
       setNodePage(1);
       setOffset({ x: 0, y: 0 });
@@ -313,7 +410,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           setIncomingData(cached.incoming);
           setOutgoingData(cached.outgoing);
           setWalletInfo(cached.wallet);
-          setIsPremium(cached.wallet.isPremium || false);
           setWalletAddress(address);
           setNodePage(1);
           setOffset({ x: 0, y: 0 });
@@ -327,7 +423,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setLoadingMessage('Looking up nametags...');
       const result = await response.json();
 
-      // Kiểm tra nếu result không chứa incoming/outgoing
       if (!response.ok || !result.incoming || !result.outgoing) {
         throw new Error(result.error || 'Invalid response from API: missing transaction data.');
       }
@@ -372,7 +467,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setIncomingData(incoming);
       setOutgoingData(outgoing);
       setWalletInfo(result.wallet);
-      setIsPremium(result.wallet.isPremium || false);
       setWalletAddress(address);
       setNodePage(1);
       setOffset({ x: 0, y: 0 });
@@ -384,7 +478,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         autoClose: 5000,
       });
       console.error(`Error fetching transactions for ${address}: ${err.message}`, { response: err.response });
-      // Đặt lại dữ liệu để tránh lỗi giao diện
       setIncomingData([]);
       setOutgoingData([]);
       setWalletInfo({
@@ -603,6 +696,18 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             </svg>
             Treemap
           </h3>
+          {/* Nút làm mới session để debug */}
+          <motion.button
+            onClick={async () => {
+              await updateSession({});
+              window.location.reload();
+            }}
+            className="px-2 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl hover:bg-neon-blue/20"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Refresh Session
+          </motion.button>
         </div>
         <div className="flex items-center justify-end gap-2 sm:gap-3 flex-wrap">
           <div className="relative" ref={chainDropdownRef}>
@@ -638,6 +743,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                       <motion.button
                         key={chain.value}
                         onClick={() => {
+                          console.log('Selecting chain:', chain.value, 'isPremium:', isPremium);
                           if (!isPremium && chain.value !== '1') {
                             toast.error('Premium account required to select this chain.', {
                               position: 'top-center',
@@ -653,8 +759,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             fetchTransactions(walletAddress);
                           }
                         }}
-                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1.5 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
+                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1.5 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''}`}
                         whileHover={{ scale: !isPremium && chain.value !== '1' ? 1 : 1.05 }}
                         whileTap={{ scale: !isPremium && chain.value !== '1' ? 1 : 0.95 }}
                       >
@@ -682,7 +787,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                               Premium required
                             </span>
                           </span>
-                        )}  
+                        )}
                       </motion.button>
                     ))
                 )}
@@ -706,6 +811,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   <motion.button
                     key={limit}
                     onClick={() => {
+                      console.log('Selecting limit:', limit, 'isPremium:', isPremium);
                       if (!isPremium && limit > 100) {
                         toast.error('Premium account required to fetch more than 100 transactions.', {
                           position: 'top-center',
@@ -719,8 +825,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                         fetchTransactions(walletAddress);
                       }
                     }}
-                    className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
+                    className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : ''}`}
                     whileHover={{ scale: !isPremium && limit > 100 ? 1 : 1.05 }}
                     whileTap={{ scale: !isPremium && limit > 100 ? 1 : 0.95 }}
                   >

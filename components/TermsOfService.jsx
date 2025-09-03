@@ -54,7 +54,19 @@ export const TermsOfServiceContent = () => (
     </ul>
     <p>Violations may lead to account suspension or legal action.</p>
 
-    <h2>6. Blockchain Data Disclaimer</h2>
+    {/* Bổ sung mới: Mở rộng Prohibited Use để chi tiết hơn */}
+    <h2>6. Prohibited Use</h2>
+    <p>In addition to the restrictions in Section 5, you may not use the Services to:</p>
+    <ul>
+      <li>Engage in or promote illegal activities, including fraud, money laundering, or violation of sanctions.</li>
+      <li>Harvest or collect data about other users without consent.</li>
+      <li>Interfere with the operation of our Services or impose unreasonable load on our infrastructure.</li>
+      <li>Use the Services for commercial purposes without our express permission, such as reselling data or insights.</li>
+      <li>Violate any applicable laws, including data protection or intellectual property laws.</li>
+    </ul>
+    <p>We reserve the right to monitor usage and take action against prohibited activities.</p>
+
+    <h2>7. Blockchain Data Disclaimer</h2>
     <p>Our Services rely on public blockchain data, which is inherently transparent and accessible to anyone. We display this data (e.g., wallet balances, transactions, name tags) for informational and reference purposes only. We do not:</p>
     <ul>
       <li>Guarantee the absolute accuracy or completeness of blockchain data.</li>
@@ -63,10 +75,20 @@ export const TermsOfServiceContent = () => (
     </ul>
     <p>You are solely responsible for any actions or decisions based on our Services’ data.</p>
 
-    <h2>7. Third-Party Services</h2>
+    {/* Bổ sung mới: AI Features Disclaimer */}
+    <h2>8. AI Features Disclaimer</h2>
+    <p>Our Services include AI-powered features for generating insights (e.g., using models like Grok or Gemini). You understand that:</p>
+    <ul>
+      <li>AI outputs are probabilistic and may be inaccurate, incomplete, or misleading.</li>
+      <li>AI features are for informational purposes only and do not constitute advice.</li>
+      <li>You are responsible for verifying AI-generated content and bear all risks from relying on it.</li>
+      <li>We may modify or discontinue AI features at any time without notice.</li>
+    </ul>
+
+    <h2>9. Third-Party Services</h2>
     <p>Our Services integrate with Google for sign-in. These third-party services have their own terms and privacy policies, which you must review. We are not responsible for their practices or any issues arising from their use.</p>
 
-    <h2>8. No Investment Advice</h2>
+    <h2>10. No Investment Advice</h2>
     <p>Our Services are for informational purposes only and do not constitute financial, investment, or legal advice. You acknowledge:</p>
     <ul>
       <li>On-chain data and AI insights are not guaranteed to be accurate.</li>
@@ -74,24 +96,33 @@ export const TermsOfServiceContent = () => (
       <li>You should consult professional advisors before acting on our data.</li>
     </ul>
 
-    <h2>9. Limitation of Liability</h2>
+    <h2>11. Limitation of Liability</h2>
     <p>To the fullest extent permitted by law, Xynapse is not liable for any indirect, consequential, or punitive damages arising from your use of our Services, including losses from relying on blockchain data or AI insights. Our total liability is limited to $1,000 USD or the amount you paid us in the last 12 months, whichever is lower.</p>
 
-    <h2>10. Indemnification</h2>
+    <h2>12. Indemnification</h2>
     <p>You agree to indemnify Xynapse against claims, losses, or damages arising from your breach of these Terms, misuse of our Services, or violation of third-party rights.</p>
 
-    <h2>11. Governing Law and Dispute Resolution</h2>
+    <h2>13. Governing Law and Dispute Resolution</h2>
     <p>These Terms are governed by Delaware, USA law. Disputes will be resolved through binding arbitration in Wilmington, Delaware, under the American Arbitration Association (AAA) rules, in English, with one arbitrator. No class actions are permitted.</p>
 
-    <h2>12. Miscellaneous</h2>
-    <h3>12.1 Force Majeure</h3>
+    <h2>14. Miscellaneous</h2>
+    <h3>14.1 Force Majeure</h3>
     <p>We are not liable for failures due to events beyond our control (e.g., blockchain outages, cyberattacks).</p>
-    <h3>12.2 Assignment</h3>
+    {/* Bổ sung mới: Làm chi tiết hơn cho Miscellaneous */}
+    <h3>14.2 Survival</h3>
+    <p>Provisions that by their nature should survive termination (e.g., disclaimers, liability limits, indemnification) will continue to apply after termination.</p>
+    <h3>14.3 Waiver</h3>
+    <p>Our failure to enforce any provision does not waive our right to do so later.</p>
+    <h3>14.4 Entire Agreement</h3>
+    <p>These Terms and our Privacy Policy constitute the entire agreement between you and Xynapse, superseding any prior agreements.</p>
+    <h3>14.5 Assignment</h3>
     <p>We may assign our rights without your consent. You may not assign yours without our approval.</p>
-    <h3>12.3 Entire Agreement</h3>
-    <p>These Terms and our Privacy Policy are the complete agreement between you and Xynapse.</p>
 
-    <h2>13. Contact Us</h2>
+    {/* Bổ sung mới: Consent to Electronic Communications */}
+    <h2>15. Consent to Electronic Communications</h2>
+    <p>By using our Services, you consent to receiving electronic communications from us (e.g., emails, in-app notifications) regarding your account, updates, or support. You are responsible for keeping your contact information current and ensuring you can receive our messages.</p>
+
+    <h2>16. Contact Us</h2>
     <p>For questions, contact:</p>
     <ul>
       <li><strong>Email</strong>: <a href="mailto:mail.xynapse@gmail.com" className="text-neon-blue">mail.xynapse@gmail.com</a></li>

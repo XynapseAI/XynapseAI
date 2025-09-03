@@ -574,29 +574,44 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   transition={{ duration: 0.3, delay: index * 0.02 }}
                 >
                   <td className="px-3 py-2.5 text-white truncate">
-                    {task.description}{' '}
-                    {task.is_daily
-                      ? `(Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
-                      : ''}
-                    {task.task_type === 'follow' && (
-                      <a
-                        href={`https://x.com/intent/follow?screen_name=XynapseAI`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[8px] sm:text-[10px] text-neon-blue underline block mt-1"
-                      >
-                        Follow @XynapseAI
-                      </a>
-                    )}
-                    {task.task_type === 'retweet' && (
-                      <a
-                        href={`https://x.com/intent/retweet?tweet_id=${task.target_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[8px] sm:text-[10px] text-neon-blue underline block mt-1"
-                      >
-                        Retweet this post
-                      </a>
+                    {task.task_type === 'follow' ? (
+                      <span>
+                        Follow{' '}
+                        <a
+                          href={`https://x.com/intent/follow?screen_name=XynapseAI`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-neon-blue underline"
+                        >
+                          @XynapseAI
+                        </a>{' '}
+                        on Twitter
+                        {task.is_daily
+                          ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+                          : ''}
+                      </span>
+                    ) : task.task_type === 'retweet' ? (
+                      <span>
+                        Retweet{' '}
+                        <a
+                          href={`https://x.com/intent/retweet?tweet_id=${task.target_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-neon-blue underline"
+                        >
+                          this post
+                        </a>
+                        {task.is_daily
+                          ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+                          : ''}
+                      </span>
+                    ) : (
+                      <span>
+                        {task.description}{' '}
+                        {task.is_daily
+                          ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+                          : ''}
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-neon-green truncate">+{task.points}</td>
@@ -929,7 +944,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-black/80 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
+      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-black/80 flex flex-col h-[calc(100vh-6rem)] overflow-y-auto hide-scrollbar"
     >
       <ToastContainer
         position="top-center"
@@ -1003,13 +1018,40 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   <div className="bg-white/5 rounded-xl p-3">
                     <h5 className="font-bold text-white uppercase mb-2">Account Info</h5>
                     <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-white/60">Email:</span>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <img src="/logos/google.png" alt="Google Logo" className="w-3 h-3" />
+                          <span className="text-white/60">Google:</span>
+                        </div>
                         <span className="text-neon-blue">{userData.email}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center">
                         <span className="text-white/60">Tier:</span>
-                        <span className="text-white">{userData.tier || 'Basic'}</span>
+                        <div className="flex items-center gap-1 m-1">
+                          {userData.tier === 'Basic' ? (
+                            <>
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-3 h-3 text-silver"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                <circle cx="12" cy="7" r="4" />
+                              </svg>
+                              <span className="text-silver">{userData.tier}</span>
+                            </>
+                          ) : (
+                            <>
+                              <img src="/icons/crown.png" alt="Crown Icon" className="w-3 h-3" />
+                              <span className="text-yellow-400">{userData.tier}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-white/60">Days Active:</span>
@@ -1018,29 +1060,32 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     </div>
                   </div>
                   <div className="bg-white/5 rounded-xl p-3 relative">
-                    <h5 className="font-bold text-white uppercase mb-2">Connections</h5>
+                    <h5 className="font-bold text-white uppercase mb-2">Social</h5>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
                           <img src="/logos/x.png" alt="Twitter Logo" className="w-3 h-3" />
                           <span className="text-white/60">Twitter:</span>
-                        </div>
-                        <span className="text-white">
                           {userData.twitterHandle ? (
-                            <a href={`https://x.com/${userData.twitterHandle}`} target="_blank" rel="noopener noreferrer" className="text-neon-blue">
+                            <a
+                              href={`https://x.com/${userData.twitterHandle}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-neon-blue"
+                            >
                               @{userData.twitterHandle}
                             </a>
                           ) : (
-                            'Not connected'
+                            <span className="text-white">Not connected</span>
                           )}
-                        </span>
+                        </div>
                       </div>
                     </div>
                     {userData.twitterHandle && (
                       <motion.button
                         onClick={() => disconnectTwitterMutation.mutate()}
                         disabled={disconnectTwitterMutation.isLoading}
-                        className={`absolute bottom-2 right-2 px-3 py-1 rounded-xl text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/20 hover:bg-text-500/20'
+                        className={`absolute bottom-2 right-2 px-3 py-1 rounded-lg text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/20 hover:bg-text-500/20'
                           }`}
                         whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
                         whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}

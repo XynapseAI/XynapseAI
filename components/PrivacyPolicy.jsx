@@ -97,7 +97,17 @@ export const PrivacyPolicyContent = () => (
     </ol>
     <p>Public blockchain data is used to generate analytics and visualizations but is not verified for absolute accuracy.</p>
 
-    <h2>8. Sharing Your Data</h2>
+    {/* Bổ sung mới: AI Data Handling */}
+    <h2>8. AI Data Handling</h2>
+    <p>Our Services use AI-powered features (e.g., Grok, Gemini) to generate insights. When you use these features:</p>
+    <ul>
+      <li>Your prompts and AI-generated outputs may be collected to deliver and improve the Services.</li>
+      <li>We do not use your data to train AI models without your explicit consent.</li>
+      <li>Avoid including sensitive or personal information in prompts, as we are not liable for its exposure.</li>
+      <li>AI outputs are probabilistic and may be inaccurate; you are responsible for verifying their accuracy.</li>
+    </ul>
+
+    <h2>9. Sharing Your Data</h2>
     <p>We share Personal Data only when necessary:</p>
     <ol>
       <li><strong>Service Providers</strong>: Cloud hosting, analytics (e.g., Google Analytics), or support platforms.</li>
@@ -107,7 +117,16 @@ export const PrivacyPolicyContent = () => (
     </ol>
     <p>We do not sell Personal Data. Public blockchain data is not shared as Personal Data, as it is publicly accessible.</p>
 
-    <h2>9. Your Data Rights</h2>
+    {/* Bổ sung mới: Compliance and Protection */}
+    <h2>10. Compliance and Protection</h2>
+    <p>We may use Personal Data to:</p>
+    <ul>
+      <li>Protect our Services, your rights, or others’ safety and property.</li>
+      <li>Prevent or investigate fraud, cyberattacks, or illegal activities.</li>
+      <li>Comply with legal processes, such as subpoenas or court orders, where required.</li>
+    </ul>
+
+    <h2>11. Your Data Rights</h2>
     <p>You can:</p>
     <ol>
       <li><strong>Access/Update</strong>: View or edit your account details.</li>
@@ -117,25 +136,33 @@ export const PrivacyPolicyContent = () => (
     </ol>
     <p>Contact <a href="mailto:mail.xynapse@gmail.com" className="text-neon-blue">mail.xynapse@gmail.com</a> to exercise these rights. We respond within 30 days or as legally required.</p>
 
-    <h2>10. Data Security</h2>
+    {/* Bổ sung mới: Opt-Out of Marketing Communications */}
+    <h2>12. Opt-Out of Marketing Communications</h2>
+    <p>You may opt out of receiving marketing emails or notifications by clicking “unsubscribe” in our emails or contacting <a href="mailto:mail.xynapse@gmail.com" className="text-neon-blue">mail.xynapse@gmail.com</a>. Opting out may prevent you from receiving updates about our Services.</p>
+
+    {/* Bổ sung mới: Public Posting Areas */}
+    <h2>13. Public Posting Areas</h2>
+    <p>If our Services include community features (e.g., forums or comment sections), any Personal Data you share there is public. Do not post sensitive information, as we are not responsible for its use by others.</p>
+
+    <h2>14. Data Security</h2>
     <p>We use encryption, access controls, and monitoring to protect Personal Data. However, no system is fully secure. You are responsible for securing your Google account and devices. Report issues to <a href="mailto:mail.xynapse@gmail.com" className="text-neon-blue">mail.xynapse@gmail.com</a>.</p>
 
-    <h2>11. Data Retention</h2>
+    <h2>15. Data Retention</h2>
     <p>We retain Personal Data only as needed for Services, legal compliance, or analytics. Public blockchain data is not retained as Personal Data. You may request deletion, but some data may remain for legal purposes.</p>
 
-    <h2>12. International Data Transfers</h2>
+    <h2>16. International Data Transfers</h2>
     <p>Your data may be processed globally, including in the U.S. We use safeguards like contractual clauses to ensure compliance with privacy laws.</p>
 
-    <h2>13. GDPR Compliance (EEA, UK, Switzerland)</h2>
+    <h2>17. GDPR Compliance (EEA, UK, Switzerland)</h2>
     <p>For Data Subjects under GDPR, you have rights to access, correct, delete, restrict, or object to data processing. Contact <a href="mailto:mail.xynapse@gmail.com" className="text-neon-blue">mail.xynapse@gmail.com</a> or your local data protection authority.</p>
 
-    <h2>14. Minors</h2>
+    <h2>18. Minors</h2>
     <p>Our Services are for users 18+. We do not knowingly collect data from minors. Contact us if you suspect such data collection.</p>
 
-    <h2>15. Third-Party Services</h2>
+    <h2>19. Third-Party Services</h2>
     <p>We integrate with Google for sign-in. Review Google’s privacy policy for details. We are not responsible for third-party practices.</p>
 
-    <h2>16. Contact Us</h2>
+    <h2>20. Contact Us</h2>
     <p>For privacy inquiries, contact:</p>
     <ul>
       <li><strong>Email</strong>: <a href="mailto:mail.xynapse@gmail.com" className="text-neon-blue">mail.xynapse@gmail.com</a></li>
