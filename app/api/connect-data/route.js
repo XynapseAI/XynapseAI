@@ -335,6 +335,7 @@ export async function GET(request) {
       const cached = await client.get(cacheKey);
       if (cached) {
         logger.info('Cache hit for user', { uid: effectiveUid });
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const parsed = JSON.parse(cached);
         const headers = {
           ...securityHeaders(),
