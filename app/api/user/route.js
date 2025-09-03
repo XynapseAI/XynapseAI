@@ -68,7 +68,22 @@ async function checkRateLimit(ip, userId = null) {
   }
 }
 
-function isAllowedOrigin(origin, referer) {
+async function trackViolation(ip, reason) {
+  const client = await getRedisClient();
+  const key = `violations:${ip}`;
+  const maxViolations = 5;
+  const windowMs = 15 * 60 * 1000;
+  const violations = parseInt(await client.get(key)) || 0;
+  if (violations >= maxViolations) {
+    await client.setEx(`banned_ip:${ip}`, 3600, 'banned');
+    logger.info('IP banned', { ip, reason });
+    throw new Error('IP banned due to repeated violations.');
+  }
+  await client.multi().incr(key).expire(key, Math.floor(windowMs / 1000)).exec();
+  logger.warn('Violation recorded', { ip, reason, violations: violations + 1 });
+}
+
+async function isAllowedOrigin(origin, referer) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL,
     'http://localhost:3000',
@@ -78,12 +93,14 @@ function isAllowedOrigin(origin, referer) {
     'https://xynapse-ai.vercel.app',
   ].filter(Boolean);
 
-  logger.info('Checking origin', { origin, referer });
+  logger.info('Checking origin', { origin, referer, configured });
 
   try {
-    if (origin) {
+    // Kiểm tra origin hợp lệ
+    if (origin && origin !== 'null') {
       if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
         logger.warn('Blocked origin: non-HTTPS origin in production', { origin });
+        await trackViolation('unknown', 'Non-HTTPS origin in production');
         return false;
       }
       const originUrl = new URL(origin);
@@ -92,14 +109,19 @@ function isAllowedOrigin(origin, referer) {
         originUrl.hostname.endsWith('.vercel.app') ||
         originUrl.hostname.endsWith('xynapseai.net')
       ) {
+        logger.info('Origin allowed', { origin });
         return true;
       }
+      await trackViolation('unknown', 'Invalid origin');
       return false;
     }
+
+    // Kiểm tra referer nếu không có origin
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
         logger.warn('Blocked referer: non-HTTPS in production', { referer });
+        await trackViolation('unknown', 'Non-HTTPS referer in production');
         return false;
       }
       if (
@@ -107,17 +129,38 @@ function isAllowedOrigin(origin, referer) {
         refOrigin.endsWith('xynapseai.net') ||
         refOrigin.endsWith('.vercel.app')
       ) {
+        logger.info('Referer origin allowed', { referer, refOrigin });
         return true;
       }
+      await trackViolation('unknown', 'Invalid referer');
+      return false;
     }
-    if (!origin && !referer && process.env.NODE_ENV === 'development') {
-      logger.warn('No origin or referer, allowing in development mode');
+
+    // Cho phép internal/SSR request
+    if (!origin && !referer) {
+      logger.info('Allowing internal/SSR request');
       return true;
     }
+
+    // Chặn null origin trong production
+    if (!origin && process.env.NODE_ENV === 'production') {
+      logger.error('Null origin blocked in production', { referer });
+      await trackViolation('unknown', 'Null origin in production');
+      return false;
+    }
+
+    // Cho phép null origin trong development
+    if (!origin && process.env.NODE_ENV === 'development') {
+      logger.warn('Origin is null, allowing in development mode');
+      return true;
+    }
+
     logger.error('Invalid origin or referer', { origin, referer });
+    await trackViolation('unknown', 'Invalid origin or referer');
     return false;
   } catch (err) {
-    logger.error('Error validating origin', { err: err?.message });
+    logger.error('Error validating origin', { err: err?.message, origin, referer });
+    await trackViolation('unknown', 'Error validating origin');
     return false;
   }
 }
@@ -275,13 +318,15 @@ export async function GET(request) {
         logger.info('Cache hit for user', { uid });
         const parsed = JSON.parse(cached);
         const headers = {
-          ...securityHeaders(origin),
-          'Access-Control-Allow-Origin': origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-          'Access-Control-Allow-Methods': 'GET, POST',
-          'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-          'Access-Control-Allow-Credentials': 'true',
+          ...securityHeaders(),
+          ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer) && {
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Methods': 'GET, POST',
+            'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+            'Access-Control-Allow-Credentials': 'true',
+          }),
         };
-        return NextResponse.json(parsed, { headers });
+        return NextResponse.json(data, { headers });
       }
 
       logger.info('Cache miss, querying DB for user', { uid });
@@ -467,23 +512,26 @@ export async function POST(request) {
 
       logger.info('User created/updated successfully', { id: mask(id) });
       const headers = {
-        ...securityHeaders(origin),
-        'Access-Control-Allow-Origin': origin || (referer ? new URL(referer).origin : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
-        'Access-Control-Allow-Methods': 'GET, POST',
-        'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
-        'Access-Control-Allow-Credentials': 'true',
-      };
-
-      return NextResponse.json({
-        success: true,
-        user: serializeBigInt({
-          id: updatedUser.id,
-          email: updatedUser.email,
-          profile_picture: updatedUser.profile_picture,
-          google_name: updatedUser.google_name,
-          email_verified: updatedUser.email_verified,
+        ...securityHeaders(),
+        ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer) && {
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Methods': 'GET, POST',
+          'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+          'Access-Control-Allow-Credentials': 'true',
         }),
-      }, { headers });
+      };
+      return NextResponse.json(
+        {
+          success: true,
+          user: serializeBigInt({
+            id: updatedUser.id,
+            email: updatedUser.email,
+            profile_picture: updatedUser.profile_picture,
+            google_name: updatedUser.google_name,
+            email_verified: updatedUser.email_verified,
+          }),
+        },
+        { headers });
     } catch (err) {
       logger.error('Error processing POST /api/user', { err: err?.message });
       return NextResponse.json({ detail: 'Server error' }, { status: 500 });

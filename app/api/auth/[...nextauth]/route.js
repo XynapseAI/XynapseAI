@@ -139,14 +139,19 @@ const allowedOrigins = [
 async function isAllowedOrigin(origin, referer, pathname) {
   logger.info("Checking origin", { origin, referer, pathname, allowedOrigins });
   try {
+    // Cho phép Google OAuth callback
     if (pathname.includes("/api/auth/callback/google") && referer?.startsWith("https://accounts.google.com/")) {
       logger.info("Allowing Google OAuth callback", { referer });
       return true;
     }
+
+    // Kiểm tra origin hợp lệ
     if (origin && allowedOrigins.includes(origin)) {
       logger.info("Origin allowed", { origin });
       return true;
     }
+
+    // Kiểm tra referer nếu không có origin
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (allowedOrigins.includes(refOrigin)) {
@@ -154,14 +159,27 @@ async function isAllowedOrigin(origin, referer, pathname) {
         return true;
       }
     }
+
+    // Cho phép internal/SSR request (không có origin và referer)
     if (!origin && !referer) {
       logger.info("Allowing internal/SSR request");
       return true;
     }
+
+    // Chặn null origin trong production
+    if (!origin && process.env.NODE_ENV === "production") {
+      logger.error("Null origin blocked in production", { pathname });
+      await trackViolation(referer || "unknown", pathname, "Null origin in production");
+      return false;
+    }
+
+    // Cho phép null origin trong development (để hỗ trợ testing)
     if (!origin && process.env.NODE_ENV === "development") {
       logger.warn("Origin is null, allowing in development mode");
       return true;
     }
+
+    // Chặn mọi trường hợp khác
     logger.error("CORS blocked", { origin, referer, pathname });
     await trackViolation(origin || referer || "unknown", pathname, "CORS blocked");
     return false;
@@ -228,7 +246,7 @@ const rateLimitedHandler = (handler) =>
       const res = await handler(req, ...args);
       const newHeaders = new Headers(res.headers || {});
       Object.entries(securityHeaders).forEach(([k, v]) => newHeaders.set(k, v));
-      if (origin) {
+      if (origin && origin !== "null" && allowedOrigins.includes(origin)) {
         newHeaders.set("Access-Control-Allow-Origin", origin);
         newHeaders.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
         newHeaders.set("Access-Control-Allow-Headers", "Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token");
