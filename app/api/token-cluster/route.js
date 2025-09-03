@@ -25,7 +25,7 @@ const allowedOrigins = [
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
 ].filter((v, i, a) => a.indexOf(v) === i);
-
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
 
 const securityHeaders = {
