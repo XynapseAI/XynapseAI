@@ -37,7 +37,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     { id: 'treemap', label: 'Treemap' },
     { id: 'watchlists', label: 'Watchlists' },
     { id: 'profile', label: 'Profile' },
-    { id: 'ai', label: 'AI' },
+    // { id: 'ai', label: 'AI' },
   ];
 
   // Handle click outside to close menu or search dropdown

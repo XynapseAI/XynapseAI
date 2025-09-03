@@ -38,7 +38,7 @@ function AnimatedCounter({ value, duration = 2000, suffix = "" }) {
   }, [isInView, value, duration])
 
   return (
-    <span ref={ref} className="font-mono font-bold">
+    <span ref={ref} className="font-roboto font-bold">
       {count.toLocaleString()}
       {suffix}
     </span>
@@ -485,22 +485,22 @@ export default function Home() {
 
   const cardData = [
     {
-      title: "Grok AI",
+      title: "Token Flow Intelligence",
       description:
-        "Harness the power of Grok, created by xAI, to deliver unparalleled market predictions and deep crypto analytics with real-time precision.",
-      image: "/logos/grok.png",
+        "Track the movement of new and trending tokens across 65+ blockchains, with AI-driven predictions to identify high-potential assets.",
+      image: "/icons/token-flow.svg",
     },
     {
-      title: "Gemini AI",
+      title: "Whale Wallet Monitoring",
       description:
-        "Leverage Gemini’s advanced reasoning capabilities to uncover hidden market trends and optimize your crypto investment strategies.",
-      image: "/logos/gemini.png",
+        "Monitor major wallets in real-time, with AI alerts for significant transactions and holdings.",
+      image: "/icons/whale-wallet.svg",
     },
     {
-      title: "ChatGPT AI",
+      title: "Fund Flow Visualization",
       description:
-        "Utilize ChatGPT’s natural language processing to analyze social sentiment and generate actionable insights for market movements.",
-      image: "/logos/gpt.png",
+        "Visualize capital flows with interactive treemaps, revealing the flow of funds between top holders and exchanges.",
+      image: "/icons/treemap.svg",
     },
   ]
 
@@ -597,7 +597,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={isProductOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className="absolute left-[-15px] top-full mt-2 w-48 bg-transparent backdrop-blur-xs"
+                className="absolute left-[-15px] top-full mt-1 w-48 bg-transparent backdrop-blur-xs"
                 onMouseEnter={() => setIsProductOpen(true)}
                 onMouseLeave={() => setIsProductOpen(false)}
               >
@@ -624,7 +624,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: -10 }}
                 animate={isResourcesOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className="absolute left-[-15px] top-full mt-2 w-48 bg-transparent backdrop-blur-xs"
+                className="absolute left-[-15px] top-full mt-1 w-48 bg-transparent backdrop-blur-xs"
                 onMouseEnter={() => setIsResourcesOpen(true)}
                 onMouseLeave={() => setIsResourcesOpen(false)}
               >
@@ -762,13 +762,13 @@ export default function Home() {
           transition={{ duration: 0.8, ease: "easeOut" }}
           className="text-center z-10 max-w-4xl mx-auto px-6"
         >
-          <h1 className="text-2xl sm:text-3xl md:text-7xl font-bold text-white mb-6 tracking-tight">
-            MASTER THE MARKET
+          <h1 className="text-2xl sm:text-2xl md:text-5xl font-bold text-white mb-6 tracking-tight">
+            UNLOCK ON-CHAIN INSIGHTS
             <br />
-            <span className="text-gray-400">WITH AI</span>
+            <span className="text-gray-400">WITH AI PRECISION</span>
           </h1>
           <p className="text-[11px] sm:text-sm text-gray-400 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Unlock real-time insights, predictive analytics, and social sentiment analysis powered by elite AI models.
+            Access comprehensive wallet data, track large organizations, and visualize fund flows in real-time.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {/* <Link
@@ -791,7 +791,7 @@ export default function Home() {
       {/* Trusted By */}
       <section className="py-16 bg-gray-900/20 border-y border-white/10">
         <p className="text-center text-gray-400 text-sm font-bold mb-12 tracking-wider">
-          TRUSTED BY TOP CRYPTO INNOVATORS
+          TRUSTED BY LEADING BLOCKCHAIN ANALYSTS
         </p>
         <div className="w-full overflow-hidden">
           <div className="flex animate-marquee-right-to-left">
@@ -812,14 +812,14 @@ export default function Home() {
       {/* Powered by Elite AI Models */}
       <section ref={sectionRef} className="py-16 flex flex-col items-center relative z-50">
         <h2 className="text-xl sm:text-2xl font-bold text-white mb-16 text-center tracking-tight">
-          <TypingEffect text="POWERED BY ELITE AI MODELS" speed={150} />
+          <TypingEffect text="POWERED BY ADVANCED AI ENGINES" speed={150} />
         </h2>
         <div ref={cardsContainerRef} className="relative flex items-start justify-center pt-8">
           {[card1Ref, card2Ref, card3Ref].map((ref, index) => (
             <motion.div
               key={index}
               ref={ref}
-              className="absolute bg-gradient-to-br from-gray-900 via-black to-gray-800 backdrop-blur-md border border-white/20 rounded-lg shadow-2xl flex flex-row items-center justify-between p-8 w-full max-w-4xl sm:h-[300px] h-[240px] transition-all duration-300 card"
+              className="absolute bg-gradient-to-br from-gray-900 via-black to-gray-800 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl flex flex-row items-center justify-between p-8 w-full max-w-4xl sm:h-[300px] h-[240px] transition-all duration-300 card"
             >
               <div className="flex-1 pr-8">
                 <h3 className="text-2xl sm:text-3xl font-bold text-white mb-4 tracking-tight">
@@ -842,53 +842,119 @@ export default function Home() {
       </section>
 
       {/* Why Choose Us */}
-      <section className="py-20 flex flex-col items-center relative z-10">
+<section className="py-20 flex flex-col items-center relative z-10">
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.8 }}
+    viewport={{ once: true }}
+    className="text-center mb-16"
+  >
+    <h3 className="text-xl sm:text-2xl font-bold text-white mb-6 tracking-tight">WHY XYNAPSE ANALYTICS?</h3>
+    <p className="text-sm text-gray-400 max-w-2xl mx-auto">
+      <TypingEffect
+        text="Comprehensive on-chain tools to track wallets, holdings, and flows with unparalleled accuracy."
+        speed={50}
+      />
+    </p>
+  </motion.div>
+
+  <div className="w-full max-w-6xl mx-auto px-6">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      {[
+        {
+          icon: (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+              />
+            </svg>
+          ),
+          text: "Wallet Balance & Value Tracking",
+        },
+        {
+          icon: (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
+              />
+            </svg>
+          ),
+          text: "Over 1M Name Tags & Labels",
+        },
+        {
+          icon: (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+              />
+            </svg>
+          ),
+          text: "Top Holders & Organization Insights",
+        },
+        {
+          icon: (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 17V7m0 10h6m-6 0H3m12 0h6M5 7h14"
+              />
+            </svg>
+          ),
+          text: "Fund Flow Visualization via Treemap",
+        },
+      ].map((item, index) => (
         <motion.div
+          key={index}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 0.6, delay: index * 0.1 }}
           viewport={{ once: true }}
-          className="text-center mb-16"
+          className="flex flex-col items-center p-6 bg-gray-900/30 backdrop-blur-lg border border-white/20 rounded-lg hover:border-white/40 transition-all duration-300 group"
+          whileHover={{ scale: 1.05 }}
         >
-          <h3 className="text-xl sm:text-2xl font-bold text-white mb-6 tracking-tight">WHY XYNAPSE ANALYTICS?</h3>
-          <p className="text-sm text-gray-400 max-w-2xl mx-auto">
-            <TypingEffect
-              text="Cutting-edge tools to navigate the volatile crypto market with confidence."
-              speed={50}
-            />
-          </p>
+          {item.icon}
+          <p className="text-sm text-white text-center font-medium mt-4">{item.text}</p>
         </motion.div>
-
-        <div className="w-full max-w-6xl mx-auto px-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { image: "/logos/icon1.png", text: "Real-Time Token Tracking" },
-              { image: "/logos/icon2.png", text: "AI-Powered Predictions" },
-              { image: "/logos/icon3.png", text: "Social Sentiment Analysis" },
-              { image: "/logos/icon4.png", text: "Top Holder Insights" },
-            ].map((item, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="flex flex-col items-center p-6 bg-gray-900/30 backdrop-blur-lg border border-white/20 rounded-lg hover:border-white/40 transition-all duration-300 hover:scale-105"
-                whileHover={{ scale: 1.05 }}
-              >
-                <Image
-                  src={item.image}
-                  alt={item.text}
-                  width={56}
-                  height={56}
-                  className="h-12 sm:h-14 mb-4 object-contain"
-                />
-                <p className="text-sm text-white text-center font-medium">{item.text}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      ))}
+    </div>
+  </div>
+</section>
 
       {/* Market Intelligence */}
       <section className="py-20 bg-gradient-to-b from-black to-gray-900 relative overflow-hidden">
@@ -900,31 +966,31 @@ export default function Home() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h3 className="text-3xl sm:text-4xl font-bold text-white mb-6 tracking-tight">MARKET INTELLIGENCE</h3>
+            <h3 className="text-3xl sm:text-4xl font-bold text-white mb-6 tracking-tight">ON-CHAIN INTELLIGENCE</h3>
             <p className="text-lg text-gray-400 max-w-2xl mx-auto">
-              Real-time data processing across multiple blockchains with AI-driven insights
+              Real-time wallet and transaction data across multiple chains with AI-enhanced analysis
             </p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
             {[
               {
-                title: "TRANSACTIONS ANALYZED",
+                title: "WALLETS MONITORED",
                 value: 2847392,
                 suffix: "+",
-                description: "Cross-chain transactions processed in real-time",
+                description: "On-chain wallets tracked in real-time",
               },
               {
-                title: "AI PREDICTIONS",
-                value: 94,
-                suffix: "%",
-                description: "Accuracy rate for market movement predictions",
+                title: "NAME TAGS COVERED",
+                value: 1000000,
+                suffix: "+",
+                description: "Extensive labeling for addresses and entities",
               },
               {
-                title: "ACTIVE TRADERS",
+                title: "ACTIVE USERS",
                 value: 15847,
                 suffix: "",
-                description: "Professional traders using our platform daily",
+                description: "Analysts using our platform daily",
               },
             ].map((stat, index) => (
               <motion.div
@@ -951,13 +1017,13 @@ export default function Home() {
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
             >
-              <h4 className="text-2xl font-bold text-white mb-6">REAL-TIME ANALYTICS</h4>
+              <h4 className="text-2xl font-bold text-white mb-6">REAL-TIME ON-CHAIN MONITORING</h4>
               <ul className="space-y-4">
                 {[
-                  "Multi-chain transaction monitoring",
-                  "Whale movement detection",
-                  "Smart contract analysis",
-                  "DeFi protocol tracking",
+                  "Multi-chain wallet tracking",
+                  "Large entity movement detection",
+                  "Token holder analysis",
+                  "Fund inflow/outflow visualization",
                 ].map((item, index) => (
                   <motion.li
                     key={index}
@@ -984,7 +1050,7 @@ export default function Home() {
               <div className="bg-gray-900/50 border border-white/20 rounded-lg p-6 backdrop-blur-lg">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-sm text-gray-400">ETHEREUM</span>
-                  <span className="text-sm text-white font-mono">$2,847.32</span>
+                  <span className="text-sm text-white font-roboto">$4,347.32</span>
                 </div>
                 <div className="h-32 relative">
                   <svg className="w-full h-full" viewBox="0 0 400 120">
@@ -999,7 +1065,7 @@ export default function Home() {
                     <circle cx="390" cy="10" r="3" fill="white" className="animate-ping" />
                   </svg>
                 </div>
-                <div className="text-xs text-gray-500 mt-2">Live price feed with AI predictions</div>
+                <div className="text-xs text-gray-500 mt-2">Live on-chain data with AI insights</div>
               </div>
             </motion.div>
           </div>
@@ -1016,9 +1082,9 @@ export default function Home() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h3 className="text-3xl sm:text-4xl font-bold text-white mb-6 tracking-tight">ADVANCED ANALYTICS</h3>
+            <h3 className="text-3xl sm:text-4xl font-bold text-white mb-6 tracking-tight">ADVANCED ON-CHAIN ANALYTICS</h3>
             <p className="text-lg text-gray-400 max-w-2xl mx-auto">
-              Deep learning algorithms analyze market patterns and social sentiment
+              AI algorithms to dissect wallet patterns and entity behaviors
             </p>
           </motion.div>
 
@@ -1127,10 +1193,10 @@ export default function Home() {
               className="grid grid-cols-2 gap-6"
             >
               {[
-                { label: "ACTIVE SIGNALS", value: 247 },
-                { label: "SUCCESS RATE", value: 89, suffix: "%" },
-                { label: "CHAINS MONITORED", value: 65 },
-                { label: "DAILY ALERTS", value: 1834 },
+                { label: "ACTIVE WATCHLISTS", value: 247 },
+                { label: "DATA ACCURACY", value: 99, suffix: "%" },
+                { label: "CHAINS SUPPORTED", value: 65 },
+                { label: "DAILY QUERIES", value: 1834 },
               ].map((item, index) => (
                 <motion.div
                   key={index}
@@ -1143,7 +1209,7 @@ export default function Home() {
                   <div className="text-3xl font-bold text-white mb-2">
                     <AnimatedCounter value={item.value} suffix={item.suffix || ""} />
                   </div>
-                  <div className="text-xs text-gray-400 tracking-wider">{item.label}</div>
+                  <div className="font-bold text-xs text-gray-400 tracking-wider">{item.label}</div>
                 </motion.div>
               ))}
             </motion.div>
@@ -1174,9 +1240,9 @@ export default function Home() {
               <h3 className="text-3xl sm:text-4xl font-bold text-white mb-8 tracking-tight">OUR VISION</h3>
               <ul className="space-y-6">
                 {[
-                  "Democratize crypto market intelligence with AI-driven insights",
-                  "Empower users with real-time data on CEX/DEX and transactions",
-                  "Reward community engagement through integrated activities",
+                  "Empower users with deep on-chain insights into wallets and entities",
+                  "Provide real-time tracking of large organizations and top holders",
+                  "Enable seamless watchlists and treemap-based flow analysis",
                 ].map((item, index) => (
                   <motion.li
                     key={index}
@@ -1196,59 +1262,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Call to Action */}
-      <section className="py-20 bg-black">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-          >
-            <h3 className="text-3xl sm:text-4xl font-bold text-white mb-6 tracking-tight">
-              TAKE CONTROL OF THE CRYPTO MARKET
-            </h3>
-            <p className="text-lg text-gray-500 mb-12 max-w-2xl mx-auto">
-              <TypingEffect text="Join savvy traders using AI to stay ahead of market trends." speed={50} />
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {["Instant Insights", "AI Automation", "Community Rewards", "Secure Data"].map((item, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="p-6 bg-gray-900/30 backdrop-blur-lg border border-white/20 rounded-lg text-center hover:border-white/40 transition-all duration-300 hover:scale-105"
-                whileHover={{ scale: 1.05 }}
-              >
-                <p className="text-sm text-white font-medium">{item}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-            viewport={{ once: true }}
-          >
-            <Link
-              href="/signup"
-              className="inline-block px-5 py-2.5 bg-white/90 text-black rounded-lg text-sm font-medium transition-all duration-300 hover:bg-gray-200"
-            >
-              <MatrixHoverEffect text="SIGN UP" hoverColor="#000000" />
-            </Link>
-          </motion.div>
-        </div>
-      </section>
-
       {/* Partners Section */}
-      <section className="py-20 bg-black m-20 sm:m-32">
-        <div className="text-center mb-16">
-          <p className="text-xl sm:text-1xl font-bold text-gray-400 tracking-wider">ON-CHAIN DATA ON 65+ CHAINS</p>
+      <section className="py-20 bg-black m-20 sm:m-52">
+        <div className="text-center mb-20">
+          <p className="text-xl sm:text-1xl font-bold text-gray-400 tracking-wider">COMPREHENSIVE DATA ACROSS 65+ BLOCKCHAINS</p>
         </div>
         <div className="relative w-full overflow-hidden">
           <div className="absolute inset-y-0 left-0 w-4 sm:w-32 bg-gradient-to-r from-black to-transparent z-10"></div>
@@ -1306,15 +1323,16 @@ export default function Home() {
                   alt="Xynapse Logo"
                   width={120}
                   height={56}
-                  className="h-12 sm:h-14 w-auto"
+                  className="h-12 sm:h-16 w-auto"
                 />
               </div>
-              <p className="text-xs text-gray-500">Xynapse Analytics © 2025</p>
+              {/* <p className="text-xs text-gray-500">Xynapse Analytics © 2025</p> */}
             </div>
 
             {[
               { title: "PRODUCT", links: ["About", "Features", "Pricing", "Docs"] },
               { title: "RESOURCES", links: ["Blog", "Support", "Brand Kit", "Contact"] },
+              { title: "CONTACT", links: ["Blog", "Support",] },
             ].map((col, index) => (
               <div key={index}>
                 <h3 className="text-sm font-bold text-white mb-4 tracking-wider">{col.title}</h3>
