@@ -1,7 +1,16 @@
 // utils/serverLogger.js
-import winston from 'winston';
-import path from 'path';
-import fs from 'fs';
+
+// Prevent execution in browser environment
+if (typeof window !== 'undefined') {
+  console.warn('serverLogger.js is meant for server-side use only. Falling back to console.');
+  module.exports = { logger: console };
+  return;
+}
+
+// Import Node.js modules
+const winston = require('winston');
+const path = require('path');
+const fs = require('fs');
 
 // Determine environment
 const isVercel = process.env.VERCEL === '1';
@@ -10,17 +19,16 @@ const isProduction = process.env.NODE_ENV === 'production';
 // Define log directory
 const logsDir = isVercel ? '/tmp/logs' : path.join(process.cwd(), 'logs');
 
-// Ensure log directory exists (synchronous)
+// Function to ensure log directory exists
 const ensureLogDir = (dir) => {
+  console.log(`[serverLogger] Attempting to create log directory: ${dir}`);
   try {
     fs.mkdirSync(dir, { recursive: true });
+    console.log(`[serverLogger] Log directory created or already exists: ${dir}`);
     return true;
   } catch (error) {
-    if (error.code !== 'EEXIST') {
-      console.error(`Failed to create log directory ${dir}: ${error.message}`);
-      return false;
-    }
-    return true; // Directory already exists
+    console.error(`[serverLogger] Failed to create log directory ${dir}: ${error.message}`);
+    return false;
   }
 };
 
@@ -35,7 +43,7 @@ const logFormat = winston.format.combine(
   )
 );
 
-// Initialize transports with console always
+// Initialize transports with console as default
 const transports = [
   new winston.transports.Console({
     level: isProduction ? 'info' : 'debug',
@@ -47,7 +55,7 @@ const transports = [
   }),
 ];
 
-// Create logger
+// Create logger instance
 const logger = winston.createLogger({
   level: isProduction ? 'info' : 'debug',
   format: logFormat,
@@ -56,31 +64,13 @@ const logger = winston.createLogger({
 
 // Add file transports based on environment
 (() => {
-  if (!isVercel) {
-    // Local or Railway-like environment: Attempt to add file transports
-    const logDirCreated = ensureLogDir(logsDir);
-    if (logDirCreated) {
-      logger.add(
-        new winston.transports.File({
-          filename: path.join(logsDir, 'error.log'),
-          level: 'error',
-        })
-      );
-      logger.add(
-        new winston.transports.File({
-          filename: path.join(logsDir, 'combined.log'),
-          level: logger.level,
-        })
-      );
-      logger.info(`File transports added for directory: ${logsDir}`);
-    } else {
-      logger.warn('File transports not added due to directory creation failure');
-    }
-  } else if (isProduction) {
-    // Vercel in production: Rely on Vercel's logging (console is already added)
-    logger.info('File transports skipped on Vercel in production; using Vercel logging');
+  console.log(`[serverLogger] Environment: ${isVercel ? 'Vercel' : 'Local'}, Production: ${isProduction}`);
+  
+  if (isVercel && isProduction) {
+    // Vercel in production: Skip file transports, rely on console
+    logger.info('[serverLogger] Skipping file transports on Vercel in production; using console logging');
   } else {
-    // Vercel in development: Add file transports
+    // Local or Vercel in development: Add file transports
     const logDirCreated = ensureLogDir(logsDir);
     if (logDirCreated) {
       logger.add(
@@ -95,17 +85,13 @@ const logger = winston.createLogger({
           level: logger.level,
         })
       );
-      logger.info(`File transports added for directory: ${logsDir}`);
+      logger.info(`[serverLogger] File transports added for directory: ${logsDir}`);
     } else {
-      logger.warn('File transports not added due to directory creation failure on Vercel');
+      logger.warn('[serverLogger] File transports not added due to directory creation failure');
     }
   }
 
-  logger.info(
-    `Server logger initialized in ${
-      isVercel ? 'Vercel' : 'Local'
-    } mode, production: ${isProduction}`
-  );
+  logger.info(`[serverLogger] Logger initialized in ${isVercel ? 'Vercel' : 'Local'} mode`);
 })();
 
-export { logger };
+module.exports = { logger };

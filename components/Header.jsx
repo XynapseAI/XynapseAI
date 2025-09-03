@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Power, Search } from 'lucide-react';
 import { useCurrency } from './CurrencyContext';
-import { logger } from '../utils/serverLogger';
+import { logger } from '../utils/clientLogger';
 import '../styles/globals.css'
 
 export default function Header({ activeTab, setActiveTab, handleSignOut, selectedAddress }) {
