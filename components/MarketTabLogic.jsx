@@ -2005,21 +2005,29 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       }
 
       const prompt = `
-Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base analysis heavily on real-time data from Brave API searches, prioritizing news from reputable crypto sources (e.g., CoinDesk, Wu Blockchain, CoinMarketCap, CoinGecko) from the past week, including article thumbnails where available.
+Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base analysis heavily on real-time data from Brave API searches, incorporating specific facts, figures, and quotes from credible sources.
 
 **Data**:
 - **Current Price**: $${selectedToken.current_price?.[currency]?.toFixed(2) || 'N/A'}
 - **24h Price Change**: ${selectedToken.price_change_percentage_24h?.toFixed(2) || 'N/A'}%
 - **Market Cap**: $${selectedToken.market_cap?.[currency]?.toLocaleString() || 'N/A'}
 - **24h Volume**: $${selectedToken.total_volume?.[currency]?.toLocaleString() || 'N/A'}
-- **Social Media/Web**: Fetch recent sentiment from Twitter/X and web articles via Brave API, prioritizing news from CoinDesk, Wu Blockchain, CoinMarketCap, CoinGecko, etc., with thumbnails.
+- **Social Media/Web**: Fetch recent sentiment from Twitter/X and web articles via Brave API, prioritizing latest news from the past week.
 
 **Requirements**:
-- **Overview**: Provide a detailed summary of market performance, recent trends, volatility, and historical context with specific data points, charts description, and comparisons to similar assets.
-- **Sentiment Analysis**: Summarize Twitter/X sentiment and web articles, quoting from 3-5 recent articles from reputable crypto sources.
-- **Technical Analysis**: Include support/resistance levels, moving averages, RSI, MACD, and volume trends.
-- **Risk Factors**: Discuss market manipulation, regulatory risks, or technological issues.
-- **References**: Provide a JSON array of links in the format [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...] from Brave API results, prioritizing articles with thumbnails.
+- **Overview**: Provide a detailed summary of market performance, recent trends, volatility, and historical context with specific data points, charts description (e.g., candlestick patterns), and comparisons to similar assets.
+- **US Economic Impact**: Analyze effects of the most recent CPI (include latest value and date), Non-Farm Payrolls (latest figures and date), GDP growth (quarterly data), and Federal Reserve interest rate decisions (latest rate and meeting date). Discuss how these macroeconomic factors influence the token, with evidence from sources.
+- **Stock Market Correlation**: Discuss detailed correlation with S&P 500 and Nasdaq, referencing their recent performance (e.g., index changes over past 7 days, 30 days), and statistical correlations if available from sources.
+- **Political News Impact**: Evaluate influence of the latest political events or policies on the crypto market, citing specific events, dates, and impacts (e.g., regulatory changes, elections).
+- **Sentiment Analysis**:
+  - *Social Media*: Summarize Twitter/X sentiment with quantitative metrics (e.g., positive/negative ratio), highlighting key influencers, viral tweets, and trends from recent data.
+  - *Web*: Extract in-depth insights from recent articles (via Brave API), prioritizing credible sources like Bloomberg, Reuters, CoinDesk. Include quotes and summaries from 3-5 articles.
+- **Technical Analysis**:
+  - *Price Patterns*: Identify support/resistance levels, moving averages (50-day, 200-day with values), RSI, MACD, and other indicators with specific values.
+  - *Volume Trends*: Analyze trading volume changes over 24h, 7d, 30d, and implications for liquidity and momentum.
+- **Risk Factors**: Discuss potential risks like market manipulation, regulatory risks, or technological issues, backed by recent news.
+- **Conclusion**: Provide balanced, actionable insights with a neutral tone, summarizing key takeaways.
+- **References**: Provide a JSON array of links in the format [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...] from Brave API results, including at least 5-10 sources.
 
 **Output Format**:
 {

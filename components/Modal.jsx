@@ -200,7 +200,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                             src={displayImage}
                             alt={displayText}
                             className="w-16 h-16 object-cover rounded-md flex-shrink-0"
-                            onError={(e) => { e.target.src = '/placeholder-image.jpg'; }}
+                            onError={(e) => { e.target.src = '/placeholder-image.png'; }}
                           />
                         )}
                         <div className="flex-grow">
