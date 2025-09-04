@@ -8,7 +8,7 @@ import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
 import sanitizeHtml from 'sanitize-html';
 
-const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoading = false, logs = [] }) => {
+const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoading = false, logs = [], actionType = 'analyze' }) => {
   const [logMessages, setLogMessages] = useState([]);
   const prevLogsRef = useRef(logs);
   const prevIsLoadingRef = useRef(isLoading);
@@ -18,12 +18,18 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
       if (logs.length > 0) {
         setLogMessages(logs.map(text => ({ text, id: Date.now() + Math.random() })));
       } else if (isLoading) {
-        const sources = [
-          'Fetching tweets from X...',
-          'Analyzing market trends...',
-          'Querying Brave API for web data...',
-          'Processing AI interactions...',
-          'Synthesizing insights...',
+        const sources = actionType === 'predict' ? [
+          'Generating predictions...',
+          'Processing market data...',
+          'Calculating trends...',
+          'Evaluating patterns...',
+          'Formulating insights...',
+        ] : [
+          'Analyzing data...',
+          'Processing information...',
+          'Examining trends...',
+          'Evaluating metrics...',
+          'Synthesizing results...',
         ];
         const interval = setInterval(() => {
           setLogMessages((prev) => {
@@ -38,7 +44,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
     }
     prevLogsRef.current = logs;
     prevIsLoadingRef.current = isLoading;
-  }, [isLoading, logs, logMessages.length]);
+  }, [isLoading, logs, logMessages.length, actionType]);
 
   return (
     <AnimatePresence>
@@ -62,29 +68,31 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
           >
             {isLoading && (
               <motion.div
-                className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-10 rounded-2xl p-6"
+                className="absolute inset-0 flex items-center justify-center bg-black/90 z-10 rounded-2xl"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
                 transition={{ duration: 0.3 }}
               >
-                <div className="w-full max-w-md bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 relative overflow-hidden shadow-2xl animate-pulse-slow">
+
+                <div className="w-[90%] sm:w-[95%] bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 relative overflow-hidden shadow-2xl animate-pulse-slow">
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-scan" />
                   <div className="absolute inset-0 bg-black/10 backdrop-blur-sm animate-pulse opacity-50" />
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                    <h3 className="text-white text-sm sm:text-base font-semibold">Processing Data</h3>
+                    <h3 className="text-white text-sm sm:text-base font-semibold">
+                      {actionType === 'predict' ? 'Predicting' : 'Analyzing'}
+                    </h3>
                   </div>
                   <div className="h-40 overflow-y-hidden custom-scrollbar log-container relative">
                     <AnimatePresence>
                       {logMessages.map((log, index) => (
                         <motion.p
                           key={log.id}
-                          className={`text-white/80 text-[10px] sm:text-xs font-mono mb-2 ${
-                            index === logMessages.length - 1
+                          className={`text-white/80 text-[10px] sm:text-xs font-saira mb-2 ${index === logMessages.length - 1
                               ? 'text-blue-400 font-semibold animate-pulse'
                               : 'text-white/60'
-                          }`}
+                            }`}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}

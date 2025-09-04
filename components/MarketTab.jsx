@@ -2324,8 +2324,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         isMobile={isMobile}
         isLoading={isAnalyzing}
         logs={analysisLogs}
+        actionType="analyze" // Thêm thuộc tính actionType cho Analyze
       />
 
+      {/* Modal for Price Prediction */}
       <Modal
         isOpen={isPredicting || !!prediction}
         onClose={() => {
@@ -2368,6 +2370,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         isMobile={isMobile}
         isLoading={isPredicting}
         logs={analysisLogs}
+        actionType="predict" // Thêm thuộc tính actionType cho Predict
       />
 
       {/* Pool Details Modal */}
