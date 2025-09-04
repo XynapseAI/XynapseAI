@@ -81,7 +81,6 @@ async function dynamicRateLimit(ip, session, pathname) {
 }
 
 // ================= IP Ban Logic =================
-// (Không thay đổi)
 async function banIP(ip, durationSeconds = 3600) {
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, "banned");
@@ -128,7 +127,6 @@ async function trackViolation(ip, pathname, reason = "Unknown") {
 }
 
 // ================= Allowed Origins =================
-// (Không thay đổi)
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   "https://xynapseai.net",
@@ -139,19 +137,16 @@ const allowedOrigins = [
 async function isAllowedOrigin(origin, referer, pathname) {
   logger.info("Checking origin", { origin, referer, pathname, allowedOrigins });
   try {
-    // Cho phép Google OAuth callback
     if (pathname.includes("/api/auth/callback/google") && referer?.startsWith("https://accounts.google.com/")) {
       logger.info("Allowing Google OAuth callback", { referer });
       return true;
     }
 
-    // Kiểm tra origin hợp lệ
     if (origin && allowedOrigins.includes(origin)) {
       logger.info("Origin allowed", { origin });
       return true;
     }
 
-    // Kiểm tra referer nếu không có origin
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (allowedOrigins.includes(refOrigin)) {
@@ -160,26 +155,22 @@ async function isAllowedOrigin(origin, referer, pathname) {
       }
     }
 
-    // Cho phép internal/SSR request (không có origin và referer)
     if (!origin && !referer) {
       logger.info("Allowing internal/SSR request");
       return true;
     }
 
-    // Chặn null origin trong production
     if (!origin && process.env.NODE_ENV === "production") {
       logger.error("Null origin blocked in production", { pathname });
       await trackViolation(referer || "unknown", pathname, "Null origin in production");
       return false;
     }
 
-    // Cho phép null origin trong development (để hỗ trợ testing)
     if (!origin && process.env.NODE_ENV === "development") {
       logger.warn("Origin is null, allowing in development mode");
       return true;
     }
 
-    // Chặn mọi trường hợp khác
     logger.error("CORS blocked", { origin, referer, pathname });
     await trackViolation(origin || referer || "unknown", pathname, "CORS blocked");
     return false;
@@ -206,7 +197,6 @@ const rateLimitedHandler = (handler) =>
 
     logger.info(`Auth Request: IP=${ip}, Origin=${origin || "null"}, Referer=${referer || "null"}, Pathname=${pathname}`);
 
-    // Bỏ qua rate limit và IP ban cho session, providers, signout, và csrf
     if (pathname === "/api/auth/session" || pathname === "/api/auth/providers" || pathname === "/api/auth/signout" || pathname === "/api/auth/csrf") {
       try {
         return await handler(req, ...args);
@@ -260,7 +250,6 @@ const rateLimitedHandler = (handler) =>
   });
 
 // ================= NextAuth Handlers =================
-// (Không thay đổi)
 const finalAuthOptions = {
   ...authOptions,
   events: {
@@ -297,7 +286,6 @@ export const GET = rateLimitedHandler(OriginalGET);
 export const POST = rateLimitedHandler(OriginalPOST);
 
 // ================= Graceful shutdown =================
-// (Không thay đổi)
 process.on("SIGTERM", async () => {
   if (redisClient?.isOpen) await redisClient.quit();
   logger.info("Redis connection closed on SIGTERM");

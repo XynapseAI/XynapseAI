@@ -130,6 +130,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     isLoadingTrending,
     trendingError,
     NON_EVM_CHAINS,
+    analysisLogs,
+    setIsAnalyzing,
+    setIsPredicting,
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
 
   const dropdownRef = useRef(null)
@@ -2320,6 +2323,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         links={analysisLinks}
         isMobile={isMobile}
         isLoading={isAnalyzing}
+        logs={analysisLogs}
       />
 
       <Modal
@@ -2363,6 +2367,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         }
         isMobile={isMobile}
         isLoading={isPredicting}
+        logs={analysisLogs}
       />
 
       {/* Pool Details Modal */}

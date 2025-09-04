@@ -51,7 +51,7 @@ async function checkRateLimit(ip) {
     const key = `rate_limit:watchlists:${ip}`;
     const requests = parseInt(await redisClient.get(key)) || 0;
     const windowMs = 60 * 1000; // 1 minute window
-    if (requests >= 100) {
+    if (requests >= 10) {
       logger.warn(`Rate limit exceeded for IP ${ip}`);
       throw new Error('Too many requests. Please try again later.');
     }
@@ -73,7 +73,7 @@ async function checkRateLimit(ip) {
 async function trackViolation(ip, reason = 'Unknown') {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 100;
+  const maxViolations = 50;
   const windowMs = 30 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
 

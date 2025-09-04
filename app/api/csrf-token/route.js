@@ -66,7 +66,7 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:csrf:${ip}`;
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
-  const maxRequests = process.env.NODE_ENV === 'development' ? 100 : 50;
+  const maxRequests = process.env.NODE_ENV === 'development' ? 100 : 30;
   if (requests >= maxRequests) {
     throw new Error('Too many requests, please try again later.');
   }

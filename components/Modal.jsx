@@ -1,38 +1,44 @@
-import React, { useEffect, useState } from 'react';
+// components/Modal.jsx
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import sanitizeHtml from 'sanitize-html';
 
-const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoading = false }) => {
-  // State for dynamic log messages
+const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoading = false, logs = [] }) => {
   const [logMessages, setLogMessages] = useState([]);
-  const sources = [
-    'Fetching tweets from X...',
-    'Analyzing market trends...',
-    'Querying Brave API for web data...',
-    'Processing AI interactions...',
-    'Synthesizing insights...',
-  ];
+  const prevLogsRef = useRef(logs);
+  const prevIsLoadingRef = useRef(isLoading);
 
-  // Simulate log updates during loading
   useEffect(() => {
-    if (!isLoading) {
-      setLogMessages([]);
-      return;
+    if (isLoading !== prevIsLoadingRef.current || logs !== prevLogsRef.current) {
+      if (logs.length > 0) {
+        setLogMessages(logs.map(text => ({ text, id: Date.now() + Math.random() })));
+      } else if (isLoading) {
+        const sources = [
+          'Fetching tweets from X...',
+          'Analyzing market trends...',
+          'Querying Brave API for web data...',
+          'Processing AI interactions...',
+          'Synthesizing insights...',
+        ];
+        const interval = setInterval(() => {
+          setLogMessages((prev) => {
+            const nextIndex = prev.length % sources.length;
+            return [...prev, { text: sources[nextIndex], id: Date.now() }].slice(-5);
+          });
+        }, 1500);
+        return () => clearInterval(interval);
+      } else if (logMessages.length > 0) {
+        setLogMessages([]);
+      }
     }
-
-    const interval = setInterval(() => {
-      setLogMessages((prev) => {
-        const nextIndex = prev.length % sources.length;
-        return [...prev, { text: sources[nextIndex], id: Date.now() }].slice(-5); // Keep last 5 messages
-      });
-    }, 1500);
-
-    return () => clearInterval(interval);
-  }, [isLoading]);
+    prevLogsRef.current = logs;
+    prevIsLoadingRef.current = isLoading;
+  }, [isLoading, logs, logMessages.length]);
 
   return (
     <AnimatePresence>
@@ -54,7 +60,6 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
               } overflow-y-auto custom-scrollbar`}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Loading Overlay */}
             {isLoading && (
               <motion.div
                 className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-10 rounded-2xl p-6"
@@ -64,20 +69,18 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                 transition={{ duration: 0.3 }}
               >
                 <div className="w-full max-w-md bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 relative overflow-hidden shadow-2xl animate-pulse-slow">
-                  {/* Scanning Animation */}
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-scan" />
-                  {/* Pulsing Blur Overlay */}
-                  <div className="absolute inset-0 bg-emerald-400 backdrop-blur-sm animate-pulse opacity-50" />
+                  <div className="absolute inset-0 bg-black/10 backdrop-blur-sm animate-pulse opacity-50" />
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                    <h3 className="text-white text-sm sm:text-base font-semibold">Processing Data</h3>
+                    <h3 className="text-white text-sm sm:text-base font-semibold">AI Analyzing...</h3>
                   </div>
                   <div className="h-40 overflow-y-hidden custom-scrollbar log-container relative">
                     <AnimatePresence>
                       {logMessages.map((log, index) => (
                         <motion.p
                           key={log.id}
-                          className={`text-white/80 text-xs sm:text-sm font-mono mb-2 ${
+                          className={`text-white/80 text-[10px] sm:text-xs font-saira mb-2 ${
                             index === logMessages.length - 1
                               ? 'text-blue-400 font-semibold animate-pulse'
                               : 'text-white/60'
@@ -96,7 +99,6 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
               </motion.div>
             )}
 
-            {/* Close Button */}
             <motion.button
               onClick={onClose}
               className="absolute top-3 right-3 text-white/60 hover:text-white rounded-full w-8 h-8 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md hover:bg-blue-500/20 transition-all duration-300"
@@ -107,12 +109,10 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
               <X size={20} />
             </motion.button>
 
-            {/* Title */}
             <h4 className="text-base sm:text-lg font-bold text-white mb-4 uppercase tracking-wider bg-gradient-to-r from-blue-500/20 to-transparent p-2 rounded">
               {title}
             </h4>
 
-            {/* Content */}
             <div className="text-sm sm:text-base text-white/90 mb-4 max-h-[60vh] sm:max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
               {typeof content === 'string' ? (
                 <ReactMarkdown
@@ -171,87 +171,114 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
               )}
             </div>
 
-            {/* Links */}
             {links && links.length > 0 && (
               <div>
                 <h5 className="text-sm sm:text-base font-bold text-white mb-2 uppercase tracking-wider">References:</h5>
-                <ul className="list-none">
-                  {links.map((link, index) => (
-                    <li key={index} className="mb-1">
-                      <a
-                        href={typeof link === 'string' ? link : link.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm text-blue-500 hover:text-blue-400 transition-all duration-200"
-                      >
-                        {typeof link === 'string'
-                          ? link.length > 50
-                            ? `${link.slice(0, 50)}...`
-                            : link
-                          : link.text || (link.url.length > 50 ? `${link.url.slice(0, 50)}...` : link.url)}
-                      </a>
-                    </li>
-                  ))}
+                <ul className="list-none space-y-4">
+                  {links.map((link, index) => {
+                    const displayText =
+                      typeof link === 'string'
+                        ? link.length > 50
+                          ? `${link.slice(0, 50)}...`
+                          : link
+                        : link.text && link.text !== 'undefined' && link.text !== ''
+                          ? link.text
+                          : link.url || 'Untitled';
+                    const displayUrl = typeof link === 'string' ? link : link.url;
+                    const displayDescription =
+                      typeof link === 'string'
+                        ? 'No description available'
+                        : link.description && link.description !== 'undefined' && link.description !== ''
+                          ? link.description
+                          : 'No description available';
+                    const displayImage = typeof link === 'string' ? null : link.image;
+
+                    return (
+                      <li key={index} className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-start gap-3 hover:bg-white/10 transition-all">
+                        {displayImage && (
+                          <img
+                            src={displayImage}
+                            alt={displayText}
+                            className="w-16 h-16 object-cover rounded-md flex-shrink-0"
+                            onError={(e) => { e.target.src = '/placeholder-image.jpg'; }}
+                          />
+                        )}
+                        <div className="flex-grow">
+                          <a
+                            href={displayUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm text-blue-500 hover:text-blue-400 transition-all duration-200 font-semibold"
+                          >
+                            {sanitizeHtml(displayText, { allowedTags: [], allowedAttributes: {} })}
+                          </a>
+                          <p className="text-xs text-white/60 mt-1">
+                            {sanitizeHtml(displayDescription, { allowedTags: [], allowedAttributes: {} })}
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
-          </motion.div>
 
-          <style jsx>{`
-            .custom-scrollbar::-webkit-scrollbar {
-              width: 6px;
-              height: 6px;
-            }
-            .custom-scrollbar::-webkit-scrollbar-track {
-              background: transparent;
-            }
-            .custom-scrollbar::-webkit-scrollbar-thumb {
-              background: rgba(255, 255, 255, 0.3);
-              border-radius: 3px;
-            }
-            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-              background: rgba(255, 255, 255, 0.5);
-            }
-            .log-container {
-              -webkit-mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
-              mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
-            }
-            @media (max-width: 640px) {
-              .max-w-3xl {
-                max-width: 95%;
+            <style jsx>{`
+              .custom-scrollbar::-webkit-scrollbar {
+                width: 6px;
+                height: 6px;
               }
-              .max-h-[65vh] {
-                max-height: 70vh;
+              .custom-scrollbar::-webkit-scrollbar-track {
+                background: transparent;
               }
-              .w-8 {
-                width: 1.5rem;
-                height: 1.5rem;
+              .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 3px;
               }
-              .text-base {
-                font-size: 0.875rem;
+              .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.5);
               }
-              .text-sm {
-                font-size: 0.75rem;
+              .log-container {
+                -webkit-mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
+                mask-image: linear-gradient(to bottom, transparent 0%, white 20%, white 80%, transparent 100%);
               }
-              .text-xs {
-                font-size: 0.625rem;
+              @media (max-width: 640px) {
+                .max-w-3xl {
+                  max-width: 95%;
+                }
+                .max-h-[65vh] {
+                  max-height: 70vh;
+                }
+                .w-8 {
+                  width: 1.5rem;
+                  height: 1.5rem;
+                }
+                .text-base {
+                  font-size: 0.875rem;
+                }
+                .text-sm {
+                  font-size: 0.75rem;
+                }
+                .text-xs {
+                  font-size: 0.625rem;
+                }
               }
-            }
-            @keyframes scan {
-              0% {
-                transform: translateX(-100%);
+              @keyframes scan {
+                0% {
+                  transform: translateX(-100%);
+                }
+                100% {
+                  transform: translateX(100%);
+                }
               }
-              100% {
-                transform: translateX(100%);
+              .animate-scan {
+                animation: scan 2s linear infinite;
               }
-            }
-            .animate-scan {
-              animation: scan 2s linear infinite;
-            }
-            .animate-pulse-slow {
-              animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            }
-          `}</style>
+              .animate-pulse-slow {
+                animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+              }
+            `}</style>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

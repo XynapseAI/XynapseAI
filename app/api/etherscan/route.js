@@ -9,7 +9,7 @@ import { auth } from '@/lib/auth';
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 10,
-  minTime: 2000,
+  minTime: 500,
 });
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {

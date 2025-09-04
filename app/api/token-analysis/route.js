@@ -1,10 +1,10 @@
-// app\api\token-analysis\route.js (updated)
+// app/api/token-analysis/route.js
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
 import { query } from '../../../utils/postgres';
-import { braveSearch } from '../../../utils/braveSearch';
+import { braveSearch, fetchFullContent } from '../../../utils/braveSearch';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
@@ -29,7 +29,7 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:token_analysis:${ip}`;
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
-  if (requests >= 10) {
+  if (requests >= 5) {
     throw new Error('Quá nhiều yêu cầu, vui lòng thử lại sau.');
   }
   await redisClient.multi()
@@ -99,7 +99,7 @@ export async function POST(request) {
     new ReadableStream({
       async start(controller) {
         try {
-          logger.info(`Fetching tweets for tokenSymbol: ${tokenSymbol}`, { ip });
+          controller.enqueue(JSON.stringify({ progress: 'Fetching tweets...' }));
           const tweetsResult = await query(
             `SELECT id, user_id, tweet_id, text, points, created_at
              FROM tweet_analyses
@@ -110,7 +110,7 @@ export async function POST(request) {
           );
           const tweets = tweetsResult.rows;
 
-          logger.info(`Fetching AI interactions for tokenSymbol: ${tokenSymbol}`, { ip });
+          controller.enqueue(JSON.stringify({ progress: 'Fetching AI interactions...' }));
           const aiInteractionsResult = await query(
             `SELECT id, uid, date, interaction_type, count, points, created_at
              FROM daily_ai_interactions
@@ -134,10 +134,11 @@ export async function POST(request) {
             aiAnalysis += `No related AI interactions found. `;
           }
 
+          controller.enqueue(JSON.stringify({ progress: 'Searching web with Brave...' }));
           try {
             const searchResult = await braveSearch({
               query: `${tokenSymbol} crypto price analysis sentiment news`,
-              count: 5, // Tăng số lượng để có dữ liệu chi tiết hơn
+              count: 5,
               freshness: '1w',
             });
             snippets = searchResult.snippets;
@@ -148,6 +149,17 @@ export async function POST(request) {
             logger.error(`Brave Search error for ${tokenSymbol}: ${braveError.message}`, { ip });
             aiAnalysis += `Unable to fetch web articles. `;
           }
+
+          // Lấy full content từ top 3 links
+          controller.enqueue(JSON.stringify({ progress: 'Fetching full content from articles...' }));
+          let fullContents = [];
+          for (const link of links.slice(0, 3)) {
+            const content = await fetchFullContent(link.url);
+            if (content) fullContents.push({ url: link.url, content });
+          }
+          aiAnalysis += fullContents.length ? `Fetched full content from ${fullContents.length} articles. ` : '';
+
+          controller.enqueue(JSON.stringify({ progress: 'Analyzing with Gemini AI...' }));
 
           if (!process.env.GEMINI_API_KEY) {
             logger.error('GEMINI_API_KEY is not configured', { ip });
@@ -165,16 +177,17 @@ Answer in a natural, professional tone using Markdown with **bold**, *italics*, 
 - Tweets: ${JSON.stringify(tweets)}
 - AI Interactions: ${JSON.stringify(aiInteractions)}
 - Brave Search Results: ${JSON.stringify(snippets)}
+- Full Web Contents: ${JSON.stringify(fullContents)}
 
 **Instructions**:
-- Rewrite the data into a detailed, user-friendly analysis in English (300-500 words) for display on a user interface, reflecting in-depth trends, sentiments, and insights related to the token ${tokenSymbol}, based on content from social media, AI, and web information. Include quantitative metrics, quotes from sources, and balanced views.
+- Rewrite the data into a detailed, user-friendly analysis in English (300-500 words) for display on a user interface, reflecting in-depth trends, sentiments, and insights related to the token ${tokenSymbol}, based on content from social media, AI, web information, and full article contents. Include quantitative metrics, quotes from sources, and balanced views.
 - Include *not investment advice* for financial context.
-- Return a JSON object with two keys: "content" (the Markdown analysis as a string) and "links" (an array of links as strings or { text, url } objects).
+- Return a JSON object with two keys: "content" (the Markdown analysis as a string) and "links" (an array of links as { text, url, description, image } objects).
 
 **Output Format**:
 {
   "content": "Markdown text here",
-  "links": ["https://example.com", ...] or [{ "text": "Article Title", "url": "https://example.com" }, ...]
+  "links": [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...]
 }
             `.slice(0, 2000);
 
@@ -216,7 +229,7 @@ Answer in a natural, professional tone using Markdown with **bold**, *italics*, 
             const cacheKey = `token_analysis:${tokenSymbol}`;
             await redisClient.setEx(
               cacheKey,
-              10 * 60, // 10 minutes
+              10 * 60,
               JSON.stringify({ aiAnalysis: parsedResponse.content, links: parsedResponse.links })
             );
 
@@ -244,6 +257,7 @@ Answer in a natural, professional tone using Markdown with **bold**, *italics*, 
             stack: error.stack,
             ip,
           });
+          console.log('Links before sending:', JSON.stringify(links));
           if (error.message.includes('does not exist')) {
             controller.enqueue(JSON.stringify({ detail: `Database error: ${error.message}` }));
           } else {

@@ -163,6 +163,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   ]);
   const [currency, setCurrency] = useState('usd');
   const localCache = useRef({});
+  const [analysisLogs, setAnalysisLogs] = useState([]);
 
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
@@ -1975,7 +1976,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [currency, availableCurrencies, timeRange, fetchPriceHistory, selectedChain, setError, executeRecaptcha, getDefaultChainAndAddress]
   );
 
-  // components\MarketTabLogic.jsx (updated)
   const debouncedHandleAnalysis = useCallback(
     debounce(async () => {
       if (!selectedToken) {
@@ -1990,9 +1990,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       }
 
       setIsAnalyzing(true);
+      setAnalysisLogs([]);
       const startTime = Date.now();
       try {
-        // Xác minh reCAPTCHA
         let recaptchaToken;
         try {
           recaptchaToken = await executeRecaptcha('analyze');
@@ -2003,7 +2003,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        // Tạo prompt cho Gemini API với yêu cầu phân tích chi tiết hơn
         const prompt = `
 Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base analysis heavily on real-time data from Brave API searches, incorporating specific facts, figures, and quotes from credible sources.
 
@@ -2023,72 +2022,67 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
   - *Social Media*: Summarize Twitter/X sentiment with quantitative metrics (e.g., positive/negative ratio), highlighting key influencers, viral tweets, and trends from recent data.
   - *Web*: Extract in-depth insights from recent articles (via Brave API), prioritizing credible sources like Bloomberg, Reuters, CoinDesk. Include quotes and summaries from 3-5 articles.
 - **Technical Analysis**:
-  - *Price Patterns*: Identify support/resistance levels, moving averages (50-day, 200-day), RSI, MACD, and other indicators with specific values.
+  - *Price Patterns*: Identify support/resistance levels, moving averages (50-day, 200-day with values), RSI, MACD, and other indicators with specific values.
   - *Volume Trends*: Analyze trading volume changes over 24h, 7d, 30d, and implications for liquidity and momentum.
 - **Risk Factors**: Discuss potential risks like market manipulation, regulatory risks, or technological issues, backed by recent news.
 - **Conclusion**: Provide balanced, actionable insights with a neutral tone, summarizing key takeaways.
-- **References**: Provide a JSON array of links in the format ["https://example.com", ...] or [{ "text": "Article Title", "url": "https://example.com" }, ...] from Brave API results, including at least 5-10 sources.
+- **References**: Provide a JSON array of links in the format [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...] from Brave API results, including at least 5-10 sources.
 
 **Output Format**:
-Return a JSON object with two keys:
-- "content": The Markdown analysis as a string.
-- "links": An array of links (either strings or { text, url } objects).
+{
+  "content": "Markdown text here",
+  "links": [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...]
+}
 `;
 
-        // Gửi yêu cầu tới Gemini API
-        console.log(`Sending request to /api/gemini for token: ${selectedToken.symbol}`);
-        const geminiResponse = await axiosWithRetry.post(
-          '/api/gemini',
-          {
-            prompt,
-            deepSearch: true,
+        console.log(`Sending request to /api/token-analysis for token: ${selectedToken.symbol}`);
+        const response = await fetch('/api/token-analysis', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.accessToken || ''}`,
+          },
+          body: JSON.stringify({
             tokenSymbol: selectedToken.symbol?.toUpperCase(),
             recaptchaToken,
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${session?.accessToken || ''}`,
-            },
-            timeout: 90000,
-          }
-        );
+          }),
+        });
 
-        // Extract content and links from Gemini response
-        let analysisResult = geminiResponse.data?.content || geminiResponse.data?.answer || 'Không nhận được dữ liệu phân tích.';
-        let links = geminiResponse.data?.links || [];
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-        // Fallback to token-analysis API if links are empty
-        if (!links.length) {
-          console.log('No links from Gemini, falling back to token-analysis API');
-          try {
-            const tokenAnalysisResponse = await axiosWithRetry.post(
-              '/api/token-analysis',
-              { tokenSymbol: selectedToken.symbol?.toUpperCase(), recaptchaToken },
-              {
-                headers: {
-                  Authorization: `Bearer ${session?.accessToken || ''}`,
-                },
-                timeout: 30000,
+        const reader = response.body.getReader();
+        let result = '';
+        let tempLogs = [];
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = new TextDecoder().decode(value);
+          result += chunk;
+
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.progress) {
+                tempLogs = [...tempLogs, parsed.progress];
+                setAnalysisLogs(tempLogs);
+              } else if (parsed.success) {
+                const analysisResult = parsed.aiAnalysis || 'Không nhận được dữ liệu phân tích.';
+                const links = parsed.links || [];
+                setAnalysis(analysisResult);
+                setAnalysisLinks(links);
               }
-            );
-            links = tokenAnalysisResponse.data?.links || [];
-            // Ensure links are in the correct format
-            links = links.map((link) =>
-              typeof link === 'string' ? link : { text: link.text || link.url, url: link.url }
-            );
-            console.log('Token Analysis Links:', links);
-          } catch (tokenError) {
-            console.error('Token Analysis API error:', tokenError.message);
+            } catch (e) {
+              console.warn('Partial chunk, skipping parse:', e.message);
+            }
           }
         }
 
-        console.log(`Received Gemini response for ${selectedToken.symbol} in ${Date.now() - startTime}ms:`, {
-          analysisResult,
-          links,
-        });
-        setAnalysis(analysisResult);
-        setAnalysisLinks(links);
-        console.log('Setting analysisLinks:', links);
         toast.success('Phân tích hoàn tất!', { position: 'top-center', autoClose: 3000 });
       } catch (error) {
         let errorMessage = 'Lỗi khi phân tích token. Vui lòng thử lại.';
@@ -2102,8 +2096,6 @@ Return a JSON object with two keys:
           errorMessage = 'Quá nhiều yêu cầu. Vui lòng thử lại sau một phút.';
         } else if (error.response?.status === 413) {
           errorMessage = 'Yêu cầu quá lớn. Vui lòng thử lại sau.';
-        } else if (error.response?.data?.detail?.includes('FAILED_PRECONDITION')) {
-          errorMessage = 'Lỗi server. Vui lòng thử lại sau vài phút.';
         } else if (error.response?.data?.errors) {
           errorMessage = `Lỗi dữ liệu: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
         } else if (error.message.includes('reCAPTCHA')) {
@@ -2111,7 +2103,6 @@ Return a JSON object with two keys:
         }
         console.error(`Analysis error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
           error,
-          url: error.config?.url,
           status: error.response?.status,
           data: error.response?.data,
         });
@@ -2142,9 +2133,30 @@ Return a JSON object with two keys:
       }
 
       setIsPredicting(true);
+      setAnalysisLogs([]);
       const startTime = Date.now();
+
+      // Hàm retry cho fetch
+      const fetchWithRetry = async (url, options, retries = 3, delay = 2000) => {
+        for (let i = 0; i < retries; i++) {
+          try {
+            const response = await fetch(url, {
+              ...options,
+              signal: AbortSignal.timeout(30000), // Tăng timeout lên 30 giây
+            });
+            return response;
+          } catch (error) {
+            if (i < retries - 1 && (error.name === 'AbortError' || error.message.includes('fetch'))) {
+              console.warn(`Retry ${i + 1}/${retries} for ${url}: ${error.message}`);
+              await new Promise((resolve) => setTimeout(resolve, delay * Math.pow(2, i)));
+              continue;
+            }
+            throw error;
+          }
+        }
+      };
+
       try {
-        // Xác minh reCAPTCHA
         let recaptchaToken;
         try {
           recaptchaToken = await executeRecaptcha('predict');
@@ -2155,7 +2167,6 @@ Return a JSON object with two keys:
           return;
         }
 
-        // Tạo prompt cho dự đoán với yêu cầu chi tiết hơn
         const prompt = `
 Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base predictions heavily on real-time data from Brave API searches, incorporating specific facts, figures, and quotes from credible sources.
 
@@ -2164,8 +2175,8 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 - **24h Price Change**: ${selectedToken.price_change_percentage_24h?.toFixed(2) || 'N/A'}%
 - **Market Cap**: $${selectedToken.market_cap?.[currency]?.toLocaleString() || 'N/A'}
 - **24h Volume**: $${selectedToken.total_volume?.[currency]?.toLocaleString() || 'N/A'}
-- **Price History**: ${JSON.stringify(priceHistory.slice(-10))}
-- **Recent Analysis**: ${analysis || 'No prior analysis available.'}
+- **Price History**: ${JSON.stringify(priceHistory.slice(-5))} // Giới hạn 5 giá trị gần nhất
+- **Recent Analysis**: ${analysis ? analysis.slice(0, 500) : 'No prior analysis available.'} // Giới hạn độ dài
 
 **Requirements**:
 - **Price Trend**: Predict short-term movement (increase, decrease, sideways) using detailed RSI (current value), MACD (signal lines), moving averages (50-day, 200-day with values), sentiment scores, economic indicators, stock market trends, and political news. Include probability estimates and scenarios.
@@ -2175,56 +2186,76 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 - **Risk Assessment**: Highlight risks and volatility measures (e.g., ATR, beta).
 - **Conclusion**: Summarize prediction with balanced, actionable observations.
 - **Sources**: Include relevant links in [text](url) format from Brave API results, at least 5-10 sources.
-
-**Example Table**:
-| Trend     | Likelihood | Key Factors                     |
-|-----------|------------|---------------------------------|
-| Increase  | [XX%]      | RSI oversold (value: XX), positive sentiment from recent articles|
-| Decrease  | [XX%]      | High Fed rates (latest: X.XX%), bearish volume trends |
-| Sideways  | [XX%]      | Neutral MACD, stable political news       |
 `;
 
-        // Gửi yêu cầu tới Gemini API
         console.log(`Sending request to /api/gemini for token: ${selectedToken.symbol}`);
-        const response = await axiosWithRetry.post(
+        const response = await fetchWithRetry(
           '/api/gemini',
           {
-            prompt,
-            deepSearch: true,
-            tokenSymbol: selectedToken.symbol?.toUpperCase(),
-            recaptchaToken,
-          },
-          {
+            method: 'POST',
             headers: {
+              'Content-Type': 'application/json',
               Authorization: `Bearer ${session?.accessToken || ''}`,
             },
-            timeout: 90000, // Tăng timeout lên 90 giây
-          }
+            body: JSON.stringify({
+              prompt,
+              deepSearch: true,
+              tokenSymbol: selectedToken.symbol?.toUpperCase(),
+              recaptchaToken,
+            }),
+          },
+          3, // Số lần retry
+          2000 // Delay 2 giây giữa các lần retry
         );
-        const predictionResult = response.data.answer || 'Không nhận được dữ liệu dự đoán.';
-        console.log(`Received Gemini response for ${selectedToken.symbol} in ${Date.now() - startTime}ms:`, predictionResult);
-        setPrediction(predictionResult);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(`HTTP error! status: ${response.status}, detail: ${errorData.detail || 'Unknown error'}`);
+        }
+
+        const reader = response.body.getReader();
+        let result = '';
+        let tempLogs = [];
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = new TextDecoder().decode(value);
+          result += chunk;
+
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.progress) {
+                tempLogs = [...tempLogs, parsed.progress];
+                setAnalysisLogs(tempLogs);
+              } else if (parsed.answer) {
+                const predictionResult = parsed.answer || 'Không nhận được dữ liệu dự đoán.';
+                const links = parsed.links || [];
+                setPrediction(predictionResult);
+                setAnalysisLinks(links);
+              }
+            } catch (e) {
+              console.warn('Partial chunk, skipping parse:', e.message);
+            }
+          }
+        }
+
         toast.success('Dự đoán hoàn tất!', { position: 'top-center', autoClose: 3000 });
       } catch (error) {
         let errorMessage = 'Lỗi khi dự đoán giá. Vui lòng thử lại.';
-        if (error.code === 'ECONNABORTED') {
-          errorMessage = 'Yêu cầu mất quá nhiều thời gian. Vui lòng kiểm tra kết nối mạng và thử lại.';
-        } else if (error.response?.status === 401) {
-          errorMessage = 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
-        } else if (error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')) {
-          errorMessage = 'Xác minh reCAPTCHA thất bại. Vui lòng thử lại.';
-        } else if (error.response?.status === 429) {
-          errorMessage = 'Quá nhiều yêu cầu. Vui lòng thử lại sau một phút.';
-        } else if (error.response?.status === 413) {
-          errorMessage = 'Yêu cầu quá lớn. Vui lòng thử lại sau.';
-        } else if (error.response?.data?.errors) {
-          errorMessage = `Lỗi dữ liệu: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
+        if (error.name === 'AbortError') {
+          errorMessage = 'Yêu cầu mất quá nhiều thời gian. Vui lòng kiểm tra kết nối mạng và thử lại sau.';
+        } else if (error.message.includes('HTTP error')) {
+          errorMessage = error.message;
         } else if (error.message.includes('reCAPTCHA')) {
           errorMessage = 'Lỗi xác minh reCAPTCHA. Vui lòng thử lại.';
         }
         console.error(`Prediction error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
           error,
-          url: error.config?.url,
           status: error.response?.status,
           data: error.response?.data,
         });
@@ -2879,5 +2910,8 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     prevTopHoldersRef,
     prevAvailableChainsRef,
     blockchairCache,
+    analysisLogs,
+    setIsAnalyzing,
+    setIsPredicting,
   };
 };

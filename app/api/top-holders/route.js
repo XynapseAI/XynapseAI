@@ -74,7 +74,7 @@ async function checkIPBan(ip) {
 async function trackViolation(ip, reason = 'Unknown') {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 100;
+  const maxViolations = 50;
   const windowMs = 30 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
 
@@ -97,7 +97,7 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:top_holders:${ip}`;
   const requests = parseInt(await redisClient.get(key)) || 0;
   const windowMs = 60 * 1000;
-  const maxRequests = process.env.NODE_ENV === 'development' ? 100 : 50;
+  const maxRequests = process.env.NODE_ENV === 'development' ? 50 : 30;
   if (requests >= maxRequests) {
     throw new Error('Too many requests, please try again later.');
   }
