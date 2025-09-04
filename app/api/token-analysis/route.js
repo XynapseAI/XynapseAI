@@ -257,7 +257,6 @@ Answer in a natural, professional tone using Markdown with **bold**, *italics*, 
             stack: error.stack,
             ip,
           });
-          console.log('Links before sending:', JSON.stringify(links));
           if (error.message.includes('does not exist')) {
             controller.enqueue(JSON.stringify({ detail: `Database error: ${error.message}` }));
           } else {

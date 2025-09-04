@@ -33,7 +33,7 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:gemini:${ip}`;
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
-  if (requests >= 10) {
+  if (requests >= 5) {
     throw new Error('Quá nhiều yêu cầu, vui lòng thử lại sau.');
   }
   await redisClient.multi()
@@ -119,7 +119,6 @@ export async function POST(request) {
 
     let tokenAnalysis = '';
     let links = [];
-    let fullContents = [];
 
     if (prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i) && (prompt.match(/\b(Analyze|Analysis|Predict)\b/i) || tokenSymbol)) {
       const effectiveTokenSymbol = tokenSymbol?.toUpperCase() || prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge)\b/i)?.[0]?.toUpperCase() || 'BTC';
@@ -139,7 +138,7 @@ export async function POST(request) {
               tokenSymbol: effectiveTokenSymbol,
               recaptchaToken,
             },
-            { timeout: 15000 } // Tăng timeout
+            { timeout: 10000 }
           );
           tokenAnalysis = analysisResponse.data.aiAnalysis || 'No social media analysis available.';
           links = analysisResponse.data.links || [];
@@ -216,14 +215,11 @@ export async function POST(request) {
           }
         }
 
-        // Lấy full content từ top 3 links
+        // Lấy full content từ top 3 links của mỗi search
+        let fullContents = [];
         for (const link of [...(economicSearch.links || []), ...(stockMarketSearch.links || []), ...(politicalSearch.links || [])].slice(0, 3)) {
-          try {
-            const content = await fetchFullContent(link.url);
-            if (content) fullContents.push({ url: link.url, content });
-          } catch (contentError) {
-            logger.error(`Failed to fetch content for ${link.url}: ${contentError.message}`, { ip });
-          }
+          const content = await fetchFullContent(link.url);
+          if (content) fullContents.push({ url: link.url, content });
         }
 
         tokenAnalysis += `
@@ -280,15 +276,6 @@ ${fullContents.length ? fullContents.map(c => `From ${c.url}:\n${c.content.slice
           const { snippets, links: searchLinks } = await braveSearch({ query: prompt, count: 5, freshness: 'pw' });
           searchContext += snippets ? `### Web Insights\n${snippets}\n` : '';
           links = links.concat(searchLinks || []);
-          // Lấy full content từ top 3 links của deepSearch
-          for (const link of searchLinks.slice(0, 3)) {
-            try {
-              const content = await fetchFullContent(link.url);
-              if (content) fullContents.push({ url: link.url, content });
-            } catch (contentError) {
-              logger.error(`Failed to fetch content for ${link.url}: ${contentError.message}`, { ip });
-            }
-          }
           await redisClient.setEx(braveCacheKey, BRAVE_SEARCH_CACHE_DURATION / 1000, JSON.stringify({ snippets, links: searchLinks }));
         } catch (braveError) {
           logger.error(`Brave search error: ${braveError.message}`, { ip });
@@ -324,10 +311,10 @@ ${fullContents.length ? fullContents.map(c => `From ${c.url}:\n${c.content.slice
 Answer in a natural, professional tone (500-800 words for analysis/prediction, concise for general queries) using Markdown with **bold**, *italics*, and tables. Include *not investment advice* for financial queries. Add links as [text](url). Base your response heavily on the provided search context and data for accuracy and detail.
 
 **Data**:
-- Token Analysis: ${tokenAnalysis || 'No token analysis available.'}
+- Token Analysis: ${tokenAnalysis}
 - Recent Interactions: ${recentInteractions || 'None'}
-- Search Context: ${searchContext || 'No search context available.'}
-- Full Web Contents: ${fullContents.length ? JSON.stringify(fullContents) : 'No full content available.'}
+- Search Context: ${searchContext}
+- Full Web Contents: ${JSON.stringify(fullContents)}
 
 **Instructions**:
 - For wallet analysis, focus on transaction behavior and likelihood of being a deposit wallet.
@@ -338,8 +325,6 @@ Answer in a natural, professional tone (500-800 words for analysis/prediction, c
 
 **Question**: ${prompt.replace(/[<>{}]/g, '')}
     `.slice(0, 2000);
-
-    logger.info(`Sending Gemini API request with prompt length: ${aiPrompt.length}`, { ip });
 
     const response = await geminiAxios.post(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent',
@@ -376,9 +361,7 @@ Answer in a natural, professional tone (500-800 words for analysis/prediction, c
         ? 'Request to Gemini API timed out. Please try again later or simplify the request.'
         : error.response?.status === 429
           ? 'Gemini API rate limit exceeded, please try again later.'
-          : error.response?.data?.error?.message || `Unable to fetch response from Gemini: ${error.message}`;
+          : error.response?.data?.error?.message || 'Unable to fetch response from Gemini.';
     return NextResponse.json({ detail }, { status });
-  } finally {
-    await redisClient.quit();
   }
 }
