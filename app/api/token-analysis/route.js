@@ -134,26 +134,26 @@ export async function POST(request) {
             aiAnalysis += `No related AI interactions found. `;
           }
 
-          controller.enqueue(JSON.stringify({ progress: 'Searching web with Brave...' }));
+          controller.enqueue(JSON.stringify({ progress: 'Searching web with Brave for crypto news...' }));
           try {
             const searchResult = await braveSearch({
-              query: `${tokenSymbol} crypto price analysis sentiment news`,
-              count: 5,
-              freshness: '1w',
+              query: `${tokenSymbol} crypto news analysis`, // Refined query
+              count: 10, // Increased for more results
+              freshness: '1w', // Past week
             });
             snippets = searchResult.snippets;
             links = searchResult.links || [];
-            aiAnalysis += snippets ? `Web discussions indicate ${links.length} related articles in the past 7 days. ` : `No related web articles found. `;
+            aiAnalysis += snippets ? `Web discussions indicate ${links.length} related articles in the past 7 days from reputable crypto sources. ` : `No related web articles found. `;
             logger.info(`Brave Search returned ${links.length} links for ${tokenSymbol}`, { ip });
           } catch (braveError) {
             logger.error(`Brave Search error for ${tokenSymbol}: ${braveError.message}`, { ip });
             aiAnalysis += `Unable to fetch web articles. `;
           }
 
-          // Lấy full content từ top 3 links
+          // Fetch full content from top 5 links (increased from 3 for more coverage)
           controller.enqueue(JSON.stringify({ progress: 'Fetching full content from articles...' }));
           let fullContents = [];
-          for (const link of links.slice(0, 3)) {
+          for (const link of links.slice(0, 5)) {
             const content = await fetchFullContent(link.url);
             if (content) fullContents.push({ url: link.url, content });
           }
@@ -180,16 +180,17 @@ Answer in a natural, professional tone using Markdown with **bold**, *italics*, 
 - Full Web Contents: ${JSON.stringify(fullContents)}
 
 **Instructions**:
-- Rewrite the data into a detailed, user-friendly analysis in English (300-500 words) for display on a user interface, reflecting in-depth trends, sentiments, and insights related to the token ${tokenSymbol}, based on content from social media, AI, web information, and full article contents. Include quantitative metrics, quotes from sources, and balanced views.
+- Rewrite the data into a detailed, user-friendly analysis in English (300-500 words) for display on a user interface, reflecting in-depth trends, sentiments, and insights related to the token ${tokenSymbol}, based on content from social media, AI, web information, and full article contents from reputable crypto news sources (e.g., CoinDesk, Wu Blockchain, CoinMarketCap, CoinGecko).
+- Include quantitative metrics, quotes from sources, and balanced views.
 - Include *not investment advice* for financial context.
-- Return a JSON object with two keys: "content" (the Markdown analysis as a string) and "links" (an array of links as { text, url, description, image } objects).
+- Return a JSON object with two keys: "content" (the Markdown analysis as a string) and "links" (an array of links as { text, url, description, image } objects, prioritizing articles with thumbnails).
 
 **Output Format**:
 {
   "content": "Markdown text here",
   "links": [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...]
 }
-            `.slice(0, 2000);
+    `.slice(0, 2000);
 
             const aiResponse = await geminiAxios.post(
               'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent',
