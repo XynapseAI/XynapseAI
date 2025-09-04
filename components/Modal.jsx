@@ -63,11 +63,11 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                 exit={{ opacity: 0, y: 20 }}
                 transition={{ duration: 0.3 }}
               >
-                <div className="w-full max-w-md bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 relative overflow-hidden shadow-2xl animate-pulse-slow">
+                <div className="w-full max-w-md bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 relative overflow-hidden shadow-2xl animate-pulse-slow">
                   {/* Scanning Animation */}
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-scan" />
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-scan" />
                   {/* Pulsing Blur Overlay */}
-                  <div className="absolute inset-0 bg-white/5 backdrop-blur-sm animate-pulse opacity-50" />
+                  <div className="absolute inset-0 bg-emerald-400 backdrop-blur-sm animate-pulse opacity-50" />
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                     <h3 className="text-white text-sm sm:text-base font-semibold">Processing Data</h3>
