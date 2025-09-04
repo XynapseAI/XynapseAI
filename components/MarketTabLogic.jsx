@@ -1975,6 +1975,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [currency, availableCurrencies, timeRange, fetchPriceHistory, selectedChain, setError, executeRecaptcha, getDefaultChainAndAddress]
   );
 
+  // components\MarketTabLogic.jsx (updated)
   const debouncedHandleAnalysis = useCallback(
     debounce(async () => {
       if (!selectedToken) {
@@ -2002,37 +2003,36 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        // Tạo prompt cho Gemini API
+        // Tạo prompt cho Gemini API với yêu cầu phân tích chi tiết hơn
         const prompt = `
-Analyze **${selectedToken.symbol}** in Markdown format (300-400 words). Use **bold**, *italics*, tables, and concise language. Ensure *not investment advice*. Format with clear headings, line breaks, and professional tone.
+Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base analysis heavily on real-time data from Brave API searches, incorporating specific facts, figures, and quotes from credible sources.
 
 **Data**:
 - **Current Price**: $${selectedToken.current_price?.[currency]?.toFixed(2) || 'N/A'}
 - **24h Price Change**: ${selectedToken.price_change_percentage_24h?.toFixed(2) || 'N/A'}%
 - **Market Cap**: $${selectedToken.market_cap?.[currency]?.toLocaleString() || 'N/A'}
 - **24h Volume**: $${selectedToken.total_volume?.[currency]?.toLocaleString() || 'N/A'}
-- **Social Media/Web**: Fetch recent sentiment from Twitter/X and web articles via Brave API.
+- **Social Media/Web**: Fetch recent sentiment from Twitter/X and web articles via Brave API, prioritizing latest news from the past week.
 
 **Requirements**:
-- **Overview**: Summarize market performance, recent trends, and volatility with specific data points.
-- **US Economic Impact**: Analyze effects of recent CPI (e.g., latest value), Non-Farm Payrolls, GDP growth, and Federal Reserve interest rate decisions. Include specific figures and dates.
-- **Stock Market Correlation**: Discuss correlation with S&P 500 and Nasdaq, referencing their recent performance (e.g., index changes over past 7 days).
-- **Political News Impact**: Evaluate influence of recent political events or policies on the crypto market, citing specific events.
+- **Overview**: Provide a detailed summary of market performance, recent trends, volatility, and historical context with specific data points, charts description (e.g., candlestick patterns), and comparisons to similar assets.
+- **US Economic Impact**: Analyze effects of the most recent CPI (include latest value and date), Non-Farm Payrolls (latest figures and date), GDP growth (quarterly data), and Federal Reserve interest rate decisions (latest rate and meeting date). Discuss how these macroeconomic factors influence the token, with evidence from sources.
+- **Stock Market Correlation**: Discuss detailed correlation with S&P 500 and Nasdaq, referencing their recent performance (e.g., index changes over past 7 days, 30 days), and statistical correlations if available from sources.
+- **Political News Impact**: Evaluate influence of the latest political events or policies on the crypto market, citing specific events, dates, and impacts (e.g., regulatory changes, elections).
 - **Sentiment Analysis**:
-  - *Social Media*: Summarize Twitter/X sentiment, highlighting key influencers or trends.
-  - *Web*: Extract insights from recent articles (via Brave API), prioritizing credible sources.
+  - *Social Media*: Summarize Twitter/X sentiment with quantitative metrics (e.g., positive/negative ratio), highlighting key influencers, viral tweets, and trends from recent data.
+  - *Web*: Extract in-depth insights from recent articles (via Brave API), prioritizing credible sources like Bloomberg, Reuters, CoinDesk. Include quotes and summaries from 3-5 articles.
 - **Technical Analysis**:
-  - *Price Patterns*: Identify support/resistance levels, moving averages (50-day, 200-day).
-  - *Volume Trends*: Analyze trading volume changes and implications.
-- **Conclusion**: Provide actionable insights with a neutral tone.
+  - *Price Patterns*: Identify support/resistance levels, moving averages (50-day, 200-day), RSI, MACD, and other indicators with specific values.
+  - *Volume Trends*: Analyze trading volume changes over 24h, 7d, 30d, and implications for liquidity and momentum.
+- **Risk Factors**: Discuss potential risks like market manipulation, regulatory risks, or technological issues, backed by recent news.
+- **Conclusion**: Provide balanced, actionable insights with a neutral tone, summarizing key takeaways.
+- **References**: Provide a JSON array of links in the format ["https://example.com", ...] or [{ "text": "Article Title", "url": "https://example.com" }, ...] from Brave API results, including at least 5-10 sources.
 
-**Example Table**:
-| Indicator       | Value       | Impact on ${selectedToken.symbol} |
-|-----------------|-------------|-----------------------------------|
-| CPI             | [Latest %]  | [Effect on token price]           |
-| Fed Rates       | [Current %] | [Effect on market sentiment]      |
-
-**Sources**: Include relevant links in [text](url) format from Brave API results.
+**Output Format**:
+Return a JSON object with two keys:
+- "content": The Markdown analysis as a string.
+- "links": An array of links (either strings or { text, url } objects).
 `;
 
         // Gửi yêu cầu tới Gemini API
@@ -2049,14 +2049,46 @@ Analyze **${selectedToken.symbol}** in Markdown format (300-400 words). Use **bo
             headers: {
               Authorization: `Bearer ${session?.accessToken || ''}`,
             },
-            timeout: 90000, // Tăng timeout lên 90 giây
+            timeout: 90000,
           }
         );
-        const analysisResult = geminiResponse.data?.answer || 'Không nhận được dữ liệu phân tích.';
-        const links = geminiResponse.data?.links || [];
-        console.log(`Received Gemini response for ${selectedToken.symbol} in ${Date.now() - startTime}ms:`, { analysisResult, links });
+
+        // Extract content and links from Gemini response
+        let analysisResult = geminiResponse.data?.content || geminiResponse.data?.answer || 'Không nhận được dữ liệu phân tích.';
+        let links = geminiResponse.data?.links || [];
+
+        // Fallback to token-analysis API if links are empty
+        if (!links.length) {
+          console.log('No links from Gemini, falling back to token-analysis API');
+          try {
+            const tokenAnalysisResponse = await axiosWithRetry.post(
+              '/api/token-analysis',
+              { tokenSymbol: selectedToken.symbol?.toUpperCase(), recaptchaToken },
+              {
+                headers: {
+                  Authorization: `Bearer ${session?.accessToken || ''}`,
+                },
+                timeout: 30000,
+              }
+            );
+            links = tokenAnalysisResponse.data?.links || [];
+            // Ensure links are in the correct format
+            links = links.map((link) =>
+              typeof link === 'string' ? link : { text: link.text || link.url, url: link.url }
+            );
+            console.log('Token Analysis Links:', links);
+          } catch (tokenError) {
+            console.error('Token Analysis API error:', tokenError.message);
+          }
+        }
+
+        console.log(`Received Gemini response for ${selectedToken.symbol} in ${Date.now() - startTime}ms:`, {
+          analysisResult,
+          links,
+        });
         setAnalysis(analysisResult);
         setAnalysisLinks(links);
+        console.log('Setting analysisLinks:', links);
         toast.success('Phân tích hoàn tất!', { position: 'top-center', autoClose: 3000 });
       } catch (error) {
         let errorMessage = 'Lỗi khi phân tích token. Vui lòng thử lại.';
@@ -2095,7 +2127,7 @@ Analyze **${selectedToken.symbol}** in Markdown format (300-400 words). Use **bo
     [selectedToken, session, status, executeRecaptcha, toast, currency]
   );
 
-  // Hàm dự đoán giá
+  // Hàm dự đoán giá (updated)
   const debouncedHandlePrediction = useCallback(
     debounce(async () => {
       if (!selectedToken) {
@@ -2123,9 +2155,9 @@ Analyze **${selectedToken.symbol}** in Markdown format (300-400 words). Use **bo
           return;
         }
 
-        // Tạo prompt cho dự đoán
+        // Tạo prompt cho dự đoán với yêu cầu chi tiết hơn
         const prompt = `
-Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown format (300-400 words). Use **bold**, *italics*, tables, and concise language. Ensure *not investment advice*. Format with clear headings, line breaks, and professional tone.
+Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base predictions heavily on real-time data from Brave API searches, incorporating specific facts, figures, and quotes from credible sources.
 
 **Data**:
 - **Current Price**: $${selectedToken.current_price?.[currency]?.toFixed(2) || 'N/A'}
@@ -2136,19 +2168,20 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 - **Recent Analysis**: ${analysis || 'No prior analysis available.'}
 
 **Requirements**:
-- **Price Trend**: Predict short-term movement (increase, decrease, sideways) using RSI, MACD, moving averages (50-day, 200-day), sentiment, economic indicators, stock market trends, and political news.
-- **Likelihood Table**: Provide probabilities for each trend (total 100%).
-- **Key Factors**: List 3-5 factors influencing the prediction (e.g., RSI, volume, Fed rates, political events).
-- **Conclusion**: Summarize prediction with actionable observations.
+- **Price Trend**: Predict short-term movement (increase, decrease, sideways) using detailed RSI (current value), MACD (signal lines), moving averages (50-day, 200-day with values), sentiment scores, economic indicators, stock market trends, and political news. Include probability estimates and scenarios.
+- **Likelihood Table**: Provide probabilities for each trend (total 100%), with explanations.
+- **Key Factors**: List 5-7 factors influencing the prediction (e.g., RSI levels, volume spikes, Fed rates with latest data, political events with dates), backed by source data.
+- **Scenario Analysis**: Describe bullish, bearish, and neutral scenarios with potential price targets and triggers.
+- **Risk Assessment**: Highlight risks and volatility measures (e.g., ATR, beta).
+- **Conclusion**: Summarize prediction with balanced, actionable observations.
+- **Sources**: Include relevant links in [text](url) format from Brave API results, at least 5-10 sources.
 
 **Example Table**:
 | Trend     | Likelihood | Key Factors                     |
 |-----------|------------|---------------------------------|
-| Increase  | [XX%]      | RSI oversold, positive sentiment|
-| Decrease  | [XX%]      | High Fed rates, bearish volume  |
-| Sideways  | [XX%]      | Neutral MACD, stable news       |
-
-**Sources**: Include relevant links in [text](url) format from Brave API results.
+| Increase  | [XX%]      | RSI oversold (value: XX), positive sentiment from recent articles|
+| Decrease  | [XX%]      | High Fed rates (latest: X.XX%), bearish volume trends |
+| Sideways  | [XX%]      | Neutral MACD, stable political news       |
 `;
 
         // Gửi yêu cầu tới Gemini API

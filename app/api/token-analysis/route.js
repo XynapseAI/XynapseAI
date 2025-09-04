@@ -1,4 +1,4 @@
-// app\api\token-analysis\route.js
+// app\api\token-analysis\route.js (updated)
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
@@ -7,8 +7,19 @@ import { query } from '../../../utils/postgres';
 import { braveSearch } from '../../../utils/braveSearch';
 import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
 import axios from 'axios';
-import Bottleneck from 'bottleneck';
+import axiosRetry from 'axios-retry';
 import { auth } from '@/lib/auth';
+
+// Configure axios with retry for Gemini API
+const geminiAxios = axios.create();
+axiosRetry(geminiAxios, {
+  retries: 3,
+  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100,
+  retryCondition: (error) =>
+    error.code === 'ECONNABORTED' ||
+    error.response?.status === 429 ||
+    error.response?.status >= 500,
+});
 
 const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
 redisClient.on('error', (err) => logger.error('Redis Client Error', err));
@@ -27,35 +38,9 @@ async function checkRateLimit(ip) {
     .exec();
 }
 
-const limiterBottleneck = new Bottleneck({
-  maxConcurrent: 3,
-  minTime: 1000,
-});
-
-const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
-  try {
-    return await axios.post(url, config.data, {
-      ...config,
-      headers: {
-        ...config.headers,
-        Authorization: `Bearer ${process.env.XAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      timeout: 30000,
-    });
-  } catch (error) {
-    if (error.response?.status === 429 && config.retryCount < 3) {
-      const delay = config.retryCount * 1000;
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      return fetchWithRateLimit(url, { ...config, retryCount: config.retryCount + 1 });
-    }
-    throw error;
-  }
-});
-
 const bodySchema = z.object({
   tokenSymbol: z.string().min(1).max(20, 'tokenSymbol must be between 1 and 20 characters'),
-  recaptchaToken: z.string().optional(), // reCAPTCHA là tùy chọn
+  recaptchaToken: z.string().optional(),
 });
 
 export async function POST(request) {
@@ -98,7 +83,6 @@ export async function POST(request) {
     return NextResponse.json({ detail: 'Invalid token symbol' }, { status: 400 });
   }
 
-  // Bỏ qua xác minh reCAPTCHA nếu DISABLE_RECAPTCHA được bật
   if (process.env.DISABLE_RECAPTCHA !== 'true' && recaptchaToken !== 'disabled') {
     try {
       await verifyRecaptcha(recaptchaToken, 'analyze', ip);
@@ -152,8 +136,8 @@ export async function POST(request) {
 
           try {
             const searchResult = await braveSearch({
-              query: `${tokenSymbol} crypto price analysis`,
-              count: 3,
+              query: `${tokenSymbol} crypto price analysis sentiment news`,
+              count: 5, // Tăng số lượng để có dữ liệu chi tiết hơn
               freshness: '1w',
             });
             snippets = searchResult.snippets;
@@ -165,48 +149,96 @@ export async function POST(request) {
             aiAnalysis += `Unable to fetch web articles. `;
           }
 
-          if (process.env.XAI_API_KEY) {
-            logger.info(`Calling XAI API for token: ${tokenSymbol}`, { ip });
-            try {
-              const aiResponse = await fetchWithRateLimit(
-                'https://api.x.ai/v1/completions',
-                {
-                  data: {
-                    prompt: `Based on the following JSON data: {"tweets": ${JSON.stringify(tweets)}, "ai": ${JSON.stringify(aiInteractions)}, "brave": ${JSON.stringify(snippets)}}. Rewrite it into a clear, user-friendly paragraph in English for display on a user interface, reflecting analysis and trends related to the token ${tokenSymbol}, based on content from social media, AI, and web information.`,
-                    max_tokens: 700,
-                    temperature: 0.7,
-                  },
-                  retryCount: 0,
-                }
-              );
-              const responseText = aiResponse.data.choices[0].text.trim();
-              if (responseText) {
-                aiAnalysis = responseText
-                  .replace(/\*\*/g, '')
-                  .replace(/---/g, '')
-                  .replace(/<\|separator\|>/g, '')
-                  .replace(/<\|eos\|>/g, '')
-                  .replace(/Assistant/g, '')
-                  .trim();
-                logger.info(`XAI API returned analysis for ${tokenSymbol}`, { ip });
-              }
-            } catch (xaiError) {
-              logger.error(`XAI API error for ${tokenSymbol}: ${xaiError.message}`, { ip });
-              aiAnalysis += `Unable to fetch real-time data from XAI. `;
-            }
-          } else {
-            logger.warn(`No XAI_API_KEY provided for ${tokenSymbol}`, { ip });
-            aiAnalysis += `Additional data required to assess trends. `;
+          if (!process.env.GEMINI_API_KEY) {
+            logger.error('GEMINI_API_KEY is not configured', { ip });
+            controller.enqueue(JSON.stringify({ detail: 'Server configuration error: Missing GEMINI_API_KEY' }));
+            controller.close();
+            return;
           }
 
-          controller.enqueue(JSON.stringify({
-            success: true,
-            tweets,
-            aiInteractions,
-            aiAnalysis,
-            links,
-          }));
-          controller.close();
+          logger.info(`Calling Gemini API for token: ${tokenSymbol}`, { ip });
+          try {
+            const aiPrompt = `
+Answer in a natural, professional tone using Markdown with **bold**, *italics*, and tables. Include *not investment advice*. Add links as [text](url).
+
+**Data**:
+- Tweets: ${JSON.stringify(tweets)}
+- AI Interactions: ${JSON.stringify(aiInteractions)}
+- Brave Search Results: ${JSON.stringify(snippets)}
+
+**Instructions**:
+- Rewrite the data into a detailed, user-friendly analysis in English (300-500 words) for display on a user interface, reflecting in-depth trends, sentiments, and insights related to the token ${tokenSymbol}, based on content from social media, AI, and web information. Include quantitative metrics, quotes from sources, and balanced views.
+- Include *not investment advice* for financial context.
+- Return a JSON object with two keys: "content" (the Markdown analysis as a string) and "links" (an array of links as strings or { text, url } objects).
+
+**Output Format**:
+{
+  "content": "Markdown text here",
+  "links": ["https://example.com", ...] or [{ "text": "Article Title", "url": "https://example.com" }, ...]
+}
+            `.slice(0, 2000);
+
+            const aiResponse = await geminiAxios.post(
+              'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent',
+              {
+                contents: [{ parts: [{ text: aiPrompt }] }],
+              },
+              {
+                params: { key: process.env.GEMINI_API_KEY },
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 30000,
+              }
+            );
+
+            const data = aiResponse.data;
+            if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+              logger.error(`Invalid Gemini response: ${JSON.stringify(data)}`, { ip });
+              controller.enqueue(JSON.stringify({ detail: 'No valid response from Gemini' }));
+              controller.close();
+              return;
+            }
+
+            const responseText = data.candidates[0].content.parts[0].text;
+            let parsedResponse;
+            try {
+              parsedResponse = JSON.parse(responseText);
+              if (!parsedResponse.content || !Array.isArray(parsedResponse.links)) {
+                throw new Error('Invalid response format from Gemini');
+              }
+            } catch (parseError) {
+              logger.error(`Failed to parse Gemini response: ${parseError.message}`, { ip });
+              parsedResponse = {
+                content: responseText,
+                links: links, // Fallback to Brave Search links
+              };
+            }
+
+            const cacheKey = `token_analysis:${tokenSymbol}`;
+            await redisClient.setEx(
+              cacheKey,
+              10 * 60, // 10 minutes
+              JSON.stringify({ aiAnalysis: parsedResponse.content, links: parsedResponse.links })
+            );
+
+            controller.enqueue(JSON.stringify({
+              success: true,
+              tweets,
+              aiInteractions,
+              aiAnalysis: parsedResponse.content,
+              links: parsedResponse.links,
+            }));
+            controller.close();
+          } catch (geminiError) {
+            logger.error(`Gemini API error for ${tokenSymbol}: ${geminiError.message}`, { ip });
+            controller.enqueue(JSON.stringify({
+              success: true,
+              tweets,
+              aiInteractions,
+              aiAnalysis: aiAnalysis + 'Unable to fetch real-time data from Gemini.',
+              links,
+            }));
+            controller.close();
+          }
         } catch (error) {
           logger.error(`Error in token-analysis for ${tokenSymbol}: ${error.message}`, {
             stack: error.stack,
@@ -223,4 +255,4 @@ export async function POST(request) {
     }),
     { headers: { 'Content-Type': 'application/json', 'Content-Security-Policy': "default-src 'self'" } }
   );
-};
+}

@@ -2276,11 +2276,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         fetchOnChainData={fetchOnChainData}
         setIsLoadingWalletBalances={setIsLoadingWalletBalances}
       />
+
       <Modal
-        isOpen={!!analysis}
+        isOpen={isAnalyzing || !!analysis}
         onClose={() => {
           setAnalysis(null);
           setAnalysisLinks([]);
+          setIsAnalyzing(false);
         }}
         title="Market Analysis"
         content={
@@ -2300,9 +2302,18 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 td: ({ node, ...props }) => (
                   <td className="border border-white/20 px-4 py-2" {...props} />
                 ),
+                a: ({ node, href, ...props }) => (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-500 hover:text-blue-400"
+                    {...props}
+                  />
+                ),
               }}
             >
-              {analysis}
+              {analysis || 'Analyzing data...'}
             </ReactMarkdown>
           </div>
         }
@@ -2311,10 +2322,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         isLoading={isAnalyzing}
       />
 
-      {/* Prediction Modal */}
       <Modal
-        isOpen={!!prediction}
-        onClose={() => setPrediction(null)}
+        isOpen={isPredicting || !!prediction}
+        onClose={() => {
+          setPrediction(null);
+          setIsPredicting(false);
+        }}
         title="Price Prediction"
         content={
           <div className="prose prose-invert max-w-none text-white/90 leading-relaxed">
@@ -2333,9 +2346,18 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 td: ({ node, ...props }) => (
                   <td className="border border-white/20 px-4 py-2" {...props} />
                 ),
+                a: ({ node, href, ...props }) => (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-500 hover:text-blue-400"
+                    {...props}
+                  />
+                ),
               }}
             >
-              {prediction}
+              {prediction || 'Generating prediction...'}
             </ReactMarkdown>
           </div>
         }

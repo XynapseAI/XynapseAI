@@ -1,3 +1,4 @@
+// app\api\gemini\route.js (updated)
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { z } from 'zod';
@@ -115,7 +116,7 @@ export async function POST(request) {
     if (cachedGeminiResult) {
       const { answer, links } = JSON.parse(cachedGeminiResult);
       logger.info(`Using cached Gemini result for ${tokenSymbol || 'general'}`, { ip });
-      return NextResponse.json({ answer, links: deepSearch ? links.slice(0, 5) : [] });
+      return NextResponse.json({ answer, links: deepSearch ? links.slice(0, 10) : [] });
     }
 
     let tokenAnalysis = '';
@@ -173,9 +174,9 @@ export async function POST(request) {
         } else {
           try {
             economicSearch = await braveSearch({
-              query: `${effectiveTokenSymbol} crypto price impact CPI "Non-Farm Payrolls" GDP "Federal Reserve" site:*.gov | site:*.edu | site:*.org`,
-              count: 3,
-              freshness: '1m',
+              query: `${effectiveTokenSymbol} crypto price impact CPI "Non-Farm Payrolls" GDP "Federal Reserve" site:*.gov | site:*.edu | site:*.org | site:*.com`,
+              count: 5, // Tăng số lượng kết quả để có dữ liệu chi tiết hơn
+              freshness: '1w', // Thay đổi freshness để lấy dữ liệu mới nhất
             });
             await redisClient.setEx(economicCacheKey, BRAVE_SEARCH_CACHE_DURATION / 1000, JSON.stringify(economicSearch));
           } catch (braveError) {
@@ -189,9 +190,9 @@ export async function POST(request) {
         } else {
           try {
             stockMarketSearch = await braveSearch({
-              query: `${effectiveTokenSymbol} crypto price correlation "S&P 500" Nasdaq site:*.gov | site:*.edu | site:*.org`,
-              count: 3,
-              freshness: '1m',
+              query: `${effectiveTokenSymbol} crypto price correlation "S&P 500" Nasdaq site:*.gov | site:*.edu | site:*.org | site:*.com`,
+              count: 5,
+              freshness: '1w',
             });
             await redisClient.setEx(stockMarketCacheKey, BRAVE_SEARCH_CACHE_DURATION / 1000, JSON.stringify(stockMarketSearch));
           } catch (braveError) {
@@ -205,9 +206,9 @@ export async function POST(request) {
         } else {
           try {
             politicalSearch = await braveSearch({
-              query: `${effectiveTokenSymbol} crypto price impact political news policy site:*.gov | site:*.edu | site:*.org`,
-              count: 3,
-              freshness: '1m',
+              query: `${effectiveTokenSymbol} crypto price impact political news policy site:*.gov | site:*.edu | site:*.org | site:*.com`,
+              count: 5,
+              freshness: '1w',
             });
             await redisClient.setEx(politicalCacheKey, BRAVE_SEARCH_CACHE_DURATION / 1000, JSON.stringify(politicalSearch));
           } catch (braveError) {
@@ -264,7 +265,7 @@ ${politicalSearch.snippets || 'No recent political news impacting the market.'}
         logger.info(`Using cached Brave search for prompt`, { ip });
       } else {
         try {
-          const { snippets, links: searchLinks } = await braveSearch({ query: prompt, count: 3, freshness: 'pm' });
+          const { snippets, links: searchLinks } = await braveSearch({ query: prompt, count: 5, freshness: 'pw' }); // Tăng count và freshness cho dữ liệu mới hơn
           searchContext += snippets ? `### Web Insights\n${snippets}\n` : '';
           links = links.concat(searchLinks || []);
           await redisClient.setEx(braveCacheKey, BRAVE_SEARCH_CACHE_DURATION / 1000, JSON.stringify({ snippets, links: searchLinks }));
@@ -300,7 +301,7 @@ ${politicalSearch.snippets || 'No recent political news impacting the market.'}
     }
 
     const aiPrompt = `
-Answer in a natural, professional tone (150-200 words for analysis/prediction, concise for general queries) using Markdown with **bold**, *italics*, and tables. Include *not investment advice* for financial queries. Add links as [text](url).
+Answer in a natural, professional tone (500-800 words for analysis/prediction, concise for general queries) using Markdown with **bold**, *italics*, and tables. Include *not investment advice* for financial queries. Add links as [text](url). Base your response heavily on the provided search context and data for accuracy and detail.
 
 **Data**:
 - Token Analysis: ${tokenAnalysis}
@@ -312,6 +313,7 @@ Answer in a natural, professional tone (150-200 words for analysis/prediction, c
 - For general queries, provide a concise, conversational response.
 - Create tables for structured data if applicable.
 - If code is included, add **Explanation** (2-3 sentences) and library installation commands.
+- Ensure all claims are substantiated by the data or search context.
 
 **Question**: ${prompt.replace(/[<>{}]/g, '')}
     `.slice(0, 2000);
@@ -338,7 +340,7 @@ Answer in a natural, professional tone (150-200 words for analysis/prediction, c
     await redisClient.setEx(geminiCacheKey, GEMINI_API_CACHE_DURATION / 1000, JSON.stringify({ answer, links }));
     logger.info(`Gemini API request completed in ${Date.now() - startTime}ms`, { ip });
 
-    return NextResponse.json({ answer, links: deepSearch ? links.slice(0, 5) : [] });
+    return NextResponse.json({ answer, links: deepSearch ? links.slice(0, 10) : [] });
   } catch (error) {
     logger.error(`Gemini API error: ${error.message}`, {
       stack: error.stack,
@@ -350,8 +352,8 @@ Answer in a natural, professional tone (150-200 words for analysis/prediction, c
       error.code === 'ECONNABORTED'
         ? 'Request to Gemini API timed out. Please try again later or simplify the request.'
         : error.response?.status === 429
-        ? 'Gemini API rate limit exceeded, please try again later.'
-        : error.response?.data?.error?.message || 'Unable to fetch response from Gemini.';
+          ? 'Gemini API rate limit exceeded, please try again later.'
+          : error.response?.data?.error?.message || 'Unable to fetch response from Gemini.';
     return NextResponse.json({ detail }, { status });
   }
 }
