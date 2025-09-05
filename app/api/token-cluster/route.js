@@ -270,7 +270,7 @@ export async function GET(request) {
           AND LOWER(wh.chain) != 'bitcoin'
           AND t.token->>'logo' IS NOT NULL
           AND t.token->>'logo' != ''
-          AND t.token->>'logo' != '/fallback-image.png'
+          AND t.token->>'logo' != '/fallback-image.webp'
       ),
       wallet_agg AS (
         SELECT 
@@ -316,7 +316,7 @@ export async function GET(request) {
       SELECT 
         th.token_address,
         'BTC' AS symbol,
-        '/logos/bitcoin.png' AS logo,
+        '/logos/bitcoin.webp' AS logo,
         json_agg(
           json_build_object(
             'chain', th.chain,
@@ -401,7 +401,7 @@ export async function GET(request) {
         ...bitcoinPortfolioResult.rows.map((row) => ({
           token_address: row.token_address || 'bitcoin',
           symbol: row.symbol || 'BTC',
-          logo: row.logo || '/logos/bitcoin.png',
+          logo: row.logo || '/logos/bitcoin.webp',
           total_balance: Number(row.total_balance) || 0,
           total_balance_usd: Number(row.total_balance_usd) || 0,
           chain_details: row.chain_details || [],
@@ -423,7 +423,7 @@ export async function GET(request) {
           total_value_usd: Number(row.total_value_usd) || 0,
           token_count: row.token_count || 0,
           name_tag: row.name_tag || 'N/A',
-          image: row.image || '/logos/bitcoin.png',
+          image: row.image || '/logos/bitcoin.webp',
         })),
         ...walletResult.rows.map((row) => ({
           exchange_name: row.exchange_name,
@@ -432,7 +432,7 @@ export async function GET(request) {
           total_value_usd: Number(row.total_value_usd) || 0,
           token_count: row.token_count || 0,
           name_tag: row.name_tag || 'N/A',
-          image: row.image || '/fallback-image.png',
+          image: row.image || '/fallback-image.webp',
         })),
       ],
     };

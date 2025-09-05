@@ -427,7 +427,7 @@
         "Name Tag": "Venus: vBNB Token",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -931,7 +931,7 @@
         "Name Tag": "opBNB : Optimism Portal Proxy",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/optimism.webp"
+        "image": "/icons/binance.webp"
       }
     }
   },

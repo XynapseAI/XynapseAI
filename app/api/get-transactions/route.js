@@ -336,14 +336,14 @@ async function getChainLogo(coingeckoId) {
       timeout: 15000,
     });
     const chain = response.data.find(c => c.id === coingeckoId);
-    const logo = chain?.image?.thumb || '/icons/default.png';
+    const logo = chain?.image?.thumb || '/icons/default.webp';
     chainLogoCache[coingeckoId] = logo;
     logger.info(`Fetched logo for ${coingeckoId}`);
     return logo;
   } catch (error) {
     logger.error(`Error fetching logo for ${coingeckoId}: ${error.message}`);
-    chainLogoCache[coingeckoId] = '/icons/default.png';
-    return '/icons/default.png';
+    chainLogoCache[coingeckoId] = '/icons/default.webp';
+    return '/icons/default.webp';
   }
 }
 
@@ -366,10 +366,10 @@ async function getNametagsBatch(addresses) {
       logger.info(`Received ${result.rows.length} nametags for batch`);
       result.rows.forEach(row => {
         const nametag = row.nametag || 'Unknown';
-        let image = row.image || '/icons/default.png';
+        let image = row.image || '/icons/default.webp';
         if (nametag !== 'Unknown' && !image) {
           const shortName = nametag.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-          image = `/icons/${shortName}.png`;
+          image = `/icons/${shortName}.webp`;
         }
         nametags[row.address.toLowerCase()] = {
           address: row.address.toLowerCase(),
@@ -385,7 +385,7 @@ async function getNametagsBatch(addresses) {
         nametags[addr] = {
           address: addr,
           name: 'Unknown',
-          image: '/icons/default.png',
+          image: '/icons/default.webp',
           description: '',
           subcategory: 'Others',
         };
@@ -399,7 +399,7 @@ async function getNametagsBatch(addresses) {
       nametags[addr] = {
         address: addr,
         name: 'Unknown',
-        image: '/icons/default.png',
+        image: '/icons/default.webp',
         description: '',
         subcategory: 'Others',
       };
@@ -608,7 +608,7 @@ export async function POST(request) {
             nametag: ['solana', 'tron'].includes(chain)
               ? lowerWalletAddress.slice(0, 6) + '...' + lowerWalletAddress.slice(-4)
               : 'Unknown',
-            image: '/icons/default.png',
+            image: '/icons/default.webp',
             chainLogo,
             isPremium: false,
           };
@@ -631,9 +631,9 @@ export async function POST(request) {
               type: 'incoming',
               chainLogo,
               from_nametag: nametags[tx.from.toLowerCase()]?.name || 'Unknown',
-              from_image: nametags[tx.from.toLowerCase()]?.image || '/icons/default.png',
+              from_image: nametags[tx.from.toLowerCase()]?.image || '/icons/default.webp',
               to_nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
-              to_image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.png',
+              to_image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.webp',
               tokenName: tx.tokenName,
               tokenSymbol: tx.tokenSymbol,
               tokenDecimal: tx.tokenDecimal,
@@ -649,9 +649,9 @@ export async function POST(request) {
               type: 'outgoing',
               chainLogo,
               from_nametag: nametags[tx.from.toLowerCase()]?.name || 'Unknown',
-              from_image: nametags[tx.from.toLowerCase()]?.image || '/icons/default.png',
+              from_image: nametags[tx.from.toLowerCase()]?.image || '/icons/default.webp',
               to_nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
-              to_image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.png',
+              to_image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.webp',
               tokenName: tx.tokenName,
               tokenSymbol: tx.tokenSymbol,
               tokenDecimal: tx.tokenDecimal,
@@ -661,7 +661,7 @@ export async function POST(request) {
             walletInfo = {
               address: lowerWalletAddress,
               nametag: nametags[lowerWalletAddress]?.name || 'Unknown',
-              image: nametags[lowerWalletAddress]?.image || '/icons/default.png',
+              image: nametags[lowerWalletAddress]?.image || '/icons/default.webp',
               chainLogo,
               isPremium: false,
             };
@@ -675,9 +675,9 @@ export async function POST(request) {
               type: 'incoming',
               chainLogo,
               from_nametag: tx.from.slice(0, 6) + '...' + tx.from.slice(-4),
-              from_image: '/icons/default.png',
+              from_image: '/icons/default.webp',
               to_nametag: tx.to.slice(0, 6) + '...' + tx.to.slice(-4),
-              to_image: '/icons/default.png',
+              to_image: '/icons/default.webp',
               tokenName: tx.tokenName,
               tokenSymbol: tx.tokenSymbol,
               tokenDecimal: tx.tokenDecimal,
@@ -693,9 +693,9 @@ export async function POST(request) {
               type: 'outgoing',
               chainLogo,
               from_nametag: tx.from.slice(0, 6) + '...' + tx.from.slice(-4),
-              from_image: '/icons/default.png',
+              from_image: '/icons/default.webp',
               to_nametag: tx.to.slice(0, 6) + '...' + tx.to.slice(-4),
-              to_image: '/icons/default.png',
+              to_image: '/icons/default.webp',
               tokenName: tx.tokenName,
               tokenSymbol: tx.tokenSymbol,
               tokenDecimal: tx.tokenDecimal,

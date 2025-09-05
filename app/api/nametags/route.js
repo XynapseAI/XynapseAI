@@ -443,7 +443,7 @@ export async function PUT(request) {
       name: labels.deposit?.['Name Tag'] || labels.name || 'Unknown',
       description: labels.deposit?.Description || labels.description || '',
       subcategory: labels.deposit?.Subcategory || labels.subcategory || 'Others',
-      image: labels.deposit?.image || labels.image || '/icons/default.png',
+      image: labels.deposit?.image || labels.image || '/icons/default.webp',
     };
     await addNametag(address, normalizedLabels);
     logger.info(`Nametag added/updated for ${address}: ${JSON.stringify(normalizedLabels)}`);

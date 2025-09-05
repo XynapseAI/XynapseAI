@@ -102,7 +102,7 @@ export async function GET(request, { params }) {
             id: response.data.id,
             symbol: response.data.symbol,
             name: response.data.name,
-            image: response.data.image?.large || '/fallback-image.png',
+            image: response.data.image?.large || '/fallback-image.webp',
             current_price: response.data.market_data?.current_price || {},
             market_cap: response.data.market_data?.market_cap || {},
             market_cap_rank: response.data.market_data?.market_cap_rank || null,

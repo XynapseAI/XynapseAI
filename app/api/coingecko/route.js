@@ -246,7 +246,7 @@ export async function GET(request) {
       if (address.toLowerCase() === "bitcoin") {
         data = {
           symbol: "BTC",
-          image: { thumb: "/logos/bitcoin.png" },
+          image: { thumb: "/logos/bitcoin.webp" },
         };
         await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
         logger.info(`Returning hardcoded Bitcoin details for address: ${address}`, { ip });
@@ -260,7 +260,7 @@ export async function GET(request) {
         });
         data = {
           symbol: response.data.symbol.toUpperCase(),
-          image: response.data.image || { thumb: "/fallback-image.png" },
+          image: response.data.image || { thumb: "/fallback-image.webp" },
         };
         await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
         logger.info(`Fetched token details for address: ${address}`, { ip });
@@ -276,7 +276,7 @@ export async function GET(request) {
           detail: error.response?.status === 404
             ? `No token data found for address ${address}`
             : `Failed to fetch token details: ${error.message}`,
-          data: { symbol: address, image: { thumb: "/fallback-image.png" } },
+          data: { symbol: address, image: { thumb: "/fallback-image.webp" } },
         }, { headers: securityHeaders });
       }
     }
@@ -299,8 +299,8 @@ export async function GET(request) {
           id: coin.item.id,
           name: coin.item.name,
           symbol: coin.item.symbol,
-          thumb: coin.item.thumb || "/fallback-image.png",
-          large: coin.item.large || "/fallback-image.png",
+          thumb: coin.item.thumb || "/fallback-image.webp",
+          large: coin.item.large || "/fallback-image.webp",
           market_cap_rank: coin.item.market_cap_rank,
           price: coin.item.data.price,
           price_change_percentage_24h: coin.item.data.price_change_percentage_24h.usd,
@@ -344,7 +344,7 @@ export async function GET(request) {
         .map((exchange) => ({
           id: exchange.id,
           name: exchange.name,
-          image: exchange.image || "/fallback-image.png",
+          image: exchange.image || "/fallback-image.webp",
         }));
       await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
       logger.info(`Fetched exchange search results for ${query}`, { ip });
@@ -438,7 +438,7 @@ export async function GET(request) {
         id: coin.id,
         name: coin.name,
         symbol: coin.symbol,
-        image: coin.large || coin.thumb || "/fallback-image.png",
+        image: coin.large || coin.thumb || "/fallback-image.webp",
         market_cap_rank: coin.market_cap_rank,
       }));
       await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
@@ -462,7 +462,7 @@ export async function GET(request) {
       data = {
         id: response.data.id,
         name: response.data.name,
-        image: response.data.image || "/fallback-image.png",
+        image: response.data.image || "/fallback-image.webp",
         country: response.data.country || "N/A",
         year_established: response.data.year_established || "N/A",
         trust_score: response.data.trust_score || "N/A",
@@ -555,7 +555,7 @@ export async function GET(request) {
       });
       data = response.data.map((coin) => ({
         ...coin,
-        image: coin.image || "/fallback-image.png",
+        image: coin.image || "/fallback-image.webp",
       }));
       await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
       logger.info(`Fetched market info for ${selectedCurrency}`, { ip });

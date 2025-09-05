@@ -53,7 +53,7 @@ async function checkIPBan(ip) {
 async function trackViolation(ip, reason = 'Unknown') {
   const redisClient = await getRedisClient();
   const key = `violations:sim:${ip}`;
-  const maxViolations = 100;
+  const maxViolations = 50;
   const windowMs = 30 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
 
@@ -314,11 +314,11 @@ const SUPPORTED_SVM_CHAINS = ["solana", "eclipse"];
 const SUPPORTED_CHAIN_IDS = Object.values(CHAIN_ID_MAP).join(",");
 
 const NATIVE_TOKEN_METADATA = {
-  solana: { symbol: "SOL", logo: "/solana-logo.png", name: "Solana" },
-  eclipse: { symbol: "ECL", logo: "/eclipse-logo.png", name: "Eclipse" },
-  ethereum: { symbol: "ETH", logo: "/ethereum-logo.png", name: "Ethereum" },
-  bnb: { symbol: "BNB", logo: "/bnb-logo.png", name: "BNB" },
-  polygon: { symbol: "MATIC", logo: "/polygon-logo.png", name: "Polygon" },
+  solana: { symbol: "SOL", logo: "/solana-logo.webp", name: "Solana" },
+  eclipse: { symbol: "ECL", logo: "/eclipse-logo.webp", name: "Eclipse" },
+  ethereum: { symbol: "ETH", logo: "/ethereum-logo.webp", name: "Ethereum" },
+  bnb: { symbol: "BNB", logo: "/bnb-logo.webp", name: "BNB" },
+  polygon: { symbol: "MATIC", logo: "/polygon-logo.webp", name: "Polygon" },
 };
 
 // ================= Helper Functions =================
@@ -716,7 +716,7 @@ export async function POST(request) {
                 response.data.balances?.map(async (balance) => {
                   let logo = balance.uri || null;
                   if ((balance.chain === "solana" || balance.chain === "eclipse") && balance.address === "native") {
-                    logo = balance.chain === "solana" ? "/solana-logo.png" : "/eclipse-logo.png";
+                    logo = balance.chain === "solana" ? "/solana-logo.webp" : "/eclipse-logo.webp";
                   } else if (isSVMAddress && logo) {
                     const imageUrl = await fetchImageUrl(logo, ip);
                     logo = imageUrl;

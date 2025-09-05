@@ -13,28 +13,28 @@ const FALLBACK_CHAINS = [
     name: 'Ethereum',
     chainId: 1,
     shortname: 'ETH',
-    image: { thumb: '/fallback-image.png', small: '/fallback-image.png', large: '/fallback-image.png' },
+    image: { thumb: '/fallback-image.webp', small: '/fallback-image.webp', large: '/fallback-image.webp' },
   },
   {
     id: 'binance-smart-chain',
     name: 'BNB Chain',
     chainId: 56,
     shortname: 'BNB',
-    image: { thumb: '/fallback-image.png', small: '/fallback-image.png', large: '/fallback-image.png' },
+    image: { thumb: '/fallback-image.webp', small: '/fallback-image.webp', large: '/fallback-image.webp' },
   },
   {
     id: 'polygon-pos',
     name: 'Polygon',
     chainId: 137,
     shortname: 'MATIC',
-    image: { thumb: '/fallback-image.png', small: '/fallback-image.png', large: '/fallback-image.png' },
+    image: { thumb: '/fallback-image.webp', small: '/fallback-image.webp', large: '/fallback-image.webp' },
   },
   {
     id: 'base',
     name: 'Base',
     chainId: 8453,
     shortname: 'BASE',
-    image: { thumb: '/fallback-image.png', small: '/fallback-image.png', large: '/fallback-image.png' },
+    image: { thumb: '/fallback-image.webp', small: '/fallback-image.webp', large: '/fallback-image.webp' },
   },
 ];
 
@@ -118,7 +118,7 @@ export async function GET(request) {
       name: chain.name,
       chainId: chain.chain_identifier,
       shortname: chain.shortname || chain.name,
-      image: chain.image || { thumb: '/fallback-image.png', small: '/fallback-image.png', large: '/fallback-image.png' },
+      image: chain.image || { thumb: '/fallback-image.webp', small: '/fallback-image.webp', large: '/fallback-image.webp' },
     }));
 
     cache.set(cacheKey, chains);
