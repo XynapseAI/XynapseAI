@@ -119,6 +119,7 @@ export async function POST(request) {
 
     let tokenAnalysis = '';
     let links = [];
+    let fullContents = []; // Khai báo fullContents
 
     if (prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i) && (prompt.match(/\b(Analyze|Analysis|Predict)\b/i) || tokenSymbol)) {
       const effectiveTokenSymbol = tokenSymbol?.toUpperCase() || prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge)\b/i)?.[0]?.toUpperCase() || 'BTC';
@@ -215,8 +216,7 @@ export async function POST(request) {
           }
         }
 
-        // Lấy full content từ top 3 links của mỗi search
-        let fullContents = [];
+        // Lấy full content từ top 3 links
         for (const link of [...(economicSearch.links || []), ...(stockMarketSearch.links || []), ...(politicalSearch.links || [])].slice(0, 3)) {
           const content = await fetchFullContent(link.url);
           if (content) fullContents.push({ url: link.url, content });
@@ -276,6 +276,11 @@ ${fullContents.length ? fullContents.map(c => `From ${c.url}:\n${c.content.slice
           const { snippets, links: searchLinks } = await braveSearch({ query: prompt, count: 5, freshness: 'pw' });
           searchContext += snippets ? `### Web Insights\n${snippets}\n` : '';
           links = links.concat(searchLinks || []);
+          // Lấy full content từ top 3 links của deepSearch
+          for (const link of searchLinks.slice(0, 3)) {
+            const content = await fetchFullContent(link.url);
+            if (content) fullContents.push({ url: link.url, content });
+          }
           await redisClient.setEx(braveCacheKey, BRAVE_SEARCH_CACHE_DURATION / 1000, JSON.stringify({ snippets, links: searchLinks }));
         } catch (braveError) {
           logger.error(`Brave search error: ${braveError.message}`, { ip });
@@ -361,7 +366,7 @@ Answer in a natural, professional tone (500-800 words for analysis/prediction, c
         ? 'Request to Gemini API timed out. Please try again later or simplify the request.'
         : error.response?.status === 429
           ? 'Gemini API rate limit exceeded, please try again later.'
-          : error.response?.data?.error?.message || 'Unable to fetch response from Gemini.';
+          : error.response?.data?.error?.message || `Unable to fetch response from Gemini: ${error.message}`;
     return NextResponse.json({ detail }, { status });
   }
 }

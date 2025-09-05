@@ -91,6 +91,34 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     [recaptchaRef]
   );
 
+  const createChargeMutation = useMutation({
+    mutationFn: async () => {
+      const token = await debouncedExecuteRecaptcha('create_charge');
+      const response = await axios.post(
+        '/api/coinbase/create-charge',
+        { userId: session.user.id, plan: 'premium', amount: 10.0, currency: 'USD' }, // Điều chỉnh amount theo nhu cầu
+        {
+          headers: {
+            'x-csrf-token': csrfToken,
+            'X-Recaptcha-Token': token,
+          },
+          withCredentials: true,
+        }
+      );
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to create charge');
+      return response.data.hostedUrl;
+    },
+    onSuccess: (hostedUrl) => {
+      window.location.href = hostedUrl; // Chuyển hướng tới hosted page của Coinbase
+    },
+    onError: (err) => {
+      toast.error(`Failed to initiate payment: ${err.message}`, {
+        position: 'top-center',
+        autoClose: 5000,
+      });
+    },
+  });
+
   // Fetch CSRF Token
   const { data: csrfToken, isLoading: csrfLoading } = useQuery({
     queryKey: ['csrfToken'],
@@ -1044,6 +1072,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 <circle cx="12" cy="7" r="4" />
                               </svg>
                               <span className="text-silver">{userData.tier}</span>
+                              <motion.button
+                                onClick={() => createChargeMutation.mutate()}
+                                disabled={createChargeMutation.isLoading}
+                                className={`ml-2 px-3 py-1 rounded-xl text-[9px] sm:text-[10px] font-medium text-white border border-neon-blue/50 bg-neon-blue/20 hover:bg-neon-blue/40 transition-all duration-300 ${createChargeMutation.isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                                  }`}
+                                whileHover={{ scale: createChargeMutation.isLoading ? 1 : 1.05 }}
+                                whileTap={{ scale: createChargeMutation.isLoading ? 1 : 0.95 }}
+                              >
+                                {createChargeMutation.isLoading ? 'Processing...' : 'Upgrade Plan'}
+                              </motion.button>
                             </>
                           ) : (
                             <>
@@ -1059,6 +1097,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       </div>
                     </div>
                   </div>
+
                   <div className="bg-white/5 rounded-xl p-3 relative">
                     <h5 className="font-bold text-white uppercase mb-2">Social</h5>
                     <div className="space-y-2">

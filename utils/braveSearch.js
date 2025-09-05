@@ -30,31 +30,50 @@ export async function braveSearch({ query, count = 5, freshness = 'pm' }) {
     // Kết hợp description và extra_snippets
     const snippets = results
       .map((result) => {
-        const extra = result.extra_snippets ? result.extra_snippets.join('\n') : '';
-        const combined = `${result.description}\n${extra}`.trim();
-        // Làm sạch HTML trong snippets
+        const description = result.description || '';
+        const extra = result.extra_snippets ? result.extra_snippets.join(' ').trim() : '';
+        const combined = [description, extra].filter(Boolean).join(' ').trim();
+        // Làm sạch HTML và entities
         return sanitizeHtml(combined, {
-          allowedTags: [], // Loại bỏ tất cả HTML tags
+          allowedTags: [],
           allowedAttributes: {},
+          transformTags: {
+            '*': (tagName, attribs) => ({ tagName, attribs }),
+          },
+          textFilter: (text) =>
+            text.replace(/undefined|\(\)/g, '').trim() || 'No insights available',
         });
       })
       .filter(Boolean)
       .join('\n\n');
 
-    // Tạo links với fallback và làm sạch HTML
+    // Tạo links với fallback chặt chẽ
     const links = results
-      .map((result) => ({
-        text: sanitizeHtml(result.title || result.url || 'Untitled', {
-          allowedTags: [],
-          allowedAttributes: {},
-        }),
-        url: result.url,
-        description: sanitizeHtml(
-          [result.description, ...(result.extra_snippets || [])].join(' ').trim().slice(0, 200) || 'No description available',
-          { allowedTags: [], allowedAttributes: {} }
-        ),
-        image: result.thumbnail?.src || null,
-      }))
+      .map((result) => {
+        const title = result.title && result.title !== 'undefined' && result.title !== '' ? result.title : result.url || 'Untitled';
+        const description = [result.description, ...(result.extra_snippets || [])]
+          .filter(Boolean)
+          .join(' ')
+          .trim()
+          .slice(0, 200) || 'No description available';
+
+        return {
+          text: sanitizeHtml(title, {
+            allowedTags: [],
+            allowedAttributes: {},
+            textFilter: (text) =>
+              text.replace(/undefined|\(\)/g, '').trim() || 'Untitled',
+          }),
+          url: result.url,
+          description: sanitizeHtml(description, {
+            allowedTags: [],
+            allowedAttributes: {},
+            textFilter: (text) =>
+              text.replace(/undefined|\(\)/g, '').trim() || 'No description available',
+          }),
+          image: result.thumbnail?.src || null,
+        };
+      })
       .filter((link) => link.url);
 
     console.log(`Brave Search results for query "${query}":`, { links, snippets });
@@ -76,7 +95,11 @@ async function fetchFullContent(url) {
     const $ = cheerio.load(html);
     $('script, style, noscript, iframe').remove();
     const text = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 3000);
-    return sanitizeHtml(text, { allowedTags: [], allowedAttributes: {} });
+    return sanitizeHtml(text, {
+      allowedTags: [],
+      allowedAttributes: {},
+      textFilter: (text) => text.replace(/undefined|\(\)/g, '').trim() || 'No content available',
+    });
   } catch (e) {
     console.error(`Error fetching content from ${url}: ${e.message}`);
     return '';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef , useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { useSession } from 'next-auth/react';
 import debounce from 'lodash.debounce';
@@ -1978,33 +1978,33 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   );
 
   const debouncedHandleAnalysis = useCallback(
-  debounce(async () => {
-    if (!selectedToken) {
-      setError('Vui lòng chọn một token để phân tích.');
-      toast.error('Vui lòng chọn một token.', { position: 'top-center', autoClose: 3000 });
-      return;
-    }
-    if (status !== 'authenticated') {
-      setError('Vui lòng đăng nhập để thực hiện phân tích.');
-      toast.error('Vui lòng đăng nhập để thực hiện phân tích.', { position: 'top-center', autoClose: 5000 });
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setAnalysisLogs([]);
-    const startTime = Date.now();
-    try {
-      let recaptchaToken;
-      try {
-        recaptchaToken = await executeRecaptcha('analyze');
-      } catch (recaptchaError) {
-        console.error(`reCAPTCHA error in analysis: ${recaptchaError.message}`);
-        setError('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.');
-        toast.error('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.', { position: 'top-center', autoClose: 3000 });
+    debounce(async () => {
+      if (!selectedToken) {
+        setError('Vui lòng chọn một token để phân tích.');
+        toast.error('Vui lòng chọn một token.', { position: 'top-center', autoClose: 3000 });
+        return;
+      }
+      if (status !== 'authenticated') {
+        setError('Vui lòng đăng nhập để thực hiện phân tích.');
+        toast.error('Vui lòng đăng nhập để thực hiện phân tích.', { position: 'top-center', autoClose: 5000 });
         return;
       }
 
-      const prompt = `
+      setIsAnalyzing(true);
+      setAnalysisLogs([]);
+      const startTime = Date.now();
+      try {
+        let recaptchaToken;
+        try {
+          recaptchaToken = await executeRecaptcha('analyze');
+        } catch (recaptchaError) {
+          console.error(`reCAPTCHA error in analysis: ${recaptchaError.message}`);
+          setError('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.');
+          toast.error('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.', { position: 'top-center', autoClose: 3000 });
+          return;
+        }
+
+        const prompt = `
 Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base analysis heavily on real-time data from Brave API searches, incorporating specific facts, figures, and quotes from credible sources.
 
 **Data**:
@@ -2036,118 +2036,139 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
 }
 `;
 
-      console.log(`Sending request to /api/token-analysis for token: ${selectedToken.symbol}`);
-      const response = await fetch('/api/token-analysis', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken || ''}`,
-        },
-        body: JSON.stringify({
-          tokenSymbol: selectedToken.symbol?.toUpperCase(),
-          recaptchaToken,
-        }),
-      });
+        console.log(`Sending request to /api/token-analysis for token: ${selectedToken.symbol}`);
+        const response = await fetch('/api/token-analysis', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.accessToken || ''}`,
+          },
+          body: JSON.stringify({
+            tokenSymbol: selectedToken.symbol?.toUpperCase(),
+            recaptchaToken,
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-      const reader = response.body.getReader();
-      let result = '';
-      let tempLogs = [];
+        const reader = response.body.getReader();
+        let result = '';
+        let tempLogs = [];
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        const chunk = new TextDecoder().decode(value);
-        result += chunk;
+          const chunk = new TextDecoder().decode(value);
+          result += chunk;
 
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const parsed = JSON.parse(line);
-            if (parsed.progress) {
-              tempLogs = [...tempLogs, parsed.progress];
-              setAnalysisLogs(tempLogs);
-            } else if (parsed.success) {
-              const analysisResult = parsed.aiAnalysis || 'Không nhận được dữ liệu phân tích.';
-              const links = parsed.links || [];
-              setAnalysis(analysisResult);
-              setAnalysisLinks(links);
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.progress) {
+                tempLogs = [...tempLogs, parsed.progress];
+                setAnalysisLogs(tempLogs);
+              } else if (parsed.success) {
+                const analysisResult = parsed.aiAnalysis || 'Không nhận được dữ liệu phân tích.';
+                const links = parsed.links || [];
+                setAnalysis(analysisResult);
+                setAnalysisLinks(links);
+              }
+            } catch (e) {
+              console.warn('Partial chunk, skipping parse:', e.message);
             }
-          } catch (e) {
-            console.warn('Partial chunk, skipping parse:', e.message);
           }
         }
-      }
 
-      toast.success('Phân tích hoàn tất!', { position: 'top-center', autoClose: 3000 });
-    } catch (error) {
-      let errorMessage = 'Lỗi khi phân tích token. Vui lòng thử lại.';
-      if (error.code === 'ECONNABORTED') {
-        errorMessage = 'Yêu cầu mất quá nhiều thời gian. Vui lòng kiểm tra kết nối mạng và thử lại.';
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
-      } else if (error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')) {
-        errorMessage = 'Xác minh reCAPTCHA thất bại. Vui lòng thử lại.';
-      } else if (error.response?.status === 429) {
-        errorMessage = 'Quá nhiều yêu cầu. Vui lòng thử lại sau một phút.';
-      } else if (error.response?.status === 413) {
-        errorMessage = 'Yêu cầu quá lớn. Vui lòng thử lại sau.';
-      } else if (error.response?.data?.errors) {
-        errorMessage = `Lỗi dữ liệu: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
-      } else if (error.message.includes('reCAPTCHA')) {
-        errorMessage = 'Lỗi xác minh reCAPTCHA. Vui lòng thử lại.';
+        toast.success('Phân tích hoàn tất!', { position: 'top-center', autoClose: 3000 });
+      } catch (error) {
+        let errorMessage = 'Lỗi khi phân tích token. Vui lòng thử lại.';
+        if (error.code === 'ECONNABORTED') {
+          errorMessage = 'Yêu cầu mất quá nhiều thời gian. Vui lòng kiểm tra kết nối mạng và thử lại.';
+        } else if (error.response?.status === 401) {
+          errorMessage = 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
+        } else if (error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')) {
+          errorMessage = 'Xác minh reCAPTCHA thất bại. Vui lòng thử lại.';
+        } else if (error.response?.status === 429) {
+          errorMessage = 'Quá nhiều yêu cầu. Vui lòng thử lại sau một phút.';
+        } else if (error.response?.status === 413) {
+          errorMessage = 'Yêu cầu quá lớn. Vui lòng thử lại sau.';
+        } else if (error.response?.data?.errors) {
+          errorMessage = `Lỗi dữ liệu: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
+        } else if (error.message.includes('reCAPTCHA')) {
+          errorMessage = 'Lỗi xác minh reCAPTCHA. Vui lòng thử lại.';
+        }
+        console.error(`Analysis error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
+          error,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+        setError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      } finally {
+        setIsAnalyzing(false);
+        if (recaptchaRef.current) {
+          recaptchaRef.current.reset();
+        }
       }
-      console.error(`Analysis error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
-        error,
-        status: error.response?.status,
-        data: error.response?.data,
-      });
-      setError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-    } finally {
-      setIsAnalyzing(false);
-      if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
-      }
-    }
-  }, 500),
-  [selectedToken, session, status, executeRecaptcha, toast, currency]
-);
+    }, 500),
+    [selectedToken, session, status, executeRecaptcha, toast, currency]
+  );
 
   // Hàm dự đoán giá (updated)
   const debouncedHandlePrediction = useCallback(
-  debounce(async () => {
-    if (!selectedToken) {
-      setError('Vui lòng chọn một token để dự đoán.');
-      toast.error('Vui lòng chọn một token.', { position: 'top-center', autoClose: 3000 });
-      return;
-    }
-    if (status !== 'authenticated') {
-      setError('Vui lòng đăng nhập để thực hiện dự đoán.');
-      toast.error('Vui lòng đăng nhập để thực hiện dự đoán.', { position: 'top-center', autoClose: 5000 });
-      return;
-    }
-
-    setIsPredicting(true);
-    setAnalysisLogs([]);
-    const startTime = Date.now();
-    try {
-      let recaptchaToken;
-      try {
-        recaptchaToken = await executeRecaptcha('predict');
-      } catch (recaptchaError) {
-        console.error(`reCAPTCHA error in prediction: ${recaptchaError.message}`);
-        setError('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.');
-        toast.error('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.', { position: 'top-center', autoClose: 3000 });
+    debounce(async () => {
+      if (!selectedToken) {
+        setError('Vui lòng chọn một token để dự đoán.');
+        toast.error('Vui lòng chọn một token.', { position: 'top-center', autoClose: 3000 });
+        return;
+      }
+      if (status !== 'authenticated') {
+        setError('Vui lòng đăng nhập để thực hiện dự đoán.');
+        toast.error('Vui lòng đăng nhập để thực hiện dự đoán.', { position: 'top-center', autoClose: 5000 });
         return;
       }
 
-      const prompt = `
+      setIsPredicting(true);
+      setAnalysisLogs([]);
+      const startTime = Date.now();
+
+      // Hàm retry cho fetch
+      const fetchWithRetry = async (url, options, retries = 3, delay = 1000) => {
+        for (let i = 0; i < retries; i++) {
+          try {
+            const response = await fetch(url, {
+              ...options,
+              signal: AbortSignal.timeout(15000), // Tăng timeout lên 15 giây
+            });
+            return response;
+          } catch (error) {
+            if (i < retries - 1 && (error.name === 'AbortError' || error.message.includes('fetch'))) {
+              console.warn(`Retry ${i + 1}/${retries} for ${url}: ${error.message}`);
+              await new Promise((resolve) => setTimeout(resolve, delay * Math.pow(2, i)));
+              continue;
+            }
+            throw error;
+          }
+        }
+      };
+
+      try {
+        let recaptchaToken;
+        try {
+          recaptchaToken = await executeRecaptcha('predict');
+        } catch (recaptchaError) {
+          console.error(`reCAPTCHA error in prediction: ${recaptchaError.message}`);
+          setError('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.');
+          toast.error('Lỗi xác minh reCAPTCHA. Vui lòng thử lại.', { position: 'top-center', autoClose: 3000 });
+          return;
+        }
+
+        const prompt = `
 Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base predictions heavily on real-time data from Brave API searches, incorporating specific facts, figures, and quotes from credible sources.
 
 **Data**:
@@ -2168,90 +2189,88 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 - **Sources**: Include relevant links in [text](url) format from Brave API results, at least 5-10 sources.
 `;
 
-      console.log(`Sending request to /api/gemini for token: ${selectedToken.symbol}`);
-      const response = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.accessToken || ''}`,
-        },
-        body: JSON.stringify({
-          prompt,
-          deepSearch: true,
-          tokenSymbol: selectedToken.symbol?.toUpperCase(),
-          recaptchaToken,
-        }),
-      });
+        console.log(`Sending request to /api/gemini for token: ${selectedToken.symbol}`);
+        const response = await fetchWithRetry(
+          '/api/gemini',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session?.accessToken || ''}`,
+            },
+            body: JSON.stringify({
+              prompt,
+              deepSearch: true,
+              tokenSymbol: selectedToken.symbol?.toUpperCase(),
+              recaptchaToken,
+            }),
+          },
+          3, // Số lần retry
+          1000 // Delay giữa các lần retry
+        );
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(`HTTP error! status: ${response.status}, detail: ${errorData.detail || 'Unknown error'}`);
+        }
 
-      const reader = response.body.getReader();
-      let result = '';
-      let tempLogs = [];
+        const reader = response.body.getReader();
+        let result = '';
+        let tempLogs = [];
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        const chunk = new TextDecoder().decode(value);
-        result += chunk;
+          const chunk = new TextDecoder().decode(value);
+          result += chunk;
 
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const parsed = JSON.parse(line);
-            if (parsed.progress) {
-              tempLogs = [...tempLogs, parsed.progress];
-              setAnalysisLogs(tempLogs);
-            } else if (parsed.success) {
-              const predictionResult = parsed.aiAnalysis || 'Không nhận được dữ liệu dự đoán.';
-              const links = parsed.links || [];
-              setPrediction(predictionResult);
-              setAnalysisLinks(links);
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.progress) {
+                tempLogs = [...tempLogs, parsed.progress];
+                setAnalysisLogs(tempLogs);
+              } else if (parsed.answer) {
+                const predictionResult = parsed.answer || 'Không nhận được dữ liệu dự đoán.';
+                const links = parsed.links || [];
+                setPrediction(predictionResult);
+                setAnalysisLinks(links);
+              }
+            } catch (e) {
+              console.warn('Partial chunk, skipping parse:', e.message);
             }
-          } catch (e) {
-            console.warn('Partial chunk, skipping parse:', e.message);
           }
         }
-      }
 
-      toast.success('Dự đoán hoàn tất!', { position: 'top-center', autoClose: 3000 });
-    } catch (error) {
-      let errorMessage = 'Lỗi khi dự đoán giá. Vui lòng thử lại.';
-      if (error.code === 'ECONNABORTED') {
-        errorMessage = 'Yêu cầu mất quá nhiều thời gian. Vui lòng kiểm tra kết nối mạng và thử lại.';
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
-      } else if (error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')) {
-        errorMessage = 'Xác minh reCAPTCHA thất bại. Vui lòng thử lại.';
-      } else if (error.response?.status === 429) {
-        errorMessage = 'Quá nhiều yêu cầu. Vui lòng thử lại sau một phút.';
-      } else if (error.response?.status === 413) {
-        errorMessage = 'Yêu cầu quá lớn. Vui lòng thử lại sau.';
-      } else if (error.response?.data?.errors) {
-        errorMessage = `Lỗi dữ liệu: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
-      } else if (error.message.includes('reCAPTCHA')) {
-        errorMessage = 'Lỗi xác minh reCAPTCHA. Vui lòng thử lại.';
+        toast.success('Dự đoán hoàn tất!', { position: 'top-center', autoClose: 3000 });
+      } catch (error) {
+        let errorMessage = 'Lỗi khi dự đoán giá. Vui lòng thử lại.';
+        if (error.name === 'AbortError') {
+          errorMessage = 'Yêu cầu mất quá nhiều thời gian. Vui lòng kiểm tra kết nối mạng và thử lại.';
+        } else if (error.message.includes('HTTP error')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('reCAPTCHA')) {
+          errorMessage = 'Lỗi xác minh reCAPTCHA. Vui lòng thử lại.';
+        }
+        console.error(`Prediction error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
+          error,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+        setError(errorMessage);
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      } finally {
+        setIsPredicting(false);
+        if (recaptchaRef.current) {
+          recaptchaRef.current.reset();
+        }
       }
-      console.error(`Prediction error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
-        error,
-        status: error.response?.status,
-        data: error.response?.data,
-      });
-      setError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-    } finally {
-      setIsPredicting(false);
-      if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
-      }
-    }
-  }, 500),
-  [selectedToken, priceHistory, analysis, session, status, executeRecaptcha, toast, currency]
-);
+    }, 500),
+    [selectedToken, priceHistory, analysis, session, status, executeRecaptcha, toast, currency]
+  );
 
   const debouncedSearch = useCallback(
     debounce((query) => {
