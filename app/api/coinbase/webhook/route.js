@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Client, Webhook } from 'coinbase-commerce-node';
+import { Webhook } from 'coinbase-commerce-node';
 import { PrismaClient } from '@prisma/client';
 import { buffer } from 'micro';
 
@@ -17,7 +17,7 @@ export async function POST(req) {
 
     const event = JSON.parse(rawBody.toString());
     if (event.type === 'charge:confirmed') {
-      const { chargeId, userId, plan } = event.data.metadata;
+      const { chargeId, userId } = event.data.metadata;
       const chargeCode = event.data.code;
       const amount = parseFloat(event.data.payments[0].value.local.amount);
       const currency = event.data.payments[0].value.local.currency;
