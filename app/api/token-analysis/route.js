@@ -137,8 +137,8 @@ export async function POST(request) {
           controller.enqueue(JSON.stringify({ progress: 'Web Searching' }));
           try {
             const searchResult = await braveSearch({
-              query: `${tokenSymbol} crypto analysis lasted News , blog , post`,
-              count: 5,
+              query: `${tokenSymbol} lastest NEWS , blog , twitter trending`,
+              count: 10,
               freshness: '1w',
             });
             snippets = searchResult.snippets;
@@ -153,7 +153,7 @@ export async function POST(request) {
           // Lấy full content từ top 3 links
           controller.enqueue(JSON.stringify({ progress: 'Fetching full content from articles...' }));
           let fullContents = [];
-          for (const link of links.slice(0, 5)) {
+          for (const link of links.slice(0, 10)) {
             const content = await fetchFullContent(link.url);
             if (content) fullContents.push({ url: link.url, content });
           }

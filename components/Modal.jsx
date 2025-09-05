@@ -75,7 +75,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                 transition={{ duration: 0.3 }}
               >
                 <div className="w-full h-full flex items-center justify-center">
-                  <div className="w-[90%] sm:w-[90%] h-[20%] sm:h-[20%] bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 relative overflow-hidden shadow-2xl animate-pulse-slow">
+                  <div className="w-[90%] sm:w-[90%] h-[50%] sm:h-[50%] bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 relative overflow-hidden shadow-2xl animate-pulse-slow">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-scan" />
                     <div className="absolute inset-0 bg-black/10 backdrop-blur-sm animate-pulse opacity-50" />
                     <div className="flex items-center gap-2 mb-4">

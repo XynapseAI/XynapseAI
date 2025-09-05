@@ -111,6 +111,8 @@
     "react-simple-typewriter": "^5.0.1",
     "react-toastify": "^11.0.5",
     "react-tooltip": "^5.29.1",
+    "react-virtualized": "^9.22.6",
+    "react-window": "^1.8.10",
     "recharts": "^2.15.4",
     "redis": "^5.8.1",
     "rehype-highlight": "^7.0.2",
