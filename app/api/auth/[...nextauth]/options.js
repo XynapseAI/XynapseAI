@@ -230,23 +230,30 @@ export const authOptions = {
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
         token.email = profile?.email || token.email;
         token.googleName = profile?.name || "";
-        token.csrfToken = token.csrfToken || randomBytes(32).toString("hex"); // Đảm bảo csrfToken luôn được tạo
+        token.csrfToken = token.csrfToken || randomBytes(32).toString("hex");
       }
       if (Date.now() > token.expiresAt) {
         logger.info("Token expired, refreshing", { tokenId: token.id });
         token.accessToken = randomBytes(32).toString("hex");
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000;
-        token.csrfToken = randomBytes(32).toString("hex"); // Tạo lại csrfToken khi refresh
+        token.csrfToken = randomBytes(32).toString("hex");
       }
+      logger.info("JWT token", { token: JSON.stringify(token) });
       return token;
     },
     async session({ session, token }) {
       logger.info("Session callback", { userId: token.id });
+      if (!token.id) {
+        logger.error("Token missing id", { token: JSON.stringify(token) });
+        throw new Error("Invalid token: missing id");
+      }
+      session.user = session.user || {};
       session.user.id = token.id;
       session.user.email = token.email;
       session.user.googleName = token.googleName;
       session.user.isPremium = token.isPremium || false;
       session.csrfToken = token.csrfToken;
+      logger.info("Session created", { session: JSON.stringify(session) });
       return session;
     },
     async redirect({ url, baseUrl }) {

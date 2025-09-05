@@ -62,7 +62,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     setIsSigningOut(false);
   };
 
-  // Execute reCAPTCHA (only for user-sensitive actions)
+  // Execute reCAPTCHA
   const debouncedExecuteRecaptcha = useCallback(
     async (action, retries = 2) => {
       if (process.env.NODE_ENV === 'development') return 'development-token';
@@ -74,7 +74,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         await recaptchaRef.current.reset();
         const token = await Promise.race([
           recaptchaRef.current.executeAsync({ action }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)), // Giảm timeout xuống 20s
+          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
         ]);
         if (!token) throw new Error('Empty reCAPTCHA token');
         console.log(`reCAPTCHA token for ${action}: ${token.substring(0, 10)}...`);
@@ -91,36 +91,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     [recaptchaRef]
   );
 
-  const createChargeMutation = useMutation({
-    mutationFn: async () => {
-      const token = await debouncedExecuteRecaptcha('create_charge');
-      const response = await axios.post(
-        '/api/coinbase/create-charge',
-        { userId: session.user.id, plan: 'premium', amount: 10.0, currency: 'USD' }, // Điều chỉnh amount theo nhu cầu
-        {
-          headers: {
-            'x-csrf-token': csrfToken,
-            'X-Recaptcha-Token': token,
-          },
-          withCredentials: true,
-        }
-      );
-      if (!response.data.success) throw new Error(response.data.detail || 'Unable to create charge');
-      return response.data.hostedUrl;
-    },
-    onSuccess: (hostedUrl) => {
-      window.location.href = hostedUrl; // Chuyển hướng tới hosted page của Coinbase
-    },
-    onError: (err) => {
-      toast.error(`Failed to initiate payment: ${err.message}`, {
-        position: 'top-center',
-        autoClose: 5000,
-      });
-    },
-  });
-
   // Fetch CSRF Token
-  const { data: csrfToken, isLoading: csrfLoading } = useQuery({
+  const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
     queryKey: ['csrfToken'],
     queryFn: async () => {
       const response = await axios.get('/api/csrf-token', { withCredentials: true });
@@ -131,10 +103,74 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     retry: 3,
     retryDelay: 2000,
     enabled: status === 'authenticated',
-    onSuccess: (csrf) => localStorage.setItem('csrfToken', csrf),
+    onSuccess: (csrf) => {
+      localStorage.setItem('csrf_token', csrf);
+      console.log('Cookies after fetching CSRF:', document.cookie);
+    },
+    onError: (err) => {
+      console.error('Error fetching CSRF token:', err);
+      toast.error('Failed to fetch CSRF token. Please try again.', {
+        position: 'top-center',
+        autoClose: 5000,
+      });
+    },
   });
 
-  // Fetch User Data (keep reCAPTCHA)
+  // Create charge mutation
+  const createChargeMutation = useMutation({
+    mutationFn: async () => {
+      if (!session?.user?.id) throw new Error('Not authenticated');
+      if (!csrfToken) throw new Error('CSRF token not available');
+      const token = await debouncedExecuteRecaptcha('create_charge');
+      console.log('Sending POST with CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
+      const response = await axios.post(
+        '/api/coinbase/create-charge',
+        { userId: session.user.id, plan: 'premium', amount: 10.0, currency: 'USD' },
+        {
+          headers: {
+            'x-csrf-token': csrfToken,
+            'X-Recaptcha-Token': token,
+            'Content-Type': 'application/json',
+          },
+          withCredentials: true,
+        }
+      );
+      console.log('Create charge response:', response.data);
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to create charge');
+      return response.data.hostedUrl;
+    },
+    onSuccess: async (hostedUrl) => {
+      console.log('Redirecting to Coinbase hosted URL:', hostedUrl);
+      window.location.href = hostedUrl;
+      await queryClient.invalidateQueries(['userData', session?.user?.id]);
+    },
+    onError: (err) => {
+      console.error('Create charge error:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
+      let errorMessage = 'Failed to initiate payment';
+      if (err.message.includes('CSRF token not available')) {
+        errorMessage = 'CSRF token not available. Please refresh the page.';
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Server error. Please check logs or try again later.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Invalid CSRF or authentication. Please refresh.';
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Session expired. Please log in again.';
+      } else if (err.response?.status === 429) {
+        errorMessage = 'Too many requests. Please wait a minute and try again.';
+      } else if (err.response?.status === 412) {
+        errorMessage = 'Precondition failed. Please ensure valid CSRF token and try again.';
+      } else {
+        errorMessage = err.response?.data?.detail || err.message || 'Failed to initiate payment';
+      }
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+    },
+  });
+
+  // Fetch User Data
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
     queryKey: ['userData', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -173,7 +209,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         return user;
       } catch (err) {
         console.error('Error fetching user data:', err.response?.data || err.message);
-        throw err; // Để onError xử lý
+        throw err;
       }
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,

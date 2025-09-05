@@ -362,14 +362,16 @@ model posted_transactions {
 }
 
 model Payment {
-  id        Int      @id @default(autoincrement())
-  userId    String
-  chargeId  String   @unique
-  chargeCode String
-  amount    Float
-  currency  String
-  status    String   // pending, confirmed, failed
-  createdAt DateTime
-  updatedAt DateTime @updatedAt
-  user      users    @relation(fields: [userId], references: [id], name: "UserPayments")
+  id         Int       @id @default(autoincrement())
+  userId     String
+  chargeId   String    @unique
+  chargeCode String    @db.VarChar(100)
+  amount     Float
+  currency   String    @db.VarChar(10)
+  status     String    @default("pending") @db.VarChar(50)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  user       users     @relation(fields: [userId], references: [id], name: "UserPayments")
+
+  @@index([userId], map: "idx_payment_userId")
 }
