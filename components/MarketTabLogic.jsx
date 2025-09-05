@@ -2083,8 +2083,6 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
             }
           }
         }
-
-        toast.success('Phân tích hoàn tất!', { position: 'top-center', autoClose: 3000 });
       } catch (error) {
         let errorMessage = 'Lỗi khi phân tích token. Vui lòng thử lại.';
         if (error.code === 'ECONNABORTED') {
@@ -2244,8 +2242,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
             }
           }
         }
-
-        toast.success('Dự đoán hoàn tất!', { position: 'top-center', autoClose: 3000 });
       } catch (error) {
         let errorMessage = 'Lỗi khi dự đoán giá. Vui lòng thử lại.';
         if (error.name === 'AbortError') {

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { PrismaClient } from '@prisma/client';
 import { createClient } from 'redis';
 import { logger } from '../../../../utils/serverLogger';
 import { requireAuth } from '../../middleware/auth';
+import cookie from 'cookie';
+import crypto from 'crypto';
 import { z } from 'zod';
 
 const prisma = new PrismaClient({
@@ -14,7 +15,7 @@ const prisma = new PrismaClient({
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
-    const redisUrl = process.env.NODE_ENV === 'production' 
+    const redisUrl = process.env.NODE_ENV === 'production'
       ? process.env.REDIS_URL || 'rediss://localhost:6379' // Use rediss:// for TLS in production
       : process.env.REDIS_URL || 'redis://localhost:6379';
     redisClient = createClient({ url: redisUrl });
@@ -124,7 +125,7 @@ async function checkRateLimit(ip, userId = null) {
 function parseCookies(request) {
   const raw = request.headers.get('cookie') || '';
   try {
-    return require('cookie').parse(raw);
+    return cookie.parse(raw);
   } catch {
     return {};
   }
@@ -145,7 +146,8 @@ async function checkDoubleSubmitCSRF(request) {
     return false;
   }
 
-  const valid = require('crypto').timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
+  const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
+
   if (!valid) {
     logger.warn('CSRF token mismatch');
     return false;
