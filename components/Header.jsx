@@ -259,7 +259,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           >
             <div className="flex justify-between items-center mb-3">
               <img
-                src="/logos/logo-landscape.png" // Replace with the actual path to your PNG image
+                src="/logos/logo-landscape.webp" // Replace with the actual path to your PNG image
                 alt="Menu"
                 className="h-14 w-auto" // Adjust size as needed
               />

@@ -462,7 +462,7 @@ export default function Dashboard() {
                   className={`absolute top-2 left-2 ${styles['logo-container']}`}
                 >
                   <Image
-                    src="/logos/logo-landscape.png"
+                    src="/logos/logo-landscape.webp"
                     alt="Xynapse Logo"
                     width={120}
                     height={56}
@@ -517,7 +517,7 @@ export default function Dashboard() {
                       className={`w-full px-4 py-3 bg-black/10 border border-white/20 rounded-full text-white text-sm font-medium uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:bg-gray-700/50 ${styles['button-glow']}`}
                     >
                       <Image
-                        src="/logos/google.png"
+                        src="/logos/google.webp"
                         alt="Google Logo"
                         width={20}
                         height={20}

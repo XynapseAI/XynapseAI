@@ -11,9 +11,9 @@ import { logger } from '../utils/clientLogger';
 
 // Hardcoded fallback logos for common chains
 const FALLBACK_CHAIN_LOGOS = {
-  ethereum: '/logos/ethereum.png',
-  base: '/logos/base.png',
-  bitcoin: '/logos/bitcoin.png',
+  ethereum: '/logos/ethereum.webp',
+  base: '/logos/base.webp',
+  bitcoin: '/logos/bitcoin.webp',
   // Add other chains as needed
 };
 
@@ -163,7 +163,7 @@ const WalletBalances = ({
     });
 
     const imageFromChainLogos = chainLogos?.[normalizedChain];
-    if (imageFromChainLogos && imageFromChainLogos !== '/fallback-image.png') {
+    if (imageFromChainLogos && imageFromChainLogos !== '/fallback-image.webp') {
       logger.log('getPlatformImage: Found in chainLogos', {
         chainValue,
         chainName,
@@ -174,7 +174,7 @@ const WalletBalances = ({
 
     const chain = chains?.find((c) => c.value.toLowerCase() === normalizedChain);
     const imageFromChains = chain?.image;
-    if (imageFromChains && imageFromChains !== '/fallback-image.png') {
+    if (imageFromChains && imageFromChains !== '/fallback-image.webp') {
       logger.log('getPlatformImage: Found in chains', {
         chainValue,
         chainName,
@@ -183,7 +183,7 @@ const WalletBalances = ({
       return imageFromChains;
     }
 
-    const fallbackImage = FALLBACK_CHAIN_LOGOS[normalizedChain] || '/fallback-image.png';
+    const fallbackImage = FALLBACK_CHAIN_LOGOS[normalizedChain] || '/fallback-image.webp';
     logger.log('getPlatformImage: Using fallback', {
       chainValue,
       chainName,
@@ -263,7 +263,7 @@ const WalletBalances = ({
                       address: walletAddress,
                       src: walletImage,
                     });
-                    e.target.src = '/icons/default.png';
+                    e.target.src = '/icons/default.webp';
                   }}
                 />
               )}
@@ -377,7 +377,7 @@ const WalletBalances = ({
                                           symbol: balance.symbol,
                                           src: balance.logo,
                                         });
-                                        e.target.src = '/fallback-image.png';
+                                        e.target.src = '/fallback-image.webp';
                                       }}
                                     />
                                     <img
@@ -390,7 +390,7 @@ const WalletBalances = ({
                                           chainName: getChainLabel(balance.chain),
                                           src: getPlatformImage(balance.chain),
                                         });
-                                        e.target.src = '/fallback-image.png';
+                                        e.target.src = '/fallback-image.webp';
                                       }}
                                     />
                                   </div>
@@ -484,7 +484,7 @@ const WalletBalances = ({
                                             symbol: tx.token,
                                             src: tx.token_metadata.logo,
                                           });
-                                          e.target.src = '/fallback-image.png';
+                                          e.target.src = '/fallback-image.webp';
                                         }}
                                       />
                                       <img
@@ -497,7 +497,7 @@ const WalletBalances = ({
                                             chainName,
                                             src: getPlatformImage(tx.chain),
                                           });
-                                          e.target.src = '/fallback-image.png';
+                                          e.target.src = '/fallback-image.webp';
                                         }}
                                       />
                                     </div>
@@ -523,7 +523,7 @@ const WalletBalances = ({
                                             address: tx.type === 'receive' ? tx.from : tx.to,
                                             src: addressImage,
                                           });
-                                          e.target.src = '/icons/default.png';
+                                          e.target.src = '/icons/default.webp';
                                         }}
                                       />
                                     )}
@@ -580,10 +580,10 @@ const WalletBalances = ({
                                     title={tx.hash}
                                   >
                                     <img
-                                      src="/logos/etherscan-logo.png"
+                                      src="/logos/etherscan-logo.webp"
                                       alt="Etherscan"
                                       className="w-4 h-4 object-contain"
-                                      onError={(e) => (e.target.src = '/fallback-image.png')}
+                                      onError={(e) => (e.target.src = '/fallback-image.webp')}
                                     />
                                   </a>
                                   <span className="text-[7px] sm:text-[9px] text-white/60">

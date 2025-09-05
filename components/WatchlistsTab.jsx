@@ -27,11 +27,11 @@ axiosRetry(axios, {
 
 // Utility constants
 const NATIVE_TOKEN_INFO = {
-  ethereum: { name: 'Ethereum', symbol: 'ETH', logo: '/ethereum-logo.png' },
-  base: { name: 'Base', symbol: 'ETH', logo: '/base-logo.png' },
-  bnb: { name: 'BNB', symbol: 'BNB', logo: '/bnb-logo.png' },
-  solana: { name: 'Solana', symbol: 'SOL', logo: '/solana-logo.png' },
-  eclipse: { name: 'Eclipse', symbol: 'ETH', logo: '/eclipse-logo.png' },
+  ethereum: { name: 'Ethereum', symbol: 'ETH', logo: '/ethereum-logo.webp' },
+  base: { name: 'Base', symbol: 'ETH', logo: '/base-logo.webp' },
+  bnb: { name: 'BNB', symbol: 'BNB', logo: '/bnb-logo.webp' },
+  solana: { name: 'Solana', symbol: 'SOL', logo: '/solana-logo.webp' },
+  eclipse: { name: 'Eclipse', symbol: 'ETH', logo: '/eclipse-logo.webp' },
 };
 
 const SkeletonLoader = ({ isMobile }) => {
@@ -280,7 +280,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           shortName: chain.label.split(' ')[0],
           chainId: chain.chainId,
           testnet: chain.testnet || false,
-          image: chain.image || '/icons/default.png',
+          image: chain.image || '/icons/default.webp',
         }))
       );
     },
@@ -297,7 +297,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           shortName: coingeckoChain?.shortname || simChain.label.split(' ')[0],
           chainId: simChain.chainId,
           testnet: simChain.testnet || false,
-          image: coingeckoChain?.image?.large || simChain.image || '/icons/default.png',
+          image: coingeckoChain?.image?.large || simChain.image || '/icons/default.webp',
         };
       });
       setChains(mappedChains);
@@ -599,7 +599,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               {
                 chain,
                 symbol: tokenData.symbol || 'Unknown',
-                logo: tokenData.logo || '/fallback-image.png',
+                logo: tokenData.logo || '/fallback-image.webp',
                 name: tokenData.name || 'Unknown Token',
               },
             ];
@@ -615,7 +615,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               {
                 chain,
                 symbol: 'Unknown',
-                logo: '/fallback-image.png',
+                logo: '/fallback-image.webp',
                 name: 'Unknown Token',
               },
             ];
@@ -626,7 +626,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             {
               chain,
               symbol: 'Unknown',
-              logo: '/fallback-image.png',
+              logo: '/fallback-image.webp',
               name: 'Unknown Token',
             },
           ];
@@ -691,7 +691,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 const normalizedAddress = address.toLowerCase();
                 const data = result.value.data.data[normalizedAddress];
                 const nameTag = data?.Labels?.deposit?.['Name Tag'] || null;
-                const image = data?.Labels?.deposit?.image || '/icons/default.png';
+                const image = data?.Labels?.deposit?.image || '/icons/default.webp';
                 newNameTags[normalizedAddress] = { nameTag, image, timestamp: Date.now() };
               });
             } else {
@@ -948,7 +948,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const getPlatformImage = (chainValue) => {
     const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || 'ethereum';
     const chain = chains.find((c) => c.value === chainName);
-    return chain?.image || (chainName === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png');
+    return chain?.image || (chainName === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp');
   };
 
   const getChainLogos = (chainType) => {
@@ -972,7 +972,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const renderTokenRow = (token) => {
     const tokenInfoData = tokenInfo[token.address] || [];
     const tokenDetails = tokenInfoData.find((t) => t.chain === token.chain) || {};
-    let logoUrl = '/icons/default.png';
+    let logoUrl = '/icons/default.webp';
     let tokenName = token.name || token.symbol || tokenDetails.name || tokenDetails.symbol || 'Unknown';
     let tokenSymbol = token.symbol || tokenDetails.symbol || 'Unknown';
 
@@ -980,9 +980,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       logoUrl = NATIVE_TOKEN_INFO[token.chain].logo;
       tokenName = NATIVE_TOKEN_INFO[token.chain].name;
       tokenSymbol = NATIVE_TOKEN_INFO[token.chain].symbol;
-    } else if (token.logo && !token.logo.includes('scontent.xx.fbcdn.net') && token.logo !== '/fallback-image.png') {
+    } else if (token.logo && !token.logo.includes('scontent.xx.fbcdn.net') && token.logo !== '/fallback-image.webp') {
       logoUrl = token.logo;
-    } else if (tokenDetails.logo && !tokenDetails.logo.includes('scontent.xx.fbcdn.net') && tokenDetails.logo !== '/fallback-image.png') {
+    } else if (tokenDetails.logo && !tokenDetails.logo.includes('scontent.xx.fbcdn.net') && tokenDetails.logo !== '/fallback-image.webp') {
       logoUrl = tokenDetails.logo;
     } else {
       return null;
@@ -1012,7 +1012,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 width={isMobile ? 14 : 16}
                 height={isMobile ? 14 : 16}
                 className="rounded-full"
-                onError={(e) => (e.target.src = '/icons/default.png')}
+                onError={(e) => (e.target.src = '/icons/default.webp')}
                 loading="lazy"
               />
               <img
@@ -1022,7 +1022,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 height={isMobile ? 8 : 10}
                 className="rounded-full absolute top-0 right-0"
                 style={{ transform: 'translate(25%, -25%)' }}
-                onError={(e) => (e.target.src = token.chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
+                onError={(e) => (e.target.src = token.chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
                 loading="lazy"
               />
             </div>
@@ -1052,10 +1052,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address);
     const isSVM = SUPPORTED_SVM_CHAINS.includes(tx.chain);
     let tokenLogo = isSVM
-      ? tx.token_metadata?.logo || NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png'
+      ? tx.token_metadata?.logo || NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.webp'
       : tx.token_metadata?.logo && !tx.token_metadata.logo.includes('scontent.xx.fbcdn.net')
         ? tx.token_metadata.logo
-        : NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.png';
+        : NATIVE_TOKEN_INFO[tx.chain]?.logo || '/icons/default.webp';
     let tokenSymbol = tx.token || 'Unknown';
     const addressToShow = tx.type === 'receive' ? tx.from : tx.to;
     const { text: displayAddress, image: addressImage } = truncateAddress(addressToShow, nameTags);
@@ -1069,15 +1069,15 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       if (sent && received) {
         displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol} → ${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
         tokenSymbol = `${sent.symbol}/${received.symbol}`;
-        tokenLogo = sent.logo || received.logo || '/icons/default.png';
+        tokenLogo = sent.logo || received.logo || '/icons/default.webp';
       } else if (sent) {
         displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol}`;
         tokenSymbol = sent.symbol;
-        tokenLogo = sent.logo || '/icons/default.png';
+        tokenLogo = sent.logo || '/icons/default.webp';
       } else if (received) {
         displayValue = `${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
         tokenSymbol = received.symbol;
-        tokenLogo = received.logo || '/icons/default.png';
+        tokenLogo = received.logo || '/icons/default.webp';
       }
       typeDisplay = 'Swap';
     } else if (tx.type === 'other') {
@@ -1102,7 +1102,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 width={isMobile ? 14 : 16}
                 height={isMobile ? 14 : 16}
                 className="rounded-full mx-auto"
-                onError={(e) => (e.target.src = '/icons/default.png')}
+                onError={(e) => (e.target.src = '/icons/default.webp')}
                 loading="lazy"
               />
               <img
@@ -1112,7 +1112,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 height={isMobile ? 8 : 10}
                 className="rounded-full absolute top-0 right-0"
                 style={{ transform: 'translate(25%, -25%)' }}
-                onError={(e) => (e.target.src = tx.chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
+                onError={(e) => (e.target.src = tx.chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
                 loading="lazy"
               />
             </div>
@@ -1141,7 +1141,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   width={isMobile ? 12 : 14}
                   height={isMobile ? 12 : 14}
                   className="rounded-full"
-                  onError={(e) => (e.target.src = '/icons/default.png')}
+                  onError={(e) => (e.target.src = '/icons/default.webp')}
                   loading="lazy"
                 />
               )}
@@ -1164,12 +1164,12 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           <div className="flex flex-col items-center gap-0.5">
             <a href={txUrl} target="_blank" rel="noopener noreferrer">
               <img
-                src="/logos/etherscan-logo.png"
+                src="/logos/etherscan-logo.webp"
                 alt="Explorer"
                 width={isMobile ? 12 : 14}
                 height={isMobile ? 12 : 14}
                 className="rounded-full"
-                onError={(e) => (e.target.src = '/fallback-image.png')}
+                onError={(e) => (e.target.src = '/fallback-image.webp')}
                 loading="lazy"
               />
             </a>
@@ -1326,7 +1326,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                             width={isMobile ? 14 : 16}
                             height={isMobile ? 14 : 16}
                             className="rounded-full"
-                            onError={(e) => (e.target.src = '/icons/default.png')}
+                            onError={(e) => (e.target.src = '/icons/default.webp')}
                             loading="lazy"
                           />
                         )}
@@ -1415,7 +1415,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     width={isMobile ? 14 : 16}
                     height={isMobile ? 14 : 16}
                     className="rounded-full"
-                    onError={(e) => (e.target.src = '/icons/default.png')}
+                    onError={(e) => (e.target.src = '/icons/default.webp')}
                     loading="lazy"
                   />
                 )}
@@ -1457,7 +1457,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     width={isMobile ? 20 : 24}
                     height={isMobile ? 20 : 24}
                     className="rounded-xl"
-                    onError={(e) => (e.target.src = '/icons/default.png')}
+                    onError={(e) => (e.target.src = '/icons/default.webp')}
                     loading="lazy"
                   />
                 )}
@@ -1513,7 +1513,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         width={isMobile ? 18 : 20}
                         height={isMobile ? 18 : 20}
                         className="rounded-full object-contain block flex-shrink-0"
-                        onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.png' : '/fallback-image.png')}
+                        onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
                         loading="lazy"
                       />
                     </motion.button>
@@ -1718,13 +1718,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       {getChainLogos(type).map((chain, index) => (
                         <img
                           key={chain}
-                          src={NATIVE_TOKEN_INFO[chain]?.logo || '/icons/default.png'}
+                          src={NATIVE_TOKEN_INFO[chain]?.logo || '/icons/default.webp'}
                           alt={`${chain} logo`}
                           width={isMobile ? 14 : 16}
                           height={isMobile ? 14 : 16}
                           className="rounded-full"
                           style={{ marginLeft: index > 0 ? '-8px' : '0', zIndex: 10 - index }}
-                          onError={(e) => (e.target.src = '/icons/default.png')}
+                          onError={(e) => (e.target.src = '/icons/default.webp')}
                           loading="lazy"
                         />
                       ))}

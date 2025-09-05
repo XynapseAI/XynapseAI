@@ -241,7 +241,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             className="w-8 h-8"
             onError={(e) => {
               logger.error("Token large logo failed to load:", { symbol: token.symbol, src: token.large })
-              e.target.src = "/fallback-image.png"
+              e.target.src = "/fallback-image.webp"
             }}
           />
           <div>
@@ -290,7 +290,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   const getPlatformImage = (chainValue) => {
     const chainName = CHAIN_ID_TO_NAME[chainValue] || chainValue || "ethereum"
     const chain = chains.find((c) => c.value === chainName)
-    const imageUrl = chain?.image || "/fallback-image.png"
+    const imageUrl = chain?.image || "/fallback-image.webp"
     return imageUrl
   }
 
@@ -371,7 +371,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 src={token1.image_url || "/placeholder.svg"}
                 alt={`${token1.symbol} logo`}
                 className="w-8 h-8 rounded-full"
-                onError={(e) => (e.target.src = "/fallback-image.png")}
+                onError={(e) => (e.target.src = "/fallback-image.webp")}
               />
               {token1.symbol}
             </h5>
@@ -419,7 +419,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 src={token2.image_url || "/placeholder.svg"}
                 alt={`${token2.symbol} logo`}
                 className="w-8 h-8 rounded-full ring-2 ring-white/20"
-                onError={(e) => (e.target.src = "/fallback-image.png")}
+                onError={(e) => (e.target.src = "/fallback-image.webp")}
               />
               {token2.symbol}
             </h5>
@@ -637,7 +637,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             chain: selectedChain,
                             src: getPlatformImage(selectedChain),
                           })
-                          e.target.src = "/fallback-image.png"
+                          e.target.src = "/fallback-image.webp"
                         }}
                       />
                       <span className="text-[8px] sm:text-[10px] font-medium truncate">
@@ -683,7 +683,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   chain: chain.value,
                                   src: chain.image,
                                 })
-                                e.target.src = "/fallback-image.png"
+                                e.target.src = "/fallback-image.webp"
                               }}
                             />
                             {chain.label}
@@ -785,12 +785,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       whileTap={{ scale: 0.95 }}
                     >
                       <img
-                        src={token.thumb || token.image?.thumb || "/fallback-image.png"}
+                        src={token.thumb || token.image?.thumb || "/fallback-image.webp"}
                         alt={`${token.symbol} logo`}
                         className="w-3 sm:w-4 h-3 sm:h-4 rounded-lg"
                         onError={(e) => {
                           logger.error("Token logo failed to load:", { symbol: token.symbol, src: token.thumb });
-                          e.target.src = "/fallback-image.png";
+                          e.target.src = "/fallback-image.webp";
                         }}
                       />
                       <span className="text-white text-[8px] sm:text-[10px] font-medium">{token.symbol.toUpperCase()}</span>
@@ -863,7 +863,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             alt={`${selectedToken?.symbol || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.symbol} logo`}
                             className="w-4 sm:w-5 h-4 sm:h-5 mr-2"
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                            onError={(e) => (e.target.src = "/fallback-image.webp")}
                           />
                           {(
                             selectedToken?.symbol ||
@@ -909,7 +909,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   src={token.image || "/placeholder.svg"}
                                   alt={`${token.symbol} logo`}
                                   className="w-4 sm:w-5 h-4 sm:h-5 rounded-full mr-2"
-                                  onError={(e) => (e.target.src = "/fallback-image.png")}
+                                  onError={(e) => (e.target.src = "/fallback-image.webp")}
                                 />
                               )}
                               <div>
@@ -936,7 +936,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }
                             alt={`${selectedToken?.symbol || localCache.current[`token-metadata-${selectedToken?.id}`]?.data?.symbol} logo`}
                             className="w-6 sm:w-7 h-6 sm:h-7"
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                            onError={(e) => (e.target.src = "/fallback-image.webp")}
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ duration: 0.4 }}
@@ -1014,10 +1014,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             whileTap={{ scale: 0.9 }}
                           >
                             <img
-                              src="/logos/x.png"
+                              src="/logos/x.webp"
                               alt="Twitter"
                               className="w-3 h-3"
-                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              onError={(e) => (e.target.src = "/fallback-image.webp")}
                             />
                           </motion.a>
                         )}
@@ -1036,10 +1036,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             whileTap={{ scale: 0.9 }}
                           >
                             <img
-                              src="/logos/discord.png"
+                              src="/logos/discord.webp"
                               alt="Discord"
                               className="w-3 h-3"
-                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              onError={(e) => (e.target.src = "/fallback-image.webp")}
                             />
                           </motion.a>
                         )}
@@ -1058,10 +1058,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             whileTap={{ scale: 0.9 }}
                           >
                             <img
-                              src="/logos/website.png"
+                              src="/logos/website.webp"
                               alt="Website"
                               className="w-3 h-3"
-                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              onError={(e) => (e.target.src = "/fallback-image.webp")}
                             />
                           </motion.a>
                         )}
@@ -1080,10 +1080,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             whileTap={{ scale: 0.9 }}
                           >
                             <img
-                              src="/logos/github.png"
+                              src="/logos/github.webp"
                               alt="GitHub"
                               className="w-3 h-3"
-                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              onError={(e) => (e.target.src = "/fallback-image.webp")}
                             />
                           </motion.a>
                         )}
@@ -1397,10 +1397,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 </div>
               )}
               <div className="absolute top-1 right-1 flex items-center group p-2">
-                <img src="/logos/CG.png" alt="CG Logo" className="w-4 sm:w-4 h-4 sm:h-4 object-contain opacity-60" />
+                <img src="/logos/CG.webp" alt="CG Logo" className="w-4 sm:w-4 h-4 sm:h-4 object-contain opacity-60" />
                 <span className="absolute right-20 sm:right-20 text-[8px] sm:text-[9px] text-white/60 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:-translate-x-0 transition-all duration-300 whitespace-nowrap flex items-center">
                   Data powered by
-                  <img src="/logos/CG_1.png" alt="CG_1 Logo" className="w-12 sm:w-12 h-12 sm:h-12 object-contain ml-2" />
+                  <img src="/logos/CG_1.webp" alt="CG_1 Logo" className="w-12 sm:w-12 h-12 sm:h-12 object-contain ml-2" />
                 </span>
               </div>
             </motion.div>
@@ -1507,7 +1507,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       symbol: selectedToken.symbol,
                                       src: selectedToken.image,
                                     })
-                                    e.target.src = "/icons/default.png"
+                                    e.target.src = "/icons/default.webp"
                                   }}
                                 />
                               )}
@@ -1592,7 +1592,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                     address,
                                                     src: image,
                                                   })
-                                                  e.target.src = "/icons/default.png"
+                                                  e.target.src = "/icons/default.webp"
                                                 }}
                                               />
                                             )}
@@ -1794,7 +1794,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           src={ticker.market.logo || "/placeholder.svg"}
                                           alt={`${ticker.market.name} logo`}
                                           className="w-6 h-6 flex-shrink-0 rounded-lg"
-                                          onError={(e) => (e.target.src = "/fallback-image.png")}
+                                          onError={(e) => (e.target.src = "/fallback-image.webp")}
                                         />
                                       )}
                                       <a
@@ -1995,7 +1995,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               src={selectedToken.image || "/placeholder.svg"}
                                               alt={`${selectedToken.symbol} logo`}
                                               className="w-4 h-4 rounded-lg flex-shrink-0"
-                                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                                              onError={(e) => (e.target.src = "/fallback-image.webp")}
                                             />
                                           )}
                                         </div>
@@ -2139,10 +2139,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 transition-all duration-300"
                                           >
                                             <img
-                                              src="/logos/etherscan-logo.png"
+                                              src="/logos/etherscan-logo.webp"
                                               alt="Etherscan"
                                               className="w-3 h-3"
-                                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                                              onError={(e) => (e.target.src = "/fallback-image.webp")}
                                             />
                                           </a>
                                           <span className="text-[9px] text-white/60 text-center">
@@ -2203,14 +2203,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   src={token1.image_url || "/placeholder.svg"}
                                                   alt={`${token1.symbol} logo`}
                                                   className="w-4 h-4 rounded-lg flex-shrink-0"
-                                                  onError={(e) => (e.target.src = "/fallback-image.png")}
+                                                  onError={(e) => (e.target.src = "/fallback-image.webp")}
                                                 />
                                                 <span className="text-white/40">/</span>
                                                 <img
                                                   src={token2.image_url || "/placeholder.svg"}
                                                   alt={`${token2.symbol} logo`}
                                                   className="w-4 h-4 rounded-lg flex-shrink-0"
-                                                  onError={(e) => (e.target.src = "/fallback-image.png")}
+                                                  onError={(e) => (e.target.src = "/fallback-image.webp")}
                                                 />
                                               </div>
                                             ) : (

@@ -18,7 +18,7 @@ import "../styles/MarketTab.css";
 import "react-loading-skeleton/dist/skeleton.css";
 import { logger } from '../utils/clientLogger';
 
-const BITCOIN_LOGO = "/logos/bitcoin.png";
+const BITCOIN_LOGO = "/logos/bitcoin.webp";
 
 const EXCHANGE_MAPPING = {
   okx: "okex",
@@ -167,7 +167,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         const result = await response.json();
         if (!response.ok) throw new Error(result.detail || "Failed to fetch chain data");
         const logos = result.data.reduce((acc, chain) => {
-          acc[chain.id.toLowerCase()] = chain.image?.thumb || "/fallback-image.png";
+          acc[chain.id.toLowerCase()] = chain.image?.thumb || "/fallback-image.webp";
           return acc;
         }, {});
         logos["bitcoin"] = BITCOIN_LOGO;
@@ -201,7 +201,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               return [
                 address,
                 {
-                  image: { thumb: "/logos/bitcoin.png" },
+                  image: { thumb: "/logos/bitcoin.webp" },
                   symbol: "BTC",
                 },
               ];
@@ -246,7 +246,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             return [
               address,
               {
-                image: { thumb: "/fallback-image.png" },
+                image: { thumb: "/fallback-image.webp" },
                 symbol: address.slice(0, 6).toUpperCase(), // Use first 6 chars as fallback symbol
               },
             ];
@@ -256,7 +256,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         const images = {};
         const symbols = {};
         pairs.forEach(([address, data]) => {
-          images[address] = data.image?.thumb || data.image || "/fallback-image.png";
+          images[address] = data.image?.thumb || data.image || "/fallback-image.webp";
           symbols[address] = data.symbol?.toUpperCase() || address.slice(0, 6).toUpperCase();
         });
         setTokenImages(images);
@@ -300,7 +300,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     } catch (err) {
       const fallback = {
         name: originalId.charAt(0).toUpperCase() + originalId.slice(1),
-        image: `/icons/${originalId.toLowerCase()}.png`,
+        image: `/icons/${originalId.toLowerCase()}.webp`,
         country: "N/A",
         year_established: "N/A",
         trust_score: "N/A",
@@ -855,7 +855,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           holder_address: wallet.holder_address,
           exchange_name: wallet.exchange_name,
           name_tag: wallet.name_tag || "N/A",
-          image: wallet.image || (wallet.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
+          image: wallet.image || (wallet.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.webp"),
           total_value_usd: Number(wallet.total_value_usd) || 0,
           key: `${addr}-${index}`,
         });
@@ -884,7 +884,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         key: `${item.token_address}-${index}`,
         percentage: totalValue > 0 ? ((Number(item.total_balance_usd) || 0) / totalValue) * 100 : 0,
         symbol: item.symbol || tokenSymbols[item.token_address] || item.token_address,
-        logo: item.logo || tokenImages[item.token_address] || "/fallback-image.png",
+        logo: item.logo || tokenImages[item.token_address] || "/fallback-image.webp",
         chains: Array.from(metadataChains),
       };
     });
@@ -916,7 +916,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     return Array.from(chainSet).map((value) => ({
       value,
       label: value === "all" ? "All Chains" : CHAIN_ID_TO_NAME[value.toLowerCase()] || value,
-      image: value === "bitcoin" ? BITCOIN_LOGO : chainLogos[value.toLowerCase()] || "/fallback-image.png",
+      image: value === "bitcoin" ? BITCOIN_LOGO : chainLogos[value.toLowerCase()] || "/fallback-image.webp",
     }));
   }, [portfolioData, walletData, chainLogos]);
 
@@ -989,10 +989,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   >
                     <td className="px-3 py-2.5 text-white truncate">
                       <img
-                        src={group.logo || (group.token_address === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png")}
+                        src={group.logo || (group.token_address === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.webp")}
                         alt={`${group.symbol} logo`}
                         className="w-5 h-5 inline mr-2 rounded-full"
-                        onError={(e) => (e.target.src = "/fallback-image.png")}
+                        onError={(e) => (e.target.src = "/fallback-image.webp")}
                       />
                       {group.symbol || (group.token_address === "bitcoin" ? "BTC" : group.token_address)}
                     </td>
@@ -1061,14 +1061,14 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                             src={BITCOIN_LOGO}
                             alt="Bitcoin logo"
                             className="w-5 h-5 inline rounded-full"
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                            onError={(e) => (e.target.src = "/fallback-image.webp")}
                           />
                         )}
                         <img
                           src={wallet.image}
                           alt="Wallet logo"
                           className="w-5 h-5 inline mr-2 rounded-full"
-                          onError={(e) => (e.target.src = "/fallback-image.png")}
+                          onError={(e) => (e.target.src = "/fallback-image.webp")}
                         />
                         <button
                           onClick={() => handleWalletClick(wallet.holder_address)}
@@ -1136,18 +1136,18 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
                 const fromNtag = {
                   name: fromWallet.name_tag || "N/A",
-                  image: fromWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
+                  image: fromWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.webp"),
                 };
                 const toNtag = {
                   name: toWallet.name_tag || "N/A",
-                  image: toWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.png"),
+                  image: toWallet.image || (chainName === "bitcoin" ? BITCOIN_LOGO : "/fallback-image.webp"),
                 };
                 const chain = chainName !== "unknown" ? chainName : "ethereum";
                 const { txUrl } = getExplorerUrls(chain, tx.hash || "", "");
                 let tokenSymbol = tx.token_metadata?.symbol || tx.token || "Unknown";
                 const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
                 let displayValue = Number(tx.value || 0).toLocaleString("en-US", { maximumFractionDigits: 1 });
-                let tokenLogo = tx.token_metadata?.logo || "/fallback-image.png";
+                let tokenLogo = tx.token_metadata?.logo || "/fallback-image.webp";
 
                 if (tx.type === "swap" && tx.swap_details) {
                   const sent = tx.swap_details.sent[0];
@@ -1155,15 +1155,15 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   if (sent && received) {
                     displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol} → ${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
                     tokenSymbol = `${sent.symbol}/${received.symbol}`;
-                    tokenLogo = sent.logo || received.logo || "/fallback-image.png";
+                    tokenLogo = sent.logo || received.logo || "/fallback-image.webp";
                   } else if (sent) {
                     displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol}`;
                     tokenSymbol = sent.symbol;
-                    tokenLogo = sent.logo || "/fallback-image.png";
+                    tokenLogo = sent.logo || "/fallback-image.webp";
                   } else if (received) {
                     displayValue = `${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
                     tokenSymbol = received.symbol;
-                    tokenLogo = received.logo || "/fallback-image.png";
+                    tokenLogo = received.logo || "/fallback-image.webp";
                   }
                 } else if (tx.type === "other") {
                   displayValue = tx.value || "N/A";
@@ -1186,17 +1186,17 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                             width={isMobile ? 14 : 16}
                             height={isMobile ? 14 : 16}
                             className="rounded-full mx-auto"
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                            onError={(e) => (e.target.src = "/fallback-image.webp")}
                             loading="lazy"
                           />
                           <img
-                            src={chainLogos[chain] || "/fallback-image.png"}
+                            src={chainLogos[chain] || "/fallback-image.webp"}
                             alt={`${CHAIN_ID_TO_NAME[chain] || chain || "Unknown"} logo`}
                             width={isMobile ? 8 : 10}
                             height={isMobile ? 8 : 10}
                             className="rounded-full absolute top-0 right-0"
                             style={{ transform: "translate(25%, -25%)" }}
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                            onError={(e) => (e.target.src = "/fallback-image.webp")}
                             loading="lazy"
                           />
                         </div>
@@ -1223,7 +1223,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                               src={fromNtag.image}
                               alt="From wallet logo"
                               className="w-3 h-3 rounded-full"
-                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              onError={(e) => (e.target.src = "/fallback-image.webp")}
                               loading="lazy"
                             />
                             <button
@@ -1238,7 +1238,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                               src={toNtag.image}
                               alt="To wallet logo"
                               className="w-3 h-3 rounded-full"
-                              onError={(e) => (e.target.src = "/fallback-image.png")}
+                              onError={(e) => (e.target.src = "/fallback-image.webp")}
                               loading="lazy"
                             />
                             <button
@@ -1275,12 +1275,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                       <div className="flex flex-col items-center gap-0.5">
                         <a href={txUrl} target="_blank" rel="noopener noreferrer">
                           <img
-                            src="/logos/etherscan-logo.png"
+                            src="/logos/etherscan-logo.webp"
                             alt="Explorer"
                             width={isMobile ? 12 : 14}
                             height={isMobile ? 12 : 14}
                             className="rounded-full"
-                            onError={(e) => (e.target.src = "/fallback-image.png")}
+                            onError={(e) => (e.target.src = "/fallback-image.webp")}
                             loading="lazy"
                           />
                         </a>
@@ -1344,10 +1344,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <div className="flex items-center gap-2">
                     <img
-                      src={exchangeData.image || "/fallback-image.png"}
+                      src={exchangeData.image || "/fallback-image.webp"}
                       alt={`${exchangeData.name} logo`}
                       className="w-6 sm:w-8 h-6 sm:h-8 rounded-full"
-                      onError={(e) => (e.target.src = "/fallback-image.png")}
+                      onError={(e) => (e.target.src = "/fallback-image.webp")}
                     />
                     <h4 className="text-base sm:text-lg font-bold text-white">{exchangeData.name}</h4>
                   </div>
@@ -1401,7 +1401,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                       whileHover={{ scale: 1.1, y: -2 }}
                       whileTap={{ scale: 0.9 }}
                     >
-                      <img src="/logos/x.png" alt="Twitter" className="w-3 h-3" />
+                      <img src="/logos/x.webp" alt="Twitter" className="w-3 h-3" />
                     </motion.a>
                   )}
                   {exchangeData.url && (
@@ -1413,7 +1413,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                       whileHover={{ scale: 1.1, y: -2 }}
                       whileTap={{ scale: 0.9 }}
                     >
-                      <img src="/logos/website.png" alt="Website" className="w-3 h-3" />
+                      <img src="/logos/website.webp" alt="Website" className="w-3 h-3" />
                     </motion.a>
                   )}
                 </div>
@@ -1530,7 +1530,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             ...acc,
             [w.holder_address?.toLowerCase()]: {
               name: w.name_tag || "N/A",
-              image: w.image || (w.chains?.includes("bitcoin") ? BITCOIN_LOGO : "/fallback-image.png"),
+              image: w.image || (w.chains?.includes("bitcoin") ? BITCOIN_LOGO : "/fallback-image.webp"),
             },
           }), {})}
           isMobile={isMobile}

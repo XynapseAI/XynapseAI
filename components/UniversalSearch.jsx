@@ -97,17 +97,17 @@ export default function UniversalSearch({
 
   // Predefined major organizations
   const majorOrganizations = [
-    { id: "binance", name: "Binance", type: "organization", image: "/icons/binance.png" },
-    { id: "okex", name: "OKX", type: "organization", image: "/icons/okx.png" },
-    { id: "bybit_spot", name: "Bybit", type: "organization", image: "/icons/bybit.png" },
-    { id: "uniswap", name: "Uniswap", type: "organization", image: "/icons/uniswap.png" },
-    { id: "mtgox", name: "Mt. Gox", type: "organization", image: "/icons/mtgox.png" },
-    { id: "coinbase-exchange", name: "Coinbase", type: "organization", image: "/icons/coinbase.png" },
-    { id: "kraken", name: "Kraken", type: "organization", image: "/icons/kraken.png" },
-    { id: "bitfinex", name: "Bitfinex", type: "organization", image: "/icons/bitfinex.png" },
-    { id: "huobi-global", name: "Huobi", type: "organization", image: "/icons/huobi.png" },
-    { id: "kucoin", name: "KuCoin", type: "organization", image: "/icons/kucoin.png" },
-    { id: "gate-io", name: "Gate.io", type: "organization", image: "/icons/gateio.png" },
+    { id: "binance", name: "Binance", type: "organization", image: "/icons/binance.webp" },
+    { id: "okex", name: "OKX", type: "organization", image: "/icons/okx.webp" },
+    { id: "bybit_spot", name: "Bybit", type: "organization", image: "/icons/bybit.webp" },
+    { id: "uniswap", name: "Uniswap", type: "organization", image: "/icons/uniswap.webp" },
+    { id: "mtgox", name: "Mt. Gox", type: "organization", image: "/icons/mtgox.webp" },
+    { id: "coinbase-exchange", name: "Coinbase", type: "organization", image: "/icons/coinbase.webp" },
+    { id: "kraken", name: "Kraken", type: "organization", image: "/icons/kraken.webp" },
+    { id: "bitfinex", name: "Bitfinex", type: "organization", image: "/icons/bitfinex.webp" },
+    { id: "huobi-global", name: "Huobi", type: "organization", image: "/icons/huobi.webp" },
+    { id: "kucoin", name: "KuCoin", type: "organization", image: "/icons/kucoin.webp" },
+    { id: "gate-io", name: "Gate.io", type: "organization", image: "/icons/gateio.webp" },
   ];
 
   // Capitalize function
@@ -132,7 +132,7 @@ export default function UniversalSearch({
         type: "wallet",
         address: searchQuery,
         name: `Wallet: ${searchQuery.slice(0, 6)}...${searchQuery.slice(-4)}`,
-        image: "/icons/wallet.png",
+        image: "/icons/wallet.webp",
       });
     }
 
@@ -151,7 +151,7 @@ export default function UniversalSearch({
           address: nametag.address,
           name: nametag.nametag,
           description: nametag.description,
-          image: nametag.image || "/icons/default-nametag.png",
+          image: nametag.image || "/icons/default-nametag.webp",
           subcategory: nametag.subcategory,
         })),
       );

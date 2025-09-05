@@ -317,7 +317,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
       is_deposit: false,
       deposit_confidence_percentage: 0,
       nametag: nametag,
-      image: '/icons/default.png',
+      image: '/icons/default.webp',
       gemini_analysis: 'No transactions found to analyze.',
       reason: 'No transactions found',
       metrics: {},
@@ -372,7 +372,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
       is_deposit: false,
       deposit_confidence_percentage: confidenceScore,
       nametag: nametag,
-      image: '/icons/default.png',
+      image: '/icons/default.webp',
       reason: `No outgoing transactions sent back to target wallet ${lowerPrimaryTargetWallet} in last 30 days.`,
       metrics: {
         incoming_txs_24h: incomingTxs24h.length,
@@ -445,7 +445,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     is_deposit: isDeposit,
     deposit_confidence_percentage: confidenceScore,
     nametag: nametag,
-    image: '/icons/default.png',
+    image: '/icons/default.webp',
     reason: finalReason,
     metrics: metrics,
     gemini_analysis: geminiAnalysis,
@@ -459,7 +459,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     if (!primaryWallet) {
       logger.error(`No primary wallet found for ${lowerPrimaryTargetWallet} in wallets.json`);
       const newNametagValue = `Unknown Deposit Wallet (Conf: ${confidenceScore.toFixed(0)}%)`;
-      const newImage = '/icons/default.png';
+      const newImage = '/icons/default.webp';
       await addNametag(lowerWalletAddress, {
         name: newNametagValue,
         description: `Automatically detected as a deposit wallet, but primary wallet ${lowerPrimaryTargetWallet} not found in wallets.json.`,
@@ -471,7 +471,7 @@ async function identifyDepositWallet(walletAddress, primaryTargetWallet, chain =
     } else {
       const shortName = primaryWallet.name.split(' ')[0];
       const newNametagValue = `${shortName} Deposit Wallet`;
-      const newImage = `/icons/${shortName.toLowerCase().replace(/[^a-z0-9]/g, '')}.png`;
+      const newImage = `/icons/${shortName.toLowerCase().replace(/[^a-z0-9]/g, '')}.webp`;
       logger.info(`Assigning nametag ${newNametagValue} and image ${newImage} to ${lowerWalletAddress}`);
       await addNametag(lowerWalletAddress, {
         name: newNametagValue,

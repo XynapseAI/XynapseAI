@@ -19,7 +19,7 @@ export default function LoginPrompt() {
         className="flex flex-col items-center text-center"
       >
         <Image
-          src="/logos/logo-landscape.png"
+          src="/logos/logo-landscape.webp"
           alt="Xynapse Logo"
           width={120}
           height={56}

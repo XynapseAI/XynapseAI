@@ -381,7 +381,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         const coingeckoChain = coingeckoChains.find(
           (cg) => CHAIN_MAPPING[cg.id]?.simChain === simChain.value
         );
-        const imageUrl = coingeckoChain?.image?.large || '/fallback-image.png';
+        const imageUrl = coingeckoChain?.image?.large || '/fallback-image.webp';
         return {
           coingeckoId: coingeckoChain?.id || null,
           value: simChain.value,
@@ -423,7 +423,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         shortName: chain.label.split(' ')[0],
         chainId: chain.chainId,
         testnet: chain.testnet || false,
-        image: '/fallback-image.png',
+        image: '/fallback-image.webp',
       }));
       localCache.current[cacheKey] = { data: fallbackChains, timestamp: Date.now() };
       setChains(fallbackChains);
@@ -523,7 +523,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
         const data = response.data.data[normalizedAddress];
         const nameTag = data.Labels?.deposit?.['Name Tag'] || null;
-        const image = data.Labels?.deposit?.image || '/icons/default.png';
+        const image = data.Labels?.deposit?.image || '/icons/default.webp';
         const cacheEntry = { nameTag, image, timestamp: Date.now() };
         nameTagsRef.current[normalizedAddress] = cacheEntry;
         setNameTags((prev) => ({
@@ -625,7 +625,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 const normalizedAddress = address.toLowerCase();
                 const data = result.value.data.data?.[normalizedAddress];
                 const nameTag = data?.Labels?.deposit?.['Name Tag'] || null;
-                const image = data?.Labels?.deposit?.image || '/icons/default.png';
+                const image = data?.Labels?.deposit?.image || '/icons/default.webp';
                 newNameTags[normalizedAddress] = { nameTag, image, timestamp: Date.now() };
               });
             } else {
@@ -2323,7 +2323,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
           id: coin.id,
           name: coin.name,
           symbol: coin.symbol,
-          image: coin.image || '/fallback-image.png',
+          image: coin.image || '/fallback-image.webp',
           market_cap_rank: coin.market_cap_rank,
         }));
         setSearchResults(results.slice(0, 10));
@@ -2387,7 +2387,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
         id: token.id,
         symbol: token.symbol,
         name: token.name,
-        image: token.image || '/fallback-image.png', // Đảm bảo trường image được gán đúng
+        image: token.image || '/fallback-image.webp', // Đảm bảo trường image được gán đúng
         roi: token.roi || null,
         current_price: token.current_price || {},
         market_cap: token.market_cap || {},

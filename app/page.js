@@ -125,12 +125,12 @@ function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
 // Updated SimulatedTreemap Component
 function SimulatedTreemap() {
   const [nodes, setNodes] = useState([
-    { address: '0x123...abc', nametag: 'Binance Deposit Wallet', image: '/icons/binance.png', position: { x: 150, y: 200 } },
-    { address: '0x456...def', nametag: 'OKX Hot Wallet', image: '/icons/okx.png', position: { x: -50, y: 150 } },
-    { address: '0x789...ghi', nametag: 'Bybit Hot Wallet', image: '/icons/bybit.png', position: { x: -50, y: 250 } },
-    { address: '0xabc...123', nametag: 'Tether Treasury', image: '/icons/tether.png', position: { x: 350, y: 100 } },
-    { address: '0xdef...456', nametag: 'Binance Hot Wallet', image: '/icons/binance.png', position: { x: 350, y: 200 } },
-    { address: '0xghi...789', nametag: 'Coinbase Wallet', image: '/icons/coinbase.png', position: { x: 350, y: 300 } },
+    { address: '0x123...abc', nametag: 'Binance Deposit Wallet', image: '/icons/binance.webp', position: { x: 150, y: 200 } },
+    { address: '0x456...def', nametag: 'OKX Hot Wallet', image: '/icons/okx.webp', position: { x: -50, y: 150 } },
+    { address: '0x789...ghi', nametag: 'Bybit Hot Wallet', image: '/icons/bybit.webp', position: { x: -50, y: 250 } },
+    { address: '0xabc...123', nametag: 'Tether Treasury', image: '/icons/tether.webp', position: { x: 350, y: 100 } },
+    { address: '0xdef...456', nametag: 'Binance Hot Wallet', image: '/icons/binance.webp', position: { x: 350, y: 200 } },
+    { address: '0xghi...789', nametag: 'Coinbase Wallet', image: '/icons/coinbase.webp', position: { x: 350, y: 300 } },
   ])
 
   const handleDrag = (e, address) => {
@@ -505,47 +505,47 @@ export default function Home() {
   ]
 
   const partnerLogos = [
-    '/logos/logo1.png',
-    '/logos/logo2.png',
-    '/logos/logo3.png',
-    '/logos/logo4.png',
-    '/logos/logo5.png',
-    '/logos/logo6.png',
-    '/logos/logo7.png',
-    '/logos/logo8.png',
-    '/logos/logo9.png',
-    '/logos/logo10.png',
-    '/logos/logo11.png',
-    '/logos/logo12.png',
-    '/logos/logo13.png',
-    '/logos/logo14.png',
-    '/logos/logo15.png',
-    '/logos/logo16.png',
-    '/logos/logo17.png',
-    '/logos/logo18.png',
-    '/logos/logo19.png',
-    '/logos/logo20.png',
-    '/logos/logo21.png',
-    '/logos/logo22.png',
-    '/logos/logo23.png',
-    '/logos/logo24.png',
-    '/logos/logo25.png',
-    '/logos/logo26.png',
-    '/logos/logo27.png',
-    '/logos/logo28.png',
-    '/logos/logo29.png',
-    '/logos/logo30.png',
-    '/logos/logo31.png',
-    '/logos/logo32.png',
-    '/logos/logo33.png',
-    '/logos/logo34.png',
-    '/logos/logo35.png',
-    '/logos/logo36.png',
-    '/logos/logo37.png',
-    '/logos/logo38.png',
-    '/logos/logo39.png',
-    '/logos/logo40.png',
-    '/logos/logo41.png',
+    '/logos/logo1.webp',
+    '/logos/logo2.webp',
+    '/logos/logo3.webp',
+    '/logos/logo4.webp',
+    '/logos/logo5.webp',
+    '/logos/logo6.webp',
+    '/logos/logo7.webp',
+    '/logos/logo8.webp',
+    '/logos/logo9.webp',
+    '/logos/logo10.webp',
+    '/logos/logo11.webp',
+    '/logos/logo12.webp',
+    '/logos/logo13.webp',
+    '/logos/logo14.webp',
+    '/logos/logo15.webp',
+    '/logos/logo16.webp',
+    '/logos/logo17.webp',
+    '/logos/logo18.webp',
+    '/logos/logo19.webp',
+    '/logos/logo20.webp',
+    '/logos/logo21.webp',
+    '/logos/logo22.webp',
+    '/logos/logo23.webp',
+    '/logos/logo24.webp',
+    '/logos/logo25.webp',
+    '/logos/logo26.webp',
+    '/logos/logo27.webp',
+    '/logos/logo28.webp',
+    '/logos/logo29.webp',
+    '/logos/logo30.webp',
+    '/logos/logo31.webp',
+    '/logos/logo32.webp',
+    '/logos/logo33.webp',
+    '/logos/logo34.webp',
+    '/logos/logo35.webp',
+    '/logos/logo36.webp',
+    '/logos/logo37.webp',
+    '/logos/logo38.webp',
+    '/logos/logo39.webp',
+    '/logos/logo40.webp',
+    '/logos/logo41.webp',
   ]
 
   const row1Logos = partnerLogos.slice(0, 14)
@@ -553,19 +553,19 @@ export default function Home() {
   const row3Logos = partnerLogos.slice(28, 41)
 
   const trustedByLogos = [
-    '/logos/logo1.png',
-    '/logos/logo2.png',
-    '/logos/logo3.png',
-    '/logos/logo4.png',
-    '/logos/logo5.png',
+    '/logos/logo1.webp',
+    '/logos/logo2.webp',
+    '/logos/logo3.webp',
+    '/logos/logo4.webp',
+    '/logos/logo5.webp',
   ]
 
   const simulatedTopHolders = [
-    { address: '', balance: 632457, source: 'MicroStrategy Inc.', image: '/icons/microstrategy.png' },
-    { address: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo', balance: 248597, source: 'Binance Cold Wallet', image: '/icons/binance.png' },
-    { address: 'bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2', balance: 140574, source: 'Robinhood Cold Wallet', image: '/icons/robinhood.png' },
-    { address: '3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6', balance: 140398, source: 'Binance Cold Wallet', image: '/icons/binance.png' },
-    { address: 'bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97', balance: 130010, source: 'Bitfinex Cold Wallet', image: '/icons/bitfinex.png' },
+    { address: '', balance: 632457, source: 'MicroStrategy Inc.', image: '/icons/microstrategy.webp' },
+    { address: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo', balance: 248597, source: 'Binance Cold Wallet', image: '/icons/binance.webp' },
+    { address: 'bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2', balance: 140574, source: 'Robinhood Cold Wallet', image: '/icons/robinhood.webp' },
+    { address: '3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6', balance: 140398, source: 'Binance Cold Wallet', image: '/icons/binance.webp' },
+    { address: 'bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97', balance: 130010, source: 'Bitfinex Cold Wallet', image: '/icons/bitfinex.webp' },
   ]
 
   return (
@@ -574,7 +574,7 @@ export default function Home() {
       <header className="w-full py-1.5 px-6 flex justify-between items-center z-50 sticky top-0 bg-black/50 backdrop-blur-lg">
         <div className="flex items-center">
           <Image
-            src="/logos/logo-landscape.png"
+            src="/logos/logo-landscape.webp"
             alt="Xynapse Logo"
             width={120}
             height={56}
@@ -644,7 +644,7 @@ export default function Home() {
           {/* <div className="hidden md:flex items-center gap-4">
             <Link href="https://x.com" className="transition-all duration-300">
               <Image
-                src="/logos/x.png"
+                src="/logos/x.webp"
                 alt="X Logo"
                 width={24}
                 height={24}
@@ -653,7 +653,7 @@ export default function Home() {
             </Link>
             <span>
               <Image
-                src="/logos/discord.png"
+                src="/logos/discord.webp"
                 alt="Discord Logo"
                 width={24}
                 height={24}
@@ -732,7 +732,7 @@ export default function Home() {
               <div className="flex gap-6">
                 <Link href="https://x.com" className="text-gray-500 hover:text-white transition-colors">
                   <Image
-                    src="/logos/x.png"
+                    src="/logos/x.webp"
                     alt="X Logo"
                     width={24}
                     height={24}
@@ -741,7 +741,7 @@ export default function Home() {
                 </Link>
                 <span>
                   <Image
-                    src="/logos/discord.png"
+                    src="/logos/discord.webp"
                     alt="Discord Logo"
                     width={24}
                     height={24}
@@ -1101,7 +1101,7 @@ export default function Home() {
                   <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
                     Top 100
                     <Image
-                      src="/logos/bitcoin.png"
+                      src="/logos/bitcoin.webp"
                       alt="BTC logo"
                       className="w-4 h-4"
                       width={500}
@@ -1319,7 +1319,7 @@ export default function Home() {
             <div>
               <div className="flex items-center mb-4">
                 <Image
-                  src="/logos/logo-landscape.png"
+                  src="/logos/logo-landscape.webp"
                   alt="Xynapse Logo"
                   width={120}
                   height={56}
@@ -1353,7 +1353,7 @@ export default function Home() {
             <div className="flex gap-6 mb-4 md:mb-0">
               <Link href="https://x.com" className="text-gray-500 hover:text-white transition-colors">
                 <Image
-                  src="/logos/x.png"
+                  src="/logos/x.webp"
                   alt="X Logo"
                   width={24}
                   height={24}
@@ -1362,7 +1362,7 @@ export default function Home() {
               </Link>
               <span>
                 <Image
-                  src="/logos/discord.png"
+                  src="/logos/discord.webp"
                   alt="Discord Logo"
                   width={24}
                   height={24}

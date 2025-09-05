@@ -553,12 +553,12 @@ export default function AITab({ recaptchaRef }) {
                 <div className="relative w-6 h-6">
                   <div className="absolute inset-0 border-2 border-neon-blue/50 border-t-neon-blue rounded-full animate-spin"></div>
                   <Image
-                    src="/logos/logo-scan.png"
+                    src="/logos/logo-scan.webp"
                     alt="Loading Logo"
                     width={24}
                     height={24}
                     className="absolute inset-0 w-4 h-4 m-1 object-contain animate-pulse"
-                    onError={() => console.log(`Failed to load loading logo: /logos/logo-scan.png`)}
+                    onError={() => console.log(`Failed to load loading logo: /logos/logo-scan.webp`)}
                   />
                 </div>
                 <span>Loading...</span>

@@ -532,7 +532,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         console.warn(`Invalid profile picture URL: ${profilePicture}`, err);
       }
     }
-    return '/default-avatar.png';
+    return '/default-avatar.webp';
   }, []);
 
   // Render User Row for Leaderboard
@@ -1082,7 +1082,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                          <img src="/logos/google.png" alt="Google Logo" className="w-3 h-3" />
+                          <img src="/logos/google.webp" alt="Google Logo" className="w-3 h-3" />
                           <span className="text-white/60">Google:</span>
                         </div>
                         <span className="text-neon-blue">{userData.email}</span>
@@ -1119,7 +1119,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                             </>
                           ) : (
                             <>
-                              <img src="/icons/crown.png" alt="Crown Icon" className="w-3 h-3" />
+                              <img src="/icons/crown.webp" alt="Crown Icon" className="w-3 h-3" />
                               <span className="text-yellow-400">{userData.tier}</span>
                             </>
                           )}
@@ -1137,7 +1137,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                          <img src="/logos/x.png" alt="Twitter Logo" className="w-3 h-3" />
+                          <img src="/logos/x.webp" alt="Twitter Logo" className="w-3 h-3" />
                           <span className="text-white/60">Twitter:</span>
                           {userData.twitterHandle ? (
                             <a
@@ -1195,7 +1195,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       whileHover={{ scale: 1.1, y: -2 }}
                       whileTap={{ scale: 0.9 }}
                     >
-                      <img src="/logos/x.png" alt="Twitter" className="w-3 h-3" />
+                      <img src="/logos/x.webp" alt="Twitter" className="w-3 h-3" />
                     </motion.button>
                   )}
                   {userData.twitterHandle && (
@@ -1206,7 +1206,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.1, y: disconnectTwitterMutation.isLoading ? 0 : -2 }}
                       whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.9 }}
                     >
-                      <img src="/logos/x.png" alt="Disconnect Twitter" className="w-3 h-3" />
+                      <img src="/logos/x.webp" alt="Disconnect Twitter" className="w-3 h-3" />
                     </motion.button>
                   )}
                 </div> */}

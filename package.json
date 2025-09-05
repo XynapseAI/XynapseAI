@@ -118,6 +118,7 @@
     "remark-gfm": "^4.0.1",
     "sanitize-html": "^2.17.0",
     "serpapi": "^2.1.0",
+    "sharp": "^0.34.3",
     "sqlite3": "^5.1.7",
     "swr": "^2.3.4",
     "tailwind-merge": "^3.3.1",

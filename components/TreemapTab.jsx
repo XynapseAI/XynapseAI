@@ -131,8 +131,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [walletInfo, setWalletInfo] = useState({
     address: '',
     nametag: 'Unknown',
-    image: '/icons/default.png',
-    chainLogo: '/icons/default.png',
+    image: '/icons/default.webp',
+    chainLogo: '/icons/default.webp',
   });
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
@@ -483,8 +483,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setWalletInfo({
         address: '',
         nametag: 'Unknown',
-        image: '/icons/default.png',
-        chainLogo: '/icons/default.png',
+        image: '/icons/default.webp',
+        chainLogo: '/icons/default.webp',
       });
     } finally {
       setLoading(false);
@@ -776,7 +776,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                         {!isPremium && chain.value !== '1' && (
                           <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
                             <img
-                              src="/icons/crown.png"
+                              src="/icons/crown.webp"
                               alt="Premium required"
                               width={isMobile ? 10 : 12}
                               height={isMobile ? 10 : 12}
@@ -833,7 +833,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                     {!isPremium && limit > 100 && (
                       <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
                         <img
-                          src="/icons/crown.png"
+                          src="/icons/crown.webp"
                           alt="Premium required"
                           width={isMobile ? 10 : 12}
                           height={isMobile ? 10 : 12}

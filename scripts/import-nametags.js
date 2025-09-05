@@ -68,7 +68,7 @@ async function processJsonData(jsonData) {
       name: labelData['Name Tag'],
       description: labelData.Description || '',
       subcategory: labelData.Subcategory || 'Others',
-      image: labelData.image || '/icons/default.png',
+      image: labelData.image || '/icons/default.webp',
     };
 
     logger.info(`Processing address ${normalizedAddress}: ${nametagData.name}`);

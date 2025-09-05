@@ -6,7 +6,7 @@
         "Name Tag": "Chainlink: CommunityStakingPool",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/chainlink.png"
+        "image": "/icons/chainlink.webp"
       }
     }
   },
@@ -17,7 +17,7 @@
         "Name Tag": "Aave Ethereum LINK (aEthLINK)",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/aave.png"
+        "image": "/icons/aave.webp"
       }
     }
   },
@@ -28,7 +28,7 @@
         "Name Tag": "Binance: Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -39,7 +39,7 @@
         "Name Tag": "Aave Ethereum USDT (aEthUSDT)",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/aave.png"
+        "image": "/icons/aave.webp"
       }
     }
   },
@@ -50,7 +50,7 @@
         "Name Tag": "USDT0 : OAdapterUpgradeable (Proxy)",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/tether.png"
+        "image": "/icons/tether.webp"
       }
     }
   },
@@ -61,7 +61,7 @@
         "Name Tag": "OKX Cool Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.png"
+        "image": "/icons/okx.webp"
       }
     }
   },
@@ -72,7 +72,7 @@
         "Name Tag": "Mantle : L1StandardBridge",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/mantle.png"
+        "image": "/icons/mantle.webp"
       }
     }
   },
@@ -83,7 +83,7 @@
         "Name Tag": "MEXC: Hot Wallet",
         "Description": "",
         "Subcategory": "Others",
-        "image": "/icons/mexc.png"
+        "image": "/icons/mexc.webp"
       }
     }
   },
@@ -94,7 +94,7 @@
         "Name Tag": "Bitget Wallet Address",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bitget.png"
+        "image": "/icons/bitget.webp"
       }
     }
   },
@@ -105,7 +105,7 @@
         "Name Tag": "Kucoin Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kucoin.png"
+        "image": "/icons/kucoin.webp"
       }
     }
   },
@@ -116,7 +116,7 @@
         "Name Tag": "Mexc - Gnosis Safe",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/mexc.png"
+        "image": "/icons/mexc.webp"
       }
     }
   },
@@ -127,7 +127,7 @@
         "Name Tag": "Binance Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -138,7 +138,7 @@
         "Name Tag": "OKX Hot Wallet",
         "Description": "Token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.png"
+        "image": "/icons/okx.webp"
       }
     }
   },
@@ -149,7 +149,7 @@
         "Name Tag": "Bitget Cold Wallet",
         "Description": "Token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bitget.png"
+        "image": "/icons/bitget.webp"
       }
     }
   },
@@ -160,7 +160,7 @@
         "Name Tag": "Bitget Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bitget.png"
+        "image": "/icons/bitget.webp"
       }
     }
   },
@@ -171,7 +171,7 @@
         "Name Tag": "Bybit Hot Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -182,7 +182,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -193,7 +193,7 @@
         "Name Tag": "U.S. Government",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/government.png"
+        "image": "/icons/government.webp"
       }
     }
   },
@@ -204,7 +204,7 @@
         "Name Tag": "Bybit Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -215,7 +215,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -226,7 +226,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -237,7 +237,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -248,7 +248,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -259,7 +259,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -270,7 +270,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -281,7 +281,7 @@
         "Name Tag": "Bybit Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -292,7 +292,7 @@
         "Name Tag": "Bybit Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -303,7 +303,7 @@
         "Name Tag": "Bybit Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -314,7 +314,7 @@
         "Name Tag": "Bybit Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -325,7 +325,7 @@
         "Name Tag": "Bybit",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -336,7 +336,7 @@
         "Name Tag": "Bybit Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -347,7 +347,7 @@
         "Name Tag": "Bybit Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -358,7 +358,7 @@
         "Name Tag": "Bybit Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -369,7 +369,7 @@
         "Name Tag": "OKX Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.png"
+        "image": "/icons/okx.webp"
       }
     }
   },
@@ -380,7 +380,7 @@
         "Name Tag": "Binance Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -391,7 +391,7 @@
         "Name Tag": "Phemex Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/phemex.png"
+        "image": "/icons/phemex.webp"
       }
     }
   },
@@ -402,7 +402,7 @@
         "Name Tag": "Bybit Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -413,7 +413,7 @@
         "Name Tag": "Ceffu - Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/ceffu.png"
+        "image": "/icons/ceffu.webp"
       }
     }
   },
@@ -424,7 +424,7 @@
         "Name Tag": "Bybit - Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -435,7 +435,7 @@
         "Name Tag": "Tether Loan Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/tether.png"
+        "image": "/icons/tether.webp"
       }
     }
   },
@@ -446,7 +446,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -457,7 +457,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -468,7 +468,7 @@
         "Name Tag": "Kucoin Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kucoin.png"
+        "image": "/icons/kucoin.webp"
       }
     }
   },
@@ -479,7 +479,7 @@
         "Name Tag": "Kucoin Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kucoin.png"
+        "image": "/icons/kucoin.webp"
       }
     }
   },
@@ -490,7 +490,7 @@
         "Name Tag": "Kraken Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.png"
+        "image": "/icons/kraken.webp"
       }
     }
   },
@@ -501,7 +501,7 @@
         "Name Tag": "Sui",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/sui.png"
+        "image": "/icons/sui.webp"
       }
     }
   },
@@ -512,7 +512,7 @@
         "Name Tag": "U.S. Government FTX Alameda Seized Funds",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/government.png"
+        "image": "/icons/government.webp"
       }
     }
   },
@@ -523,7 +523,7 @@
         "Name Tag": "BingX Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bingx.png"
+        "image": "/icons/bingx.webp"
       }
     }
   },
@@ -534,7 +534,7 @@
         "Name Tag": "FluidLiquidityProxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/fluid.png"
+        "image": "/icons/fluid.webp"
       }
     }
   },
@@ -545,7 +545,7 @@
         "Name Tag": "Bybit Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -556,7 +556,7 @@
         "Name Tag": "BingX Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bingx.png"
+        "image": "/icons/bingx.webp"
       }
     }
   },
@@ -567,7 +567,7 @@
         "Name Tag": "Ethena - Copper Custody",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/ethena.png"
+        "image": "/icons/ethena.webp"
       }
     }
   },
@@ -578,7 +578,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -589,7 +589,7 @@
         "Name Tag": "Binance 90",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -600,7 +600,7 @@
         "Name Tag": "MakerDAO",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/makerdao.png"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -611,7 +611,7 @@
         "Name Tag": "Binance 91",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -622,7 +622,7 @@
         "Name Tag": "Binance 92",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -633,7 +633,7 @@
         "Name Tag": "Aave: USDC V3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/aave.png"
+        "image": "/icons/aave.webp"
       }
     }
   },
@@ -644,7 +644,7 @@
         "Name Tag": "Kraken Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.png"
+        "image": "/icons/kraken.webp"
       }
     }
   },
@@ -652,10 +652,10 @@
     "Address": "0xd54f23be482d9a58676590fca79c8e43087f92fb",
     "Labels": {
       "uniswap": {
-        "Name Tag": "Ethena: Coinbase Web3 Wallet 2",
+        "Name Tag": "Ethena : Coinbase Web3 Wallet 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -666,7 +666,7 @@
         "Name Tag": "Lighter: ZkLighter",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/lighter.png"
+        "image": "/icons/lighter.webp"
       }
     }
   },
@@ -677,7 +677,7 @@
         "Name Tag": "Aave: Ethereum WBTC V3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/aave.png"
+        "image": "/icons/aave.webp"
       }
     }
   },
@@ -688,7 +688,7 @@
         "Name Tag": "Morpho",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/morpho.png"
+        "image": "/icons/morpho.webp"
       }
     }
   },
@@ -699,7 +699,7 @@
         "Name Tag": "Hyperliquid",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/hyperliquid.png"
+        "image": "/icons/hyperliquid.webp"
       }
     }
   },
@@ -710,7 +710,7 @@
         "Name Tag": "Hyperliquid",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/hyperliquid.png"
+        "image": "/icons/hyperliquid.webp"
       }
     }
   },
@@ -721,7 +721,7 @@
         "Name Tag": "Binance: Hot Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -732,7 +732,7 @@
         "Name Tag": "Binance Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -743,7 +743,7 @@
         "Name Tag": "Binance (proxy)",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.png"
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -754,7 +754,7 @@
         "Name Tag": "Ethena",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/ethena.png"
+        "image": "/icons/ethena.webp"
       }
     }
   },
@@ -765,7 +765,7 @@
         "Name Tag": "OKX Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.png"
+        "image": "/icons/okx.webp"
       }
     }
   },
@@ -776,7 +776,7 @@
         "Name Tag": "Ethena Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/ethena.png"
+        "image": "/icons/ethena.webp"
       }
     }
   },
@@ -787,7 +787,7 @@
         "Name Tag": "Ethena Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/ethena.png"
+        "image": "/icons/ethena.webp"
       }
     }
   },
@@ -798,7 +798,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -809,7 +809,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -820,7 +820,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -831,7 +831,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -842,7 +842,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -853,7 +853,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -864,7 +864,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -875,7 +875,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -886,7 +886,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -897,7 +897,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -908,7 +908,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -919,7 +919,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -930,7 +930,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -941,7 +941,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -952,7 +952,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -963,7 +963,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -974,7 +974,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -985,7 +985,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -996,7 +996,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1007,7 +1007,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1018,7 +1018,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1029,7 +1029,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1040,7 +1040,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1051,7 +1051,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1062,7 +1062,7 @@
         "Name Tag": "Deribit",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/deribit.png"
+        "image": "/icons/deribit.webp"
       }
     }
   },
@@ -1073,7 +1073,7 @@
         "Name Tag": "Kraken Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.png"
+        "image": "/icons/kraken.webp"
       }
     }
   },
@@ -1084,7 +1084,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1095,7 +1095,7 @@
         "Name Tag": "WorldCoin Gnosis Safe Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1106,7 +1106,7 @@
         "Name Tag": "Coinbase Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1117,7 +1117,7 @@
         "Name Tag": "Bybit - Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -1128,7 +1128,7 @@
         "Name Tag": "Bybit Gnosis Safe Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bybit.png"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -1139,7 +1139,7 @@
         "Name Tag": "OKX Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.png"
+        "image": "/icons/okx.webp"
       }
     }
   },
@@ -1150,7 +1150,7 @@
         "Name Tag": "Hashnode",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/hashnode.png"
+        "image": "/icons/hashnode.webp"
       }
     }
   },
@@ -1161,7 +1161,7 @@
         "Name Tag": "Uniswap Pool Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/uniswap.png"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -1172,7 +1172,7 @@
         "Name Tag": "OKX Cold Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.png"
+        "image": "/icons/okx.webp"
       }
     }
   },
@@ -1183,7 +1183,7 @@
         "Name Tag": "Coinbase Prime Deposit Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.png"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1194,7 +1194,7 @@
         "Name Tag": "Starknet Bridge",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/starknet.png"
+        "image": "/icons/starknet.webp"
       }
     }
   },
@@ -1205,7 +1205,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1216,7 +1216,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1227,7 +1227,7 @@
         "Name Tag": "Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1238,7 +1238,7 @@
         "Name Tag": "Wintermute",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/wintermute.png"
+        "image": "/icons/wintermute.webp"
       }
     }
   },
@@ -1249,7 +1249,7 @@
         "Name Tag": "Wintermute MM",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/wintermute.png"
+        "image": "/icons/wintermute.webp"
       }
     }
   },
@@ -1260,7 +1260,7 @@
         "Name Tag": "Kucoin Hot Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kucoin.png"
+        "image": "/icons/kucoin.webp"
       }
     }
   },
@@ -1271,7 +1271,7 @@
         "Name Tag": "Justin Sun",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/justinsun.png"
+        "image": "/icons/justinsun.webp"
       }
     }
   },
@@ -1282,7 +1282,7 @@
         "Name Tag": "CZ Binance",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/cz.png"
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -1293,7 +1293,7 @@
         "Name Tag": "World Liberty Fi : Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1304,7 +1304,7 @@
         "Name Tag": "World Liberty Fi : Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1315,7 +1315,7 @@
         "Name Tag": "World Liberty Fi : Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/gnosis.png"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1326,7 +1326,7 @@
         "Name Tag": "Vitalik Buterin",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/vitalik.png"
+        "image": "/icons/vitalik.webp"
       }
     }
   }
