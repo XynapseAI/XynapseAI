@@ -360,6 +360,11 @@ export async function GET(request) {
             wallet_address: true,
             last_connected: true,
             twitter_handle: true,
+            twitter_handles: {
+              select: {
+                profile_picture: true,
+              },
+            },
           },
         })
       );
@@ -370,13 +375,21 @@ export async function GET(request) {
         return NextResponse.json({ detail: 'User not found' }, { status: 404, headers });
       }
 
+      // Log the raw data to debug
+      logger.info('Raw user data from DB', {
+        uid,
+        profile_picture: user.profile_picture,
+        twitter_handle: user.twitter_handle,
+        twitter_profile_picture: user.twitter_handles?.profile_picture,
+      });
+
       const data = {
         success: true,
         user: {
           id: user.id,
           email: user.email || '',
           googleId: user.google_id || null,
-          profilePicture: user.profile_picture || '',
+          profilePicture: user.twitter_handles?.profile_picture || user.profile_picture || '',
           googleName: user.google_name || '',
           emailVerified: user.email_verified || false,
           points: Number(user.points || 0),
@@ -392,6 +405,13 @@ export async function GET(request) {
           twitterHandle: user.twitter_handle || null,
         },
       };
+
+      // Log the final profilePicture being sent
+      logger.info('Final user data sent', {
+        uid,
+        profilePicture: data.user.profilePicture,
+        twitterHandle: data.user.twitterHandle,
+      });
 
       await redisClient.setEx(cacheKey, 300, JSON.stringify(serializeBigInt(data)));
       logger.info('Fetched and cached user', { uid });

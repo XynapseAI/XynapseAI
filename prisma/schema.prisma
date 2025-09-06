@@ -131,6 +131,7 @@ model twitter_handles {
   id               Int       @id @default(autoincrement())
   user_id          String?   @unique @db.VarChar(100)
   twitter_handle   String    @db.VarChar(255)
+  profile_picture  String?
   access_token     String
   refresh_token    String?
   token_expires_at DateTime? @db.Timestamp(6)

@@ -137,7 +137,7 @@ export async function POST(request) {
           controller.enqueue(JSON.stringify({ progress: 'Web Searching' }));
           try {
             const searchResult = await braveSearch({
-              query: `${tokenSymbol} lastest NEWS , blog , twitter trending`,
+              query: `${tokenSymbol} lastest NEWS , blogs, articles (crypto , blockchain)`,
               count: 10,
               freshness: '1w',
             });

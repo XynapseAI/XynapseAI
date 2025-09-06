@@ -71,7 +71,7 @@ async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:coingecko:${ip}`;
   const windowMs = 60 * 1000;
-  const maxRequests = 200;
+  const maxRequests = 100;
   const requests = parseInt(await redisClient.get(key)) || 0;
   if (requests >= maxRequests) {
     logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`);

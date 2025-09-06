@@ -2,10 +2,9 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useCallback } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
@@ -118,55 +117,55 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Create charge mutation
   const createChargeMutation = useMutation({
-  mutationFn: async () => {
-    if (!session?.user?.id) throw new Error('Not authenticated');
-    if (!csrfToken) throw new Error('CSRF token not available');
-    const token = await debouncedExecuteRecaptcha('create_charge');
-    console.log('Sending POST with CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
-    const response = await axios.post(
-      '/api/coinbase/create-charge',
-      { userId: session.user.id, plan: 'premium' }, // Chỉ gửi plan
-      {
-        headers: {
-          'x-csrf-token': csrfToken,
-          'X-Recaptcha-Token': token,
-          'Content-Type': 'application/json',
-        },
-        withCredentials: true,
+    mutationFn: async () => {
+      if (!session?.user?.id) throw new Error('Not authenticated');
+      if (!csrfToken) throw new Error('CSRF token not available');
+      const token = await debouncedExecuteRecaptcha('create_charge');
+      console.log('Sending POST with CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
+      const response = await axios.post(
+        '/api/coinbase/create-charge',
+        { userId: session.user.id, plan: 'premium' },
+        {
+          headers: {
+            'x-csrf-token': csrfToken,
+            'X-Recaptcha-Token': token,
+            'Content-Type': 'application/json',
+          },
+          withCredentials: true,
+        }
+      );
+      console.log('Create charge response:', response.data);
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to create charge');
+      return response.data.hostedUrl;
+    },
+    onSuccess: async (hostedUrl) => {
+      console.log('Redirecting to Coinbase hosted URL:', hostedUrl);
+      window.location.href = hostedUrl;
+      await queryClient.invalidateQueries(['userData', session?.user?.id]);
+    },
+    onError: (err) => {
+      console.error('Create charge error:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
+      let errorMessage = 'Failed to initiate payment';
+      if (err.message.includes('CSRF token not available')) {
+        errorMessage = 'CSRF token not available. Please refresh the page.';
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Server error. Please check logs or try again later.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Invalid CSRF or authentication. Please refresh.';
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Session expired. Please log in again.';
+      } else if (err.response?.status === 429) {
+        errorMessage = 'Too many requests. Please wait a minute and try again.';
+      } else {
+        errorMessage = err.response?.data?.detail || err.message || 'Failed to initiate payment';
       }
-    );
-    console.log('Create charge response:', response.data);
-    if (!response.data.success) throw new Error(response.data.detail || 'Unable to create charge');
-    return response.data.hostedUrl;
-  },
-  onSuccess: async (hostedUrl) => {
-    console.log('Redirecting to Coinbase hosted URL:', hostedUrl);
-    window.location.href = hostedUrl;
-    await queryClient.invalidateQueries(['userData', session?.user?.id]);
-  },
-  onError: (err) => {
-    console.error('Create charge error:', {
-      message: err.message,
-      response: err.response?.data,
-      status: err.response?.status,
-    });
-    let errorMessage = 'Failed to initiate payment';
-    if (err.message.includes('CSRF token not available')) {
-      errorMessage = 'CSRF token not available. Please refresh the page.';
-    } else if (err.response?.status === 500) {
-      errorMessage = 'Server error. Please check logs or try again later.';
-    } else if (err.response?.status === 403) {
-      errorMessage = 'Invalid CSRF or authentication. Please refresh.';
-    } else if (err.response?.status === 401) {
-      errorMessage = 'Session expired. Please log in again.';
-    } else if (err.response?.status === 429) {
-      errorMessage = 'Too many requests. Please wait a minute and try again.';
-    } else {
-      errorMessage = err.response?.data?.detail || err.message || 'Failed to initiate payment';
-    }
-    toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-  },
-});
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+    },
+  });
 
   // Fetch User Data
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
@@ -201,6 +200,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           isPremium: response.data.user.isPremium || false,
           tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
           twitterHandle: response.data.user.twitterHandle || null,
+          profilePicture: response.data.user.profilePicture || '', // Ensure camelCase
+          googleName: response.data.user.googleName || '',
         };
         console.log('Transformed user data:', user);
         await cacheData(cacheKey, user, 24 * 60 * 60 * 1000);
@@ -240,7 +241,19 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Fetch Tasks (remove reCAPTCHA)
+  // Force refetch if profilePicture is undefined but twitterHandle exists
+  useEffect(() => {
+    if (userData?.twitterHandle && !userData?.profilePicture && status === 'authenticated') {
+      console.warn('Profile picture is undefined with Twitter handle, triggering refetch');
+      const cacheKey = `userData-${session.user.id}`;
+      clearCache(cacheKey).then(() => {
+        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
+        queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]);
+      });
+    }
+  }, [userData, session, csrfToken, queryClient]);
+
+  // Fetch Tasks
   const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
     queryKey: ['tasks', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -262,7 +275,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch Task Progress (keep reCAPTCHA)
+  // Fetch Task Progress
   const { data: taskProgress, isLoading: taskProgressLoading, error: taskProgressError } = useQuery({
     queryKey: ['taskProgress', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -286,7 +299,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch Point History (remove reCAPTCHA)
+  // Fetch Point History
   const { data: pointData, isLoading: pointLoading, error: pointError } = useQuery({
     queryKey: ['pointHistory', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -308,7 +321,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch Leaderboard (remove reCAPTCHA)
+  // Fetch Leaderboard
   const { data: rankings, isLoading: leaderboardLoading, error: leaderboardError } = useQuery({
     queryKey: ['leaderboard', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -345,7 +358,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Connect Twitter (keep reCAPTCHA)
+  // Connect Twitter
   const connectTwitterMutation = useMutation({
     mutationFn: async () => {
       console.log('Initiating Twitter connection for user:', session.user.id);
@@ -357,7 +370,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Disconnect Twitter (keep reCAPTCHA)
+  // Disconnect Twitter
   const disconnectTwitterMutation = useMutation({
     mutationFn: async () => {
       console.log('Initiating Twitter disconnect for user:', session.user.id);
@@ -401,7 +414,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Connect Wallet (keep reCAPTCHA)
+  // Connect Wallet
   const connectWalletMutation = useMutation({
     mutationFn: async () => {
       if (!window.ethereum) throw new Error('Please install MetaMask.');
@@ -432,7 +445,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Disconnect Wallet (keep reCAPTCHA)
+  // Disconnect Wallet
   const disconnectWalletMutation = useMutation({
     mutationFn: async () => {
       const token = await debouncedExecuteRecaptcha('disconnect-wallet');
@@ -460,7 +473,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     [handleSignOut]
   );
 
-  // Handle Task Verification (keep reCAPTCHA)
+  // Handle Task Verification
   const verifyTaskMutation = useMutation({
     mutationFn: async (task) => {
       const token = await debouncedExecuteRecaptcha('verify_task');
@@ -520,18 +533,26 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   }, []);
 
   // Get Profile Picture Src
-  const getProfilePictureSrc = useCallback((profilePicture) => {
-    if (profilePicture && profilePicture.startsWith('http')) {
+  const getProfilePictureSrc = useCallback((profilePicture, twitterHandle, googleName) => {
+    console.log('getProfilePictureSrc input:', { profilePicture, twitterHandle, googleName });
+    if (profilePicture && typeof profilePicture === 'string' && profilePicture.startsWith('http')) {
       try {
         const url = new URL(profilePicture);
         const allowedHosts = ['pbs.twimg.com', 'lh3.googleusercontent.com', 'example.com'];
         if (allowedHosts.includes(url.hostname)) {
+          console.log('Profile picture URL is valid:', profilePicture);
           return profilePicture;
+        } else {
+          console.warn(`Profile picture URL hostname not allowed: ${url.hostname}`);
         }
       } catch (err) {
         console.warn(`Invalid profile picture URL: ${profilePicture}`, err);
       }
     }
+    if (twitterHandle) {
+      console.warn(`No valid profile picture, using default for Twitter handle: ${twitterHandle}`);
+    }
+    console.log('Falling back to default avatar');
     return '/default-avatar.webp';
   }, []);
 
@@ -557,14 +578,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <td className="px-3 py-2.5 text-white text-[9px] sm:text-[11px] truncate">
             <div className="flex items-center">
               <Image
-                src={getProfilePictureSrc(user.profile_picture)}
-                alt={user.google_name || user.twitterHandle || 'User Avatar'}
+                src={getProfilePictureSrc(user.profilePicture, user.twitterHandle, user.googleName)}
+                alt={user.googleName || user.twitterHandle || 'User Avatar'}
                 width={isMobile ? 14 : 16}
                 height={isMobile ? 14 : 16}
                 className="rounded-full border border-white/10 mr-2 object-cover"
               />
               <span className="truncate">
-                {user.google_name || user.twitterHandle || 'Anonymous'}
+                {user.googleName || user.twitterHandle || 'Anonymous'}
                 {isCurrentUser && (
                   <span className="ml-2 text-[8px] sm:text-[9px] font-medium text-neon-blue px-2 py-0.5 rounded-full border border-neon-blue/50 bg-white/5">
                     You
@@ -581,361 +602,384 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   );
 
   // Render Tasks Section
-
-  const renderTasksSection = useCallback(() => (
-    <div className="relative bg-black/80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
-      <LoadingOverlay isLoading={tasksLoading || taskProgressLoading} isMobile={isMobile} className="z-10" />
-      {tasksError && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
-        >
-          Error: {tasksError.message}
-        </motion.div>
-      )}
-      {!tasks?.length && !tasksError && !(tasksLoading || taskProgressLoading) && (
-        <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4">No tasks available.</p>
-      )}
-      {tasks?.length > 0 && (
-        <>
-          {!userData?.twitterHandle && (
-            <motion.div
-              className="mb-2 p-2 text-center"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <p className="text-[9px] sm:text-[11px] text-white/80 mb-2">
-                Connect your Twitter account to perform tasks.
-              </p>
-              <motion.button
-                onClick={() => connectTwitterMutation.mutate()}
-                className="px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Connect Twitter
-              </motion.button>
-            </motion.div>
-          )}
-          <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/80 rounded-xl">
-            <thead className="border-b border-white/10 bg-black/80">
-              <tr>
-                <th className={`${isMobile ? 'w-[50%]' : 'w-[60%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Task</th>
-                <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Points</th>
-                <th className={`${isMobile ? 'w-[30%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {getPaginatedData(tasks, 'tasks').map((task, index) => (
-                <motion.tr
-                  key={task.id}
-                  className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.02 }}
-                >
-                  <td className="px-3 py-2.5 text-white truncate">
-                    {task.task_type === 'follow' ? (
-                      <span>
-                        Follow{' '}
-                        <a
-                          href={`https://x.com/intent/follow?screen_name=XynapseAI`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-neon-blue underline"
-                        >
-                          @XynapseAI
-                        </a>{' '}
-                        on Twitter
-                        {task.is_daily
-                          ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
-                          : ''}
-                      </span>
-                    ) : task.task_type === 'retweet' ? (
-                      <span>
-                        Retweet{' '}
-                        <a
-                          href={`https://x.com/intent/retweet?tweet_id=${task.target_id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-neon-blue underline"
-                        >
-                          this post
-                        </a>
-                        {task.is_daily
-                          ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
-                          : ''}
-                      </span>
-                    ) : (
-                      <span>
-                        {task.description}{' '}
-                        {task.is_daily
-                          ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
-                          : ''}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-neon-green truncate">+{task.points}</td>
-                  <td className="px-3 py-2.5 text-white truncate">
-                    <motion.button
-                      onClick={() => verifyTaskMutation.mutate(task)}
-                      disabled={
-                        verifyTaskMutation.isLoading ||
-                        (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                        (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                        (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                      }
-                      className={`px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium transition-all duration-300 border border-white/10 bg-white/5 ${verifyTaskMutation.isLoading ||
-                        (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                        (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                        (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                        ? 'text-white/50 cursor-not-allowed opacity-50'
-                        : 'text-white hover:bg-neon-blue/20'
-                        }`}
-                      whileHover={{
-                        scale:
-                          verifyTaskMutation.isLoading ||
-                            (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                            (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                            (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                            ? 1
-                            : 1.05,
-                      }}
-                      whileTap={{
-                        scale:
-                          verifyTaskMutation.isLoading ||
-                            (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                            (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                            (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                            ? 1
-                            : 0.95,
-                      }}
-                    >
-                      {verifyTaskMutation.isLoading ? 'Verifying...' : 'Verify'}
-                    </motion.button>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="flex justify-end gap-2 mt-2">
-            <motion.button
-              onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
-              disabled={currentPage.tasks === 1}
-              className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                }`}
-              whileHover={{ scale: currentPage.tasks === 1 ? 1 : 1.05 }}
-              whileTap={{ scale: currentPage.tasks === 1 ? 1 : 0.95 }}
-            >
-              &lt;
-            </motion.button>
-            <span className="text-[9px] sm:text-[11px] text-white/60 mt-1">
-              {currentPage.tasks} / {getTotalPages(tasks)}
-            </span>
-            <motion.button
-              onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
-              disabled={currentPage.tasks === getTotalPages(tasks)}
-              className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                }`}
-              whileHover={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 1.05 }}
-              whileTap={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 0.95 }}
-            >
-              &gt;
-            </motion.button>
-          </div>
-        </>
-      )}
-    </div>
-  ), [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, connectTwitterMutation]);
-
-  // Render Leaderboard Section
-  const renderLeaderboardSection = useCallback(() => (
-    <div className="relative bg-black/5 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
-      <LoadingOverlay isLoading={leaderboardLoading} isMobile={isMobile} className="z-10" />
-      {leaderboardError && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
-        >
-          Error: {leaderboardError.message}
-          <button
-            onClick={() => window.location.reload()}
-            className="ml-2 px-2 py-1 bg-neon-blue text-black rounded-xl text-[9px] sm:text-[11px]"
-          >
-            Retry
-          </button>
-        </motion.div>
-      )}
-      {!leaderboardLoading && !leaderboardError && rankings?.length === 0 && (
-        <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4">No ranking data available.</p>
-      )}
-      {!leaderboardLoading && rankings?.length > 0 && (
-        <>
-          <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
-            <thead className="border-b border-white/10 bg-black/10">
-              <tr>
-                <th className={`${isMobile ? 'w-[20%]' : 'w-[15%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Rank</th>
-                <th className={`${isMobile ? 'w-[60%]' : 'w-[65%]'} px-3 py-2 text-white text-left font-semibold truncate`}>User</th>
-                <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-right font-semibold truncate`}>Points</th>
-              </tr>
-            </thead>
-            <tbody>
-              {userData && renderUserRow(userData, -1, true)}
-              {getPaginatedData(rankings, 'leaderboard').map((user, index) => renderUserRow(user, index, false))}
-            </tbody>
-          </table>
-          <div className="flex justify-end gap-2 mt-2">
-            <motion.button
-              onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
-              disabled={currentPage.leaderboard === 1}
-              className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                }`}
-              whileHover={{ scale: currentPage.leaderboard === 1 ? 1 : 1.05 }}
-              whileTap={{ scale: currentPage.leaderboard === 1 ? 1 : 0.95 }}
-            >
-              &lt;
-            </motion.button>
-            <span className="text-[9px] sm:text-[11px] text-white/60 mt-1">
-              {currentPage.leaderboard} / {getTotalPages(rankings)}
-            </span>
-            <motion.button
-              onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
-              disabled={currentPage.leaderboard === getTotalPages(rankings)}
-              className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                }`}
-              whileHover={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 1.05 }}
-              whileTap={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 0.95 }}
-            >
-              &gt;
-            </motion.button>
-          </div>
-        </>
-      )}
-    </div>
-  ), [leaderboardLoading, leaderboardError, rankings, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, renderUserRow]);
-
-  // Render Points Section
-  const renderPointsSection = useCallback(() => (
-    <div className="flex flex-col gap-4">
-      <div className="min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] bg-white/5 rounded-xl p-2 border border-white/10">
-        <LoadingOverlay isLoading={pointLoading} isMobile={isMobile} />
-        {pointError && (
+  const renderTasksSection = useCallback(
+    () => (
+      <div className="relative bg-black/80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+        <LoadingOverlay
+          isLoading={tasksLoading || taskProgressLoading}
+          isMobile={isMobile}
+          className="h-full z-50"
+        />
+        {tasksError && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center"
+            className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center"
           >
-            Error: {pointError.message}
+            Error: {tasksError.message}
           </motion.div>
         )}
-        {!pointLoading && !pointError && (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={pointData?.history} margin={{ top: 10, right: 15, bottom: 5, left: isMobile ? 0 : 10 }}>
-              <CartesianGrid stroke="#ffffff1a" strokeDasharray="5 5" />
-              <XAxis
-                dataKey="date"
-                stroke="#FFFFFF"
-                tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
-                angle={-45}
-                textAnchor="end"
-                height={50}
-              />
-              <YAxis
-                stroke="#FFFFFF"
-                tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
-                tickFormatter={(value) => Math.floor(value).toLocaleString('en-US')}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="taskPoints"
-                stroke="#FFFFFF"
-                fill="url(#chartGradient)"
-                strokeWidth={3}
-                dot={false}
-                activeDot={{ fill: '#FFFFFF', r: 4, stroke: '#FFFFFF', strokeWidth: 3 }}
-              />
-              <ReferenceDot
-                x={pointData?.history[pointData.history.length - 1]?.date}
-                y={pointData?.history[pointData.history.length - 1]?.taskPoints}
-                r={4}
-                fill="#FFFFFF"
-                stroke="#FFFFFF"
-                strokeWidth={3}
-                className="animate-pulse"
-              />
-              <defs>
-                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-            </LineChart>
-          </ResponsiveContainer>
+        {!tasks?.length && !tasksError && !(tasksLoading || taskProgressLoading) && (
+          <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4 h-full flex items-center justify-center">
+            No tasks available.
+          </p>
+        )}
+        {tasks?.length > 0 && (
+          <>
+            {!userData?.twitterHandle && (
+              <motion.div
+                className="mb-2 p-2 text-center"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <p className="text-[9px] sm:text-[11px] text-white/80 mb-2">
+                  Connect your Twitter account to perform tasks.
+                </p>
+                <motion.button
+                  onClick={() => connectTwitterMutation.mutate()}
+                  className="px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Connect Twitter
+                </motion.button>
+              </motion.div>
+            )}
+            <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/80 rounded-xl">
+              <thead className="border-b border-white/10 bg-black/80">
+                <tr>
+                  <th className={`${isMobile ? 'w-[50%]' : 'w-[60%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Task</th>
+                  <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Points</th>
+                  <th className={`${isMobile ? 'w-[30%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {getPaginatedData(tasks, 'tasks').map((task, index) => (
+                  <motion.tr
+                    key={task.id}
+                    className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.02 }}
+                  >
+                    <td className="px-3 py-2.5 text-white truncate">
+                      {task.task_type === 'follow' ? (
+                        <span>
+                          Follow{' '}
+                          <a
+                            href={`https://x.com/intent/follow?screen_name=XynapseAI`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-neon-blue underline"
+                          >
+                            @XynapseAI
+                          </a>{' '}
+                          on Twitter
+                          {task.is_daily
+                            ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+                            : ''}
+                        </span>
+                      ) : task.task_type === 'retweet' ? (
+                        <span>
+                          Retweet{' '}
+                          <a
+                            href={`https://x.com/intent/retweet?tweet_id=${task.target_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-neon-blue underline"
+                          >
+                            this post
+                          </a>
+                          {task.is_daily
+                            ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+                            : ''}
+                        </span>
+                      ) : (
+                        <span>
+                          {task.description}{' '}
+                          {task.is_daily
+                            ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+                            : ''}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-neon-green truncate">+{task.points}</td>
+                    <td className="px-3 py-2.5 text-white truncate">
+                      <motion.button
+                        onClick={() => verifyTaskMutation.mutate(task)}
+                        disabled={
+                          verifyTaskMutation.isLoading ||
+                          (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                          (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                          (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                        }
+                        className={`px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium transition-all duration-300 border border-white/10 bg-white/5 ${verifyTaskMutation.isLoading ||
+                          (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                          (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                          (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                          ? 'text-white/50 cursor-not-allowed opacity-50'
+                          : 'text-white hover:bg-neon-blue/20'
+                          }`}
+                        whileHover={{
+                          scale:
+                            verifyTaskMutation.isLoading ||
+                              (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                              (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                              (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                              ? 1
+                              : 1.05,
+                        }}
+                        whileTap={{
+                          scale:
+                            verifyTaskMutation.isLoading ||
+                              (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                              (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                              (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+                              ? 1
+                              : 0.95,
+                        }}
+                      >
+                        {verifyTaskMutation.isLoading ? 'Verifying...' : 'Verify'}
+                      </motion.button>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+            {tasks?.length > itemsPerPage && (
+              <div className="flex justify-end gap-2 mt-2">
+                <motion.button
+                  onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
+                  disabled={currentPage.tasks === 1}
+                  className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+                  whileHover={{ scale: currentPage.tasks === 1 ? 1 : 1.05 }}
+                  whileTap={{ scale: currentPage.tasks === 1 ? 1 : 0.95 }}
+                >
+                  &lt;
+                </motion.button>
+                <span className="text-[9px] sm:text-[11px] text-white/60 mt-1">
+                  {currentPage.tasks} / {getTotalPages(tasks)}
+                </span>
+                <motion.button
+                  onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
+                  disabled={currentPage.tasks === getTotalPages(tasks)}
+                  className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+                  whileHover={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 1.05 }}
+                  whileTap={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 0.95 }}
+                >
+                  &gt;
+                </motion.button>
+              </div>
+            )}
+          </>
         )}
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <motion.div
-          className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
-            Total Points
-          </h3>
-          <p className="text-xl sm:text-2xl font-bold text-neon-blue">{userData?.points || 0}</p>
-        </motion.div>
-        <motion.div
-          className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
-            Task Points
-          </h3>
-          <div className="flex items-center justify-center gap-2">
-            <p className="text-xl sm:text-2xl font-bold text-neon-blue">{pointData?.taskPoints || 0}</p>
-            <motion.p
-              className={`text-[8px] sm:text-[10px] font-semibold text-${pointData?.taskGrowth.color} ${pointData?.taskGrowth.value != 0 ? 'animate-pulse' : ''
-                }`}
-              animate={{ opacity: pointData?.taskGrowth.value != 0 ? [1, 0.7, 1] : 1 }}
-              transition={{ duration: 1.5, repeat: pointData?.taskGrowth.value != 0 ? Infinity : 0 }}
+    ),
+    [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, connectTwitterMutation]
+  );
+
+  // Render Leaderboard Section
+  const renderLeaderboardSection = useCallback(
+    () => (
+      <div className="relative bg-black/5 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+        <LoadingOverlay
+          isLoading={leaderboardLoading}
+          isMobile={isMobile}
+          className="h-full z-50"
+        />
+        {leaderboardError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center"
+          >
+            Error: {leaderboardError.message}
+            <button
+              onClick={() => window.location.reload()}
+              className="ml-2 px-2 py-1 bg-neon-blue text-black rounded-xl text-[9px] sm:text-[11px]"
             >
-              {pointData?.taskGrowth.value}%{' '}
-              {pointData?.taskGrowth.value > 0 ? '↑' : pointData?.taskGrowth.value < 0 ? '↓' : '–'}
-            </motion.p>
+              Retry
+            </button>
+          </motion.div>
+        )}
+        {!leaderboardLoading && !leaderboardError && rankings?.length === 0 && (
+          <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4 h-full flex items-center justify-center">
+            No ranking data available.
+          </p>
+        )}
+        {!leaderboardLoading && rankings?.length > 0 && (
+          <>
+            <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
+              <thead className="border-b border-white/10 bg-black/10">
+                <tr>
+                  <th className={`${isMobile ? 'w-[20%]' : 'w-[15%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Rank</th>
+                  <th className={`${isMobile ? 'w-[60%]' : 'w-[65%]'} px-3 py-2 text-white text-left font-semibold truncate`}>User</th>
+                  <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-right font-semibold truncate`}>Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {userData && renderUserRow(userData, -1, true)}
+                {getPaginatedData(rankings, 'leaderboard').map((user, index) => renderUserRow(user, index, false))}
+              </tbody>
+            </table>
+            {rankings?.length > itemsPerPage && (
+              <div className="flex justify-end gap-2 mt-2">
+                <motion.button
+                  onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
+                  disabled={currentPage.leaderboard === 1}
+                  className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+                  whileHover={{ scale: currentPage.leaderboard === 1 ? 1 : 1.05 }}
+                  whileTap={{ scale: currentPage.leaderboard === 1 ? 1 : 0.95 }}
+                >
+                  &lt;
+                </motion.button>
+                <span className="text-[9px] sm:text-[11px] text-white/60 mt-1">
+                  {currentPage.leaderboard} / {getTotalPages(rankings)}
+                </span>
+                <motion.button
+                  onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
+                  disabled={currentPage.leaderboard === getTotalPages(rankings)}
+                  className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+                  whileHover={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 1.05 }}
+                  whileTap={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 0.95 }}
+                >
+                  &gt;
+                </motion.button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    ),
+    [leaderboardLoading, leaderboardError, rankings, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, renderUserRow]
+  );
+
+  // Render Points Section
+  const renderPointsSection = useCallback(
+    () => (
+      <div className="relative flex flex-col gap-4">
+        <div className="relative min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] bg-white/5 rounded-xl p-2 border border-white/10">
+          <LoadingOverlay
+            isLoading={pointLoading}
+            isMobile={isMobile}
+            className="h-full z-50"
+          />
+          {pointError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center"
+            >
+              Error: {pointError.message}
+            </motion.div>
+          )}
+          {!pointLoading && !pointError && (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={pointData?.history} margin={{ top: 10, right: 15, bottom: 5, left: isMobile ? 0 : 10 }}>
+                <CartesianGrid stroke="#ffffff1a" strokeDasharray="5 5" />
+                <XAxis
+                  dataKey="date"
+                  stroke="#FFFFFF"
+                  tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={50}
+                />
+                <YAxis
+                  stroke="#FFFFFF"
+                  tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
+                  tickFormatter={(value) => Math.floor(value).toLocaleString('en-US')}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="taskPoints"
+                  stroke="#FFFFFF"
+                  fill="url(#chartGradient)"
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={{ fill: '#FFFFFF', r: 4, stroke: '#FFFFFF', strokeWidth: 3 }}
+                />
+                <ReferenceDot
+                  x={pointData?.history[pointData.history.length - 1]?.date}
+                  y={pointData?.history[pointData.history.length - 1]?.taskPoints}
+                  r={4}
+                  fill="#FFFFFF"
+                  stroke="#FFFFFF"
+                  strokeWidth={3}
+                  className="animate-pulse"
+                />
+                <defs>
+                  <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <motion.div
+            className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
+              Total Points
+            </h3>
+            <p className="text-xl sm:text-2xl font-bold text-neon-blue">{userData?.points || 0}</p>
+          </motion.div>
+          <motion.div
+            className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
+              Task Points
+            </h3>
+            <div className="flex items-center justify-center gap-2">
+              <p className="text-xl sm:text-2xl font-bold text-neon-blue">{pointData?.taskPoints || 0}</p>
+              <motion.p
+                className={`text-[8px] sm:text-[10px] font-semibold text-${pointData?.taskGrowth.color} ${pointData?.taskGrowth.value != 0 ? 'animate-pulse' : ''}`}
+                animate={{ opacity: pointData?.taskGrowth.value != 0 ? [1, 0.7, 1] : 1 }}
+                transition={{ duration: 1.5, repeat: pointData?.taskGrowth.value != 0 ? Infinity : 0 }}
+              >
+                {pointData?.taskGrowth.value}%{' '}
+                {pointData?.taskGrowth.value > 0 ? '↑' : pointData?.taskGrowth.value < 0 ? '↓' : '–'}
+              </motion.p>
+            </div>
+          </motion.div>
+        </div>
+        {pointData?.history?.length > itemsPerPage && (
+          <div className="flex justify-end gap-2 mt-2">
+            <motion.button
+              onClick={() => handlePageChange('points', currentPage.points - 1)}
+              disabled={currentPage.points === 1}
+              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+              whileHover={{ scale: currentPage.points === 1 ? 1 : 1.05 }}
+              whileTap={{ scale: currentPage.points === 1 ? 1 : 0.95 }}
+            >
+              &lt;
+            </motion.button>
+            <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
+              {currentPage.points} / {getTotalPages(pointData?.history || [])}
+            </span>
+            <motion.button
+              onClick={() => handlePageChange('points', currentPage.points + 1)}
+              disabled={currentPage.points === getTotalPages(pointData?.history || [])}
+              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+              whileHover={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 1.05 }}
+              whileTap={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 0.95 }}
+            >
+              &gt;
+            </motion.button>
           </div>
-        </motion.div>
+        )}
       </div>
-      <div className="flex justify-end gap-2 mt-2">
-        <motion.button
-          onClick={() => handlePageChange('points', currentPage.points - 1)}
-          disabled={currentPage.points === 1}
-          className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-            }`}
-          whileHover={{ scale: currentPage.points === 1 ? 1 : 1.05 }}
-          whileTap={{ scale: currentPage.points === 1 ? 1 : 0.95 }}
-        >
-          &lt;
-        </motion.button>
-        <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
-          {currentPage.points} / {getTotalPages(pointData?.history || [])}
-        </span>
-        <motion.button
-          onClick={() => handlePageChange('points', currentPage.points + 1)}
-          disabled={currentPage.points === getTotalPages(pointData?.history || [])}
-          className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-            }`}
-          whileHover={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 1.05 }}
-          whileTap={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 0.95 }}
-        >
-          &gt;
-        </motion.button>
-      </div>
-    </div>
-  ), [pointLoading, pointError, pointData, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange]);
+    ),
+    [pointLoading, pointError, pointData, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange]
+  );
 
   // Handle Twitter redirect callback
   useEffect(() => {
@@ -1068,8 +1112,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 </div>
                 <div className="flex items-center gap-2 mb-4">
                   <Image
-                    src={getProfilePictureSrc(userData.profilePicture)}
-                    alt={userData.googleName || 'Google User'}
+                    src={getProfilePictureSrc(userData.profilePicture, userData.twitterHandle, userData.googleName)}
+                    alt={userData.googleName || userData.twitterHandle || 'User Avatar'}
                     width={38}
                     height={38}
                     className="rounded-lg border border-white/10"
@@ -1080,18 +1124,20 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   <div className="bg-white/5 rounded-xl p-3">
                     <h5 className="font-bold text-white uppercase mb-2">Account Info</h5>
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <img src="/logos/google.webp" alt="Google Logo" className="w-3 h-3" />
-                          <span className="text-white/60">Google:</span>
-                        </div>
-                        <span className="text-neon-blue">{userData.email}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
+                      <div className="flex justify-between">
                         <span className="text-white/60">Tier:</span>
-                        <div className="flex items-center gap-1 m-1">
+                        <div className="flex items-center gap-1">
                           {userData.tier === 'Basic' ? (
                             <>
+                              <motion.button
+                                onClick={() => createChargeMutation.mutate()}
+                                disabled={createChargeMutation.isLoading}
+                                className={`ml-1 px-2.5 py-1 rounded-lg text-[7px] sm:text-[8px] font-medium text-white border border-neon-blue/50 bg-neon-blue/20 hover:bg-neon-blue/40 transition-all duration-300 ${createChargeMutation.isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                whileHover={{ scale: createChargeMutation.isLoading ? 1 : 1.02 }}
+                                whileTap={{ scale: createChargeMutation.isLoading ? 1 : 0.97 }}
+                              >
+                                {createChargeMutation.isLoading ? 'Processing...' : 'Upgrade Plan'}
+                              </motion.button>
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 className="w-3 h-3 text-silver"
@@ -1106,16 +1152,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 <circle cx="12" cy="7" r="4" />
                               </svg>
                               <span className="text-silver">{userData.tier}</span>
-                              <motion.button
-                                onClick={() => createChargeMutation.mutate()}
-                                disabled={createChargeMutation.isLoading}
-                                className={`ml-2 px-3 py-1 rounded-xl text-[9px] sm:text-[10px] font-medium text-white border border-neon-blue/50 bg-neon-blue/20 hover:bg-neon-blue/40 transition-all duration-300 ${createChargeMutation.isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                                  }`}
-                                whileHover={{ scale: createChargeMutation.isLoading ? 1 : 1.05 }}
-                                whileTap={{ scale: createChargeMutation.isLoading ? 1 : 0.95 }}
-                              >
-                                {createChargeMutation.isLoading ? 'Processing...' : 'Upgrade Plan'}
-                              </motion.button>
+
                             </>
                           ) : (
                             <>
@@ -1131,7 +1168,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       </div>
                     </div>
                   </div>
-
                   <div className="bg-white/5 rounded-xl p-3 relative">
                     <h5 className="font-bold text-white uppercase mb-2">Social</h5>
                     <div className="space-y-2">
@@ -1140,32 +1176,63 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           <img src="/logos/x.webp" alt="Twitter Logo" className="w-3 h-3" />
                           <span className="text-white/60">Twitter:</span>
                           {userData.twitterHandle ? (
-                            <a
-                              href={`https://x.com/${userData.twitterHandle}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-neon-blue"
-                            >
-                              @{userData.twitterHandle}
-                            </a>
+                            <div className="flex items-center gap-2">
+                              <Image
+                                src={getProfilePictureSrc(userData.profilePicture, userData.twitterHandle, userData.googleName)}
+                                alt={userData.twitterHandle}
+                                width={isMobile ? 14 : 16}
+                                height={isMobile ? 14 : 16}
+                                className="rounded-full border border-white/10"
+                              />
+                              <div className="flex items-center gap-2">
+                                <a
+                                  href={`https://x.com/${userData.twitterHandle}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-neon-blue"
+                                >
+                                  @{userData.twitterHandle}
+                                </a>
+                                <motion.button
+                                  onClick={() => disconnectTwitterMutation.mutate()}
+                                  disabled={disconnectTwitterMutation.isLoading}
+                                  className={`p-1 rounded-full ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/20'}`}
+                                  whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
+                                  whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
+                                  title="Disconnect Twitter"
+                                >
+                                  {disconnectTwitterMutation.isLoading ? (
+                                    <span className="text-[8px] text-white">...</span>
+                                  ) : (
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="w-4 h-4"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="#F87171"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    >
+                                      <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    </svg>
+                                  )}
+                                </motion.button>
+                              </div>
+                            </div>
                           ) : (
                             <span className="text-white">Not connected</span>
                           )}
                         </div>
                       </div>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <img src="/logos/google.webp" alt="Google Logo" className="w-3 h-3" />
+                          <span className="text-white/60">Google:</span>
+                          <span className="text-neon-blue">{userData.email}</span>
+                        </div>
+                      </div>
                     </div>
-                    {userData.twitterHandle && (
-                      <motion.button
-                        onClick={() => disconnectTwitterMutation.mutate()}
-                        disabled={disconnectTwitterMutation.isLoading}
-                        className={`absolute bottom-2 right-2 px-3 py-1 rounded-lg text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/20 hover:bg-text-500/20'
-                          }`}
-                        whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
-                        whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
-                      >
-                        {disconnectTwitterMutation.isLoading ? 'Disconnecting...' : 'Disconnect'}
-                      </motion.button>
-                    )}
                     {!userData.twitterHandle && (
                       <motion.button
                         onClick={() => connectTwitterMutation.mutate()}
@@ -1177,46 +1244,28 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       </motion.button>
                     )}
                   </div>
-                  <div className="bg-white/5 rounded-xl p-3">
-                    <h5 className="font-bold text-white uppercase mb-2">Points</h5>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-white/60">Total Points:</span>
-                        <span className="text-neon-blue text-xs">{userData?.points || 0}</span>
+                  <div className="bg-white/5 rounded-xl p-3 relative">
+                    <div className="absolute inset-0 backdrop-blur-xs bg-black/5 flex items-center justify-center rounded-xl z-10">
+                      <span className="text-white text-lg sm:text-xl font-bold">Soon</span>
+                    </div>
+                    <div className="filter blur-sm">
+                      <h5 className="font-bold text-white uppercase mb-2">Points</h5>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-white/60">Total Points:</span>
+                          <span className="text-neon-blue text-xs">{userData?.points || 0}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-                {/* <div className="flex gap-2 mt-4">
-                  {!userData.twitterHandle && (
-                    <motion.button
-                      onClick={() => connectTwitterMutation.mutate()}
-                      className="p-1 bg-white/10 rounded-xl hover:bg-white/20"
-                      whileHover={{ scale: 1.1, y: -2 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <img src="/logos/x.webp" alt="Twitter" className="w-3 h-3" />
-                    </motion.button>
-                  )}
-                  {userData.twitterHandle && (
-                    <motion.button
-                      onClick={() => disconnectTwitterMutation.mutate()}
-                      disabled={disconnectTwitterMutation.isLoading}
-                      className={`p-1 bg-white/10 rounded-xl ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-400/20'}`}
-                      whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.1, y: disconnectTwitterMutation.isLoading ? 0 : -2 }}
-                      whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.9 }}
-                    >
-                      <img src="/logos/x.webp" alt="Disconnect Twitter" className="w-3 h-3" />
-                    </motion.button>
-                  )}
-                </div> */}
               </div>
             )}
           </div>
         </motion.div>
 
         {/* Tab Navigation */}
-        <motion.div
+        {/* <motion.div
           className="border border-white/10 rounded-xl bg-black/20 flex flex-col"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1227,8 +1276,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               <motion.button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 text-xs font-bold text-white uppercase tracking-wider py-2 no-hover-effect flex items-center justify-center gap-2 ${activeTab === tab ? 'border-b-2 border-white/60' : 'text-white/80 hover:text-neon-blue'
-                  }`}
+                className={`flex-1 text-xs font-bold text-white uppercase tracking-wider py-2 no-hover-effect flex items-center justify-center gap-2 ${activeTab === tab ? 'border-b-2 border-white/60' : 'text-white/80 hover:text-neon-blue'}`}
               >
                 {tab === 'tasks' && (
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1255,64 +1303,64 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             {activeTab === 'leaderboard' && renderLeaderboardSection()}
             {activeTab === 'points' && renderPointsSection()}
           </AnimatePresence>
-        </motion.div>
+        </motion.div> */}
       </div>
 
       <style jsx>{`
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .animate-pulse {
-    animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
-  }
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
-  }
-  @media (max-width: 640px) {
-    .text-base {
-      font-size: 0.875rem;
-    }
-    .text-lg {
-      font-size: 1rem;
-    }
-    .text-xl {
-      font-size: 1rem;
-    }
-    .text-2xl {
-      font-size: 1.25rem;
-    }
-    .text-[11px] {
-      font-size: 9px;
-    }
-    .text-[9px] {
-      font-size: 7px;
-    }
-    .text-[8px] {
-      font-size: 6px;
-    }
-    .h-[52px] {
-      height: 48px;
-    }
-    .min-h-[100px] {
-      min-height: 80px;
-    }
-  }
-  @media (min-width: 641px) and (max-width: 1024px) {
-    .grid-cols-3 {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-`}</style>
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .animate-pulse {
+          animation: ${isMobile ? 'none' : 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'};
+        }
+        @keyframes pulse {
+          0%,
+          100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+        }
+        @media (max-width: 640px) {
+          .text-base {
+            font-size: 0.875rem;
+          }
+          .text-lg {
+            font-size: 1rem;
+          }
+          .text-xl {
+            font-size: 1rem;
+          }
+          .text-2xl {
+            font-size: 1.25rem;
+          }
+          .text-[11px] {
+            font-size: 9px;
+          }
+          .text-[9px] {
+            font-size: 7px;
+          }
+          .text-[8px] {
+            font-size: 6px;
+          }
+          .h-[52px] {
+            height: 48px; 
+          }
+          .min-h-[100px] {
+            min-height: 80px;
+          }
+        }
+        @media (min-width: 641px) and (max-width: 1024px) {
+          .grid-cols-3 {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+      `}</style>
     </motion.div>
   );
 }

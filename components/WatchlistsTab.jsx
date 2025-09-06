@@ -1548,13 +1548,17 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     className="h-full relative"
                   >
                     {activeTab === 'PORTFOLIO' && (
-                      <div className="relative">
+                      <div className="relative h-full">
                         <LoadingOverlay
-                          className="h-full z-10"
+                          className="h-full z-50"
                           isLoading={loadingStates.balances || loadingStates.tokenInfo}
                           isMobile={isMobile}
                         />
-                        {filteredBalances.length > 0 ? (
+                        {error ? (
+                          <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 h-full flex items-center justify-center">
+                            Error: {error}
+                          </p>
+                        ) : filteredBalances.length > 0 ? (
                           <table className="w-full text-[9px] sm:text-[10px]">
                             <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/50">
                               <tr>
@@ -1567,7 +1571,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           </table>
                         ) : (
                           <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3 h-full flex items-center justify-center">
-                            No balances found for this wallet.
+                            {loadingStates.balances || loadingStates.tokenInfo
+                              ? 'Loading balances...'
+                              : 'No balances found for this wallet.'}
                           </p>
                         )}
                       </div>
@@ -1575,11 +1581,15 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     {activeTab === 'ACTIVITY' && (
                       <div className="relative h-full">
                         <LoadingOverlay
-                          className="h-full z-10"
+                          className="h-full z-50"
                           isLoading={loadingStates.transactions}
                           isMobile={isMobile}
                         />
-                        {filteredTransactions.length > 0 ? (
+                        {transactionsError ? (
+                          <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 h-full flex items-center justify-center">
+                            Error: {transactionsError}
+                          </p>
+                        ) : filteredTransactions.length > 0 ? (
                           <table className="w-full text-[9px] sm:text-[10px]">
                             <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/50">
                               <tr>
@@ -1593,7 +1603,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           </table>
                         ) : (
                           <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3 h-full flex items-center justify-center">
-                            No transactions found for this wallet.
+                            {loadingStates.transactions ? 'Loading transactions...' : 'No transactions found for this wallet.'}
                           </p>
                         )}
                       </div>
@@ -1617,16 +1627,20 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       &lt;
                     </motion.button>
                     <span className="text-[9px] sm:text-[10px] text-white/80 self-center">
-                      {currentPage[activeTab]} / {getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)}
+                      {currentPage[activeTab]} /{' '}
+                      {getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)}
                     </span>
                     <motion.button
                       onClick={() => handlePageChange(activeTab, currentPage[activeTab] + 1)}
-                      disabled={currentPage[activeTab] === getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)}
+                      disabled={
+                        currentPage[activeTab] === getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)
+                      }
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md ${currentPage[activeTab] === getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-neon-blue/20'
+                      className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md ${currentPage[activeTab] ===
+                          getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:bg-neon-blue/20'
                         } transition-all duration-300 rounded-lg`}
                     >
                       &gt;

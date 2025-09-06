@@ -26,7 +26,7 @@ async function checkRateLimit(ip) {
 }
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 5,
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 5,
   minTime: process.env.NODE_ENV === 'production' ? 2000 : 2000,
 });
 
@@ -40,7 +40,7 @@ const bodySchema = z.object({
 });
 
 const BLOCKCHAIR_API_URL = 'https://api.blockchair.com';
-const CACHE_DURATION = 5 * 60; // 5 minutes in seconds
+const CACHE_DURATION = 15 * 60; // 5 minutes in seconds
 
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';

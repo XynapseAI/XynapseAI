@@ -1,3 +1,4 @@
+// app/api/twitter/connect/route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '@/utils/serverLogger';
@@ -35,8 +36,8 @@ const allowedOrigins = [
   'https://www.xynapseai.net',
   'https://xynapse-ai-xynapse-projects.vercel.app',
   'https://xynapse-ai.vercel.app',
-  'https://api.twitter.com', // Cho Twitter OAuth callback
-  'https://x.com', // Cho Twitter OAuth callback
+  'https://api.twitter.com',
+  'https://x.com',
 ].filter((v, i, a) => a.indexOf(v) === i);
 
 const securityHeaders = {
@@ -56,13 +57,11 @@ async function isAllowedOrigin(origin, referer, pathname) {
   logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
 
   try {
-    // Cho phép Twitter OAuth callback
     if (pathname.includes('/api/twitter/connect') && referer?.startsWith('https://api.twitter.com/')) {
       logger.info('Allowing Twitter OAuth callback', { referer });
       return true;
     }
 
-    // Kiểm tra origin hợp lệ
     if (origin && origin !== 'null') {
       if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
         logger.warn('Blocked origin: non-HTTPS origin in production', { origin });
@@ -77,7 +76,6 @@ async function isAllowedOrigin(origin, referer, pathname) {
       return false;
     }
 
-    // Kiểm tra referer nếu không có origin
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
@@ -93,20 +91,17 @@ async function isAllowedOrigin(origin, referer, pathname) {
       return false;
     }
 
-    // Cho phép internal/SSR request
     if (!origin && !referer) {
       logger.info('Allowing internal/SSR request');
       return true;
     }
 
-    // Chặn null origin trong production
     if (!origin && process.env.NODE_ENV === 'production') {
       logger.error('Null origin blocked in production', { pathname });
       await trackViolation('unknown', 'Null origin in production');
       return false;
     }
 
-    // Cho phép null origin trong development
     if (!origin && process.env.NODE_ENV === 'development') {
       logger.warn('Origin is null, allowing in development mode');
       return true;
@@ -285,8 +280,9 @@ export async function GET(request) {
       redirectUri,
     });
 
-    const twitterUser = await userClient.v2.me({ 'user.fields': ['username'] });
+    const twitterUser = await userClient.v2.me({ 'user.fields': ['username', 'profile_image_url'] });
     const twitterHandle = twitterUser.data.username;
+    const twitterProfilePicture = twitterUser.data.profile_image_url;
 
     if (!process.env.ENCRYPTION_KEY) {
       throw new Error('ENCRYPTION_KEY environment variable is missing');
@@ -297,6 +293,7 @@ export async function GET(request) {
         where: { user_id: sanitizedUserId },
         update: {
           twitter_handle: twitterHandle,
+          profile_picture: twitterProfilePicture,
           access_token: AES.encrypt(accessToken, process.env.ENCRYPTION_KEY).toString(),
           refresh_token: AES.encrypt(refreshToken, process.env.ENCRYPTION_KEY).toString(),
           token_expires_at: new Date(Date.now() + expiresIn * 1000),
@@ -305,6 +302,7 @@ export async function GET(request) {
         create: {
           user_id: sanitizedUserId,
           twitter_handle: twitterHandle,
+          profile_picture: twitterProfilePicture,
           access_token: AES.encrypt(accessToken, process.env.ENCRYPTION_KEY).toString(),
           refresh_token: AES.encrypt(refreshToken, process.env.ENCRYPTION_KEY).toString(),
           token_expires_at: new Date(Date.now() + expiresIn * 1000),
@@ -316,7 +314,10 @@ export async function GET(request) {
     await withRetry(async () => {
       await prisma.users.update({
         where: { id: sanitizedUserId },
-        data: { twitter_handle: twitterHandle },
+        data: {
+          twitter_handle: twitterHandle,
+          profile_picture: twitterProfilePicture || userData.profile_picture || '',
+        },
       });
     });
 
@@ -430,7 +431,7 @@ export async function POST(request) {
         prisma.twitter_handles.delete({ where: { user_id: sanitizedUserId } }),
         prisma.users.update({
           where: { id: sanitizedUserId },
-          data: { twitter_handle: null },
+          data: { twitter_handle: null, profile_picture: '' }, // Reset profile picture on disconnect
         }),
       ]);
     });

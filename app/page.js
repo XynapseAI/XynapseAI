@@ -685,7 +685,7 @@ export default function Home() {
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-50 md:hidden"
+          className="fixed inset-0 bg-black/50 rounded-l-xl z-50 md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         >
           <motion.div
@@ -693,7 +693,7 @@ export default function Home() {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 w-3/5 h-full bg-black/80 backdrop-blur-lg border-l border-white/20 p-6"
+            className="fixed right-0 top-0 w-3/5 h-full bg-black/80 backdrop-blur-sm border-l border-white/10 rounded-l-xl p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -810,16 +810,15 @@ export default function Home() {
       </section>
 
       {/* Powered by Elite AI Models */}
-      <section ref={sectionRef} className="py-16 flex flex-col items-center relative z-50">
+      <section ref={sectionRef} className="py-16 flex flex-col items-center relative">
         <h2 className="text-xl sm:text-2xl font-bold text-white mb-16 text-center tracking-tight">
-          <TypingEffect text="POWERED BY ADVANCED AI ENGINES" speed={150} />
         </h2>
         <div ref={cardsContainerRef} className="relative flex items-start justify-center pt-8">
           {[card1Ref, card2Ref, card3Ref].map((ref, index) => (
             <motion.div
               key={index}
               ref={ref}
-              className="absolute bg-gradient-to-br from-gray-900 via-black to-gray-800 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl flex flex-row items-center justify-between p-8 w-full max-w-4xl sm:h-[300px] h-[240px] transition-all duration-300 card"
+              className="absolute bg-gradient-to-br from-gray-900 via-black to-gray-800 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl flex flex-row items-center justify-between p-8 w-full max-w-4xl sm:h-[300px] h-[240px] transition-all duration-300 card"
             >
               <div className="flex-1 pr-8">
                 <h3 className="text-2xl sm:text-3xl font-bold text-white mb-4 tracking-tight">

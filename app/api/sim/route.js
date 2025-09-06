@@ -53,8 +53,8 @@ async function checkIPBan(ip) {
 async function trackViolation(ip, reason = 'Unknown') {
   const redisClient = await getRedisClient();
   const key = `violations:sim:${ip}`;
-  const maxViolations = 50;
-  const windowMs = 30 * 60 * 1000;
+  const maxViolations = 100;
+  const windowMs = 15 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
 
   if (['CORS blocked', 'Invalid JSON body', 'Validation error', 'Invalid address'].includes(reason)) {

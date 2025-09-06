@@ -325,28 +325,16 @@ const WalletBalances = ({
         </div>
 
         <div className="relative flex-1 overflow-y-auto custom-scrollbar">
-          <div className="min-h-[calc(100vh-12rem)] p-4">
+          <div className="min-h-[calc(100vh-12rem)] p-4 relative">
             {activeTab === 'portfolio' && (
-              <>
+              <div className="relative">
+                <LoadingOverlay isLoading={isLoading} isMobile={isMobile} />
                 {error ? (
                   <p className="text-[8px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
                     Error: {error} {isLoading && '(Retrying...)'}
                   </p>
-                ) : isLoading ? (
-                  <div className="space-y-3 p-2 sm:p-4 min-h-[calc(100vh-12rem)]">
-                    {[...Array(5)].map((_, index) => (
-                      <div key={index} className="flex items-center gap-4">
-                        <div className="w-8 h-8 bg-white/10 rounded-full animate-pulse"></div>
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-white/10 rounded animate-pulse"></div>
-                          <div className="h-4 bg-white/10 rounded animate-pulse w-3/4"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 ) : sortedBalances.length > 0 ? (
                   <div className="relative overflow-x-auto custom-scrollbar">
-                    <LoadingOverlay isLoading={isLoading} isMobile={isMobile} />
                     <table className="w-full text-[8px] sm:text-[10px]">
                       <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/10">
                         <tr>
@@ -421,26 +409,15 @@ const WalletBalances = ({
                     {isLoading ? 'Loading balances...' : 'No valid balances found for this wallet.'}
                   </p>
                 )}
-              </>
+              </div>
             )}
             {activeTab === 'activity' && (
-              <>
+              <div className="relative">
+                <LoadingOverlay isLoading={isLoadingTransactions} isMobile={isMobile} />
                 {transactionsError ? (
                   <p className="text-[8px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
                     Error: {transactionsError}
                   </p>
-                ) : isLoadingTransactions ? (
-                  <div className="space-y-3 p-2 sm:p-4 min-h-[calc(100vh-12rem)]">
-                    {[...Array(5)].map((_, index) => (
-                      <div key={index} className="flex items-center gap-4">
-                        <div className="w-8 h-8 bg-white/10 rounded-full animate-pulse"></div>
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-white/10 rounded animate-pulse"></div>
-                          <div className="h-4 bg-white/10 rounded animate-pulse w-3/4"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 ) : validTransactions.length > 0 ? (
                   <div className="relative overflow-x-auto custom-scrollbar">
                     <table className="w-full text-[8px] sm:text-[10px]">
@@ -629,7 +606,7 @@ const WalletBalances = ({
                     No valid transactions found for this wallet.
                   </p>
                 )}
-              </>
+              </div>
             )}
           </div>
         </div>
