@@ -44,14 +44,14 @@ const postSchema = z.object({
   name: z.string().optional(),
 });
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function checkRateLimit(ip) {
   try {
     const redisClient = await getRedisClient();
     const key = `rate_limit:watchlists:${ip}`;
     const requests = parseInt(await redisClient.get(key)) || 0;
     const windowMs = 60 * 1000; // 1 minute window
-    if (requests >= 10) {
+    const maxRequests = 10; // 10 requests per minute
+    if (requests >= maxRequests) {
       logger.warn(`Rate limit exceeded for IP ${ip}`);
       throw new Error('Too many requests. Please try again later.');
     }
@@ -83,7 +83,6 @@ async function trackViolation(ip, reason = 'Unknown') {
   }
 
   if (violations >= maxViolations) {
-    await banIP(ip, 1800);
     logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
     throw new Error('IP temporarily banned due to excessive violations.');
   }
@@ -91,16 +90,14 @@ async function trackViolation(ip, reason = 'Unknown') {
   logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function isAllowedOrigin(origin, referer, pathname) {
   logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
 
   try {
-    // Kiểm tra origin hợp lệ
     if (origin && origin !== 'null') {
       if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
         logger.warn('Blocked origin: non-HTTPS origin in production', { origin });
-        await trackViolation('unknown', 'Non-HTTPS origin in production');
+        await trackViolation('unknown', 'Non-HTTPS origin in mung');
         return false;
       }
       if (allowedOrigins.includes(origin)) {
@@ -111,7 +108,6 @@ async function isAllowedOrigin(origin, referer, pathname) {
       return false;
     }
 
-    // Kiểm tra referer nếu không có origin
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
@@ -127,20 +123,17 @@ async function isAllowedOrigin(origin, referer, pathname) {
       return false;
     }
 
-    // Cho phép internal/SSR request
     if (!origin && !referer) {
       logger.info('Allowing internal/SSR request');
       return true;
     }
 
-    // Chặn null origin trong production
     if (!origin && process.env.NODE_ENV === 'production') {
       logger.error('Null origin blocked in production', { pathname });
       await trackViolation('unknown', 'Null origin in production');
       return false;
     }
 
-    // Cho phép null origin trong development
     if (!origin && process.env.NODE_ENV === 'development') {
       logger.warn('Origin is null, allowing in development mode');
       return true;
@@ -160,19 +153,62 @@ async function isAllowedOrigin(origin, referer, pathname) {
 export async function GET(request) {
   const redisClient = await getRedisClient();
   const session = await auth();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const headers = { ...securityHeaders, 'Content-Type': 'application/json' };
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  const pathname = new URL(request.url).pathname;
+
+  // Check CORS
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+    await trackViolation(ip, 'CORS blocked');
+    logger.error(`CORS error: Origin ${origin || 'null'} or Referer ${referer || 'null'} not allowed`);
+    return NextResponse.json(
+      { success: false, detail: 'Not allowed by CORS' },
+      { status: 403, headers: securityHeaders }
+    );
+  }
+
+  const headers = {
+    ...securityHeaders,
+    'Content-Type': 'application/json',
+    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+  };
+
+  // Check rate limit
+  try {
+    await checkRateLimit(ip);
+  } catch (err) {
+    await trackViolation(ip, 'Rate limit exceeded');
+    logger.error(`Rate limit error: ${err.message}`, { ip });
+    return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers });
+  }
 
   if (!session || !session.user?.id) {
+    await trackViolation(ip, 'Unauthorized access');
     return NextResponse.json({ success: false, detail: 'Unauthorized: Please log in.' }, { status: 401, headers });
   }
 
   const cacheKey = `watchlists-${session.user.id}`;
-  const redisData = await redisClient.get(cacheKey);
+  let redisData;
+  try {
+    redisData = await redisClient.get(cacheKey);
+  } catch (error) {
+    logger.error(`Redis GET error for key ${cacheKey}: ${error.message}`, { stack: error.stack, ip });
+  }
+
   if (redisData) {
-    logger.info(`Redis cache hit for ${cacheKey}`);
-    return NextResponse.json({ success: true, data: JSON.parse(redisData) }, { status: 200, headers });
+    try {
+      logger.info(`Redis cache hit for ${cacheKey}`, { ip });
+      return NextResponse.json({ success: true, data: JSON.parse(redisData) }, { status: 200, headers });
+    } catch (error) {
+      logger.error(`JSON parse error for key ${cacheKey}: ${error.message}`, { stack: error.stack, ip });
+      await redisClient.del(cacheKey); // Delete invalid data
+    }
   }
 
   try {
@@ -187,13 +223,20 @@ export async function GET(request) {
 
     await redisClient.setEx(cacheKey, 24 * 60 * 60, JSON.stringify(watchlists));
     await redisClient.setEx(`${cacheKey}-fallback`, 24 * 60 * 60, JSON.stringify(watchlists));
+    logger.info(`Cache set for ${cacheKey}`, { ip });
     return NextResponse.json({ success: true, data: watchlists }, { status: 200, headers });
   } catch (error) {
     const fallbackData = await redisClient.get(`${cacheKey}-fallback`);
     if (fallbackData) {
-      return NextResponse.json({ success: true, data: JSON.parse(fallbackData) }, { status: 200, headers });
+      try {
+        logger.info(`Using fallback cache for ${cacheKey}`, { ip });
+        return NextResponse.json({ success: true, data: JSON.parse(fallbackData) }, { status: 200, headers });
+      } catch (error) {
+        logger.error(`JSON parse error for fallback key ${cacheKey}-fallback: ${error.message}`, { stack: error.stack, ip });
+        await redisClient.del(`${cacheKey}-fallback`);
+      }
     }
-    logger.error(`Error fetching watchlists: ${error.message}`);
+    logger.error(`Error fetching watchlists: ${error.message}`, { stack: error.stack, ip });
     return NextResponse.json({ success: false, detail: `Failed to fetch watchlists: ${error.message}` }, { status: 500, headers });
   }
 }
@@ -202,22 +245,69 @@ export async function GET(request) {
 export async function POST(request) {
   const redisClient = await getRedisClient();
   const session = await auth();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const headers = { ...securityHeaders, 'Content-Type': 'application/json' };
+  const origin = request.headers.get('origin');
+  const referer = request.headers.get('referer');
+  const pathname = new URL(request.url).pathname;
+
+  // Check CORS
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+    await trackViolation(ip, 'CORS blocked');
+    logger.error(`CORS error: Origin ${origin || 'null'} or Referer ${referer || 'null'} not allowed`);
+    return NextResponse.json(
+      { success: false, detail: 'Not allowed by CORS' },
+      { status: 403, headers: securityHeaders }
+    );
+  }
+
+  const headers = {
+    ...securityHeaders,
+    'Content-Type': 'application/json',
+    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+  };
+
+  // Check rate limit
+  try {
+    await checkRateLimit(ip);
+  } catch (err) {
+    await trackViolation(ip, 'Rate limit exceeded');
+    logger.error(`Rate limit error: ${err.message}`, { ip });
+    return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers });
+  }
 
   if (!session || !session.user?.id) {
+    await trackViolation(ip, 'Unauthorized access');
     return NextResponse.json({ success: false, detail: 'Unauthorized: Please log in.' }, { status: 401, headers });
   }
 
   let body;
   try {
     body = await request.json();
-    const parsedBody = postSchema.parse(body);
-    const { action, wallet_address, name } = parsedBody;
-    const normalizedAddress = isAddress(wallet_address) ? wallet_address.toLowerCase() : wallet_address;
-    const cacheKey = `watchlists-${session.user.id}`;
+  } catch (err) {
+    await trackViolation(ip, 'Invalid JSON body');
+    logger.error(`Invalid JSON body: ${err.message}`, { ip });
+    return NextResponse.json({ success: false, detail: 'Invalid JSON body' }, { status: 400, headers });
+  }
 
+  let parsedBody;
+  try {
+    parsedBody = postSchema.parse(body);
+  } catch (err) {
+    await trackViolation(ip, 'Validation error');
+    logger.error(`Validation error: ${err.message}`, { ip });
+    return NextResponse.json({ success: false, detail: `Validation error: ${err.message}` }, { status: 400, headers });
+  }
+
+  const { action, wallet_address, name } = parsedBody;
+  const normalizedAddress = isAddress(wallet_address) ? wallet_address.toLowerCase() : wallet_address;
+  const cacheKey = `watchlists-${session.user.id}`;
+
+  try {
     if (action === 'add') {
       const existing = await query(
         `SELECT 1 FROM watchlists WHERE user_id = $1 AND wallet_address = $2`,
@@ -251,9 +341,10 @@ export async function POST(request) {
 
     await redisClient.setEx(cacheKey, 24 * 60 * 60, JSON.stringify(updatedWatchlists));
     await redisClient.setEx(`${cacheKey}-fallback`, 24 * 60 * 60, JSON.stringify(updatedWatchlists));
+    logger.info(`Cache set for ${cacheKey}`, { ip });
     return NextResponse.json({ success: true, data: updatedWatchlists }, { status: 200, headers });
   } catch (error) {
-    logger.error(`Error processing watchlist action: ${error.message}`);
+    logger.error(`Error processing watchlist action: ${error.message}`, { stack: error.stack, ip });
     return NextResponse.json({ success: false, detail: `Failed to process watchlist action: ${error.message}` }, { status: 500, headers });
   }
 }
