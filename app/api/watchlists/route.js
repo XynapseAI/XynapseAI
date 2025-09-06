@@ -44,7 +44,7 @@ const postSchema = z.object({
   name: z.string().optional(),
 });
 
-// Rate limiting with Redis
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function checkRateLimit(ip) {
   try {
     const redisClient = await getRedisClient();
@@ -91,7 +91,7 @@ async function trackViolation(ip, reason = 'Unknown') {
   logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
 }
 
-// Enhanced CSRF check with Vercel subdomain support and relaxed development mode
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function isAllowedOrigin(origin, referer, pathname) {
   logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
 
@@ -158,54 +158,21 @@ async function isAllowedOrigin(origin, referer, pathname) {
 
 // GET handler: Fetch watchlists for the authenticated user
 export async function GET(request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-  const pathname = new URL(request.url).pathname;
-  logger.info(`GET request to /api/watchlists from IP ${ip}`, { origin, referer });
-
-  // CORS check
-  if (!(await isAllowedOrigin(origin, referer, pathname))) {
-    await trackViolation(ip, 'CORS blocked');
-    logger.error(`CORS error: Origin ${origin || 'null'} or Referer ${referer || 'null'} not allowed`);
-    return NextResponse.json(
-      { error: 'Not allowed by CORS' },
-      { status: 403, headers: securityHeaders }
-    );
-  }
-
-  const headers = {
-    ...securityHeaders,
-    'Content-Type': 'application/json',
-    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Allow-Credentials': 'true',
-    }),
-  };
-
-  // Rate limiting
-  try {
-    await checkRateLimit(ip);
-  } catch (err) {
-    await trackViolation(ip, err.message);
-    logger.warn(`Rate limit exceeded for watchlists API: ${err.message}`);
-    return NextResponse.json(
-      { success: false, detail: err.message },
-      { status: 429, headers }
-    );
-  }
-
-  // Authentication
+  const redisClient = await getRedisClient();
   const session = await auth();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const headers = { ...securityHeaders, 'Content-Type': 'application/json' };
+
   if (!session || !session.user?.id) {
-    await trackViolation(ip, 'Unauthorized access');
-    logger.warn('Unauthorized access attempt to watchlists API (no session)', { ip, origin, referer });
-    return NextResponse.json(
-      { success: false, detail: 'Unauthorized: Please log in.' },
-      { status: 401, headers }
-    );
+    return NextResponse.json({ success: false, detail: 'Unauthorized: Please log in.' }, { status: 401, headers });
+  }
+
+  const cacheKey = `watchlists-${session.user.id}`;
+  const redisData = await redisClient.get(cacheKey);
+  if (redisData) {
+    logger.info(`Redis cache hit for ${cacheKey}`);
+    return NextResponse.json({ success: true, data: JSON.parse(redisData) }, { status: 200, headers });
   }
 
   try {
@@ -218,135 +185,59 @@ export async function GET(request) {
       name: row.name || 'Unnamed Wallet',
     }));
 
-    logger.info(`Fetched ${watchlists.length} watchlist entries for user ${session.user.id}`);
-    return NextResponse.json(
-      { success: true, data: watchlists },
-      { status: 200, headers }
-    );
+    await redisClient.setEx(cacheKey, 24 * 60 * 60, JSON.stringify(watchlists));
+    await redisClient.setEx(`${cacheKey}-fallback`, 24 * 60 * 60, JSON.stringify(watchlists));
+    return NextResponse.json({ success: true, data: watchlists }, { status: 200, headers });
   } catch (error) {
-    await trackViolation(ip, `Error fetching watchlists: ${error.message}`);
-    logger.error(`Error fetching watchlists for user ${session.user.id}: ${error.message}`, { stack: error.stack });
-    return NextResponse.json(
-      { success: false, detail: `Failed to fetch watchlists: ${error.message}` },
-      { status: 500, headers }
-    );
+    const fallbackData = await redisClient.get(`${cacheKey}-fallback`);
+    if (fallbackData) {
+      return NextResponse.json({ success: true, data: JSON.parse(fallbackData) }, { status: 200, headers });
+    }
+    logger.error(`Error fetching watchlists: ${error.message}`);
+    return NextResponse.json({ success: false, detail: `Failed to fetch watchlists: ${error.message}` }, { status: 500, headers });
   }
 }
 
 // POST handler: Add or remove a wallet from the watchlist
 export async function POST(request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-  const pathname = new URL(request.url).pathname;
-  logger.info(`POST request to /api/watchlists from IP ${ip}`, { origin, referer });
-
-  // CORS check
-  if (!(await isAllowedOrigin(origin, referer, pathname))) {
-    await trackViolation(ip, 'CORS blocked');
-    logger.error(`CORS error: Origin ${origin || 'null'} or Referer ${referer || 'null'} not allowed`);
-    return NextResponse.json(
-      { error: 'Not allowed by CORS' },
-      { status: 403, headers: securityHeaders }
-    );
-  }
-
-  const headers = {
-    ...securityHeaders,
-    'Content-Type': 'application/json',
-    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Allow-Credentials': 'true',
-    }),
-  };
-
-  // Rate limiting
-  try {
-    await checkRateLimit(ip);
-  } catch (err) {
-    await trackViolation(ip, err.message);
-    logger.warn(`Rate limit exceeded for watchlists API: ${err.message}`);
-    return NextResponse.json(
-      { success: false, detail: err.message },
-      { status: 429, headers }
-    );
-  }
-
-  // Authentication
+  const redisClient = await getRedisClient();
   const session = await auth();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const headers = { ...securityHeaders, 'Content-Type': 'application/json' };
+
   if (!session || !session.user?.id) {
-    await trackViolation(ip, 'Unauthorized access');
-    logger.warn('Unauthorized access attempt to watchlists API (no session)', { ip, origin, referer });
-    return NextResponse.json(
-      { success: false, detail: 'Unauthorized: Please log in.' },
-      { status: 401, headers }
-    );
+    return NextResponse.json({ success: false, detail: 'Unauthorized: Please log in.' }, { status: 401, headers });
   }
 
-  // Parse and validate request body
   let body;
   try {
     body = await request.json();
-  } catch (err) {
-    await trackViolation(ip, 'Invalid JSON body');
-    logger.warn(`Invalid JSON body: ${err.message}`, { ip });
-    return NextResponse.json(
-      { detail: 'Invalid JSON body' },
-      { status: 400, headers }
-    );
-  }
+    const parsedBody = postSchema.parse(body);
+    const { action, wallet_address, name } = parsedBody;
+    const normalizedAddress = isAddress(wallet_address) ? wallet_address.toLowerCase() : wallet_address;
+    const cacheKey = `watchlists-${session.user.id}`;
 
-  let parsedBody;
-  try {
-    parsedBody = postSchema.parse(body);
-  } catch (err) {
-    await trackViolation(ip, 'Validation error');
-    logger.warn(`Validation error: ${err.message}`, { ip });
-    return NextResponse.json(
-      { detail: 'Validation failed', errors: err.errors },
-      { status: 400, headers }
-    );
-  }
-
-  const { action, wallet_address, name } = parsedBody;
-  const normalizedAddress = isAddress(wallet_address) ? wallet_address.toLowerCase() : wallet_address;
-
-  try {
     if (action === 'add') {
       const existing = await query(
         `SELECT 1 FROM watchlists WHERE user_id = $1 AND wallet_address = $2`,
         [session.user.id, normalizedAddress]
       );
       if (existing.rows.length > 0) {
-        await trackViolation(ip, 'Wallet already in watchlist');
-        logger.warn(`Wallet ${normalizedAddress} already in watchlist for user ${session.user.id}`);
-        return NextResponse.json(
-          { success: false, detail: 'Wallet already in watchlist' },
-          { status: 400, headers }
-        );
+        return NextResponse.json({ success: false, detail: 'Wallet already in watchlist' }, { status: 400, headers });
       }
-
       await query(
         `INSERT INTO watchlists (user_id, wallet_address, name, created_at) VALUES ($1, $2, $3, NOW())`,
         [session.user.id, normalizedAddress, name || 'Unnamed Wallet']
       );
-      logger.info(`Added wallet ${normalizedAddress} to watchlist for user ${session.user.id}`);
     } else if (action === 'remove') {
       const result = await query(
         `DELETE FROM watchlists WHERE user_id = $1 AND wallet_address = $2`,
         [session.user.id, normalizedAddress]
       );
       if (result.rowCount === 0) {
-        await trackViolation(ip, 'Wallet not found in watchlist');
-        logger.warn(`Wallet ${normalizedAddress} not found in watchlist for user ${session.user.id}`);
-        return NextResponse.json(
-          { success: false, detail: 'Wallet not found in watchlist' },
-          { status: 404, headers }
-        );
+        return NextResponse.json({ success: false, detail: 'Wallet not found in watchlist' }, { status: 404, headers });
       }
-      logger.info(`Removed wallet ${normalizedAddress} from watchlist for user ${session.user.id}`);
     }
 
     const updatedResult = await query(
@@ -358,20 +249,12 @@ export async function POST(request) {
       name: row.name || 'Unnamed Wallet',
     }));
 
-    logger.info(`Returning updated watchlist with ${updatedWatchlists.length} entries for user ${session.user.id}`);
-    return NextResponse.json(
-      { success: true, data: updatedWatchlists },
-      { status: 200, headers }
-    );
+    await redisClient.setEx(cacheKey, 24 * 60 * 60, JSON.stringify(updatedWatchlists));
+    await redisClient.setEx(`${cacheKey}-fallback`, 24 * 60 * 60, JSON.stringify(updatedWatchlists));
+    return NextResponse.json({ success: true, data: updatedWatchlists }, { status: 200, headers });
   } catch (error) {
-    await trackViolation(ip, `Error processing watchlist action: ${error.message}`);
-    logger.error(`Error processing watchlist action ${action} for address ${normalizedAddress}: ${error.message}`, {
-      stack: error.stack,
-    });
-    return NextResponse.json(
-      { success: false, detail: `Failed to process watchlist action: ${error.message}` },
-      { status: 500, headers }
-    );
+    logger.error(`Error processing watchlist action: ${error.message}`);
+    return NextResponse.json({ success: false, detail: `Failed to process watchlist action: ${error.message}` }, { status: 500, headers });
   }
 }
 

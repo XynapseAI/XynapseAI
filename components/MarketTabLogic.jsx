@@ -63,15 +63,15 @@ const fetcher = async (url, params) => {
 
 // Cache durations
 const CACHE_DURATIONS = {
-  PRICE: 5 * 60 * 1000, // 2 phút
-  METADATA: 4 * 60 * 60 * 1000, // 4 giờ
-  TRANSACTIONS: 5 * 60 * 1000, // 2m
-  DEFI_POOL: 4 * 60 * 60 * 1000, // 30 giây
-  DEFAULT: 4 * 60 * 60 * 1000, // 5 phút
-  TICKERS: 60 * 60 * 1000, // 1 giờ (tăng từ 30 phút)
-  TRENDING: 5 * 60 * 60 * 1000, // 1 giờ (tăng từ 30 phút)
-  NAMETAGS: 48 * 60 * 60 * 1000, // 24 giờ
-  TOP_HOLDERS: 12 * 60 * 60 * 1000, // 12 giờ
+  PRICE: 5 * 60 * 1000,
+  METADATA: 4 * 60 * 60 * 1000,
+  TRANSACTIONS: 5 * 60 * 1000,
+  DEFI_POOL: 24 * 60 * 60 * 1000,
+  DEFAULT: 4 * 60 * 60 * 1000,
+  TICKERS: 24 * 60 * 60 * 1000,
+  TRENDING: 24 * 60 * 60 * 1000,
+  NAMETAGS: 48 * 60 * 60 * 1000,
+  TOP_HOLDERS: 24 * 60 * 60 * 1000,
 };
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
@@ -171,32 +171,26 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const getCachedData = async (key, fetchFn, ttl = CACHE_DURATIONS.DEFAULT, retryCount = 0) => {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
     try {
-      // Check local cache first
       const localCached = localCache.current[key];
-      if (localCached && Date.now() - localCached.timestamp < ttl) {
-        console.log(`Local cache hit for ${key}`);
-        if (Date.now() - localCached.timestamp >= ttl) {
-          cacheLimiter.schedule(async () => {
-            try {
-              const freshData = await fetchFn();
-              if (freshData) {
-                await axios.post(
-                  `${API_BASE_URL}/api/cache`,
-                  { key, action: 'set', data: freshData, ttl },
-                  { timeout: 30000 }
-                );
-                localCache.current[key] = { data: freshData, timestamp: Date.now() };
-                localCache.current[`${key}_last_update`] = Date.now();
-                console.log(`Background cache updated for ${key}`);
-              }
-            } catch (error) {
-              console.error(`Background cache update failed for ${key}:`, error.message);
+      if (localCached && Date.now() - localCached.timestamp < ttl && Date.now() - localCached.timestamp >= ttl * 0.9) {
+        cacheLimiter.schedule(async () => {
+          try {
+            const freshData = await fetchFn();
+            if (freshData) {
+              await axios.post(
+                `${API_BASE_URL}/api/cache`,
+                { key, action: 'set', data: freshData, ttl },
+                { timeout: 30000 }
+              );
+              localCache.current[key] = { data: freshData, timestamp: Date.now() };
+              console.log(`Background cache refreshed for ${key}`);
             }
-          });
-        }
+          } catch (error) {
+            console.error(`Background cache refresh failed for ${key}:`, error.message);
+          }
+        });
         return localCached.data || [];
       }
-
       // Check Redis cache
       try {
         const cacheResponse = await cacheLimiter.schedule(() =>
@@ -285,7 +279,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     };
 
     const cacheTopTokens = async () => {
-      const cacheKey = `market-info-default-${currency}`;
+      const cacheKey = `market-info-${currency}`;
       const fetchFn = async () => {
         const response = await axios.get('/api/coingecko', {
           params: { start: 1, limit: tokensPerPage, vs_currencies: currency },
@@ -571,6 +565,16 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   const fetchNameTagsForAddresses = useCallback(
     async (addresses) => {
+      const cacheKey = `nametags-${selectedChain}`;
+      const cacheResponse = await axios.post(
+        `${API_BASE_URL}/api/cache`,
+        { key: cacheKey, action: 'get' },
+        { timeout: 30000 }
+      );
+      if (cacheResponse.data.success && cacheResponse.data.data) {
+        setNameTags((prev) => ({ ...prev, ...cacheResponse.data.data }));
+        return;
+      }
       if (!addresses || addresses.length === 0) {
         console.log('No addresses provided for fetchNameTagsForAddresses');
         setIsLoadingNameTags(false);
@@ -673,6 +677,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       });
       setIsLoadingNameTags(false);
       console.log(`Updated nameTags for ${Object.keys(newNameTags).length} addresses`);
+      await axios.post(
+        `${API_BASE_URL}/api/cache`,
+        { key: cacheKey, action: 'set', data: newNameTags, ttl: NAME_TAG_CACHE_DURATION },
+        { timeout: 30000 }
+      );
     },
     [session, status, toast]
   );
@@ -850,14 +859,17 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
             // Hợp nhất với eth-top-holders.json cho Ethereum
             if (chain === 'ethereum') {
-              const jsonHolders = Object.values(ethNameTags).map((holder) => ({
+              const jsonCacheKey = `blockchair-${chain}-json-holders`;
+              const jsonCachedData = await redisClient.get(jsonCacheKey);
+              let jsonHolders = jsonCachedData ? JSON.parse(jsonCachedData) : Object.values(ethNameTags).map((holder) => ({
                 address: holder.Address.toLowerCase(),
                 balance: parseFloat(holder.Balance) || 0,
-                share: 0, // JSON không cung cấp share, đặt là 0
+                share: 0,
                 nameTag: holder.Labels['ethereum']?.['Name Tag'] || null,
                 image: holder.Labels['ethereum']?.image || null,
                 source: 'JSON',
               }));
+              await redisClient.setEx(jsonCacheKey, 24 * 60 * 60, JSON.stringify(jsonHolders));
 
               // Hợp nhất holders từ Blockchair và JSON, loại bỏ trùng lặp theo địa chỉ
               const uniqueAddresses = new Set();
@@ -973,7 +985,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     debounce(
       async (tokenId, retryCount = 0) => {
         if (!tokenId || document.visibilityState !== 'visible') return;
-        const cacheKey = `ticker-${tokenId}`;
+        const cacheKey = `tickers-all`;
         setIsLoadingTickers(true);
         setTickerError(null);
 
@@ -2349,10 +2361,10 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 
   // Thay thế hàm fetchMarketData và phần useEffect liên quan
   const { data: marketData, error: marketError } = useSWR(
-    ['/api/coingecko', { start: 1, limit: tokensPerPage, vs_currencies: availableCurrencies.join(',') }],
-    ([url, params]) => fetcher(url, params),
+    ['/api/coingecko', { start: 1, limit: tokensPerPage, vs_currencies: currency }],
+    ([url, params]) => getCachedData(`market-info-${currency}`, () => fetcher(url, params), CACHE_DURATIONS.DEFAULT),
     {
-      refreshInterval: typeof document !== 'undefined' && document.visibilityState === 'visible' ? 30 * 1000 : 0,
+      refreshInterval: typeof document !== 'undefined' && document.visibilityState === 'visible' ? 5 * 60 * 1000 : 0,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       onError: (err) => {
