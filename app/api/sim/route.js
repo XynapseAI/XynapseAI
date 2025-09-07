@@ -148,7 +148,7 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
     const response = await axios.get(url, {
       ...config,
       timeout: 30000,
-      responseType: config.responseType || 'json',
+      responseType: config.responseType || 'json', // Đảm bảo responseType luôn có giá trị mặc định
     });
     return response;
   } catch (error) {
