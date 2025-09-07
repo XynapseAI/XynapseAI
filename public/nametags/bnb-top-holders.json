@@ -13,13 +13,13 @@
   },
   "0x0000000000000000000000000000000000001004": {
     "Address": "0x0000000000000000000000000000000000001004",
-    "Balance": 26004148.48046987,
+    "Balance": 26004147.85397243,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "BSC: Token Hub",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -31,7 +31,7 @@
         "Name Tag": "Binance 7",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -55,19 +55,19 @@
         "Name Tag": "Binance: Hot Wallet 20",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
   "0x000000000000000000000000000000000000dead": {
     "Address": "0x000000000000000000000000000000000000dead",
-    "Balance": 10470711.31947509,
+    "Balance": 10470720.05761617,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Null: 0x000...dEaD",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -127,7 +127,7 @@
         "Name Tag": "Binance 28",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -139,7 +139,7 @@
         "Name Tag": "Binance 70",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -157,13 +157,13 @@
   },
   "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": {
     "Address": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
-    "Balance": 1368127.7234956,
+    "Balance": 1368016.98715231,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "BNB Chain: WBNB Token",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -205,7 +205,7 @@
   },
   "0xc437593d9c296bf9a5002522a86dad8a4d4af808": {
     "Address": "0xc437593d9c296bf9a5002522a86dad8a4d4af808",
-    "Balance": 1172736.07083939,
+    "Balance": 1172637.55968676,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -283,7 +283,7 @@
         "Name Tag": "BNB Bridge Exploiter",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -373,7 +373,7 @@
   },
   "0x2804ada1c219e50898e75b2bd052030580f4fbac": {
     "Address": "0x2804ada1c219e50898e75b2bd052030580f4fbac",
-    "Balance": 713223.96464829,
+    "Balance": 713348.9547332,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -409,7 +409,7 @@
   },
   "0x6cbeecb3a0591eaab5d4a6380f0bbbafb06859f2": {
     "Address": "0x6cbeecb3a0591eaab5d4a6380f0bbbafb06859f2",
-    "Balance": 513906.94140886,
+    "Balance": 513907.94140886,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -455,18 +455,6 @@
       }
     }
   },
-  "0xa07c5b74c9b40447a954e1466938b865b6bbea36": {
-    "Address": "0xa07c5b74c9b40447a954e1466938b865b6bbea36",
-    "Balance": 405468.80227374,
-    "Labels": {
-      "binance-smart-chain": {
-        "Name Tag": "Venus: vBNB Token",
-        "Description": null,
-        "Subcategory": "Others",
-        "image": "/icons/binance.webp"
-      }
-    }
-  },
   "0x6ec070c6af6e2b3cfd1c625bc2888bbc7d9eabe6": {
     "Address": "0x6ec070c6af6e2b3cfd1c625bc2888bbc7d9eabe6",
     "Balance": 405242.30287282,
@@ -476,6 +464,18 @@
         "Description": null,
         "Subcategory": "Others",
         "image": null
+      }
+    }
+  },
+  "0xa07c5b74c9b40447a954e1466938b865b6bbea36": {
+    "Address": "0xa07c5b74c9b40447a954e1466938b865b6bbea36",
+    "Balance": 404373.4490992,
+    "Labels": {
+      "binance-smart-chain": {
+        "Name Tag": "Venus: vBNB Token",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "binance.webp"
       }
     }
   },
@@ -703,7 +703,7 @@
         "Name Tag": "Binance 74",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -829,7 +829,7 @@
   },
   "0x0fab00071be18caad4c9984ec68e860e84c68dad": {
     "Address": "0x0fab00071be18caad4c9984ec68e860e84c68dad",
-    "Balance": 121218.0877032,
+    "Balance": 121191.78578969,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -889,13 +889,13 @@
   },
   "0x0000000000000000000000000000000000000000": {
     "Address": "0x0000000000000000000000000000000000000000",
-    "Balance": 99215.08077309,
+    "Balance": 99215.08150847,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Null: 0x000...000",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -937,13 +937,25 @@
   },
   "0x1876ea7702c0ad0c6a2ae6036de7733edfbca519": {
     "Address": "0x1876ea7702c0ad0c6a2ae6036de7733edfbca519",
-    "Balance": 88385.58182121,
+    "Balance": 88385.65486403,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "opBNB: Optimism Portal Proxy",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/optimism.webp"
+        "image": "optimism.webp"
+      }
+    }
+  },
+  "0x8894e0a0c962cb723c1976a4421c95949be2d4e3": {
+    "Address": "0x8894e0a0c962cb723c1976a4421c95949be2d4e3",
+    "Balance": 87881.85537418,
+    "Labels": {
+      "binance-smart-chain": {
+        "Name Tag": "Binance 51",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "binance.webp"
       }
     }
   },
@@ -971,18 +983,6 @@
       }
     }
   },
-  "0x8894e0a0c962cb723c1976a4421c95949be2d4e3": {
-    "Address": "0x8894e0a0c962cb723c1976a4421c95949be2d4e3",
-    "Balance": 83844.07040289,
-    "Labels": {
-      "binance-smart-chain": {
-        "Name Tag": "Binance 51",
-        "Description": null,
-        "Subcategory": "Others",
-        "image": "/icons/binance.webp"
-      }
-    }
-  },
   "0x280b78b6a1b38f985d6060890f6c849c108c9351": {
     "Address": "0x280b78b6a1b38f985d6060890f6c849c108c9351",
     "Balance": 75973.4912361,
@@ -1003,7 +1003,7 @@
         "Name Tag": "Tornado.Cash: 100 BNB",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -1033,7 +1033,7 @@
   },
   "0x318d2aae4c99c2e74f7b5949fa1c34df837789b8": {
     "Address": "0x318d2aae4c99c2e74f7b5949fa1c34df837789b8",
-    "Balance": 62317.85120624,
+    "Balance": 62359.10337446,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -1045,13 +1045,13 @@
   },
   "0x98adef6f2ac8572ec48965509d69a8dd5e8bba9d": {
     "Address": "0x98adef6f2ac8572ec48965509d69a8dd5e8bba9d",
-    "Balance": 56515.31262709,
+    "Balance": 56649.36713609,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": "Binance 93",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -1069,7 +1069,7 @@
   },
   "0x42ed232dc3e65b3534dbb42d07a3f67a618f66a3": {
     "Address": "0x42ed232dc3e65b3534dbb42d07a3f67a618f66a3",
-    "Balance": 53865.66357891,
+    "Balance": 53867.53164365,
     "Labels": {
       "binance-smart-chain": {
         "Name Tag": null,
@@ -1087,7 +1087,7 @@
         "Name Tag": "Fake_Phishing7",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },

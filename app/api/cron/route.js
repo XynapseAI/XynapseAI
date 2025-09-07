@@ -1,9 +1,9 @@
-// scripts/crawl-top-holders.js
+// app/api/cron/route.js
+import { NextResponse } from "next/server";
 import axios from "axios";
 import { load } from "cheerio";
 import fs from "fs";
 import path from "path";
-import cron from "node-cron";
 
 // --- CONFIGURATION FOR PAGES TO CRAWL ---
 const TARGETS = [
@@ -344,7 +344,7 @@ async function runAllCrawlers() {
   console.log(`[${new Date().toISOString()}] Starting crawl cycle...`);
   for (const target of TARGETS) {
     if (target.type === "etherscan") {
-      await crawlEtherscanTopHolders(target.url, target.outputFile, target.name, target.chainLabel);
+      await crawlEtherscanTopHolders(target.url, target.outputFile, target.name, chainLabel);
     } else if (target.type === "bitinfocharts") {
       await crawlBitinfochartsTopHolders(target.urls, target.outputFile, target.name, target.chainLabel);
     }
@@ -352,11 +352,21 @@ async function runAllCrawlers() {
   console.log(`[${new Date().toISOString()}] Crawl cycle completed.`);
 }
 
-// Run immediately
-runAllCrawlers();
+export async function GET(request) {
+  // Kiểm tra CRON_SECRET
+  if (request.headers.get("Authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
 
-// Schedule daily run at 0h UTC (7h AM Vietnam time)
-cron.schedule("0 7 * * *", () => {
-  console.log(`[${new Date().toISOString()}] Starting scheduled crawl...`);
-  runAllCrawlers();
-});
+  try {
+    // Chạy logic crawl
+    await runAllCrawlers();
+    return NextResponse.json({ ok: true, message: "Crawl completed successfully" });
+  } catch (error) {
+    console.error("Error running cron job:", error.message || error);
+    return NextResponse.json(
+      { ok: false, error: error.message || "Crawl failed" },
+      { status: 500 }
+    );
+  }
+}

@@ -86,7 +86,7 @@ function MatrixHoverEffect({ text, hoverColor = "#00BFFF" }) {
   )
 }
 
-// Updated WalletNode Component
+// WalletNode Component
 function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
   const truncateAddress = (addr) => `${addr.slice(0, 6)}...${addr.slice(-4)}`
   const displayName = nametag || truncateAddress(address)
@@ -122,7 +122,7 @@ function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
   )
 }
 
-// Updated SimulatedTreemap Component
+// SimulatedTreemap Component
 function SimulatedTreemap() {
   const [nodes, setNodes] = useState([
     { address: '0x123...abc', nametag: 'Binance Deposit Wallet', image: '/icons/binance.webp', position: { x: 150, y: 200 } },
@@ -253,21 +253,21 @@ export default function Home() {
       const cardHeight = isMobile ? viewportHeight * 0.35 : viewportHeight * 0.3
 
       if (cardsContainerRef.current) {
-        cardsContainerRef.current.style.minHeight = `${cardHeight * 3}px` // Increased for more spacing
+        cardsContainerRef.current.style.minHeight = `${cardHeight * 3}px`
       }
       if (sectionRef.current) {
-        sectionRef.current.style.minHeight = `${viewportHeight * 2}px` // Extended section height
+        sectionRef.current.style.minHeight = `${viewportHeight * 2}px`
         sectionRef.current.style.marginTop = isMobile ? "-10vh" : "0"
       }
 
       gsap.set([card1Ref.current, card2Ref.current, card3Ref.current], {
         opacity: 0,
-        y: 300, // Start further off-screen for smoother entrance
+        y: 300,
         scale: isMobile ? 0.95 : 0.9,
         width: cardWidth,
         height: cardHeight,
-        xPercent: -50, // Center horizontally
-        left: "50%", // Ensure cards are centered
+        xPercent: -50,
+        left: "50%",
         overwrite: "auto",
       })
 
@@ -275,8 +275,8 @@ export default function Home() {
         scrollTrigger: {
           trigger: sectionRef.current,
           start: isMobile ? "top 10%" : "top 15%",
-          end: isMobile ? `+=${viewportHeight * 3.5}` : `+=${viewportHeight * 4}`, // Longer scroll duration
-          scrub: 1.5, // Smoother scrub for fluid transitions
+          end: isMobile ? `+=${viewportHeight * 3.5}` : `+=${viewportHeight * 4}`,
+          scrub: 1.5,
           pin: true,
           pinSpacing: true,
           markers: false,
@@ -293,7 +293,7 @@ export default function Home() {
             y: 0,
             scale: 1,
             duration: isMobile ? 1.2 : 1.5,
-            ease: "power4.out", // Modern, smooth easing
+            ease: "power4.out",
           },
           0
         )
@@ -301,12 +301,12 @@ export default function Home() {
           card1Ref.current,
           {
             opacity: 0.2,
-            y: -cardHeight * 0.8, // Move up more to avoid overlap
+            y: -cardHeight * 0.8,
             scale: 0.9,
             duration: isMobile ? 0.8 : 1,
             ease: "power4.in",
           },
-          isMobile ? 1.8 : 2.5 // Delayed to keep card 1 visible longer
+          isMobile ? 1.8 : 2.5
         )
         .to(
           card2Ref.current,
@@ -317,7 +317,7 @@ export default function Home() {
             duration: isMobile ? 1.2 : 1.5,
             ease: "power4.out",
           },
-          isMobile ? 1.5 : 2.2 // Start card 2 after card 1 is fully visible
+          isMobile ? 1.5 : 2.2
         )
         .to(
           card2Ref.current,
@@ -328,7 +328,7 @@ export default function Home() {
             duration: isMobile ? 0.8 : 1,
             ease: "power4.in",
           },
-          isMobile ? 3.3 : 4.7 // Delayed to keep card 2 visible longer
+          isMobile ? 3.3 : 4.7
         )
         .to(
           card3Ref.current,
@@ -339,7 +339,7 @@ export default function Home() {
             duration: isMobile ? 1.2 : 1.5,
             ease: "power4.out",
           },
-          isMobile ? 3.0 : 4.4 // Start card 3 after card 2 is fully visible
+          isMobile ? 3.0 : 4.4
         )
         .to(
           card3Ref.current,
@@ -350,10 +350,9 @@ export default function Home() {
             duration: isMobile ? 0.8 : 1,
             ease: "power4.in",
           },
-          isMobile ? 4.8 : 6.9 // Fade out card 3 at the end
+          isMobile ? 4.8 : 6.9
         )
 
-      // Stars and meteors animation (unchanged)
       if (starsRef.current) {
         starsRef.current.innerHTML = ""
 
@@ -561,6 +560,7 @@ export default function Home() {
   ]
 
   const simulatedTopHolders = [
+    { address: '', balance: 1090000, source: 'Satoshi Nakamoto.', image: '/icons/bitcoin.webp' },
     { address: '', balance: 632457, source: 'MicroStrategy Inc.', image: '/icons/microstrategy.webp' },
     { address: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo', balance: 248597, source: 'Binance Cold Wallet', image: '/icons/binance.webp' },
     { address: 'bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2', balance: 140574, source: 'Robinhood Cold Wallet', image: '/icons/robinhood.webp' },
@@ -601,13 +601,23 @@ export default function Home() {
                 onMouseEnter={() => setIsProductOpen(true)}
                 onMouseLeave={() => setIsProductOpen(false)}
               >
-                {["About", "Features", "Pricing", "Docs"].map((link) => (
+                {[
+                  { name: "About", href: "/docs#about", disabled: false },
+                  { name: "Features", href: "/docs#features", disabled: false },
+                  { name: "Pricing (Soon)", href: "#", disabled: true },
+                  { name: "API (Soon)", href: "#", disabled: true },
+                ].map((link) => (
                   <Link
-                    key={link}
-                    href={`/${link.toLowerCase()}`}
-                    className="block px-4 py-2 text-sm text-white/80 hover:text-neon-blue transition-all duration-300"
+                    key={link.name}
+                    href={link.href}
+                    target={link.disabled ? "_self" : "_blank"}
+                    className={`block px-4 py-2 text-sm transition-all duration-300 ${
+                      link.disabled
+                        ? "text-gray-600 cursor-not-allowed"
+                        : "text-gray-400 hover:text-white"
+                    }`}
                   >
-                    {link}
+                    {link.name}
                   </Link>
                 ))}
               </motion.div>
@@ -628,46 +638,25 @@ export default function Home() {
                 onMouseEnter={() => setIsResourcesOpen(true)}
                 onMouseLeave={() => setIsResourcesOpen(false)}
               >
-                {["Blog", "Support", "Brand Kit", "Contact"].map((link) => (
+                {[
+                  // { name: "Blog", href: "/docs#blog", disabled: false },
+                  // { name: "Support", href: "/docs#support", disabled: false },
+                  { name: "Brand Kit", href: "/docs#brandkit", disabled: false },
+                  { name: "Contact", href: "/docs#contact", disabled: false },
+                  { name: "Docs", href: "/docs#docs", disabled: false },
+                ].map((link) => (
                   <Link
-                    key={link}
-                    href={`/${link.toLowerCase()}`}
-                    className="block px-4 py-2 text-sm text-white/80 hover:text-neon-blue transition-all duration-300"
+                    key={link.name}
+                    href={link.href}
+                    target="_blank"
+                    className="block px-4 py-2 text-sm text-gray-400 hover:text-white transition-all duration-300"
                   >
-                    {link}
+                    {link.name}
                   </Link>
                 ))}
               </motion.div>
             </div>
           </div>
-          {/* Social Logos (Visible only on Desktop) */}
-          {/* <div className="hidden md:flex items-center gap-4">
-            <Link href="https://x.com" className="transition-all duration-300">
-              <Image
-                src="/logos/x.webp"
-                alt="X Logo"
-                width={24}
-                height={24}
-                className="h-4 sm:h-5 w-auto"
-              />
-            </Link>
-            <span>
-              <Image
-                src="/logos/discord.webp"
-                alt="Discord Logo"
-                width={24}
-                height={24}
-                className="h-4 sm:h-5 w-auto opacity-50"
-              />
-            </span>
-          </div> */}
-          {/* LAUNCH APP Button */}
-          {/* <Link
-            href="/dashboard"
-            className="px-3 py-1.5 text-white text-xs border border-white/20 rounded-md font-medium transition-all duration-300"
-          >
-            <MatrixHoverEffect text="LAUNCH APP" hoverColor="#00BFFF" />
-          </Link> */}
           {/* Mobile Menu Button */}
           <div className="md:hidden">
             <button
@@ -705,27 +694,44 @@ export default function Home() {
             <div className="space-y-6">
               <div>
                 <h3 className="text-sm font-bold text-white mb-4 tracking-wider">PRODUCT</h3>
-                {["About", "Features", "Pricing", "Docs"].map((link) => (
+                {[
+                  { name: "About", href: "/docs#about", disabled: false },
+                  { name: "Features", href: "/docs#features", disabled: false },
+                  { name: "Pricing (Soon)", href: "#", disabled: true },
+                  { name: "API (Soon)", href: "#", disabled: true },
+                ].map((link) => (
                   <Link
-                    key={link}
-                    href={`/${link.toLowerCase()}`}
-                    className="block text-xs text-gray-400 mb-2 hover:text-white transition-all duration-300"
+                    key={link.name}
+                    href={link.href}
+                    target={link.disabled ? "_self" : "_blank"}
+                    className={`block text-xs mb-2 transition-all duration-300 ${
+                      link.disabled
+                        ? "text-gray-600 cursor-not-allowed"
+                        : "text-gray-400 hover:text-white"
+                    }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    {link}
+                    {link.name}
                   </Link>
                 ))}
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white mb-4 tracking-wider">RESOURCES</h3>
-                {["Blog", "Support", "Brand Kit", "Contact"].map((link) => (
+                {[
+                  // { name: "Blog", href: "/docs#blog", disabled: false },
+                  // { name: "Support", href: "/docs#support", disabled: false },
+                  { name: "Brand Kit", href: "/docs#brandkit", disabled: false },
+                  { name: "Contact", href: "/docs#contact", disabled: false },
+                  { name: "Docs", href: "/docs#docs", disabled: false },
+                ].map((link) => (
                   <Link
-                    key={link}
-                    href={`/${link.toLowerCase()}`}
+                    key={link.name}
+                    href={link.href}
+                    target="_blank"
                     className="block text-xs text-gray-400 mb-2 hover:text-white transition-all duration-300"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    {link}
+                    {link.name}
                   </Link>
                 ))}
               </div>
@@ -771,14 +777,9 @@ export default function Home() {
             Access comprehensive wallet data, track large organizations, and visualize fund flows in real-time.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {/* <Link
-              href="#learn-more"
-              className="px-4 py-2 text-white border border-white/20 rounded-md text-xs font-medium transition-all duration-300"
-            >
-              <MatrixHoverEffect text="DISCOVER NOW" hoverColor="#00BFFF" />
-            </Link> */}
             <Link
               href="/dashboard"
+              target="_blank"
               className="px-4 py-2 bg-white text-black rounded-lg text-xs font-medium transition-all duration-300 hover:bg-gray-200"
             >
               <MatrixHoverEffect text="LAUNCH APP" hoverColor="#000000" />
@@ -811,8 +812,6 @@ export default function Home() {
 
       {/* Powered by Elite AI Models */}
       <section ref={sectionRef} className="py-16 flex flex-col items-center relative">
-        <h2 className="text-xl sm:text-2xl font-bold text-white mb-16 text-center tracking-tight">
-        </h2>
         <div ref={cardsContainerRef} className="relative flex items-start justify-center pt-8">
           {[card1Ref, card2Ref, card3Ref].map((ref, index) => (
             <motion.div
@@ -841,119 +840,119 @@ export default function Home() {
       </section>
 
       {/* Why Choose Us */}
-<section className="py-20 flex flex-col items-center relative z-10">
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.8 }}
-    viewport={{ once: true }}
-    className="text-center mb-16"
-  >
-    <h3 className="text-xl sm:text-2xl font-bold text-white mb-6 tracking-tight">WHY XYNAPSE ANALYTICS?</h3>
-    <p className="text-sm text-gray-400 max-w-2xl mx-auto">
-      <TypingEffect
-        text="Comprehensive on-chain tools to track wallets, holdings, and flows with unparalleled accuracy."
-        speed={50}
-      />
-    </p>
-  </motion.div>
-
-  <div className="w-full max-w-6xl mx-auto px-6">
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-      {[
-        {
-          icon: (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-              />
-            </svg>
-          ),
-          text: "Wallet Balance & Value Tracking",
-        },
-        {
-          icon: (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
-              />
-            </svg>
-          ),
-          text: "Over 1M Name Tags & Labels",
-        },
-        {
-          icon: (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
-          ),
-          text: "Top Holders & Organization Insights",
-        },
-        {
-          icon: (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 17V7m0 10h6m-6 0H3m12 0h6M5 7h14"
-              />
-            </svg>
-          ),
-          text: "Fund Flow Visualization via Treemap",
-        },
-      ].map((item, index) => (
+      <section className="py-20 flex flex-col items-center relative z-10">
         <motion.div
-          key={index}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: index * 0.1 }}
+          transition={{ duration: 0.8 }}
           viewport={{ once: true }}
-          className="flex flex-col items-center p-6 bg-gray-900/30 backdrop-blur-lg border border-white/20 rounded-lg hover:border-white/40 transition-all duration-300 group"
-          whileHover={{ scale: 1.05 }}
+          className="text-center mb-16"
         >
-          {item.icon}
-          <p className="text-sm text-white text-center font-medium mt-4">{item.text}</p>
+          <h3 className="text-xl sm:text-2xl font-bold text-white mb-6 tracking-tight">WHY XYNAPSE ANALYTICS?</h3>
+          <p className="text-sm text-gray-400 max-w-2xl mx-auto">
+            <TypingEffect
+              text="Comprehensive on-chain tools to track wallets, holdings, and flows with unparalleled accuracy."
+              speed={50}
+            />
+          </p>
         </motion.div>
-      ))}
-    </div>
-  </div>
-</section>
+
+        <div className="w-full max-w-6xl mx-auto px-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {
+                icon: (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                    />
+                  </svg>
+                ),
+                text: "Wallet Balance & Value Tracking",
+              },
+              {
+                icon: (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
+                    />
+                  </svg>
+                ),
+                text: "Over 1M Name Tags & Labels",
+              },
+              {
+                icon: (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                ),
+                text: "Top Holders & Organization Insights",
+              },
+              {
+                icon: (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-12 sm:h-14 w-12 sm:w-14 text-white transition-colors duration-300"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 17V7m0 10h6m-6 0H3m12 0h6M5 7h14"
+                    />
+                  </svg>
+                ),
+                text: "Fund Flow Visualization via Treemap",
+              },
+            ].map((item, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                viewport={{ once: true }}
+                className="flex flex-col items-center p-6 bg-gray-900/30 backdrop-blur-lg border border-white/20 rounded-lg hover:border-white/40 transition-all duration-300 group"
+                whileHover={{ scale: 1.05 }}
+              >
+                {item.icon}
+                <p className="text-sm text-white text-center font-medium mt-4">{item.text}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Market Intelligence */}
       <section className="py-20 bg-gradient-to-b from-black to-gray-900 relative overflow-hidden">
@@ -1319,29 +1318,55 @@ export default function Home() {
               <div className="flex items-center mb-4">
                 <Image
                   src="/logos/logo-landscape.webp"
-                  alt="Xynapse Logo"
+                  alt="Xynapse Analytics Logo"
                   width={120}
                   height={56}
                   className="h-12 sm:h-16 w-auto"
                 />
               </div>
-              {/* <p className="text-xs text-gray-500">Xynapse Analytics © 2025</p> */}
             </div>
 
             {[
-              { title: "PRODUCT", links: ["About", "Features", "Pricing", "Docs"] },
-              { title: "RESOURCES", links: ["Blog", "Support", "Brand Kit", "Contact"] },
-              { title: "CONTACT", links: ["Blog", "Support",] },
+              {
+                title: "PRODUCT",
+                links: [
+                  { name: "Features", href: "/docs#features", disabled: false },
+                  { name: "Pricing (Soon)", href: "#", disabled: true },
+                  { name: "API (Soon)", href: "#", disabled: true },
+                ],
+              },
+              {
+                title: "RESOURCES",
+                links: [
+                  // { name: "Blog", href: "/docs#blog", disabled: false },
+                  // { name: "Support", href: "/docs#support", disabled: false },
+                  { name: "About", href: "/docs#about", disabled: false },
+                  { name: "Brand Kit", href: "/docs#brandkit", disabled: false },
+                  { name: "Contact", href: "/docs#contact", disabled: false },
+                  { name: "Docs", href: "/docs#docs", disabled: false },
+                ],
+              },
+              {
+                title: "CONTACT",
+                links: [
+                  { name: "Email", href: "mailto:mail.xynapse@gmail.com", disabled: false },
+                ],
+              },
             ].map((col, index) => (
               <div key={index}>
                 <h3 className="text-sm font-bold text-white mb-4 tracking-wider">{col.title}</h3>
                 {col.links.map((link) => (
                   <Link
-                    key={link}
-                    href={`/${link.toLowerCase()}`}
-                    className="block text-xs text-gray-500 mb-2 transition-all duration-300 hover:text-white"
+                    key={link.name}
+                    href={link.href}
+                    target={link.disabled ? "_self" : "_blank"}
+                    className={`block text-xs mb-2 transition-all duration-300 ${
+                      link.disabled
+                        ? "text-gray-600 cursor-not-allowed"
+                        : "text-gray-500 hover:text-white"
+                    }`}
                   >
-                    <MatrixHoverEffect text={link} hoverColor="#00BFFF" />
+                    <MatrixHoverEffect text={link.name} hoverColor={link.disabled ? "#4B5563" : "#00BFFF"} />
                   </Link>
                 ))}
               </div>
@@ -1350,7 +1375,7 @@ export default function Home() {
 
           <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/20">
             <div className="flex gap-6 mb-4 md:mb-0">
-              <Link href="https://x.com" className="text-gray-500 hover:text-white transition-colors">
+              <Link href="https://x.com" target="_blank" className="text-gray-500 hover:text-white transition-colors">
                 <Image
                   src="/logos/x.webp"
                   alt="X Logo"
@@ -1426,90 +1451,90 @@ export default function Home() {
       )}
 
       <style jsx>{`
-  .hamburger-icon {
-    display: block;
-    width: 24px;
-    height: 2px;
-    background: white;
-    position: relative;
-    left: 0; /* Ensure no left offset */
-    transition: all 0.3s ease;
-  }
+        .hamburger-icon {
+          display: block;
+          width: 24px;
+          height: 2px;
+          background: white;
+          position: relative;
+          left: 0;
+          transition: all 0.3s ease;
+        }
 
-  .hamburger-icon::before,
-  .hamburger-icon::after {
-    content: '';
-    position: absolute;
-    width: 24px; /* Match width of middle bar */
-    height: 2px;
-    background: white;
-    left: 0; /* Align with middle bar */
-    transition: all 0.3s ease;
-  }
+        .hamburger-icon::before,
+        .hamburger-icon::after {
+          content: '';
+          position: absolute;
+          width: 24px;
+          height: 2px;
+          background: white;
+          left: 0;
+          transition: all 0.3s ease;
+        }
 
-  .hamburger-icon::before {
-    top: -8px; /* Position above middle bar */
-  }
+        .hamburger-icon::before {
+          top: -8px;
+        }
 
-  .hamburger-icon::after {
-    top: 8px; /* Position below middle bar */
-  }
+        .hamburger-icon::after {
+          top: 8px;
+        }
 
-  .hamburger-icon.open {
-    background: transparent; /* Hide middle bar when open */
-  }
+        .hamburger-icon.open {
+          background: transparent;
+        }
 
-  .hamburger-icon.open::before {
-    transform: rotate(45deg);
-    top: 0; /* Center on middle bar */
-  }
+        .hamburger-icon.open::before {
+          transform: rotate(45deg);
+          top: 0;
+        }
 
-  .hamburger-icon.open::after {
-    transform: rotate(-45deg);
-    top: 0; /* Center on middle bar */
-  }
+        .hamburger-icon.open::after {
+          transform: rotate(-45deg);
+          top: 0;
+        }
 
-  .star-dot {
-    position: absolute;
-    width: 2px;
-    height: 2px;
-    background: white;
-    border-radius: 50%;
-    opacity: 0.7;
-  }
+        .star-dot {
+          position: absolute;
+          width: 2px;
+          height: 2px;
+          background: white;
+          border-radius: 50%;
+          opacity: 0.7;
+        }
 
-  .meteor-container {
-    position: absolute;
-    width: 2px;
-    height: 2px;
-  }
+        .meteor-container {
+          position: absolute;
+          width: 2px;
+          height: 2px;
+        }
 
-  .meteor-tail {
-    position: absolute;
-    width: 2px;
-    height: 100px;
-    background: linear-gradient(to bottom, white, transparent);
-    transform-origin: top center;
-  }
+        .meteor-tail {
+          position: absolute;
+          width: 2px;
+          height: 100px;
+          background: linear-gradient(to bottom, white, transparent);
+          transform-origin: top center;
+        }
 
-  @keyframes marquee-right-to-left {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
-  }
+        @keyframes marquee-right-to-left {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
 
-  @keyframes reverse-marquee {
-    0% { transform: translateX(-50%); }
-    100% { transform: translateX(0); }
-  }
+        @keyframes reverse-marquee {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
+        }
 
-  .animate-marquee-right-to-left {
-    animation: marquee-right-to-left 30s linear infinite;
-  }
+        .animate-marquee-right-to-left {
+          animation: marquee-right-to-left 30s linear infinite;
+        }
 
-  .animate-reverse-marquee {
-    animation: reverse-marquee 35s linear infinite;
-  }
-`}</style>
+        .animate-reverse-marquee {
+          animation: reverse-marquee 35s linear infinite;
+        }
+      `}</style>
     </div>
   )
 }

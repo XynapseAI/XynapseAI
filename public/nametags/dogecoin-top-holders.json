@@ -7,7 +7,7 @@
         "Name Tag": "Robinhood-ColdWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/robinhood.webp"
+        "image": "robinhood.webp"
       }
     }
   },
@@ -19,7 +19,7 @@
         "Name Tag": "Binance",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -31,7 +31,7 @@
         "Name Tag": "Upbit-ColWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/upbit.webp"
+        "image": "upbit.webp"
       }
     }
   },
@@ -43,7 +43,7 @@
         "Name Tag": "Cryptsy",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -67,7 +67,7 @@
         "Name Tag": "Binance",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -79,7 +79,7 @@
         "Name Tag": "Binance",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -91,7 +91,7 @@
         "Name Tag": "Dogeparty-XDP-burned",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -103,7 +103,7 @@
         "Name Tag": "Bithumb-ColdWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/bithumb.webp"
+        "image": "bithumb.webp"
       }
     }
   },
@@ -115,7 +115,7 @@
         "Name Tag": "Gate.io-ColdWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/gate.webp"
+        "image": "gate.webp"
       }
     }
   },
@@ -127,7 +127,7 @@
         "Name Tag": "Bybit-Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/bybit.webp"
+        "image": "bybit.webp"
       }
     }
   },
@@ -139,7 +139,7 @@
         "Name Tag": "Kraken-ColdWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "kraken.webp"
       }
     }
   },
@@ -175,7 +175,7 @@
         "Name Tag": "Kraken",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "kraken.webp"
       }
     }
   },
@@ -187,7 +187,7 @@
         "Name Tag": "Kraken-ColdWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "kraken.webp"
       }
     }
   },
@@ -205,13 +205,13 @@
   },
   "dkgcd6zjihwczqj7dptgfufuuxofgfndym": {
     "Address": "dkgcd6zjihwczqj7dptgfufuuxofgfndym",
-    "Balance": 791728649,
+    "Balance": 791731061,
     "Labels": {
       "dogecoin": {
         "Name Tag": "Crypto.com-ColdWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/crypto.webp"
+        "image": "crypto.webp"
       }
     }
   },
@@ -229,7 +229,7 @@
   },
   "9wyp6khqm8vwxghsbn8ge62u7hmhwkm1oz": {
     "Address": "9wyp6khqm8vwxghsbn8ge62u7hmhwkm1oz",
-    "Balance": 552145456,
+    "Balance": 551558469,
     "Labels": {
       "dogecoin": {
         "Name Tag": null,
@@ -259,7 +259,7 @@
         "Name Tag": "3377817",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -271,31 +271,31 @@
         "Name Tag": "Gemini-ColdWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/gemini.webp"
+        "image": "gemini.webp"
       }
     }
   },
   "d7vrvreym4h9vbtoqi6mxsmzsuvje6pdet": {
     "Address": "d7vrvreym4h9vbtoqi6mxsmzsuvje6pdet",
-    "Balance": 537130897,
+    "Balance": 537136834,
     "Labels": {
       "dogecoin": {
         "Name Tag": "Crypto.com-ColdWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/crypto.webp"
+        "image": "crypto.webp"
       }
     }
   },
   "ddz1h7acqpgmkzfep3pbhw5b1gwuweoaap": {
     "Address": "ddz1h7acqpgmkzfep3pbhw5b1gwuweoaap",
-    "Balance": 525561068,
+    "Balance": 526154287,
     "Labels": {
       "dogecoin": {
         "Name Tag": "Bybit",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/bybit.webp"
+        "image": "bybit.webp"
       }
     }
   },
@@ -319,7 +319,7 @@
         "Name Tag": "Gate.io-HotWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/gate.webp"
+        "image": "gate.webp"
       }
     }
   },
@@ -361,37 +361,37 @@
   },
   "djfu2p6woq9gibdixswzwjnj9uddzfssnc": {
     "Address": "djfu2p6woq9gibdixswzwjnj9uddzfssnc",
-    "Balance": 467720525,
+    "Balance": 475550226,
     "Labels": {
       "dogecoin": {
         "Name Tag": "Binance-hotwallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
   "adnbm5fbujcrbw1vqezneawmnslp19ki3n": {
     "Address": "adnbm5fbujcrbw1vqezneawmnslp19ki3n",
-    "Balance": 459450988,
+    "Balance": 463708338,
     "Labels": {
       "dogecoin": {
         "Name Tag": "OKX-HotWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/okx.webp"
+        "image": "okx.webp"
       }
     }
   },
   "dcunhtalj8alcf9xeuzj2whrr8bwf9jxwh": {
     "Address": "dcunhtalj8alcf9xeuzj2whrr8bwf9jxwh",
-    "Balance": 457302827,
+    "Balance": 457255803,
     "Labels": {
       "dogecoin": {
         "Name Tag": "Bitget",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/bitget.webp"
+        "image": "bitget.webp"
       }
     }
   },
@@ -403,7 +403,7 @@
         "Name Tag": "Gate.io-ColdWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/gate.webp"
+        "image": "gate.webp"
       }
     }
   },
@@ -415,7 +415,7 @@
         "Name Tag": "Bitkub",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -439,19 +439,19 @@
         "Name Tag": "BinanceUS-ColdWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
   "d78rszmmfsxuagfivtg5ld5nmchvedywx8": {
     "Address": "d78rszmmfsxuagfivtg5ld5nmchvedywx8",
-    "Balance": 353632799,
+    "Balance": 354402744,
     "Labels": {
       "dogecoin": {
         "Name Tag": "Bithumb-HotWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/bithumb.webp"
+        "image": "bithumb.webp"
       }
     }
   },
@@ -487,7 +487,7 @@
         "Name Tag": "Robinhood-ColdWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/robinhood.webp"
+        "image": "robinhood.webp"
       }
     }
   },
@@ -499,7 +499,7 @@
         "Name Tag": "Binance",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -559,7 +559,7 @@
         "Name Tag": "791360",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -571,7 +571,7 @@
         "Name Tag": "HTX",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -583,7 +583,7 @@
         "Name Tag": "Binance",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -595,7 +595,7 @@
         "Name Tag": "Binance",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -643,7 +643,7 @@
         "Name Tag": "Binance",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -685,7 +685,7 @@
   },
   "ddwuix9omjdrd1rcrsbivkejstxv27uxrr": {
     "Address": "ddwuix9omjdrd1rcrsbivkejstxv27uxrr",
-    "Balance": 220311122,
+    "Balance": 220269820,
     "Labels": {
       "dogecoin": {
         "Name Tag": null,
@@ -727,7 +727,7 @@
         "Name Tag": "CoinSpot-HotWallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -763,7 +763,7 @@
         "Name Tag": "Binance",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -775,7 +775,7 @@
         "Name Tag": "Binance",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "binance.webp"
       }
     }
   },
@@ -823,7 +823,7 @@
         "Name Tag": "Kraken",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "kraken.webp"
       }
     }
   },
@@ -847,7 +847,7 @@
         "Name Tag": "413349",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -883,7 +883,7 @@
         "Name Tag": "Kraken",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "kraken.webp"
       }
     }
   },
@@ -895,7 +895,7 @@
         "Name Tag": "4092066",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -949,7 +949,7 @@
   },
   "9tgbvcaunt4f66p8mccj1gnpwifvfqseok": {
     "Address": "9tgbvcaunt4f66p8mccj1gnpwifvfqseok",
-    "Balance": 145691029,
+    "Balance": 147697752,
     "Labels": {
       "dogecoin": {
         "Name Tag": null,
@@ -985,13 +985,13 @@
   },
   "9sawzc7vp6fjize9y3wsgzidjgibjonc6s": {
     "Address": "9sawzc7vp6fjize9y3wsgzidjgibjonc6s",
-    "Balance": 139449891,
+    "Balance": 138549895,
     "Labels": {
       "dogecoin": {
         "Name Tag": "5124048",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -1021,13 +1021,13 @@
   },
   "d8rm3ywfra9ucxduklffwfuvfb84xacbvs": {
     "Address": "d8rm3ywfra9ucxduklffwfuvfb84xacbvs",
-    "Balance": 133295110,
+    "Balance": 133446220,
     "Labels": {
       "dogecoin": {
         "Name Tag": "3864177",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -1079,18 +1079,6 @@
       }
     }
   },
-  "d7obqdbsdmys3spdxqhzbckff4zq8pcyjn": {
-    "Address": "d7obqdbsdmys3spdxqhzbckff4zq8pcyjn",
-    "Balance": 128000000,
-    "Labels": {
-      "dogecoin": {
-        "Name Tag": "4017771",
-        "Description": null,
-        "Subcategory": "Others",
-        "image": "/icons/default.webp"
-      }
-    }
-  },
   "d9ikzqd8jnvacz43wyrm5agcthm9x6aatk": {
     "Address": "d9ikzqd8jnvacz43wyrm5agcthm9x6aatk",
     "Balance": 125999612,
@@ -1115,6 +1103,18 @@
       }
     }
   },
+  "d7obqdbsdmys3spdxqhzbckff4zq8pcyjn": {
+    "Address": "d7obqdbsdmys3spdxqhzbckff4zq8pcyjn",
+    "Balance": 124000000,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "4017771",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
   "d6zzq6tdglmyrebnrddxu87febhhuhxgj4": {
     "Address": "d6zzq6tdglmyrebnrddxu87febhhuhxgj4",
     "Balance": 122214655,
@@ -1123,7 +1123,7 @@
         "Name Tag": "4762489",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -1165,7 +1165,7 @@
   },
   "d8axxigezeznmktknc9awb3yuu4jfmamyu": {
     "Address": "d8axxigezeznmktknc9awb3yuu4jfmamyu",
-    "Balance": 117996387,
+    "Balance": 118756948,
     "Labels": {
       "dogecoin": {
         "Name Tag": null,
@@ -1177,7 +1177,7 @@
   },
   "afvugfrq672dqnljpjlnvuiffjq4kxnsea": {
     "Address": "afvugfrq672dqnljpjlnvuiffjq4kxnsea",
-    "Balance": 117786734,
+    "Balance": 117823788,
     "Labels": {
       "dogecoin": {
         "Name Tag": null,
@@ -1207,7 +1207,7 @@
         "Name Tag": "413349",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -1255,7 +1255,7 @@
         "Name Tag": "3294504",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -1447,7 +1447,7 @@
         "Name Tag": "Kraken",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "kraken.webp"
       }
     }
   },
@@ -1471,7 +1471,7 @@
         "Name Tag": "Kraken",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "kraken.webp"
       }
     }
   },
@@ -1519,7 +1519,7 @@
         "Name Tag": "3048691",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -1687,7 +1687,7 @@
         "Name Tag": "5082768",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -1771,18 +1771,6 @@
         "Name Tag": "10711",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
-      }
-    }
-  },
-  "dkwaffbeqaosmwnpnbexk21zphw4s3kxff": {
-    "Address": "dkwaffbeqaosmwnpnbexk21zphw4s3kxff",
-    "Balance": 86606134,
-    "Labels": {
-      "dogecoin": {
-        "Name Tag": null,
-        "Description": null,
-        "Subcategory": "Others",
         "image": null
       }
     }
@@ -1802,6 +1790,18 @@
   "dpou2sjlezynzk8g2wefoc6jurdf5e7tbm": {
     "Address": "dpou2sjlezynzk8g2wefoc6jurdf5e7tbm",
     "Balance": 85982970,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dkwaffbeqaosmwnpnbexk21zphw4s3kxff": {
+    "Address": "dkwaffbeqaosmwnpnbexk21zphw4s3kxff",
+    "Balance": 85827488,
     "Labels": {
       "dogecoin": {
         "Name Tag": null,
@@ -2263,7 +2263,7 @@
         "Name Tag": "5110272",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
@@ -2383,7 +2383,7 @@
         "Name Tag": "1753460",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": null
       }
     }
   },
