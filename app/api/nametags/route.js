@@ -27,7 +27,7 @@ async function checkRateLimit(ip) {
     const key = `rate_limit:nametags:${ip}`;
     const requests = parseInt(await redisClient.get(key)) || 0;
     const windowMs = 60 * 1000; // 1 minute window
-    if (requests >= 50) {
+    if (requests >= 30) {
       logger.warn(`Rate limit exceeded for IP ${ip}`);
       throw new Error('Too many requests. Please try again later.');
     }

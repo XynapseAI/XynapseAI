@@ -63,15 +63,15 @@ const fetcher = async (url, params) => {
 
 // Cache durations
 const CACHE_DURATIONS = {
-  PRICE: 5 * 60 * 1000, // 2 phút
-  METADATA: 4 * 60 * 60 * 1000, // 4 giờ
-  TRANSACTIONS: 5 * 60 * 1000, // 2m
-  DEFI_POOL: 4 * 60 * 60 * 1000, // 30 giây
-  DEFAULT: 4 * 60 * 60 * 1000, // 5 phút
-  TICKERS: 60 * 60 * 1000, // 1 giờ (tăng từ 30 phút)
-  TRENDING: 5 * 60 * 60 * 1000, // 1 giờ (tăng từ 30 phút)
-  NAMETAGS: 48 * 60 * 60 * 1000, // 24 giờ
-  TOP_HOLDERS: 12 * 60 * 60 * 1000, // 12 giờ
+  PRICE: 5 * 60 * 1000, 
+  METADATA: 4 * 60 * 60 * 1000, 
+  TRANSACTIONS: 10 * 60 * 1000, 
+  DEFI_POOL: 4 * 60 * 60 * 1000, 
+  DEFAULT: 4 * 60 * 60 * 1000,
+  TICKERS: 4 * 60 * 60 * 1000, 
+  TRENDING: 5 * 60 * 60 * 1000,
+  NAMETAGS: 48 * 60 * 60 * 1000, 
+  TOP_HOLDERS: 12 * 60 * 60 * 1000, // 12 h
 };
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {

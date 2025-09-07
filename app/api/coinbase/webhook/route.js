@@ -36,7 +36,7 @@ async function checkRateLimit(ip) {
   const client = await getRedisClient();
   const key = `rate:webhook:${ip}`;
   const windowSeconds = 15 * 60;
-  const maxRequests = process.env.NODE_ENV === 'development' ? 100 : 50;
+  const maxRequests = process.env.NODE_ENV === 'development' ? 100 : 30;
   const count = Number(await client.incr(key));
   if (count === 1) await client.expire(key, windowSeconds);
   if (count > maxRequests) {

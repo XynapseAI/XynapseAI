@@ -49,7 +49,7 @@ async function checkIPBan(ip) {
 async function trackViolation(ip) {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 50;
+  const maxViolations = 100;
   const windowMs = 15 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
   if (violations >= maxViolations) {
@@ -116,7 +116,7 @@ const allowedOrigins = [
 
 // ================= Rate Limiter =================
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: 20,
+  maxConcurrent: 15,
   minTime: 100,
 });
 
