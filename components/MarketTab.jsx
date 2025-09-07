@@ -1408,7 +1408,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
           {/* Right Column - Market Data Tabs */}
           <motion.div
-            className="flex flex-col border border-white/10 rounded-xl min-h-[600px] sm:min-h-[500px] max-h-full sm:max-h-[605px] bg-black/80 market-tab-container hide-scrollbar"
+            className="flex flex-col border border-white/10 rounded-xl min-h-[600px] sm:min-h-[500px] max-h-full sm:max-h-[605px] bg-black/80 market-tab-container hide-scrollbar relative"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
@@ -1473,7 +1473,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 </div>
 
                 {/* Tab Content */}
-                <div className="flex-1 overflow-y-auto hide-scrollbar">
+                <div className="flex-1 overflow-y-auto hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                   {activeMarketTab === "dex" && (
                     <div className="p-4 text-right text-[9px] text-white/60">
                       <span className="px-2 py-1">
@@ -1490,10 +1490,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   )}
 
                   {activeMarketTab === "holders" && (
-                    <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative">
+                    <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                       {session ? (
                         <>
-                          <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} />
+                          <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} className="h-full w-full" />
                           <div className="flex justify-center items-center p-2 border-b border-white/10 bg-white/5">
                             <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
                               Top 100
@@ -1525,6 +1525,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                             <div className="overflow-x-auto">
                               <table className="w-full text-[9px] sm:text-[11px]">
+                                {/* Table content remains unchanged */}
                                 <thead className="top-0 z-10 border-b border-white/10 bg-black/80">
                                   <tr>
                                     <th className="px-3 py-1.5 text-white text-left font-semibold">
@@ -1670,8 +1671,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   )}
 
                   {activeMarketTab === "cex" && (
-                    <div className="flex-1 overflow-x-auto overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative">
-                      <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} className="h-full w-auto" />
+                    <div className="flex-1 overflow-x-auto overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
+                      <LoadingOverlay isLoading={isLoadingTickers && !tickerData?.length} isMobile={isMobile} className="h-full w-full" />
                       {tickerError ? (
                         <div className="text-[10px] sm:text-xs text-center p-6">
                           <p className="text-white/60 mb-4">Unable to load CEX markets data. Please try again.</p>
@@ -1689,6 +1690,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       ) : tickerData.length > 0 ? (
                         <div className="table-container">
                           <table className="w-full text-[9px] sm:text-[11px]">
+                            {/* Table content remains unchanged */}
                             <thead className="top-0 z-10 border-b border-white/10 bg-black/80">
                               <tr>
                                 <th className="px-3 py-1.5 text-white text-left font-semibold">
@@ -1851,10 +1853,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   )}
 
                   {activeMarketTab === "dex" && (
-                    <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative">
+                    <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                       {session ? (
                         <>
-                          <LoadingOverlay isLoading={isLoadingDex && !dexData.trades?.length} isMobile={isMobile} />
+                          <LoadingOverlay isLoading={isLoadingDex && !dexData.trades?.length} isMobile={isMobile} className="h-full w-full" />
                           {dexError ? (
                             <div className="text-[10px] text-xs text-center p-6">
                               <p className="text-white/60 mb-4">Unable to load DEX trades data. Please try again.</p>
@@ -1877,6 +1879,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           ) : dexData.trades.length > 0 ? (
                             <div className="overflow-x-auto">
                               <table className="w-full text-[9px] sm:text-[11px]">
+                                {/* Table content remains unchanged */}
                                 <thead className="top-0 z-10 border-b border-white/10 bg-black/80">
                                   <tr>
                                     <th className="px-3 py-1.5 text-white text-left font-semibold">
@@ -2241,7 +2244,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center">
+              <div className="flex-1 flex items-center justify-center relative min-h-[500px] sm:min-h-[400px]">
+                <LoadingOverlay isLoading={true} isMobile={isMobile} className="h-full w-full" />
                 <SkeletonLoader count={5} isMobile={isMobile} />
               </div>
             )}

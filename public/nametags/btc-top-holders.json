@@ -138,7 +138,7 @@
         "Name Tag": "Coincheck Hot Wallet",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/coincheck.webp"
       }
     }
   },
@@ -373,8 +373,8 @@
       }
     }
   },
-  "xxi": {
-    "Address": "xxi",
+  "twenty one capital (xxi)": {
+    "Address": "twenty one capital (xxi)",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Twenty One Capital (XXI)",
@@ -820,7 +820,7 @@
         "Name Tag": "Satoshi Nakamoto",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/satoshi.webp"
+        "image": "/icons/bitcoin.webp"
       }
     }
   },

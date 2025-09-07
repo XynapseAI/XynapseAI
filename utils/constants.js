@@ -31,43 +31,43 @@ export const GECKOTERMINAL_CHAIN_MAPPING = {
 
 // utils/constants.js
 export const chains = [
-  { value: '1', label: 'Ethereum', image: '/icons/ethereum.png', testnet: false },
-  { value: '10', label: 'Optimism', image: '/icons/optimism.png', testnet: false },
-  { value: '56', label: 'BNB Chain', image: '/icons/bsc.png', testnet: false },
-  { value: '100', label: 'Gnosis', image: '/icons/gnosis.png', testnet: false },
-  { value: '130', label: 'Unichain', image: '/icons/unichain.png', testnet: false },
-  { value: '137', label: 'Polygon', image: '/icons/polygon.png', testnet: false },
-  { value: '146', label: 'Sonic', image: '/icons/sonic.png', testnet: false },
-  { value: '166', label: 'Omni', image: '/icons/omni.png', testnet: false },
-  { value: '185', label: 'Mint', image: '/icons/mint.png', testnet: false },
-  { value: '204', label: 'opBNB', image: '/icons/opbnb.png', testnet: false },
-  { value: '250', label: 'Fantom', image: '/icons/fantom.png', testnet: false },
-  { value: '324', label: 'zkSync', image: '/icons/zksync.png', testnet: false },
-  { value: '480', label: 'World', image: '/icons/world.png', testnet: false },
-  { value: '1088', label: 'Metis', image: '/icons/metis.png', testnet: false },
-  { value: '1135', label: 'Lisk', image: '/icons/lisk.png', testnet: false },
-  { value: '1329', label: 'Sei', image: '/icons/sei.png', testnet: false },
-  { value: '1868', label: 'Soneium', image: '/icons/soneium.png', testnet: false },
-  { value: '2741', label: 'Abstract', image: '/icons/abstract.png', testnet: false },
-  { value: '5000', label: 'Mantle', image: '/icons/mantle.png', testnet: false },
-  { value: '7560', label: 'Cyber', image: '/icons/cyber.png', testnet: false },
-  { value: '8453', label: 'Base', image: '/icons/base.png', testnet: false },
-  { value: '10143', label: 'Monad', image: '/icons/monad.png', testnet: true },
-  { value: '33139', label: 'Ape Chain', image: '/icons/ape_chain.png', testnet: false },
-  { value: '34443', label: 'Mode', image: '/icons/mode.png', testnet: false },
-  { value: '42161', label: 'Arbitrum', image: '/icons/arbitrum.png', testnet: false },
-  { value: '43114', label: 'Avalanche C', image: '/icons/avalanche_c.png', testnet: false },
-  { value: '42220', label: 'Celo', image: '/icons/celo.png', testnet: false },
-  { value: '57073', label: 'Ink', image: '/icons/ink.png', testnet: false },
-  { value: '59144', label: 'Linea', image: '/icons/linea.png', testnet: false },
-  { value: '80094', label: 'Berachain', image: '/icons/berachain.png', testnet: false },
-  { value: '81457', label: 'Blast', image: '/icons/blast.png', testnet: false },
-  { value: '534352', label: 'Scroll', image: '/icons/scroll.png', testnet: false },
-  { value: '7777777', label: 'Zora', image: '/icons/zora.png', testnet: false },
-  { value: '1380012617', label: 'Rari', image: '/icons/rari.png', testnet: false },
-  { value: 'solana', label: 'Solana', image: '/icons/solana.png', testnet: false },
-  { value: 'tron', label: 'TRON', image: '/icons/tron.png', testnet: false },
-  { value: 'eclipse', label: 'Eclipse', image: '/icons/eclipse.png', testnet: false }
+  { value: '1', label: 'Ethereum', image: '/icons/ethereum.webp', testnet: false },
+  { value: '10', label: 'Optimism', image: '/icons/optimism.webp', testnet: false },
+  { value: '56', label: 'BNB Chain', image: '/icons/bsc.webp', testnet: false },
+  { value: '100', label: 'Gnosis', image: '/icons/gnosis.webp', testnet: false },
+  { value: '130', label: 'Unichain', image: '/icons/unichain.webp', testnet: false },
+  { value: '137', label: 'Polygon', image: '/icons/polygon.webp', testnet: false },
+  { value: '146', label: 'Sonic', image: '/icons/sonic.webp', testnet: false },
+  { value: '166', label: 'Omni', image: '/icons/omni.webp', testnet: false },
+  { value: '185', label: 'Mint', image: '/icons/mint.webp', testnet: false },
+  { value: '204', label: 'opBNB', image: '/icons/opbnb.webp', testnet: false },
+  { value: '250', label: 'Fantom', image: '/icons/fantom.webp', testnet: false },
+  { value: '324', label: 'zkSync', image: '/icons/zksync.webp', testnet: false },
+  { value: '480', label: 'World', image: '/icons/world.webp', testnet: false },
+  { value: '1088', label: 'Metis', image: '/icons/metis.webp', testnet: false },
+  { value: '1135', label: 'Lisk', image: '/icons/lisk.webp', testnet: false },
+  { value: '1329', label: 'Sei', image: '/icons/sei.webp', testnet: false },
+  { value: '1868', label: 'Soneium', image: '/icons/soneium.webp', testnet: false },
+  { value: '2741', label: 'Abstract', image: '/icons/abstract.webp', testnet: false },
+  { value: '5000', label: 'Mantle', image: '/icons/mantle.webp', testnet: false },
+  { value: '7560', label: 'Cyber', image: '/icons/cyber.webp', testnet: false },
+  { value: '8453', label: 'Base', image: '/icons/base.webp', testnet: false },
+  { value: '10143', label: 'Monad', image: '/icons/monad.webp', testnet: true },
+  { value: '33139', label: 'Ape Chain', image: '/icons/ape_chain.webp', testnet: false },
+  { value: '34443', label: 'Mode', image: '/icons/mode.webp', testnet: false },
+  { value: '42161', label: 'Arbitrum', image: '/icons/arbitrum.webp', testnet: false },
+  { value: '43114', label: 'Avalanche C', image: '/icons/avalanche_c.webp', testnet: false },
+  { value: '42220', label: 'Celo', image: '/icons/celo.webp', testnet: false },
+  { value: '57073', label: 'Ink', image: '/icons/ink.webp', testnet: false },
+  { value: '59144', label: 'Linea', image: '/icons/linea.webp', testnet: false },
+  { value: '80094', label: 'Berachain', image: '/icons/berachain.webp', testnet: false },
+  { value: '81457', label: 'Blast', image: '/icons/blast.webp', testnet: false },
+  { value: '534352', label: 'Scroll', image: '/icons/scroll.webp', testnet: false },
+  { value: '7777777', label: 'Zora', image: '/icons/zora.webp', testnet: false },
+  { value: '1380012617', label: 'Rari', image: '/icons/rari.webp', testnet: false },
+  { value: 'solana', label: 'Solana', image: '/icons/solana.webp', testnet: false },
+  { value: 'tron', label: 'TRON', image: '/icons/tron.webp', testnet: false },
+  { value: 'eclipse', label: 'Eclipse', image: '/icons/eclipse.webp', testnet: false }
 ];
 
 export const mapCoinGeckoChains = (coingeckoChains) => {
@@ -118,7 +118,7 @@ export const mapCoinGeckoChains = (coingeckoChains) => {
     .map((chain) => ({
       value: chainMap[chain.id],
       label: chain.name,
-      image: chain.image?.thumb || chains.find((c) => c.value === chainMap[chain.id])?.image || '/icons/default.png',
+      image: chain.image?.thumb || chains.find((c) => c.value === chainMap[chain.id])?.image || '/icons/default.webp',
       testnet: false,
     }));
 };
@@ -185,7 +185,7 @@ export const getPlatformImage = (chainId, coingeckoChains) => {
     };
     return c.id === chainMap[chainId];
   });
-  return chain?.image?.thumb || chains.find((c) => c.value === chainId)?.image || '/icons/default.png';
+  return chain?.image?.thumb || chains.find((c) => c.value === chainId)?.image || '/icons/default.webp';
 };
 
 export const getExplorerUrls = (chainId, txHash, address) => {
