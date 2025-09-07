@@ -19,15 +19,6 @@ import { LoadingOverlay, truncateAddress, formatPrice, isValidToken, getExplorer
 import { logger } from '../utils/clientLogger';
 import { debounce } from 'lodash';
 
-const CACHE_DURATIONS = {
-  WATCHLISTS: 24 * 60 * 60 * 1000,
-  BALANCES: 4 * 60 * 60 * 1000,
-  TRANSACTIONS: 4 * 60 * 60 * 1000,
-  TOKEN_INFO: 48 * 60 * 60 * 1000,
-  NAME_TAGS: 48 * 60 * 60 * 1000,
-  SUPPORTED_CHAINS: 48 * 60 * 60 * 1000,
-};
-
 axiosRetry(axios, {
   retries: 3,
   retryDelay: (retryCount) => retryCount * 1000,
@@ -275,38 +266,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const { data: supportedChains, isLoading: chainsLoading } = useQuery({
     queryKey: ['supportedChains'],
     queryFn: async () => {
-      const cacheKey = 'supported-chains';
-      const cachedData = await getCachedData(cacheKey);
-      if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATIONS.SUPPORTED_CHAINS) {
-        return cachedData.data;
-      }
-
-      const cacheResponse = await axios.post(
-        `${API_BASE_URL}/api/cache`,
-        { key: cacheKey, action: 'get' },
-        { timeout: 30000 }
-      );
-      if (cacheResponse.data.success && cacheResponse.data.data) {
-        await cacheData(cacheKey, cacheResponse.data.data, CACHE_DURATIONS.SUPPORTED_CHAINS);
-        return cacheResponse.data.data;
-      }
-
       const response = await axios.get(`${API_BASE_URL}/api/coingecko/chains`, { timeout: 15000 });
       if (!response.data.success) throw new Error('Failed to load supported chains');
-
-      const data = response.data.data;
-      await cacheData(cacheKey, data, CACHE_DURATIONS.SUPPORTED_CHAINS);
-      await axios.post(
-        `${API_BASE_URL}/api/cache`,
-        { key: cacheKey, action: 'set', data, ttl: CACHE_DURATIONS.SUPPORTED_CHAINS },
-        { timeout: 30000 }
-      );
-      await axios.post(
-        `${API_BASE_URL}/api/cache`,
-        { key: `${cacheKey}-fallback`, action: 'set', data, ttl: CACHE_DURATIONS.SUPPORTED_CHAINS },
-        { timeout: 30000 }
-      );
-      return data;
+      return response.data.data;
     },
     onError: (error) => {
       toast.error('Failed to load supported chains', { position: 'top-center', autoClose: 5000 });
@@ -349,78 +311,123 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       throw new Error(`Invalid address format for ${address}`);
     }
 
-    const cacheKey = `${action}-${chainType}`;
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+    const cacheKey = `${action}-${address}-${chainType}`;
+    let cachedData = null;
 
     try {
-      // Check local cache (IndexedDB)
-      const cachedData = await getCachedData(cacheKey);
-      if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATIONS[action.toUpperCase()]) {
+      cachedData = await getCachedData(cacheKey);
+      if (cachedData) {
         logger.log(`Cache hit for ${cacheKey}`, { data: cachedData });
-        return cachedData.data;
+        return cachedData;
       }
+    } catch (error) {
+      logger.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, { error });
+    }
 
-      // Check Redis cache via API
-      const cacheResponse = await axios.post(
-        `${API_BASE_URL}/api/cache`,
-        { key: cacheKey, action: 'get' },
-        { timeout: 30000 }
-      );
-      if (cacheResponse.data.success && cacheResponse.data.data) {
-        await cacheData(cacheKey, cacheResponse.data.data, CACHE_DURATIONS[action.toUpperCase()]);
-        logger.log(`Redis cache hit for ${cacheKey}`);
-        return cacheResponse.data.data;
-      }
+    const payload = {
+      action,
+      address,
+      ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
+      limit: 1000,
+    };
 
-      const payload = {
-        action,
-        address,
-        ...(isValidEVM ? { chain_ids: '1,137,10,42161,8453' } : { chains: SUPPORTED_SVM_CHAINS.join(',') }),
-        limit: 1000,
-      };
+    try {
+      const apiUrl = `${API_BASE_URL}/api/sim`;
+      logger.log(`Fetching ${action} for address: ${address}, chainType: ${chainType}`, { payload });
 
-      const response = await fetch(`${API_BASE_URL}/api/sim`, {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-          'x-recaptcha-token': 'no-recaptcha',
+          'x-recaptcha-token': 'no-recaptcha', // Thêm nếu API yêu cầu token reCAPTCHA
         },
         body: JSON.stringify(payload),
         credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch ${action} data: ${response.statusText}`);
+        const text = await response.text();
+        let errorMessage = `Failed to fetch ${action} data: ${response.status} ${response.statusText}`;
+        try {
+          const result = JSON.parse(text);
+          errorMessage = result.detail || errorMessage;
+        } catch {
+          errorMessage = `Failed to fetch ${action} data: Invalid JSON response`;
+        }
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let data = [];
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Try to parse the buffer as JSON
+        try {
+          // Remove leading and trailing brackets if present
+          const trimmedBuffer = buffer.trim();
+          if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
+            const parsed = JSON.parse(trimmedBuffer);
+            data = parsed;
+            buffer = ''; // Clear buffer after successful parse
+          } else {
+            // Partial JSON, continue accumulating
+            continue;
+          }
+        } catch (e) {
+          // If JSON is incomplete, continue reading next chunk
+          logger.log(`Incomplete JSON chunk, continuing to read: ${e.message}`);
+          continue;
+        }
+      }
+
+      // Handle any remaining buffer
+      if (buffer) {
+        try {
+          const trimmedBuffer = buffer.trim();
+          if (trimmedBuffer.startsWith('[') && trimmedBuffer.endsWith(']')) {
+            const parsed = JSON.parse(trimmedBuffer);
+            data = parsed;
+          } else {
+            logger.error(`Final buffer is not valid JSON:`, { buffer });
+            throw new Error(`Invalid JSON response from ${action} API`);
+          }
+        } catch (e) {
+          logger.error(`Error parsing final JSON buffer for ${action}:`, { error: e.message, buffer });
+          throw new Error(`Invalid JSON response from ${action} API`);
+        }
+      }
+
+      logger.log(`Parsed ${action} data:`, { address, dataLength: data.length });
+
       if (data.length > 0) {
-        await cacheData(cacheKey, data, CACHE_DURATIONS[action.toUpperCase()]);
-        await axios.post(
-          `${API_BASE_URL}/api/cache`,
-          { key: cacheKey, action: 'set', data, ttl: CACHE_DURATIONS[action.toUpperCase()] },
-          { timeout: 30000 }
-        );
-        await axios.post(
-          `${API_BASE_URL}/api/cache`,
-          { key: `${cacheKey}-fallback`, action: 'set', data, ttl: CACHE_DURATIONS[action.toUpperCase()] },
-          { timeout: 30000 }
-        );
+        try {
+          await cacheData(cacheKey, data);
+          logger.log(`Cached data for ${cacheKey}`);
+        } catch (cacheError) {
+          logger.warn(`Failed to cache data for ${cacheKey}`, { cacheError });
+        }
       }
 
       return data;
     } catch (error) {
-      const fallbackResponse = await axios.post(
-        `${API_BASE_URL}/api/cache`,
-        { key: `${cacheKey}-fallback`, action: 'get' },
-        { timeout: 30000 }
-      );
-      if (fallbackResponse.data.success && fallbackResponse.data.data) {
-        logger.log(`Using fallback cache for ${cacheKey}`);
-        return fallbackResponse.data.data;
-      }
-      throw error;
+      const errorMessage =
+        error.response?.status === 429
+          ? 'Too many requests. Please try again later.'
+          : error.response?.status === 401
+            ? 'Unauthorized: Please log in again.'
+            : error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')
+              ? 'reCAPTCHA verification failed. Please try again.'
+              : error.response?.data?.detail || `Dune Sim API error for action ${action}: ${error.message}`;
+      logger.error(`Error fetching ${action}:`, { errorMessage, stack: error.stack });
+      throw new Error(errorMessage);
     }
   };
 
@@ -432,10 +439,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       revalidateOnReconnect: true,
       refreshInterval: 15 * 60 * 1000,
       dedupingInterval: 30 * 1000,
-      onError: (err) => {
-        setError(err.message || 'Failed to load balances');
-        setBalances([]);
-      },
     }
   );
 
@@ -447,10 +450,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       revalidateOnReconnect: true,
       refreshInterval: 15 * 60 * 1000,
       dedupingInterval: 30 * 1000,
-      onError: (err) => {
-        setError(err.message || 'Failed to load transactions');
-        setTransactions([]);
-      },
     }
   );
 
@@ -502,25 +501,19 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         const isValidSVM = isValidSolanaAddress(address);
         if (!isValidEVM && !isValidSVM) continue;
 
-        const cacheKey = `tokenInfo-${chain}`;
+        const cacheKey = `tokenInfo-${address}-${chain}`;
+        let cachedData = null;
         try {
-          const cachedData = await getCachedData(cacheKey);
-          if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATIONS.TOKEN_INFO) {
-            tokenInfoData[address] = cachedData.data;
+          cachedData = await getCachedData(cacheKey);
+          if (cachedData) {
+            tokenInfoData[address] = cachedData;
             continue;
           }
+        } catch (error) {
+          logger.warn(`IndexedDB not available, skipping cache for ${cacheKey}`, { error });
+        }
 
-          const cacheResponse = await axios.post(
-            `${API_BASE_URL}/api/cache`,
-            { key: cacheKey, action: 'get' },
-            { timeout: 30000 }
-          );
-          if (cacheResponse.data.success && cacheResponse.data.data) {
-            await cacheData(cacheKey, cacheResponse.data.data, CACHE_DURATIONS.TOKEN_INFO);
-            tokenInfoData[address] = cacheResponse.data.data;
-            continue;
-          }
-
+        try {
           const payload = {
             action: 'wallet-balances',
             address,
@@ -529,64 +522,114 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             metadata: 'logo',
           };
 
+          logger.log(`Fetching token info for address: ${address}, chain: ${chain}`, { payload });
+
           const response = await fetch(`${API_BASE_URL}/api/sim`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-              'x-recaptcha-token': 'no-recaptcha',
+              'x-recaptcha-token': 'no-recaptcha', // Thêm nếu API yêu cầu token reCAPTCHA
             },
             body: JSON.stringify(payload),
             credentials: 'include',
           });
 
           if (!response.ok) {
-            throw new Error(`Failed to fetch token info for ${address} on ${chain}`);
+            const text = await response.text();
+            let errorMessage = `Failed to fetch token info for ${address} on ${chain}: ${response.status} ${response.statusText}`;
+            try {
+              const result = JSON.parse(text);
+              errorMessage = result.detail || errorMessage;
+            } catch {
+              errorMessage = `Failed to fetch token info for ${address} on ${chain}: Invalid JSON response`;
+            }
+            throw new Error(errorMessage);
           }
 
-          const data = await response.json();
-          const tokenInfo = data.length > 0
-            ? [{
-              chain,
-              symbol: data[0].symbol || 'Unknown',
-              logo: data[0].logo || '/fallback-image.webp',
-              name: data[0].name || 'Unknown Token',
-            }]
-            : [{
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let data = [];
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+
+            try {
+              const parsed = JSON.parse(buffer);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((chunk) => {
+                  if (chunk.success && Array.isArray(chunk.data)) {
+                    data = [...data, ...chunk.data];
+                  }
+                });
+                buffer = ''; // Clear buffer after successful parse
+              }
+            } catch (e) {
+              // If JSON is incomplete, continue reading next chunk
+              continue;
+            }
+          }
+
+          // Handle any remaining buffer
+          if (buffer) {
+            try {
+              const parsed = JSON.parse(buffer);
+              if (Array.isArray(parsed)) {
+                parsed.forEach((chunk) => {
+                  if (chunk.success && Array.isArray(chunk.data)) {
+                    data = [...data, ...chunk.data];
+                  }
+                });
+              }
+            } catch (e) {
+              logger.error(`Error parsing final JSON buffer for token info ${address} on ${chain}:`, { error: e.message, buffer });
+              throw new Error(`Invalid JSON response from token info API`);
+            }
+          }
+
+          logger.log(`Parsed token info for ${address} on ${chain}:`, { data });
+
+          if (data.length > 0) {
+            const tokenData = data[0];
+            const tokenInfo = [
+              {
+                chain,
+                symbol: tokenData.symbol || 'Unknown',
+                logo: tokenData.logo || '/fallback-image.webp',
+                name: tokenData.name || 'Unknown Token',
+              },
+            ];
+            tokenInfoData[address] = tokenInfo;
+            try {
+              await cacheData(cacheKey, tokenInfo);
+              logger.log(`Cached token info for ${cacheKey}`);
+            } catch (cacheError) {
+              logger.warn(`Failed to cache token info for ${cacheKey}`, { cacheError });
+            }
+          } else {
+            tokenInfoData[address] = [
+              {
+                chain,
+                symbol: 'Unknown',
+                logo: '/fallback-image.webp',
+                name: 'Unknown Token',
+              },
+            ];
+          }
+        } catch (err) {
+          logger.error(`Error fetching token info for ${address} on ${chain}:`, { error: err });
+          tokenInfoData[address] = [
+            {
               chain,
               symbol: 'Unknown',
               logo: '/fallback-image.webp',
               name: 'Unknown Token',
-            }];
-
-          tokenInfoData[address] = tokenInfo;
-          await cacheData(cacheKey, tokenInfo, CACHE_DURATIONS.TOKEN_INFO);
-          await axios.post(
-            `${API_BASE_URL}/api/cache`,
-            { key: cacheKey, action: 'set', data: tokenInfo, ttl: CACHE_DURATIONS.TOKEN_INFO },
-            { timeout: 30000 }
-          );
-          await axios.post(
-            `${API_BASE_URL}/api/cache`,
-            { key: `${cacheKey}-fallback`, action: 'set', data: tokenInfo, ttl: CACHE_DURATIONS.TOKEN_INFO },
-            { timeout: 30000 }
-          );
-        } catch (err) {
-          const fallbackResponse = await axios.post(
-            `${API_BASE_URL}/api/cache`,
-            { key: `${cacheKey}-fallback`, action: 'get' },
-            { timeout: 30000 }
-          );
-          if (fallbackResponse.data.success && fallbackResponse.data.data) {
-            tokenInfoData[address] = fallbackResponse.data.data;
-            continue;
-          }
-          tokenInfoData[address] = [{
-            chain,
-            symbol: 'Unknown',
-            logo: '/fallback-image.webp',
-            name: 'Unknown Token',
-          }];
+            },
+          ];
         }
       }
       return tokenInfoData;
@@ -594,11 +637,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
-      refreshInterval: 60 * 60 * 1000, // 1 giờ
+      refreshInterval: 15 * 60 * 1000,
       dedupingInterval: 30 * 1000,
-      onError: (err) => {
-        setError(err.message || 'Failed to load token info');
-      },
     }
   );
 
@@ -613,30 +653,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
   const fetchNameTagsForAddresses = useCallback(
     async (addresses) => {
-      if (!addresses || addresses.length === 0) return;
+      if (!addresses || addresses.length === 0) {
+        logger.log('No addresses provided for fetchNameTagsForAddresses');
+        return;
+      }
 
-      const cacheKey = `nametags-${session.user.id}`;
-      try {
-        const cachedData = await getCachedData(cacheKey);
-        if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATIONS.NAME_TAGS) {
-          setNameTags(cachedData.data);
-          return;
-        }
+      const newNameTags = {};
 
-        const cacheResponse = await axios.post(
-          `${API_BASE_URL}/api/cache`,
-          { key: cacheKey, action: 'get' },
-          { timeout: 30000 }
-        );
-        if (cacheResponse.data.success && cacheResponse.data.data) {
-          await cacheData(cacheKey, cacheResponse.data.data, CACHE_DURATIONS.NAME_TAGS);
-          setNameTags(cacheResponse.data.data);
-          return;
-        }
-
-        const evmAddresses = addresses.filter((addr) => isAddress(addr));
-        const newNameTags = {};
-        if (evmAddresses.length > 0 && status === 'authenticated') {
+      const evmAddresses = addresses.filter((addr) => isAddress(addr));
+      if (evmAddresses.length > 0 && status === 'authenticated') {
+        try {
           const batchSize = 50;
           const batches = [];
           for (let i = 0; i < evmAddresses.length; i += batchSize) {
@@ -668,35 +694,52 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 const image = data?.Labels?.deposit?.image || '/icons/default.webp';
                 newNameTags[normalizedAddress] = { nameTag, image, timestamp: Date.now() };
               });
+            } else {
+              batches[index].forEach((address) => {
+                const normalizedAddress = address.toLowerCase();
+                newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
+              });
             }
           });
+        } catch (error) {
+          logger.error(`fetchNameTagsForAddresses error:`, {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message,
+          });
 
-          await cacheData(cacheKey, newNameTags, CACHE_DURATIONS.NAME_TAGS);
-          await axios.post(
-            `${API_BASE_URL}/api/cache`,
-            { key: cacheKey, action: 'set', data: newNameTags, ttl: CACHE_DURATIONS.NAME_TAGS },
-            { timeout: 30000 }
-          );
-          await axios.post(
-            `${API_BASE_URL}/api/cache`,
-            { key: `${cacheKey}-fallback`, action: 'set', data: newNameTags, ttl: CACHE_DURATIONS.NAME_TAGS },
-            { timeout: 30000 }
-          );
-        }
+          const errorMessage =
+            error.response?.status === 401
+              ? 'Unauthorized: Please log in again.'
+              : error.response?.status === 429
+                ? 'Too many requests. Please try again later.'
+                : error.response?.status === 400
+                  ? 'Invalid addresses provided.'
+                  : error.response?.data?.detail || `Failed to fetch Name Tags: ${error.message}`;
 
-        setNameTags((prev) => ({ ...prev, ...newNameTags }));
-      } catch (error) {
-        const fallbackResponse = await axios.post(
-          `${API_BASE_URL}/api/cache`,
-          { key: `${cacheKey}-fallback`, action: 'get' },
-          { timeout: 30000 }
-        );
-        if (fallbackResponse.data.success && fallbackResponse.data.data) {
-          setNameTags(fallbackResponse.data.data);
-          return;
+          evmAddresses.forEach((address) => {
+            const normalizedAddress = address.toLowerCase();
+            newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
+          });
         }
-        logger.error(`fetchNameTagsForAddresses error:`, { error });
+      } else if (evmAddresses.length > 0) {
+        logger.log('Unauthenticated fetchNameTagsForAddresses attempt');
+        evmAddresses.forEach((address) => {
+          const normalizedAddress = address.toLowerCase();
+          newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
+        });
       }
+
+      const svmAddresses = addresses.filter((addr) => !isAddress(addr));
+      svmAddresses.forEach((addr) => {
+        newNameTags[addr] = { nameTag: null, image: null, timestamp: Date.now() };
+      });
+
+      setNameTags((prev) => ({
+        ...prev,
+        ...newNameTags,
+      }));
+      logger.log(`Updated nameTags for ${Object.keys(newNameTags).length} addresses`);
     },
     [session, status, toast]
   );
@@ -729,12 +772,12 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
     async function fetchWatchlists() {
       const cacheKey = `watchlists-${session.user.id}`;
-      try {
+      if (!forceFetch) {
         const cachedData = await getCachedData(cacheKey);
-        if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATIONS.WATCHLISTS) {
-          setWatchlists(cachedData.data);
-          if (cachedData.data.length > 0 && isInitialLoad) {
-            const walletToSelect = cachedData.data.find((w) => w.address === (initialAddress || searchParams.get('address'))) || cachedData.data[0];
+        if (cachedData && cachedData.length > 0) {
+          setWatchlists(cachedData);
+          if (cachedData.length > 0 && isInitialLoad) {
+            const walletToSelect = cachedData.find((w) => w.address === (initialAddress || searchParams.get('address'))) || cachedData[0];
             setSelectedWallet(walletToSelect);
             setActiveChainType(walletToSelect?.chainType || 'EVM');
             lastSelectedWalletRef.current = walletToSelect?.address;
@@ -743,26 +786,10 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
           }
           return;
         }
+      }
 
-        const cacheResponse = await axios.post(
-          `${API_BASE_URL}/api/cache`,
-          { key: cacheKey, action: 'get' },
-          { timeout: 30000 }
-        );
-        if (cacheResponse.data.success && cacheResponse.data.data) {
-          await cacheData(cacheKey, cacheResponse.data.data, CACHE_DURATIONS.WATCHLISTS);
-          setWatchlists(cacheResponse.data.data);
-          if (cacheResponse.data.data.length > 0 && isInitialLoad) {
-            const walletToSelect = cacheResponse.data.data.find((w) => w.address === (initialAddress || searchParams.get('address'))) || cacheResponse.data.data[0];
-            setSelectedWallet(walletToSelect);
-            setActiveChainType(walletToSelect?.chainType || 'EVM');
-            lastSelectedWalletRef.current = walletToSelect?.address;
-            updateUrl(walletToSelect?.address);
-            setIsInitialLoad(false);
-          }
-          return;
-        }
-
+      setLoadingStates((prev) => ({ ...prev, loading: true }));
+      try {
         const response = await axios.get(`${API_BASE_URL}/api/watchlists`, {
           headers: {
             'Content-Type': 'application/json',
@@ -776,17 +803,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             name: item.name,
             chainType: isAddress(item.wallet_address) ? 'EVM' : isValidSolanaAddress(item.wallet_address) ? 'SVM' : 'EVM',
           }));
-          await cacheData(cacheKey, watchlistsData, CACHE_DURATIONS.WATCHLISTS);
-          await axios.post(
-            `${API_BASE_URL}/api/cache`,
-            { key: cacheKey, action: 'set', data: watchlistsData, ttl: CACHE_DURATIONS.WATCHLISTS },
-            { timeout: 30000 }
-          );
-          await axios.post(
-            `${API_BASE_URL}/api/cache`,
-            { key: `${cacheKey}-fallback`, action: 'set', data: watchlistsData, ttl: CACHE_DURATIONS.WATCHLISTS },
-            { timeout: 30000 }
-          );
+          await cacheData(cacheKey, watchlistsData);
           setWatchlists(watchlistsData);
           if (watchlistsData.length > 0 && isInitialLoad) {
             const walletToSelect = watchlistsData.find((w) => w.address === (initialAddress || searchParams.get('address'))) || watchlistsData[0];
@@ -797,21 +814,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             setIsInitialLoad(false);
           }
         } else {
-          throw new Error('Failed to load watchlists.');
+          setError('Failed to load watchlists.');
+          toast.error('Failed to load watchlists.', { position: 'top-center', autoClose: 5000 });
         }
       } catch (err) {
-        const fallbackResponse = await axios.post(
-          `${API_BASE_URL}/api/cache`,
-          { key: `${cacheKey}-fallback`, action: 'get' },
-          { timeout: 30000 }
-        );
-        if (fallbackResponse.data.success && fallbackResponse.data.data) {
-          setWatchlists(fallbackResponse.data.data);
-          return;
-        }
-        setError(err.message || 'Failed to load watchlists.');
+        const errorMessage = err.response?.data?.detail || `Failed to load watchlists: ${err.message}`;
+        setError(errorMessage);
         setWatchlists([]);
-        toast.error('Failed to load watchlists.', { position: 'top-center', autoClose: 5000 });
       } finally {
         setLoadingStates((prev) => ({ ...prev, loading: false }));
         setForceFetch(false);
@@ -1629,9 +1638,9 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md ${currentPage[activeTab] ===
-                        getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)
-                        ? 'opacity-50 cursor-not-allowed'
-                        : 'hover:bg-neon-blue/20'
+                          getTotalPages(activeTab === 'PORTFOLIO' ? filteredBalances : filteredTransactions)
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:bg-neon-blue/20'
                         } transition-all duration-300 rounded-lg`}
                     >
                       &gt;

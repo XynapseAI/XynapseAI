@@ -535,23 +535,28 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Get Profile Picture Src
   const getProfilePictureSrc = useCallback((profilePicture, twitterHandle, googleName) => {
     console.log('getProfilePictureSrc input:', { profilePicture, twitterHandle, googleName });
-    if (profilePicture && typeof profilePicture === 'string' && profilePicture.startsWith('http')) {
+
+    const isValidUrl = (url) => {
       try {
-        const url = new URL(profilePicture);
+        const parsedUrl = new URL(url);
         const allowedHosts = ['pbs.twimg.com', 'lh3.googleusercontent.com', 'example.com'];
-        if (allowedHosts.includes(url.hostname)) {
-          console.log('Profile picture URL is valid:', profilePicture);
-          return profilePicture;
-        } else {
-          console.warn(`Profile picture URL hostname not allowed: ${url.hostname}`);
-        }
+        return allowedHosts.includes(parsedUrl.hostname);
       } catch (err) {
-        console.warn(`Invalid profile picture URL: ${profilePicture}`, err);
+        console.warn(`Invalid URL: ${url}`, err);
+        return false;
       }
+    };
+
+    if (twitterHandle && profilePicture && typeof profilePicture === 'string' && profilePicture.includes('twimg.com') && isValidUrl(profilePicture)) {
+      console.log('Using Twitter profile picture:', profilePicture);
+      return profilePicture;
     }
-    if (twitterHandle) {
-      console.warn(`No valid profile picture, using default for Twitter handle: ${twitterHandle}`);
+
+    if (googleName && profilePicture && typeof profilePicture === 'string' && profilePicture.includes('googleusercontent.com') && isValidUrl(profilePicture)) {
+      console.log('Using Google profile picture:', profilePicture);
+      return profilePicture;
     }
+
     console.log('Falling back to default avatar');
     return '/default-avatar.webp';
   }, []);
@@ -1177,13 +1182,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           <span className="text-white/60">Twitter:</span>
                           {userData.twitterHandle ? (
                             <div className="flex items-center gap-2">
-                              <Image
+                              {/* <Image
                                 src={getProfilePictureSrc(userData.profilePicture, userData.twitterHandle, userData.googleName)}
                                 alt={userData.twitterHandle}
                                 width={isMobile ? 14 : 16}
                                 height={isMobile ? 14 : 16}
                                 className="rounded-full border border-white/10"
-                              />
+                              /> */}
                               <div className="flex items-center gap-2">
                                 <a
                                   href={`https://x.com/${userData.twitterHandle}`}

@@ -16,7 +16,7 @@ async function checkRateLimit(ip) {
   const key = `rate_limit:blockchair:${ip}`;
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
-  if (requests >= 100) {
+  if (requests >= 20) {
     throw new Error('Too many requests, please try again later.');
   }
   await redisClient.multi()
@@ -40,7 +40,7 @@ const bodySchema = z.object({
 });
 
 const BLOCKCHAIR_API_URL = 'https://api.blockchair.com';
-const CACHE_DURATION = 24 * 60 * 60; // 5 minutes in seconds
+const CACHE_DURATION = 15 * 60; // 5 minutes in seconds
 
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -71,7 +71,7 @@ export async function POST(request) {
 
   const { chain, limit } = parsedBody;
 
-  const cacheKey = `blockchair-${chain}-top-holders`;
+  const cacheKey = `blockchair-${chain}-top-holders-${limit}`;
   const cachedData = await redisClient.get(cacheKey);
   if (cachedData) {
     logger.info('Serving top holders from cache', { cacheKey, chain });
@@ -100,17 +100,10 @@ export async function POST(request) {
 
           if (!response.data?.data) {
             logger.error('Invalid response from Blockchair API', { chain });
-            const fallbackData = await redisClient.get(`blockchair-${chain}-top-holders-fallback`);
-            if (fallbackData) {
-              controller.enqueue(JSON.stringify({ success: true, data: JSON.parse(fallbackData) }));
-            } else {
-              controller.enqueue(JSON.stringify({ success: false, detail: 'Invalid response from Blockchair API' }));
-            }
+            controller.enqueue(JSON.stringify({ success: false, detail: 'Invalid response from Blockchair API' }));
             controller.close();
             return;
           }
-          // Lưu dữ liệu vào cache dự phòng
-          await redisClient.setEx(`blockchair-${chain}-top-holders-fallback`, CACHE_DURATION, JSON.stringify(topHolders));
 
           const topHolders = response.data.data.map((holder) => ({
             address: holder.address,
@@ -139,8 +132,8 @@ export async function POST(request) {
             error.response?.status === 429
               ? 'Blockchair API rate limit exceeded. Please try again later.'
               : error.response?.status === 400
-                ? 'Invalid request to Blockchair API.'
-                : error.response?.data?.error || `Failed to fetch top holders for ${chain}.`;
+              ? 'Invalid request to Blockchair API.'
+              : error.response?.data?.error || `Failed to fetch top holders for ${chain}.`;
 
           controller.enqueue(JSON.stringify({ success: false, detail: errorMessage }));
           controller.close();

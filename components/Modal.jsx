@@ -68,42 +68,40 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
           >
             {isLoading && (
               <motion.div
-                className="absolute inset-0 flex items-center justify-center bg-black/90 z-10 rounded-2xl p-6"
+                className="absolute inset-0 flex items-center justify-center bg-black/90 z-10 rounded-2xl"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
                 transition={{ duration: 0.3 }}
               >
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="w-[95%] min-h-[30%] sm:min-h-[20%] bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-4 relative overflow-hidden shadow-2xl animate-pulse-slow">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-scan" />
-                    <div className="absolute inset-0 bg-black/10 backdrop-blur-sm animate-pulse opacity-50" />
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                      <h3 className="text-white text-sm sm:text-base font-semibold">
-                        {actionType === 'predict' ? 'Predicting' : 'Analyzing'}
-                      </h3>
-                    </div>
-                    <div className="h-40 overflow-y-hidden custom-scrollbar log-container relative">
-                      <AnimatePresence>
-                        {logMessages.map((log, index) => (
-                          <motion.p
-                            key={log.id}
-                            className={`text-white/80 text-[10px] sm:text-xs font-saira mb-2 ${
-                              index === logMessages.length - 1
-                                ? 'text-blue-400 font-semibold animate-pulse'
-                                : 'text-white/60'
+
+                <div className="w-[90%] sm:w-[95%] h-[25%] sm:h-[80%] bg-black/10 backdrop-blur-xl border border-white/20 rounded-xl p-10 relative overflow-hidden shadow-2xl animate-pulse-slow">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-scan" />
+                  <div className="absolute inset-0 bg-black/10 backdrop-blur-sm animate-pulse opacity-50" />
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    <h3 className="text-white text-sm sm:text-base font-semibold">
+                      {actionType === 'predict' ? 'Predicting' : 'Analyzing'}
+                    </h3>
+                  </div>
+                  <div className="h-20 overflow-y-hidden custom-scrollbar log-container relative">
+                    <AnimatePresence>
+                      {logMessages.map((log, index) => (
+                        <motion.p
+                          key={log.id}
+                          className={`text-white/80 text-[10px] sm:text-xs font-saira mb-2 ${index === logMessages.length - 1
+                              ? 'text-blue-400 font-semibold animate-pulse'
+                              : 'text-white/60'
                             }`}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.3 }}
-                          >
-                            <span className="text-blue-500">&gt;</span> {log.text}
-                          </motion.p>
-                        ))}
-                      </AnimatePresence>
-                    </div>
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <span className="text-blue-500">&gt;</span> {log.text}
+                        </motion.p>
+                      ))}
+                    </AnimatePresence>
                   </div>
                 </div>
               </motion.div>
@@ -210,7 +208,7 @@ const Modal = ({ isOpen, onClose, title, content, links = [], isMobile, isLoadin
                             src={displayImage}
                             alt={displayText}
                             className="w-16 h-16 object-cover rounded-md flex-shrink-0"
-                            onError={(e) => { e.target.src = '/placeholder-image.webp'; }}
+                            onError={(e) => { e.target.src = '/placeholder-image.png'; }}
                           />
                         )}
                         <div className="flex-grow">
