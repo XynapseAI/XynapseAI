@@ -98,7 +98,8 @@ const keywordToImage = {
   paxos: 'paxos.webp',
   maskex: 'maskex.webp',
   satoshi: 'satoshi.webp',
-  
+  okex: 'okx.webp',
+  uk: 'uk.webp',
 };
 
 const getImageFromNameTag = (nameTag = '') => {

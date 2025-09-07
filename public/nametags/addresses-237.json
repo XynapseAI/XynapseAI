@@ -6958,12 +6958,12 @@
         "Name Tag": "LUKSO: Reversible ICO",
         "Description": "LUKSO, the Blockchain for the new digital lifestyle is created by former Ethereum Developer Fabian Vogelsteller, author of ERC20 and web3.js.\nLUKSO is a place where the worlds of fashion, gaming, design and social media intersect.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/uk.webp"
       },
       "token-sale": {
         "Name Tag": "LUKSO: Reversible ICO",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.webp"
+        "image": "/icons/uk.webp"
       }
     }
   },

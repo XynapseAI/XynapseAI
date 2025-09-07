@@ -1,0 +1,2402 @@
+{
+  "degdvfa2dow1533dxedvdtxqfhmzs1pmke": {
+    "Address": "degdvfa2dow1533dxedvdtxqfhmzs1pmke",
+    "Balance": 28856003451,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Robinhood-ColdWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/robinhood.webp"
+      }
+    }
+  },
+  "de5opaxjfgdhfbql6tbdxtaq56zkx6etox": {
+    "Address": "de5opaxjfgdhfbql6tbdxtaq56zkx6etox",
+    "Balance": 10435337336,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Binance",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  },
+  "d8zevbgf4yps3mk8dmjj7ppsybksbd66tx": {
+    "Address": "d8zevbgf4yps3mk8dmjj7ppsybksbd66tx",
+    "Balance": 9506648726,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Upbit-ColWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/upbit.webp"
+      }
+    }
+  },
+  "ddttqnuz5kfrt5qh2c7sntqrjmv3ixydgg": {
+    "Address": "ddttqnuz5kfrt5qh2c7sntqrjmv3ixydgg",
+    "Balance": 5031001968,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Cryptsy",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "ac8azeyewhk1l7xkvyebjjtvwrwxgmp5hq": {
+    "Address": "ac8azeyewhk1l7xkvyebjjtvwrwxgmp5hq",
+    "Balance": 3892824268,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "du8gpc5mh4kxwjarqrxoesfark2jagubr5": {
+    "Address": "du8gpc5mh4kxwjarqrxoesfark2jagubr5",
+    "Balance": 2413935856,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Binance",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  },
+  "dgmzv39rieltuigzcud6swohehpdsbxdub": {
+    "Address": "dgmzv39rieltuigzcud6swohehpdsbxdub",
+    "Balance": 2121500238,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Binance",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  },
+  "ddogepartyxxxxxxxxxxxxxxxxxxw1dfzr": {
+    "Address": "ddogepartyxxxxxxxxxxxxxxxxxxw1dfzr",
+    "Balance": 1854587859,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Dogeparty-XDP-burned",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "dqhgarjp9hw9nkcvh1xugtgkpnertl4sfk": {
+    "Address": "dqhgarjp9hw9nkcvh1xugtgkpnertl4sfk",
+    "Balance": 1571853205,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Bithumb-ColdWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/bithumb.webp"
+      }
+    }
+  },
+  "daahxppfziaccgwejmwe4rsuclcee7ncql": {
+    "Address": "daahxppfziaccgwejmwe4rsuclcee7ncql",
+    "Balance": 1215350191,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Gate.io-ColdWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/gate.webp"
+      }
+    }
+  },
+  "d94tdrhr4x9tjgr8mg1nrd5arpespam7zb": {
+    "Address": "d94tdrhr4x9tjgr8mg1nrd5arpespam7zb",
+    "Balance": 1106634547,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Bybit-Wallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/bybit.webp"
+      }
+    }
+  },
+  "dbdiamrnd25pm7dw7awqil696yx9x9q4dd": {
+    "Address": "dbdiamrnd25pm7dw7awqil696yx9x9q4dd",
+    "Balance": 1052617386,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Kraken-ColdWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/kraken.webp"
+      }
+    }
+  },
+  "d9a1ah7munajwnqhper4dn9znloqcyfdzw": {
+    "Address": "d9a1ah7munajwnqhper4dn9znloqcyfdzw",
+    "Balance": 1000010013,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dm9myjhphv4cvbe9ymdnu9fqc4kluk5m33": {
+    "Address": "dm9myjhphv4cvbe9ymdnu9fqc4kluk5m33",
+    "Balance": 1000005008,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d8whgsmfukf4imvsrwyjdhxl45lpz3bs1s": {
+    "Address": "d8whgsmfukf4imvsrwyjdhxl45lpz3bs1s",
+    "Balance": 1000000039,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Kraken",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/kraken.webp"
+      }
+    }
+  },
+  "deawszisjr1dg4wnxlvexewrgwiiqtxmdm": {
+    "Address": "deawszisjr1dg4wnxlvexewrgwiiqtxmdm",
+    "Balance": 967123368,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Kraken-ColdWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/kraken.webp"
+      }
+    }
+  },
+  "a1d5sbs86tmjxwgt5q2otwkxxlfgj5j8up": {
+    "Address": "a1d5sbs86tmjxwgt5q2otwkxxlfgj5j8up",
+    "Balance": 815500681,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dkgcd6zjihwczqj7dptgfufuuxofgfndym": {
+    "Address": "dkgcd6zjihwczqj7dptgfufuuxofgfndym",
+    "Balance": 791728649,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Crypto.com-ColdWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/crypto.webp"
+      }
+    }
+  },
+  "dgtdrakwticrhwctxgnhnmru8rryfhw4km": {
+    "Address": "dgtdrakwticrhwctxgnhnmru8rryfhw4km",
+    "Balance": 739287400,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "9wyp6khqm8vwxghsbn8ge62u7hmhwkm1oz": {
+    "Address": "9wyp6khqm8vwxghsbn8ge62u7hmhwkm1oz",
+    "Balance": 552145456,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dhfu8wjwxzhvy9pknmrxdqpepfir2fmiug": {
+    "Address": "dhfu8wjwxzhvy9pknmrxdqpepfir2fmiug",
+    "Balance": 547893062,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dn5hp2kckvcsdwr5spmwhpijgjknc5wct7": {
+    "Address": "dn5hp2kckvcsdwr5spmwhpijgjknc5wct7",
+    "Balance": 542800857,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "3377817",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "aeqgmwgvr2863csdmbhdmb2trn32msvtms": {
+    "Address": "aeqgmwgvr2863csdmbhdmb2trn32msvtms",
+    "Balance": 542369402,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Gemini-ColdWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/gemini.webp"
+      }
+    }
+  },
+  "d7vrvreym4h9vbtoqi6mxsmzsuvje6pdet": {
+    "Address": "d7vrvreym4h9vbtoqi6mxsmzsuvje6pdet",
+    "Balance": 537130897,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Crypto.com-ColdWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/crypto.webp"
+      }
+    }
+  },
+  "ddz1h7acqpgmkzfep3pbhw5b1gwuweoaap": {
+    "Address": "ddz1h7acqpgmkzfep3pbhw5b1gwuweoaap",
+    "Balance": 525561068,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Bybit",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/bybit.webp"
+      }
+    }
+  },
+  "debwbcoruhord7vxgeabmjcpnskqqvntbp": {
+    "Address": "debwbcoruhord7vxgeabmjcpnskqqvntbp",
+    "Balance": 516216385,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "djtqonmkvsvr8rvr4pdf5zyfzrnalsdnwi": {
+    "Address": "djtqonmkvsvr8rvr4pdf5zyfzrnalsdnwi",
+    "Balance": 509469764,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Gate.io-HotWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/gate.webp"
+      }
+    }
+  },
+  "dqkpnf8wq6paqdzzawnpytsdpgubqntzdv": {
+    "Address": "dqkpnf8wq6paqdzzawnpytsdpgubqntzdv",
+    "Balance": 506969425,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dbpnllej13lwr14wm1yh24nuqajodrjall": {
+    "Address": "dbpnllej13lwr14wm1yh24nuqajodrjall",
+    "Balance": 490279747,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d6lm15efkmcaqh7mebqzc9dlfkgl2exigi": {
+    "Address": "d6lm15efkmcaqh7mebqzc9dlfkgl2exigi",
+    "Balance": 478000000,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "djfu2p6woq9gibdixswzwjnj9uddzfssnc": {
+    "Address": "djfu2p6woq9gibdixswzwjnj9uddzfssnc",
+    "Balance": 467720525,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Binance-hotwallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  },
+  "adnbm5fbujcrbw1vqezneawmnslp19ki3n": {
+    "Address": "adnbm5fbujcrbw1vqezneawmnslp19ki3n",
+    "Balance": 459450988,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "OKX-HotWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/okx.webp"
+      }
+    }
+  },
+  "dcunhtalj8alcf9xeuzj2whrr8bwf9jxwh": {
+    "Address": "dcunhtalj8alcf9xeuzj2whrr8bwf9jxwh",
+    "Balance": 457302827,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Bitget",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/bitget.webp"
+      }
+    }
+  },
+  "a8c3xnz2mqsdlfwv5kl5fph12qewdaotxo": {
+    "Address": "a8c3xnz2mqsdlfwv5kl5fph12qewdaotxo",
+    "Balance": 401000070,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Gate.io-ColdWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/gate.webp"
+      }
+    }
+  },
+  "d788kyszysvwsolvejipe1q4cn8spom5eu": {
+    "Address": "d788kyszysvwsolvejipe1q4cn8spom5eu",
+    "Balance": 388848588,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Bitkub",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "depfavzjmqvyh4rwicdswnc6xyvqaxuyr8": {
+    "Address": "depfavzjmqvyh4rwicdswnc6xyvqaxuyr8",
+    "Balance": 380000011,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "ddqhs1qfmvp4438tknsweook6xccrp4ig4": {
+    "Address": "ddqhs1qfmvp4438tknsweook6xccrp4ig4",
+    "Balance": 377905324,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "BinanceUS-ColdWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  },
+  "d78rszmmfsxuagfivtg5ld5nmchvedywx8": {
+    "Address": "d78rszmmfsxuagfivtg5ld5nmchvedywx8",
+    "Balance": 353632799,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Bithumb-HotWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/bithumb.webp"
+      }
+    }
+  },
+  "dezpqpv5e9fpqhzdvuwtl2ab3y2e1iojir": {
+    "Address": "dezpqpv5e9fpqhzdvuwtl2ab3y2e1iojir",
+    "Balance": 350906499,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "9vpesms2md65mu2jbeccp8rkbqccqalmrl": {
+    "Address": "9vpesms2md65mu2jbeccp8rkbqccqalmrl",
+    "Balance": 348792608,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dduxgmfngpgjaaqydunsmvcembruc1wwkf": {
+    "Address": "dduxgmfngpgjaaqydunsmvcembruc1wwkf",
+    "Balance": 345134651,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Robinhood-ColdWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/robinhood.webp"
+      }
+    }
+  },
+  "dpnqmsw1rotjhczcbbexzk3w73diyzvlyc": {
+    "Address": "dpnqmsw1rotjhczcbbexzk3w73diyzvlyc",
+    "Balance": 341255826,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Binance",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  },
+  "dgyc8ntt8klmgbhhgnrhb2gj6qzqvmyvag": {
+    "Address": "dgyc8ntt8klmgbhhgnrhb2gj6qzqvmyvag",
+    "Balance": 338954121,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d9gtdwnaxufprfogwypcya7sxav4gbuzg7": {
+    "Address": "d9gtdwnaxufprfogwypcya7sxav4gbuzg7",
+    "Balance": 324028086,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dgf7a1uxrucikikwvw9cfvoerqtaxg6jga": {
+    "Address": "dgf7a1uxrucikikwvw9cfvoerqtaxg6jga",
+    "Balance": 300000007,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "drtmplxafvdfwczfmgbynjkdyrdwkjabzl": {
+    "Address": "drtmplxafvdfwczfmgbynjkdyrdwkjabzl",
+    "Balance": 300000000,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dqhqnvgsikhvke8yrcsl6d1pxz7dr5s2hw": {
+    "Address": "dqhqnvgsikhvke8yrcsl6d1pxz7dr5s2hw",
+    "Balance": 292414318,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "791360",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "drru8l7ff4k9w7sf3z6ei8onpcsh9hjgx1": {
+    "Address": "drru8l7ff4k9w7sf3z6ei8onpcsh9hjgx1",
+    "Balance": 286206111,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "HTX",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "dtsop4ycwkpmdqpncvz3jwkp3z7b4kw4t3": {
+    "Address": "dtsop4ycwkpmdqpncvz3jwkp3z7b4kw4t3",
+    "Balance": 269670967,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Binance",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  },
+  "dkjcdppqlovfkzsn4wjr2rfuyfcoavvore": {
+    "Address": "dkjcdppqlovfkzsn4wjr2rfuyfcoavvore",
+    "Balance": 258320906,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Binance",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  },
+  "d5bvp4krpbtvovkgue1wtaemdfstc4oeha": {
+    "Address": "d5bvp4krpbtvovkgue1wtaemdfstc4oeha",
+    "Balance": 250000000,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "djja6yj2bbvx8p2lfhgwkrcf1mplvkbywz": {
+    "Address": "djja6yj2bbvx8p2lfhgwkrcf1mplvkbywz",
+    "Balance": 234999865,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d79lw6wq3kntpb9rjfhoxuwcvdibwwctdg": {
+    "Address": "d79lw6wq3kntpb9rjfhoxuwcvdibwwctdg",
+    "Balance": 230404418,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "da9tu5gtd4vm8petbvf8ecv9u13nstyzzz": {
+    "Address": "da9tu5gtd4vm8petbvf8ecv9u13nstyzzz",
+    "Balance": 227126538,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Binance",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  },
+  "dgffoxahsyccwxobzxdishifwyxwkdd3bp": {
+    "Address": "dgffoxahsyccwxobzxdishifwyxwkdd3bp",
+    "Balance": 225143308,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d8znpd1n3f7kov9ptbazyuuemkg65gg9ab": {
+    "Address": "d8znpd1n3f7kov9ptbazyuuemkg65gg9ab",
+    "Balance": 225020506,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dhzdq5z8kphhkygxwen1naapbrrhsxpusz": {
+    "Address": "dhzdq5z8kphhkygxwen1naapbrrhsxpusz",
+    "Balance": 223168170,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "ddwuix9omjdrd1rcrsbivkejstxv27uxrr": {
+    "Address": "ddwuix9omjdrd1rcrsbivkejstxv27uxrr",
+    "Balance": 220311122,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dqfogsjspf6m2rahshe7tmmettnodfskhw": {
+    "Address": "dqfogsjspf6m2rahshe7tmmettnodfskhw",
+    "Balance": 220003216,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dhjoy133yqeb1znn6yrdneb1xlw6cjdoh3": {
+    "Address": "dhjoy133yqeb1znn6yrdneb1xlw6cjdoh3",
+    "Balance": 217143062,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dgs6xbyn2wgwzr1jc6ov3d6sq5tjubukmm": {
+    "Address": "dgs6xbyn2wgwzr1jc6ov3d6sq5tjubukmm",
+    "Balance": 215767444,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "CoinSpot-HotWallet",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "du6sg74rsxb6tu6utahf389edqchuptwak": {
+    "Address": "du6sg74rsxb6tu6utahf389edqchuptwak",
+    "Balance": 209778957,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dfjji2rkjqcm8ycsyhzt72ttx4yt7uy3fx": {
+    "Address": "dfjji2rkjqcm8ycsyhzt72ttx4yt7uy3fx",
+    "Balance": 205849996,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dtbg3rjrejnm99g8msnhsbjxjvw8x7yxy9": {
+    "Address": "dtbg3rjrejnm99g8msnhsbjxjvw8x7yxy9",
+    "Balance": 204588738,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Binance",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  },
+  "dmcrq3jy8mvytbm9tgcjfzerpkxpw91wxx": {
+    "Address": "dmcrq3jy8mvytbm9tgcjfzerpkxpw91wxx",
+    "Balance": 200020719,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Binance",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/binance.webp"
+      }
+    }
+  },
+  "a8tdndg3oxgkic8at7b1rulni2btv7hyqb": {
+    "Address": "a8tdndg3oxgkic8at7b1rulni2btv7hyqb",
+    "Balance": 193817983,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d6iaufn1aujfelfg8hakwrpyuwuk6slpfc": {
+    "Address": "d6iaufn1aujfelfg8hakwrpyuwuk6slpfc",
+    "Balance": 193315777,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dmcjrtlacu3ipndae7gnqrhm49b5sbtpqj": {
+    "Address": "dmcjrtlacu3ipndae7gnqrhm49b5sbtpqj",
+    "Balance": 186092584,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dlzxgwfmaswbqtrftly6rveajtzmcsguje": {
+    "Address": "dlzxgwfmaswbqtrftly6rveajtzmcsguje",
+    "Balance": 185390129,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Kraken",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/kraken.webp"
+      }
+    }
+  },
+  "dhnhi38hjytvp6hctteh2dkjlu7acwfdbd": {
+    "Address": "dhnhi38hjytvp6hctteh2dkjlu7acwfdbd",
+    "Balance": 182066005,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dua21aekrxn94durjou8o6cxaezwxoke46": {
+    "Address": "dua21aekrxn94durjou8o6cxaezwxoke46",
+    "Balance": 181777781,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "413349",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "df6rguzmsp7na9px9rkjuqexa7herebot6": {
+    "Address": "df6rguzmsp7na9px9rkjuqexa7herebot6",
+    "Balance": 175274113,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d6e11vlvkgjnkvnbvisk8pbnskvn4dupx8": {
+    "Address": "d6e11vlvkgjnkvnbvisk8pbnskvn4dupx8",
+    "Balance": 173391361,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dr2spavzpwjdvxjgtkjvgej3hc5albhqbm": {
+    "Address": "dr2spavzpwjdvxjgtkjvgej3hc5albhqbm",
+    "Balance": 163708101,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Kraken",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/kraken.webp"
+      }
+    }
+  },
+  "desu6ywb68v9gwees85pch6a87apqmrjte": {
+    "Address": "desu6ywb68v9gwees85pch6a87apqmrjte",
+    "Balance": 162129917,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "4092066",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "d8ejnrkffavosgz9ublsyknvri55edsqvh": {
+    "Address": "d8ejnrkffavosgz9ublsyknvri55edsqvh",
+    "Balance": 151403605,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "9rgfnxjnwn9zfq1eu7z9gmddtqmxjarfoa": {
+    "Address": "9rgfnxjnwn9zfq1eu7z9gmddtqmxjarfoa",
+    "Balance": 150666709,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d9uso3nbwjy7haha3hppml5twux5mzuvhx": {
+    "Address": "d9uso3nbwjy7haha3hppml5twux5mzuvhx",
+    "Balance": 150616476,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dsve8hqgj8xmkh5ixlj23utauhzrzy6mrf": {
+    "Address": "dsve8hqgj8xmkh5ixlj23utauhzrzy6mrf",
+    "Balance": 150000009,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "9tgbvcaunt4f66p8mccj1gnpwifvfqseok": {
+    "Address": "9tgbvcaunt4f66p8mccj1gnpwifvfqseok",
+    "Balance": 145691029,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "den9envfqsnxrz5guvezpvqekex82xbjyu": {
+    "Address": "den9envfqsnxrz5guvezpvqekex82xbjyu",
+    "Balance": 143096272,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dmhj5jfhutbieswwotdbwppjte1dktyc5i": {
+    "Address": "dmhj5jfhutbieswwotdbwppjte1dktyc5i",
+    "Balance": 140308747,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "9sawzc7vp6fjize9y3wsgzidjgibjonc6s": {
+    "Address": "9sawzc7vp6fjize9y3wsgzidjgibjonc6s",
+    "Balance": 139449891,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "5124048",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "d9hwmutulu66heht4m96okbstq2utg97tk": {
+    "Address": "d9hwmutulu66heht4m96okbstq2utg97tk",
+    "Balance": 138005500,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "drjizxglgnnjzahgupspwptqbp2kpfd9ne": {
+    "Address": "drjizxglgnnjzahgupspwptqbp2kpfd9ne",
+    "Balance": 136430628,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d8rm3ywfra9ucxduklffwfuvfb84xacbvs": {
+    "Address": "d8rm3ywfra9ucxduklffwfuvfb84xacbvs",
+    "Balance": 133295110,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "3864177",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "9y6mxqrstcq9pdfupqwfggajeesq8bxtwk": {
+    "Address": "9y6mxqrstcq9pdfupqwfggajeesq8bxtwk",
+    "Balance": 131462713,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "df4sne9zvmwq3nmljlwkyvehoz9zh7vbkj": {
+    "Address": "df4sne9zvmwq3nmljlwkyvehoz9zh7vbkj",
+    "Balance": 131319145,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dmoonzxadhzjmgp6ccrvfzvec8wjb67j38": {
+    "Address": "dmoonzxadhzjmgp6ccrvfzvec8wjb67j38",
+    "Balance": 130000027,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dmvipui6cpwkqyzrc3txtoal39puemrhq3": {
+    "Address": "dmvipui6cpwkqyzrc3txtoal39puemrhq3",
+    "Balance": 129136560,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d7obqdbsdmys3spdxqhzbckff4zq8pcyjn": {
+    "Address": "d7obqdbsdmys3spdxqhzbckff4zq8pcyjn",
+    "Balance": 128000000,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "4017771",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "d9ikzqd8jnvacz43wyrm5agcthm9x6aatk": {
+    "Address": "d9ikzqd8jnvacz43wyrm5agcthm9x6aatk",
+    "Balance": 125999612,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dpv8h9nztafjyixszz4qmqw4hg51alglgs": {
+    "Address": "dpv8h9nztafjyixszz4qmqw4hg51alglgs",
+    "Balance": 125341439,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d6zzq6tdglmyrebnrddxu87febhhuhxgj4": {
+    "Address": "d6zzq6tdglmyrebnrddxu87febhhuhxgj4",
+    "Balance": 122214655,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "4762489",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "dhkm6nduuv9kahagi1qu7mrbnkfqiadp3f": {
+    "Address": "dhkm6nduuv9kahagi1qu7mrbnkfqiadp3f",
+    "Balance": 121621940,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d7nl95bpdxec65kzb2ed2vmvq6we56edmg": {
+    "Address": "d7nl95bpdxec65kzb2ed2vmvq6we56edmg",
+    "Balance": 120444770,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dppgfelc94ezuwbfxaqtmjtabpvuf33sy5": {
+    "Address": "dppgfelc94ezuwbfxaqtmjtabpvuf33sy5",
+    "Balance": 120000008,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d8axxigezeznmktknc9awb3yuu4jfmamyu": {
+    "Address": "d8axxigezeznmktknc9awb3yuu4jfmamyu",
+    "Balance": 117996387,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "afvugfrq672dqnljpjlnvuiffjq4kxnsea": {
+    "Address": "afvugfrq672dqnljpjlnvuiffjq4kxnsea",
+    "Balance": 117786734,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dmoonjyh1ahlzc1kksmikbuhjxromn1zn4": {
+    "Address": "dmoonjyh1ahlzc1kksmikbuhjxromn1zn4",
+    "Balance": 116001101,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "ddaxmnzv4mcrkpgxaeczjinufjgo31gau4": {
+    "Address": "ddaxmnzv4mcrkpgxaeczjinufjgo31gau4",
+    "Balance": 115358008,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "413349",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "dsumbxqfccxnkfbar8ax8hzazpekirk2ur": {
+    "Address": "dsumbxqfccxnkfbar8ax8hzazpekirk2ur",
+    "Balance": 114530117,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "djvpmk5wjtcw3aevngs8hvjqbbwr9rhijs": {
+    "Address": "djvpmk5wjtcw3aevngs8hvjqbbwr9rhijs",
+    "Balance": 114018643,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dgrmtkqtuef9jpjkypk8unzud5ljal2ezd": {
+    "Address": "dgrmtkqtuef9jpjkypk8unzud5ljal2ezd",
+    "Balance": 113000000,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d6yw6oss8eq4jrpdncegap68xxjklewqhv": {
+    "Address": "d6yw6oss8eq4jrpdncegap68xxjklewqhv",
+    "Balance": 112519013,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "3294504",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "d8xsffszx7wrcndozy9zk7f1lcpvkcuhjj": {
+    "Address": "d8xsffszx7wrcndozy9zk7f1lcpvkcuhjj",
+    "Balance": 112289504,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "9sz8wi9men4humr1crxz1gojghcv2mxgqu": {
+    "Address": "9sz8wi9men4humr1crxz1gojghcv2mxgqu",
+    "Balance": 111799895,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d6wuyxpristebvxbx9vh1hjhlghfw886av": {
+    "Address": "d6wuyxpristebvxbx9vh1hjhlghfw886av",
+    "Balance": 108124289,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "djm4uuqts91bdtff9fr6cb8ipbfytxhjbj": {
+    "Address": "djm4uuqts91bdtff9fr6cb8ipbfytxhjbj",
+    "Balance": 107839002,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "db6qeufcultmopd6ruzknbdkrlr88vzfo2": {
+    "Address": "db6qeufcultmopd6ruzknbdkrlr88vzfo2",
+    "Balance": 105800000,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dl7jhhahhf5z2ap2evmhze8fzqvvpdakez": {
+    "Address": "dl7jhhahhf5z2ap2evmhze8fzqvvpdakez",
+    "Balance": 105210080,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d5yvgzy3bq4cyh92byd5ys6qyvjb6sdu6a": {
+    "Address": "d5yvgzy3bq4cyh92byd5ys6qyvjb6sdu6a",
+    "Balance": 104999249,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dlvwe1medtgmhbvqfp9j5jojs7dpgb6s69": {
+    "Address": "dlvwe1medtgmhbvqfp9j5jojs7dpgb6s69",
+    "Balance": 104999037,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dtw7jari91u4ueslrqq5secwbjaf6ny2du": {
+    "Address": "dtw7jari91u4ueslrqq5secwbjaf6ny2du",
+    "Balance": 104998980,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d5wfe1ba61h7azmtkch5krkunhscp3hqmg": {
+    "Address": "d5wfe1ba61h7azmtkch5krkunhscp3hqmg",
+    "Balance": 104998974,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dkbusfgrjayvz4qwkhvtucg22ytyedzg5n": {
+    "Address": "dkbusfgrjayvz4qwkhvtucg22ytyedzg5n",
+    "Balance": 104998968,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d6qsf3b8ty8f38hstw98eudw4hmzjbbya4": {
+    "Address": "d6qsf3b8ty8f38hstw98eudw4hmzjbbya4",
+    "Balance": 102233984,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "ddydcvms8gdyhhvmup7mvud2s8crjtpdaq": {
+    "Address": "ddydcvms8gdyhhvmup7mvud2s8crjtpdaq",
+    "Balance": 102233983,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "ddta8xptkz41abkdumdofzrx1cksnvay6t": {
+    "Address": "ddta8xptkz41abkdumdofzrx1cksnvay6t",
+    "Balance": 102233983,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d9kn1te6jinhmj3if5pasxu8i2qwbt9df9": {
+    "Address": "d9kn1te6jinhmj3if5pasxu8i2qwbt9df9",
+    "Balance": 102233983,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dltqyzfk5jdwldhwt6vhlecgl3d2vxznmx": {
+    "Address": "dltqyzfk5jdwldhwt6vhlecgl3d2vxznmx",
+    "Balance": 100178595,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Kraken",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/kraken.webp"
+      }
+    }
+  },
+  "dlrccr5h1ijlhyzuumtflfvcd5mf1dbdxy": {
+    "Address": "dlrccr5h1ijlhyzuumtflfvcd5mf1dbdxy",
+    "Balance": 100000156,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dnbsnpvc29e14omdo6vmr5zb6ugtryvvmy": {
+    "Address": "dnbsnpvc29e14omdo6vmr5zb6ugtryvvmy",
+    "Balance": 100000006,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "Kraken",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/kraken.webp"
+      }
+    }
+  },
+  "d9adrrvc3npqseqd4sopctexz1sspbtayz": {
+    "Address": "d9adrrvc3npqseqd4sopctexz1sspbtayz",
+    "Balance": 100000005,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dgkcriwshwcuexb4dpplt4avecyqtdwjc6": {
+    "Address": "dgkcriwshwcuexb4dpplt4avecyqtdwjc6",
+    "Balance": 98990264,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d5qvwcrcnwnfyt4ju4asvkxbiyhmnjcgyj": {
+    "Address": "d5qvwcrcnwnfyt4ju4asvkxbiyhmnjcgyj",
+    "Balance": 96218047,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dj13m6ibakncu26vumcmwtpvqcn5qepban": {
+    "Address": "dj13m6ibakncu26vumcmwtpvqcn5qepban",
+    "Balance": 95043241,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "3048691",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "dc2cq3gc6nx3bjfnzeh7fapbhojjwm7ytw": {
+    "Address": "dc2cq3gc6nx3bjfnzeh7fapbhojjwm7ytw",
+    "Balance": 94630933,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dsysttch9zkzdy8twrfxu37dpt2lgegefx": {
+    "Address": "dsysttch9zkzdy8twrfxu37dpt2lgegefx",
+    "Balance": 94610681,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d782rwzdbcsddkjuh1ijfxgaatys7fwcx7": {
+    "Address": "d782rwzdbcsddkjuh1ijfxgaatys7fwcx7",
+    "Balance": 94565093,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dcqvgak1fl89pabgyndx87oahc6ahrrfka": {
+    "Address": "dcqvgak1fl89pabgyndx87oahc6ahrrfka",
+    "Balance": 94565093,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dga4iyeiybxrcfsdvzvlfatgi5pfqszupc": {
+    "Address": "dga4iyeiybxrcfsdvzvlfatgi5pfqszupc",
+    "Balance": 94565093,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dgf4v1q5pb2zy36vwnpucujwjvgbdsaqk6": {
+    "Address": "dgf4v1q5pb2zy36vwnpucujwjvgbdsaqk6",
+    "Balance": 94565093,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dfxrqw6ugysmgz7vftecw8uxkjed69fbnh": {
+    "Address": "dfxrqw6ugysmgz7vftecw8uxkjed69fbnh",
+    "Balance": 94565093,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dlrpyhr2un7tjtva3zzpwkvqvekevtcigh": {
+    "Address": "dlrpyhr2un7tjtva3zzpwkvqvekevtcigh",
+    "Balance": 94565093,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dkso8uaa8b686zd2z6nwumiw5nv1fylav7": {
+    "Address": "dkso8uaa8b686zd2z6nwumiw5nv1fylav7",
+    "Balance": 94565093,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dfcctn3sk4mbamagetdknetrbc2npuyyqv": {
+    "Address": "dfcctn3sk4mbamagetdknetrbc2npuyyqv",
+    "Balance": 94288289,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dsgbkmq11nrfie2wjm7nj6bmmqoqxk5vkt": {
+    "Address": "dsgbkmq11nrfie2wjm7nj6bmmqoqxk5vkt",
+    "Balance": 94271679,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dggqrdsbgqwjh5k1tsfzjxtwe5qzyakdms": {
+    "Address": "dggqrdsbgqwjh5k1tsfzjxtwe5qzyakdms",
+    "Balance": 94005780,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dlyn6tmfwxs27uz1pfvpibmupshi72ergt": {
+    "Address": "dlyn6tmfwxs27uz1pfvpibmupshi72ergt",
+    "Balance": 93551301,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "ab92uqkwbivzs8jspc7ep9y29eotjvi1ry": {
+    "Address": "ab92uqkwbivzs8jspc7ep9y29eotjvi1ry",
+    "Balance": 92913132,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "5082768",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "dbywwxhg7gb3cukxwdmccperbe6bwpyc7u": {
+    "Address": "dbywwxhg7gb3cukxwdmccperbe6bwpyc7u",
+    "Balance": 92087121,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d7hdposw5wgilunpteii6gmpfbyydw4uhb": {
+    "Address": "d7hdposw5wgilunpteii6gmpfbyydw4uhb",
+    "Balance": 90071892,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dthpwse8iadzmqyt4ntvmhdcxxyifeyr6f": {
+    "Address": "dthpwse8iadzmqyt4ntvmhdcxxyifeyr6f",
+    "Balance": 90070993,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d9l7pvkfmyx11pugsayykbpbez2v9kxt3c": {
+    "Address": "d9l7pvkfmyx11pugsayykbpbez2v9kxt3c",
+    "Balance": 90000000,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dmsuy8h4mnr2wdpwdpjw7osg86gmjjlhb4": {
+    "Address": "dmsuy8h4mnr2wdpwdpjw7osg86gmjjlhb4",
+    "Balance": 89063689,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dq575uxyewgqtypembtiadrn2bp2j1hxtz": {
+    "Address": "dq575uxyewgqtypembtiadrn2bp2j1hxtz",
+    "Balance": 87845328,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "drhyt81insmnxc4w9e2ftbhgnflichnuzy": {
+    "Address": "drhyt81insmnxc4w9e2ftbhgnflichnuzy",
+    "Balance": 87427018,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "10711",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "dkwaffbeqaosmwnpnbexk21zphw4s3kxff": {
+    "Address": "dkwaffbeqaosmwnpnbexk21zphw4s3kxff",
+    "Balance": 86606134,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d9quujacbzayuasi8rah6ashf4gvsxhgon": {
+    "Address": "d9quujacbzayuasi8rah6ashf4gvsxhgon",
+    "Balance": 85982970,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dpou2sjlezynzk8g2wefoc6jurdf5e7tbm": {
+    "Address": "dpou2sjlezynzk8g2wefoc6jurdf5e7tbm",
+    "Balance": 85982970,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dcsdrrwspbxf54dx5hac8bhmrymp3jsfxm": {
+    "Address": "dcsdrrwspbxf54dx5hac8bhmrymp3jsfxm",
+    "Balance": 85671568,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dalp22zzrhg9bw41j53u5mhvypbyhsam5r": {
+    "Address": "dalp22zzrhg9bw41j53u5mhvypbyhsam5r",
+    "Balance": 85671568,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d6rkzz6c7v7v9shjdcmojhrlu4i7dvsapm": {
+    "Address": "d6rkzz6c7v7v9shjdcmojhrlu4i7dvsapm",
+    "Balance": 85396714,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "daxm2mmd1m9fssmxtoq6sgkl9dmtucbt3d": {
+    "Address": "daxm2mmd1m9fssmxtoq6sgkl9dmtucbt3d",
+    "Balance": 85396714,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "df4jx7qt9pogggglaoinpjyzi7v6aevm8s": {
+    "Address": "df4jx7qt9pogggglaoinpjyzi7v6aevm8s",
+    "Balance": 85396714,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dp3qnvumngjhgfh3tjcrdvkkmyt2uqyshx": {
+    "Address": "dp3qnvumngjhgfh3tjcrdvkkmyt2uqyshx",
+    "Balance": 85396714,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "drdgt6heaevl2psw519a6xl83wtwy5ys7m": {
+    "Address": "drdgt6heaevl2psw519a6xl83wtwy5ys7m",
+    "Balance": 85396714,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d8lhgumbhbszsj2hp2crky569hdliwypwb": {
+    "Address": "d8lhgumbhbszsj2hp2crky569hdliwypwb",
+    "Balance": 85396714,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dkmiwb8xfrzbiodvn4qyxxuqpt1djabz9v": {
+    "Address": "dkmiwb8xfrzbiodvn4qyxxuqpt1djabz9v",
+    "Balance": 85173427,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dugplr4erslt2yqxxakpbfsfsshmjhetvc": {
+    "Address": "dugplr4erslt2yqxxakpbfsfsshmjhetvc",
+    "Balance": 84672041,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dncvr1nj5mdtjzm4h5wtystevnamnckvpx": {
+    "Address": "dncvr1nj5mdtjzm4h5wtystevnamnckvpx",
+    "Balance": 83674357,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dbfbh5zgciedaml9u15ksu1j87u12rnulx": {
+    "Address": "dbfbh5zgciedaml9u15ksu1j87u12rnulx",
+    "Balance": 83164497,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dgnw8q9kdcgnjokzvuo4cme4cffxkfgjcz": {
+    "Address": "dgnw8q9kdcgnjokzvuo4cme4cffxkfgjcz",
+    "Balance": 82900001,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d5apdhasfdrysegss7kajznjt81lih2czh": {
+    "Address": "d5apdhasfdrysegss7kajznjt81lih2czh",
+    "Balance": 82815353,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dhaghszl2htzyhyyxlxnkzgrkmqjwrbot3": {
+    "Address": "dhaghszl2htzyhyyxlxnkzgrkmqjwrbot3",
+    "Balance": 82781245,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dk74tt5sgzes9cx2rpcxyp8yjtknstkae5": {
+    "Address": "dk74tt5sgzes9cx2rpcxyp8yjtknstkae5",
+    "Balance": 82535053,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dq1rxcfemdxklrzd8b8hjjtxst4swbhsal": {
+    "Address": "dq1rxcfemdxklrzd8b8hjjtxst4swbhsal",
+    "Balance": 82535053,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dpbwixchurdeqc9nb5mn2994vdxpb7ppnx": {
+    "Address": "dpbwixchurdeqc9nb5mn2994vdxpb7ppnx",
+    "Balance": 82535053,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dekmkexcubqgyhuzglumdf4e7l3t7wa6lv": {
+    "Address": "dekmkexcubqgyhuzglumdf4e7l3t7wa6lv",
+    "Balance": 82315823,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "ddw2kmjodym39kv2dzmajkzekt7qskvfzk": {
+    "Address": "ddw2kmjodym39kv2dzmajkzekt7qskvfzk",
+    "Balance": 82108218,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "djbucl8wkahr6bpc2lihhnq5ij7sdpq4uh": {
+    "Address": "djbucl8wkahr6bpc2lihhnq5ij7sdpq4uh",
+    "Balance": 82057520,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dd85gmmvqymycvd8tvnzxwhqyq8nzjeuaf": {
+    "Address": "dd85gmmvqymycvd8tvnzxwhqyq8nzjeuaf",
+    "Balance": 82000783,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d6ra6ckahemcdejucnwvh2zrqtyxbtxuh9": {
+    "Address": "d6ra6ckahemcdejucnwvh2zrqtyxbtxuh9",
+    "Balance": 81984444,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dfe95vshr2ziuwqz7zwgs6iu7cwafpnxve": {
+    "Address": "dfe95vshr2ziuwqz7zwgs6iu7cwafpnxve",
+    "Balance": 81787602,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dezfty3qtfeisc2g5zvfyxeqfbb9yjhyzc": {
+    "Address": "dezfty3qtfeisc2g5zvfyxeqfbb9yjhyzc",
+    "Balance": 81787602,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dbdx1ipzmbuwcnvxmt1rzpwpkee5uvu1kd": {
+    "Address": "dbdx1ipzmbuwcnvxmt1rzpwpkee5uvu1kd",
+    "Balance": 81787602,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dctduftryesfwxfivhrtvomsvuruvz3xjz": {
+    "Address": "dctduftryesfwxfivhrtvomsvuruvz3xjz",
+    "Balance": 81787602,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "drbkkq18ql67sxvnrxfy1dkx7kfwe4jw8t": {
+    "Address": "drbkkq18ql67sxvnrxfy1dkx7kfwe4jw8t",
+    "Balance": 81787602,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dedfuz2e7ev4yf28jkmhd4kkurnvxkw6wb": {
+    "Address": "dedfuz2e7ev4yf28jkmhd4kkurnvxkw6wb",
+    "Balance": 81787602,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dkrcdjnsvuwjapcgb4v3v9nuzoeua2zxqw": {
+    "Address": "dkrcdjnsvuwjapcgb4v3v9nuzoeua2zxqw",
+    "Balance": 81787602,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dpwbusnmfujjnhtapuz9xlmmrg4ncq1w7y": {
+    "Address": "dpwbusnmfujjnhtapuz9xlmmrg4ncq1w7y",
+    "Balance": 81787602,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dqrjucbkx1gdvxj1p4w9etkm7kdg12hf5t": {
+    "Address": "dqrjucbkx1gdvxj1p4w9etkm7kdg12hf5t",
+    "Balance": 81787602,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d8dru4zzv9cpfk3n9oyhpdcnzqckikwuov": {
+    "Address": "d8dru4zzv9cpfk3n9oyhpdcnzqckikwuov",
+    "Balance": 81725650,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d8tfdyd1kvls6qr6lrk5nlg9nwfgzjebbh": {
+    "Address": "d8tfdyd1kvls6qr6lrk5nlg9nwfgzjebbh",
+    "Balance": 81419323,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "ddued7um4qptduuw4qbdpl9ldudduawrzp": {
+    "Address": "ddued7um4qptduuw4qbdpl9ldudduawrzp",
+    "Balance": 80674567,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "afpdxyhitqyzdbbtm1jmj9fj4snw3kj5e7": {
+    "Address": "afpdxyhitqyzdbbtm1jmj9fj4snw3kj5e7",
+    "Balance": 80400124,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dtgspf4leyq21haa6r7zlzdnx8puipw1ku": {
+    "Address": "dtgspf4leyq21haa6r7zlzdnx8puipw1ku",
+    "Balance": 80000006,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "9za7gcscnnfkvsypqqnsmrgnzcjwjluy2c": {
+    "Address": "9za7gcscnnfkvsypqqnsmrgnzcjwjluy2c",
+    "Balance": 79955294,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "5110272",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "d6psa1gn3zd32yd6zjszhyftbrt7stbqbb": {
+    "Address": "d6psa1gn3zd32yd6zjszhyftbrt7stbqbb",
+    "Balance": 79501485,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dmurd7agqwqhvlzz53qzq8vsmmzshycpaz": {
+    "Address": "dmurd7agqwqhvlzz53qzq8vsmmzshycpaz",
+    "Balance": 78710630,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dn8nqjadcnkyzeqjpcyadpqpsfigamgyom": {
+    "Address": "dn8nqjadcnkyzeqjpcyadpqpsfigamgyom",
+    "Balance": 76543107,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d7tcurb1fw965u8tabzpzyce9nv62iqu2k": {
+    "Address": "d7tcurb1fw965u8tabzpzyce9nv62iqu2k",
+    "Balance": 75935229,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "drvv5q2et6leqqq1zn28hkn6twqpnkr7rp": {
+    "Address": "drvv5q2et6leqqq1zn28hkn6twqpnkr7rp",
+    "Balance": 75917692,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "deadqjvitndenqstvnygxddpsqm6wdtkbl": {
+    "Address": "deadqjvitndenqstvnygxddpsqm6wdtkbl",
+    "Balance": 70192934,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "dqngtigfintgu29qrfuhomd1hv7ff3txd3": {
+    "Address": "dqngtigfintgu29qrfuhomd1hv7ff3txd3",
+    "Balance": 68912463,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "djw6xczupv8geenwt4mpgcrsybzt19pmfn": {
+    "Address": "djw6xczupv8geenwt4mpgcrsybzt19pmfn",
+    "Balance": 66945238,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "d5hmkezrman8asbnnadvua21t7yousnkna": {
+    "Address": "d5hmkezrman8asbnnadvua21t7yousnkna",
+    "Balance": 66413972,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  },
+  "a3mcb4d7mlo6thgbzskwnbdjuzx6fcynbe": {
+    "Address": "a3mcb4d7mlo6thgbzskwnbdjuzx6fcynbe",
+    "Balance": 66015576,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": "1753460",
+        "Description": null,
+        "Subcategory": "Others",
+        "image": "/icons/default.webp"
+      }
+    }
+  },
+  "dbzikqwk3k8viyxihae6tvck8azoee8htq": {
+    "Address": "dbzikqwk3k8viyxihae6tvck8azoee8htq",
+    "Balance": 65806661,
+    "Labels": {
+      "dogecoin": {
+        "Name Tag": null,
+        "Description": null,
+        "Subcategory": "Others",
+        "image": null
+      }
+    }
+  }
+}

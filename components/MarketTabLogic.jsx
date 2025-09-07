@@ -7,9 +7,12 @@ import debounce from 'lodash.debounce';
 import rateLimit from 'axios-rate-limit';
 import pLimit from 'p-limit';
 import { GECKOTERMINAL_CHAIN_MAPPING, SUPPORTED_CHAINS, CHAIN_MAPPING } from '../utils/constants';
+import btcTopHolders from '../public/nametags/bitcoin-top-holders.json';
 import btcNameTags from '../public/nametags/btc-top-holders.json';
 import bnbNameTags from '../public/nametags/bnb-top-holders.json';
 import ethNameTags from '../public/nametags/eth-top-holders.json';
+import dogeNameTags from '../public/nametags/dogecoin-top-holders.json';
+import ltcNameTags from '../public/nametags/litecoin-top-holders.json';
 import useSWR from 'swr';
 import Bottleneck from 'bottleneck';
 import axiosRetry from 'axios-retry';
@@ -63,14 +66,14 @@ const fetcher = async (url, params) => {
 
 // Cache durations
 const CACHE_DURATIONS = {
-  PRICE: 5 * 60 * 1000, 
-  METADATA: 4 * 60 * 60 * 1000, 
-  TRANSACTIONS: 10 * 60 * 1000, 
-  DEFI_POOL: 4 * 60 * 60 * 1000, 
+  PRICE: 5 * 60 * 1000,
+  METADATA: 4 * 60 * 60 * 1000,
+  TRANSACTIONS: 10 * 60 * 1000,
+  DEFI_POOL: 4 * 60 * 60 * 1000,
   DEFAULT: 4 * 60 * 60 * 1000,
-  TICKERS: 4 * 60 * 60 * 1000, 
+  TICKERS: 4 * 60 * 60 * 1000,
   TRENDING: 5 * 60 * 60 * 1000,
-  NAMETAGS: 48 * 60 * 60 * 1000, 
+  NAMETAGS: 48 * 60 * 60 * 1000,
   TOP_HOLDERS: 12 * 60 * 60 * 1000, // 12 h
 };
 
@@ -78,7 +81,7 @@ if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
   console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
 }
 
-const NON_EVM_CHAINS = ['bitcoin', 'ethereum', 'dogecoin'];
+const NON_EVM_CHAINS = ['bitcoin', 'ethereum', 'dogecoin', 'litecoin'];
 const BLOCKCHAIR_REQUEST_LIMIT = 60; // Limit of 30 requests per minute
 const BLOCKCHAIR_REQUEST_WINDOW = 60 * 1000; // 1 minute
 const blockchairRequestTracker = new Map();
@@ -588,14 +591,28 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setIsLoadingNameTags(true);
       const newNameTags = {};
 
-      // Handle BTC addresses
-      const btcAddresses = addresses.filter((addr) => !addr.match(/^0x[a-fA-F0-9]{40}$/));
-      btcAddresses.forEach((addr) => {
+      // Handle non-EVM addresses (Bitcoin, Dogecoin, Litecoin)
+      const nonEvmAddresses = addresses.filter((addr) => !addr.match(/^0x[a-fA-F0-9]{40}$/));
+      const nameTagsMap = {
+        bitcoin: btcNameTags, // Use btc-top-holders.json for Bitcoin name tags
+        dogecoin: dogeNameTags,
+        litecoin: ltcNameTags,
+        ethereum: ethNameTags,
+      };
+
+      nonEvmAddresses.forEach((addr) => {
         const normalizedAddress = addr.toLowerCase();
-        const nameTagData = btcNameTags[normalizedAddress]?.Labels?.bitcoin || {};
+        let nameTagData = null;
+        // Check each chain's name tag JSON file for the address
+        for (const [chain, tags] of Object.entries(nameTagsMap)) {
+          if (tags[normalizedAddress]?.Labels?.[chain]) {
+            nameTagData = tags[normalizedAddress].Labels[chain];
+            break;
+          }
+        }
         newNameTags[normalizedAddress] = {
-          nameTag: nameTagData['Name Tag'] || null,
-          image: nameTagData.image || null,
+          nameTag: nameTagData?.['Name Tag'] || null,
+          image: nameTagData?.image || null,
           timestamp: Date.now(),
         };
       });
@@ -790,80 +807,51 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         }
 
         const chain = normalizedTokenSymbol;
-        const cacheKey = `blockchair-${chain}-top-holders-session_required`; // Session-dependent
+        const cacheKey = `top-holders-${chain}-session_required`; // Session-dependent
         setIsLoadingOnChain(true);
         setOnChainError(null);
 
         try {
           const fetchFn = async () => {
-            const recaptchaToken = await executeRecaptcha('blockchair_top_holders');
-            const blockchairResponse = await axios.post(
-              `${API_BASE_URL}/api/blockchair`,
-              { chain, limit: 100 },
-              {
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-                  'x-recaptcha-token': recaptchaToken,
-                },
-                timeout: 20000,
-              }
-            );
+            let topHolders = [];
 
-            if (!blockchairResponse.data.success || !Array.isArray(blockchairResponse.data.data)) {
-              throw new Error(blockchairResponse.data.detail || `Không có dữ liệu top holders cho ${chain}`);
+            // Map token symbol to corresponding JSON file for top holders
+            const topHoldersMap = {
+              bitcoin: btcTopHolders, // Use bitcoin-top-holders.json for addresses and balances
+              dogecoin: dogeNameTags,
+              litecoin: ltcNameTags,
+              ethereum: ethNameTags,
+            };
+
+            // Map token symbol to corresponding JSON file for name tags
+            const nameTagsMap = {
+              bitcoin: btcNameTags, // Use btc-top-holders.json for name tags
+              dogecoin: dogeNameTags,
+              litecoin: ltcNameTags,
+              ethereum: ethNameTags,
+            };
+
+            const jsonData = topHoldersMap[chain];
+            const nameTagData = nameTagsMap[chain];
+
+            if (jsonData) {
+              topHolders = Object.values(jsonData).map((holder) => {
+                const address = holder.Address.toLowerCase();
+                const nameTagEntry = nameTagData?.[address]?.Labels?.[chain];
+                return {
+                  address,
+                  balance: parseFloat(holder.Balance) || 0,
+                  share: 0, // Share not provided in JSON, set to 0
+                  nameTag: nameTagEntry?.['Name Tag'] || null,
+                  image: nameTagEntry?.image || null,
+                  source: 'JSON',
+                };
+              });
+            } else {
+              throw new Error(`No JSON data available for ${chain}`);
             }
 
-            let topHolders = blockchairResponse.data.data.map((holder) => ({
-              address: holder.address,
-              balance: parseFloat(holder.balance) || 0,
-              share: parseFloat(holder.share) || 0,
-              nameTag:
-                chain === 'bitcoin'
-                  ? btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null
-                  : chain === 'ethereum'
-                    ? ethNameTags[holder.address.toLowerCase()]?.Labels?.ethereum?.['Name Tag'] || null
-                    : null,
-              image:
-                chain === 'bitcoin'
-                  ? btcNameTags[holder.address.toLowerCase()]?.Labels?.bitcoin?.image || null
-                  : chain === 'ethereum'
-                    ? ethNameTags[holder.address.toLowerCase()]?.Labels?.ethereum?.image || null
-                    : null,
-              source: 'Blockchair',
-            }));
-
-            if (chain === 'ethereum') {
-              const jsonHolders = Object.values(ethNameTags).map((holder) => ({
-                address: holder.Address.toLowerCase(),
-                balance: parseFloat(holder.Balance) || 0,
-                share: 0,
-                nameTag: holder.Labels['ethereum']?.['Name Tag'] || null,
-                image: holder.Labels['ethereum']?.image || null,
-                source: 'JSON',
-              }));
-
-              const uniqueAddresses = new Set();
-              topHolders = [
-                ...topHolders.filter((holder) => {
-                  const addr = holder.address.toLowerCase();
-                  if (!uniqueAddresses.has(addr)) {
-                    uniqueAddresses.add(addr);
-                    return true;
-                  }
-                  return false;
-                }),
-                ...jsonHolders.filter((holder) => {
-                  const addr = holder.address.toLowerCase();
-                  if (!uniqueAddresses.has(addr)) {
-                    uniqueAddresses.add(addr);
-                    return true;
-                  }
-                  return false;
-                }),
-              ];
-            }
-
+            // Fetch CoinGecko treasury data for Bitcoin and Ethereum
             if (['bitcoin', 'ethereum'].includes(chain)) {
               try {
                 const coingeckoResponse = await coingeckoAxios.get(`${API_BASE_URL}/api/coingecko`, {
@@ -875,21 +863,26 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 });
 
                 if (coingeckoResponse.data.success && Array.isArray(coingeckoResponse.data.data?.companies)) {
-                  const treasuryData = coingeckoResponse.data.data.companies.map((company) => ({
-                    address: company.address || company.name || 'Unknown',
-                    balance: parseFloat(company.total_holdings) || 0,
-                    share: parseFloat(company.total_value_usd) / (company.total_holdings || 1) || 0,
-                    nameTag: company.name || null,
-                    image: null,
-                    source: 'CoinGecko',
-                  }));
+                  const treasuryData = coingeckoResponse.data.data.companies.map((company) => {
+                    const address = company.address?.toLowerCase() || company.name?.toLowerCase() || 'unknown';
+                    const nameTagEntry = nameTagData?.[address]?.Labels?.[chain];
+                    return {
+                      address,
+                      balance: parseFloat(company.total_holdings) || 0,
+                      share: parseFloat(company.total_value_usd) / (company.total_holdings || 1) || 0,
+                      nameTag: nameTagEntry?.['Name Tag'] || company.name || null,
+                      image: nameTagEntry?.image || null,
+                      source: 'CoinGecko',
+                    };
+                  });
 
+                  // Merge with JSON data, avoiding duplicates
                   const uniqueAddresses = new Set(topHolders.map((holder) => holder.address.toLowerCase()));
                   topHolders = [
                     ...topHolders,
                     ...treasuryData.filter((company) => {
                       const addr = company.address.toLowerCase();
-                      if (!uniqueAddresses.has(addr)) {
+                      if (!uniqueAddresses.has(addr) && addr !== 'unknown') {
                         uniqueAddresses.add(addr);
                         return true;
                       }
@@ -902,7 +895,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               }
             }
 
+            // Sort by balance and limit to top 100
             topHolders = topHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
+
             if (topHolders.length === 0) {
               throw new Error(`Không có dữ liệu top holders cho ${chain}`);
             }
@@ -919,7 +914,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           const errorMessage =
             error.response?.status === 429
               ? 'Vượt quá giới hạn API. Vui lòng thử lại sau.'
-              : error.response?.data?.detail || `Không thể lấy dữ liệu top holders cho ${chain}`;
+              : error.response?.data?.detail || `Không thể lấy dữ liệu top holders cho ${chain}: ${error.message}`;
           setOnChainError(errorMessage);
           if (retryCount < 3) {
             const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
@@ -2337,7 +2332,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     const isNonEvmChain = NON_EVM_CHAINS.includes(tokenSymbol);
 
     if (isNonEvmChain) {
-      const tokenKey = `${selectedToken.id}-blockchair`;
+      const tokenKey = `${selectedToken.id}-top-holders`;
       if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
         console.log(`Skipping fetchPublicTreasuryData: Data already fetched for ${tokenKey}`);
         return;

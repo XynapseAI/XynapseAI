@@ -63,13 +63,21 @@ const SUPPORTED_CHAINS = [
 // Additional chains for nameTag lookup
 const NAME_TAG_CHAINS = ["kyberswap", "uniswap"];
 
-// Non-EVM chains for Blockchair API
-const NON_EVM_CHAINS = ["bitcoin", "dogecoin"];
+// Non-EVM chains for JSON-based top holders
+const NON_EVM_CHAINS = ["bitcoin", "dogecoin", "litecoin"];
 
 // Fixed decimals for non-EVM chains
 const NON_EVM_DECIMALS = {
   bitcoin: 8,
   dogecoin: 8,
+  litecoin: 8,
+};
+
+// Map non-EVM chains to their JSON files for top holders
+const NON_EVM_JSON_FILES = {
+  bitcoin: "bitcoin-top-holders.json",
+  dogecoin: "dogecoin-top-holders.json",
+  litecoin: "litecoin-top-holders.json",
 };
 
 class TokenHoldersCron {
@@ -244,8 +252,8 @@ class TokenHoldersCron {
   async fetchTokensFromCoinGecko() {
     logger.info("Fetching up to 300 tokens from CoinGecko...");
     const tokens = [];
-    const perPage = 250;
-    const pages = Math.ceil(300 / perPage);
+    const perPage = 4;
+    const pages = Math.ceil(4 / perPage);
 
     try {
       for (let page = 1; page <= pages; page++) {
@@ -437,13 +445,13 @@ class TokenHoldersCron {
     });
 
     // Kiểm tra non-EVM chains như Bitcoin, Dogecoin
-    if (["bitcoin", "dogecoin"].includes(token.coingecko_id)) {
+    if (NON_EVM_CHAINS.includes(token.coingecko_id)) {
       await this.processTreasuryData(token);
       const chain = token.coingecko_id;
-      const blockchairHolders = await this.fetchBlockchairHolders(token, chain);
-      if (blockchairHolders.length > 0) {
-        await this.storeHolders(token, chain, null, blockchairHolders);
-        logger.info(`Stored ${blockchairHolders.length} Blockchair holders for ${token.symbol} on ${chain}`);
+      const jsonHolders = await this.fetchJsonHolders(token, chain);
+      if (jsonHolders.length > 0) {
+        await this.storeHolders(token, chain, null, jsonHolders);
+        logger.info(`Stored ${jsonHolders.length} JSON holders for ${token.symbol} on ${chain}`);
       }
       return true; // Thoát sau khi xử lý non-EVM chain
     }
@@ -534,22 +542,18 @@ class TokenHoldersCron {
     }
   }
 
-  async fetchBlockchairHolders(token, chain) {
-    logger.debug(`Fetching holders for ${token.symbol} on ${chain} via Blockchair...`);
+  async fetchJsonHolders(token, chain) {
+    logger.debug(`Fetching holders for ${token.symbol} on ${chain} from JSON...`);
     try {
-      const decimals = NON_EVM_DECIMALS[token.coingecko_id] || 8;
-      const response = await coingeckoLimiter.schedule(() =>
-        axios.post(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000"}/api/blockchair`,
-          { chain, limit: 100 },
-          { headers: { "Content-Type": "application/json" }, timeout: 30000 }
-        )
-      );
-
-      if (!response.data?.success || !Array.isArray(response.data.data)) {
-        logger.warn(`No valid holder data for ${token.symbol} on ${chain} from Blockchair`);
+      const fileName = NON_EVM_JSON_FILES[chain];
+      if (!fileName) {
+        logger.warn(`No JSON file defined for ${chain}`);
         return [];
       }
+
+      const filePath = join(__dirname, "..", "public", "nametags", fileName);
+      const data = await fs.readFile(filePath, "utf-8");
+      const jsonData = JSON.parse(data);
 
       const priceResponse = await coingeckoLimiter.schedule(() =>
         axios.get(`https://api.coingecko.com/api/v3/coins/${token.coingecko_id}`, {
@@ -560,27 +564,45 @@ class TokenHoldersCron {
       const priceUsd = Number.parseFloat(priceResponse.data.market_data.current_price.usd) || 0;
       const totalSupply = Number.parseFloat(priceResponse.data.market_data.total_supply) || 0;
 
-      const holders = response.data.data
-        .map((holder, index) => {
-          const tagData = this.nameTagData.get(holder.address.toLowerCase())?.[0] || {};
-          const nameTag = tagData.nameTag || null;
-          const image = tagData.image || null;
+      const holders = Object.entries(jsonData)
+        .map(([address, info], index) => {
+          const tagDataArray = this.nameTagData.get(address.toLowerCase()) || [];
+          let nameTag = null;
+          let image = null;
+          let nameTagSource = null;
+
+          // Tìm nameTag từ tất cả các chain trong nameTagData, ưu tiên chain hiện tại
+          for (const tagData of tagDataArray) {
+            if (tagData.nameTag) {
+              if (tagData.chain === chain) {
+                // Ưu tiên nameTag từ chain hiện tại
+                nameTag = tagData.nameTag;
+                image = tagData.image || null;
+                nameTagSource = tagData.chain;
+                break;
+              } else if (!nameTag) {
+                // Nếu chưa có nameTag, lấy nameTag từ chain khác
+                nameTag = tagData.nameTag;
+                image = tagData.image || null;
+                nameTagSource = tagData.chain;
+              }
+            }
+          }
+
+          logger.debug(`NameTag lookup for ${address} on ${chain}`, {
+            nameTagSource,
+            nameTag,
+          });
+
           if (!nameTag) return null;
 
           const name = this.mapNameTagToName(nameTag);
-          const balance = Number(holder.balance) || 0;
+          const balance = Number(info.Balance) || 0;
           const balance_usd = balance * priceUsd;
-          const percentage = totalSupply > 0 ? (balance / totalSupply) * 100 : holder.share || 0;
-
-          logger.debug(`Blockchair holder balance details for ${holder.address}`, {
-            nameTag,
-            balance,
-            balance_usd,
-            percentage,
-          });
+          const percentage = totalSupply > 0 ? (balance / totalSupply) * 100 : 0;
 
           return {
-            holder_address: holder.address,
+            holder_address: address,
             balance,
             balance_usd,
             percentage,
@@ -588,23 +610,17 @@ class TokenHoldersCron {
             name,
             image,
             rank: index + 1,
-            source: "blockchair",
+            source: "json",
           };
         })
         .filter((holder) => holder !== null && holder.name_tag !== null);
 
-      logger.info(`Fetched ${holders.length} holders with name tags for ${token.symbol} on ${chain} from Blockchair`);
+      logger.info(`Fetched ${holders.length} holders with name tags for ${token.symbol} on ${chain} from JSON`);
       return holders;
     } catch (error) {
-      logger.error(`Error fetching Blockchair holders for ${token.symbol} on ${chain}`, {
+      logger.error(`Error fetching JSON holders for ${token.symbol} on ${chain}`, {
         message: error.message,
-        status: error.response?.status,
       });
-      if (error.response?.status === 429) {
-        logger.warn(`Blockchair API rate limit exceeded`);
-      } else if (error.response?.status === 404) {
-        logger.info(`No holder data found on ${chain} from Blockchair`);
-      }
       return [];
     }
   }
