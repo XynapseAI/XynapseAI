@@ -376,3 +376,18 @@ model Payment {
 
   @@index([userId], map: "idx_payment_userId")
 }
+
+model top_holders {
+  id             Int       @id @default(autoincrement())
+  chain          String    @db.VarChar(50)
+  address        String    @db.VarChar(255)
+  balance        Decimal?  @db.Decimal(36, 18)
+  name_tag       String?   @db.VarChar(255)
+  image          String?   @db.VarChar(255)
+  created_at     DateTime? @default(now()) @db.Timestamp(6)
+  updated_at     DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([chain, address], map: "unique_chain_address")
+  @@index([chain], map: "idx_top_holders_chain")
+  @@index([address], map: "idx_top_holders_address")
+}

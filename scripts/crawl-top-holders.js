@@ -1,9 +1,14 @@
 // scripts/crawl-top-holders.js
 import axios from "axios";
 import { load } from "cheerio";
-import fs from "fs";
-import path from "path";
 import cron from "node-cron";
+import { PrismaClient } from "@prisma/client";
+
+// --- Khởi tạo Prisma Client ---
+const prisma = new PrismaClient({
+  log: ["error"], // Bật logging để debug
+  errorFormat: "pretty",
+});
 
 // --- CONFIGURATION FOR PAGES TO CRAWL ---
 const TARGETS = [
@@ -11,14 +16,12 @@ const TARGETS = [
     name: "Ethereum",
     type: "etherscan",
     url: "https://etherscan.io/accounts/1?ps=100",
-    outputFile: path.join(process.cwd(), "public", "nametags", "eth-top-holders.json"),
     chainLabel: "ethereum",
   },
   {
     name: "BNB Smart Chain",
     type: "etherscan",
     url: "https://bscscan.com/accounts/1?ps=100",
-    outputFile: path.join(process.cwd(), "public", "nametags", "bnb-top-holders.json"),
     chainLabel: "binance-smart-chain",
   },
   {
@@ -28,7 +31,6 @@ const TARGETS = [
       "https://bitinfocharts.com/top-100-richest-bitcoin-addresses.html",
       "https://bitinfocharts.com/top-100-richest-bitcoin-addresses-2.html",
     ],
-    outputFile: path.join(process.cwd(), "public", "nametags", "bitcoin-top-holders.json"),
     chainLabel: "bitcoin",
   },
   {
@@ -38,7 +40,6 @@ const TARGETS = [
       "https://bitinfocharts.com/top-100-richest-litecoin-addresses.html",
       "https://bitinfocharts.com/top-100-richest-litecoin-addresses-2.html",
     ],
-    outputFile: path.join(process.cwd(), "public", "nametags", "litecoin-top-holders.json"),
     chainLabel: "litecoin",
   },
   {
@@ -48,7 +49,6 @@ const TARGETS = [
       "https://bitinfocharts.com/top-100-richest-dogecoin-addresses.html",
       "https://bitinfocharts.com/top-100-richest-dogecoin-addresses-2.html",
     ],
-    outputFile: path.join(process.cwd(), "public", "nametags", "dogecoin-top-holders.json"),
     chainLabel: "dogecoin",
   },
 ];
@@ -167,8 +167,23 @@ function getImageForNameTag(nameTag) {
 // Utility: Delay to avoid rate-limiting
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Hàm thử lại với retry logic
+async function withRetry(fn, retries = 3, delayMs = 2000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt === retries) {
+        throw error;
+      }
+      console.warn(`Attempt ${attempt} failed, retrying in ${delayMs}ms...`, error.message);
+      await delay(delayMs);
+    }
+  }
+}
+
 // Crawl function for Etherscan/BscScan pages
-async function crawlEtherscanTopHolders(url, outputFile, chainName, chainLabel) {
+async function crawlEtherscanTopHolders(url, chainName, chainLabel) {
   console.log(`🚀 Starting data crawl for ${chainName} (Etherscan)...`);
   try {
     const { data } = await axios.get(url, {
@@ -181,7 +196,7 @@ async function crawlEtherscanTopHolders(url, outputFile, chainName, chainLabel) 
     });
 
     const $ = load(data);
-    const result = {};
+    const holders = [];
 
     $("div.table-responsive table tbody tr").each((_, el) => {
       try {
@@ -203,41 +218,36 @@ async function crawlEtherscanTopHolders(url, outputFile, chainName, chainLabel) 
         const balance = numericMatch ? parseFloat(numericMatch[0]) : null;
 
         if (address && balance !== null) {
-          result[address] = {
-            Address: address,
-            Balance: balance,
-            Labels: {
-              [chainLabel]: {
-                "Name Tag": nameTag,
-                Description: null,
-                Subcategory: "Others",
-                image: getImageForNameTag(nameTag),
-              },
-            },
-          };
+          holders.push({
+            chain: chainLabel,
+            address,
+            balance,
+            name_tag: nameTag,
+            image: getImageForNameTag(nameTag),
+          });
         }
       } catch (rowErr) {
         console.warn(`[${chainName}] Error processing a row:`, rowErr?.message || rowErr);
       }
     });
 
-    if (Object.keys(result).length === 0) {
+    if (holders.length === 0) {
       console.warn(`⚠️ [${chainName}] No data retrieved. Page structure may have changed or request was blocked.`);
       return;
     }
 
-    fs.mkdirSync(path.dirname(outputFile), { recursive: true });
-    fs.writeFileSync(outputFile, JSON.stringify(result, null, 2), "utf8");
-    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${Object.keys(result).length} addresses to ${outputFile}`);
+    // Lưu vào database
+    await saveHoldersToDatabase(holders, chainName, chainLabel);
+    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database`);
   } catch (err) {
     console.error(`❌ [${chainName}] Critical error during crawl:`, err.message || err);
   }
 }
 
 // Crawl function for Bitinfocharts pages using axios + cheerio
-async function crawlBitinfochartsTopHolders(urls, outputFile, chainName, chainLabel) {
+async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
   console.log(`🚀 Starting data crawl for ${chainName} (Bitinfocharts)...`);
-  const result = {};
+  const holders = [];
 
   try {
     for (const url of urls) {
@@ -304,18 +314,13 @@ async function crawlBitinfochartsTopHolders(urls, outputFile, chainName, chainLa
               return;
             }
 
-            result[address] = {
-              Address: address,
-              Balance: balance,
-              Labels: {
-                [chainLabel]: {
-                  "Name Tag": nameTag,
-                  Description: null,
-                  Subcategory: "Others",
-                  image: getImageForNameTag(nameTag),
-                },
-              },
-            };
+            holders.push({
+              chain: chainLabel,
+              address,
+              balance,
+              name_tag: nameTag,
+              image: getImageForNameTag(nameTag),
+            });
           } catch (rowErr) {
             console.warn(`[${chainName}] Error processing row ${index + 1} in ${tableSelector}:`, rowErr?.message || rowErr);
           }
@@ -323,37 +328,76 @@ async function crawlBitinfochartsTopHolders(urls, outputFile, chainName, chainLa
       }
 
       console.log(`[${chainName}] Total ${totalRows} rows found on ${url}`);
-      await delay(3000); // Delay 3 seconds between pages to avoid rate-limiting
+      await delay(3000);
     }
 
     // Thêm dữ liệu cứng cho Bitcoin
     if (chainLabel === "bitcoin") {
       const specialAddress = "1a1zp1ep5qgefi2dmptftl5slmv7divfna";
-      result[specialAddress] = {
-        Address: specialAddress,
-        Balance: 1090000,
-        Labels: {
-          [chainLabel]: {
-            "Name Tag": "Satoshi Nakamoto",
-            Description: null,
-            Subcategory: "Others",
-            image: "/icons/bitcoin.webp",
-          },
-        },
-      };
+      holders.push({
+        chain: chainLabel,
+        address: specialAddress,
+        balance: 1090000,
+        name_tag: "Satoshi Nakamoto",
+        image: "/icons/bitcoin.webp",
+      });
       console.log(`[${chainName}] Added special address ${specialAddress} (Satoshi Nakamoto) to results`);
     }
 
-    if (Object.keys(result).length === 0) {
+    if (holders.length === 0) {
       console.warn(`⚠️ [${chainName}] No data retrieved. Page structure may have changed or request was blocked.`);
       return;
     }
 
-    fs.mkdirSync(path.dirname(outputFile), { recursive: true });
-    fs.writeFileSync(outputFile, JSON.stringify(result, null, 2), "utf8");
-    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${Object.keys(result).length} addresses to ${outputFile}`);
+    // Lưu vào database
+    await saveHoldersToDatabase(holders, chainName, chainLabel);
+    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database`);
   } catch (err) {
     console.error(`❌ [${chainName}] Critical error during crawl:`, err.message || err);
+  }
+}
+
+// Hàm lưu dữ liệu vào database với batch và retry
+async function saveHoldersToDatabase(holders, chainName, chainLabel) {
+  const BATCH_SIZE = 50; // Kích thước batch
+  try {
+    for (let i = 0; i < holders.length; i += BATCH_SIZE) {
+      const batch = holders.slice(i, i + BATCH_SIZE);
+      await withRetry(async () => {
+        await prisma.$transaction(async (tx) => {
+          for (const holder of batch) {
+            await tx.top_holders.upsert({
+              where: {
+                chain_address: {
+                  chain: chainLabel,
+                  address: holder.address,
+                },
+              },
+              update: {
+                balance: holder.balance,
+                name_tag: holder.name_tag,
+                image: holder.image,
+                updated_at: new Date(),
+              },
+              create: {
+                chain: chainLabel,
+                address: holder.address,
+                balance: holder.balance,
+                name_tag: holder.name_tag,
+                image: holder.image,
+                created_at: new Date(),
+                updated_at: new Date(),
+              },
+            });
+          }
+        });
+      }, 3, 2000);
+      console.log(`[${chainName}] Successfully saved batch ${i / BATCH_SIZE + 1} of ${Math.ceil(holders.length / BATCH_SIZE)} (${batch.length} holders)`);
+    }
+    console.log(`[${chainName}] Successfully saved ${holders.length} holders to database`);
+  } catch (error) {
+    console.error(`[${chainName}] Error saving to database:`, error.message);
+    throw error;
   }
 }
 
@@ -362,9 +406,9 @@ async function runAllCrawlers() {
   console.log(`[${new Date().toISOString()}] Starting crawl cycle...`);
   for (const target of TARGETS) {
     if (target.type === "etherscan") {
-      await crawlEtherscanTopHolders(target.url, target.outputFile, target.name, target.chainLabel);
+      await crawlEtherscanTopHolders(target.url, target.name, target.chainLabel);
     } else if (target.type === "bitinfocharts") {
-      await crawlBitinfochartsTopHolders(target.urls, target.outputFile, target.name, target.chainLabel);
+      await crawlBitinfochartsTopHolders(target.urls, target.name, target.chainLabel);
     }
   }
   console.log(`[${new Date().toISOString()}] Crawl cycle completed.`);
@@ -377,4 +421,11 @@ runAllCrawlers();
 cron.schedule("0 7 * * *", () => {
   console.log(`[${new Date().toISOString()}] Starting scheduled crawl...`);
   runAllCrawlers();
+});
+
+// Cleanup Prisma connection on process exit
+process.on("SIGINT", async () => {
+  await prisma.$disconnect();
+  console.log("Prisma client disconnected");
+  process.exit(0);
 });
