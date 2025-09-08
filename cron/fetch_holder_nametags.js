@@ -261,13 +261,15 @@ class TokenHoldersCron {
   }
 
   async fetchTokensFromCoinGecko() {
-    logger.info("Fetching up to 300 tokens from CoinGecko...");
+    logger.info("Fetching exactly 300 tokens from CoinGecko...");
     const tokens = [];
-    const perPage = 5;
-    const pages = Math.ceil(5 / perPage);
+    const totalTokens = 300;
+    const perPageOptions = [250, 50]; // Lấy 250 token ở trang 1, 50 token ở trang 2
+    const pages = perPageOptions.length;
 
     try {
       for (let page = 1; page <= pages; page++) {
+        const perPage = perPageOptions[page - 1];
         logger.debug(`Fetching page ${page} of ${pages} with ${perPage} tokens...`);
         const response = await coingeckoLimiter.schedule(() =>
           axios.get("https://api.coingecko.com/api/v3/coins/markets", {
@@ -294,6 +296,12 @@ class TokenHoldersCron {
 
         tokens.push(...pageTokens);
         logger.debug(`Fetched ${pageTokens.length} tokens from page ${page}`);
+
+        // Dừng sớm nếu đã đủ 300 token
+        if (tokens.length >= totalTokens) {
+          tokens.length = totalTokens; // Cắt bớt nếu vượt quá 300
+          break;
+        }
       }
 
       if (tokens.length === 0) {
