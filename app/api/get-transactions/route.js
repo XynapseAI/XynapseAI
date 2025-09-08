@@ -1,4 +1,4 @@
-// app\api\get-transactions\route.js
+// app/api/get-transactions/route.js
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
@@ -9,23 +9,19 @@ import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import Bottleneck from 'bottleneck';
 
-// ================= Redis Client =================
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
     const redisUrl = process.env.REDIS_URL;
-    if (!redisUrl) {
-      throw new Error('REDIS_URL environment variable is required.');
-    }
+    if (!redisUrl) throw new Error('REDIS_URL environment variable is required.');
     redisClient = createClient({ url: redisUrl });
-    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message, stack: err.stack }));
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message }));
     await redisClient.connect();
-    logger.info('Redis connected', { timestamp: new Date().toISOString() });
+    logger.info('Redis connected');
   }
   return redisClient;
 }
 
-// ================= Security Headers =================
 const securityHeaders = {
   'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self';",
   'X-Content-Type-Options': 'nosniff',
@@ -36,7 +32,6 @@ const securityHeaders = {
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
 
-// ================= IP Ban Logic =================
 async function banIP(ip, durationSeconds = 1800) {
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
@@ -46,12 +41,9 @@ async function banIP(ip, durationSeconds = 1800) {
 async function checkIPBan(ip) {
   const redisClient = await getRedisClient();
   const isBanned = await redisClient.get(`banned_ip:${ip}`);
-  if (isBanned) {
-    logger.error(`IP ban detected: ${ip}`);
-    throw new Error('IP temporarily banned due to excessive violations.');
-  }
+  if (isBanned) throw new Error('IP temporarily banned.');
 }
-
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function trackViolation(ip, reason = 'Unknown') {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
@@ -59,72 +51,47 @@ async function trackViolation(ip, reason = 'Unknown') {
   const windowMs = 30 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
 
-  if (['CORS blocked', 'Invalid JSON body', 'Validation error', 'Invalid wallet address'].includes(reason)) {
-    logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}, violations: ${violations}`);
-    return;
-  }
-
   if (violations >= maxViolations) {
     await banIP(ip, 1800);
-    logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
     throw new Error('IP temporarily banned due to excessive violations.');
   }
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
-  logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
 }
 
-// ================= Rate Limiting =================
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:get_transactions:ip:${ip}`;
   const maxRequests = 200;
   const windowMs = 30 * 60 * 1000;
   const requests = parseInt(await redisClient.get(key)) || 0;
-  if (requests >= maxRequests) {
-    logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`);
-    throw new Error('Too many requests, please try again later.');
-  }
+  if (requests >= maxRequests) throw new Error('Too many requests.');
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
-  logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`);
 }
 
-// ================= Circuit Breaker =================
 let circuitOpen = false;
 let failureCount = 0;
 const maxFailures = 5;
 const resetTimeout = 60000;
 
 async function fetchWithRateLimit(url, config) {
-  if (circuitOpen) {
-    throw new Error('Service temporarily unavailable due to repeated failures.');
-  }
+  if (circuitOpen) throw new Error('Service temporarily unavailable.');
   try {
-    const response = await limiterBottleneck.schedule(async () => {
-      const res = await axios.get(url, {
-        ...config,
-        timeout: 30000,
-      });
-      return res;
-    });
+    const response = await limiterBottleneck.schedule(() => axios.get(url, { ...config, timeout: 30000 }));
     failureCount = 0;
     return response;
   } catch (error) {
     failureCount++;
-    logger.error(`Axios error: ${error.message}`, { url, status: error.response?.status });
     if (failureCount >= maxFailures) {
       circuitOpen = true;
-      logger.error(`Circuit breaker opened after ${failureCount} failures.`);
       setTimeout(() => {
         circuitOpen = false;
         failureCount = 0;
-        logger.info('Circuit breaker reset.');
       }, resetTimeout);
     }
     throw error;
   }
 }
 
-// Bottleneck configuration
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 5,
   minTime: process.env.NODE_ENV === 'production' ? 600 : 1000,
@@ -133,17 +100,12 @@ const limiterBottleneck = new Bottleneck({
   reservoirRefreshInterval: 60 * 1000,
 });
 
-// Axios retry configuration
 axiosRetry(axios, {
   retries: 8,
-  retryDelay: (retryCount) => {
-    logger.info(`Retry attempt ${retryCount} for blockchain API`);
-    return Math.pow(2, retryCount) * 1000 + Math.random() * 200;
-  },
+  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 200,
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
 });
 
-// ================= Allowed Origins =================
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   'https://xynapseai.net',
@@ -152,83 +114,20 @@ const allowedOrigins = [
   'https://xynapse-ai.vercel.app',
 ].filter((v, i, a) => v && a.indexOf(v) === i);
 
-async function isAllowedOrigin(origin, referer, pathname) {
-  logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
-
-  try {
-    // Kiểm tra origin hợp lệ
-    if (origin && origin !== 'null') {
-      if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
-        logger.warn('Blocked origin: non-HTTPS origin in production', { origin });
-        await trackViolation('unknown', 'Non-HTTPS origin in production');
-        return false;
-      }
-      if (allowedOrigins.includes(origin)) {
-        logger.info('Origin allowed', { origin });
-        return true;
-      }
-      await trackViolation('unknown', 'Invalid origin');
-      return false;
-    }
-
-    // Kiểm tra referer nếu không có origin
-    if (!origin && referer) {
-      const refOrigin = new URL(referer).origin;
-      if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
-        logger.warn('Blocked referer: non-HTTPS in production', { referer });
-        await trackViolation('unknown', 'Non-HTTPS referer in production');
-        return false;
-      }
-      if (allowedOrigins.includes(refOrigin)) {
-        logger.info('Referer origin allowed', { referer, refOrigin });
-        return true;
-      }
-      await trackViolation('unknown', 'Invalid referer');
-      return false;
-    }
-
-    // Cho phép internal/SSR request
-    if (!origin && !referer) {
-      logger.info('Allowing internal/SSR request');
-      return true;
-    }
-
-    // Chặn null origin trong production
-    if (!origin && process.env.NODE_ENV === 'production') {
-      logger.error('Null origin blocked in production', { pathname });
-      await trackViolation('unknown', 'Null origin in production');
-      return false;
-    }
-
-    // Cho phép null origin trong development
-    if (!origin && process.env.NODE_ENV === 'development') {
-      logger.warn('Origin is null, allowing in development mode');
-      return true;
-    }
-
-    logger.error('Invalid origin or referer', { origin, referer });
-    await trackViolation('unknown', 'Invalid origin or referer');
-    return false;
-  } catch (err) {
-    logger.error('Error validating origin', { err: err?.message, origin, referer, pathname });
-    await trackViolation('unknown', 'Error validating origin');
-    return false;
+async function isAllowedOrigin(origin, referer) {
+  if (origin && allowedOrigins.includes(origin)) return true;
+  if (!origin && referer) {
+    const refOrigin = new URL(referer).origin;
+    if (allowedOrigins.includes(refOrigin)) return true;
   }
+  if (!origin && !referer) return true;
+  if (!origin && process.env.NODE_ENV === 'development') return true;
+  return false;
 }
 
 const SUPPORTED_CHAINS = {
   '1': { name: 'ethereum', explorer: 'Etherscan', apiUrl: 'https://api.etherscan.io/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'ethereum' },
   '56': { name: 'bsc', explorer: 'BscScan', apiUrl: 'https://api.bscscan.com/api', apiKey: process.env.BSCSCAN_API_KEY, coingeckoId: 'binance-smart-chain' },
-  '204': { name: 'opbnb', explorer: 'opBNB BscScan', apiUrl: 'https://api-opbnb.bscscan.com/api', apiKey: process.env.BSCSCAN_API_KEY, coingeckoId: 'opbnb' },
-  '250': { name: 'fantom', explorer: 'FTMScan', apiUrl: 'https://api.ftmscan.com/api', apiKey: process.env.FTMSCAN_API_KEY, coingeckoId: 'fantom' },
-  '10': { name: 'optimism', explorer: 'Optimistic Etherscan', apiUrl: 'https://api-optimistic.etherscan.io/api', apiKey: process.env.OPTIMISM_API_KEY, coingeckoId: 'optimistic-ethereum' },
-  '137': { name: 'polygon', explorer: 'PolygonScan', apiUrl: 'https://api.polygonscan.com/api', apiKey: process.env.POLYGONSCAN_API_KEY, coingeckoId: 'polygon-pos' },
-  '42161': { name: 'arbitrum', explorer: 'Arbiscan', apiUrl: 'https://api.arbiscan.io/api', apiKey: process.env.ARBISCAN_API_KEY, coingeckoId: 'arbitrum-one' },
-  '100': { name: 'gnosis', explorer: 'GnosisScan', apiUrl: 'https://api.gnosisscan.io/api', apiKey: process.env.GNOSISSCAN_API_KEY, coingeckoId: 'xdai' },
-  '8453': { name: 'base', explorer: 'BaseScan', apiUrl: 'https://api.basescan.org/api', apiKey: process.env.BASESCAN_API_KEY, coingeckoId: 'base' },
-  '59144': { name: 'linea', explorer: 'LineaScan', apiUrl: 'https://api.lineascan.build/api', apiKey: process.env.LINEASCAN_API_KEY, coingeckoId: 'linea' },
-  '534352': { name: 'scroll', explorer: 'ScrollScan', apiUrl: 'https://api.scrollscan.com/api', apiKey: process.env.SCROLLSCAN_API_KEY, coingeckoId: 'scroll' },
-  '81457': { name: 'blast', explorer: 'BlastScan', apiUrl: 'https://api.blastscan.io/api', apiKey: process.env.BLASTSCAN_API_KEY, coingeckoId: 'blast' },
   'solana': { name: 'solana', explorer: 'Solscan', apiUrl: 'https://public-api.solscan.io', apiKey: process.env.SOLSCAN_API_KEY, coingeckoId: 'solana' },
   'tron': { name: 'tron', explorer: 'TronScan', apiUrl: 'https://api.tronscan.org/api', apiKey: process.env.TRONSCAN_API_KEY, coingeckoId: 'tron' },
 };
@@ -237,278 +136,212 @@ const bodySchema = z.object({
   wallet_address: z.string().nonempty('Wallet address is required'),
   chain: z.enum(Object.keys(SUPPORTED_CHAINS), { message: 'Invalid chain' }),
   limit: z.number().int().min(100).max(500, 'Limit must be between 100 and 500'),
+  page: z.number().int().min(1).default(1),
 });
 
-const chainLogoCache = {};
-
-async function checkIp(ip) {
-  try {
-    const response = await fetchWithRateLimit(`https://ipinfo.io/${ip}/json?token=${process.env.IPINFO_TOKEN}`);
-    const { abuse } = response.data;
-    if (abuse && abuse.score > 50) {
-      logger.warn(`Suspicious IP detected: ${ip}`);
-      return false;
-    }
-    return true;
-  } catch (error) {
-    logger.error(`IP check failed: ${error.message}`);
-    return true;
-  }
-}
-
-async function withRetry(operation, maxAttempts = 3, delayMs = 1000) {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await operation();
-    } catch (e) {
-      if (attempt === maxAttempts) throw e;
-      logger.warn(`Attempt ${attempt} failed: ${e.message}. Retrying after ${delayMs}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-      delayMs *= 2;
-    }
-  }
-}
-
-// async function verifyHmacSignature(payload, signature, secret) {
-//   try {
-//     const hmac = crypto.createHmac('sha256', secret);
-//     const payloadString = JSON.stringify(payload, Object.keys(payload).sort());
-//     hmac.update(payloadString);
-//     const expectedSignature = hmac.digest('hex');
-//     if (signature.length !== expectedSignature.length) {
-//       return false;
-//     }
-//     return crypto.timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expectedSignature, 'hex'));
-//   } catch (error) {
-//     logger.error(`HMAC verification error: ${error.message}`, { stack: error.stack });
-//     return false;
-//   }
-// }
-
-// async function verifyApiKey(apiKey, session) {
-//   try {
-//     // Lấy tất cả người dùng để tìm salt và hash
-//     const result = await withRetry(() =>
-//       query(`SELECT id, is_premium, premium_expires_at, api_key_hash, api_key_salt FROM users`)
-//     );
-//     let user = null;
-
-//     // Kiểm tra từng người dùng
-//     for (const row of result.rows) {
-//       const { api_key_hash, api_key_salt, id, is_premium, premium_expires_at } = row;
-//       const derived = await scrypt(apiKey, api_key_salt, 64);
-//       const computedHash = derived.toString('hex');
-//       if (computedHash === api_key_hash) {
-//         user = { id, is_premium, premium_expires_at };
-//         break;
-//       }
-//     }
-
-//     if (!user) {
-//       logger.warn(`Invalid API key`, { apiKey: apiKey.slice(0, 6) });
-//       return { isValid: false, isPremium: false };
-//     }
-
-//     const { id, is_premium, premium_expires_at } = user;
-//     if (session && session.user.id !== id.toString()) {
-//       logger.warn(`API key does not belong to user ${session.user.id}`, { apiKey: apiKey.slice(0, 6) });
-//       return { isValid: false, isPremium: false };
-//     }
-//     if (premium_expires_at && new Date(premium_expires_at) < new Date()) {
-//       logger.warn(`Premium expired for API key`, { apiKey: apiKey.slice(0, 6) });
-//       return { isValid: true, isPremium: false, userId: id.toString() };
-//     }
-//     return { isValid: true, isPremium: is_premium || false, userId: id.toString() };
-//   } catch (error) {
-//     logger.error(`Error verifying API key: ${error.message}`, { stack: error.stack });
-//     return { isValid: false, isPremium: false };
-//   }
-// }
-
 async function getChainLogo(coingeckoId) {
-  if (chainLogoCache[coingeckoId]) {
-    logger.info(`Cache hit for chain logo: ${coingeckoId}`);
-    return chainLogoCache[coingeckoId];
-  }
+  const cacheKey = `chain_logo_${coingeckoId}`;
+  const redisClient = await getRedisClient();
+  const cached = await redisClient.get(cacheKey);
+  if (cached) return cached;
+
   try {
     const response = await fetchWithRateLimit('https://api.coingecko.com/api/v3/asset_platforms', {
       headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY },
       timeout: 15000,
     });
-    const chain = response.data.find(c => c.id === coingeckoId);
+    const chain = response.data.find((c) => c.id === coingeckoId);
     const logo = chain?.image?.thumb || '/icons/default.webp';
-    chainLogoCache[coingeckoId] = logo;
-    logger.info(`Fetched logo for ${coingeckoId}`);
+    await redisClient.setEx(cacheKey, 24 * 60 * 60, logo);
     return logo;
-  } catch (error) {
-    logger.error(`Error fetching logo for ${coingeckoId}: ${error.message}`);
-    chainLogoCache[coingeckoId] = '/icons/default.webp';
+  } catch {
     return '/icons/default.webp';
   }
 }
 
+// app/api/get-transactions/route.js (only showing updated getNametagsBatch function)
 async function getNametagsBatch(addresses) {
-  const uniqueAddresses = [...new Set(addresses.map(addr => addr.toLowerCase()).filter(isAddress))];
-  logger.info(`Fetching nametags for ${uniqueAddresses.length} addresses`);
+  const uniqueAddresses = [...new Set(addresses.map((addr) => addr.toLowerCase()).filter(isAddress))];
   const nametags = {};
-  if (uniqueAddresses.length === 0) {
-    logger.info('No valid addresses provided for nametag fetch.');
-    return nametags;
-  }
+  if (uniqueAddresses.length === 0) return nametags;
+
+  const redisClient = await getRedisClient();
+
   try {
-    const batchSize = 100;
-    for (let i = 0; i < uniqueAddresses.length; i += batchSize) {
-      const batchAddresses = uniqueAddresses.slice(i, i + batchSize);
-      logger.info(`Querying nametags for batch: ${batchAddresses.length} addresses`);
-      const result = await withRetry(() =>
-        query(`SELECT address, nametag, image FROM nametags WHERE address = ANY($1)`, [batchAddresses])
-      );
-      logger.info(`Received ${result.rows.length} nametags for batch`);
-      result.rows.forEach(row => {
-        const nametag = row.nametag || 'Unknown';
-        let image = row.image || '/icons/default.webp';
-        if (nametag !== 'Unknown' && !image) {
-          const shortName = nametag.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-          image = `/icons/${shortName}.webp`;
-        }
-        nametags[row.address.toLowerCase()] = {
-          address: row.address.toLowerCase(),
-          name: nametag,
-          image,
-          description: '',
-          subcategory: 'Others',
-        };
-      });
-    }
-    uniqueAddresses.forEach(addr => {
-      if (!nametags[addr]) {
-        nametags[addr] = {
-          address: addr,
-          name: 'Unknown',
-          image: '/icons/default.webp',
-          description: '',
-          subcategory: 'Others',
-        };
+    const result = await query(
+      `SELECT address, nametag, image, description, subcategory FROM nametags WHERE address = ANY($1)`,
+      [uniqueAddresses]
+    );
+
+    for (const row of result.rows) {
+      const address = row.address.toLowerCase();
+      let image = row.image;
+      let isValidImage = image && image !== '/icons/uniswap.webp';
+
+      // Check if the image is valid by attempting to fetch it
+      if (isValidImage) {
+        try {
+          const imageUrl = image.startsWith('http') ? image : `${process.env.NEXT_PUBLIC_APP_URL}${image}`;
+          await axios.head(imageUrl, { timeout: 5000 });
+        } catch {
+          logger.warn(`Invalid image for address ${address}: ${image}`); // Updated
+          isValidImage = false;
+        } 
       }
-    });
-    logger.info(`Fetched ${Object.keys(nametags).length} nametags, Unknown: ${Object.values(nametags).filter(tag => tag.name === 'Unknown').length}`);
+
+      // If image is invalid or default, try fetching from CoinGecko
+      if (!isValidImage) {
+        const cacheKey = `nametag_image_${address}`;
+        const cachedImage = await redisClient.get(cacheKey);
+        if (cachedImage) {
+          image = cachedImage;
+        } else {
+          const shortName = row.nametag
+            .split(' ')[0]
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '');
+          try {
+            const response = await fetchWithRateLimit(
+              `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(shortName)}`,
+              {
+                headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY },
+                timeout: 15000,
+              }
+            );
+            const coin = response.data.coins?.[0];
+            image = coin?.thumb || '/icons/default.webp';
+            await redisClient.setEx(cacheKey, 24 * 60 * 60, image);
+          } catch (error) {
+            logger.error(`Failed to fetch CoinGecko image for ${shortName}:`, error.message); // Updated
+            image = '/icons/default.webp';
+            await redisClient.setEx(cacheKey, 24 * 60 * 60, image);
+          }
+        }
+      }
+
+      nametags[address] = {
+        address,
+        name: row.nametag || 'Unknown',
+        image,
+        description: row.description || '',
+        subcategory: row.subcategory || 'Others',
+      };
+    }
+
+    // Set default values for addresses not found in the database
+    for (const addr of uniqueAddresses) {
+      if (!nametags[addr]) {
+        const cacheKey = `nametag_image_${addr}`;
+        let image = await redisClient.get(cacheKey) || '/icons/default.webp';
+        nametags[addr] = { address: addr, name: 'Unknown', image, description: '', subcategory: 'Others' };
+      }
+    }
+
     return nametags;
   } catch (error) {
-    logger.error(`Error fetching nametags: ${error.message}`, { stack: error.stack });
-    uniqueAddresses.forEach(addr => {
-      nametags[addr] = {
-        address: addr,
-        name: 'Unknown',
-        image: '/icons/default.webp',
-        description: '',
-        subcategory: 'Others',
-      };
+    logger.error('Error fetching nametags:', error);
+    uniqueAddresses.forEach((addr) => {
+      nametags[addr] = { address: addr, name: 'Unknown', image: '/icons/default.webp', description: '', subcategory: 'Others' };
     });
     return nametags;
   }
 }
 
-async function fetchBlockchainData(walletAddress, dataType, isTestnet, limit, chainId) {
+async function fetchBlockchainData(walletAddress, limit, chainId, page) {
   const chain = SUPPORTED_CHAINS[chainId];
   if (!chain) throw new Error(`Unsupported chain: ${chainId}`);
   if (!chain.apiKey) throw new Error(`API key missing for ${chain.explorer}`);
-  try {
-    let transactions = [];
-    if (chainId === 'solana') {
-      const response = await fetchWithRateLimit(`${chain.apiUrl}/account/transactions?account=${walletAddress}&limit=${limit}`, {
-        headers: { 'Authorization': `Bearer ${chain.apiKey}` },
-      });
-      const data = response.data;
-      if (!response.status.toString().startsWith('2')) throw new Error(data.message || 'Error fetching Solana transactions');
-      transactions = data.map(tx => ({
-        hash: tx.txHash,
-        from: tx.signer,
-        to: tx.actions[0]?.destination || '',
-        value: tx.actions[0]?.amount ? Number((tx.actions[0].amount / 1e9).toFixed(6)) : 0,
-        block_time: new Date(tx.blockTime * 1000).toISOString(),
-        tokenName: 'Solana',
-        tokenSymbol: 'SOL',
-        tokenDecimal: '9',
-        contractAddress: null,
-      }));
-    } else if (chainId === 'tron') {
-      const response = await fetchWithRateLimit(`${chain.apiUrl}/transaction?address=${walletAddress}&limit=${limit}`, {
-        headers: { 'TRON-PRO-API-KEY': chain.apiKey },
-      });
-      const data = response.data;
-      if (!data.success) throw new Error(data.error || 'Error fetching TRON transactions');
-      transactions = data.data.map(tx => ({
-        hash: tx.hash,
-        from: tx.ownerAddress,
-        to: tx.toAddress,
-        value: tx.amount ? Number((tx.amount / 1e6).toFixed(6)) : 0,
-        block_time: new Date(tx.timestamp).toISOString(),
-        tokenName: 'TRON',
-        tokenSymbol: 'TRX',
-        tokenDecimal: '6',
-        contractAddress: null,
-      }));
-    } else {
-      const nativeResponse = await fetchWithRateLimit(
-        `${chain.apiUrl}?module=account&action=txlist&address=${walletAddress}&sort=desc&apikey=${chain.apiKey}&page=1&offset=${limit}`
-      );
-      const nativeData = nativeResponse.data;
-      if (nativeData.status !== '1') throw new Error(nativeData.message || 'Error fetching EVM transactions');
-      const nativeTxs = nativeData.result.map(tx => ({
-        hash: tx.hash,
-        from: tx.from,
-        to: tx.to,
-        value: Number((parseInt(tx.value) / 1e18).toFixed(6)),
-        block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-        tokenName: chain.name.charAt(0).toUpperCase() + chain.name.slice(1),
-        tokenSymbol: chainId === '1' ? 'ETH' : chain.name.toUpperCase(),
-        tokenDecimal: '18',
-        contractAddress: null,
-      }));
 
-      const tokenResponse = await fetchWithRateLimit(
-        `${chain.apiUrl}?module=account&action=tokentx&address=${walletAddress}&sort=desc&apikey=${chain.apiKey}&page=1&offset=${limit}`
-      );
-      const tokenData = tokenResponse.data;
-      if (tokenData.status !== '1') throw new Error(tokenData.message || 'Error fetching EVM token transactions');
-      const tokenTxs = tokenData.result.map(tx => ({
-        hash: tx.hash,
-        from: tx.from,
-        to: tx.to,
-        value: Number((parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal))).toFixed(6)),
-        block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-        tokenName: tx.tokenName,
-        tokenSymbol: tx.tokenSymbol,
-        tokenDecimal: tx.tokenDecimal,
-        contractAddress: tx.contractAddress,
-      }));
+  const offset = (page - 1) * limit;
+  let transactions = [];
 
-      transactions = [...nativeTxs, ...tokenTxs];
-    }
-    return transactions;
-  } catch (error) {
-    logger.error(`Error fetching data from ${chain.explorer}: ${error.message}`);
-    throw error;
+  if (chainId === 'solana') {
+    const response = await fetchWithRateLimit(`${chain.apiUrl}/account/transactions?account=${walletAddress}&limit=${limit}&offset=${offset}`, {
+      headers: { 'Authorization': `Bearer ${chain.apiKey}` },
+    });
+    const data = response.data;
+    if (!response.status.toString().startsWith('2')) throw new Error(data.message || 'Error fetching Solana transactions');
+    transactions = data.map((tx) => ({
+      hash: tx.txHash,
+      from: tx.signer,
+      to: tx.actions[0]?.destination || '',
+      value: tx.actions[0]?.amount ? Number((tx.actions[0].amount / 1e9).toFixed(6)) : 0,
+      block_time: new Date(tx.blockTime * 1000).toISOString(),
+      tokenName: 'Solana',
+      tokenSymbol: 'SOL',
+      tokenDecimal: '9',
+      contractAddress: null,
+    }));
+  } else if (chainId === 'tron') {
+    const response = await fetchWithRateLimit(`${chain.apiUrl}/transaction?address=${walletAddress}&limit=${limit}&offset=${offset}`, {
+      headers: { 'TRON-PRO-API-KEY': chain.apiKey },
+    });
+    const data = response.data;
+    if (!data.success) throw new Error(data.error || 'Error fetching TRON transactions');
+    transactions = data.data.map((tx) => ({
+      hash: tx.hash,
+      from: tx.ownerAddress,
+      to: tx.toAddress,
+      value: tx.amount ? Number((tx.amount / 1e6).toFixed(6)) : 0,
+      block_time: new Date(tx.timestamp).toISOString(),
+      tokenName: 'TRON',
+      tokenSymbol: 'TRX',
+      tokenDecimal: '6',
+      contractAddress: null,
+    }));
+  } else {
+    const nativeResponse = await fetchWithRateLimit(
+      `${chain.apiUrl}?module=account&action=txlist&address=${walletAddress}&sort=desc&apikey=${chain.apiKey}&page=${page}&offset=${limit}`
+    );
+    const nativeData = nativeResponse.data;
+    if (nativeData.status !== '1') throw new Error(nativeData.message || 'Error fetching EVM transactions');
+    const nativeTxs = nativeData.result.map((tx) => ({
+      hash: tx.hash,
+      from: tx.from,
+      to: tx.to,
+      value: Number((parseInt(tx.value) / 1e18).toFixed(6)),
+      block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+      tokenName: chain.name.charAt(0).toUpperCase() + chain.name.slice(1),
+      tokenSymbol: chainId === '1' ? 'ETH' : chain.name.toUpperCase(),
+      tokenDecimal: '18',
+      contractAddress: null,
+    }));
+
+    const tokenResponse = await fetchWithRateLimit(
+      `${chain.apiUrl}?module=account&action=tokentx&address=${walletAddress}&sort=desc&apikey=${chain.apiKey}&page=${page}&offset=${limit}`
+    );
+    const tokenData = tokenResponse.data;
+    if (tokenData.status !== '1') throw new Error(tokenData.message || 'Error fetching EVM token transactions');
+    const tokenTxs = tokenData.result.map((tx) => ({
+      hash: tx.hash,
+      from: tx.from,
+      to: tx.to,
+      value: Number((parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal))).toFixed(6)),
+      block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+      tokenName: tx.tokenName,
+      tokenSymbol: tx.tokenSymbol,
+      tokenDecimal: tx.tokenDecimal,
+      contractAddress: tx.contractAddress,
+    }));
+
+    transactions = [...nativeTxs, ...tokenTxs];
   }
+  return transactions;
 }
 
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
-  const pathname = new URL(request.url).pathname;
-  logger.info(`Request to /api/get-transactions from IP ${ip}`, { origin, referer, timestamp: new Date().toISOString() });
 
-  // 1. Check CORS
-  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+  if (!(await isAllowedOrigin(origin, referer, new URL(request.url).pathname))) {
     await trackViolation(ip, 'CORS blocked');
-    logger.warn(`CORS origin not allowed for POST`, { origin, referer });
     return NextResponse.json({ error: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders });
   }
 
   const headers = {
     ...securityHeaders,
-    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
+    ...(origin && allowedOrigins.includes(origin) && {
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Methods': 'POST',
       'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token',
@@ -516,42 +349,19 @@ export async function POST(request) {
     }),
   };
 
-  // 2. Check IP ban
   try {
     await checkIPBan(ip);
-  } catch (err) {
-    await trackViolation(ip, err.message);
-    return NextResponse.json({ error: err.message }, { status: 403, headers });
-  }
-
-  // 3. Check IP reputation (ipinfo.io)
-  try {
-    const isSafeIp = await checkIp(ip);
-    if (!isSafeIp) {
-      await trackViolation(ip, 'Suspicious IP');
-      return NextResponse.json({ error: 'Suspicious IP detected' }, { status: 403, headers });
-    }
-  } catch (err) {
-    logger.error(`IP reputation check failed for ${ip}: ${err.message}`);
-    // Fail-open to avoid blocking all requests if ipinfo.io is down
-  }
-
-  // 4. Check rate limit
-  try {
     await checkRateLimit(ip);
   } catch (err) {
     await trackViolation(ip, err.message);
-    logger.error(`Rate limit error: ${err.message}`, { ip });
     return NextResponse.json({ error: err.message }, { status: 429, headers });
   }
 
-  // 5. Parse body
   let body;
   try {
     body = await request.json();
-  } catch (err) {
+  } catch {
     await trackViolation(ip, 'Invalid JSON body');
-    logger.warn(`Invalid JSON body: ${err.message}`, { ip });
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400, headers });
   }
 
@@ -560,21 +370,16 @@ export async function POST(request) {
     parsedBody = bodySchema.parse(body);
   } catch (err) {
     await trackViolation(ip, 'Validation error');
-    logger.warn(`Validation error: ${err.message}`, { ip });
     return NextResponse.json({ error: 'Invalid input data', errors: err.errors }, { status: 400, headers });
   }
 
-  const { wallet_address, chain, limit } = parsedBody;
+  const { wallet_address, chain, limit, page } = parsedBody;
   const isValidAddress = ['solana', 'tron'].includes(chain)
     ? /^[A-Za-z0-9]{32,44}$/.test(wallet_address)
     : isAddress(wallet_address);
   if (!isValidAddress) {
     await trackViolation(ip, 'Invalid wallet address');
-    logger.error(`Invalid wallet address: ${wallet_address} for chain ${chain}`, { ip });
-    return NextResponse.json(
-      { error: 'Wallet address is required and must be valid for the selected chain.' },
-      { status: 400, headers }
-    );
+    return NextResponse.json({ error: 'Invalid wallet address.' }, { status: 400, headers });
   }
 
   const lowerWalletAddress = wallet_address.toLowerCase();
@@ -585,10 +390,7 @@ export async function POST(request) {
     new ReadableStream({
       async start(controller) {
         try {
-          logger.info(`Fetching transactions for ${lowerWalletAddress} on ${chain} with limit ${selectedLimit}...`, { ip });
-          const txData = await fetchBlockchainData(lowerWalletAddress, 'transactions', false, selectedLimit, chain);
-          logger.info(`Raw blockchain data: ${txData.length} transactions`);
-
+          const txData = await fetchBlockchainData(lowerWalletAddress, selectedLimit, chain, page);
           const uniqueTxData = Array.from(new Map(txData.map((tx) => [tx.hash, tx])).values());
           const incomingTxs = uniqueTxData
             .filter((tx) => tx.to.toLowerCase() === lowerWalletAddress)
@@ -597,113 +399,51 @@ export async function POST(request) {
             .filter((tx) => tx.from.toLowerCase() === lowerWalletAddress)
             .slice(0, Math.ceil(selectedLimit / 2));
 
-          logger.info(`Processed ${incomingTxs.length} incoming and ${outgoingTxs.length} outgoing transactions`, { ip });
-
           const chainLogo = await getChainLogo(SUPPORTED_CHAINS[chain].coingeckoId);
+          const allAddresses = [
+            lowerWalletAddress,
+            ...incomingTxs.map((tx) => tx.from.toLowerCase()),
+            ...outgoingTxs.map((tx) => tx.to.toLowerCase()),
+          ];
+          const nametags = await getNametagsBatch(allAddresses);
 
-          let incomingTxsWithNametags = [];
-          let outgoingTxsWithNametags = [];
-          let walletInfo = {
-            address: lowerWalletAddress,
-            nametag: ['solana', 'tron'].includes(chain)
-              ? lowerWalletAddress.slice(0, 6) + '...' + lowerWalletAddress.slice(-4)
-              : 'Unknown',
-            image: '/icons/default.webp',
+          const incomingTxsWithNametags = incomingTxs.map((tx) => ({
+            hash: tx.hash,
+            address: tx.from.toLowerCase(),
+            nametag: nametags[tx.from.toLowerCase()]?.name || 'Unknown',
+            image: nametags[tx.from.toLowerCase()]?.image || '/icons/default.webp',
+            value: tx.value,
+            block_time: tx.block_time,
+            type: 'incoming',
             chainLogo,
-            isPremium: false,
+            tokenName: tx.tokenName,
+            tokenSymbol: tx.tokenSymbol,
+            tokenDecimal: tx.tokenDecimal,
+            contractAddress: tx.contractAddress,
+          }));
+
+          const outgoingTxsWithNametags = outgoingTxs.map((tx) => ({
+            hash: tx.hash,
+            address: tx.to.toLowerCase(),
+            nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
+            image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.webp',
+            value: tx.value,
+            block_time: tx.block_time,
+            type: 'outgoing',
+            chainLogo,
+            tokenName: tx.tokenName,
+            tokenSymbol: tx.tokenSymbol,
+            tokenDecimal: tx.tokenDecimal,
+            contractAddress: tx.contractAddress,
+          }));
+
+          const walletInfo = {
+            address: lowerWalletAddress,
+            nametag: nametags[lowerWalletAddress]?.name || 'Unknown',
+            image: nametags[lowerWalletAddress]?.image || '/icons/default.webp',
+            chainLogo,
           };
 
-          if (!['solana', 'tron'].includes(chain)) {
-            logger.info(`Fetching nametags for ${lowerWalletAddress} and related addresses...`, { ip });
-            const allAddresses = [
-              lowerWalletAddress,
-              ...incomingTxs.map((tx) => tx.from.toLowerCase()),
-              ...outgoingTxs.map((tx) => tx.to.toLowerCase()),
-            ];
-            const nametags = await getNametagsBatch(allAddresses);
-
-            incomingTxsWithNametags = incomingTxs.map((tx) => ({
-              hash: tx.hash,
-              from: tx.from.toLowerCase(),
-              to: tx.to.toLowerCase(),
-              value: tx.value,
-              block_time: tx.block_time,
-              type: 'incoming',
-              chainLogo,
-              from_nametag: nametags[tx.from.toLowerCase()]?.name || 'Unknown',
-              from_image: nametags[tx.from.toLowerCase()]?.image || '/icons/default.webp',
-              to_nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
-              to_image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.webp',
-              tokenName: tx.tokenName,
-              tokenSymbol: tx.tokenSymbol,
-              tokenDecimal: tx.tokenDecimal,
-              contractAddress: tx.contractAddress,
-            }));
-
-            outgoingTxsWithNametags = outgoingTxs.map((tx) => ({
-              hash: tx.hash,
-              from: tx.from.toLowerCase(),
-              to: tx.to.toLowerCase(),
-              value: tx.value,
-              block_time: tx.block_time,
-              type: 'outgoing',
-              chainLogo,
-              from_nametag: nametags[tx.from.toLowerCase()]?.name || 'Unknown',
-              from_image: nametags[tx.from.toLowerCase()]?.image || '/icons/default.webp',
-              to_nametag: nametags[tx.to.toLowerCase()]?.name || 'Unknown',
-              to_image: nametags[tx.to.toLowerCase()]?.image || '/icons/default.webp',
-              tokenName: tx.tokenName,
-              tokenSymbol: tx.tokenSymbol,
-              tokenDecimal: tx.tokenDecimal,
-              contractAddress: tx.contractAddress,
-            }));
-
-            walletInfo = {
-              address: lowerWalletAddress,
-              nametag: nametags[lowerWalletAddress]?.name || 'Unknown',
-              image: nametags[lowerWalletAddress]?.image || '/icons/default.webp',
-              chainLogo,
-              isPremium: false,
-            };
-          } else {
-            incomingTxsWithNametags = incomingTxs.map((tx) => ({
-              hash: tx.hash,
-              from: tx.from.toLowerCase(),
-              to: tx.to.toLowerCase(),
-              value: tx.value,
-              block_time: tx.block_time,
-              type: 'incoming',
-              chainLogo,
-              from_nametag: tx.from.slice(0, 6) + '...' + tx.from.slice(-4),
-              from_image: '/icons/default.webp',
-              to_nametag: tx.to.slice(0, 6) + '...' + tx.to.slice(-4),
-              to_image: '/icons/default.webp',
-              tokenName: tx.tokenName,
-              tokenSymbol: tx.tokenSymbol,
-              tokenDecimal: tx.tokenDecimal,
-              contractAddress: tx.contractAddress,
-            }));
-
-            outgoingTxsWithNametags = outgoingTxs.map((tx) => ({
-              hash: tx.hash,
-              from: tx.from.toLowerCase(),
-              to: tx.to.toLowerCase(),
-              value: tx.value,
-              block_time: tx.block_time,
-              type: 'outgoing',
-              chainLogo,
-              from_nametag: tx.from.slice(0, 6) + '...' + tx.from.slice(-4),
-              from_image: '/icons/default.webp',
-              to_nametag: tx.to.slice(0, 6) + '...' + tx.to.slice(-4),
-              to_image: '/icons/default.webp',
-              tokenName: tx.tokenName,
-              tokenSymbol: tx.tokenSymbol,
-              tokenDecimal: tx.tokenDecimal,
-              contractAddress: tx.contractAddress,
-            }));
-          }
-
-          logger.info(`Fetched ${incomingTxsWithNametags.length} incoming and ${outgoingTxsWithNametags.length} outgoing transactions for ${lowerWalletAddress}`, { ip });
           controller.enqueue(
             JSON.stringify({
               incoming: incomingTxsWithNametags,
@@ -714,7 +454,6 @@ export async function POST(request) {
           controller.close();
         } catch (err) {
           await trackViolation(ip, `Error fetching transactions: ${err.message}`);
-          logger.error(`Error fetching transactions for ${lowerWalletAddress}: ${err.message}`, { stack: err.stack, ip });
           controller.enqueue(JSON.stringify({ error: `Failed to fetch transactions: ${err.message}` }));
           controller.close();
         }

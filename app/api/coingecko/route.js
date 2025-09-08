@@ -48,7 +48,7 @@ async function checkIPBan(ip) {
 async function trackViolation(ip, reason = "Unknown") {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 100; 
+  const maxViolations = 200; 
   const windowMs = 30 * 60 * 1000; 
   const violations = parseInt(await redisClient.get(key)) || 0;
 
@@ -91,7 +91,7 @@ axiosRetry(axios, {
 });
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === "production" ? 15 : 5,
+  maxConcurrent: process.env.NODE_ENV === "production" ? 10 : 5,
   minTime: process.env.NODE_ENV === "production" ? 600 : 1000, 
   reservoir: 30,
   reservoirRefreshAmount: 50,
