@@ -10,6 +10,10 @@ import dotenv from "dotenv";
 import fs from "fs/promises";
 import { logger } from "../utils/serverLogger.js"; // Import logger
 
+function isValidLogo(logo) {
+  return logo && typeof logo === "string" && logo.startsWith("http");
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -58,6 +62,13 @@ const SUPPORTED_CHAINS = [
   "zksync",
   "polygon-zkevm",
   "mantle",
+];
+
+const IMPORTANT_TOKENS = [
+  { chain: "ethereum", address: "native" },
+  { chain: "bsc", address: "native" },
+  { chain: "ethereum", address: "0xdac17f958d2ee523a2206206994597c13d831ec7" },
+  { chain: "bsc", address: "0x55d398326f99059ff775485246999027b3197955" },
 ];
 
 // Additional chains for nameTag lookup
@@ -252,8 +263,8 @@ class TokenHoldersCron {
   async fetchTokensFromCoinGecko() {
     logger.info("Fetching up to 300 tokens from CoinGecko...");
     const tokens = [];
-    const perPage = 4;
-    const pages = Math.ceil(4 / perPage);
+    const perPage = 5;
+    const pages = Math.ceil(5 / perPage);
 
     try {
       for (let page = 1; page <= pages; page++) {

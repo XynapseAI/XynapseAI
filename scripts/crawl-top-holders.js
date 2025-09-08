@@ -158,7 +158,7 @@ function getImageForNameTag(nameTag) {
   const nameTagLower = nameTag.toLowerCase();
   for (const keyword in keywordToImage) {
     if (nameTagLower.includes(keyword)) {
-      return keywordToImage[keyword];
+      return `/icons/${keywordToImage[keyword]}`;
     }
   }
   return null;
@@ -324,6 +324,24 @@ async function crawlBitinfochartsTopHolders(urls, outputFile, chainName, chainLa
 
       console.log(`[${chainName}] Total ${totalRows} rows found on ${url}`);
       await delay(3000); // Delay 3 seconds between pages to avoid rate-limiting
+    }
+
+    // Thêm dữ liệu cứng cho Bitcoin
+    if (chainLabel === "bitcoin") {
+      const specialAddress = "1a1zp1ep5qgefi2dmptftl5slmv7divfna";
+      result[specialAddress] = {
+        Address: specialAddress,
+        Balance: 1090000,
+        Labels: {
+          [chainLabel]: {
+            "Name Tag": "Satoshi Nakamoto",
+            Description: null,
+            Subcategory: "Others",
+            image: "/icons/bitcoin.webp",
+          },
+        },
+      };
+      console.log(`[${chainName}] Added special address ${specialAddress} (Satoshi Nakamoto) to results`);
     }
 
     if (Object.keys(result).length === 0) {

@@ -344,7 +344,7 @@ async function runAllCrawlers() {
   console.log(`[${new Date().toISOString()}] Starting crawl cycle...`);
   for (const target of TARGETS) {
     if (target.type === "etherscan") {
-      await crawlEtherscanTopHolders(target.url, target.outputFile, target.name, chainLabel);
+      await crawlEtherscanTopHolders(target.url, target.outputFile, target.name, target.chainLabel);
     } else if (target.type === "bitinfocharts") {
       await crawlBitinfochartsTopHolders(target.urls, target.outputFile, target.name, target.chainLabel);
     }
@@ -353,13 +353,11 @@ async function runAllCrawlers() {
 }
 
 export async function GET(request) {
-  // Kiểm tra CRON_SECRET
   if (request.headers.get("Authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
   try {
-    // Chạy logic crawl
     await runAllCrawlers();
     return NextResponse.json({ ok: true, message: "Crawl completed successfully" });
   } catch (error) {
