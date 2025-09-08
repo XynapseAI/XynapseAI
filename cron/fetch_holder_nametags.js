@@ -279,8 +279,8 @@ class TokenHoldersCron {
   async fetchTokensFromCoinGecko() {
     logger.info("Fetching exactly 5 tokens from CoinGecko...");
     const tokens = [];
-    const totalTokens = 4;
-    const perPageOptions = [4, 0];
+    const totalTokens = 300;
+    const perPageOptions = [250, 50];
     const pages = perPageOptions.length;
 
     try {
