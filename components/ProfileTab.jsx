@@ -1075,7 +1075,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="p-4">
+          <div className="p-4 rounded-xl">
             <LoadingOverlay isLoading={userLoading} isMobile={isMobile} />
             {userError && (
               <motion.div

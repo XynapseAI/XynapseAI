@@ -67,12 +67,24 @@ const SUPPORTED_CHAINS = [
   "mantle",
 ];
 
+const CHAIN_MAPPING = {
+  bnb: "bsc",
+  ethereum: "ethereum",
+};
+
 // --- Important tokens ---
 const IMPORTANT_TOKENS = [
   { chain: "ethereum", address: "native" },
   { chain: "bsc", address: "native" },
   { chain: "ethereum", address: "0xdac17f958d2ee523a2206206994597c13d831ec7" }, // USDT on Ethereum
   { chain: "bsc", address: "0x55d398326f99059ff775485246999027b3197955" }, // USDT on BSC
+];
+
+const ALLOWED_TOKENS = [
+];
+
+const BLOCKED_TOKEN_ADDRESSES = [
+  "0x7d25d9f10cd224ecce0bc824a2ec800db81c01d7",
 ];
 
 // --- Non-EVM chains ---
@@ -121,7 +133,7 @@ class TokenHoldersCron {
   }
 
   async initialize() {
-    let retries = 3; // Sửa lỗi: thay 'Nan' thành 'retries'
+    let retries = 3;
     while (retries > 0) {
       try {
         await redisClient.connect();
@@ -176,7 +188,7 @@ class TokenHoldersCron {
               const nameTag = labels[chainKey]?.["Name Tag"] || null;
               const image = labels[chainKey]?.["image"] || null;
               if (nameTag) {
-                const key = address.toLowerCase(); // Sửa lỗi: thay 'krav' thành 'key'
+                const key = address.toLowerCase();
                 const existing = this.nameTagData.get(key) || [];
                 existing.push({ chain: mappedChain, nameTag, image });
                 this.nameTagData.set(key, existing);
@@ -280,7 +292,7 @@ class TokenHoldersCron {
     logger.info("Fetching exactly 5 tokens from CoinGecko...");
     const tokens = [];
     const totalTokens = 300;
-    const perPageOptions = [250, 50];
+    const perPageOptions = [255, 50];
     const pages = perPageOptions.length;
 
     try {
@@ -454,11 +466,13 @@ class TokenHoldersCron {
 
   async processTokenOnAllChains(token) {
     const platforms = token.detail_platforms || {};
-    let supportedPlatforms = Object.keys(platforms).filter(
-      (chain) =>
-        SUPPORTED_CHAINS.includes(chain) &&
-        platforms[chain]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)
-    );
+    let supportedPlatforms = Object.keys(platforms)
+      .map((chain) => CHAIN_MAPPING[chain] || chain)
+      .filter(
+        (chain) =>
+          SUPPORTED_CHAINS.includes(chain) &&
+          platforms[chain]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)
+      );
 
     if (token.coingecko_id === "ethereum") {
       if (!supportedPlatforms.includes("ethereum")) {
@@ -588,7 +602,6 @@ class TokenHoldersCron {
         logger.info(`Loaded ${jsonHolders.length} holders from ${fileName} for ${token.symbol} on ${chain}`);
       }
 
-      // Thêm ví từ bảng top_holders cho các token đặc biệt
       if (NON_EVM_CHAINS.includes(token.coingecko_id) || ["ethereum", "binancecoin"].includes(token.coingecko_id)) {
         const topHolders = await prisma.top_holders.findMany({
           where: {
@@ -683,25 +696,26 @@ class TokenHoldersCron {
   }
 
   async fetchAndStoreHolders(token, chain, tokenAddress) {
-    if (!SUPPORTED_CHAINS.includes(chain)) {
-      logger.warn(`Chain ${chain} is not supported for token ${token.symbol}`);
+    const normalizedChain = CHAIN_MAPPING[chain] || chain;
+    if (!SUPPORTED_CHAINS.includes(normalizedChain)) {
+      logger.warn(`Chain ${chain} (normalized: ${normalizedChain}) is not supported for token ${token.symbol}`);
       return false;
     }
 
-    const cacheKey = `sim_top_holders:${token.coingecko_id}:${chain}`;
-    logger.info(`Checking cache for ${token.symbol} on ${chain}`);
+    const cacheKey = `sim_top_holders:${token.coingecko_id}:${normalizedChain}`;
+    logger.info(`Checking cache for ${token.symbol} on ${normalizedChain}`);
     try {
       const cachedData = await redisClient.get(cacheKey);
       if (cachedData) {
-        logger.info(`Cache hit for ${token.symbol} on ${chain}`);
+        logger.info(`Cache hit for ${token.symbol} on ${normalizedChain}`);
         const holders = JSON.parse(cachedData);
         const filteredHolders = holders.filter((holder) => holder.name_tag !== null);
         if (filteredHolders.length > 0) {
-          await this.storeHolders(token, chain, tokenAddress, filteredHolders);
-          logger.info(`Stored ${filteredHolders.length} cached holders for ${token.symbol} on ${chain}`);
+          await this.storeHolders(token, normalizedChain, tokenAddress, filteredHolders);
+          logger.info(`Stored ${filteredHolders.length} cached holders for ${token.symbol} on ${normalizedChain}`);
           return true;
         } else {
-          logger.info(`No valid cached holders with name_tag for ${token.symbol} on ${chain}`);
+          logger.info(`No valid cached holders with name_tag for ${token.symbol} on ${normalizedChain}`);
         }
       }
 
@@ -709,7 +723,7 @@ class TokenHoldersCron {
       const isEth = token.coingecko_id === "ethereum";
       const isBnb = token.coingecko_id === "binancecoin";
 
-      if ((isEth && chain === "ethereum") || (isBnb && chain === "bsc")) {
+      if ((isEth && normalizedChain === "ethereum") || (isBnb && normalizedChain === "bsc")) {
         const fileName = EVM_JSON_FILES[token.coingecko_id];
         try {
           const filePath = join(__dirname, "..", "public", "nametags", fileName);
@@ -721,15 +735,14 @@ class TokenHoldersCron {
             source: "json",
           }));
           holders.push(...jsonHolders);
-          logger.info(`Loaded ${jsonHolders.length} holders from ${fileName} for ${token.symbol} on ${chain}`);
+          logger.info(`Loaded ${jsonHolders.length} holders from ${fileName} for ${token.symbol} on ${normalizedChain}`);
         } catch (error) {
           logger.error(`Error loading holders from ${fileName}`, { message: error.message });
         }
 
-        // Thêm ví từ bảng top_holders
         const topHolders = await prisma.top_holders.findMany({
           where: {
-            chain: isBnb ? "bsc" : chain,
+            chain: isBnb ? "bsc" : normalizedChain,
           },
           select: {
             address: true,
@@ -747,7 +760,7 @@ class TokenHoldersCron {
           image: holder.image,
         }));
         holders.push(...topHoldersMapped);
-        logger.info(`Loaded ${topHoldersMapped.length} holders from top_holders for ${token.symbol} on ${chain}`);
+        logger.info(`Loaded ${topHoldersMapped.length} holders from top_holders for ${token.symbol} on ${normalizedChain}`);
       }
 
       if (tokenAddress || (isEth && chain !== "ethereum") || (isBnb && chain !== "bsc")) {
@@ -1094,35 +1107,64 @@ class TokenHoldersCron {
 
         const filteredTokens = allTokens
           .filter((token) => {
+            const normalizedChain = CHAIN_MAPPING[token.chain] || token.chain;
+
+            // Kiểm tra nếu token nằm trong danh sách bị chặn
+            if (BLOCKED_TOKEN_ADDRESSES.includes(token.address.toLowerCase())) {
+              logger.info(`Filtered out token ${token.symbol} on ${normalizedChain} due to blocked token address`, {
+                token_address: token.address,
+              });
+              return false;
+            }
+
             const isImportantToken = IMPORTANT_TOKENS.some(
               (impToken) =>
-                impToken.chain === token.chain &&
+                impToken.chain === normalizedChain &&
                 (impToken.address === "native"
                   ? token.address === "native"
                   : impToken.address.toLowerCase() === token.address.toLowerCase())
             );
 
-            // Bỏ qua kiểm tra value_usd cho ETH trên chain ethereum với token_address là "native"
-            const isEthNative = token.chain === "ethereum" && token.address === "native";
+            const isAllowedToken = ALLOWED_TOKENS.some(
+              (allowedToken) =>
+                allowedToken.chain === normalizedChain &&
+                (allowedToken.address === "native"
+                  ? token.address === "native"
+                  : allowedToken.address.toLowerCase() === token.address.toLowerCase())
+            );
 
-            if (token.value_usd > 50_000_000_000 && !isImportantToken && !isEthNative) {
+            const isNativeToken =
+              (normalizedChain === "ethereum" && token.address === "native") ||
+              (normalizedChain === "bsc" && token.address === "native");
+
+            // Giữ lại token nếu nằm trong ALLOWED_TOKENS
+            if (isAllowedToken) {
+              logger.info(`Kept token ${token.symbol} on ${normalizedChain} as it is in ALLOWED_TOKENS`, {
+                token_address: token.address,
+              });
+              return true;
+            }
+
+            if (token.value_usd > 50_000_000_000 && !isImportantToken && !isNativeToken) {
               logger.info(`Filtered out token ${token.symbol} with excessive value_usd`, {
                 value_usd: token.value_usd,
-                chain,
+                chain: normalizedChain,
               });
               return false;
             }
 
-            if (token.value_usd === 0 && !isImportantToken && !isEthNative) {
-              logger.info(`Filtered out token ${token.symbol} with zero value_usd`, { chain });
+            if (token.value_usd === 0 && !isImportantToken && !isNativeToken) {
+              logger.info(`Filtered out token ${token.symbol} with zero value_usd`, { chain: normalizedChain });
               return false;
             }
 
             const hasValidLogo = isValidLogo(token.logo);
             const hasLowLiquidity = token.low_liquidity === true;
-            if (!isImportantToken && !isEthNative && (!hasValidLogo || hasLowLiquidity)) {
-              logger.info(`Filtered out token ${token.symbol} on ${chain}`, {
+            if (!isImportantToken && !isNativeToken && (!hasValidLogo || hasLowLiquidity)) {
+              logger.info(`Filtered out token ${token.symbol} on ${normalizedChain}`, {
                 reason: !hasValidLogo ? "Invalid or missing logo" : "Low liquidity",
+                logo: token.logo,
+                low_liquidity: token.low_liquidity,
               });
               return false;
             }

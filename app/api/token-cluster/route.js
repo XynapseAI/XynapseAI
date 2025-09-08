@@ -255,130 +255,130 @@ export async function GET(request) {
 
     const portfolioQuery = `
       WITH wallet_tokens AS (
-        SELECT 
-          wh.exchange_name,
-          wh.chain,
-          wh.holder_address,
-          t.token->>'token_address' AS token_address,
-          t.token->>'symbol' AS symbol,
-          t.token->>'logo' AS logo,
-          (t.token->>'balance')::NUMERIC AS balance,
-          (t.token->>'balance_usd')::NUMERIC AS balance_usd
-        FROM wallet_holders wh,
-          jsonb_array_elements(wh.metadata) AS t(token)
-        WHERE LOWER(wh.exchange_name) = LOWER($1)
-          AND LOWER(wh.chain) != 'bitcoin'
-          AND t.token->>'logo' IS NOT NULL
-          AND t.token->>'logo' != ''
-          AND t.token->>'logo' != '/fallback-image.webp'
-      ),
-      wallet_agg AS (
-        SELECT 
-          token_address,
-          chain,
-          symbol,
-          logo,
-          SUM(balance) AS chain_balance,
-          SUM(balance_usd) AS chain_balance_usd,
-          json_agg(
-            json_build_object(
-              'holder_address', holder_address,
-              'balance', balance,
-              'value', balance_usd
-            )
-          ) AS wallets
-        FROM wallet_tokens
-        GROUP BY token_address, chain, symbol, logo
+  SELECT 
+    wh.exchange_name,
+    wh.chain,
+    wh.holder_address,
+    t.token->>'token_address' AS token_address,
+    t.token->>'symbol' AS symbol,
+    t.token->>'logo' AS logo,
+    (t.token->>'balance')::NUMERIC AS balance,
+    (t.token->>'balance_usd')::NUMERIC AS balance_usd
+  FROM wallet_holders wh,
+    jsonb_array_elements(wh.metadata) AS t(token)
+  WHERE LOWER(wh.exchange_name) LIKE LOWER($1)
+    AND LOWER(wh.chain) != 'bitcoin'
+    AND t.token->>'logo' IS NOT NULL
+    AND t.token->>'logo' != ''
+    AND t.token->>'logo' != '/fallback-image.webp'
+),
+wallet_agg AS (
+  SELECT 
+    token_address,
+    chain,
+    symbol,
+    logo,
+    SUM(balance) AS chain_balance,
+    SUM(balance_usd) AS chain_balance_usd,
+    json_agg(
+      json_build_object(
+        'holder_address', holder_address,
+        'balance', balance,
+        'value', balance_usd
       )
-      SELECT 
-        token_address,
-        symbol,
-        logo,
-        json_agg(
-          json_build_object(
-            'chain', chain,
-            'balance', chain_balance,
-            'balance_usd', chain_balance_usd,
-            'wallets', wallets
-          )
-        ) AS chain_details,
-        SUM(chain_balance) AS total_balance,
-        SUM(chain_balance_usd) AS total_balance_usd
-      FROM wallet_agg
-      GROUP BY token_address, symbol, logo
-      ORDER BY total_balance_usd DESC NULLS LAST
-      LIMIT 200
+    ) AS wallets
+  FROM wallet_tokens
+  GROUP BY token_address, chain, symbol, logo
+)
+SELECT 
+  token_address,
+  symbol,
+  logo,
+  json_agg(
+    json_build_object(
+      'chain', chain,
+      'balance', chain_balance,
+      'balance_usd', chain_balance_usd,
+      'wallets', wallets
+    )
+  ) AS chain_details,
+  SUM(chain_balance) AS total_balance,
+  SUM(chain_balance_usd) AS total_balance_usd
+FROM wallet_agg
+GROUP BY token_address, symbol, logo
+ORDER BY total_balance_usd DESC NULLS LAST
+LIMIT 200
     `;
-    const portfolioResult = await withRetry(async () => await query(portfolioQuery, [mappedExchange]));
+    const portfolioResult = await withRetry(async () => await query(portfolioQuery, [`%${mappedExchange}%`]));
     logger.info('Portfolio result from wallet_holders:', { rows: portfolioResult.rows });
 
     const bitcoinPortfolioQuery = `
       SELECT 
-        th.token_address,
-        'BTC' AS symbol,
-        '/logos/bitcoin.webp' AS logo,
-        json_agg(
-          json_build_object(
-            'chain', th.chain,
-            'balance', th.balance,
-            'balance_usd', COALESCE(th.balance_usd, th.balance * $2),
-            'wallets', json_build_array(
-              json_build_object(
-                'holder_address', th.holder_address,
-                'balance', th.balance,
-                'value', COALESCE(th.balance_usd, th.balance * $2)
-              )
-            )
-          )
-        ) AS chain_details,
-        SUM(th.balance) AS total_balance,
-        SUM(COALESCE(th.balance_usd, th.balance * $2)) AS total_balance_usd,
-        (th.token_address = 'bitcoin') AS is_bitcoin
-      FROM token_holders th
-      WHERE LOWER(th.chain) = 'bitcoin'
-        AND LOWER(th.name) = LOWER($1)
-      GROUP BY th.token_address
-      ORDER BY is_bitcoin DESC, total_balance_usd DESC NULLS LAST
-      LIMIT 50
+  th.token_address,
+  'BTC' AS symbol,
+  '/logos/bitcoin.webp' AS logo,
+  json_agg(
+    json_build_object(
+      'chain', th.chain,
+      'balance', th.balance,
+      'balance_usd', COALESCE(th.balance_usd, th.balance * $2),
+      'wallets', json_build_array(
+        json_build_object(
+          'holder_address', th.holder_address,
+          'balance', th.balance,
+          'value', COALESCE(th.balance_usd, th.balance * $2)
+        )
+      )
+    )
+  ) AS chain_details,
+  SUM(th.balance) AS total_balance,
+  SUM(COALESCE(th.balance_usd, th.balance * $2)) AS total_balance_usd,
+  (th.token_address = 'bitcoin') AS is_bitcoin
+FROM token_holders th
+WHERE LOWER(th.name) LIKE LOWER($1)
+  AND LOWER(th.chain) = 'bitcoin'
+GROUP BY th.token_address
+ORDER BY is_bitcoin DESC, total_balance_usd DESC NULLS LAST
+LIMIT 50
     `;
-    const bitcoinPortfolioResult = await withRetry(async () => await query(bitcoinPortfolioQuery, [mappedExchange, btcPrice]));
+    const bitcoinPortfolioResult = await withRetry(async () => await query(bitcoinPortfolioQuery, [`%${mappedExchange}%`, btcPrice]));
     logger.info('Bitcoin portfolio result:', { rows: bitcoinPortfolioResult.rows });
 
     const walletQuery = `
       SELECT 
-        exchange_name,
-        chain,
-        holder_address,
-        total_value_usd,
-        token_count,
-        name_tag,
-        image
-      FROM wallet_holders
-      WHERE LOWER(exchange_name) = LOWER($1)
-        AND LOWER(chain) != 'bitcoin'
-      ORDER BY total_value_usd DESC NULLS LAST
-      LIMIT 100
+  exchange_name,
+  chain,
+  holder_address,
+  total_value_usd,
+  token_count,
+  name_tag,
+  image
+FROM wallet_holders
+WHERE LOWER(exchange_name) LIKE LOWER($1)
+  AND LOWER(chain) != 'bitcoin'
+ORDER BY total_value_usd DESC NULLS LAST
+LIMIT 100
     `;
-    const walletResult = await withRetry(async () => await query(walletQuery, [mappedExchange]));
+    const walletResult = await withRetry(async () => await query(walletQuery, [`%${mappedExchange}%`]));
     logger.info('Wallet result from wallet_holders:', { rows: walletResult.rows });
 
     const bitcoinWalletQuery = `
       SELECT 
-        source AS exchange_name,
-        chain,
-        holder_address,
-        COALESCE(balance_usd, balance * $2) AS total_value_usd,
-        1 AS token_count,
-        name_tag,
-        image,
-        (token_address = 'bitcoin') AS is_bitcoin
-      FROM token_holders
-      WHERE LOWER(chain) = 'bitcoin'
-        AND LOWER(name) = LOWER($1)
-      ORDER BY is_bitcoin DESC, total_value_usd DESC NULLS LAST
-      LIMIT 100
+  source AS exchange_name,
+  chain,
+  holder_address,
+  COALESCE(balance_usd, balance * $2) AS total_value_usd,
+  1 AS token_count,
+  name_tag,
+  image,
+  (token_address = 'bitcoin') AS is_bitcoin
+FROM token_holders
+WHERE LOWER(name) LIKE LOWER($1)
+  AND LOWER(chain) = 'bitcoin'
+ORDER BY is_bitcoin DESC, total_value_usd DESC NULLS LAST
+LIMIT 100
     `;
-    const bitcoinWalletResult = await withRetry(async () => await query(bitcoinWalletQuery, [mappedExchange, btcPrice]));
+    const bitcoinWalletResult = await withRetry(async () => await query(bitcoinWalletQuery, [`%${mappedExchange}%`, btcPrice]));
     logger.info('Bitcoin wallet result:', { rows: bitcoinWalletResult.rows });
 
     if (
@@ -387,8 +387,14 @@ export async function GET(request) {
       walletResult.rows.length === 0 &&
       bitcoinWalletResult.rows.length === 0
     ) {
+      logger.warn(`No data found for exchange: ${exchange} (mapped to: ${mappedExchange})`, {
+        ip,
+        portfolioResult: portfolioResult.rows,
+        bitcoinPortfolioResult: bitcoinPortfolioResult.rows,
+        walletResult: walletResult.rows,
+        bitcoinWalletResult: bitcoinWalletResult.rows,
+      });
       await trackViolation(ip, `No data found for exchange: ${exchange}`);
-      logger.warn(`No data found for exchange: ${exchange} (mapped to: ${mappedExchange})`, { ip });
       return NextResponse.json(
         { success: false, detail: `No portfolio or wallet data found for exchange: ${exchange}` },
         { status: 404, headers }
