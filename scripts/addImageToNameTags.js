@@ -100,6 +100,10 @@ const keywordToImage = {
   satoshi: 'satoshi.webp',
   okex: 'okx.webp',
   uk: 'uk.webp',
+  coincheck: 'coincheck.webp',
+  '1inch': '1inch.webp',
+  lido: 'lido.webp',
+  gemini: 'gemini.webp',
 };
 
 const getImageFromNameTag = (nameTag = '') => {

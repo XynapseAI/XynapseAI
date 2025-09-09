@@ -174,7 +174,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     if (initialTokenSlug !== lastFetchedSlugRef.current || trendingTokens.length === 0) {
       fetchTrendingTokens((err) => {
         if (err) {
-          console.error("Failed to fetch trending tokens:", { error: err.message })
+          console.error("Failed to fetch trending tokens:")
         }
       })
       lastFetchedSlugRef.current = initialTokenSlug
@@ -1525,7 +1525,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
                             <div className="overflow-x-auto">
                               <table className="w-full text-[9px] sm:text-[11px]">
-                                {/* Table content remains unchanged */}
                                 <thead className="top-0 z-10 border-b border-white/10 bg-black/80">
                                   <tr>
                                     <th className="px-3 py-1.5 text-white text-left font-semibold">
@@ -1563,7 +1562,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   {onChainData.topHolders.slice(0, 100).map((holder, index) => {
                                     const isNonEvmChain = NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
                                     const address = holder.address?.toLowerCase()
-                                    const { text: displayText, image } = truncateAddress(
+                                    const { text: displayText, image, shortAddress } = truncateAddress(
                                       holder.address,
                                       nameTags,
                                       holder.source,
@@ -1605,15 +1604,21 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 className="text-white hover:text-white/80 transition-colors font-medium"
                                                 title={holder.address}
                                               >
-                                                {displayText}
+                                                <div className="flex flex-col">
+                                                  {displayText !== shortAddress && <span>{displayText}</span>}
+                                                  <span>{shortAddress}</span>
+                                                </div>
                                               </a>
                                             ) : (
                                               <span
                                                 className={`text-white font-medium ${isValidAddress ? "cursor-pointer hover:text-white/80 transition-colors" : "cursor-default"}`}
                                                 onClick={() => isValidAddress && handleAddressClick(holder.address)}
-                                                title={displayText}
+                                                title={holder.address}
                                               >
-                                                {displayText}
+                                                <div className="flex flex-col">
+                                                  {displayText !== shortAddress && <span>{displayText}</span>}
+                                                  <span>{shortAddress}</span>
+                                                </div>
                                               </span>
                                             )}
                                             {isValidAddress && (
@@ -2374,7 +2379,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         isMobile={isMobile}
         isLoading={isPredicting}
         logs={analysisLogs}
-        actionType="predict" // Thêm thuộc tính actionType cho Predict
+        actionType="predict"
       />
 
       {/* Pool Details Modal */}

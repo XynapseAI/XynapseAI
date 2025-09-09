@@ -104,28 +104,35 @@ export const formatPrice = (price, currency = 'usd', decimals = 8) => {
 };
 
 export const truncateAddress = (address, nameTags = {}, source) => {
-  if (!address || address === 'None' || typeof address !== 'string') return { text: 'N/A', image: null };
+  if (!address || address === 'None' || typeof address !== 'string') {
+    return { text: 'N/A', image: null, shortAddress: 'N/A' };
+  }
+
   const normalizedAddress = address.toLowerCase();
   const nameTag = nameTags[normalizedAddress]?.nameTag || nameTags[normalizedAddress]?.name;
   const image = nameTags[normalizedAddress]?.image || null;
 
   const isEvmAddress = address.match(/^0x[a-fA-F0-9]{40}$/);
+  const isNonEvmAddress = address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/);
 
-  if (source === 'Blockchair') {
-    const shortAddress = isEvmAddress
+  let shortAddress;
+  if (source === 'Blockchair' && (isEvmAddress || isNonEvmAddress)) {
+    shortAddress = isEvmAddress
       ? `${address.slice(0, 6)}...${address.slice(-4)}`
       : `${address.slice(0, 6)}...${address.slice(-6)}`;
-    return {
-      text: nameTag ? `${nameTag} (${shortAddress})` : shortAddress,
-      image,
-    };
+  } else if (isEvmAddress) {
+    shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
+  } else if (isNonEvmAddress) {
+    shortAddress = `${address.slice(0, 6)}...${address.slice(-6)}`;
+  } else {
+    shortAddress = address; // Fallback for unrecognized formats
   }
 
-  if (isEvmAddress) {
-    return { text: nameTag || `${address.slice(0, 6)}...${address.slice(-4)}`, image };
-  }
-
-  return { text: nameTag || address, image };
+  return {
+    text: nameTag || shortAddress, // Primary display: nametag if available, else short address
+    image,
+    shortAddress, // Always return the truncated address
+  };
 };
 
 export const truncateHash = (hash, startLength = 6, endLength = 4) => {

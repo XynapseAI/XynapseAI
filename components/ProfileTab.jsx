@@ -76,7 +76,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
         ]);
         if (!token) throw new Error('Empty reCAPTCHA token');
-        console.log(`reCAPTCHA token for ${action}: ${token.substring(0, 10)}...`);
         return token;
       } catch (error) {
         console.error(`reCAPTCHA error for ${action}: ${error.message}`);
@@ -95,7 +94,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     queryKey: ['csrfToken'],
     queryFn: async () => {
       const response = await axios.get('/api/csrf-token', { withCredentials: true });
-      console.log('CSRF Token fetched:', response.data.csrfToken);
       if (!response.data.csrfToken) throw new Error('Empty CSRF token received');
       return response.data.csrfToken;
     },
@@ -104,7 +102,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     enabled: status === 'authenticated',
     onSuccess: (csrf) => {
       localStorage.setItem('csrf_token', csrf);
-      console.log('Cookies after fetching CSRF:', document.cookie);
     },
     onError: (err) => {
       console.error('Error fetching CSRF token:', err);
@@ -121,7 +118,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       if (!session?.user?.id) throw new Error('Not authenticated');
       if (!csrfToken) throw new Error('CSRF token not available');
       const token = await debouncedExecuteRecaptcha('create_charge');
-      console.log('Sending POST with CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
       const response = await axios.post(
         '/api/coinbase/create-charge',
         { userId: session.user.id, plan: 'premium' },
@@ -134,12 +130,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           withCredentials: true,
         }
       );
-      console.log('Create charge response:', response.data);
       if (!response.data.success) throw new Error(response.data.detail || 'Unable to create charge');
       return response.data.hostedUrl;
     },
     onSuccess: async (hostedUrl) => {
-      console.log('Redirecting to Coinbase hosted URL:', hostedUrl);
       window.location.href = hostedUrl;
       await queryClient.invalidateQueries(['userData', session?.user?.id]);
     },
@@ -174,9 +168,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       const cacheKey = `userData-${session.user.id}`;
       const cached = await getCachedData(cacheKey);
       if (cached) {
-        console.log('Using cached userData:', cached);
         if (cached.twitterHandle && window.location.search.includes('twitterConnected=true')) {
-          console.log('Invalidating cache due to recent Twitter connection');
           await clearCache(cacheKey);
           throw new Error('Cache invalidated due to Twitter connection');
         }
@@ -184,7 +176,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       }
 
       const token = await debouncedExecuteRecaptcha('get_user');
-      console.log('Fetching user data with UID:', session.user.id, 'CSRF:', csrfToken, 'Recaptcha:', token.substring(0, 10) + '...');
       try {
         const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
           headers: {
@@ -193,7 +184,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           },
           withCredentials: true,
         });
-        console.log('User API response:', response.data);
         if (!response.data.success) throw new Error(response.data.detail || 'Unable to fetch user data');
         const user = {
           ...response.data.user,
@@ -203,7 +193,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           profilePicture: response.data.user.profilePicture || '', // Ensure camelCase
           googleName: response.data.user.googleName || '',
         };
-        console.log('Transformed user data:', user);
         await cacheData(cacheKey, user, 24 * 60 * 60 * 1000);
         return user;
       } catch (err) {
@@ -328,11 +317,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       const cacheKey = `leaderboard-${session.user.id}`;
       const cached = await getCachedData(cacheKey);
       if (cached) {
-        console.log('Using cached leaderboard:', cached);
         return cached;
       }
-
-      console.log('Fetching leaderboard with CSRF:', csrfToken);
       const response = await axios.get('/api/connect-data', {
         headers: {
           'x-csrf-token': csrfToken,
@@ -343,7 +329,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         console.error('Leaderboard fetch error:', err.response?.data || err.message);
         throw err;
       });
-      console.log('Leaderboard API response:', response.data);
       if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch leaderboard.');
       await cacheData(cacheKey, response.data.rankings, 5 * 60 * 1000);
       return response.data.rankings;
@@ -361,7 +346,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Connect Twitter
   const connectTwitterMutation = useMutation({
     mutationFn: async () => {
-      console.log('Initiating Twitter connection for user:', session.user.id);
       window.location.href = '/api/twitter/connect';
     },
     onError: (err) => {
@@ -373,9 +357,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Disconnect Twitter
   const disconnectTwitterMutation = useMutation({
     mutationFn: async () => {
-      console.log('Initiating Twitter disconnect for user:', session.user.id);
       const token = await debouncedExecuteRecaptcha('disconnect_twitter');
-      console.log('reCAPTCHA Token for disconnect:', token.substring(0, 10) + '...');
       const response = await axios.post(
         '/api/twitter/connect',
         { action: 'disconnect', uid: session.user.id, recaptchaToken: token },
@@ -387,12 +369,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         console.error('Disconnect Twitter error:', err.response?.data || err.message);
         throw err;
       });
-      console.log('Disconnect Twitter response:', response.data);
       if (!response.data.success) throw new Error(response.data.detail || 'Unable to disconnect Twitter');
       await clearAllCaches(session.user.id);
     },
     onSuccess: async () => {
-      console.log('Twitter disconnected successfully');
       toast.success('Twitter disconnected successfully.', { position: 'top-center', autoClose: 5000 });
       await Promise.all([
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
@@ -534,7 +514,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Get Profile Picture Src
   const getProfilePictureSrc = useCallback((profilePicture, twitterHandle, googleName) => {
-    console.log('getProfilePictureSrc input:', { profilePicture, twitterHandle, googleName });
 
     const isValidUrl = (url) => {
       try {
@@ -548,16 +527,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     };
 
     if (twitterHandle && profilePicture && typeof profilePicture === 'string' && profilePicture.includes('twimg.com') && isValidUrl(profilePicture)) {
-      console.log('Using Twitter profile picture:', profilePicture);
       return profilePicture;
     }
 
     if (googleName && profilePicture && typeof profilePicture === 'string' && profilePicture.includes('googleusercontent.com') && isValidUrl(profilePicture)) {
-      console.log('Using Google profile picture:', profilePicture);
       return profilePicture;
     }
 
-    console.log('Falling back to default avatar');
     return '/default-avatar.webp';
   }, []);
 
@@ -990,7 +966,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('twitterConnected') === 'true' && status === 'authenticated') {
-      console.log('Detected Twitter connection callback, clearing cache and refetching data');
       const cacheKey = `userData-${session.user.id}`;
       const leaderboardCacheKey = `leaderboard-${session.user.id}`;
       Promise.all([
@@ -1000,14 +975,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
       ])
         .then(() => {
-          console.log('Cache cleared, refetching queries');
           return Promise.all([
             queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
             queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
           ]);
         })
         .then(() => {
-          console.log('Queries refetched successfully');
           window.history.replaceState({}, document.title, window.location.pathname);
           toast.success('Twitter connected successfully!', { position: 'top-center', autoClose: 5000 });
         })
@@ -1024,7 +997,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const handleManualCacheClear = async () => {
     try {
       await clearAllCaches(session.user.id);
-      console.log('Manual cache cleared');
       toast.success('Cache cleared successfully.', { position: 'top-center', autoClose: 5000 });
       window.location.reload();
     } catch (err) {
@@ -1134,7 +1106,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         <div className="flex items-center gap-1">
                           {userData.tier === 'Basic' ? (
                             <>
-                              <motion.button
+                              {/* <motion.button
                                 onClick={() => createChargeMutation.mutate()}
                                 disabled={createChargeMutation.isLoading}
                                 className={`ml-1 px-2.5 py-1 rounded-lg text-[7px] sm:text-[8px] font-medium text-white border border-neon-blue/50 bg-neon-blue/20 hover:bg-neon-blue/40 transition-all duration-300 ${createChargeMutation.isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1142,7 +1114,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 whileTap={{ scale: createChargeMutation.isLoading ? 1 : 0.97 }}
                               >
                                 {createChargeMutation.isLoading ? 'Processing...' : 'Upgrade Plan'}
-                              </motion.button>
+                              </motion.button> */}
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 className="w-3 h-3 text-silver"

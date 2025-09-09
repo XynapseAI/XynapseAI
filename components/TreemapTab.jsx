@@ -1,4 +1,3 @@
-// components/TreemapTab.jsx
 'use client';
 
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
@@ -8,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { isAddress } from 'ethers';
 import throttle from 'lodash.throttle';
 import crypto from 'crypto-js';
-import { ToastContainer } from 'react-toastify';
+import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { formatDistanceToNow } from 'date-fns';
 import cytoscape from 'cytoscape';
@@ -42,10 +41,10 @@ const truncateAddress = (addr) => {
 };
 
 const isValidNametagImage = (image) => {
-  return image && image !== '/icons/default.webp'; 
+  return image && image !== '/icons/default.webp';
 };
 
-const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenImages, nametags }) => {
+const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType }) => {
   const handleTxClick = (txHash) => {
     const explorerUrl = getExplorerUrls(selectedChain)?.tx + txHash;
     if (explorerUrl) {
@@ -55,6 +54,25 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
     }
   };
 
+  const handleCopyAddress = (address) => {
+    navigator.clipboard.writeText(address);
+    toast.success('Address copied to clipboard!', {
+      position: 'top-center',
+      autoClose: 2000,
+      hideProgressBar: true,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      theme: 'dark',
+    });
+  };
+
+  // Filter transactions based on filterType
+  const filteredTransactions = transactions.filter((tx) => {
+    if (filterType === 'all') return true;
+    return tx.type === filterType;
+  });
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -63,8 +81,10 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
       className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 max-h-[calc(100vh-12rem)] overflow-y-auto custom-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'}`}
     >
       <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
-      {transactions.length === 0 ? (
-        <p className="text-white/60 text-[9px] sm:text-[10px]">Select a node or cluster to view transactions.</p>
+      {filteredTransactions.length === 0 ? (
+        <p className="text-white/60 text-[9px] sm:text-[10px]">
+          {filterType === 'all' ? 'Select a node or cluster to view transactions.' : `No ${filterType} transactions found.`}
+        </p>
       ) : (
         <table className="w-full table-fixed text-[8px] sm:text-[9px] bg-black/5 rounded-xl">
           <thead className="border-b border-white/10 bg-black/10">
@@ -75,7 +95,7 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
             </tr>
           </thead>
           <tbody>
-            {transactions.map((tx, index) => {
+            {filteredTransactions.map((tx, index) => {
               const tokenKey = tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase();
               const tokenLogo = tokenImages[tokenKey] || '/icons/default.webp';
               logger.log(`Transaction ${tx.txHash}: Using tokenKey=${tokenKey}, tokenLogo=${tokenLogo}`);
@@ -92,8 +112,24 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
                   transition={{ duration: 0.3, delay: index * 0.02 }}
                 >
                   <td className="px-2 py-2 text-white/80 text-[8px] sm:text-[10px] text-center">
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="flex items-center gap-2 group relative">
+                    <div className="flex flex-col items-center gap-1 relative">
+                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className={`h-3 w-3 ${tx.type === 'incoming' ? 'text-neon-blue' : 'text-red-500'}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          {tx.type === 'incoming' ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                          )}
+                        </svg>
+                      </div>
+                      <div className="flex items-center gap-2 group relative w-full justify-center pl-4">
                         {isValidNametagImage(fromNtag.image) && (
                           <img
                             src={fromNtag.image}
@@ -105,9 +141,28 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
                             loading="lazy"
                           />
                         )}
-                        <span className="text-[7px] sm:text-[8px] truncate">{fromNtag.name !== 'Unknown' ? fromNtag.name : truncateAddress(tx.source)}</span>
+                        <span className="text-[7px] sm:text-[8px] truncate">
+                          {fromNtag.name !== 'Unknown' ? fromNtag.name : truncateAddress(tx.source)}
+                        </span>
+                        <motion.button
+                          className="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => handleCopyAddress(tx.source)}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3 w-3 text-white/60 hover:text-neon-blue"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </motion.button>
                       </div>
-                      <div className="flex items-center gap-2 group relative">
+                      <div className="flex items-center gap-2 group relative w-full justify-center pl-4">
                         {isValidNametagImage(toNtag.image) && (
                           <img
                             src={toNtag.image}
@@ -119,17 +174,36 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
                             loading="lazy"
                           />
                         )}
-                        <span className="text-[7px] sm:text-[8px] truncate">{toNtag.name !== 'Unknown' ? toNtag.name : truncateAddress(tx.target)}</span>
+                        <span className="text-[7px] sm:text-[8px] truncate">
+                          {toNtag.name !== 'Unknown' ? toNtag.name : truncateAddress(tx.target)}
+                        </span>
+                        <motion.button
+                          className="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => handleCopyAddress(tx.target)}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-3 w-3 text-white/60 hover:text-neon-blue"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        </motion.button>
                       </div>
                     </div>
                   </td>
                   <td className="px-2 py-2 text-white/80 text-[8px] sm:text-[10px] text-center">
-                    <div className="flex items-center justify-center gap-2">
+                    <div className="flex flex-col items-center justify-center gap-1">
                       <img
                         src={tokenLogo}
                         alt={`${tx.tokenSymbol || 'Token'} logo`}
-                        width={isMobile ? 10 : 12}
-                        height={isMobile ? 10 : 12}
+                        width={isMobile ? 12 : 14}
+                        height={isMobile ? 12 : 14}
                         className="rounded-full"
                         onError={(e) => (e.target.src = '/icons/default.webp')}
                         loading="lazy"
@@ -196,7 +270,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [selectedLimit, setSelectedLimit] = useState(100);
   const [isLimitDropdownOpen, setIsLimitDropdownOpen] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
-  const [filter, setFilter] = useState({ type: 'all', minValue: 0 });
+  const [filterType, setFilterType] = useState('all');
   const [page, setPage] = useState(1);
   const [selectedEntity, setSelectedEntity] = useState({ type: null, data: { transactions: [] } });
 
@@ -327,7 +401,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     router.replace(`/dashboard?${newParams.toString()}`, { scroll: false });
   };
 
-  const aggregateWallets = (incomingData, outgoingData, rootAddress, page) => {
+  const aggregateWallets = (incomingData, outgoingData, rootAddress, page, filterType) => {
     const walletMap = new Map();
     const nametags = {};
 
@@ -335,7 +409,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     walletMap.set(rootAddress.toLowerCase(), {
       address: rootAddress.toLowerCase(),
       nametag: walletInfo.nametag || 'Unknown',
-      image: walletInfo.image || '/icons/default.webp', // Use walletInfo.image
+      image: walletInfo.image || '/icons/default.webp',
       chainLogo: walletInfo.chainLogo || '/icons/default.webp',
       tokenSymbol: 'Unknown',
       totalValue: 0,
@@ -345,7 +419,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     });
     nametags[rootAddress.toLowerCase()] = {
       name: walletInfo.nametag || 'Unknown',
-      image: walletInfo.image || '/icons/default.webp', // Use walletInfo.image
+      image: walletInfo.image || '/icons/default.webp',
     };
 
     const addWallet = (address, tx, type) => {
@@ -374,8 +448,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         : tx.block_time;
     };
 
-    incomingData.forEach((tx) => addWallet(tx.address, tx, 'incoming'));
-    outgoingData.forEach((tx) => addWallet(tx.address, tx, 'outgoing'));
+    // Filter transactions based on filterType
+    const filteredIncoming = filterType === 'all' || filterType === 'incoming' ? incomingData : [];
+    const filteredOutgoing = filterType === 'all' || filterType === 'outgoing' ? outgoingData : [];
+
+    filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming'));
+    filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing'));
 
     const nodes = Array.from(walletMap.values()).map((wallet) => ({
       data: {
@@ -393,7 +471,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }));
 
     const edges = [];
-    incomingData.forEach((tx, index) => {
+    filteredIncoming.forEach((tx, index) => {
       if (walletMap.has(tx.address.toLowerCase()) && walletMap.has(rootAddress.toLowerCase())) {
         edges.push({
           data: {
@@ -411,7 +489,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         });
       }
     });
-    outgoingData.forEach((tx, index) => {
+    filteredOutgoing.forEach((tx, index) => {
       if (walletMap.has(rootAddress.toLowerCase()) && walletMap.has(tx.address.toLowerCase())) {
         edges.push({
           data: {
@@ -433,65 +511,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     return { nodes, edges, nametags };
   };
 
-
   const fetchTransactions = useCallback(async (address, page = 1) => {
-  if (!isAddress(address) && !['solana', 'tron'].includes(selectedChain)) {
-    logger.error('Invalid wallet address.');
-    toast.error('Invalid wallet address.', {
-      position: 'top-center',
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      theme: 'dark',
-    });
-    return;
-  }
-
-  const cacheKey = `graph_${selectedChain}_${address}_${page}`;
-  const cached = await getCachedData(cacheKey);
-  if (cached) {
-    setNodes(cached.nodes);
-    setEdges(cached.edges);
-    setWalletInfo(cached.wallet);
-    setWalletAddress(address);
-    updateUrl(selectedChain, address);
-    logger.log('Cached walletInfo.image:', cached.wallet.image); // Debug cached image
-    return;
-  }
-
-  setLoading(true);
-  setLoadingMessage(`Fetching transactions (page ${page})...`);
-
-  try {
-    const payload = { wallet_address: address, chain: selectedChain, limit: selectedLimit, page };
-    const signature = generateHmacSignature(payload);
-    const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': session?.user?.apiKey || 'default-api-key',
-        'x-hmac-signature': signature,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const reader = response.body.getReader();
-    let result = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      result += new TextDecoder().decode(value);
-    }
-
-    const data = JSON.parse(result);
-    if (!data.incoming || !data.outgoing) {
-      throw new Error(data.error || 'Invalid response from API.');
-    }
-
-    if (data.incoming.length === 0 && data.outgoing.length === 0) {
-      toast.info('No transactions found for this address on the selected chain.', {
+    if (!isAddress(address) && !['solana', 'tron'].includes(selectedChain)) {
+      logger.error('Invalid wallet address.');
+      toast.error('Invalid wallet address.', {
         position: 'top-center',
         autoClose: 5000,
         hideProgressBar: false,
@@ -499,167 +522,216 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         pauseOnHover: true,
         draggable: true,
         theme: 'dark',
-        style: { background: '#10B981', color: '#FFFFFF' },
       });
-      setNodes([]);
-      setEdges([]);
-      setWalletInfo({ address: '', nametag: 'Unknown', image: null, chainLogo: '/icons/default.webp' });
-      setLoading(false);
-      setLoadingMessage('');
       return;
     }
 
-    logger.log('API response walletInfo.image:', data.wallet.image); // Debug API image
-    const { nodes, edges, nametags } = aggregateWallets(data.incoming, data.outgoing, address, page);
-    await cacheData(cacheKey, { nodes, edges, wallet: data.wallet, nametags }, CACHE_TTL);
-    setNodes((prev) => page === 1 ? nodes : [...prev, ...nodes]);
-    setEdges((prev) => page === 1 ? edges : [...prev, ...edges]);
-    setWalletInfo(data.wallet);
-    setWalletAddress(address);
-    updateUrl(selectedChain, address);
-  } catch (err) {
-    logger.error(`Error: ${err.message}`);
-    toast.error(`Failed to fetch transactions: ${err.message}`, {
-      position: 'top-center',
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      theme: 'dark',
-    });
-    setNodes([]);
-    setEdges([]);
-    setWalletInfo({ address: '', nametag: 'Unknown', image: null, chainLogo: '/icons/default.webp' });
-  } finally {
-    setLoading(false);
-    setLoadingMessage('');
-  }
-}, [selectedChain, selectedLimit, session, apiBaseUrl]);
+    const cacheKey = `graph_${selectedChain}_${address}_${page}_${filterType}`;
+    const cached = await getCachedData(cacheKey);
+    if (cached) {
+      setNodes(cached.nodes);
+      setEdges(cached.edges);
+      setWalletInfo(cached.wallet);
+      setNametags(cached.nametags);
+      setWalletAddress(address);
+      updateUrl(selectedChain, address);
+      logger.log('Cached walletInfo.image:', cached.wallet.image);
+      return;
+    }
+
+    setLoading(true);
+    setLoadingMessage(`Fetching transactions (page ${page})...`);
+
+    try {
+      const payload = { wallet_address: address, chain: selectedChain, limit: selectedLimit, page };
+      const signature = generateHmacSignature(payload);
+      const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': session?.user?.apiKey || 'default-api-key',
+          'x-hmac-signature': signature,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const reader = response.body.getReader();
+      let result = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        result += new TextDecoder().decode(value);
+      }
+
+      const data = JSON.parse(result);
+      if (!data.incoming || !data.outgoing) {
+        throw new Error(data.error || 'Invalid response from API.');
+      }
+
+      if (data.incoming.length === 0 && data.outgoing.length === 0) {
+        toast.info('No transactions found for this address on the selected chain.', {
+          position: 'top-center',
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: 'dark',
+          style: { background: '#10B981', color: '#FFFFFF' },
+        });
+        setNodes([]);
+        setEdges([]);
+        setNametags({});
+        setWalletInfo({ address: '', nametag: 'Unknown', image: null, chainLogo: '/icons/default.webp' });
+        setLoading(false);
+        setLoadingMessage('');
+        return;
+      }
+
+      logger.log('API response walletInfo.image:', data.wallet.image);
+      const { nodes, edges, nametags } = aggregateWallets(data.incoming, data.outgoing, address, page, filterType);
+      await cacheData(cacheKey, { nodes, edges, wallet: data.wallet, nametags }, CACHE_TTL);
+      setNodes((prev) => page === 1 ? nodes : [...prev, ...nodes]);
+      setEdges((prev) => page === 1 ? edges : [...prev, ...edges]);
+      setNametags((prev) => ({ ...prev, ...nametags }));
+      setWalletInfo(data.wallet);
+      setWalletAddress(address);
+      updateUrl(selectedChain, address);
+    } catch (err) {
+      logger.error(`Error: ${err.message}`);
+      toast.error(`Failed to fetch transactions: ${err.message}`, {
+        position: 'top-center',
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: 'dark',
+      });
+      setNodes([]);
+      setEdges([]);
+      setNametags({});
+      setWalletInfo({ address: '', nametag: 'Unknown', image: null, chainLogo: '/icons/default.webp' });
+    } finally {
+      setLoading(false);
+      setLoadingMessage('');
+    }
+  }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType]);
 
   const initializeCytoscape = useCallback(() => {
-  if (!containerRef.current || !nodes.length) return;
+    if (!containerRef.current || !nodes.length) return;
 
-  try {
-    // Debug: Log walletInfo.image to check its value
-    logger.log('walletInfo.image for root node:', walletInfo.image);
+    try {
+      logger.log('walletInfo.image for root node:', walletInfo.image);
 
-    cyRef.current = cytoscape({
-      container: containerRef.current,
-      elements: [...nodes, ...edges],
-      style: [
-        {
-          selector: 'node',
-          style: {
-            'background-image': (ele) => {
-              const image = ele.data('image');
-              logger.log(`Node ${ele.data('id')} image:`, image); // Debug image for each node
-              if (isValidNametagImage(image)) {
-                return image.startsWith('http')
-                  ? image
-                  : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${image}`;
-              }
-              return 'none';
+      if (cyRef.current) {
+        cyRef.current.destroy();
+      }
+
+      cyRef.current = cytoscape({
+        container: containerRef.current,
+        elements: [...nodes, ...edges],
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'background-image': (ele) => {
+                const image = ele.data('isRoot') ? walletInfo.image : ele.data('image');
+                logger.log(`Node ${ele.data('id')} image (isRoot: ${ele.data('isRoot')}):`, image);
+                if (isValidNametagImage(image)) {
+                  return image.startsWith('http')
+                    ? image
+                    : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${image}`;
+                }
+                return 'none';
+              },
+              'background-fit': 'cover',
+              'background-clip': 'node',
+              'background-color': '#666',
+              'width': (ele) => ele.data('isRoot') ? 72 : 48,
+              'height': (ele) => ele.data('isRoot') ? 72 : 48,
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'font-size': '10px',
+              'color': '#fff',
+              'border-width': 1,
+              'border-color': '#fff',
+              'border-opacity': 0.5,
             },
-            'background-fit': 'cover',
-            'background-clip': 'node',
-            'background-color': '#666',
-            'width': (ele) => ele.data('isRoot') ? 72 : 48,
-            'height': (ele) => ele.data('isRoot') ? 72 : 48,
-            'text-valign': 'center',
-            'text-halign': 'center',
-            'font-size': '10px',
-            'color': '#fff',
-            'border-width': 1,
-            'border-color': '#fff',
-            'border-opacity': 0.5,
           },
+          {
+            selector: 'edge',
+            style: {
+              'width': 2,
+              'line-color': (ele) => ele.data('type') === 'incoming' ? '#00BFFF' : '#EF4444',
+              'curve-style': 'bezier',
+            },
+          },
+        ],
+        layout: {
+          name: 'cola',
+          nodeSpacing: 80,
+          edgeLength: 200,
+          animate: true,
+          maxSimulationTime: 3000,
         },
+      });
+
+      const clusters = detectClusters(
+        nodes.map((node) => node.data),
+        edges.map((edge) => edge.data)
+      );
+
+      cyRef.current.nodeHtmlLabel([
         {
-          selector: 'edge',
-          style: {
-            'width': 2,
-            'line-color': (ele) => ele.data('type') === 'incoming' ? '#00BFFF' : '#EF4444',
-            'curve-style': 'bezier',
-          },
-        },
-      ],
-      layout: {
-        name: 'cola',
-        nodeSpacing: 80,
-        edgeLength: 200,
-        animate: true,
-        maxSimulationTime: 3000,
-      },
-    });
-
-    const clusters = detectClusters(
-      nodes.map((node) => node.data),
-      edges.map((edge) => edge.data)
-    );
-
-    cyRef.current.nodeHtmlLabel([
-      {
-        query: 'node',
-        halign: 'center',
-        valign: 'bottom',
-        halignBox: 'center',
-        valignBox: 'bottom',
-        tpl: (data) => {
-          const cluster = clusters.find((c) => c.wallets.some((w) => w.id === data.id));
-          const clusterLabel = data.isRoot ? (walletInfo.nametag || 'Unknown') : (cluster ? cluster.nametag : 'Unknown');
-          const image = data.isRoot ? walletInfo.image : data.image;
-          return `
+          query: 'node',
+          halign: 'center',
+          valign: 'bottom',
+          halignBox: 'center',
+          valignBox: 'bottom',
+          tpl: (data) => {
+            const cluster = clusters.find((c) => c.wallets.some((w) => w.id === data.id));
+            const clusterLabel = data.isRoot ? (walletInfo.nametag || 'Unknown') : (cluster ? cluster.nametag : 'Unknown');
+            const image = data.isRoot ? walletInfo.image : data.image;
+            logger.log(`Rendering node label for ${data.id}, isRoot: ${data.isRoot}, image: ${image}`);
+            return `
             <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[9px] py-1 px-2 rounded">
-              <div class="flex items-center gap-2 mb-1">
-                ${isValidNametagImage(image) ? `
-                  <img
-                    src="${image.startsWith('http') ? image : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${image}`}"
-                    alt="${data.label} logo"
-                    width="12"
-                    height="12"
-                    class="rounded-full"
-                    onerror="this.style.display='none'"
-                  />
-                ` : ''}
-                <span>${data.label}</span>
-              </div>
-              <div>Cluster: ${clusterLabel}</div>
+              ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : ''}
               <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol}</div>
             </div>
           `;
+          },
         },
-      },
-    ]);
+      ]);
 
-    cyRef.current.on('mouseover', 'node', (evt) => {
-      const node = evt.target;
-      const walletId = node.data('id');
-      const cluster = clusters.find((c) => c.wallets.some((w) => w.id === walletId));
-      if (cluster && !node.data('isRoot')) {
-        logger.log('Hover cluster:', cluster);
-        setSelectedEntity({ type: 'cluster', data: cluster });
-      } else {
-        const relatedTxs = edges
-          .map((edge) => edge.data)
-          .filter((tx) => tx.source === walletId || tx.target === walletId);
-        logger.log('Hover node:', walletId, relatedTxs);
-        setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
-      }
-    });
+      cyRef.current.on('mouseover', 'node', (evt) => {
+        const node = evt.target;
+        const walletId = node.data('id');
+        const cluster = clusters.find((c) => c.wallets.some((w) => w.id === walletId));
+        if (cluster && !node.data('isRoot')) {
+          logger.log('Hover cluster:', cluster);
+          setSelectedEntity({ type: 'cluster', data: cluster });
+        } else {
+          const relatedTxs = edges
+            .map((edge) => edge.data)
+            .filter((tx) => tx.source === walletId || tx.target === walletId);
+          logger.log('Hover node:', walletId, relatedTxs);
+          setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
+        }
+      });
 
-    cyRef.current.nodes().forEach((node) => {
-      const wallet = node.data('id');
-      const cluster = clusters.find((c) => c.wallets.some((w) => w.id === wallet));
-      if (cluster && !node.data('isRoot')) {
-        node.style('border-color', `hsl(${cluster.clusterId * 60}, 70%, 50%)`);
-        node.style('border-width', 2);
-      }
-    });
-  } catch (err) {
-    logger.error('Error initializing Cytoscape:', err);
-  }
-}, [nodes, edges, isMobile, walletInfo.nametag, walletInfo.image]);
+      cyRef.current.nodes().forEach((node) => {
+        const wallet = node.data('id');
+        const cluster = clusters.find((c) => c.wallets.some((w) => w.id === wallet));
+        if (cluster && !node.data('isRoot')) {
+          node.style('border-color', `hsl(${cluster.clusterId * 60}, 70%, 50%)`);
+          node.style('border-width', 2);
+        }
+      });
+    } catch (err) {
+      logger.error('Error initializing Cytoscape:', err);
+    }
+  }, [nodes, edges, isMobile, walletInfo.nametag, walletInfo.image]);
 
   useEffect(() => {
     initializeCytoscape();
@@ -692,6 +764,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   }, [searchParams, initialChain, initialAddress, fetchTransactions]);
 
   useEffect(() => {
+    if (walletAddress) {
+      fetchTransactions(walletAddress, 1);
+    }
+  }, [filterType, fetchTransactions, walletAddress]);
+
+  useEffect(() => {
     const fetchCoingeckoChains = async () => {
       try {
         const response = await axios.get(`${apiBaseUrl}/api/coingecko/chains`);
@@ -709,6 +787,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  useEffect(() => {
+    if (session?.user) {
+      setIsPremium(session.user.isPremium || false);
+    }
+  }, [session]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -767,92 +851,149 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               </svg>
               Network Graph
             </h3>
-            <motion.button
-              onClick={() => cyRef.current?.fit()}
-              className="px-2 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl hover:bg-neon-blue/20"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Reset View
-            </motion.button>
           </div>
-          <div className="flex items-center justify-end gap-2 sm:gap-3 flex-wrap">
-            <div className="relative" ref={chainDropdownRef}>
-              <motion.button
-                onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-                className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/20 bg-black/10 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+          <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className="relative" ref={chainDropdownRef}>
+                <motion.button
+                  onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
+                  className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/20 bg-black/10 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <img
+                    src={getPlatformImage(selectedChain, coingeckoChains)}
+                    alt={`${mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
+                    width={isMobile ? 12 : 16}
+                    height={isMobile ? 12 : 16}
+                    className="rounded-lg"
+                    loading="lazy"
+                  />
+                  <span className="font-medium">{mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'}</span>
+                  <span>{isChainDropdownOpen ? '▲' : '▼'}</span>
+                </motion.button>
+                {isChainDropdownOpen && (
+                  <div className="absolute bg-black/50 rounded-xl mt-1 w-36 max-h-56 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-xs z-50">
+                    {mappedChains.map((chain) => (
+                      <motion.button
+                        key={chain.value}
+                        onClick={() => {
+                          if (!isPremium && chain.value !== '1') {
+                            toast.error('Premium account required to select this chain.', {
+                              position: 'top-center',
+                              autoClose: 5000,
+                              hideProgressBar: false,
+                              closeOnClick: true,
+                              pauseOnHover: true,
+                              draggable: true,
+                              theme: 'dark',
+                            });
+                            return;
+                          }
+                          setSelectedChain(chain.value);
+                          setIsChainDropdownOpen(false);
+                          updateUrl(chain.value, walletAddress);
+                          if (walletAddress) fetchTransactions(walletAddress, 1);
+                        }}
+                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1.5 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        whileHover={{ scale: !isPremium && chain.value !== '1' ? 1 : 1.05 }}
+                        whileTap={{ scale: !isPremium && chain.value !== '1' ? 1 : 0.95 }}
+                      >
+                        <img
+                          src={chain.image}
+                          alt={`${chain.label} logo`}
+                          width={isMobile ? 12 : 16}
+                          height={isMobile ? 12 : 16}
+                          className="mr-2 rounded-xl"
+                          loading="lazy"
+                        />
+                        {chain.label}
+                        {!isPremium && chain.value !== '1' && (
+                          <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
+                            <img
+                              src="/icons/crown.webp"
+                              alt="Premium required"
+                              width={isMobile ? 10 : 12}
+                              height={isMobile ? 10 : 12}
+                              className="opacity-80"
+                              loading="lazy"
+                            />
+                            <span className="absolute hidden group-hover:block bg-white/5 border border-white/10 text-white/80 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
+                              Premium required
+                            </span>
+                          </span>
+                        )}
+                      </motion.button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="relative" ref={limitDropdownRef}>
+                <motion.button
+                  onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
+                  className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/20 bg-black/10 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <span className="font-medium">Tx Limit: {selectedLimit}</span>
+                  <span>{isLimitDropdownOpen ? '▲' : '▼'}</span>
+                </motion.button>
+                {isLimitDropdownOpen && (
+                  <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-sm">
+                    {[100, 200, 300, 500].map((limit) => (
+                      <motion.button
+                        key={limit}
+                        onClick={() => {
+                          if (!isPremium && limit > 200) {
+                            toast.error('Premium account required to fetch more than 200 transactions.', {
+                              position: 'top-center',
+                              autoClose: 5000,
+                              hideProgressBar: false,
+                              closeOnClick: true,
+                              pauseOnHover: true,
+                              draggable: true,
+                              theme: 'dark',
+                            });
+                            return;
+                          }
+                          setSelectedLimit(limit);
+                          setIsLimitDropdownOpen(false);
+                          if (walletAddress) fetchTransactions(walletAddress, 1);
+                        }}
+                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && limit > 200 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        whileHover={{ scale: !isPremium && limit > 200 ? 1 : 1.05 }}
+                        whileTap={{ scale: !isPremium && limit > 200 ? 1 : 0.95 }}
+                      >
+                        {limit}
+                        {!isPremium && limit > 200 && (
+                          <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
+                            <img
+                              src="/icons/crown.webp"
+                              alt="Premium required"
+                              width={isMobile ? 10 : 12}
+                              height={isMobile ? 10 : 12}
+                              className="opacity-80"
+                              loading="lazy"
+                            />
+                            <span className="absolute hidden group-hover:block bg-white/5 border border-white/10 text-white/80 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
+                              Premium required
+                            </span>
+                          </span>
+                        )}
+                      </motion.button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="bg-black/10 backdrop-blur-sm border border-white/10 text-white px-2 py-1 rounded text-[9px] sm:text-[10px]"
               >
-                <img
-                  src={getPlatformImage(selectedChain, coingeckoChains)}
-                  alt={`${mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
-                  width={isMobile ? 12 : 16}
-                  height={isMobile ? 12 : 16}
-                  className="rounded-lg"
-                  loading="lazy"
-                />
-                <span className="font-medium">{mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'}</span>
-                <span>{isChainDropdownOpen ? '▲' : '▼'}</span>
-              </motion.button>
-              {isChainDropdownOpen && (
-                <div className="absolute bg-black/50 rounded-xl mt-1 w-36 max-h-56 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-xs z-50">
-                  {mappedChains.map((chain) => (
-                    <motion.button
-                      key={chain.value}
-                      onClick={() => {
-                        setSelectedChain(chain.value);
-                        setIsChainDropdownOpen(false);
-                        updateUrl(chain.value, walletAddress);
-                        if (walletAddress) fetchTransactions(walletAddress, 1);
-                      }}
-                      className="flex items-center w-full text-left px-2 sm:px-3 py-1.5 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <img
-                        src={chain.image}
-                        alt={`${chain.label} logo`}
-                        width={isMobile ? 12 : 16}
-                        height={isMobile ? 12 : 16}
-                        className="mr-2 rounded-xl"
-                        loading="lazy"
-                      />
-                      {chain.label}
-                    </motion.button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="relative" ref={limitDropdownRef}>
-              <motion.button
-                onClick={() => setIsLimitDropdownOpen(!isLimitDropdownOpen)}
-                className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/20 bg-black/10 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <span className="font-medium">Tx Limit: {selectedLimit}</span>
-                <span>{isLimitDropdownOpen ? '▲' : '▼'}</span>
-              </motion.button>
-              {isLimitDropdownOpen && (
-                <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-sm">
-                  {[100, 200, 300, 500].map((limit) => (
-                    <motion.button
-                      key={limit}
-                      onClick={() => {
-                        setSelectedLimit(limit);
-                        setIsLimitDropdownOpen(false);
-                        if (walletAddress) fetchTransactions(walletAddress, 1);
-                      }}
-                      className="flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      {limit}
-                    </motion.button>
-                  ))}
-                </div>
-              )}
+                <option value="all">All Transactions</option>
+                <option value="incoming">Incoming</option>
+                <option value="outgoing">Outgoing</option>
+              </select>
             </div>
             <div className="relative flex items-center w-full sm:w-auto">
               <input
@@ -890,24 +1031,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               </motion.button>
             </div>
           </div>
-          <div className="flex gap-2 mt-2 justify-center">
-            <select
-              value={filter.type}
-              onChange={(e) => setFilter({ ...filter, type: e.target.value })}
-              className="bg-black/10 text-white px-2 py-1 rounded text-[9px] sm:text-[10px]"
-            >
-              <option value="all">All Transactions</option>
-              <option value="incoming">Incoming</option>
-              <option value="outgoing">Outgoing</option>
-            </select>
-            <input
-              type="number"
-              placeholder="Min Value"
-              value={filter.minValue}
-              onChange={(e) => setFilter({ ...filter, minValue: Number(e.target.value) })}
-              className="bg-black/10 text-white px-2 py-1 rounded text-[9px] sm:text-[10px]"
-            />
-          </div>
         </div>
 
         {loading && <LoadingOverlay isLoading={true} message={loadingMessage} isMobile={isMobile} />}
@@ -925,14 +1048,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         {walletInfo.address && (
           <div className="relative w-full h-[calc(100vh-10rem)] sm:h-[calc(100vh-8rem)] overflow-hidden">
             <div className="flex gap-2 mb-2 mt-2 justify-center">
-              <motion.button
-                onClick={() => cyRef.current?.fit()}
-                className="px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 backdrop-blur-md rounded-xl hover:bg-neon-blue/20 transition-all duration-300"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Reset View
-              </motion.button>
               {nodes.length >= page * NODES_PER_PAGE && (
                 <motion.button
                   onClick={handleLoadMore}
@@ -954,13 +1069,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           isMobile={isMobile}
           selectedChain={selectedChain}
           tokenImages={tokenImages}
-          nametags={nodes.reduce((acc, node) => ({
-            ...acc,
-            [node.data.id.toLowerCase()]: {
-              name: node.data.label,
-              image: node.data.image,
-            },
-          }), {})}
+          nametags={nametags}
+          filterType={filterType}
         />
       </AnimatePresence>
 

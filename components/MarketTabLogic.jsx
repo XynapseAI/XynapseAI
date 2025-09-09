@@ -19,8 +19,8 @@ import axiosRetry from 'axios-retry';
 
 const axiosWithRetry = axios.create();
 axiosRetry(axiosWithRetry, {
-  retries: 5, // Tăng số lần thử lại
-  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100, // Backoff với jitter
+  retries: 5, 
+  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100, 
   retryCondition: (error) =>
     error.response?.status === 429 ||
     error.response?.status === 503 ||
@@ -184,7 +184,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       // Check local cache first
       const localCached = localCache.current[key];
       if (localCached && Date.now() - localCached.timestamp < ttl) {
-        console.log(`Local cache hit for ${key}`);
         if (Date.now() - localCached.timestamp >= ttl) {
           cacheLimiter.schedule(async () => {
             try {
@@ -197,7 +196,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 );
                 localCache.current[key] = { data: freshData, timestamp: Date.now() };
                 localCache.current[`${key}_last_update`] = Date.now();
-                console.log(`Background cache updated for ${key}`);
               }
             } catch (error) {
               console.error(`Background cache update failed for ${key}:`, error.message);
@@ -217,7 +215,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           )
         );
         if (cacheResponse.data.success && cacheResponse.data.data) {
-          console.log(`Redis cache hit for ${key}`);
           localCache.current[key] = { data: cacheResponse.data.data, timestamp: Date.now() };
           localCache.current[`${key}_last_update`] = Date.now();
           if (Date.now() - (localCache.current[`${key}_last_update`] || 0) > ttl * 0.75) {
@@ -232,7 +229,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                   );
                   localCache.current[key] = { data: freshData, timestamp: Date.now() };
                   localCache.current[`${key}_last_update`] = Date.now();
-                  console.log(`Background cache updated for ${key}`);
                 }
               } catch (error) {
                 console.error(`Background cache update failed for ${key}:`, error.message);
@@ -262,7 +258,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         );
         localCache.current[key] = { data, timestamp: Date.now() };
         localCache.current[`${key}_last_update`] = Date.now();
-        console.log(`Cached data for ${key}`);
         return data || [];
       }
       throw new Error(`No data returned for ${key}`);
@@ -314,26 +309,24 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   const executeRecaptcha = useCallback(async (action, retries = 3) => {
     if (process.env.NEXT_PUBLIC_DISABLE_RECAPTCHA === 'true') {
-      console.log(`reCAPTCHA disabled for action: ${action}`);
       return 'disabled';
     }
     if (!recaptchaRef.current) {
-      throw new Error('reCAPTCHA không khả dụng. Vui lòng kiểm tra cấu hình.');
+      throw new Error('reCAPTCHA is not available. Please check the configuration.');
     }
     for (let i = 0; i < retries; i++) {
       try {
         const token = await recaptchaRef.current.executeAsync();
         if (!token) {
-          throw new Error('Không nhận được token reCAPTCHA.');
+          throw new Error('No reCAPTCHA token received.');
         }
-        console.log(`reCAPTCHA token generated for ${action}: ${token.substring(0, 10)}...`);
         return token;
       } catch (err) {
         console.error(`reCAPTCHA attempt ${i + 1} failed for ${action}: ${err.message}`);
         if (i === retries - 1) {
-          throw new Error(`Lỗi xác minh reCAPTCHA sau ${retries} lần thử: ${err.message}`);
+          throw new Error(`reCAPTCHA verification error after ${retries} attempts: ${err.message}`);
         }
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1))); // Đợi với backoff
+        await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
       }
     }
   }, [recaptchaRef]);
@@ -347,12 +340,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     const cachedChains = localCache.current[cacheKey]?.data;
     if (cachedChains && Date.now() - localCache.current[cacheKey]?.timestamp < 48 * 60 * 60 * 1000) {
       setChains(cachedChains);
-      console.log(`Using local cache for supported chains: ${cachedChains.length} chains`);
       return;
     }
 
     if (isFetchingChainsRef.current || (Date.now() - lastFetchedChainsRef.current < 48 * 60 * 60 * 1000 && chains.length > 0)) {
-      console.log(`Skipping fetchSupportedChains: ${isFetchingChainsRef.current ? 'Already fetching' : 'Recently fetched'}`);
       return;
     }
 
@@ -369,7 +360,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       if (cacheResponse.data.success && cacheResponse.data.data) {
         localCache.current[cacheKey] = { data: cacheResponse.data.data, timestamp: Date.now() };
         setChains(cacheResponse.data.data);
-        console.log(`Redis cache hit for supported chains: ${cacheResponse.data.data.length} chains`);
         lastFetchedChainsRef.current = Date.now();
         return;
       }
@@ -414,7 +404,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
       setChains(mappedChains);
       lastFetchedChainsRef.current = Date.now();
-      console.log(`Successfully fetched ${mappedChains.length} chains`);
     } catch (error) {
       console.error(`Failed to fetch supported chains (attempt ${retryCount + 1}):`, error.message);
       if (retryCount < 5 && (error.response?.status === 429 || error.code === 'ECONNABORTED')) {
@@ -492,7 +481,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const fetchNameTag = useCallback(
     async (address) => {
       if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
-        console.log(`Invalid address for fetchNameTag: ${address}`);
         return { nameTag: null, image: null };
       }
 
@@ -500,13 +488,11 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       const cacheKey = `nametag-${normalizedAddress}-session_required`; // Session-dependent
       const cached = nameTagsRef.current[normalizedAddress];
       if (cached && Date.now() - cached.timestamp < NAME_TAG_CACHE_DURATION) {
-        console.log(`Cache hit for nametag: ${normalizedAddress}`);
         return { nameTag: cached.nameTag, image: cached.image };
       }
 
       try {
         if (status !== 'authenticated') {
-          console.log('Unauthenticated fetchNameTag attempt');
           throw new Error('Unauthorized: Please log in to fetch Name Tag.');
         }
 
@@ -526,7 +512,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               ...prev,
               [normalizedAddress]: cacheEntry,
             }));
-            console.log(`No nametag found for ${normalizedAddress}`);
             return { nameTag: null, image: null };
           }
 
@@ -542,7 +527,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           ...prev,
           [normalizedAddress]: result,
         }));
-        console.log(`Nametag fetched for ${normalizedAddress}: ${result.nameTag}, image: ${result.image}`);
         return result;
       } catch (error) {
         console.error(`fetchNameTag error for ${normalizedAddress}:`, {
@@ -583,7 +567,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const fetchNameTagsForAddresses = useCallback(
     async (addresses) => {
       if (!addresses || addresses.length === 0) {
-        console.log('No addresses provided for fetchNameTagsForAddresses');
         setIsLoadingNameTags(false);
         return;
       }
@@ -689,7 +672,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         }
       } else if (evmAddresses.length > 0) {
-        console.log('Unauthenticated fetchNameTagsForAddresses attempt');
         evmAddresses.forEach((address) => {
           const normalizedAddress = address.toLowerCase();
           newNameTags[normalizedAddress] = { nameTag: null, image: null, timestamp: Date.now() };
@@ -702,7 +684,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return updated;
       });
       setIsLoadingNameTags(false);
-      console.log(`Updated nameTags for ${Object.keys(newNameTags).length} addresses`);
     },
     [session, status, toast]
   );
@@ -801,7 +782,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
         const normalizedTokenSymbol = tokenSymbol?.toLowerCase();
         if (!NON_EVM_CHAINS.includes(normalizedTokenSymbol)) {
-          setOnChainError(`Không hỗ trợ chain: ${normalizedTokenSymbol}`);
+          setOnChainError(`Chain not supported: ${normalizedTokenSymbol}`);
           setIsLoadingOnChain(false);
           return;
         }
@@ -891,7 +872,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                   ];
                 }
               } catch (coingeckoError) {
-                console.warn(`Lấy dữ liệu treasury từ CoinGecko thất bại cho ${chain}:`, coingeckoError.message);
+                console.warn(`Failed to fetch treasury data from CoinGecko for ${chain}:', coingeckoError.message`);
               }
             }
 
@@ -899,7 +880,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             topHolders = topHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
 
             if (topHolders.length === 0) {
-              throw new Error(`Không có dữ liệu top holders cho ${chain}`);
+              throw new Error(`No data for ${chain}`);
             }
 
             return topHolders;
@@ -913,8 +894,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         } catch (error) {
           const errorMessage =
             error.response?.status === 429
-              ? 'Vượt quá giới hạn API. Vui lòng thử lại sau.'
-              : error.response?.data?.detail || `Không thể lấy dữ liệu top holders cho ${chain}: ${error.message}`;
+              ? 'API rate limit exceeded. Please try again later.'
+              : error.response?.data?.detail || `Failed to fetch top holders data for ${chain}: ${error.message}`;
           setOnChainError(errorMessage);
           if (retryCount < 3) {
             const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 100;
@@ -1003,7 +984,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           (typeof document !== 'undefined' && document.visibilityState !== 'visible')
         ) {
           const errorMessage = `Invalid parameters: action=${action}, chain=${chain}, address=${address || tokenAddress}`;
-          console.error(errorMessage);
           setOnChainError(errorMessage);
           setIsLoadingOnChain(false);
           setIsLoadingWalletBalances(false);
@@ -1014,7 +994,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
         if (status !== 'authenticated') {
           const errorMessage = 'Please log in to access on-chain data.';
-          console.error(errorMessage);
           setOnChainError(errorMessage);
           setIsLoadingOnChain(false);
           setIsLoadingWalletBalances(false);
@@ -1154,7 +1133,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
           const ttl = action === 'transactions' ? CACHE_DURATIONS.TRANSACTIONS : CACHE_DURATIONS.DEFAULT;
           const data = await getCachedData(cacheKey, fetchFn, ttl, 0, true, session, status);
-          console.log(`Setting ${action} data:`, data);
 
           if (action === 'top-holders') {
             setOnChainData((prev) => ({
@@ -1424,7 +1402,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
       if (selectedToken?.id.toLowerCase() === 'bitcoin') {
         const blockchairUrl = `https://blockchair.com/bitcoin/address/${address}`;
-        console.log(`Opening Blockchair URL for BTC address: ${address}`);
         window.open(blockchairUrl, '_blank', 'noreferrer');
         return;
       }
@@ -1436,8 +1413,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         return;
       }
-
-      console.log(`Handling address click: ${address}`);
       setSelectedWallet(address);
       setWalletBalances([]);
       setTransactions(null);
@@ -1533,9 +1508,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       }
 
       try {
-        console.log(`Executing reCAPTCHA for transactions, address: ${address}`);
         const recaptchaToken = await executeRecaptcha('transactions');
-        console.log(`Fetching transactions for address: ${address}`);
         setIsLoadingTransactions(true);
         setTransactionsError(null);
         await fetchOnChainData(null, null, 'transactions', null, address, recaptchaToken);
@@ -1753,7 +1726,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token, initialTokenData = null, onTokenSelect = null) => {
       if (!token?.id || lastFetchedTokenRef.current === token.id) {
-        console.log(`Skipping debouncedHandleTokenSelect: Token ${token?.id} already selected or invalid`);
         return;
       }
 
@@ -1878,13 +1850,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const debouncedHandleAnalysis = useCallback(
     debounce(async () => {
       if (!selectedToken) {
-        setError('Vui lòng chọn một token để phân tích.');
+        setError('Please select a token to analyze.');
         toast.error('Vui lòng chọn một token.', { position: 'top-center', autoClose: 3000 });
         return;
       }
       if (status !== 'authenticated') {
-        setError('Vui lòng đăng nhập để thực hiện phân tích.');
-        toast.error('Vui lòng đăng nhập để thực hiện phân tích.', { position: 'top-center', autoClose: 5000 });
+        setError('Please log in to perform the analysis.');
+        toast.error('Please log in to perform the analysis.', { position: 'top-center', autoClose: 5000 });
         return;
       }
 
@@ -1962,7 +1934,7 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
                 if (parsed.progress) {
                   setAnalysisLogs((prev) => [...prev, parsed.progress]);
                 } else if (parsed.success) {
-                  result = parsed.aiAnalysis || 'Không nhận được dữ liệu phân tích.';
+                  result = parsed.aiAnalysis || 'No analysis data received.';
                   links = parsed.links || [];
                 }
               } catch (e) {
@@ -1978,21 +1950,21 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
         setAnalysis(content);
         setAnalysisLinks(links);
       } catch (error) {
-        let errorMessage = 'Lỗi khi phân tích token. Vui lòng thử lại.';
+        let errorMessage = 'Error analyzing token. Please try again.';
         if (error.code === 'ECONNABORTED') {
-          errorMessage = 'Yêu cầu mất quá nhiều thời gian. Vui lòng kiểm tra kết nối mạng và thử lại.';
+          errorMessage = 'Request took too long. Please check your network connection and try again.';
         } else if (error.response?.status === 401) {
-          errorMessage = 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
+          errorMessage = 'Session expired. Please log in again.';
         } else if (error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')) {
-          errorMessage = 'Xác minh reCAPTCHA thất bại. Vui lòng thử lại.';
+          errorMessage = 'reCAPTCHA verification failed. Please try again.';
         } else if (error.response?.status === 429) {
-          errorMessage = 'Quá nhiều yêu cầu. Vui lòng thử lại sau một phút.';
+          errorMessage = 'Too many requests. Please try again after a minute.';
         } else if (error.response?.status === 413) {
-          errorMessage = 'Yêu cầu quá lớn. Vui lòng thử lại sau.';
+          errorMessage = 'Request too large. Please try again later.';
         } else if (error.response?.data?.errors) {
-          errorMessage = `Lỗi dữ liệu: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
+          errorMessage = `'Data error: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
         } else if (error.message.includes('reCAPTCHA')) {
-          errorMessage = 'Lỗi xác minh reCAPTCHA. Vui lòng thử lại.';
+          errorMessage = 'reCAPTCHA verification error. Please try again.';
         }
         console.error(`Analysis error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
           error,
@@ -2014,13 +1986,13 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
   const debouncedHandlePrediction = useCallback(
     debounce(async () => {
       if (!selectedToken) {
-        setError('Vui lòng chọn một token để dự đoán.');
-        toast.error('Vui lòng chọn một token.', { position: 'top-center', autoClose: 3000 });
+        setError('Please select a token to predict.');
+        toast.error('Please select a token.', { position: 'top-center', autoClose: 3000 });
         return;
       }
       if (status !== 'authenticated') {
-        setError('Vui lòng đăng nhập để thực hiện dự đoán.');
-        toast.error('Vui lòng đăng nhập để thực hiện dự đoán.', { position: 'top-center', autoClose: 5000 });
+        setError('Please log in to perform the prediction.');
+        toast.error('Please log in to perform the prediction.', { position: 'top-center', autoClose: 5000 });
         return;
       }
 
@@ -2091,7 +2063,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                 if (parsed.progress) {
                   setAnalysisLogs((prev) => [...prev, parsed.progress]);
                 } else if (parsed.answer) {
-                  result = parsed.answer || 'Không nhận được dữ liệu dự đoán.';
+                  result = parsed.answer || 'No prediction data received.';
                   links = parsed.links || [];
                 }
               } catch (e) {
@@ -2107,13 +2079,13 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
         setPrediction(content);
         setAnalysisLinks(links);
       } catch (error) {
-        let errorMessage = 'Lỗi khi dự đoán giá. Vui lòng thử lại.';
+        let errorMessage = 'Error predicting price. Please try again.';
         if (error.name === 'AbortError') {
-          errorMessage = 'Yêu cầu mất quá nhiều thời gian. Vui lòng kiểm tra kết nối mạng và thử lại.';
+          errorMessage = 'Request took too long. Please check your network connection and try again.';
         } else if (error.message.includes('HTTP error')) {
           errorMessage = error.message;
         } else if (error.message.includes('reCAPTCHA')) {
-          errorMessage = 'Lỗi xác minh reCAPTCHA. Vui lòng thử lại.';
+          errorMessage = 'reCAPTCHA verification error. Please try again.';
         }
         console.error(`Prediction error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
           error,
@@ -2145,10 +2117,10 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     ['/api/coingecko', { action: 'trending', vs_currency: currency }],
     ([url, params]) => getCachedData(`trending-tokens-${currency}`, () => fetcher(url, params), CACHE_DURATIONS.TRENDING),
     {
-      refreshInterval: CACHE_DURATIONS.TRENDING, // 10 phút
+      refreshInterval: CACHE_DURATIONS.TRENDING,
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
-      dedupingInterval: CACHE_DURATIONS.TRENDING, // Ngăn gọi lại API trong vòng 10 phút
+      dedupingInterval: CACHE_DURATIONS.TRENDING, 
       onSuccess: (data) => {
         if (!Array.isArray(data)) {
           console.error('Trending data is not an array:', data);
@@ -2211,7 +2183,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     debouncedSearch(searchQuery);
   }, [searchQuery, debouncedSearch]);
 
-  // Thay thế hàm fetchMarketData và phần useEffect liên quan
   const { data: marketData, error: marketError } = useSWR(
     ['/api/coingecko', { start: 1, limit: tokensPerPage, vs_currencies: availableCurrencies.join(',') }],
     ([url, params]) => fetcher(url, params),
@@ -2227,7 +2198,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     }
   );
 
-  // components/MarketTabLogic.jsx (around line 1540)
   useEffect(() => {
     if (marketError) {
       const errorMessage =
@@ -2251,7 +2221,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
         id: token.id,
         symbol: token.symbol,
         name: token.name,
-        image: token.image || '/fallback-image.webp', // Đảm bảo trường image được gán đúng
+        image: token.image || '/fallback-image.webp',
         roi: token.roi || null,
         current_price: token.current_price || {},
         market_cap: token.market_cap || {},
@@ -2263,7 +2233,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       }));
       setTokens(tokensWithRoi);
 
-      // Select Bitcoin by default if no token is selected
       if (
         !initialTokenSlug &&
         !initialTokenData &&
@@ -2273,7 +2242,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       ) {
         const btc = tokensWithRoi.find((token) => token.id === 'bitcoin');
         if (btc) {
-          console.log('Selecting default token: Bitcoin');
           debouncedHandleTokenSelect(btc, null);
         } else {
           console.warn('Bitcoin not found in market data');
@@ -2334,7 +2302,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     if (isNonEvmChain) {
       const tokenKey = `${selectedToken.id}-top-holders`;
       if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
-        console.log(`Skipping fetchPublicTreasuryData: Data already fetched for ${tokenKey}`);
         return;
       }
       setIsLoadingOnChain(true);
@@ -2556,7 +2523,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     const tokenKey = `${selectedToken.id}-${chain}-${tokenAddress}-${decimalPlace}`;
 
     if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
-      console.log(`Skipping fetchOnChainData: Data already fetched for ${tokenKey}`);
       return;
     }
 
@@ -2571,7 +2537,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     }
 
     lastFetchedTokenRef.current = tokenKey;
-    console.log(`Fetching top-holders for chain: ${chain}, tokenAddress: ${tokenAddress}`);
     fetchOnChainData(chain, tokenAddress, 'top-holders', decimalPlace);
   }, [selectedToken?.id, selectedChain, fetchPublicTreasuryData, getDefaultChainAndAddress, fetchOnChainData, executeRecaptcha, session, toast]);
 

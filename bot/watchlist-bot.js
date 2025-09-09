@@ -140,7 +140,7 @@ async function fetchTransactions(address) {
     const response = await axios.post(url, {
       action: 'transactions',
       address,
-      minValueUsd: 50_000_000
+      minValueUsd: 100_000_000
     }, {
       headers: {
         'X-Sim-Api-Key': process.env.SIM_API_KEY,
@@ -151,13 +151,14 @@ async function fetchTransactions(address) {
       timeout: 15000
     });
 
-    if (!response.data.success || !response.data.data) {
+    // Kiểm tra nếu phản hồi là mảng hợp lệ
+    if (!Array.isArray(response.data)) {
       logger.warn(`Invalid response from transactions API: ${JSON.stringify(response.data)}`);
       return [];
     }
 
-    logger.info(`Fetched ${response.data.data.length} transactions for address ${address}`);
-    return response.data.data;
+    logger.info(`Fetched ${response.data.length} transactions for address ${address}`);
+    return response.data;
   } catch (err) {
     logger.error(`Error fetching transactions for ${address}: ${err.message}`, {
       stack: err.stack,
@@ -255,7 +256,7 @@ async function postTweet(transaction, fromName, toName) {
   const now = new Date();
   const txTime = new Date(block_time);
   const hoursDiff = (now - txTime) / (1000 * 60 * 60);
-  if (hoursDiff > 72) {
+  if (hoursDiff > 24) {
     logger.info(`Transaction ${hash} is older than 72 hours, skipping`);
     return;
   }
@@ -330,7 +331,7 @@ async function main() {
             const txTime = new Date(tx.block_time);
             const now = new Date();
             const hoursDiff = (now - txTime) / (1000 * 60 * 60);
-            if (hoursDiff <= 1 && !await isTransactionPosted(tx.hash)) {
+            if (hoursDiff <= 2 && !await isTransactionPosted(tx.hash)) {
               transactionsInHour.push({
                 ...tx,
                 walletName: wallet.name || 'Unnamed Wallet'
