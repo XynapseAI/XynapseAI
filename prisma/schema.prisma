@@ -15,10 +15,10 @@ model admins {
 }
 
 model api_keys {
-  api_key    String    @id @db.VarChar(64)
   created_at DateTime? @db.Timestamp(6)
   expires_at DateTime? @db.Timestamp(6)
   active     Boolean?
+  api_key    String    @id @db.VarChar(64)
 }
 
 model blockchain_cache {
@@ -131,18 +131,18 @@ model twitter_handles {
   id               Int       @id @default(autoincrement())
   user_id          String?   @unique @db.VarChar(100)
   twitter_handle   String    @db.VarChar(255)
-  profile_picture  String?
   access_token     String
   refresh_token    String?
   token_expires_at DateTime? @db.Timestamp(6)
   created_at       DateTime? @default(now()) @db.Timestamp(6)
   updated_at       DateTime? @default(now()) @db.Timestamp(6)
+  profile_picture  String?
   users            users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model users {
   id                 String              @id
-  email              String              @unique
+  email              String              @unique(map: "unique_email")
   google_id          String?             @unique(map: "unique_google_id")
   profile_picture    String?
   email_verified     Boolean?            @default(false)
@@ -153,8 +153,6 @@ model users {
   tier               String?             @default("Basic")
   is_premium         Boolean?            @default(false)
   api_key            String?             @unique
-  api_key_hash       String? 
-  api_key_salt       String?   
   created_at         DateTime?           @default(now())
   updated_at         DateTime?           @updatedAt
   last_connected     DateTime?
@@ -166,13 +164,15 @@ model users {
   premium_expires_at DateTime?
   tweet_points       BigInt?             @default(0)
   twitter_handle     String?             @db.VarChar(255)
+  api_key_hash       String?
+  api_key_salt       String?
   accounts           Account[]           @relation("UserToAccount")
+  payments           Payment[]           @relation("UserPayments")
   sessions           Session[]           @relation("UserToSession")
   verificationTokens VerificationToken[] @relation("UserToVerificationToken")
   legacyAccounts     accounts[]
   task_completions   task_completions[]
   twitter_handles    twitter_handles?
-  payments           Payment[]           @relation("UserPayments")
 
   @@index([ai_points], map: "idx_users_ai_points")
   @@index([email], map: "idx_users_email")
@@ -267,6 +267,7 @@ model accounts {
   users             users     @relation(fields: [userid], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user")
 
   @@unique([provider, provideraccountid], map: "unique_provider_account")
+  @@unique([provider, provideraccountid], map: "accounts_provider_unique")
 }
 
 model exchange_holders {
@@ -335,6 +336,7 @@ model tokens {
   created_at       DateTime?       @default(now()) @db.Timestamp(6)
   updated_at       DateTime?       @default(now()) @db.Timestamp(6)
   decimals         Int?
+  image            String?         @db.VarChar(255)
   token_holders    token_holders[]
 
   @@index([coingecko_id], map: "idx_tokens_coingecko_id")
@@ -363,29 +365,29 @@ model posted_transactions {
 }
 
 model Payment {
-  id         Int       @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   userId     String
-  chargeId   String    @unique
-  chargeCode String    @db.VarChar(100)
+  chargeId   String   @unique
+  chargeCode String   @db.VarChar(100)
   amount     Float
-  currency   String    @db.VarChar(10)
-  status     String    @default("pending") @db.VarChar(50)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  user       users     @relation(fields: [userId], references: [id], name: "UserPayments")
+  currency   String   @db.VarChar(10)
+  status     String   @default("pending") @db.VarChar(50)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       users    @relation("UserPayments", fields: [userId], references: [id])
 
   @@index([userId], map: "idx_payment_userId")
 }
 
 model top_holders {
-  id             Int       @id @default(autoincrement())
-  chain          String    @db.VarChar(50)
-  address        String    @db.VarChar(255)
-  balance        Decimal?  @db.Decimal(36, 18)
-  name_tag       String?   @db.VarChar(255)
-  image          String?   @db.VarChar(255)
-  created_at     DateTime? @default(now()) @db.Timestamp(6)
-  updated_at     DateTime? @default(now()) @db.Timestamp(6)
+  id         Int       @id @default(autoincrement())
+  chain      String    @db.VarChar(50)
+  address    String    @db.VarChar(255)
+  balance    Decimal?  @db.Decimal(36, 18)
+  name_tag   String?   @db.VarChar(255)
+  image      String?   @db.VarChar(255)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
 
   @@unique([chain, address], map: "unique_chain_address")
   @@index([chain], map: "idx_top_holders_chain")

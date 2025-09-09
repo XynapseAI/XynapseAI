@@ -208,68 +208,69 @@ class TokenHoldersCron {
 
   async createTables() {
     const createTokensTable = `
-      CREATE TABLE IF NOT EXISTS tokens (
-        id SERIAL PRIMARY KEY,
-        coingecko_id VARCHAR(255) UNIQUE NOT NULL,
-        symbol VARCHAR(50) NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        market_cap_rank INTEGER,
-        platforms JSONB,
-        detail_platforms JSONB,
-        decimals INTEGER,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `;
+    CREATE TABLE IF NOT EXISTS tokens (
+      id SERIAL PRIMARY KEY,
+      coingecko_id VARCHAR(255) UNIQUE NOT NULL,
+      symbol VARCHAR(50) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      market_cap_rank INTEGER,
+      platforms JSONB,
+      detail_platforms JSONB,
+      decimals INTEGER,
+      image VARCHAR(255),  -- Thêm cột image
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
 
     const createHoldersTable = `
-      CREATE TABLE IF NOT EXISTS token_holders (
-        id SERIAL PRIMARY KEY,
-        token_id INTEGER REFERENCES tokens(id) ON DELETE CASCADE,
-        coingecko_id VARCHAR(255) NOT NULL,
-        chain VARCHAR(50) NOT NULL,
-        token_address VARCHAR(255),
-        holder_address VARCHAR(255) NOT NULL,
-        balance DECIMAL(36, 18),
-        balance_usd DECIMAL(20, 2),
-        percentage DECIMAL(10, 6),
-        name_tag VARCHAR(255),
-        name VARCHAR(255),
-        image VARCHAR(255),
-        rank INTEGER,
-        source VARCHAR(50) DEFAULT 'sim',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(coingecko_id, chain, holder_address)
-      );
-    `;
+    CREATE TABLE IF NOT EXISTS token_holders (
+      id SERIAL PRIMARY KEY,
+      token_id INTEGER REFERENCES tokens(id) ON DELETE CASCADE,
+      coingecko_id VARCHAR(255) NOT NULL,
+      chain VARCHAR(50) NOT NULL,
+      token_address VARCHAR(255),
+      holder_address VARCHAR(255) NOT NULL,
+      balance DECIMAL(36, 18),
+      balance_usd DECIMAL(20, 2),
+      percentage DECIMAL(10, 6),
+      name_tag VARCHAR(255),
+      name VARCHAR(255),
+      image VARCHAR(255),
+      rank INTEGER,
+      source VARCHAR(50) DEFAULT 'sim',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(coingecko_id, chain, holder_address)
+    );
+  `;
 
     const createWalletHoldersTable = `
-      CREATE TABLE IF NOT EXISTS wallet_holders (
-        id SERIAL PRIMARY KEY,
-        exchange_name VARCHAR(100) NOT NULL,
-        chain VARCHAR(50) NOT NULL,
-        holder_address VARCHAR(255) NOT NULL,
-        total_value_usd DECIMAL(20, 2),
-        token_count INTEGER,
-        metadata JSONB,
-        name_tag VARCHAR(255),
-        image VARCHAR(255),
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(exchange_name, chain, holder_address)
-      );
-    `;
+    CREATE TABLE IF NOT EXISTS wallet_holders (
+      id SERIAL PRIMARY KEY,
+      exchange_name VARCHAR(100) NOT NULL,
+      chain VARCHAR(50) NOT NULL,
+      holder_address VARCHAR(255) NOT NULL,
+      total_value_usd DECIMAL(20, 2),
+      token_count INTEGER,
+      metadata JSONB,
+      name_tag VARCHAR(255),
+      image VARCHAR(255),
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(exchange_name, chain, holder_address)
+    );
+  `;
 
     const createIndexes = `
-      CREATE INDEX IF NOT EXISTS idx_tokens_coingecko_id ON tokens(coingecko_id);
-      CREATE INDEX IF NOT EXISTS idx_holders_token_chain ON token_holders(coingecko_id, chain);
-      CREATE INDEX IF NOT EXISTS idx_holders_created_at ON token_holders(created_at);
-      CREATE INDEX IF NOT EXISTS idx_holders_name ON token_holders(name);
-      CREATE INDEX IF NOT EXISTS idx_holders_image ON token_holders(image);
-      CREATE INDEX IF NOT EXISTS idx_holders_updated_at ON token_holders(updated_at);
-      CREATE INDEX IF NOT EXISTS idx_wallet_holders_exchange_name ON wallet_holders(exchange_name);
-      CREATE INDEX IF NOT EXISTS idx_wallet_holders_chain ON wallet_holders(chain);
-    `;
+    CREATE INDEX IF NOT EXISTS idx_tokens_coingecko_id ON tokens(coingecko_id);
+    CREATE INDEX IF NOT EXISTS idx_holders_token_chain ON token_holders(coingecko_id, chain);
+    CREATE INDEX IF NOT EXISTS idx_holders_created_at ON token_holders(created_at);
+    CREATE INDEX IF NOT EXISTS idx_holders_name ON token_holders(name);
+    CREATE INDEX IF NOT EXISTS idx_holders_image ON token_holders(image);
+    CREATE INDEX IF NOT EXISTS idx_holders_updated_at ON token_holders(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_wallet_holders_exchange_name ON wallet_holders(exchange_name);
+    CREATE INDEX IF NOT EXISTS idx_wallet_holders_chain ON wallet_holders(chain);
+  `;
 
     try {
       logger.info("Creating database tables and indexes...");
@@ -289,10 +290,10 @@ class TokenHoldersCron {
   }
 
   async fetchTokensFromCoinGecko() {
-    logger.info("Fetching exactly 5 tokens from CoinGecko...");
+    logger.info("Fetching exactly 500 tokens from CoinGecko...");
     const tokens = [];
-    const totalTokens = 300;
-    const perPageOptions = [250, 50];
+    const totalTokens = 500;
+    const perPageOptions = [250, 250];
     const pages = perPageOptions.length;
 
     try {
@@ -322,7 +323,11 @@ class TokenHoldersCron {
           continue;
         }
 
-        tokens.push(...pageTokens);
+        // Thêm trường image vào dữ liệu token
+        tokens.push(...pageTokens.map(token => ({
+          ...token,
+          image: token.image || null // Lấy trường image từ API response
+        })));
         logger.info(`Fetched ${pageTokens.length} tokens from page ${page}`);
 
         if (tokens.length >= totalTokens) {
@@ -348,6 +353,7 @@ class TokenHoldersCron {
     }
   }
 
+  // Cập nhật hàm storeTokens để lưu trường image
   async storeTokens(tokens) {
     logger.info("Storing tokens in database", { count: tokens.length });
     let storedCount = 0;
@@ -375,19 +381,20 @@ class TokenHoldersCron {
 
         const result = await pool.query(
           `
-          INSERT INTO tokens (coingecko_id, symbol, name, market_cap_rank, platforms, detail_platforms, decimals, updated_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
-          ON CONFLICT (coingecko_id) 
-          DO UPDATE SET 
-            symbol = EXCLUDED.symbol,
-            name = EXCLUDED.name,
-            market_cap_rank = EXCLUDED.market_cap_rank,
-            platforms = EXCLUDED.platforms,
-            detail_platforms = EXCLUDED.detail_platforms,
-            decimals = EXCLUDED.decimals,
-            updated_at = CURRENT_TIMESTAMP
-          RETURNING id
-          `,
+        INSERT INTO tokens (coingecko_id, symbol, name, market_cap_rank, platforms, detail_platforms, decimals, image, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+        ON CONFLICT (coingecko_id) 
+        DO UPDATE SET 
+          symbol = EXCLUDED.symbol,
+          name = EXCLUDED.name,
+          market_cap_rank = EXCLUDED.market_cap_rank,
+          platforms = EXCLUDED.platforms,
+          detail_platforms = EXCLUDED.detail_platforms,
+          decimals = EXCLUDED.decimals,
+          image = EXCLUDED.image,
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING id
+        `,
           [
             token.id,
             token.symbol,
@@ -396,6 +403,7 @@ class TokenHoldersCron {
             JSON.stringify(detailData.platforms || {}),
             JSON.stringify(detailData.detail_platforms || {}),
             decimals,
+            token.image || null, // Lưu trường image
           ]
         );
 
