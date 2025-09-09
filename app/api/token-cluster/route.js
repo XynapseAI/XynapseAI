@@ -251,125 +251,126 @@ export async function GET(request) {
     const ltcPrice = await fetchCoinPrice('litecoin');
     logger.info('Coin prices for calculations:', { btcPrice, dogePrice, ltcPrice });
 
-    // Query for non-Bitcoin, non-Dogecoin, non-Litecoin tokens
+    // Query for non-Bitcoin, non-Dogecoin, non-Litecoin tokens with join to tokens table
     const portfolioQuery = `
-      WITH wallet_tokens AS (
-        SELECT 
-          wh.exchange_name,
-          wh.chain,
-          wh.holder_address,
-          t.token->>'token_address' AS token_address,
-          t.token->>'symbol' AS symbol,
-          t.token->>'logo' AS logo,
-          (t.token->>'balance')::NUMERIC AS balance,
-          (t.token->>'balance_usd')::NUMERIC AS balance_usd
-        FROM wallet_holders wh,
-          jsonb_array_elements(wh.metadata) AS t(token)
-        WHERE LOWER(wh.exchange_name) LIKE LOWER($1)
-          AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
-          AND t.token->>'logo' IS NOT NULL
-          AND t.token->>'logo' != ''
-          AND t.token->>'logo' != '/fallback-image.webp'
-      ),
-      wallet_agg AS (
-        SELECT 
-          token_address,
-          chain,
-          symbol,
-          logo,
-          SUM(balance) AS chain_balance,
-          SUM(balance_usd) AS chain_balance_usd,
-          json_agg(
-            json_build_object(
-              'holder_address', holder_address,
-              'balance', balance,
-              'value', balance_usd
-            )
-          ) AS wallets
-        FROM wallet_tokens
-        GROUP BY token_address, chain, symbol, logo
+  WITH wallet_tokens AS (
+    SELECT 
+      wh.exchange_name,
+      wh.chain,
+      wh.holder_address,
+      t.token->>'token_address' AS token_address,
+      COALESCE(tk.symbol, t.token->>'symbol') AS symbol,
+      COALESCE(tk.image, t.token->>'logo') AS logo,
+      (t.token->>'balance')::NUMERIC AS balance,
+      (t.token->>'balance_usd')::NUMERIC AS balance_usd
+    FROM wallet_holders wh
+    CROSS JOIN jsonb_array_elements(wh.metadata) AS t(token)
+    LEFT JOIN tokens tk ON (t.token->>'token_address') = tk.coingecko_id
+    WHERE LOWER(wh.exchange_name) LIKE LOWER($1)
+      AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
+      AND (tk.image IS NOT NULL OR t.token->>'logo' IS NOT NULL)
+      AND (tk.image != '' OR t.token->>'logo' != '')
+      AND (tk.image != '/fallback-image.webp' OR t.token->>'logo' != '/fallback-image.webp')
+  ),
+  wallet_agg AS (
+    SELECT 
+      token_address,
+      chain,
+      symbol,
+      logo,
+      SUM(balance) AS chain_balance,
+      SUM(balance_usd) AS chain_balance_usd,
+      json_agg(
+        json_build_object(
+          'holder_address', holder_address,
+          'balance', balance,
+          'value', balance_usd
+        )
+      ) AS wallets
+    FROM wallet_tokens
+    GROUP BY token_address, chain, symbol, logo
+  )
+  SELECT 
+    token_address,
+    symbol,
+    logo,
+    json_agg(
+      json_build_object(
+        'chain', chain,
+        'balance', chain_balance,
+        'balance_usd', chain_balance_usd,
+        'wallets', wallets
       )
-      SELECT 
-        token_address,
-        symbol,
-        logo,
-        json_agg(
-          json_build_object(
-            'chain', chain,
-            'balance', chain_balance,
-            'balance_usd', chain_balance_usd,
-            'wallets', wallets
-          )
-        ) AS chain_details,
-        SUM(chain_balance) AS total_balance,
-        SUM(chain_balance_usd) AS total_balance_usd
-      FROM wallet_agg
-      GROUP BY token_address, symbol, logo
-      ORDER BY total_balance_usd DESC NULLS LAST
-      LIMIT 200
-    `;
+    ) AS chain_details,
+    SUM(chain_balance) AS total_balance,
+    SUM(chain_balance_usd) AS total_balance_usd
+  FROM wallet_agg
+  GROUP BY token_address, symbol, logo
+  ORDER BY total_balance_usd DESC NULLS LAST
+  LIMIT 200
+`;
     const portfolioResult = await withRetry(async () => await query(portfolioQuery, [`%${mappedExchange}%`]));
     logger.info('Portfolio result from wallet_holders:', { rows: portfolioResult.rows });
 
-    // Query for Bitcoin, Dogecoin, and Litecoin
+    // Query for Bitcoin, Dogecoin, and Litecoin (unchanged)
     const specialCoinsPortfolioQuery = `
       SELECT 
-        th.token_address,
+  th.coingecko_id AS token_address,
+  CASE 
+    WHEN th.coingecko_id = 'bitcoin' THEN 'BTC'
+    WHEN th.coingecko_id = 'dogecoin' THEN 'DOGE'
+    WHEN th.coingecko_id = 'litecoin' THEN 'LTC'
+  END AS symbol,
+  CASE 
+    WHEN th.coingecko_id = 'bitcoin' THEN '/logos/bitcoin.webp'
+    WHEN th.coingecko_id = 'dogecoin' THEN '/logos/dogecoin.webp'
+    WHEN th.coingecko_id = 'litecoin' THEN '/logos/litecoin.webp'
+  END AS logo,
+  json_agg(
+    json_build_object(
+      'chain', th.chain,
+      'balance', th.balance,
+      'balance_usd', COALESCE(th.balance_usd, 
         CASE 
-          WHEN th.token_address = 'bitcoin' THEN 'BTC'
-          WHEN th.token_address = 'dogecoin' THEN 'DOGE'
-          WHEN th.token_address = 'litecoin' THEN 'LTC'
-        END AS symbol,
-        CASE 
-          WHEN th.token_address = 'bitcoin' THEN '/logos/bitcoin.webp'
-          WHEN th.token_address = 'dogecoin' THEN '/logos/dogecoin.webp'
-          WHEN th.token_address = 'litecoin' THEN '/logos/litecoin.webp'
-        END AS logo,
-        json_agg(
-          json_build_object(
-            'chain', th.chain,
-            'balance', th.balance,
-            'balance_usd', COALESCE(th.balance_usd, 
-              CASE 
-                WHEN th.token_address = 'bitcoin' THEN th.balance * $2
-                WHEN th.token_address = 'dogecoin' THEN th.balance * $3
-                WHEN th.token_address = 'litecoin' THEN th.balance * $4
-              END),
-            'wallets', json_build_array(
-              json_build_object(
-                'holder_address', th.holder_address,
-                'balance', th.balance,
-                'value', COALESCE(th.balance_usd, 
-                  CASE 
-                    WHEN th.token_address = 'bitcoin' THEN th.balance * $2
-                    WHEN th.token_address = 'dogecoin' THEN th.balance * $3
-                    WHEN th.token_address = 'litecoin' THEN th.balance * $4
-                  END)
-              )
-            )
-          )
-        ) AS chain_details,
-        SUM(th.balance) AS total_balance,
-        SUM(COALESCE(th.balance_usd, 
-          CASE 
-            WHEN th.token_address = 'bitcoin' THEN th.balance * $2
-            WHEN th.token_address = 'dogecoin' THEN th.balance * $3
-            WHEN th.token_address = 'litecoin' THEN th.balance * $4
-          END)) AS total_balance_usd
-      FROM token_holders th
-      WHERE LOWER(th.name) LIKE LOWER($1)
-        AND LOWER(th.chain) IN ('bitcoin', 'dogecoin', 'litecoin')
-      GROUP BY th.token_address
-      ORDER BY 
-        CASE 
-          WHEN th.token_address = 'bitcoin' THEN 1
-          WHEN th.token_address = 'dogecoin' THEN 2
-          WHEN th.token_address = 'litecoin' THEN 3
-          ELSE 4
-        END, total_balance_usd DESC NULLS LAST
-      LIMIT 50
+          WHEN th.coingecko_id = 'bitcoin' THEN th.balance * $2
+          WHEN th.coingecko_id = 'dogecoin' THEN th.balance * $3
+          WHEN th.coingecko_id = 'litecoin' THEN th.balance * $4
+        END),
+      'wallets', json_build_array(
+        json_build_object(
+          'holder_address', th.holder_address,
+          'balance', th.balance,
+          'value', COALESCE(th.balance_usd, 
+            CASE 
+              WHEN th.coingecko_id = 'bitcoin' THEN th.balance * $2
+              WHEN th.coingecko_id = 'dogecoin' THEN th.balance * $3
+              WHEN th.coingecko_id = 'litecoin' THEN th.balance * $4
+            END)
+        )
+      )
+    )
+  ) AS chain_details,
+  SUM(th.balance) AS total_balance,
+  SUM(COALESCE(th.balance_usd, 
+    CASE 
+      WHEN th.coingecko_id = 'bitcoin' THEN th.balance * $2
+      WHEN th.coingecko_id = 'dogecoin' THEN th.balance * $3
+      WHEN th.coingecko_id = 'litecoin' THEN th.balance * $4
+    END)) AS total_balance_usd
+FROM token_holders th
+WHERE LOWER(th.name) LIKE LOWER($1)
+  AND LOWER(th.chain) IN ('bitcoin', 'dogecoin', 'litecoin')
+GROUP BY th.coingecko_id
+ORDER BY 
+  CASE 
+    WHEN th.coingecko_id = 'bitcoin' THEN 1
+    WHEN th.coingecko_id = 'dogecoin' THEN 2
+    WHEN th.coingecko_id = 'litecoin' THEN 3
+    ELSE 4
+  END, total_balance_usd DESC NULLS LAST
+LIMIT 50
     `;
-    const specialCoinsPortfolioResult = await withRetry(async () => 
+    const specialCoinsPortfolioResult = await withRetry(async () =>
       await query(specialCoinsPortfolioQuery, [`%${mappedExchange}%`, btcPrice, dogePrice, ltcPrice]));
     logger.info('Special coins (Bitcoin, Dogecoin, Litecoin) portfolio result:', { rows: specialCoinsPortfolioResult.rows });
 
@@ -419,7 +420,7 @@ export async function GET(request) {
         END, total_value_usd DESC NULLS LAST
       LIMIT 100
     `;
-    const specialCoinsWalletResult = await withRetry(async () => 
+    const specialCoinsWalletResult = await withRetry(async () =>
       await query(specialCoinsWalletQuery, [`%${mappedExchange}%`, btcPrice, dogePrice, ltcPrice]));
     logger.info('Special coins (Bitcoin, Dogecoin, Litecoin) wallet result:', { rows: specialCoinsWalletResult.rows });
 
@@ -448,12 +449,12 @@ export async function GET(request) {
       portfolio: [
         ...specialCoinsPortfolioResult.rows.map((row) => ({
           token_address: row.token_address || 'unknown',
-          symbol: row.symbol || (row.token_address === 'bitcoin' ? 'BTC' : 
-                                row.token_address === 'dogecoin' ? 'DOGE' : 
-                                row.token_address === 'litecoin' ? 'LTC' : row.token_address),
-          logo: row.logo || (row.token_address === 'bitcoin' ? '/logos/bitcoin.webp' : 
-                            row.token_address === 'dogecoin' ? '/logos/dogecoin.webp' : 
-                            row.token_address === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
+          symbol: row.symbol || (row.token_address === 'bitcoin' ? 'BTC' :
+            row.token_address === 'dogecoin' ? 'DOGE' :
+              row.token_address === 'litecoin' ? 'LTC' : row.token_address),
+          logo: row.logo || (row.token_address === 'bitcoin' ? '/logos/bitcoin.webp' :
+            row.token_address === 'dogecoin' ? '/logos/dogecoin.webp' :
+              row.token_address === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
           total_balance: Number(row.total_balance) || 0,
           total_balance_usd: Number(row.total_balance_usd) || 0,
           chain_details: row.chain_details || [],
@@ -461,7 +462,7 @@ export async function GET(request) {
         ...portfolioResult.rows.map((row) => ({
           token_address: row.token_address,
           symbol: row.symbol || row.token_address,
-          logo: row.logo,
+          logo: row.logo || '/fallback-image.webp',
           total_balance: Number(row.total_balance) || 0,
           total_balance_usd: Number(row.total_balance_usd) || 0,
           chain_details: row.chain_details || [],
@@ -475,9 +476,9 @@ export async function GET(request) {
           total_value_usd: Number(row.total_value_usd) || 0,
           token_count: row.token_count || 0,
           name_tag: row.name_tag || 'N/A',
-          image: row.image || (row.chain === 'bitcoin' ? '/logos/bitcoin.webp' : 
-                              row.chain === 'dogecoin' ? '/logos/dogecoin.webp' : 
-                              row.chain === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
+          image: row.image || (row.chain === 'bitcoin' ? '/logos/bitcoin.webp' :
+            row.chain === 'dogecoin' ? '/logos/dogecoin.webp' :
+              row.chain === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
         })),
         ...walletResult.rows.map((row) => ({
           exchange_name: row.exchange_name,

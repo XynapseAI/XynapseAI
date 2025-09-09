@@ -132,6 +132,14 @@ const SUPPORTED_CHAINS = {
   'tron': { name: 'tron', explorer: 'TronScan', apiUrl: 'https://api.tronscan.org/api', apiKey: process.env.TRONSCAN_API_KEY, coingeckoId: 'tron' },
 };
 
+// Map chain IDs to chain names used in detail_platforms
+const chainIdToName = {
+  '1': 'ethereum',
+  '56': 'bsc',
+  'solana': 'solana',
+  'tron': 'tron',
+};
+
 const bodySchema = z.object({
   wallet_address: z.string().nonempty('Wallet address is required'),
   chain: z.enum(Object.keys(SUPPORTED_CHAINS), { message: 'Invalid chain' }),
@@ -159,7 +167,6 @@ async function getChainLogo(coingeckoId) {
   }
 }
 
-// app/api/get-transactions/route.js (only showing updated getNametagsBatch function)
 async function getNametagsBatch(addresses) {
   const uniqueAddresses = [...new Set(addresses.map((addr) => addr.toLowerCase()).filter(isAddress))];
   const nametags = {};
@@ -178,18 +185,16 @@ async function getNametagsBatch(addresses) {
       let image = row.image;
       let isValidImage = image && image !== '/icons/uniswap.webp';
 
-      // Check if the image is valid by attempting to fetch it
       if (isValidImage) {
         try {
           const imageUrl = image.startsWith('http') ? image : `${process.env.NEXT_PUBLIC_APP_URL}${image}`;
           await axios.head(imageUrl, { timeout: 5000 });
         } catch {
-          logger.warn(`Invalid image for address ${address}: ${image}`); // Updated
+          logger.warn(`Invalid image for address ${address}: ${image}`);
           isValidImage = false;
-        } 
+        }
       }
 
-      // If image is invalid or default, try fetching from CoinGecko
       if (!isValidImage) {
         const cacheKey = `nametag_image_${address}`;
         const cachedImage = await redisClient.get(cacheKey);
@@ -212,7 +217,7 @@ async function getNametagsBatch(addresses) {
             image = coin?.thumb || '/icons/default.webp';
             await redisClient.setEx(cacheKey, 24 * 60 * 60, image);
           } catch (error) {
-            logger.error(`Failed to fetch CoinGecko image for ${shortName}:`, error.message); // Updated
+            logger.error(`Failed to fetch CoinGecko image for ${shortName}:`, error.message);
             image = '/icons/default.webp';
             await redisClient.setEx(cacheKey, 24 * 60 * 60, image);
           }
@@ -228,7 +233,6 @@ async function getNametagsBatch(addresses) {
       };
     }
 
-    // Set default values for addresses not found in the database
     for (const addr of uniqueAddresses) {
       if (!nametags[addr]) {
         const cacheKey = `nametag_image_${addr}`;
@@ -244,6 +248,75 @@ async function getNametagsBatch(addresses) {
       nametags[addr] = { address: addr, name: 'Unknown', image: '/icons/default.webp', description: '', subcategory: 'Others' };
     });
     return nametags;
+  }
+}
+
+async function getTokenImagesBatch(tokens, chainId) {
+  const uniqueTokens = [...new Set(tokens.map((token) => ({
+    contractAddress: token.contractAddress?.toLowerCase(),
+    symbol: token.tokenSymbol?.toLowerCase(),
+  })))].filter((token) => token.contractAddress || token.symbol);
+
+  const tokenImages = {};
+  if (uniqueTokens.length === 0) return tokenImages;
+
+  const chainName = chainIdToName[chainId] || chainId;
+
+  try {
+    // Query tokens by contractAddress
+    const contractAddresses = uniqueTokens
+      .filter((token) => token.contractAddress && isAddress(token.contractAddress))
+      .map((token) => token.contractAddress);
+    let result = { rows: [] };
+    if (contractAddresses.length > 0) {
+      result = await query(
+        `SELECT symbol, image, detail_platforms->'${chainName}'->>'contract_address' AS contract_address
+         FROM tokens
+         WHERE detail_platforms->'${chainName}'->>'contract_address' = ANY($1)
+            OR detail_platforms->''->>'contract_address' = ANY($1)`,
+        [contractAddresses]
+      );
+    }
+
+    // Query tokens by symbol for remaining tokens
+    const symbols = uniqueTokens
+      .filter((token) => token.symbol && !contractAddresses.includes(token.contractAddress))
+      .map((token) => token.symbol);
+    if (symbols.length > 0) {
+      const symbolResult = await query(
+        `SELECT symbol, image, detail_platforms->'${chainName}'->>'contract_address' AS contract_address
+         FROM tokens
+         WHERE symbol = ANY($1)
+           AND (detail_platforms->'${chainName}'->>'contract_address' IS NOT NULL
+                OR detail_platforms->''->>'contract_address' IS NOT NULL)`,
+        [symbols]
+      );
+      result.rows = [...result.rows, ...symbolResult.rows];
+    }
+
+    for (const row of result.rows) {
+      const key = row.contract_address?.toLowerCase() || row.symbol?.toLowerCase();
+      if (key && row.image) {
+        tokenImages[key] = row.image;
+      }
+    }
+
+    // Set default for tokens not found
+    for (const token of uniqueTokens) {
+      const key = token.contractAddress?.toLowerCase() || token.symbol?.toLowerCase();
+      if (!tokenImages[key]) {
+        tokenImages[key] = '/icons/default.webp';
+      }
+    }
+
+    return tokenImages;
+  } catch (error) {
+    logger.error('Error fetching token images:', error.message);
+    uniqueTokens.forEach((token) => {
+      const key = token.contractAddress?.toLowerCase() || token.symbol?.toLowerCase();
+      tokenImages[key] = '/icons/default.webp';
+    });
+    return tokenImages;
   }
 }
 
@@ -326,6 +399,19 @@ async function fetchBlockchainData(walletAddress, limit, chainId, page) {
 
     transactions = [...nativeTxs, ...tokenTxs];
   }
+
+  // Fetch token images from database
+  const tokenImages = await getTokenImagesBatch(transactions, chainId);
+
+  // Add token images to transactions
+  transactions = transactions.map((tx) => {
+    const key = tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase();
+    return {
+      ...tx,
+      tokenImage: tokenImages[key] || '/icons/default.webp',
+    };
+  });
+
   return transactions;
 }
 
@@ -334,7 +420,7 @@ export async function POST(request) {
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
 
-  if (!(await isAllowedOrigin(origin, referer, new URL(request.url).pathname))) {
+  if (!(await isAllowedOrigin(origin, referer))) {
     await trackViolation(ip, 'CORS blocked');
     return NextResponse.json({ error: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders });
   }
@@ -420,6 +506,7 @@ export async function POST(request) {
             tokenSymbol: tx.tokenSymbol,
             tokenDecimal: tx.tokenDecimal,
             contractAddress: tx.contractAddress,
+            tokenImage: tx.tokenImage,
           }));
 
           const outgoingTxsWithNametags = outgoingTxs.map((tx) => ({
@@ -435,6 +522,7 @@ export async function POST(request) {
             tokenSymbol: tx.tokenSymbol,
             tokenDecimal: tx.tokenDecimal,
             contractAddress: tx.contractAddress,
+            tokenImage: tx.tokenImage,
           }));
 
           const walletInfo = {

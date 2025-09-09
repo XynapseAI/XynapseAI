@@ -19,7 +19,7 @@ import { LoadingOverlay } from '@/utils/helpers';
 import { cacheData, getCachedData } from '../utils/indexedDB';
 import { detectClusters } from '../utils/clustering';
 import axios from 'axios';
-import { logger } from '../utils/clientLogger'; // Import clientLogger
+import { logger } from '../utils/clientLogger';
 
 cytoscape.use(cola);
 cytoscape.use(nodeHtmlLabel);
@@ -81,7 +81,7 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
             {transactions.map((tx, index) => {
               const tokenKey = tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase();
               const tokenLogo = tokenImages[tokenKey] || '/icons/default.webp';
-              logger.log(`Transaction ${tx.txHash}: Using tokenKey=${tokenKey}, tokenLogo=${tokenLogo}`); // Debug
+              logger.log(`Transaction ${tx.txHash}: Using tokenKey=${tokenKey}, tokenLogo=${tokenLogo}`);
               const fromNtag = nametags[tx.source?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
               const toNtag = nametags[tx.target?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
               const displayValue = formatLargeNumber(Number(tx.value) || 0, 1);
@@ -104,7 +104,7 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
                             width={isMobile ? 10 : 12}
                             height={isMobile ? 10 : 12}
                             className="rounded-full"
-                            onError={(e) => (e.target.style.display = 'none')} // Ẩn ảnh nếu lỗi
+                            onError={(e) => (e.target.style.display = 'none')}
                             loading="lazy"
                           />
                         )}
@@ -118,7 +118,7 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
                             width={isMobile ? 10 : 12}
                             height={isMobile ? 10 : 12}
                             className="rounded-full"
-                            onError={(e) => (e.target.style.display = 'none')} // Ẩn ảnh nếu lỗi
+                            onError={(e) => (e.target.style.display = 'none')}
                             loading="lazy"
                           />
                         )}
@@ -168,7 +168,7 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
   );
 });
 
-const CACHE_TTL = 3600000; // 1 giờ
+const CACHE_TTL = 3600000; // 1 hour
 const NODES_PER_PAGE = 50;
 
 export default function TreemapTab({ initialChain = 'ethereum', initialAddress = '' }) {
@@ -204,7 +204,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
-  // Lấy logo token từ CoinGecko
+  // Fetch token images from database and fallback to CoinGecko
   useEffect(() => {
     const fetchTokenImages = async () => {
       const uniqueTokens = [
@@ -214,67 +214,105 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         ]),
       ].filter(Boolean);
 
-      logger.log('Fetching token images for:', uniqueTokens); // Debug: Log danh sách token cần lấy
+      logger.log('Fetching token images for:', uniqueTokens);
 
       const images = {};
+      // Initialize with tokenImage from transaction data
+      edges.forEach((edge) => {
+        const tokenKey = edge.data.contractAddress?.toLowerCase() || edge.data.tokenSymbol?.toLowerCase();
+        if (edge.data.tokenImage && edge.data.tokenImage !== '/icons/default.webp') {
+          images[tokenKey] = edge.data.tokenImage;
+        }
+      });
+
+      // Filter out tokens that already have images
+      const tokensToFetch = uniqueTokens.filter((token) => !images[token]);
+
       await Promise.all(
-        uniqueTokens.map(async (token) => {
+        tokensToFetch.map(async (token) => {
           if (!token) {
             logger.warn(`Skipping invalid token: ${token}`);
             return;
           }
 
           try {
-            // Ưu tiên contractAddress, nếu không có thì dùng tokenSymbol
-            const isContractAddress = isAddress(token);
-            const queryParam = isContractAddress ? `address=${token}` : `symbol=${token}`;
-            logger.log(`Fetching token image for ${token} with query: ${queryParam}&chain=${selectedChain}`); // Debug
-
-            // Kiểm tra cache trước
-            const cacheResponse = await fetch(`${apiBaseUrl}/api/cache?key=coingecko_token_details_${token}`, {
+            // Check cache first
+            const cacheResponse = await fetch(`${apiBaseUrl}/api/cache?key=token_image_${token}`, {
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
             });
             const cacheResult = await cacheResponse.json();
-            if (cacheResponse.ok && cacheResult.success && cacheResult.data?.image?.thumb) {
-              logger.log(`Cache hit for ${token}:`, cacheResult.data.image.thumb); // Debug
-              images[token] = cacheResult.data.image.thumb;
+            if (cacheResponse.ok && cacheResult.success && cacheResult.data?.image) {
+              logger.log(`Cache hit for ${token}:`, cacheResult.data.image);
+              images[token] = cacheResult.data.image;
               return;
             }
 
-            // Gọi API CoinGecko
-            const response = await fetch(`${apiBaseUrl}/api/coingecko?action=token-details&${queryParam}&chain=${selectedChain}`, {
+            // Query local database for token image
+            const isContractAddress = isAddress(token);
+            const queryParam = isContractAddress ? `contractAddress=${token}` : `symbol=${token}`;
+            logger.log(`Querying database for token ${token} with ${queryParam}&chain=${selectedChain}`);
+
+            const dbResponse = await fetch(`${apiBaseUrl}/api/tokens?${queryParam}&chain=${selectedChain}`, {
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
             });
-            const result = await response.json();
-            logger.log(`API response for ${token}:`, result); // Debug
+            const dbResult = await dbResponse.json();
 
-            if (response.ok && result.success && result.data?.image?.thumb) {
-              logger.log(`Storing image for ${token}: ${result.data.image.thumb}`); // Debug
+            if (dbResponse.ok && dbResult.success && dbResult.data?.image) {
+              logger.log(`Database hit for ${token}:`, dbResult.data.image);
+              images[token] = dbResult.data.image;
+
+              // Cache the result
               await fetch(`${apiBaseUrl}/api/cache`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                  key: `coingecko_token_details_${token}`,
+                  key: `token_image_${token}`,
                   action: 'set',
-                  data: result.data,
+                  data: { image: dbResult.data.image },
                   ttl: 4 * 3600 * 1000,
                 }),
               });
-              images[token] = result.data.image.thumb;
+              return;
+            }
+
+            // Fallback to CoinGecko if not found in database
+            logger.log(`Falling back to CoinGecko for ${token}`);
+            const cgResponse = await fetch(`${apiBaseUrl}/api/coingecko?action=token-details&${queryParam}&chain=${selectedChain}`, {
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+            });
+            const cgResult = await cgResponse.json();
+
+            if (cgResponse.ok && cgResult.success && cgResult.data?.image?.thumb) {
+              logger.log(`CoinGecko hit for ${token}:`, cgResult.data.image.thumb);
+              images[token] = cgResult.data.image.thumb;
+
+              // Cache the CoinGecko result
+              await fetch(`${apiBaseUrl}/api/cache`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  key: `token_image_${token}`,
+                  action: 'set',
+                  data: { image: cgResult.data.image.thumb },
+                  ttl: 4 * 3600 * 1000,
+                }),
+              });
             } else {
-              logger.warn(`No valid image for ${token}:`, result); // Debug
+              logger.warn(`No valid image for ${token} from CoinGecko`);
               images[token] = '/icons/default.webp';
             }
           } catch (err) {
-            logger.error(`Error fetching token image for ${token}:`, err.message); // Debug
+            logger.error(`Error fetching token image for ${token}:`, err.message);
             images[token] = '/icons/default.webp';
           }
         }),
       );
-      logger.log('Token images fetched:', images); // Debug
+      logger.log('Token images fetched:', images);
       setTokenImages(images);
     };
 
@@ -298,7 +336,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     walletMap.set(rootAddress.toLowerCase(), {
       address: rootAddress.toLowerCase(),
       nametag: walletInfo.nametag || 'Unknown',
-      image: walletInfo.image || null, // Không dùng fallback image
+      image: walletInfo.image || null,
       chainLogo: walletInfo.chainLogo || '/icons/default.webp',
       tokenSymbol: 'Unknown',
       totalValue: 0,
@@ -308,7 +346,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     });
     nametags[rootAddress.toLowerCase()] = {
       name: walletInfo.nametag || 'Unknown',
-      image: walletInfo.image || null, // Không dùng fallback image
+      image: walletInfo.image || null,
     };
 
     const addWallet = (address, tx, type) => {
@@ -316,7 +354,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         walletMap.set(address, {
           address: address.toLowerCase(),
           nametag: tx.nametag || 'Unknown',
-          image: tx.image || null, // Không dùng fallback image
+          image: tx.image || null,
           chainLogo: tx.chainLogo || '/icons/default.webp',
           tokenSymbol: tx.tokenSymbol || 'Unknown',
           totalValue: 0,
@@ -326,7 +364,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         });
         nametags[address.toLowerCase()] = {
           name: tx.nametag || 'Unknown',
-          image: tx.image || null, // Không dùng fallback image
+          image: tx.image || null,
         };
       }
       const wallet = walletMap.get(address);
@@ -369,6 +407,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             block_time: tx.block_time,
             tokenSymbol: tx.tokenSymbol,
             contractAddress: tx.contractAddress,
+            tokenImage: tx.tokenImage,
           },
         });
       }
@@ -386,6 +425,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             block_time: tx.block_time,
             tokenSymbol: tx.tokenSymbol,
             contractAddress: tx.contractAddress,
+            tokenImage: tx.tokenImage,
           },
         });
       }
@@ -476,11 +516,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                     ? image
                     : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${image}`;
                 }
-                return 'none'; // Không hiển thị ảnh, dùng màu mặc định của Cytoscape
+                return 'none';
               },
               'background-fit': 'cover',
               'background-clip': 'node',
-              'background-color': '#666', // Màu mặc định khi không có ảnh
+              'background-color': '#666',
               'width': (ele) => ele.data('isRoot') ? 72 : 48,
               'height': (ele) => ele.data('isRoot') ? 72 : 48,
               'text-valign': 'center',
