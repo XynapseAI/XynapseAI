@@ -24,7 +24,6 @@ import { logger } from '../utils/clientLogger';
 cytoscape.use(cola);
 cytoscape.use(nodeHtmlLabel);
 
-// Hàm định dạng số lớn từ ClusterTab.jsx
 const formatLargeNumber = (value, decimals = 1) => {
   const absValue = Math.abs(value);
   if (absValue >= 1e9) {
@@ -37,15 +36,13 @@ const formatLargeNumber = (value, decimals = 1) => {
   return Number(value.toFixed(decimals)).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 };
 
-// Hàm truncate địa chỉ ví
 const truncateAddress = (addr) => {
   if (!addr) return 'N/A';
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 };
 
-// Hàm kiểm tra image hợp lệ
 const isValidNametagImage = (image) => {
-  return image && (image.startsWith('/icons/') || image.startsWith('http')) && image !== '/icons/default.webp';
+  return image && image !== '/icons/default.webp'; 
 };
 
 const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenImages, nametags }) => {
@@ -131,13 +128,13 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
                       <img
                         src={tokenLogo}
                         alt={`${tx.tokenSymbol || 'Token'} logo`}
-                        width={isMobile ? 12 : 14}
-                        height={isMobile ? 12 : 14}
+                        width={isMobile ? 10 : 12}
+                        height={isMobile ? 10 : 12}
                         className="rounded-full"
                         onError={(e) => (e.target.src = '/icons/default.webp')}
                         loading="lazy"
                       />
-                      <span className="font-semibold">{displayValue} {tx.tokenSymbol || 'N/A'}</span>
+                      <span className="text-[7px] sm:text-[8px] font-semibold">{displayValue} {tx.tokenSymbol || 'N/A'}</span>
                     </div>
                   </td>
                   <td className="px-2 py-2 text-white/80 text-[8px] sm:text-[10px] text-center">
@@ -178,6 +175,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [walletAddress, setWalletAddress] = useState(initialAddress);
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
+  const [nametags, setNametags] = useState({});
   const [walletInfo, setWalletInfo] = useState({
     address: '',
     nametag: 'Unknown',
@@ -333,10 +331,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     const walletMap = new Map();
     const nametags = {};
 
+    // Initialize root node with walletInfo data
     walletMap.set(rootAddress.toLowerCase(), {
       address: rootAddress.toLowerCase(),
       nametag: walletInfo.nametag || 'Unknown',
-      image: walletInfo.image || null,
+      image: walletInfo.image || '/icons/default.webp', // Use walletInfo.image
       chainLogo: walletInfo.chainLogo || '/icons/default.webp',
       tokenSymbol: 'Unknown',
       totalValue: 0,
@@ -346,7 +345,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     });
     nametags[rootAddress.toLowerCase()] = {
       name: walletInfo.nametag || 'Unknown',
-      image: walletInfo.image || null,
+      image: walletInfo.image || '/icons/default.webp', // Use walletInfo.image
     };
 
     const addWallet = (address, tx, type) => {
@@ -354,7 +353,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         walletMap.set(address, {
           address: address.toLowerCase(),
           nametag: tx.nametag || 'Unknown',
-          image: tx.image || null,
+          image: tx.image || '/icons/default.webp',
           chainLogo: tx.chainLogo || '/icons/default.webp',
           tokenSymbol: tx.tokenSymbol || 'Unknown',
           totalValue: 0,
@@ -364,7 +363,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         });
         nametags[address.toLowerCase()] = {
           name: tx.nametag || 'Unknown',
-          image: tx.image || null,
+          image: tx.image || '/icons/default.webp',
         };
       }
       const wallet = walletMap.get(address);
@@ -434,177 +433,233 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     return { nodes, edges, nametags };
   };
 
+
   const fetchTransactions = useCallback(async (address, page = 1) => {
-    if (!isAddress(address) && !['solana', 'tron'].includes(selectedChain)) {
-      logger.error('Invalid wallet address.');
-      return;
+  if (!isAddress(address) && !['solana', 'tron'].includes(selectedChain)) {
+    logger.error('Invalid wallet address.');
+    toast.error('Invalid wallet address.', {
+      position: 'top-center',
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      theme: 'dark',
+    });
+    return;
+  }
+
+  const cacheKey = `graph_${selectedChain}_${address}_${page}`;
+  const cached = await getCachedData(cacheKey);
+  if (cached) {
+    setNodes(cached.nodes);
+    setEdges(cached.edges);
+    setWalletInfo(cached.wallet);
+    setWalletAddress(address);
+    updateUrl(selectedChain, address);
+    logger.log('Cached walletInfo.image:', cached.wallet.image); // Debug cached image
+    return;
+  }
+
+  setLoading(true);
+  setLoadingMessage(`Fetching transactions (page ${page})...`);
+
+  try {
+    const payload = { wallet_address: address, chain: selectedChain, limit: selectedLimit, page };
+    const signature = generateHmacSignature(payload);
+    const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': session?.user?.apiKey || 'default-api-key',
+        'x-hmac-signature': signature,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const reader = response.body.getReader();
+    let result = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      result += new TextDecoder().decode(value);
     }
 
-    const cacheKey = `graph_${selectedChain}_${address}_${page}`;
-    const cached = await getCachedData(cacheKey);
-    if (cached) {
-      setNodes(cached.nodes);
-      setEdges(cached.edges);
-      setWalletInfo(cached.wallet);
-      setWalletAddress(address);
-      updateUrl(selectedChain, address);
-      return;
+    const data = JSON.parse(result);
+    if (!data.incoming || !data.outgoing) {
+      throw new Error(data.error || 'Invalid response from API.');
     }
 
-    setLoading(true);
-    setLoadingMessage(`Fetching transactions (page ${page})...`);
-
-    try {
-      const payload = { wallet_address: address, chain: selectedChain, limit: selectedLimit, page };
-      const signature = generateHmacSignature(payload);
-      const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': session?.user?.apiKey || 'default-api-key',
-          'x-hmac-signature': signature,
-        },
-        body: JSON.stringify(payload),
+    if (data.incoming.length === 0 && data.outgoing.length === 0) {
+      toast.info('No transactions found for this address on the selected chain.', {
+        position: 'top-center',
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: 'dark',
+        style: { background: '#10B981', color: '#FFFFFF' },
       });
-
-      const reader = response.body.getReader();
-      let result = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        result += new TextDecoder().decode(value);
-      }
-
-      const data = JSON.parse(result);
-      if (!data.incoming || !data.outgoing) {
-        throw new Error(data.error || 'Invalid response from API.');
-      }
-
-      const { nodes, edges, nametags } = aggregateWallets(data.incoming, data.outgoing, address, page);
-      await cacheData(cacheKey, { nodes, edges, wallet: data.wallet, nametags }, CACHE_TTL);
-      setNodes((prev) => page === 1 ? nodes : [...prev, ...nodes]);
-      setEdges((prev) => page === 1 ? edges : [...prev, ...edges]);
-      setWalletInfo(data.wallet);
-      setWalletAddress(address);
-      updateUrl(selectedChain, address);
-    } catch (err) {
-      logger.error(`Error: ${err.message}`);
       setNodes([]);
       setEdges([]);
       setWalletInfo({ address: '', nametag: 'Unknown', image: null, chainLogo: '/icons/default.webp' });
-    } finally {
       setLoading(false);
       setLoadingMessage('');
+      return;
     }
-  }, [selectedChain, selectedLimit, session, apiBaseUrl]);
+
+    logger.log('API response walletInfo.image:', data.wallet.image); // Debug API image
+    const { nodes, edges, nametags } = aggregateWallets(data.incoming, data.outgoing, address, page);
+    await cacheData(cacheKey, { nodes, edges, wallet: data.wallet, nametags }, CACHE_TTL);
+    setNodes((prev) => page === 1 ? nodes : [...prev, ...nodes]);
+    setEdges((prev) => page === 1 ? edges : [...prev, ...edges]);
+    setWalletInfo(data.wallet);
+    setWalletAddress(address);
+    updateUrl(selectedChain, address);
+  } catch (err) {
+    logger.error(`Error: ${err.message}`);
+    toast.error(`Failed to fetch transactions: ${err.message}`, {
+      position: 'top-center',
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      theme: 'dark',
+    });
+    setNodes([]);
+    setEdges([]);
+    setWalletInfo({ address: '', nametag: 'Unknown', image: null, chainLogo: '/icons/default.webp' });
+  } finally {
+    setLoading(false);
+    setLoadingMessage('');
+  }
+}, [selectedChain, selectedLimit, session, apiBaseUrl]);
 
   const initializeCytoscape = useCallback(() => {
-    if (!containerRef.current || !nodes.length) return;
+  if (!containerRef.current || !nodes.length) return;
 
-    try {
-      cyRef.current = cytoscape({
-        container: containerRef.current,
-        elements: [...nodes, ...edges],
-        style: [
-          {
-            selector: 'node',
-            style: {
-              'background-image': (ele) => {
-                const image = ele.data('image');
-                if (isValidNametagImage(image)) {
-                  return image.startsWith('http')
-                    ? image
-                    : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${image}`;
-                }
-                return 'none';
-              },
-              'background-fit': 'cover',
-              'background-clip': 'node',
-              'background-color': '#666',
-              'width': (ele) => ele.data('isRoot') ? 72 : 48,
-              'height': (ele) => ele.data('isRoot') ? 72 : 48,
-              'text-valign': 'center',
-              'text-halign': 'center',
-              'font-size': '10px',
-              'color': '#fff',
-              'border-width': 1,
-              'border-color': '#fff',
-              'border-opacity': 0.5,
-            },
-          },
-          {
-            selector: 'edge',
-            style: {
-              'width': 2,
-              'line-color': (ele) => ele.data('type') === 'incoming' ? '#00BFFF' : '#EF4444',
-              'curve-style': 'bezier',
-            },
-          },
-        ],
-        layout: {
-          name: 'cola',
-          nodeSpacing: 80,
-          edgeLength: 200,
-          animate: true,
-          maxSimulationTime: 3000,
-        },
-      });
+  try {
+    // Debug: Log walletInfo.image to check its value
+    logger.log('walletInfo.image for root node:', walletInfo.image);
 
-      const clusters = detectClusters(
-        nodes.map((node) => node.data),
-        edges.map((edge) => edge.data)
-      );
-
-      cyRef.current.nodeHtmlLabel([
+    cyRef.current = cytoscape({
+      container: containerRef.current,
+      elements: [...nodes, ...edges],
+      style: [
         {
-          query: 'node',
-          halign: 'center',
-          valign: 'bottom',
-          halignBox: 'center',
-          valignBox: 'bottom',
-          tpl: (data) => {
-            const cluster = clusters.find((c) => c.wallets.some((w) => w.id === data.id));
-            return `
-              <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[9px] py-1 px-2 rounded">
-                <div class="flex items-center gap-2 mb-1">
-                  <span>${data.label}</span>
-                </div>
-                ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
-                <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol}</div>
-              </div>
-            `;
+          selector: 'node',
+          style: {
+            'background-image': (ele) => {
+              const image = ele.data('image');
+              logger.log(`Node ${ele.data('id')} image:`, image); // Debug image for each node
+              if (isValidNametagImage(image)) {
+                return image.startsWith('http')
+                  ? image
+                  : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${image}`;
+              }
+              return 'none';
+            },
+            'background-fit': 'cover',
+            'background-clip': 'node',
+            'background-color': '#666',
+            'width': (ele) => ele.data('isRoot') ? 72 : 48,
+            'height': (ele) => ele.data('isRoot') ? 72 : 48,
+            'text-valign': 'center',
+            'text-halign': 'center',
+            'font-size': '10px',
+            'color': '#fff',
+            'border-width': 1,
+            'border-color': '#fff',
+            'border-opacity': 0.5,
           },
         },
-      ]);
+        {
+          selector: 'edge',
+          style: {
+            'width': 2,
+            'line-color': (ele) => ele.data('type') === 'incoming' ? '#00BFFF' : '#EF4444',
+            'curve-style': 'bezier',
+          },
+        },
+      ],
+      layout: {
+        name: 'cola',
+        nodeSpacing: 80,
+        edgeLength: 200,
+        animate: true,
+        maxSimulationTime: 3000,
+      },
+    });
 
-      cyRef.current.on('mouseover', 'node', (evt) => {
-        const node = evt.target;
-        const walletId = node.data('id');
-        const cluster = clusters.find((c) => c.wallets.some((w) => w.id === walletId));
-        if (cluster) {
-          logger.log('Hover cluster:', cluster);
-          setSelectedEntity({ type: 'cluster', data: cluster });
-        } else {
-          const relatedTxs = edges
-            .map((edge) => edge.data)
-            .filter((tx) => tx.source === walletId || tx.target === walletId);
-          logger.log('Hover node:', walletId, relatedTxs);
-          setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
-        }
-      });
+    const clusters = detectClusters(
+      nodes.map((node) => node.data),
+      edges.map((edge) => edge.data)
+    );
 
-      cyRef.current.nodes().forEach((node) => {
-        const wallet = node.data('id');
-        const cluster = clusters.find((c) => c.wallets.some((w) => w.id === wallet));
-        if (cluster) {
-          node.style('border-color', `hsl(${cluster.clusterId * 60}, 70%, 50%)`);
-          node.style('border-width', 2);
-        }
-      });
-    } catch (err) {
-      logger.error('Error initializing Cytoscape:', err);
-    }
-  }, [nodes, edges, isMobile]);
+    cyRef.current.nodeHtmlLabel([
+      {
+        query: 'node',
+        halign: 'center',
+        valign: 'bottom',
+        halignBox: 'center',
+        valignBox: 'bottom',
+        tpl: (data) => {
+          const cluster = clusters.find((c) => c.wallets.some((w) => w.id === data.id));
+          const clusterLabel = data.isRoot ? (walletInfo.nametag || 'Unknown') : (cluster ? cluster.nametag : 'Unknown');
+          const image = data.isRoot ? walletInfo.image : data.image;
+          return `
+            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[9px] py-1 px-2 rounded">
+              <div class="flex items-center gap-2 mb-1">
+                ${isValidNametagImage(image) ? `
+                  <img
+                    src="${image.startsWith('http') ? image : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${image}`}"
+                    alt="${data.label} logo"
+                    width="12"
+                    height="12"
+                    class="rounded-full"
+                    onerror="this.style.display='none'"
+                  />
+                ` : ''}
+                <span>${data.label}</span>
+              </div>
+              <div>Cluster: ${clusterLabel}</div>
+              <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol}</div>
+            </div>
+          `;
+        },
+      },
+    ]);
+
+    cyRef.current.on('mouseover', 'node', (evt) => {
+      const node = evt.target;
+      const walletId = node.data('id');
+      const cluster = clusters.find((c) => c.wallets.some((w) => w.id === walletId));
+      if (cluster && !node.data('isRoot')) {
+        logger.log('Hover cluster:', cluster);
+        setSelectedEntity({ type: 'cluster', data: cluster });
+      } else {
+        const relatedTxs = edges
+          .map((edge) => edge.data)
+          .filter((tx) => tx.source === walletId || tx.target === walletId);
+        logger.log('Hover node:', walletId, relatedTxs);
+        setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
+      }
+    });
+
+    cyRef.current.nodes().forEach((node) => {
+      const wallet = node.data('id');
+      const cluster = clusters.find((c) => c.wallets.some((w) => w.id === wallet));
+      if (cluster && !node.data('isRoot')) {
+        node.style('border-color', `hsl(${cluster.clusterId * 60}, 70%, 50%)`);
+        node.style('border-width', 2);
+      }
+    });
+  } catch (err) {
+    logger.error('Error initializing Cytoscape:', err);
+  }
+}, [nodes, edges, isMobile, walletInfo.nametag, walletInfo.image]);
 
   useEffect(() => {
     initializeCytoscape();
@@ -685,7 +740,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       transition={{ duration: 0.5, ease: 'easeInOut' }}
       className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto custom-scrollbar' : 'flex'}`}
     >
-      <ToastContainer position="top-center" autoClose={5000} theme="dark" />
+      <ToastContainer
+        position="top-center"
+        autoClose={5000}
+        hideProgressBar={false}
+        closeOnClick
+        pauseOnHover
+        draggable
+        theme="dark"
+      />
       <div className={`flex-1 ${isMobile ? '' : 'pr-4'}`}>
         <div className="mb-2 sm:mb-3 pb-2">
           <div className="flex items-center justify-between mb-2 sm:mb-3">
