@@ -69,7 +69,7 @@ export async function verifyRecaptcha(token, action, ip) {
     }
 
     // Giảm ngưỡng score để tăng khả năng chấp nhận trong môi trường production
-    const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0.3'); // Giảm từ 0.5 xuống 0.3
+    const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0.2'); // Giảm từ 0.5 xuống 0.3
     if (score < minScore) {
       logger.warn(`reCAPTCHA score too low: ${score} < ${minScore}`, { ip, action });
       throw new Error(`reCAPTCHA score too low: ${score} < ${minScore}`);
