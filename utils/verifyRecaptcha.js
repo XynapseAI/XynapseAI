@@ -19,7 +19,7 @@ const verifyWithRateLimit = limiter.wrap(async (token, action, ip) => {
       }),
       {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        timeout: 10000,
+        timeout: 15000,
       }
     );
     return response.data;
@@ -33,9 +33,11 @@ const verifyWithRateLimit = limiter.wrap(async (token, action, ip) => {
 
 export async function verifyRecaptcha(token, action, ip) {
   if (!token || typeof token !== 'string' || token.length < 10) {
+    logger.error('Invalid reCAPTCHA token', { tokenLength: token?.length, action, ip });
     throw new Error('Invalid reCAPTCHA token');
   }
   if (!action || typeof action !== 'string') {
+    logger.error('Invalid reCAPTCHA action', { action, ip });
     throw new Error('Invalid reCAPTCHA action');
   }
 
@@ -66,12 +68,15 @@ export async function verifyRecaptcha(token, action, ip) {
       throw new Error(errorMessage);
     }
 
-    const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0.1');
+    // Giảm ngưỡng score để tăng khả năng chấp nhận trong môi trường production
+    const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0.3'); // Giảm từ 0.5 xuống 0.3
     if (score < minScore) {
+      logger.warn(`reCAPTCHA score too low: ${score} < ${minScore}`, { ip, action });
       throw new Error(`reCAPTCHA score too low: ${score} < ${minScore}`);
     }
 
     if (recaptchaAction && recaptchaAction.toLowerCase() !== action.toLowerCase()) {
+      logger.warn(`reCAPTCHA action mismatch: expected ${action}, got ${recaptchaAction}`, { ip });
       throw new Error(`reCAPTCHA action mismatch: expected ${action}, got ${recaptchaAction}`);
     }
 
