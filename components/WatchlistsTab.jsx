@@ -340,7 +340,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         headers: {
           'Content-Type': 'application/json',
           ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-          'x-recaptcha-token': 'no-recaptcha', // Thêm nếu API yêu cầu token reCAPTCHA
+          'x-recaptcha-token': 'no-recaptcha', 
         },
         body: JSON.stringify(payload),
         credentials: 'include',
@@ -529,7 +529,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             headers: {
               'Content-Type': 'application/json',
               ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
-              'x-recaptcha-token': 'no-recaptcha', // Thêm nếu API yêu cầu token reCAPTCHA
+              'x-recaptcha-token': 'no-recaptcha',
             },
             body: JSON.stringify(payload),
             credentials: 'include',

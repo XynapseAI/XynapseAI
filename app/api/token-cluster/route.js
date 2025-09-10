@@ -5,10 +5,6 @@ import { createClient } from 'redis';
 import { auth } from '@/lib/auth';
 import cookie from 'cookie';
 import crypto from 'crypto';
-import util from 'util';
-import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const scrypt = util.promisify(crypto.scrypt);
 
 let redisClient;
 async function getRedisClient() {
@@ -47,8 +43,8 @@ const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
 function securityHeaders(origin) {
   const csp = `
     default-src 'self';
-    script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/;
-    connect-src 'self' https://www.google.com/recaptcha/;
+    script-src 'self';
+    connect-src 'self';
     object-src 'none';
     frame-ancestors 'none';
     base-uri 'self';
@@ -64,7 +60,7 @@ function securityHeaders(origin) {
   if (origin && origin !== 'null') {
     headers['Access-Control-Allow-Origin'] = origin;
     headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
-    headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Recaptcha-Token, X-CSRF-Token';
+    headers['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRF-Token';
     headers['Access-Control-Allow-Credentials'] = 'true';
   }
   return headers;
@@ -311,25 +307,6 @@ export async function GET(request) {
         await trackViolation(ip, 'Invalid CSRF token', 'severe');
         logger.warn('Invalid CSRF token', { ip });
         return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers });
-      }
-
-      const recaptchaToken = request.headers.get('x-recaptcha-token');
-      if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
-        await trackViolation(ip, 'Missing reCAPTCHA token header', 'severe');
-        logger.warn('Missing reCAPTCHA token header', { ip });
-        return NextResponse.json({ detail: 'Missing reCAPTCHA token in header' }, { status: 400, headers });
-      }
-      if (process.env.NODE_ENV !== 'development') {
-        try {
-          const { score } = await verifyRecaptcha(recaptchaToken, 'token_cluster', ip);
-          logger.info('reCAPTCHA OK', { ip, score });
-        } catch (err) {
-          await trackViolation(ip, `reCAPTCHA failed: ${err?.message}`, 'severe');
-          logger.warn('reCAPTCHA failed', { ip, reason: err?.message });
-          return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers });
-        }
-      } else if (recaptchaToken === 'development-token') {
-        logger.info('Development reCAPTCHA bypass used');
       }
     }
 

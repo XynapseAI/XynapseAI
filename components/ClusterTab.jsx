@@ -289,143 +289,81 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
   // Fetch portfolio and wallets with prices
   const fetchPortfolioAndWallets = async (exchangeId) => {
-  setIsLoadingPortfolio(true);
-  setIsLoadingWallets(true);
-  setIsLoadingPrices(true);
-  try {
-    logger.info(`Fetching portfolio/wallet data and prices for exchange: ${exchangeId}`);
+    setIsLoadingPortfolio(true);
+    setIsLoadingWallets(true);
+    setIsLoadingPrices(true);
+    try {
+      logger.info(`Fetching portfolio/wallet data and prices for exchange: ${exchangeId}`);
 
-    const csrfToken = document.cookie.split('; ').find(row => row.startsWith('csrf_token='))?.split('=')[1] || 'dev-csrf';
+      const csrfToken = document.cookie.split('; ').find(row => row.startsWith('csrf_token='))?.split('=')[1] || 'dev-csrf';
 
-    const maxRetries = 3;
-    let recaptchaToken = 'development-token';
-    if (process.env.NODE_ENV !== 'development') {
-      if (!recaptchaRef.current) {
-        logger.error('reCAPTCHA ref is not available');
-        throw new Error('reCAPTCHA component not initialized');
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+      };
+      if (status === 'authenticated' && session?.accessToken) {
+        headers['Authorization'] = `Bearer ${session.accessToken}`;
       }
-      for (let i = 0; i < maxRetries; i++) {
+
+      const response = await fetch(`/api/token-cluster?exchange=${encodeURIComponent(exchangeId)}&currency=${encodeURIComponent(currency)}`, {
+        headers,
+        credentials: 'include',
+        signal: AbortSignal.timeout(30000), // Add timeout to prevent hanging
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        let errorMessage = `Failed to fetch portfolio/wallet data: ${response.status} ${response.statusText}`;
         try {
-          // Chờ reCAPTCHA ready với timeout tăng lên 10s
-          await new Promise((resolve, reject) => {
-            const timeoutId = setTimeout(() => reject(new Error('reCAPTCHA script timeout')), 10000);
-            if (window.grecaptcha && window.grecaptcha.ready) {
-              window.grecaptcha.ready(() => {
-                clearTimeout(timeoutId);
-                resolve();
-              });
-            } else {
-              // Fallback: Load script nếu chưa có
-              const script = document.createElement('script');
-              script.src = `https://www.google.com/recaptcha/api.js?render=${process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}`;
-              script.async = true;
-              script.defer = true;
-              script.onload = () => {
-                clearTimeout(timeoutId);
-                window.grecaptcha.ready(() => resolve());
-              };
-              script.onerror = () => {
-                clearTimeout(timeoutId);
-                reject(new Error('Failed to load reCAPTCHA script'));
-              };
-              document.head.appendChild(script);
-            }
-          });
-          recaptchaToken = await recaptchaRef.current.executeAsync();
-          if (!recaptchaToken || recaptchaToken.length < 10) {
-            throw new Error('Invalid reCAPTCHA token generated');
-          }
-          logger.info('reCAPTCHA token generated successfully', { tokenLength: recaptchaToken?.length });
-          break;
-        } catch (err) {
-          console.error(`reCAPTCHA token generation failed (attempt ${i + 1}):`, err); // Log console cho Vercel
-          logger.warn(`reCAPTCHA token generation failed (attempt ${i + 1}): ${err.message}`);
-          if (i === maxRetries - 1) {
-            throw new Error(`Failed to generate reCAPTCHA token after ${maxRetries} retries: ${err.message}`);
-          }
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Delay tăng lên 2s
+          const result = JSON.parse(text);
+          errorMessage = result.detail || errorMessage;
+          logger.error(`API error response: ${errorMessage}`, { exchangeId, status: response.status, text });
+        } catch {
+          errorMessage = `Failed to fetch portfolio/wallet data: Invalid JSON response`;
+          logger.error(`Invalid JSON response: ${text}`, { exchangeId, status: response.status });
         }
+        throw new Error(errorMessage);
       }
-    }
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'X-CSRF-Token': csrfToken,
-      'X-Recaptcha-Token': recaptchaToken,
-    };
-    if (status === 'authenticated' && session?.accessToken) {
-      headers['Authorization'] = `Bearer ${session.accessToken}`;
-    }
-
-    const response = await fetch(`/api/token-cluster?exchange=${encodeURIComponent(exchangeId)}&currency=${encodeURIComponent(currency)}`, {
-      headers,
-      credentials: 'include',
-      signal: AbortSignal.timeout(30000),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      let errorMessage = `Failed to fetch portfolio/wallet data: ${response.status} ${response.statusText}`;
-      try {
-        const result = JSON.parse(text);
-        errorMessage = result.detail || errorMessage;
-        if (errorMessage.includes('reCAPTCHA')) {
-          console.error('Server reCAPTCHA error:', errorMessage); // Log cụ thể
-        }
-      } catch {
-        errorMessage = `Failed to fetch portfolio/wallet data: Invalid JSON response`;
+      const result = await response.json();
+      logger.log('API response for portfolio/wallets:', {
+        exchangeId,
+        portfolio: result.portfolio,
+        wallets: result.wallets,
+        prices: result.prices,
+      });
+      if (!result.portfolio || !result.wallets) {
+        throw new Error(`No portfolio or wallet data found for exchange: ${exchangeId}`);
       }
-      logger.error(`API error response: ${errorMessage}`, { exchangeId, status: response.status, text });
-      throw new Error(errorMessage);
+      setPortfolioData(result.portfolio || []);
+      setWalletData(result.wallets || []);
+      setBtcPrice(result.prices?.bitcoin || 0);
+      setDogePrice(result.prices?.dogecoin || 0);
+      setLtcPrice(result.prices?.litecoin || 0);
+      logger.log('Fetched portfolio, wallet data, and prices:', {
+        exchangeId,
+        portfolioCount: result.portfolio.length,
+        walletCount: result.wallets.length,
+        btcPrice: result.prices?.bitcoin,
+        dogePrice: result.prices?.dogecoin,
+        ltcPrice: result.prices?.litecoin,
+      });
+    } catch (err) {
+      const errorMessage = err.message || 'Unknown error fetching portfolio/wallet data';
+      logger.error('Error fetching portfolio/wallet data:', { exchangeId, error: errorMessage, stack: err.stack });
+      setPortfolioData([]);
+      setWalletData([]);
+      setBtcPrice(0);
+      setDogePrice(0);
+      setLtcPrice(0);
+      setError(errorMessage);
+      toast.error(errorMessage, { position: 'top-center', autoClose: 3000 });
+    } finally {
+      setIsLoadingPortfolio(false);
+      setIsLoadingWallets(false);
+      setIsLoadingPrices(false);
     }
-
-    const result = await response.json();
-    logger.log('API response for portfolio/wallets:', {
-      exchangeId,
-      portfolio: result.portfolio,
-      wallets: result.wallets,
-      prices: result.prices,
-    });
-    if (!result.portfolio || !result.wallets) {
-      throw new Error(`No portfolio or wallet data found for exchange: ${exchangeId}`);
-    }
-    setPortfolioData(result.portfolio || []);
-    setWalletData(result.wallets || []);
-    setBtcPrice(result.prices?.bitcoin || 0);
-    setDogePrice(result.prices?.dogecoin || 0);
-    setLtcPrice(result.prices?.litecoin || 0);
-    logger.log('Fetched portfolio, wallet data, and prices:', {
-      exchangeId,
-      portfolioCount: result.portfolio.length,
-      walletCount: result.wallets.length,
-      btcPrice: result.prices?.bitcoin,
-      dogePrice: result.prices?.dogecoin,
-      ltcPrice: result.prices?.litecoin,
-    });
-  } catch (err) {
-    const errorMessage = err.message || 'Unknown error fetching portfolio/wallet data';
-    console.error('Client fetch error:', err); // Log console
-    logger.error('Error fetching portfolio/wallet data:', { exchangeId, error: errorMessage, stack: err.stack });
-    setPortfolioData([]);
-    setWalletData([]);
-    setBtcPrice(0);
-    setDogePrice(0);
-    setLtcPrice(0);
-    setError(errorMessage);
-    toast.error(errorMessage, { position: 'top-center', autoClose: 3000 });
-  } finally {
-    setIsLoadingPortfolio(false);
-    setIsLoadingWallets(false);
-    setIsLoadingPrices(false);
-    if (recaptchaRef.current && process.env.NODE_ENV !== 'development') {
-      try {
-        recaptchaRef.current.reset(); // Reset chỉ nếu không development
-      } catch (resetErr) {
-        console.warn('reCAPTCHA reset failed:', resetErr);
-      }
-    }
-  }
-};
+  };
 
   // Memoized authenticated data
   const memoizedPortfolioData = useMemo(() => portfolioData, [portfolioData, status]);
