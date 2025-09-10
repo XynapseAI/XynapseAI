@@ -1,0 +1,134 @@
+import fs from "fs";
+import path from "path";
+
+// Thư mục chứa JSON
+const dir = path.join(process.cwd(), "public", "nametags");
+
+// Danh sách địa chỉ cần giữ lại dù có uniswap.webp
+const whitelist = new Set([
+  "0x1a9c8182c09f50c8318d769245bea52c32be35bc",
+  "0x000000000004444c5dc75cb358380d2e3de08a90",
+  "0x21b8065d10f73ee2e260e5b47d3344d3ced7596e",
+  "0x99ac8ca7087fa4a2a1fb6357269965a2014abc35",
+  "0x090d4613473dee047c3f2706764f49e0821d256e",
+  "0x4e68ccd3e89f51c3074ca5072bbac773960dfa36",
+  "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed",
+  "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
+  "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+  "0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852",
+  "0x5777d92f208679db4b9778590fa3cab3ac9e2168",
+  "0xa6cc3c2531fdaa6ae1a3ca84c2855806728693e8",
+  "0x1d42064fc4beb5f8aaf85f4617ae8b3b5b8bd801",
+  "0x11b815efb8f581194ae79006d24e0d814b7697f6",
+  "0x109830a1aaad605bbf02a9dfa7b0b92ec2fb7daa",
+  "0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc",
+  "0x4585fe77225b41b697c938b018e2ac67ac5a20c0",
+  "0x9db9e0e53058c89e5b94e29621a205198648425b",
+  "0x56534741cd8b152df6d48adf7ac51f75169a83b2",
+  "0x40e629a26d96baa6d81fae5f97205c2ab2c1ff29",
+  "0x9c4fe5ffd9a9fc5678cfbd93aa2d4fd684b67c4c",
+  "0xbb2b8038a1640196fbe3e38816f3e67cba72d940",
+  "0x5ab53ee1d50eef2c1dd3d5402789cd27bb52c1bb",
+  "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+  "0xc1cd3d0913f4633b43fcddbcd7342bc9b71c676f",
+  "0x6c6bc977e13df9b0de53b251522280bb72383700",
+  "0x582e3da39948c6339433008703211ad2c13eb2ac",
+  "0x25647e01bd0967c1b9599fa3521939871d1d0888",
+  "0x88051b0eea095007d3bef21ab287be961f3d8598",
+  "0x92560c178ce069cc014138ed3c2f5221ba71f58a",
+  "0x95dbb3c7546f22bce375900abfdd64a4e5bd73d6",
+  "0x2a0330c7e979a4d18e5b0c987b877da24dd37d04",
+  "0x859f7092f56c43bb48bb46de7119d9c799716cdf",
+  "0xa3f558aebaecaf0e11ca4b2199cc5ed341edfd74",
+  "0xcaa004418eb42cdf00cb057b7c9e28f0ffd840a5",
+  "0x5598931bfbb43eec686fa4b5b92b5152ebadc2f6",
+  "0xea4ba4ce14fdd287f380b55419b1c5b6c3f22ab6",
+  "0xcba27c8e7115b4eb50aa14999bc0866674a96ecb",
+  "0x4b62fa30fea125e43780dc425c2be5acb4ba743b",
+  "0xfcfdfc98062d13a11cec48c44e4613eb26a34293",
+  "0xa91f80380d9cc9c86eb98d2965a0ded9e2000791",
+  "0x6ada49aeccf6e556bb7a35ef0119cc8ca795294a",
+  "0x8592064903ef23d34e4d5aaaed40abf6d96af186",
+  "0xa3ccaf08a54cf31649f91ae1570a0720c8d4eb1e",
+  "0x57af956d3e2cca3b86f3d8c6772c03ddca3eaacb",
+  "0x4dd26482738be6c06c31467a19dcda9ad781e8c4",
+  "0xe42318ea3b998e8355a3da364eb9d48ec725eb45",
+  "0xe46935ae80e05cdebd4a4008b6ccaa36d2845370",
+  "0xd2a9f2b88d6df8830522d624db491445362a2797",
+  "0xe936f0073549ad8b1fa53583600d629ba9375161",
+  "0xe931b03260b2854e77e8da8378a1bc017b13cb97",
+  "0x9928e4046d7c6513326ccea028cd3e7a91c7590a",
+  "0xa40bb1c47f6dd27142a2bd7c93bfa98db9d1f5c5",
+  "0xb1914469141ebb6e244e75cee3f35d43bf6b85e5",
+  "0x6c063a6e8cd45869b5eb75291e65a3de298f3aa8",
+  "0xc63b0708e2f7e69cb8a1df0e1389a98c35a76d52",
+  "0xf359492d26764481002ed88bd2acae83ca50b5c9",
+  "0x645c3a387b8633df1d4d71ca4b50d27233bcb887",
+  "0x4c54ff7f1c424ff5487a32aad0b48b19cbaf087f",
+  "0x14424eeecbff345b38187d0b8b749e56faa68539",
+  "0x255e60c9d597dcaa66006a904ed36424f7b26286",
+  "0x2d0ba902badaa82592f0e1c04c71d66cea21d921",
+  "0x60031819a16266d896268cfea5d5be0b6c2b5d75",
+  "0x893f503fac2ee1e5b78665db23f9c94017aae97d",
+  "0xdab143548832194c8f2677eba9830e0b453b37c6",
+  "0xa2b04f8133fc25887a436812eae384e32a8a84f2",
+  "0x2e4784446a0a06df3d1a040b03e1680ee266c35a",
+  "0xb36ec83d844c0579ec2493f10b2087e96bb65460",
+  "0x5aaa28ca43c6646fd1403e508f0fca1d92357dde",
+  "0xae614a7a56cb79c04df2aeba6f5dab80a39ca78e",
+  "0x489cebe6cd5dc5dcb7047a1f0d4f358a5d2fb295",
+  "0xfe4ec8f377be9e1e95a49d4e0d20f52d07b1ff0d",
+  "0xcd8286b48936cdac20518247dbd310ab681a9fbf",
+  "0x10581399a549dbfffdbd9b070a0ba2f9f61620d2",
+  "0x4b1f895066058662b9fa885e87a4e4159be0798a",
+  "0x124aa7d564348a4e5dbcd107da38bee3e0c27d1a",
+  "0xbd1f921786e12a80f2184e4d6a5cacb25dc673c9",
+  "0xa6be7f7c6c454b364cda446ea39be9e5e4369de8",
+  "0xe56c60b5f9f7b5fc70de0eb79c6ee7d00efa2625",
+  "0xe1573b9d29e2183b1af0e743dc2754979a40d237",
+  "0x2a48dbf6347ea5cdc906b4bb6a2ed27969241cde",
+  "0xaf81e930620eb55a9a6927c4b2afcb4d61040c32",
+  "0x9ba3f47fe7f5a12562ba0a4a5645d8bf9ea1dd8e",
+  "0x6a9c4fc2b35ee398e7a0e75d982872466ba93cb8",
+  "0x3051607998fe3a690237af729caa6c6d1d6d99b4",
+  "0xe2c5d82523e0e767b83d78e2bfc6fcd74d1432ef",
+  "0xecfbe9b182f6477a93065c1c11271232147838e5",
+  "0x97c4adc5d28a86f9470c70dd91dc6cc2f20d2d4d",
+  "0xf421c3f2e695c2d4c0765379ccace8ade4a480d9",
+  "0xa703f8d610369088f14f2a9954cd1cb394032c03",
+  "0xac317d14738a454ff20b191ba3504aa97173045b",
+  "0x05f63dc38bfeb686ca68b9d237b192cb43067ce0",
+  "0x7270233ccae676e776a659affc35219e6fcfbb10",
+  "0xec2081ab72cf48a2e85283fd9ad4c411b2fc651d",
+  "0xa947a05792148bb3ef478bad8d15b74d2058446a",
+  "0x64a078926ad9f9e88016c199017aea196e3899e1", // ví bạn check ban đầu
+]);
+
+function cleanFile(filePath) {
+  const raw = fs.readFileSync(filePath, "utf-8");
+  let data = JSON.parse(raw);
+
+  for (const [addr, entry] of Object.entries(data)) {
+    if (whitelist.has(addr.toLowerCase())) continue;
+
+    const labels = entry.Labels || {};
+    for (const [key, value] of Object.entries(labels)) {
+      if (value.image === "/icons/uniswap.webp") {
+        delete data[addr];
+        break;
+      }
+    }
+  }
+
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+  console.log(`✅ Cleaned ${filePath}`);
+}
+
+// Quét toàn bộ file addresses-*.json
+fs.readdirSync(dir).forEach((file) => {
+  if (file.startsWith("addresses-") && file.endsWith(".json")) {
+    cleanFile(path.join(dir, file));
+  }
+});
+
+console.log("🎉 Done cleaning all nametags files!");
