@@ -19,8 +19,8 @@ import axiosRetry from 'axios-retry';
 
 const axiosWithRetry = axios.create();
 axiosRetry(axiosWithRetry, {
-  retries: 5, 
-  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100, 
+  retries: 5,
+  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100,
   retryCondition: (error) =>
     error.response?.status === 429 ||
     error.response?.status === 503 ||
@@ -787,6 +787,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
+        if (status !== 'authenticated') {
+          toast.info('Please log in to view top holders data.', { position: 'top-center', autoClose: 5000 });
+          setIsLoadingOnChain(false);
+          return;
+        }
+
         const chain = normalizedTokenSymbol;
         const cacheKey = `top-holders-${chain}-session_required`; // Session-dependent
         setIsLoadingOnChain(true);
@@ -798,7 +804,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
             // Map token symbol to corresponding JSON file for top holders
             const topHoldersMap = {
-              bitcoin: btcTopHolders, // Use bitcoin-top-holders.json for addresses and balances
+              bitcoin: btcTopHolders,
               dogecoin: dogeNameTags,
               litecoin: ltcNameTags,
               ethereum: ethNameTags,
@@ -806,7 +812,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
             // Map token symbol to corresponding JSON file for name tags
             const nameTagsMap = {
-              bitcoin: btcNameTags, // Use btc-top-holders.json for name tags
+              bitcoin: btcNameTags,
               dogecoin: dogeNameTags,
               litecoin: ltcNameTags,
               ethereum: ethNameTags,
@@ -822,7 +828,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 return {
                   address,
                   balance: parseFloat(holder.Balance) || 0,
-                  share: 0, // Share not provided in JSON, set to 0
+                  share: 0,
                   nameTag: nameTagEntry?.['Name Tag'] || null,
                   image: nameTagEntry?.image || null,
                   source: 'JSON',
@@ -872,7 +878,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                   ];
                 }
               } catch (coingeckoError) {
-                console.warn(`Failed to fetch treasury data from CoinGecko for ${chain}:', coingeckoError.message`);
+                console.warn(`Failed to fetch treasury data from CoinGecko for ${chain}:`, coingeckoError.message);
               }
             }
 
@@ -906,7 +912,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             if (!localCache.current[cacheKey]?.data) {
               setOnChainData((prev) => ({
                 ...prev,
-                topHolders: [],
+                topHolders: prev.topHolders, // Preserve existing data
               }));
             }
           }
@@ -1850,17 +1856,15 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const debouncedHandleAnalysis = useCallback(
     debounce(async () => {
       if (!selectedToken) {
-        setError('Please select a token to analyze.');
-        toast.error('Vui lòng chọn một token.', { position: 'top-center', autoClose: 3000 });
+        toast.error('Please select a token.', { position: 'top-center', autoClose: 3000 });
         return;
       }
       if (status !== 'authenticated') {
-        setError('Please log in to perform the analysis.');
-        toast.error('Please log in to perform the analysis.', { position: 'top-center', autoClose: 5000 });
+        toast.info('Please log in to perform the analysis.', { position: 'top-center', autoClose: 5000 });
         return;
       }
 
-      const cacheKey = `analysis-${selectedToken.symbol.toUpperCase()}-session_required`; // Session-dependent
+      const cacheKey = `analysis-${selectedToken.symbol.toUpperCase()}-session_required`;
       setIsAnalyzing(true);
       setAnalysisLogs([]);
 
@@ -1971,8 +1975,11 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
           status: error.response?.status,
           data: error.response?.data,
         });
-        setError(errorMessage);
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        // Preserve existing analysis data
+        if (!localCache.current[cacheKey]?.data) {
+          setAnalysis(analysis); // Keep previous analysis if available
+        }
       } finally {
         setIsAnalyzing(false);
         if (recaptchaRef.current) {
@@ -1980,23 +1987,22 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
         }
       }
     }, 500),
-    [selectedToken, currency, session, status, executeRecaptcha, toast]
+    [selectedToken, currency, session, status, executeRecaptcha, toast, analysis]
   );
 
+  // Replace the debouncedHandlePrediction function
   const debouncedHandlePrediction = useCallback(
     debounce(async () => {
       if (!selectedToken) {
-        setError('Please select a token to predict.');
         toast.error('Please select a token.', { position: 'top-center', autoClose: 3000 });
         return;
       }
       if (status !== 'authenticated') {
-        setError('Please log in to perform the prediction.');
-        toast.error('Please log in to perform the prediction.', { position: 'top-center', autoClose: 5000 });
+        toast.info('Please log in to perform the prediction.', { position: 'top-center', autoClose: 5000 });
         return;
       }
 
-      const cacheKey = `prediction-${selectedToken.symbol.toUpperCase()}-session_required`; // Session-dependent
+      const cacheKey = `prediction-${selectedToken.symbol.toUpperCase()}-session_required`;
       setIsPredicting(true);
       setAnalysisLogs([]);
 
@@ -2092,8 +2098,11 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
           status: error.response?.status,
           data: error.response?.data,
         });
-        setError(errorMessage);
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+        // Preserve existing prediction data
+        if (!localCache.current[cacheKey]?.data) {
+          setPrediction(prediction); // Keep previous prediction if available
+        }
       } finally {
         setIsPredicting(false);
         if (recaptchaRef.current) {
@@ -2101,7 +2110,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
         }
       }
     }, 500),
-    [selectedToken, priceHistory, analysis, currency, session, status, executeRecaptcha, toast]
+    [selectedToken, priceHistory, analysis, currency, session, status, executeRecaptcha, toast, prediction]
   );
 
   const debouncedSearch = useCallback(
@@ -2120,7 +2129,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       refreshInterval: CACHE_DURATIONS.TRENDING,
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
-      dedupingInterval: CACHE_DURATIONS.TRENDING, 
+      dedupingInterval: CACHE_DURATIONS.TRENDING,
       onSuccess: (data) => {
         if (!Array.isArray(data)) {
           console.error('Trending data is not an array:', data);

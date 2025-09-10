@@ -45,8 +45,14 @@ const allowedOrigins = [
 const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
 
 function securityHeaders(origin) {
-  const csp =
-    "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';";
+  const csp = `
+    default-src 'self';
+    script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/;
+    connect-src 'self' https://www.google.com/recaptcha/;
+    object-src 'none';
+    frame-ancestors 'none';
+    base-uri 'self';
+  `.replace(/\n/g, ' ').trim();
   const headers = {
     'Content-Security-Policy': csp,
     'X-Frame-Options': 'DENY',
@@ -563,25 +569,25 @@ export async function GET(request) {
         ],
         wallets: isAuthenticated
           ? [
-              ...specialCoinsWalletResult.rows.map((row) => ({
-                exchange_name: row.exchange_name,
-                chain: row.chain,
-                holder_address: row.holder_address,
-                total_value_usd: Number(row.total_value_usd) || 0,
-                token_count: row.token_count || 0,
-                name_tag: row.name_tag || 'N/A',
-                image: row.image || (row.chain === 'bitcoin' ? '/logos/bitcoin.webp' : row.chain === 'dogecoin' ? '/logos/dogecoin.webp' : row.chain === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
-              })),
-              ...walletResult.rows.map((row) => ({
-                exchange_name: row.exchange_name,
-                chain: row.chain,
-                holder_address: row.holder_address,
-                total_value_usd: Number(row.total_value_usd) || 0,
-                token_count: row.token_count || 0,
-                name_tag: row.name_tag || 'N/A',
-                image: row.image || '/fallback-image.webp',
-              })),
-            ]
+            ...specialCoinsWalletResult.rows.map((row) => ({
+              exchange_name: row.exchange_name,
+              chain: row.chain,
+              holder_address: row.holder_address,
+              total_value_usd: Number(row.total_value_usd) || 0,
+              token_count: row.token_count || 0,
+              name_tag: row.name_tag || 'N/A',
+              image: row.image || (row.chain === 'bitcoin' ? '/logos/bitcoin.webp' : row.chain === 'dogecoin' ? '/logos/dogecoin.webp' : row.chain === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
+            })),
+            ...walletResult.rows.map((row) => ({
+              exchange_name: row.exchange_name,
+              chain: row.chain,
+              holder_address: row.holder_address,
+              total_value_usd: Number(row.total_value_usd) || 0,
+              token_count: row.token_count || 0,
+              name_tag: row.name_tag || 'N/A',
+              image: row.image || '/fallback-image.webp',
+            })),
+          ]
           : [],
         prices: {
           bitcoin: btcPrice,
