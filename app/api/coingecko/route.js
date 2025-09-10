@@ -11,25 +11,47 @@ async function getRedisClient() {
   if (!redisClient) {
     redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
     redisClient.on("error", (err) => logger.error("Redis Client Error", { error: err.message, stack: err.stack }));
-    await redisClient.connect();
-    logger.info("Redis connected", { timestamp: new Date().toISOString() });
+    try {
+      await redisClient.connect();
+      logger.info("Redis connected", { timestamp: new Date().toISOString() });
+    } catch (err) {
+      logger.error("Redis initial connect failed", { err });
+      throw new Error('Redis connection failed');
+    }
+  } else if (!redisClient.isOpen) {
+    try {
+      await redisClient.connect();
+      logger.info("Redis reconnected");
+    } catch (err) {
+      logger.error("Redis reconnect failed", { err });
+      throw new Error('Redis connection failed');
+    }
   }
   return redisClient;
 }
 
 // ================= Security Headers =================
-const securityHeaders = {
-  "Content-Security-Policy": "default-src 'self'; frame-ancestors 'self';",
-  "X-Content-Type-Options": "nosniff",
-  "X-Frame-Options": "DENY",
-  "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-  "X-XSS-Protection": "1; mode=block",
-  "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
-};
+function securityHeaders(origin) {
+  const baseHeaders = {
+    "Content-Security-Policy": "default-src 'self'; frame-ancestors 'self';",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "X-XSS-Protection": "1; mode=block",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+  };
+  if (origin && origin !== 'null') {
+    baseHeaders['Access-Control-Allow-Origin'] = origin;
+    baseHeaders['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
+    baseHeaders['Access-Control-Allow-Headers'] = 'Content-Type';
+    baseHeaders['Access-Control-Allow-Credentials'] = 'true';
+  }
+  return baseHeaders;
+}
 
 // ================= IP Ban Logic =================
-async function banIP(ip, durationSeconds = 3600) {
+async function banIP(ip, durationSeconds = 1800) { 
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, "banned");
   logger.info(`IP banned: ${ip} for ${durationSeconds} seconds`);
@@ -44,22 +66,26 @@ async function checkIPBan(ip) {
   }
 }
 
-
-async function trackViolation(ip, reason = "Unknown") {
-  const redisClient = await getRedisClient();
-  const key = `violations:${ip}`;
-  const maxViolations = 300; 
-  const windowMs = 30 * 60 * 1000; 
-  const violations = parseInt(await redisClient.get(key)) || 0;
-
-
-  if (["CORS blocked", "Missing or invalid id parameter", "Missing vs_currencies parameter"].includes(reason)) {
-    logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}, violations: ${violations}`);
+async function trackViolation(ip, reason = "Unknown", severity = 'severe') {
+  // Ignore non-critical cho tất cả severity 'warn'
+  const nonCriticalReasons = [
+    "CORS blocked", "Missing or invalid id parameter", "Missing vs_currencies parameter",
+    "Missing or invalid query parameter", "Missing or invalid tokenType parameter",
+    "Missing or invalid days parameter", "Missing or invalid address parameter"
+  ];
+  if (nonCriticalReasons.includes(reason) || severity === 'warn') {
+    logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}`);
     return;
   }
 
+  const redisClient = await getRedisClient();
+  const key = `violations:${ip}`;
+  const maxViolations = 10;  // Giảm từ 300 để gắt hơn với severe
+  const windowMs = 30 * 60 * 1000;
+  const violations = parseInt(await redisClient.get(key)) || 0;
+
   if (violations >= maxViolations) {
-    await banIP(ip, 1800);
+    await banIP(ip);
     logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
     throw new Error("IP temporarily banned due to excessive violations.");
   }
@@ -71,18 +97,21 @@ async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:coingecko:${ip}`;
   const windowMs = 60 * 1000;
-  const maxRequests = 100;
+  const maxRequests = 25;  // An toàn dưới 30/min của CoinGecko
   const requests = parseInt(await redisClient.get(key)) || 0;
   if (requests >= maxRequests) {
+    const ttl = await redisClient.ttl(key);
+    const err = new Error("Too many requests, please try again later.");
+    err.ttl = ttl || 60;
     logger.warn(`Rate limit exceeded for IP ${ip}: ${requests} requests`);
-    throw new Error("Too many requests, please try again later.");
+    throw err;
   }
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
   logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`);
 }
 
 axiosRetry(axios, {
-  retries: 8,
+  retries: 3,  // Giảm từ 8
   retryDelay: (retryCount) => {
     logger.info(`Retry attempt ${retryCount} for CoinGecko API`);
     return Math.pow(2, retryCount) * 1000 + Math.random() * 200;
@@ -92,12 +121,11 @@ axiosRetry(axios, {
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: process.env.NODE_ENV === "production" ? 5 : 5,
-  minTime: process.env.NODE_ENV === "production" ? 600 : 1000, 
-  reservoir: 30,
-  reservoirRefreshAmount: 50,
+  minTime: process.env.NODE_ENV === "production" ? 2400 : 1000,  // ~25/min
+  reservoir: 25,  // Giảm từ 30, reservoirRefreshAmount: 25,
+  reservoirRefreshAmount: 25,
   reservoirRefreshInterval: 60 * 1000,
 });
-
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   try {
@@ -116,7 +144,7 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   }
 });
 
-// List of supported CoinGecko currencies
+// List of supported CoinGecko currencies (gi��� nguyên)
 const VALID_CURRENCIES = [
   "usd", "eur", "gbp", "cny", "jpy", "krw", "rub", "inr", "brl", "aud",
   "cad", "chf", "hkd", "sgd", "twd", "thb", "vnd", "php", "idr", "myr",
@@ -130,22 +158,30 @@ const allowedOrigins = [
   "https://xynapseai.net",
   "https://www.xynapseai.net",
   "https://xynapse-ai-xynapse-projects.vercel.app",
-  // Thêm wildcard cho Vercel preview URLs
   ...(process.env.VERCEL_ENV === "production" ? [] : ["https://*.vercel.app"]),
 ].filter((v, i, a) => a.indexOf(v) === i);
 
-// Cập nhật hàm isAllowedOrigin
+const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;  // Fix: Định nghĩa regex
+
 function isAllowedOrigin(origin, referer) {
   if (!origin && !referer) {
     logger.info("No Origin or Referer (likely SSR or server-to-server), allowing request");
     return true;
   }
-  const checkOrigin = origin || (referer ? new URL(referer).origin : null);
+  let checkOrigin;
+  try {
+    checkOrigin = origin || (referer ? new URL(referer).origin : null);  // Wrap try-catch
+  } catch (err) {
+    logger.warn("Invalid referer URL", { referer, err });
+    checkOrigin = null;
+  }
   if (!checkOrigin) {
     logger.info("No valid Origin or Referer, allowing for SSR compatibility");
     return true;
   }
-  if (allowedOrigins.some((allowed) => allowed.includes("*") ? new RegExp(allowed.replace("*", ".*")).test(checkOrigin) : allowed === checkOrigin)) {
+  if (allowedOrigins.some((allowed) =>
+    allowed.includes("*") ? new RegExp(allowed.replace("*", ".*")).test(checkOrigin) : allowed === checkOrigin
+  )) {
     logger.info(`Origin allowed: ${checkOrigin}`);
     return true;
   }
@@ -157,19 +193,34 @@ function isAllowedOrigin(origin, referer) {
   return false;
 }
 
+// ================= OPTIONS Handler =================
+export async function OPTIONS(request) {
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
+  if (!isAllowedOrigin(origin, referer)) {
+    logger.warn('CORS origin not allowed for OPTIONS', { origin, referer });
+    return NextResponse.json({ success: false, detail: "Not allowed by CORS" }, { status: 403, headers: securityHeaders(origin) });
+  }
+  return new NextResponse(null, {
+    status: 204,
+    headers: securityHeaders(origin),
+  });
+}
 
 // ================= GET Handler =================
 export async function GET(request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
   logger.info(`Request to /api/coingecko from IP ${ip}`, { origin, timestamp: new Date().toISOString() });
 
-
   // Check CORS
-  if (!isAllowedOrigin(origin)) {
-    await trackViolation(ip, "CORS blocked");
-    return NextResponse.json({ success: false, detail: "Not allowed by CORS" }, { status: 403, headers: securityHeaders });
+  if (!isAllowedOrigin(origin, referer)) {
+    await trackViolation(ip, "CORS blocked", 'warn');  // Severity warn
+    return NextResponse.json({ success: false, detail: "Not allowed by CORS" }, { status: 403, headers: securityHeaders(origin) });
   }
+
+  const headers = securityHeaders(origin);
 
   // Check IP ban and rate limit
   try {
@@ -178,42 +229,42 @@ export async function GET(request) {
   } catch (err) {
     if (err.message.includes("Too many requests")) {
       logger.warn(`Rate limit error for IP ${ip}: ${err.message}`);
-      return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers: securityHeaders });
+      return NextResponse.json(
+        { success: false, detail: err.message },
+        { status: 429, headers: { ...headers, 'Retry-After': err.ttl.toString() } }
+      );
     }
-    await trackViolation(ip, err.message);
-    return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers: securityHeaders });
+    await trackViolation(ip, err.message, 'severe');
+    return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers });
   }
 
   const params = Object.fromEntries(request.nextUrl.searchParams);
   const { action = "market-info", ids, vs_currencies = "usd", limit, start, query, id, tokenType, days, address } = params;
 
-  // Validate parameters
-  if (
-    ["tickers", "coin-details", "exchange-details", "volume-chart"].includes(action) &&
-    (!id || typeof id !== "string" || id.trim() === "")
-  ) {
-    await trackViolation(ip, "Missing or invalid id parameter");
-    return NextResponse.json({ success: false, detail: "Missing or invalid id parameter" }, { status: 400, headers: securityHeaders });
+  // Validate parameters (sử dụng severity 'warn' cho trackViolation)
+  if (["tickers", "coin-details", "exchange-details", "volume-chart"].includes(action) && (!id || typeof id !== "string" || id.trim() === "")) {
+    await trackViolation(ip, "Missing or invalid id parameter", 'warn');
+    return NextResponse.json({ success: false, detail: "Missing or invalid id parameter" }, { status: 400, headers });
   }
   if (action === "public-treasury" && (!tokenType || typeof tokenType !== "string" || tokenType.trim() === "")) {
-    await trackViolation(ip, "Missing or invalid tokenType parameter");
-    return NextResponse.json({ success: false, detail: "Missing or invalid tokenType parameter" }, { status: 400, headers: securityHeaders });
+    await trackViolation(ip, "Missing or invalid tokenType parameter", 'warn');
+    return NextResponse.json({ success: false, detail: "Missing or invalid tokenType parameter" }, { status: 400, headers });
   }
   if (action === "market-info" && !vs_currencies) {
-    await trackViolation(ip, "Missing vs_currencies parameter");
-    return NextResponse.json({ success: false, detail: "Missing vs_currencies parameter" }, { status: 400, headers: securityHeaders });
+    await trackViolation(ip, "Missing vs_currencies parameter", 'warn');
+    return NextResponse.json({ success: false, detail: "Missing vs_currencies parameter" }, { status: 400, headers });
   }
   if (["search", "exchange-search"].includes(action) && (!query || typeof query !== "string" || query.trim() === "")) {
-    await trackViolation(ip, "Missing or invalid query parameter");
-    return NextResponse.json({ success: false, detail: "Missing or invalid query parameter" }, { status: 400, headers: securityHeaders });
+    await trackViolation(ip, "Missing or invalid query parameter", 'warn');
+    return NextResponse.json({ success: false, detail: "Missing or invalid query parameter" }, { status: 400, headers });
   }
   if (action === "volume-chart" && (!days || isNaN(days))) {
-    await trackViolation(ip, "Missing or invalid days parameter");
-    return NextResponse.json({ success: false, detail: "Missing or invalid days parameter" }, { status: 400, headers: securityHeaders });
+    await trackViolation(ip, "Missing or invalid days parameter", 'warn');
+    return NextResponse.json({ success: false, detail: "Missing or invalid days parameter" }, { status: 400, headers });
   }
   if (action === "token-details" && (!address || typeof address !== "string" || address.trim() === "")) {
-    await trackViolation(ip, "Missing or invalid address parameter");
-    return NextResponse.json({ success: false, detail: "Missing or invalid address parameter" }, { status: 400, headers: securityHeaders });
+    await trackViolation(ip, "Missing or invalid address parameter", 'warn');
+    return NextResponse.json({ success: false, detail: "Missing or invalid address parameter" }, { status: 400, headers });
   }
 
   const COINGECKO_API_KEY = process.env.COINGECKO_API_KEY;
@@ -221,13 +272,18 @@ export async function GET(request) {
     logger.error("COINGECKO_API_KEY is not configured", { ip });
     return NextResponse.json(
       { success: false, detail: "Server configuration error: Missing COINGECKO_API_KEY" },
-      { status: 500, headers: securityHeaders }
+      { status: 500, headers }
     );
   }
 
   const currencies = vs_currencies.split(",").map((c) => c.trim().toLowerCase());
   const validCurrencies = currencies.filter((c) => VALID_CURRENCIES.includes(c));
+  if (validCurrencies.length === 0) {
+    logger.warn("No valid currencies, fallback to usd", { ip, currencies });
+  }
   const selectedCurrency = validCurrencies[0] || "usd";
+
+  const client = await getRedisClient();  // Lấy client một lần để reuse
 
   try {
     let data;
@@ -237,10 +293,10 @@ export async function GET(request) {
     if (action === "token-details") {
       cacheKey = `coingecko_token_details_${address}`;
       cacheTTL = 4 * 3600;
-      const cachedData = await redisClient.get(cacheKey);
+      const cachedData = await client.get(cacheKey);
       if (cachedData) {
         logger.info(`Cache hit for token-details: ${address}`, { ip });
-        return NextResponse.json(JSON.parse(cachedData), { headers: securityHeaders });
+        return NextResponse.json(JSON.parse(cachedData), { headers });
       }
 
       if (address.toLowerCase() === "bitcoin") {
@@ -248,9 +304,9 @@ export async function GET(request) {
           symbol: "BTC",
           image: { thumb: "/logos/bitcoin.webp" },
         };
-        await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
+        await client.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
         logger.info(`Returning hardcoded Bitcoin details for address: ${address}`, { ip });
-        return NextResponse.json({ success: true, data }, { headers: securityHeaders });
+        return NextResponse.json({ success: true, data }, { headers });
       }
 
       try {
@@ -262,9 +318,9 @@ export async function GET(request) {
           symbol: response.data.symbol.toUpperCase(),
           image: response.data.image || { thumb: "/fallback-image.webp" },
         };
-        await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
+        await client.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data }));
         logger.info(`Fetched token details for address: ${address}`, { ip });
-        return NextResponse.json({ success: true, data }, { headers: securityHeaders });
+        return NextResponse.json({ success: true, data }, { headers });
       } catch (error) {
         logger.error(`Failed to fetch token details for ${address}: ${error.message}`, {
           ip,
@@ -277,7 +333,7 @@ export async function GET(request) {
             ? `No token data found for address ${address}`
             : `Failed to fetch token details: ${error.message}`,
           data: { symbol: address, image: { thumb: "/fallback-image.webp" } },
-        }, { headers: securityHeaders });
+        }, { status: error.response?.status || 500, headers });
       }
     }
 
@@ -562,8 +618,8 @@ export async function GET(request) {
       return NextResponse.json({ success: true, data }, { headers: securityHeaders });
     }
 
-    await trackViolation(ip, "Invalid action specified");
-    return NextResponse.json({ success: false, detail: "Invalid action specified" }, { status: 400, headers: securityHeaders });
+    await trackViolation(ip, "Invalid action specified", 'severe');  // Chỉ severe cho invalid action
+    return NextResponse.json({ success: false, detail: "Invalid action specified" }, { status: 400, headers });
   } catch (error) {
     logger.error(`CoinGecko API error: ${error.message}`, {
       ip,
@@ -580,6 +636,6 @@ export async function GET(request) {
             ? `No data found for the requested resource.`
             : `Failed to fetch data: ${error.message}`,
       data: [],
-    }, { status: error.response?.status || 500, headers: securityHeaders });
+    }, { status: error.response?.status || 500, headers });
   }
 }

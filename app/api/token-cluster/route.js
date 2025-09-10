@@ -2,18 +2,34 @@ import { NextResponse } from 'next/server';
 import { query } from '../../../utils/postgres';
 import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
+import { auth } from '@/lib/auth';
+import cookie from 'cookie';
+import crypto from 'crypto';
+import util from 'util';
+import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const scrypt = util.promisify(crypto.scrypt);
 
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
     redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-    redisClient.on('error', (err) => logger.error('Redis Client Error', err));
-    await redisClient.connect();
-    logger.info('Redis connected');
-  }
-  if (!redisClient.isOpen) {
-    await redisClient.connect();
-    logger.info('Redis reconnected');
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }));
+    try {
+      await redisClient.connect();
+      logger.info('Redis connected (initial)');
+    } catch (err) {
+      logger.error('Redis initial connect failed', { err });
+      throw new Error('Redis connection failed');
+    }
+  } else if (!redisClient.isOpen) {
+    try {
+      await redisClient.connect();
+      logger.info('Redis reconnected');
+    } catch (err) {
+      logger.error('Redis reconnect failed', { err });
+      throw new Error('Redis connection failed');
+    }
   }
   return redisClient;
 }
@@ -28,19 +44,28 @@ const allowedOrigins = [
 
 const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
 
-const securityHeaders = {
-  'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self' https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net",
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-  'X-XSS-Protection': '1; mode=block',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
-};
+function securityHeaders(origin) {
+  const csp =
+    "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';";
+  const headers = {
+    'Content-Security-Policy': csp,
+    'X-Frame-Options': 'DENY',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+  };
+  if (origin && origin !== 'null') {
+    headers['Access-Control-Allow-Origin'] = origin;
+    headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
+    headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Recaptcha-Token, X-CSRF-Token';
+    headers['Access-Control-Allow-Credentials'] = 'true';
+  }
+  return headers;
+}
 
 async function isAllowedOrigin(origin, referer, pathname) {
   logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
-
   try {
     if (origin && origin !== 'null') {
       if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
@@ -55,7 +80,6 @@ async function isAllowedOrigin(origin, referer, pathname) {
       await trackViolation('unknown', 'Invalid origin');
       return false;
     }
-
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
@@ -70,23 +94,19 @@ async function isAllowedOrigin(origin, referer, pathname) {
       await trackViolation('unknown', 'Invalid referer');
       return false;
     }
-
     if (!origin && !referer) {
       logger.info('Allowing internal/SSR request');
       return true;
     }
-
     if (!origin && process.env.NODE_ENV === 'production') {
       logger.error('Null origin blocked in production', { pathname });
       await trackViolation('unknown', 'Null origin in production');
       return false;
     }
-
     if (!origin && process.env.NODE_ENV === 'development') {
       logger.warn('Origin is null, allowing in development mode');
       return true;
     }
-
     logger.error('Invalid origin or referer', { origin, referer });
     await trackViolation('unknown', 'Invalid origin or referer');
     return false;
@@ -97,53 +117,72 @@ async function isAllowedOrigin(origin, referer, pathname) {
   }
 }
 
-async function banIP(ip, durationSeconds = 1800) {
-  const redisClient = await getRedisClient();
-  await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
-}
+async function checkRateLimit(ip, userId) {
+  const client = await getRedisClient();
+  const windowSeconds = 15 * 60;
+  const ipKey = `rate:ip:${ip}`;
+  const userKey = userId ? `rate:user:${userId}` : null;
+  const ipMax = process.env.NODE_ENV === 'development' ? 1000 : 500;
+  const userMax = process.env.NODE_ENV === 'development' ? 500 : 200;
 
-async function checkIPBan(ip) {
-  const redisClient = await getRedisClient();
-  const isBanned = await redisClient.get(`banned_ip:${ip}`);
-  if (isBanned) {
-    throw new Error('IP temporarily banned due to excessive violations.');
+  const ipCount = Number(await client.incr(ipKey));
+  if (ipCount === 1) await client.expire(ipKey, windowSeconds);
+  if (ipCount > ipMax) {
+    const ttl = await client.ttl(ipKey);
+    throw Object.assign(new Error('Too many requests from this IP'), { ttl });
+  }
+
+  if (userKey) {
+    const uCount = Number(await client.incr(userKey));
+    if (uCount === 1) await client.expire(userKey, windowSeconds);
+    if (uCount > userMax) {
+      const ttl = await client.ttl(userKey);
+      throw Object.assign(new Error('Too many requests for this user'), { ttl });
+    }
   }
 }
 
-async function trackViolation(ip, reason = 'Unknown') {
-  const redisClient = await getRedisClient();
-  const key = `violations:${ip}`;
-  const maxViolations = 100;
-  const windowMs = 15 * 60 * 1000;
-  const violations = parseInt(await redisClient.get(key)) || 0;
-
-  if (['CORS blocked', 'Missing or invalid exchange parameter'].includes(reason)) {
-    logger.warn(`Non-critical violation ignored: ${ip}, reason: ${reason}, violations: ${violations}`);
+async function trackViolation(ip, reason, severity = 'warn') {
+  if (severity === 'warn') {
+    logger.warn('Violation recorded (warning)', { ip, reason });
     return;
   }
 
+  const client = await getRedisClient();
+  const key = `violations:${ip}`;
+  const maxViolations = 5;
+  const windowMs = 15 * 60 * 1000;
+  const violations = parseInt(await client.get(key)) || 0;
   if (violations >= maxViolations) {
-    await banIP(ip, 1800);
-    logger.error(`IP banned due to repeated violations: ${ip}, reason: ${reason}`);
-    throw new Error('IP temporarily banned due to excessive violations.');
+    await client.setEx(`banned_ip:${ip}`, 3600, 'banned');
+    logger.info('IP banned', { ip, reason });
+    throw new Error('IP banned due to repeated violations.');
   }
-  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
-  logger.warn(`Violation recorded: ${ip}, reason: ${reason}, violations: ${violations + 1}`);
+  await client.multi().incr(key).expire(key, Math.floor(windowMs / 1000)).exec();
+  logger.warn('Violation recorded (severe)', { ip, reason, violations: violations + 1 });
 }
 
-async function checkRateLimit(ip) {
-  const redisClient = await getRedisClient();
-  const key = `rate_limit:token_cluster:${ip}`;
-  const requests = Number.parseInt(await redisClient.get(key)) || 0;
-  const windowMs = 60 * 1000; // 1 minute
-  const maxRequests = process.env.NODE_ENV === 'development' ? 50 : 10;
-  if (requests >= maxRequests) {
-    throw new Error('Too many requests, please try again later.');
+async function checkDoubleSubmitCSRF(request) {
+  const headerToken = request.headers.get('x-csrf-token') || '';
+  const cookies = cookie.parse(request.headers.get('cookie') || '');
+  const cookieToken = cookies['csrf_token'] || '';
+  if (
+    process.env.NODE_ENV === 'development' &&
+    headerToken === 'dev-csrf' &&
+    cookieToken === 'dev-csrf'
+  ) {
+    logger.info('Development CSRF bypass used');
+    return true;
   }
-  await redisClient.multi()
-    .incr(key)
-    .expire(key, windowMs / 1000)
-    .exec();
+  if (!headerToken || !cookieToken) {
+    logger.warn('CSRF tokens missing', { headerProvided: !!headerToken, cookieProvided: !!cookieToken });
+    return false;
+  }
+  const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
+  if (!valid) {
+    logger.warn('CSRF token mismatch');
+  }
+  return valid;
 }
 
 async function withRetry(fn, retries = 2, delay = 1000) {
@@ -175,23 +214,49 @@ function mapExchangeName(exchangeId) {
   return EXCHANGE_MAPPING[exchangeId.toLowerCase()] || exchangeId.toLowerCase();
 }
 
-async function fetchCoinPrice(coinId) {
+async function fetchCoinPrice(coinId, currency = 'usd') {
+  const redisClient = await getRedisClient();
+  const cacheKey = `coingecko:coin-details:${coinId}:${currency}`;
+  const cachedPrice = await redisClient.get(cacheKey);
+  if (cachedPrice) {
+    logger.info(`Cache hit for coin price: ${coinId}`);
+    return JSON.parse(cachedPrice);
+  }
+
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
   try {
     const response = await fetch(`${apiUrl}/api/coingecko?action=coin-details&id=${coinId}`, {
       headers: { 'Content-Type': 'application/json' },
     });
     const result = await response.json();
-    if (response.ok && result.data?.market_data?.current_price?.usd) {
-      logger.info(`Fetched ${coinId} price:`, { price: result.data.market_data.current_price.usd });
-      return result.data.market_data.current_price.usd;
+    if (response.ok && result.data?.market_data?.current_price?.[currency]) {
+      const price = result.data.market_data.current_price[currency];
+      await redisClient.setEx(cacheKey, 12 * 60 * 60, JSON.stringify(price)); // 12 giờ
+      logger.info(`Fetched and cached ${coinId} price:`, { price });
+      return price;
     }
     throw new Error(`Failed to fetch ${coinId} price`);
   } catch (error) {
     await trackViolation(null, `Error fetching ${coinId} price: ${error.message}`);
     logger.error(`Error fetching ${coinId} price:`, { error: error.message, stack: error.stack });
-    return 0; // Fallback to 0 to avoid breaking the query
+    return 0;
   }
+}
+
+export async function OPTIONS(request) {
+  const origin = request.headers.get('origin');
+  const pathname = new URL(request.url).pathname;
+  const referer = request.headers.get('referer');
+
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+    logger.warn('CORS origin not allowed for OPTIONS', { origin, referer });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
+  }
+
+  return new NextResponse(null, {
+    status: 204,
+    headers: securityHeaders(origin),
+  });
 }
 
 export async function GET(request) {
@@ -200,313 +265,352 @@ export async function GET(request) {
   const referer = request.headers.get('referer');
   const pathname = new URL(request.url).pathname;
   const params = Object.fromEntries(request.nextUrl.searchParams);
-  const { exchange } = params;
+  const { exchange, currency = 'usd' } = params; // Lấy currency từ query params
 
-  const headers = {
-    ...securityHeaders,
-    'Content-Type': 'application/json',
-    ...(origin && origin !== 'null' && isAllowedOrigin(origin, referer, pathname) && {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'GET',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Credentials': 'true',
-    }),
-  };
+  logger.info('GET /api/token-cluster requested', { ip, origin, referer, query: Object.keys(params) });
 
   if (!(await isAllowedOrigin(origin, referer, pathname))) {
     await trackViolation(ip, 'CORS blocked');
     logger.error(`CORS error: Origin ${origin || 'null'} not allowed`);
-    return NextResponse.json({ success: false, detail: 'Not allowed by CORS' }, { status: 403, headers });
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
   }
+
+  const headers = securityHeaders(origin);
 
   if (!exchange || typeof exchange !== 'string' || exchange.trim() === '') {
-    await trackViolation(ip, 'Missing or invalid exchange parameter');
+    await trackViolation(ip, 'Missing or invalid exchange parameter', 'warn');
     logger.warn(`Missing or invalid exchange parameter: ${exchange}`, { ip });
-    return NextResponse.json({ success: false, detail: 'Missing or invalid exchange parameter' }, { status: 400, headers });
+    return NextResponse.json({ detail: 'Missing or invalid exchange parameter' }, { status: 400, headers });
   }
 
   try {
-    await checkIPBan(ip);
-    await checkRateLimit(ip);
-  } catch (err) {
-    await trackViolation(ip, err.message);
-    logger.error(`Rate limit or IP ban error: ${err.message}`);
-    return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers });
-  }
+    const session = await auth();
+    const userId = session?.user?.id || null;
 
-  try {
-    const redisClient = await getRedisClient();
-    const mappedExchange = mapExchangeName(exchange);
-    const cacheKey = `token_cluster:${mappedExchange}`;
-    const cachedData = await withRetry(async () => await redisClient.get(cacheKey));
-
-    if (cachedData) {
-      logger.info(`Cache hit for exchange: ${mappedExchange}`, { ip });
-      return NextResponse.json(JSON.parse(cachedData), { headers });
+    try {
+      await checkRateLimit(ip, userId);
+    } catch (err) {
+      logger.warn('Rate limit exceeded', { ip, userId });
+      return NextResponse.json(
+        { detail: err.message },
+        { status: 429, headers: { ...headers, 'Retry-After': err.ttl.toString() } }
+      );
     }
 
-    // Fetch prices for Bitcoin, Dogecoin, and Litecoin
-    const btcPrice = await fetchCoinPrice('bitcoin');
-    const dogePrice = await fetchCoinPrice('dogecoin');
-    const ltcPrice = await fetchCoinPrice('litecoin');
-    logger.info('Coin prices for calculations:', { btcPrice, dogePrice, ltcPrice });
+    const isAuthenticated = !!session;
 
-    // Query for non-Bitcoin, non-Dogecoin, non-Litecoin tokens with join to tokens table
-    const portfolioQuery = `
-  WITH wallet_tokens AS (
-    SELECT 
-      wh.exchange_name,
-      wh.chain,
-      wh.holder_address,
-      t.token->>'token_address' AS token_address,
-      COALESCE(tk.symbol, t.token->>'symbol') AS symbol,
-      COALESCE(tk.image, t.token->>'logo') AS logo,
-      (t.token->>'balance')::NUMERIC AS balance,
-      (t.token->>'balance_usd')::NUMERIC AS balance_usd
-    FROM wallet_holders wh
-    CROSS JOIN jsonb_array_elements(wh.metadata) AS t(token)
-    LEFT JOIN tokens tk ON (t.token->>'token_address') = tk.coingecko_id
-    WHERE LOWER(wh.exchange_name) LIKE LOWER($1)
-      AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
-      AND (tk.image IS NOT NULL OR t.token->>'logo' IS NOT NULL)
-      AND (tk.image != '' OR t.token->>'logo' != '')
-      AND (tk.image != '/fallback-image.webp' OR t.token->>'logo' != '/fallback-image.webp')
-  ),
-  wallet_agg AS (
-    SELECT 
-      token_address,
-      chain,
-      symbol,
-      logo,
-      SUM(balance) AS chain_balance,
-      SUM(balance_usd) AS chain_balance_usd,
-      json_agg(
-        json_build_object(
-          'holder_address', holder_address,
-          'balance', balance,
-          'value', balance_usd
+    if (isAuthenticated) {
+      const csrfOk = await checkDoubleSubmitCSRF(request);
+      if (!csrfOk) {
+        await trackViolation(ip, 'Invalid CSRF token', 'severe');
+        logger.warn('Invalid CSRF token', { ip });
+        return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers });
+      }
+
+      const recaptchaToken = request.headers.get('x-recaptcha-token');
+      if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
+        await trackViolation(ip, 'Missing reCAPTCHA token header', 'severe');
+        logger.warn('Missing reCAPTCHA token header', { ip });
+        return NextResponse.json({ detail: 'Missing reCAPTCHA token in header' }, { status: 400, headers });
+      }
+      if (process.env.NODE_ENV !== 'development') {
+        try {
+          const { score } = await verifyRecaptcha(recaptchaToken, 'token_cluster', ip);
+          logger.info('reCAPTCHA OK', { ip, score });
+        } catch (err) {
+          await trackViolation(ip, `reCAPTCHA failed: ${err?.message}`, 'severe');
+          logger.warn('reCAPTCHA failed', { ip, reason: err?.message });
+          return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers });
+        }
+      } else if (recaptchaToken === 'development-token') {
+        logger.info('Development reCAPTCHA bypass used');
+      }
+    }
+
+    try {
+      const redisClient = await getRedisClient();
+      const mappedExchange = mapExchangeName(exchange);
+      const cacheKey = isAuthenticated
+        ? `token_cluster:auth:${mappedExchange}:${currency}`
+        : `token_cluster:public:${mappedExchange}:${currency}`;
+      const cacheTTL = isAuthenticated ? 300 : 3600; // 5 phút cho auth, 1 giờ cho public
+
+      const cachedData = await withRetry(async () => await redisClient.get(cacheKey));
+      if (cachedData) {
+        logger.info(`Cache hit for exchange: ${mappedExchange}, auth: ${isAuthenticated}, currency: ${currency}`, { ip });
+        return NextResponse.json(JSON.parse(cachedData), { headers });
+      }
+
+      // Fetch prices for Bitcoin, Dogecoin, and Litecoin
+      const btcPrice = await fetchCoinPrice('bitcoin', currency);
+      const dogePrice = await fetchCoinPrice('dogecoin', currency);
+      const ltcPrice = await fetchCoinPrice('litecoin', currency);
+      logger.info('Coin prices for calculations:', { btcPrice, dogePrice, ltcPrice });
+
+      // Query cho non-Bitcoin, non-Dogecoin, non-Litecoin tokens
+      const portfolioQuery = `
+        WITH wallet_tokens AS (
+          SELECT 
+            wh.exchange_name,
+            wh.chain,
+            wh.holder_address,
+            t.token->>'token_address' AS token_address,
+            COALESCE(tk.symbol, t.token->>'symbol') AS symbol,
+            COALESCE(tk.image, t.token->>'logo') AS logo,
+            (t.token->>'balance')::NUMERIC AS balance,
+            (t.token->>'balance_usd')::NUMERIC AS balance_usd
+          FROM wallet_holders wh
+          CROSS JOIN jsonb_array_elements(wh.metadata) AS t(token)
+          LEFT JOIN tokens tk ON (t.token->>'token_address') = tk.coingecko_id
+          WHERE LOWER(wh.exchange_name) LIKE LOWER($1)
+            AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
+            AND (tk.image IS NOT NULL OR t.token->>'logo' IS NOT NULL)
+            AND (tk.image != '' OR t.token->>'logo' != '')
+            AND (tk.image != '/fallback-image.webp' OR t.token->>'logo' != '/fallback-image.webp')
+        ),
+        wallet_agg AS (
+          SELECT 
+            token_address,
+            chain,
+            symbol,
+            logo,
+            SUM(balance) AS chain_balance,
+            SUM(balance_usd) AS chain_balance_usd,
+            json_agg(
+              json_build_object(
+                'holder_address', holder_address,
+                'balance', balance,
+                'value', balance_usd
+              )
+            ) AS wallets
+          FROM wallet_tokens
+          GROUP BY token_address, chain, symbol, logo
         )
-      ) AS wallets
-    FROM wallet_tokens
-    GROUP BY token_address, chain, symbol, logo
-  )
-  SELECT 
-    token_address,
-    symbol,
-    logo,
-    json_agg(
-      json_build_object(
-        'chain', chain,
-        'balance', chain_balance,
-        'balance_usd', chain_balance_usd,
-        'wallets', wallets
-      )
-    ) AS chain_details,
-    SUM(chain_balance) AS total_balance,
-    SUM(chain_balance_usd) AS total_balance_usd
-  FROM wallet_agg
-  GROUP BY token_address, symbol, logo
-  ORDER BY total_balance_usd DESC NULLS LAST
-  LIMIT 200
-`;
-    const portfolioResult = await withRetry(async () => await query(portfolioQuery, [`%${mappedExchange}%`]));
-    logger.info('Portfolio result from wallet_holders:', { rows: portfolioResult.rows });
+        SELECT 
+          token_address,
+          symbol,
+          logo,
+          json_agg(
+            json_build_object(
+              'chain', chain,
+              'balance', chain_balance,
+              'balance_usd', chain_balance_usd,
+              'wallets', wallets
+            )
+          ) AS chain_details,
+          SUM(chain_balance) AS total_balance,
+          SUM(chain_balance_usd) AS total_balance_usd
+        FROM wallet_agg
+        GROUP BY token_address, symbol, logo
+        ORDER BY total_balance_usd DESC NULLS LAST
+        LIMIT 200
+      `;
+      const portfolioResult = await withRetry(async () => await query(portfolioQuery, [`%${mappedExchange}%`]));
+      logger.info('Portfolio result from wallet_holders:', { rows: portfolioResult.rows });
 
-    // Query for Bitcoin, Dogecoin, and Litecoin (unchanged)
-    const specialCoinsPortfolioQuery = `
-      SELECT 
-  th.coingecko_id AS token_address,
-  CASE 
-    WHEN th.coingecko_id = 'bitcoin' THEN 'BTC'
-    WHEN th.coingecko_id = 'dogecoin' THEN 'DOGE'
-    WHEN th.coingecko_id = 'litecoin' THEN 'LTC'
-  END AS symbol,
-  CASE 
-    WHEN th.coingecko_id = 'bitcoin' THEN '/logos/bitcoin.webp'
-    WHEN th.coingecko_id = 'dogecoin' THEN '/logos/dogecoin.webp'
-    WHEN th.coingecko_id = 'litecoin' THEN '/logos/litecoin.webp'
-  END AS logo,
-  json_agg(
-    json_build_object(
-      'chain', th.chain,
-      'balance', th.balance,
-      'balance_usd', COALESCE(th.balance_usd, 
-        CASE 
-          WHEN th.coingecko_id = 'bitcoin' THEN th.balance * $2
-          WHEN th.coingecko_id = 'dogecoin' THEN th.balance * $3
-          WHEN th.coingecko_id = 'litecoin' THEN th.balance * $4
-        END),
-      'wallets', json_build_array(
-        json_build_object(
-          'holder_address', th.holder_address,
-          'balance', th.balance,
-          'value', COALESCE(th.balance_usd, 
+      // Query cho Bitcoin, Dogecoin, Litecoin
+      const specialCoinsPortfolioQuery = `
+        SELECT 
+          th.coingecko_id AS token_address,
+          CASE 
+            WHEN th.coingecko_id = 'bitcoin' THEN 'BTC'
+            WHEN th.coingecko_id = 'dogecoin' THEN 'DOGE'
+            WHEN th.coingecko_id = 'litecoin' THEN 'LTC'
+          END AS symbol,
+          CASE 
+            WHEN th.coingecko_id = 'bitcoin' THEN '/logos/bitcoin.webp'
+            WHEN th.coingecko_id = 'dogecoin' THEN '/logos/dogecoin.webp'
+            WHEN th.coingecko_id = 'litecoin' THEN '/logos/litecoin.webp'
+          END AS logo,
+          json_agg(
+            json_build_object(
+              'chain', th.chain,
+              'balance', th.balance,
+              'balance_usd', COALESCE(th.balance_usd, 
+                CASE 
+                  WHEN th.coingecko_id = 'bitcoin' THEN th.balance * $2
+                  WHEN th.coingecko_id = 'dogecoin' THEN th.balance * $3
+                  WHEN th.coingecko_id = 'litecoin' THEN th.balance * $4
+                END),
+              'wallets', json_build_array(
+                json_build_object(
+                  'holder_address', th.holder_address,
+                  'balance', th.balance,
+                  'value', COALESCE(th.balance_usd, 
+                    CASE 
+                      WHEN th.coingecko_id = 'bitcoin' THEN th.balance * $2
+                      WHEN th.coingecko_id = 'dogecoin' THEN th.balance * $3
+                      WHEN th.coingecko_id = 'litecoin' THEN th.balance * $4
+                    END)
+                )
+              )
+            )
+          ) AS chain_details,
+          SUM(th.balance) AS total_balance,
+          SUM(COALESCE(th.balance_usd, 
             CASE 
               WHEN th.coingecko_id = 'bitcoin' THEN th.balance * $2
               WHEN th.coingecko_id = 'dogecoin' THEN th.balance * $3
               WHEN th.coingecko_id = 'litecoin' THEN th.balance * $4
-            END)
-        )
-      )
-    )
-  ) AS chain_details,
-  SUM(th.balance) AS total_balance,
-  SUM(COALESCE(th.balance_usd, 
-    CASE 
-      WHEN th.coingecko_id = 'bitcoin' THEN th.balance * $2
-      WHEN th.coingecko_id = 'dogecoin' THEN th.balance * $3
-      WHEN th.coingecko_id = 'litecoin' THEN th.balance * $4
-    END)) AS total_balance_usd
-FROM token_holders th
-WHERE LOWER(th.name) LIKE LOWER($1)
-  AND LOWER(th.chain) IN ('bitcoin', 'dogecoin', 'litecoin')
-GROUP BY th.coingecko_id
-ORDER BY 
-  CASE 
-    WHEN th.coingecko_id = 'bitcoin' THEN 1
-    WHEN th.coingecko_id = 'dogecoin' THEN 2
-    WHEN th.coingecko_id = 'litecoin' THEN 3
-    ELSE 4
-  END, total_balance_usd DESC NULLS LAST
-LIMIT 50
-    `;
-    const specialCoinsPortfolioResult = await withRetry(async () =>
-      await query(specialCoinsPortfolioQuery, [`%${mappedExchange}%`, btcPrice, dogePrice, ltcPrice]));
-    logger.info('Special coins (Bitcoin, Dogecoin, Litecoin) portfolio result:', { rows: specialCoinsPortfolioResult.rows });
-
-    // Query for non-Bitcoin, non-Dogecoin, non-Litecoin wallets
-    const walletQuery = `
-      SELECT 
-        exchange_name,
-        chain,
-        holder_address,
-        total_value_usd,
-        token_count,
-        name_tag,
-        image
-      FROM wallet_holders
-      WHERE LOWER(exchange_name) LIKE LOWER($1)
-        AND LOWER(chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
-      ORDER BY total_value_usd DESC NULLS LAST
-      LIMIT 100
-    `;
-    const walletResult = await withRetry(async () => await query(walletQuery, [`%${mappedExchange}%`]));
-    logger.info('Wallet result from wallet_holders:', { rows: walletResult.rows });
-
-    // Query for Bitcoin, Dogecoin, and Litecoin wallets
-    const specialCoinsWalletQuery = `
-      SELECT 
-        source AS exchange_name,
-        chain,
-        holder_address,
-        COALESCE(balance_usd, 
+            END)) AS total_balance_usd
+        FROM token_holders th
+        WHERE LOWER(th.name) LIKE LOWER($1)
+          AND LOWER(th.chain) IN ('bitcoin', 'dogecoin', 'litecoin')
+        GROUP BY th.coingecko_id
+        ORDER BY 
           CASE 
-            WHEN token_address = 'bitcoin' THEN balance * $2
-            WHEN token_address = 'dogecoin' THEN balance * $3
-            WHEN token_address = 'litecoin' THEN balance * $4
-          END) AS total_value_usd,
-        1 AS token_count,
-        name_tag,
-        image
-      FROM token_holders
-      WHERE LOWER(name) LIKE LOWER($1)
-        AND LOWER(chain) IN ('bitcoin', 'dogecoin', 'litecoin')
-      ORDER BY 
-        CASE 
-          WHEN token_address = 'bitcoin' THEN 1
-          WHEN token_address = 'dogecoin' THEN 2
-          WHEN token_address = 'litecoin' THEN 3
-          ELSE 4
-        END, total_value_usd DESC NULLS LAST
-      LIMIT 100
-    `;
-    const specialCoinsWalletResult = await withRetry(async () =>
-      await query(specialCoinsWalletQuery, [`%${mappedExchange}%`, btcPrice, dogePrice, ltcPrice]));
-    logger.info('Special coins (Bitcoin, Dogecoin, Litecoin) wallet result:', { rows: specialCoinsWalletResult.rows });
+            WHEN th.coingecko_id = 'bitcoin' THEN 1
+            WHEN th.coingecko_id = 'dogecoin' THEN 2
+            WHEN th.coingecko_id = 'litecoin' THEN 3
+            ELSE 4
+          END, total_balance_usd DESC NULLS LAST
+        LIMIT 50
+      `;
+      const specialCoinsPortfolioResult = await withRetry(async () =>
+        await query(specialCoinsPortfolioQuery, [`%${mappedExchange}%`, btcPrice, dogePrice, ltcPrice]));
+      logger.info('Special coins portfolio result:', { rows: specialCoinsPortfolioResult.rows });
 
-    if (
-      portfolioResult.rows.length === 0 &&
-      specialCoinsPortfolioResult.rows.length === 0 &&
-      walletResult.rows.length === 0 &&
-      specialCoinsWalletResult.rows.length === 0
-    ) {
-      logger.warn(`No data found for exchange: ${exchange} (mapped to: ${mappedExchange})`, {
-        ip,
-        portfolioResult: portfolioResult.rows,
-        specialCoinsPortfolioResult: specialCoinsPortfolioResult.rows,
-        walletResult: walletResult.rows,
-        specialCoinsWalletResult: specialCoinsWalletResult.rows,
+      // Query cho non-Bitcoin, non-Dogecoin, non-Litecoin wallets
+      const walletQuery = `
+        SELECT 
+          exchange_name,
+          chain,
+          holder_address,
+          total_value_usd,
+          token_count,
+          name_tag,
+          image
+        FROM wallet_holders
+        WHERE LOWER(exchange_name) LIKE LOWER($1)
+          AND LOWER(chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
+        ORDER BY total_value_usd DESC NULLS LAST
+        LIMIT 100
+      `;
+      const walletResult = await withRetry(async () => await query(walletQuery, [`%${mappedExchange}%`]));
+      logger.info('Wallet result from wallet_holders:', { rows: walletResult.rows });
+
+      // Query cho Bitcoin, Dogecoin, Litecoin wallets
+      const specialCoinsWalletQuery = `
+        SELECT 
+          source AS exchange_name,
+          chain,
+          holder_address,
+          COALESCE(balance_usd, 
+            CASE 
+              WHEN token_address = 'bitcoin' THEN balance * $2
+              WHEN token_address = 'dogecoin' THEN balance * $3
+              WHEN token_address = 'litecoin' THEN balance * $4
+            END) AS total_value_usd,
+          1 AS token_count,
+          name_tag,
+          image
+        FROM token_holders
+        WHERE LOWER(name) LIKE LOWER($1)
+          AND LOWER(chain) IN ('bitcoin', 'dogecoin', 'litecoin')
+        ORDER BY 
+          CASE 
+            WHEN token_address = 'bitcoin' THEN 1
+            WHEN token_address = 'dogecoin' THEN 2
+            WHEN token_address = 'litecoin' THEN 3
+            ELSE 4
+          END, total_value_usd DESC NULLS LAST
+        LIMIT 100
+      `;
+      const specialCoinsWalletResult = await withRetry(async () =>
+        await query(specialCoinsWalletQuery, [`%${mappedExchange}%`, btcPrice, dogePrice, ltcPrice]));
+      logger.info('Special coins wallet result:', { rows: specialCoinsWalletResult.rows });
+
+      if (
+        portfolioResult.rows.length === 0 &&
+        specialCoinsPortfolioResult.rows.length === 0 &&
+        walletResult.rows.length === 0 &&
+        specialCoinsWalletResult.rows.length === 0
+      ) {
+        logger.warn(`No data found for exchange: ${exchange} (mapped to: ${mappedExchange})`, {
+          ip,
+          portfolioResult: portfolioResult.rows,
+          specialCoinsPortfolioResult: specialCoinsPortfolioResult.rows,
+          walletResult: walletResult.rows,
+          specialCoinsWalletResult: specialCoinsWalletResult.rows,
+        });
+        await trackViolation(ip, `No data found for exchange: ${exchange}`, 'warn');
+        return NextResponse.json(
+          { success: false, detail: `No portfolio or wallet data found for exchange: ${exchange}` },
+          { status: 404, headers }
+        );
+      }
+
+      // Dữ liệu trả về, bao gồm cả giá coin
+      const responseData = {
+        success: true,
+        portfolio: [
+          ...specialCoinsPortfolioResult.rows.map((row) => ({
+            token_address: row.token_address || 'unknown',
+            symbol: row.symbol || (row.token_address === 'bitcoin' ? 'BTC' : row.token_address === 'dogecoin' ? 'DOGE' : row.token_address === 'litecoin' ? 'LTC' : row.token_address),
+            logo: row.logo || (row.token_address === 'bitcoin' ? '/logos/bitcoin.webp' : row.token_address === 'dogecoin' ? '/logos/dogecoin.webp' : row.token_address === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
+            total_balance: Number(row.total_balance) || 0,
+            total_balance_usd: Number(row.total_balance_usd) || 0,
+            chain_details: row.chain_details || [],
+          })),
+          ...portfolioResult.rows.map((row) => ({
+            token_address: row.token_address,
+            symbol: row.symbol || row.token_address,
+            logo: row.logo || '/fallback-image.webp',
+            total_balance: Number(row.total_balance) || 0,
+            total_balance_usd: Number(row.total_balance_usd) || 0,
+            chain_details: row.chain_details || [],
+          })),
+        ],
+        wallets: isAuthenticated
+          ? [
+              ...specialCoinsWalletResult.rows.map((row) => ({
+                exchange_name: row.exchange_name,
+                chain: row.chain,
+                holder_address: row.holder_address,
+                total_value_usd: Number(row.total_value_usd) || 0,
+                token_count: row.token_count || 0,
+                name_tag: row.name_tag || 'N/A',
+                image: row.image || (row.chain === 'bitcoin' ? '/logos/bitcoin.webp' : row.chain === 'dogecoin' ? '/logos/dogecoin.webp' : row.chain === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
+              })),
+              ...walletResult.rows.map((row) => ({
+                exchange_name: row.exchange_name,
+                chain: row.chain,
+                holder_address: row.holder_address,
+                total_value_usd: Number(row.total_value_usd) || 0,
+                token_count: row.token_count || 0,
+                name_tag: row.name_tag || 'N/A',
+                image: row.image || '/fallback-image.webp',
+              })),
+            ]
+          : [],
+        prices: {
+          bitcoin: btcPrice,
+          dogecoin: dogePrice,
+          litecoin: ltcPrice,
+        }, // Thêm giá coin vào response
+      };
+
+      await withRetry(async () => {
+        const redisClient = await getRedisClient();
+        await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify(responseData));
       });
-      await trackViolation(ip, `No data found for exchange: ${exchange}`);
-      return NextResponse.json(
-        { success: false, detail: `No portfolio or wallet data found for exchange: ${exchange}` },
-        { status: 404, headers }
-      );
+
+      logger.info(`Fetched portfolio and wallet data for exchange: ${exchange} (mapped to: ${mappedExchange})`, {
+        ip,
+        portfolioCount: portfolioResult.rows.length + specialCoinsPortfolioResult.rows.length,
+        walletCount: isAuthenticated ? walletResult.rows.length + specialCoinsWalletResult.rows.length : 0,
+        auth: isAuthenticated,
+        currency,
+      });
+
+      return NextResponse.json(responseData, { headers });
+    } catch (error) {
+      await trackViolation(ip, `Error in token-cluster API: ${error.message}`, 'severe');
+      logger.error(`Error in token-cluster API: ${error.message}`, { ip, stack: error.stack });
+      return NextResponse.json({ detail: `Server error: ${error.message}` }, { status: 500, headers });
     }
-
-    const responseData = {
-      success: true,
-      portfolio: [
-        ...specialCoinsPortfolioResult.rows.map((row) => ({
-          token_address: row.token_address || 'unknown',
-          symbol: row.symbol || (row.token_address === 'bitcoin' ? 'BTC' :
-            row.token_address === 'dogecoin' ? 'DOGE' :
-              row.token_address === 'litecoin' ? 'LTC' : row.token_address),
-          logo: row.logo || (row.token_address === 'bitcoin' ? '/logos/bitcoin.webp' :
-            row.token_address === 'dogecoin' ? '/logos/dogecoin.webp' :
-              row.token_address === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
-          total_balance: Number(row.total_balance) || 0,
-          total_balance_usd: Number(row.total_balance_usd) || 0,
-          chain_details: row.chain_details || [],
-        })),
-        ...portfolioResult.rows.map((row) => ({
-          token_address: row.token_address,
-          symbol: row.symbol || row.token_address,
-          logo: row.logo || '/fallback-image.webp',
-          total_balance: Number(row.total_balance) || 0,
-          total_balance_usd: Number(row.total_balance_usd) || 0,
-          chain_details: row.chain_details || [],
-        })),
-      ],
-      wallets: [
-        ...specialCoinsWalletResult.rows.map((row) => ({
-          exchange_name: row.exchange_name,
-          chain: row.chain,
-          holder_address: row.holder_address,
-          total_value_usd: Number(row.total_value_usd) || 0,
-          token_count: row.token_count || 0,
-          name_tag: row.name_tag || 'N/A',
-          image: row.image || (row.chain === 'bitcoin' ? '/logos/bitcoin.webp' :
-            row.chain === 'dogecoin' ? '/logos/dogecoin.webp' :
-              row.chain === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
-        })),
-        ...walletResult.rows.map((row) => ({
-          exchange_name: row.exchange_name,
-          chain: row.chain,
-          holder_address: row.holder_address,
-          total_value_usd: Number(row.total_value_usd) || 0,
-          token_count: row.token_count || 0,
-          name_tag: row.name_tag || 'N/A',
-          image: row.image || '/fallback-image.webp',
-        })),
-      ],
-    };
-
-    await withRetry(async () => {
-      const redisClient = await getRedisClient();
-      await redisClient.setEx(cacheKey, 300, JSON.stringify(responseData));
-    });
-
-    logger.info(`Fetched portfolio and wallet data for exchange: ${exchange} (mapped to: ${mappedExchange})`, {
-      ip,
-      portfolioCount: portfolioResult.rows.length + specialCoinsPortfolioResult.rows.length,
-      walletCount: walletResult.rows.length + specialCoinsWalletResult.rows.length,
-    });
-
-    return NextResponse.json(responseData, { headers });
-  } catch (error) {
-    await trackViolation(ip, `Error in token-cluster API: ${error.message}`);
-    logger.error(`Error in token-cluster API: ${error.message}`, { ip, stack: error.stack });
-    return NextResponse.json({ success: false, detail: `Error: ${error.message}` }, { status: 500, headers });
+  } catch (err) {
+    logger.error('Unexpected error in GET', { err: err?.message });
+    return NextResponse.json({ detail: 'Server error' }, { status: 500, headers });
   }
 }
