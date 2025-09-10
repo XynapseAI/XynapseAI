@@ -52,7 +52,6 @@ const formatLargeNumber = (value, currency, decimals = 2) => {
 
 const mapExchangeId = (id) => EXCHANGE_MAPPING[id.toLowerCase()] || id.toLowerCase();
 
-// Cache helper functions (được giữ lại để tương thích với các phần khác nếu cần)
 const getCachedData = (key, ttl = 3600 * 1000) => {
   try {
     const cached = localStorage.getItem(key);
@@ -127,7 +126,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const [btcPrice, setBtcPrice] = useState(null);
   const [dogePrice, setDogePrice] = useState(null);
   const [ltcPrice, setLtcPrice] = useState(null);
-  const [isLoadingPrices, setIsLoadingPrices] = useState(false); // Thay thế các state loading riêng lẻ
+  const [isLoadingPrices, setIsLoadingPrices] = useState(false);
   const [selectedChain, setSelectedChain] = useState("all");
   const [toggledToken, setToggledToken] = useState(null);
   const portfolioRef = useRef(null);
@@ -154,7 +153,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   useEffect(() => {
     const fetchChainLogos = async () => {
       const cacheKey = `coingecko:chains`;
-      const cachedLogos = getCachedData(cacheKey, 24 * 60 * 60 * 1000); // 24 giờ
+      const cachedLogos = getCachedData(cacheKey, 24 * 60 * 60 * 1000);
       if (cachedLogos) {
         setChainLogos(cachedLogos);
         logger.info(`Cache hit for chain logos from localStorage`);
@@ -195,7 +194,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   // Fetch exchange data with local cache
   const fetchExchangeData = async (originalId, mappedId) => {
     const cacheKey = `coingecko:exchange-details:${mappedId}:${currency}`;
-    const cachedData = getCachedData(cacheKey, 4 * 60 * 60 * 1000); // 4 giờ
+    const cachedData = getCachedData(cacheKey, 4 * 60 * 60 * 1000);
     if (cachedData) {
       setExchangeData(cachedData);
       logger.info(`Cache hit for exchange data: ${mappedId} from localStorage`);
@@ -292,22 +291,31 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const fetchPortfolioAndWallets = async (exchangeId) => {
     setIsLoadingPortfolio(true);
     setIsLoadingWallets(true);
-    setIsLoadingPrices(true); // Bắt đầu loading giá
+    setIsLoadingPrices(true); 
     try {
       logger.info(`Fetching portfolio/wallet data and prices for exchange: ${exchangeId}`);
 
-      // Lấy CSRF token từ cookie
       const csrfToken = document.cookie.split('; ').find(row => row.startsWith('csrf_token='))?.split('=')[1] || 'dev-csrf';
 
-      // Tích hợp reCAPTCHA
+      const maxRetries = 3;
       let recaptchaToken = 'development-token';
       if (process.env.NODE_ENV !== 'development') {
-        try {
-          await loadScript('https://www.google.com/recaptcha/api.js?render=' + process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY);
-          recaptchaToken = await window.grecaptcha.execute(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY, { action: 'token_cluster' });
-        } catch (err) {
-          logger.error('Error generating reCAPTCHA token:', { error: err.message });
-          throw new Error('Failed to generate reCAPTCHA token');
+        if (!recaptchaRef.current) {
+          logger.error('reCAPTCHA ref is not available');
+          throw new Error('reCAPTCHA component not initialized');
+        }
+        for (let i = 0; i < maxRetries; i++) {
+          try {
+            recaptchaToken = await recaptchaRef.current.executeAsync();
+            logger.info('reCAPTCHA token generated successfully', { tokenLength: recaptchaToken?.length });
+            break;
+          } catch (err) {
+            logger.warn(`reCAPTCHA token generation failed (attempt ${i + 1}): ${err.message}`);
+            if (i === maxRetries - 1) {
+              throw new Error('Failed to generate reCAPTCHA token after retries');
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
         }
       }
 
@@ -376,6 +384,9 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       setIsLoadingPortfolio(false);
       setIsLoadingWallets(false);
       setIsLoadingPrices(false);
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+      }
     }
   };
 
@@ -388,149 +399,149 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
   // Fetch transactions with authenticated cache
   const fetchTransactions = async (input, minValueUsd = null) => {
-  if (status !== "authenticated") {
-    setTransactionsError("Please log in to access transaction data.");
-    setIsLoadingTransactions(false);
-    return;
-  }
-  setIsLoadingTransactions(true);
-  setTransactionsError(null);
-  try {
-    const walletAddresses = Array.isArray(input)
-      ? input
+    if (status !== "authenticated") {
+      setTransactionsError("Please log in to access transaction data.");
+      setIsLoadingTransactions(false);
+      return;
+    }
+    setIsLoadingTransactions(true);
+    setTransactionsError(null);
+    try {
+      const walletAddresses = Array.isArray(input)
+        ? input
           .filter((w) => !["bitcoin", "dogecoin", "litecoin"].includes(w.chain?.toLowerCase()))
           .map((w) => (typeof w === "string" ? w : w.holder_address))
           .filter(Boolean)
-      : [input].filter(Boolean);
-    if (!walletAddresses.length) {
-      throw new Error("No valid wallet addresses provided");
-    }
-
-    const cacheKey = `sim:transactions:auth:${walletAddresses.join(',')}:${minValueUsd || 'none'}`;
-    const cachedData = getCachedData(cacheKey, 60 * 1000);
-    if (cachedData) {
-      setTransactions(cachedData);
-      logger.info(`Cache hit for transactions: ${cacheKey} from localStorage`);
-      return;
-    }
-
-    const requestBody = {
-      action: "transactions",
-      addresses: walletAddresses,
-    };
-    if (minValueUsd !== null) {
-      requestBody.minValueUsd = minValueUsd;
-    }
-
-    const response = await fetch(`/api/sim`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-      },
-      credentials: "include",
-      body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(70000),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      let errorMessage = `Failed to fetch transactions: ${response.status} ${response.statusText}`;
-      try {
-        const result = JSON.parse(text);
-        errorMessage = result.detail || errorMessage;
-      } catch {
-      }
-      throw new Error(errorMessage);
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let transactionsData = [];
-    let buffer = '';
-    let isFirstChunk = true;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-
-      if (isFirstChunk) {
-        buffer = buffer.trim().replace(/^\[/, '');
-        isFirstChunk = false;
+        : [input].filter(Boolean);
+      if (!walletAddresses.length) {
+        throw new Error("No valid wallet addresses provided");
       }
 
-      let pos = 0;
-      while (pos < buffer.length) {
-        while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
-          pos++;
+      const cacheKey = `sim:transactions:auth:${walletAddresses.join(',')}:${minValueUsd || 'none'}`;
+      const cachedData = getCachedData(cacheKey, 60 * 1000);
+      if (cachedData) {
+        setTransactions(cachedData);
+        logger.info(`Cache hit for transactions: ${cacheKey} from localStorage`);
+        return;
+      }
+
+      const requestBody = {
+        action: "transactions",
+        addresses: walletAddresses,
+      };
+      if (minValueUsd !== null) {
+        requestBody.minValueUsd = minValueUsd;
+      }
+
+      const response = await fetch(`/api/sim`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+        },
+        credentials: "include",
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(70000),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        let errorMessage = `Failed to fetch transactions: ${response.status} ${response.statusText}`;
+        try {
+          const result = JSON.parse(text);
+          errorMessage = result.detail || errorMessage;
+        } catch {
         }
-        if (pos >= buffer.length) break;
+        throw new Error(errorMessage);
+      }
 
-        if (buffer[pos] === '{') {
-          let openBraces = 1;
-          let start = pos;
-          pos++;
-          while (pos < buffer.length && openBraces > 0) {
-            if (buffer[pos] === '{') openBraces++;
-            else if (buffer[pos] === '}') openBraces--;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let transactionsData = [];
+      let buffer = '';
+      let isFirstChunk = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        if (isFirstChunk) {
+          buffer = buffer.trim().replace(/^\[/, '');
+          isFirstChunk = false;
+        }
+
+        let pos = 0;
+        while (pos < buffer.length) {
+          while (pos < buffer.length && (buffer[pos] === ' ' || buffer[pos] === '\n' || buffer[pos] === ',' || buffer[pos] === ']')) {
             pos++;
           }
+          if (pos >= buffer.length) break;
 
-          if (openBraces === 0) {
-            const objStr = buffer.substring(start, pos).trim();
-            try {
-              const parsedObj = JSON.parse(objStr);
-              if (parsedObj.detail) {
-                throw new Error(parsedObj.detail);
+          if (buffer[pos] === '{') {
+            let openBraces = 1;
+            let start = pos;
+            pos++;
+            while (pos < buffer.length && openBraces > 0) {
+              if (buffer[pos] === '{') openBraces++;
+              else if (buffer[pos] === '}') openBraces--;
+              pos++;
+            }
+
+            if (openBraces === 0) {
+              const objStr = buffer.substring(start, pos).trim();
+              try {
+                const parsedObj = JSON.parse(objStr);
+                if (parsedObj.detail) {
+                  throw new Error(parsedObj.detail);
+                }
+                transactionsData.push(parsedObj);
+                // Cập nhật state sau mỗi chunk
+                setTransactions([...transactionsData]);
+              } catch (parseError) {
+                console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
               }
-              transactionsData.push(parsedObj);
-              // Cập nhật state sau mỗi chunk
-              setTransactions([...transactionsData]);
-            } catch (parseError) {
-              console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
+            } else {
+              break;
             }
           } else {
-            break;
+            pos++;
           }
-        } else {
-          pos++;
+        }
+
+        buffer = buffer.slice(pos).trim();
+      }
+
+      if (buffer) {
+        buffer = buffer.replace(/\]$/, '').trim();
+        if (buffer.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(buffer);
+            if (!parsed.detail) {
+              transactionsData.push(parsed);
+              setTransactions([...transactionsData]); // Cập nhật lần cuối
+            } else {
+              throw new Error(parsed.detail);
+            }
+          } catch (e) {
+            console.error(`Error parsing final buffer: ${e.message}`, { buffer });
+          }
         }
       }
 
-      buffer = buffer.slice(pos).trim();
+      setCachedData(cacheKey, transactionsData);
+      logger.log("Fetched and cached transactions:", { walletAddresses, minValueUsd, data: transactionsData });
+    } catch (err) {
+      const errorMessage = err.message || "Unknown error fetching transactions";
+      logger.error("Error fetching transactions:", { input, minValueUsd, error: errorMessage, stack: err.stack });
+      setTransactions([]);
+      setTransactionsError(errorMessage);
+      toast.error(errorMessage, { position: "top-center", autoClose: 3000 });
+    } finally {
+      setIsLoadingTransactions(false);
     }
-
-    if (buffer) {
-      buffer = buffer.replace(/\]$/, '').trim();
-      if (buffer.startsWith('{')) {
-        try {
-          const parsed = JSON.parse(buffer);
-          if (!parsed.detail) {
-            transactionsData.push(parsed);
-            setTransactions([...transactionsData]); // Cập nhật lần cuối
-          } else {
-            throw new Error(parsed.detail);
-          }
-        } catch (e) {
-          console.error(`Error parsing final buffer: ${e.message}`, { buffer });
-        }
-      }
-    }
-
-    setCachedData(cacheKey, transactionsData);
-    logger.log("Fetched and cached transactions:", { walletAddresses, minValueUsd, data: transactionsData });
-  } catch (err) {
-    const errorMessage = err.message || "Unknown error fetching transactions";
-    logger.error("Error fetching transactions:", { input, minValueUsd, error: errorMessage, stack: err.stack });
-    setTransactions([]);
-    setTransactionsError(errorMessage);
-    toast.error(errorMessage, { position: "top-center", autoClose: 3000 });
-  } finally {
-    setIsLoadingTransactions(false);
-  }
-};
+  };
 
   // Fetch wallet transactions with authenticated cache
   const fetchWalletTransactions = async (walletAddress) => {

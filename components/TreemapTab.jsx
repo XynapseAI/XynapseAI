@@ -44,7 +44,24 @@ const isValidNametagImage = (image) => {
   return image && image !== '/icons/default.webp';
 };
 
-const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType }) => {
+// List of supported chains
+const SUPPORTED_CHAINS = [
+  '1', // Ethereum
+  '56', // BNB Chain
+  '10', // Optimism
+  '130', // Unichain
+  '137', // Polygon
+  '5000', // Mantle
+  '42161', // Arbitrum
+  '43114', // Avalanche C
+  '59144', // Linea
+  '534352', // Scroll
+  '7777777', // Zora
+  'solana', // Solana
+  'tron', // Tron
+];
+
+const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
   const handleTxClick = (txHash) => {
     const explorerUrl = getExplorerUrls(selectedChain)?.tx + txHash;
     if (explorerUrl) {
@@ -67,10 +84,18 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
     });
   };
 
-  // Filter transactions based on filterType
+  // Filter transactions based on filterType and rootAddress. Use txHash for consistency.
   const filteredTransactions = transactions.filter((tx) => {
     if (filterType === 'all') return true;
-    return tx.type === filterType;
+    // For incoming: only show if it's incoming to root (global filter)
+    if (filterType === 'incoming') {
+      return tx.type === 'incoming' && tx.target?.toLowerCase() === rootAddress?.toLowerCase();
+    }
+    // For outgoing: only show if it's outgoing from root (global filter)
+    if (filterType === 'outgoing') {
+      return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootAddress?.toLowerCase();
+    }
+    return false;
   });
 
   return (
@@ -213,13 +238,13 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
                   </td>
                   <td className="px-2 py-2 text-white/80 text-[8px] sm:text-[10px] text-center">
                     <div className="flex flex-col items-center gap-0.5">
-                      <a href={getExplorerUrls(selectedChain)?.tx + tx.txHash} target="_blank" rel="noopener noreferrer" onClick={() => handleTxClick(tx.txHash)}>
+                      <a href={getExplorerUrls(selectedChain)?.tx + tx.txHash} target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); handleTxClick(tx.txHash); }}>
                         <img
                           src="/logos/etherscan-logo.webp"
                           alt="Etherscan"
                           width={isMobile ? 10 : 12}
                           height={isMobile ? 10 : 12}
-                          className="rounded-full mx-auto"
+                          className="rounded-full mx-auto cursor-pointer"
                           onError={(e) => (e.target.src = '/icons/default.webp')}
                           loading="lazy"
                         />
@@ -263,6 +288,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [isMobile, setIsMobile] = useState(false);
   const [coingeckoChains, setCoingeckoChains] = useState([]);
   const [tokenImages, setTokenImages] = useState({});
+  const [fullIncomingData, setFullIncomingData] = useState([]); // Store full incoming data
+  const [fullOutgoingData, setFullOutgoingData] = useState([]); // Store full outgoing data
   const cyRef = useRef(null);
   const containerRef = useRef(null);
   const chainDropdownRef = useRef(null);
@@ -275,6 +302,25 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [selectedEntity, setSelectedEntity] = useState({ type: null, data: { transactions: [] } });
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+
+  // Reset selectedEntity when filterType changes to avoid stale data
+  useEffect(() => {
+    setSelectedEntity({ type: null, data: { transactions: [] } });
+  }, [filterType]);
+
+  // Re-aggregate and re-init graph when filterType changes (using full data)
+  useEffect(() => {
+    if (fullIncomingData.length > 0 || fullOutgoingData.length > 0) {
+      const { nodes: newNodes, edges: newEdges } = aggregateWallets(fullIncomingData, fullOutgoingData, walletAddress, page, filterType);
+      setNodes(newNodes);
+      setEdges(newEdges);
+      // Re-init cytoscape to update graph
+      if (cyRef.current) {
+        cyRef.current.destroy();
+      }
+      setTimeout(() => initializeCytoscape(), 100); // Small delay to ensure DOM ready
+    }
+  }, [filterType, fullIncomingData, fullOutgoingData, walletAddress, page]);
 
   // Fetch token images from database and fallback to CoinGecko
   useEffect(() => {
@@ -448,7 +494,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         : tx.block_time;
     };
 
-    // Filter transactions based on filterType
+    // Filter transactions based on filterType for graph (nodes/edges)
     const filteredIncoming = filterType === 'all' || filterType === 'incoming' ? incomingData : [];
     const filteredOutgoing = filterType === 'all' || filterType === 'outgoing' ? outgoingData : [];
 
@@ -480,7 +526,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             target: rootAddress.toLowerCase(),
             value: Number(tx.value).toFixed(6),
             type: 'incoming',
-            txHash: tx.hash,
+            txHash: tx.hash, // Fixed: use txHash
             block_time: tx.block_time,
             tokenSymbol: tx.tokenSymbol,
             contractAddress: tx.contractAddress,
@@ -498,7 +544,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             target: tx.address.toLowerCase(),
             value: Number(tx.value).toFixed(6),
             type: 'outgoing',
-            txHash: tx.hash,
+            txHash: tx.hash, // Fixed: use txHash
             block_time: tx.block_time,
             tokenSymbol: tx.tokenSymbol,
             contractAddress: tx.contractAddress,
@@ -526,16 +572,36 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       return;
     }
 
-    const cacheKey = `graph_${selectedChain}_${address}_${page}_${filterType}`;
+    if (!SUPPORTED_CHAINS.includes(selectedChain)) {
+      toast.error('Selected chain is not supported.', {
+        position: 'top-center',
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: 'dark',
+      });
+      return;
+    }
+
+    // Cache key without filterType to store full data
+    const cacheKey = `graph_full_${selectedChain}_${address}_${page}`;
     const cached = await getCachedData(cacheKey);
     if (cached) {
-      setNodes(cached.nodes);
-      setEdges(cached.edges);
-      setWalletInfo(cached.wallet);
-      setNametags(cached.nametags);
+      setFullIncomingData(cached.incoming || []);
+      setFullOutgoingData(cached.outgoing || []);
+      setNodes(cached.nodes || []);
+      setEdges(cached.edges || []);
+      setWalletInfo(cached.wallet || walletInfo);
+      setNametags(cached.nametags || {});
       setWalletAddress(address);
       updateUrl(selectedChain, address);
-      logger.log('Cached walletInfo.image:', cached.wallet.image);
+      logger.log('Cached walletInfo.image:', cached.wallet?.image);
+      // Re-aggregate for current filterType
+      const { nodes: newNodes, edges: newEdges } = aggregateWallets(cached.incoming || [], cached.outgoing || [], address, page, filterType);
+      setNodes(newNodes);
+      setEdges(newEdges);
       return;
     }
 
@@ -564,7 +630,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
 
       const data = JSON.parse(result);
-      if (!data.incoming || !data.outgoing) {
+      if (data.error) {
         throw new Error(data.error || 'Invalid response from API.');
       }
 
@@ -582,6 +648,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         setNodes([]);
         setEdges([]);
         setNametags({});
+        setFullIncomingData([]);
+        setFullOutgoingData([]);
         setWalletInfo({ address: '', nametag: 'Unknown', image: null, chainLogo: '/icons/default.webp' });
         setLoading(false);
         setLoadingMessage('');
@@ -589,37 +657,53 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
 
       logger.log('API response walletInfo.image:', data.wallet.image);
-      const { nodes, edges, nametags } = aggregateWallets(data.incoming, data.outgoing, address, page, filterType);
-      await cacheData(cacheKey, { nodes, edges, wallet: data.wallet, nametags }, CACHE_TTL);
+      // Store full data
+      setFullIncomingData(data.incoming);
+      setFullOutgoingData(data.outgoing);
+      // Aggregate for current filterType
+      const { nodes, edges, nametags: newNametags } = aggregateWallets(data.incoming, data.outgoing, address, page, filterType);
+      await cacheData(cacheKey, { 
+        incoming: data.incoming, 
+        outgoing: data.outgoing, 
+        nodes, 
+        edges, 
+        wallet: data.wallet, 
+        nametags: newNametags 
+      }, CACHE_TTL);
       setNodes((prev) => page === 1 ? nodes : [...prev, ...nodes]);
       setEdges((prev) => page === 1 ? edges : [...prev, ...edges]);
-      setNametags((prev) => ({ ...prev, ...nametags }));
+      setNametags((prev) => ({ ...prev, ...newNametags }));
       setWalletInfo(data.wallet);
       setWalletAddress(address);
       updateUrl(selectedChain, address);
     } catch (err) {
       logger.error(`Error: ${err.message}`);
-      toast.error(`Failed to fetch transactions: ${err.message}`, {
-        position: 'top-center',
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        theme: 'dark',
-      });
-      setNodes([]);
-      setEdges([]);
-      setNametags({});
-      setWalletInfo({ address: '', nametag: 'Unknown', image: null, chainLogo: '/icons/default.webp' });
+      // Only show error toast for actual API failures
+      if (nodes.length === 0 && edges.length === 0) {
+        toast.error(`Failed to fetch transactions: ${err.message}`, {
+          position: 'top-center',
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: 'dark',
+        });
+        setNodes([]);
+        setEdges([]);
+        setNametags({});
+        setFullIncomingData([]);
+        setFullOutgoingData([]);
+        setWalletInfo({ address: '', nametag: 'Unknown', image: null, chainLogo: '/icons/default.webp' });
+      }
     } finally {
       setLoading(false);
       setLoadingMessage('');
     }
-  }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType]);
+  }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]); // Removed nodes, edges from deps to avoid loop
 
   const initializeCytoscape = useCallback(() => {
-    if (!containerRef.current || !nodes.length) return;
+    if (!containerRef.current || !nodes.length || !walletInfo.address) return;
 
     try {
       logger.log('walletInfo.image for root node:', walletInfo.image);
@@ -693,10 +777,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             const cluster = clusters.find((c) => c.wallets.some((w) => w.id === data.id));
             const clusterLabel = data.isRoot ? (walletInfo.nametag || 'Unknown') : (cluster ? cluster.nametag : 'Unknown');
             const image = data.isRoot ? walletInfo.image : data.image;
+            const nametag = data.isRoot ? '' : (data.label !== 'Unknown' ? data.label : truncateAddress(data.id));
             logger.log(`Rendering node label for ${data.id}, isRoot: ${data.isRoot}, image: ${image}`);
             return `
             <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[9px] py-1 px-2 rounded">
-              ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : ''}
+              ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}</div>`}
               <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol}</div>
             </div>
           `;
@@ -707,14 +792,36 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       cyRef.current.on('mouseover', 'node', (evt) => {
         const node = evt.target;
         const walletId = node.data('id');
+        const rootId = walletInfo.address.toLowerCase();
+        const isRootNode = node.data('isRoot');
         const cluster = clusters.find((c) => c.wallets.some((w) => w.id === walletId));
-        if (cluster && !node.data('isRoot')) {
+        if (cluster && !isRootNode) {
           logger.log('Hover cluster:', cluster);
-          setSelectedEntity({ type: 'cluster', data: cluster });
+          // For cluster, filter transactions related to cluster wallets, but respect global filter for root-related
+          let clusterTxs = cluster.transactions || [];
+          if (filterType !== 'all') {
+            // If filter is incoming/outgoing, only include if related to root
+            clusterTxs = clusterTxs.filter((tx) => {
+              if (filterType === 'incoming') return tx.type === 'incoming' && tx.target?.toLowerCase() === rootId;
+              if (filterType === 'outgoing') return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootId;
+              return false;
+            });
+          }
+          setSelectedEntity({ type: 'cluster', data: { ...cluster, transactions: clusterTxs } });
         } else {
-          const relatedTxs = edges
-            .map((edge) => edge.data)
+          // For node (including root)
+          let relatedTxs = edges
+            .map((edge) => ({ ...edge.data, type: edge.data.type })) // Ensure type is present
             .filter((tx) => tx.source === walletId || tx.target === walletId);
+          if (isRootNode && filterType !== 'all') {
+            // For root node, apply global filter
+            relatedTxs = relatedTxs.filter((tx) => {
+              if (filterType === 'incoming') return tx.type === 'incoming';
+              if (filterType === 'outgoing') return tx.type === 'outgoing';
+              return false;
+            });
+          }
+          // For non-root node, show all related tx (no global filter on non-root)
           logger.log('Hover node:', walletId, relatedTxs);
           setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
         }
@@ -731,7 +838,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     } catch (err) {
       logger.error('Error initializing Cytoscape:', err);
     }
-  }, [nodes, edges, isMobile, walletInfo.nametag, walletInfo.image]);
+  }, [nodes, edges, walletInfo, filterType, walletAddress]); // Added walletAddress to deps
 
   useEffect(() => {
     initializeCytoscape();
@@ -754,20 +861,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   useEffect(() => {
     const chainFromUrl = searchParams.get('chain') || initialChain;
     const addressFromUrl = searchParams.get('address') || initialAddress;
-    if (chains.some((c) => c.value === chainFromUrl)) {
+    if (SUPPORTED_CHAINS.includes(chainFromUrl)) {
       setSelectedChain(chainFromUrl);
+    } else {
+      setSelectedChain('1'); // Default to Ethereum if chain is not supported
     }
-    if (addressFromUrl && isAddress(addressFromUrl)) {
+    if (addressFromUrl && (isAddress(addressFromUrl) || ['solana', 'tron'].includes(chainFromUrl))) {
       setWalletAddress(addressFromUrl);
-      fetchTransactions(addressFromUrl);
+      // Fetch if address from URL
+      fetchTransactions(addressFromUrl, 1);
     }
-  }, [searchParams, initialChain, initialAddress, fetchTransactions]);
-
-  useEffect(() => {
-    if (walletAddress) {
-      fetchTransactions(walletAddress, 1);
-    }
-  }, [filterType, fetchTransactions, walletAddress]);
+  }, [searchParams, initialChain, initialAddress]);
 
   useEffect(() => {
     const fetchCoingeckoChains = async () => {
@@ -814,6 +918,35 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       return newPage;
     });
   }, [fetchTransactions, walletAddress]);
+
+  const handleSearch = useCallback(() => {
+    if (
+      (['solana', 'tron'].includes(selectedChain) && walletAddress.match(/^[A-Za-z0-9]{32,44}$/)) ||
+      (!['solana', 'tron'].includes(selectedChain) && isAddress(walletAddress))
+    ) {
+      // Reset page and full data before fetch
+      setPage(1);
+      setFullIncomingData([]);
+      setFullOutgoingData([]);
+      fetchTransactions(walletAddress, 1);
+    } else {
+      toast.error('Invalid wallet address.', {
+        position: 'top-center',
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: 'dark',
+      });
+    }
+  }, [walletAddress, selectedChain, fetchTransactions]);
+
+  // Handle filter change without refetch (use full data)
+  const handleFilterChange = useCallback((newFilterType) => {
+    setFilterType(newFilterType);
+    // No refetch, just re-aggregate
+  }, []);
 
   const mappedChains = coingeckoChains.length > 0 ? mapCoinGeckoChains(coingeckoChains) : chains;
 
@@ -874,57 +1007,62 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 </motion.button>
                 {isChainDropdownOpen && (
                   <div className="absolute bg-black/50 rounded-xl mt-1 w-36 max-h-56 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-xs z-50">
-                    {mappedChains.map((chain) => (
-                      <motion.button
-                        key={chain.value}
-                        onClick={() => {
-                          if (!isPremium && chain.value !== '1') {
-                            toast.error('Premium account required to select this chain.', {
-                              position: 'top-center',
-                              autoClose: 5000,
-                              hideProgressBar: false,
-                              closeOnClick: true,
-                              pauseOnHover: true,
-                              draggable: true,
-                              theme: 'dark',
-                            });
-                            return;
-                          }
-                          setSelectedChain(chain.value);
-                          setIsChainDropdownOpen(false);
-                          updateUrl(chain.value, walletAddress);
-                          if (walletAddress) fetchTransactions(walletAddress, 1);
-                        }}
-                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1.5 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        whileHover={{ scale: !isPremium && chain.value !== '1' ? 1 : 1.05 }}
-                        whileTap={{ scale: !isPremium && chain.value !== '1' ? 1 : 0.95 }}
-                      >
-                        <img
-                          src={chain.image}
-                          alt={`${chain.label} logo`}
-                          width={isMobile ? 12 : 16}
-                          height={isMobile ? 12 : 16}
-                          className="mr-2 rounded-xl"
-                          loading="lazy"
-                        />
-                        {chain.label}
-                        {!isPremium && chain.value !== '1' && (
-                          <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
-                            <img
-                              src="/icons/crown.webp"
-                              alt="Premium required"
-                              width={isMobile ? 10 : 12}
-                              height={isMobile ? 10 : 12}
-                              className="opacity-80"
-                              loading="lazy"
-                            />
-                            <span className="absolute hidden group-hover:block bg-white/5 border border-white/10 text-white/80 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
-                              Premium required
+                    {mappedChains
+                      .filter((chain) => SUPPORTED_CHAINS.includes(chain.value))
+                      .map((chain) => (
+                        <motion.button
+                          key={chain.value}
+                          onClick={() => {
+                            if (!isPremium && chain.value !== '1') {
+                              toast.error('Premium account required to select this chain.', {
+                                position: 'top-center',
+                                autoClose: 5000,
+                                hideProgressBar: false,
+                                closeOnClick: true,
+                                pauseOnHover: true,
+                                draggable: true,
+                                theme: 'dark',
+                              });
+                              return;
+                            }
+                            setSelectedChain(chain.value);
+                            setIsChainDropdownOpen(false);
+                            updateUrl(chain.value, walletAddress);
+                            // Reset full data and refetch for new chain
+                            setFullIncomingData([]);
+                            setFullOutgoingData([]);
+                            if (walletAddress) handleSearch();
+                          }}
+                          className={`flex items-center w-full text-left px-2 sm:px-3 py-1.5 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          whileHover={{ scale: !isPremium && chain.value !== '1' ? 1 : 1.05 }}
+                          whileTap={{ scale: !isPremium && chain.value !== '1' ? 1 : 0.95 }}
+                        >
+                          <img
+                            src={chain.image}
+                            alt={`${chain.label} logo`}
+                            width={isMobile ? 12 : 16}
+                            height={isMobile ? 12 : 16}
+                            className="mr-2 rounded-xl"
+                            loading="lazy"
+                          />
+                          {chain.label}
+                          {!isPremium && chain.value !== '1' && (
+                            <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
+                              <img
+                                src="/icons/crown.webp"
+                                alt="Premium required"
+                                width={isMobile ? 10 : 12}
+                                height={isMobile ? 10 : 12}
+                                className="opacity-80"
+                                loading="lazy"
+                              />
+                              <span className="absolute hidden group-hover:block bg-white/5 border border-white/10 text-white/80 text-[8px] sm:text-[9px] rounded p-1 -top-5 right-0">
+                                Premium required
+                              </span>
                             </span>
-                          </span>
-                        )}
-                      </motion.button>
-                    ))}
+                          )}
+                        </motion.button>
+                      ))}
                   </div>
                 )}
               </div>
@@ -958,7 +1096,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                           }
                           setSelectedLimit(limit);
                           setIsLimitDropdownOpen(false);
-                          if (walletAddress) fetchTransactions(walletAddress, 1);
+                          // Reset full data and refetch for new limit
+                          setFullIncomingData([]);
+                          setFullOutgoingData([]);
+                          if (walletAddress) handleSearch();
                         }}
                         className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && limit > 200 ? 'opacity-50 cursor-not-allowed' : ''}`}
                         whileHover={{ scale: !isPremium && limit > 200 ? 1 : 1.05 }}
@@ -987,7 +1128,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               </div>
               <select
                 value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
+                onChange={(e) => handleFilterChange(e.target.value)} // Changed: no refetch
                 className="bg-black/10 backdrop-blur-sm border border-white/10 text-white px-2 py-1 rounded text-[9px] sm:text-[10px]"
               >
                 <option value="all">All Transactions</option>
@@ -1001,18 +1142,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 placeholder="Search wallet (0x...)"
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
-                className="bg-black/10 text-white px-2 sm:px-3 py-1.5 rounded-lg text-[9px] sm:text-[10px] w-full sm:w-64 border border-white/20 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 pr-8"
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter' && (
-                    (['solana', 'tron'].includes(selectedChain) && walletAddress.match(/^[A-Za-z0-9]{32,44}$/)) ||
-                    (!['solana', 'tron'].includes(selectedChain) && isAddress(walletAddress))
-                  )) {
-                    fetchTransactions(walletAddress, 1);
+                  if (e.key === 'Enter') {
+                    handleSearch();
                   }
                 }}
+                className="bg-black/10 text-white px-2 sm:px-3 py-1.5 rounded-lg text-[9px] sm:text-[10px] w-full sm:w-64 border border-white/20 focus:outline-none focus:ring-2 focus:ring-neon-blue/50 hover:bg-neon-blue/20 transition-all duration-300 pr-8"
               />
               <motion.button
-                onClick={() => fetchTransactions(walletAddress, 1)}
+                onClick={handleSearch}
                 className="absolute right-1.5 text-white p-1 transition-all duration-300 rounded hover:bg-neon-blue/20"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -1071,6 +1209,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           tokenImages={tokenImages}
           nametags={nametags}
           filterType={filterType}
+          rootAddress={walletInfo.address}
         />
       </AnimatePresence>
 
