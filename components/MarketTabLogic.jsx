@@ -788,7 +788,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         }
 
         if (status !== 'authenticated') {
-          toast.info('Please log in to view top holders data.', { position: 'top-center', autoClose: 5000 });
           setIsLoadingOnChain(false);
           return;
         }

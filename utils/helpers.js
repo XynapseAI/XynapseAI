@@ -32,7 +32,7 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
 
 export const getExplorerUrls = (chain, hash, address) => {
   // Normalize chain name to lowercase to avoid case sensitivity issues
-  const normalizedChain = (chain || 'ethereum').toLowerCase();
+  const normalizedChain = (String(chain || 'ethereum')).toLowerCase();
   const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
   const explorer = CHAIN_EXPLORER_MAP[normalizedChain] || CHAIN_EXPLORER_MAP.ethereum;
 

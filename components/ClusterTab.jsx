@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useCallback } from 'react';
+import debounce from 'lodash/debounce';
 import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts";
 import { ToastContainer, toast } from "react-toastify";
@@ -17,7 +19,7 @@ import { SkeletonLoader, formatPrice, truncateAddress, LoadingOverlay, getExplor
 import "../styles/MarketTab.css";
 import "react-loading-skeleton/dist/skeleton.css";
 import { logger } from '../utils/clientLogger';
-import { loadScript } from '../utils/helpers';
+import { Virtuoso } from 'react-virtuoso';
 
 // Define logos for Bitcoin, Dogecoin, and Litecoin
 const BITCOIN_LOGO = "/logos/bitcoin.webp";
@@ -239,6 +241,20 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     }
   };
 
+  const debouncedSetTransactions = useCallback(
+    debounce((newTransactions) => {
+      setTransactions(newTransactions);
+    }, 100),
+    []
+  );
+
+  const debouncedSetWalletTransactions = useCallback(
+    debounce((newTransactions) => {
+      setWalletTransactions(newTransactions);
+    }, 100),
+    []
+  );
+
   // Fetch volume history with local cache
   const fetchVolumeHistory = async (exchangeId) => {
     if (!btcPrice || !dogePrice || !ltcPrice) {
@@ -400,14 +416,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         return;
       }
 
-      const requestBody = {
-        action: "transactions",
-        addresses: walletAddresses,
-      };
-      if (minValueUsd !== null) {
-        requestBody.minValueUsd = minValueUsd;
-      }
-
       const response = await fetch(`/api/sim`, {
         method: "POST",
         headers: {
@@ -415,7 +423,11 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
         },
         credentials: "include",
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          action: "transactions",
+          addresses: walletAddresses,
+          minValueUsd,
+        }),
         signal: AbortSignal.timeout(70000),
       });
 
@@ -426,6 +438,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           const result = JSON.parse(text);
           errorMessage = result.detail || errorMessage;
         } catch {
+          errorMessage = `Failed to fetch transactions: Invalid JSON response`;
         }
         throw new Error(errorMessage);
       }
@@ -472,10 +485,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   throw new Error(parsedObj.detail);
                 }
                 transactionsData.push(parsedObj);
-                // Cập nhật state sau mỗi chunk
-                setTransactions([...transactionsData]);
+                // Use debounced state update
+                debouncedSetTransactions([...transactionsData]);
               } catch (parseError) {
-                console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
+                logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
               }
             } else {
               break;
@@ -495,12 +508,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             const parsed = JSON.parse(buffer);
             if (!parsed.detail) {
               transactionsData.push(parsed);
-              setTransactions([...transactionsData]); // Cập nhật lần cuối
+              debouncedSetTransactions([...transactionsData]);
             } else {
               throw new Error(parsed.detail);
             }
           } catch (e) {
-            console.error(`Error parsing final buffer: ${e.message}`, { buffer });
+            logger.error(`Error parsing final buffer: ${e.message}`, { buffer });
           }
         }
       }
@@ -536,7 +549,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       }
 
       const cacheKey = `sim:transactions:auth:${walletAddress}:1000`;
-      const cachedData = getCachedData(cacheKey, 60 * 1000); // 1 phút
+      const cachedData = getCachedData(cacheKey, 60 * 1000);
       if (cachedData) {
         setWalletTransactions(cachedData);
         logger.info(`Cache hit for wallet transactions: ${cacheKey} from localStorage`);
@@ -611,8 +624,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   throw new Error(parsedObj.detail);
                 }
                 transactionsData.push(parsedObj);
+                // Use debounced state update
+                debouncedSetWalletTransactions([...transactionsData]);
               } catch (parseError) {
-                console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
+                logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
               }
             } else {
               break;
@@ -632,16 +647,16 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             const parsed = JSON.parse(buffer);
             if (!parsed.detail) {
               transactionsData.push(parsed);
+              debouncedSetWalletTransactions([...transactionsData]);
             } else {
               throw new Error(parsed.detail);
             }
           } catch (e) {
-            console.error(`Error parsing final buffer: ${e.message}`, { buffer });
+            logger.error(`Error parsing final buffer: ${e.message}`, { buffer });
           }
         }
       }
 
-      setWalletTransactions(transactionsData);
       setCachedData(cacheKey, transactionsData);
       logger.log("Fetched and cached wallet transactions:", { walletAddress, data: transactionsData });
     } catch (err) {
@@ -1135,8 +1150,174 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     if (status !== "authenticated") {
       return <LoginPrompt />;
     }
+
+    const renderTransactionRow = (index, tx) => {
+      const chainName = typeof tx.chain === "string" ? tx.chain.toLowerCase() : (tx.chain_id || "unknown").toString().toLowerCase();
+      if (["bitcoin", "dogecoin", "litecoin"].includes(chainName)) return null;
+
+      const fromWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
+      const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
+      const fromNtag = {
+        name: fromWallet.name_tag || "N/A",
+        image: fromWallet.name_tag_image || "/fallback-image.webp",
+      };
+      const toNtag = {
+        name: toWallet.name_tag || "N/A",
+        image: toWallet.name_tag_image || "/fallback-image.webp",
+      };
+      const chain = chainName !== "unknown" ? chainName : "ethereum";
+      const { txUrl } = getExplorerUrls(chain, tx.hash || "", "");
+      let tokenSymbol = tx.token_metadata?.symbol || tx.token || "Unknown";
+      const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
+      let displayValue = Number(tx.value || 0).toLocaleString("en-US", { maximumFractionDigits: 1 });
+      let tokenLogo = tx.token_metadata?.logo || "/fallback-image.webp";
+
+      if (tx.type === "swap" && tx.swap_details) {
+        const sent = tx.swap_details.sent[0];
+        const received = tx.swap_details.received[0];
+        if (sent && received) {
+          displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol} → ${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
+          tokenSymbol = `${sent.symbol}/${received.symbol}`;
+          tokenLogo = sent.logo || received.logo || "/fallback-image.webp";
+        } else if (sent) {
+          displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol}`;
+          tokenSymbol = sent.symbol;
+          tokenLogo = sent.logo || "/fallback-image.webp";
+        } else if (received) {
+          displayValue = `${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
+          tokenSymbol = received.symbol;
+          tokenLogo = received.logo || "/fallback-image.webp";
+        }
+      } else if (tx.type === "other") {
+        displayValue = tx.value || "N/A";
+      }
+
+      return (
+        <motion.div
+          key={`${tx.hash}-${index}`}
+          className="flex border-t border-white/10 hover:bg-white/5 transition-all duration-300 py-2"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: index * 0.02 }}
+        >
+          <div className="w-[12%] sm:w-[15%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+            <div className="flex flex-col items-center justify-center gap-1 relative">
+              <div className="relative flex-shrink-0">
+                <img
+                  src={tokenLogo}
+                  alt={`${tokenSymbol} logo`}
+                  width={isMobile ? 14 : 16}
+                  height={isMobile ? 14 : 16}
+                  className="rounded-full mx-auto"
+                  onError={(e) => (e.target.src = "/fallback-image.webp")}
+                  loading="lazy"
+                />
+                <img
+                  src={chainLogos[chain] || "/fallback-image.webp"}
+                  alt={`${CHAIN_ID_TO_NAME[chain] || chain || "Unknown"} logo`}
+                  width={isMobile ? 8 : 10}
+                  height={isMobile ? 8 : 10}
+                  className="rounded-full absolute top-0 right-0"
+                  style={{ transform: "translate(25%, -25%)" }}
+                  onError={(e) => (e.target.src = "/fallback-image.webp")}
+                  loading="lazy"
+                />
+              </div>
+              <span className="text-[7px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
+            </div>
+          </div>
+          <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+            <div className="flex items-center justify-center gap-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-3 sm:h-4 w-3 sm:w-4 text-neon-blue"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 5v14m7-7l-7 7-7-7" />
+              </svg>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 group relative">
+                  <img
+                    src={fromNtag.image}
+                    alt="From wallet logo"
+                    className="w-3 h-3 rounded-full"
+                    onError={(e) => (e.target.src = "/fallback-image.webp")}
+                    loading="lazy"
+                  />
+                  <button
+                    onClick={() => handleWalletClick(tx.from)}
+                    className="text-white hover:text-white/80 no-hover-effect truncate"
+                  >
+                    {truncateAddressWithHover(tx.from, fromNtag.name)}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 group relative">
+                  <img
+                    src={toNtag.image}
+                    alt="To wallet logo"
+                    className="w-3 h-3 rounded-full"
+                    onError={(e) => (e.target.src = "/fallback-image.webp")}
+                    loading="lazy"
+                  />
+                  <button
+                    onClick={() => handleWalletClick(tx.to)}
+                    className="text-white hover:text-white/80 no-hover-effect truncate"
+                  >
+                    {truncateAddressWithHover(tx.to, toNtag.name)}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="w-[20%] sm:w-[20%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+            <div className="flex flex-col items-center gap-1">
+              <span
+                className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium ${tx.type === "receive"
+                    ? "bg-neon-green/20 text-neon-green"
+                    : tx.type === "send"
+                      ? "bg-neon-blue/20 text-neon-blue"
+                      : tx.type === "swap"
+                        ? "bg-purple-400/20 text-purple-400"
+                        : "bg-white/20 text-white/60"
+                  }`}
+              >
+                {typeDisplay}
+              </span>
+              <span className="truncate font-semibold text-[8px] sm:text-[10px]">{displayValue}</span>
+            </div>
+          </div>
+          <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+            <span className="font-semibold">{formatPrice(Number(tx.value_usd) || 0, currency, 2)}</span>
+          </div>
+          <div className="w-[10%] sm:w-[15%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
+            <div className="flex flex-col items-center gap-0.5">
+              <a href={txUrl} target="_blank" rel="noopener noreferrer">
+                <img
+                  src="/logos/etherscan-logo.webp"
+                  alt="Explorer"
+                  width={isMobile ? 12 : 14}
+                  height={isMobile ? 12 : 14}
+                  className="rounded-full"
+                  onError={(e) => (e.target.src = "/fallback-image.webp")}
+                  loading="lazy"
+                />
+              </a>
+              <span className="text-[6px] sm:text-[9px] text-white/60 truncate">
+                {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : "N/A"}
+              </span>
+            </div>
+          </div>
+        </motion.div>
+      );
+    };
+
     return (
-      <div className="relative overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <div className="relative overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar bg-black/5 rounded-xl">
         {isLoadingTransactions && (
           <LoadingOverlay
             isLoading={isLoadingTransactions}
@@ -1151,184 +1332,27 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             Error: {transactionsError}
           </p>
         ) : transactions.length > 0 ? (
-          <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
-            <thead className="border-b border-white/10 bg-black/10">
-              <tr>
-                <th className="w-[12%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Token</th>
-                <th className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">From/To</th>
-                <th className="w-[20%] sm:w-[20%] px-3 py-2 text-white font-medium text-center">Token Value</th>
-                <th className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">Value ({currency.toUpperCase()})</th>
-                <th className="w-[10%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((tx, index) => {
-                logger.log("Processing transaction:", { tx, index });
-                const chainName = typeof tx.chain === "string" ? tx.chain.toLowerCase() : (tx.chain_id || "unknown").toString().toLowerCase();
-                if (["bitcoin", "dogecoin", "litecoin"].includes(chainName)) return null;
-
-                const fromWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
-                const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
-                const fromNtag = {
-                  name: fromWallet.name_tag || "N/A",
-                  image: fromWallet.name_tag_image || "/fallback-image.webp",
-                };
-                const toNtag = {
-                  name: toWallet.name_tag || "N/A",
-                  image: toWallet.name_tag_image || "/fallback-image.webp",
-                };
-                const chain = chainName !== "unknown" ? chainName : "ethereum";
-                const { txUrl } = getExplorerUrls(chain, tx.hash || "", "");
-                let tokenSymbol = tx.token_metadata?.symbol || tx.token || "Unknown";
-                const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
-                let displayValue = Number(tx.value || 0).toLocaleString("en-US", { maximumFractionDigits: 1 });
-                let tokenLogo = tx.token_metadata?.logo || "/fallback-image.webp";
-
-                if (tx.type === "swap" && tx.swap_details) {
-                  const sent = tx.swap_details.sent[0];
-                  const received = tx.swap_details.received[0];
-                  if (sent && received) {
-                    displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol} → ${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
-                    tokenSymbol = `${sent.symbol}/${received.symbol}`;
-                    tokenLogo = sent.logo || received.logo || "/fallback-image.webp";
-                  } else if (sent) {
-                    displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol}`;
-                    tokenSymbol = sent.symbol;
-                    tokenLogo = sent.logo || "/fallback-image.webp";
-                  } else if (received) {
-                    displayValue = `${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
-                    tokenSymbol = received.symbol;
-                    tokenLogo = received.logo || "/fallback-image.webp";
-                  }
-                } else if (tx.type === "other") {
-                  displayValue = tx.value || "N/A";
-                }
-
-                return (
-                  <motion.tr
-                    key={`${tx.hash}-${index}`}
-                    className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.02 }}
-                  >
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[12%] sm:w-[10%] overflow-hidden text-ellipsis">
-                      <div className="flex flex-col items-center justify-center gap-1 relative">
-                        <div className="relative flex-shrink-0">
-                          <img
-                            src={tokenLogo}
-                            alt={`${tokenSymbol} logo`}
-                            width={isMobile ? 14 : 16}
-                            height={isMobile ? 14 : 16}
-                            className="rounded-full mx-auto"
-                            onError={(e) => (e.target.src = "/fallback-image.webp")}
-                            loading="lazy"
-                          />
-                          <img
-                            src={chainLogos[chain] || "/fallback-image.webp"}
-                            alt={`${CHAIN_ID_TO_NAME[chain] || chain || "Unknown"} logo`}
-                            width={isMobile ? 8 : 10}
-                            height={isMobile ? 8 : 10}
-                            className="rounded-full absolute top-0 right-0"
-                            style={{ transform: "translate(25%, -25%)" }}
-                            onError={(e) => (e.target.src = "/fallback-image.webp")}
-                            loading="lazy"
-                          />
-                        </div>
-                        <span className="text-[7px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
-                      </div>
-                    </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[8px] sm:text-[10px] text-center w-[30%] sm:w-[30%] overflow-hidden text-ellipsis">
-                      <div className="flex items-center justify-center gap-2">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-3 sm:h-4 w-3 sm:w-4 text-neon-blue"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M12 5v14m7-7l-7 7-7-7" />
-                        </svg>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2 group relative">
-                            <img
-                              src={fromNtag.image}
-                              alt="From wallet logo"
-                              className="w-3 h-3 rounded-full"
-                              onError={(e) => (e.target.src = "/fallback-image.webp")}
-                              loading="lazy"
-                            />
-                            <button
-                              onClick={() => handleWalletClick(tx.from)}
-                              className="text-white hover:text-white/80 no-hover-effect truncate"
-                            >
-                              {truncateAddressWithHover(tx.from, fromNtag.name)}
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-2 group relative">
-                            <img
-                              src={toNtag.image}
-                              alt="To wallet logo"
-                              className="w-3 h-3 rounded-full"
-                              onError={(e) => (e.target.src = "/fallback-image.webp")}
-                              loading="lazy"
-                            />
-                            <button
-                              onClick={() => handleWalletClick(tx.to)}
-                              className="text-white hover:text-white/80 no-hover-effect truncate"
-                            >
-                              {truncateAddressWithHover(tx.to, toNtag.name)}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[20%] sm:w-[25%] overflow-hidden text-ellipsis">
-                      <div className="flex flex-col items-center gap-1">
-                        <span
-                          className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium ${tx.type === "receive"
-                            ? "bg-neon-green/20 text-neon-green"
-                            : tx.type === "send"
-                              ? "bg-neon-blue/20 text-neon-blue"
-                              : tx.type === "swap"
-                                ? "bg-purple-400/20 text-purple-400"
-                                : "bg-white/20 text-white/60"
-                            }`}
-                        >
-                          {typeDisplay}
-                        </span>
-                        <span className="truncate font-semibold text-[8px] sm:text-[10px]">{displayValue}</span>
-                      </div>
-                    </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[8px] sm:text-[10px] text-center w-[30%] sm:w-[20%] overflow-hidden text-ellipsis">
-                      <span className="font-semibold">{formatPrice(Number(tx.value_usd) || 0, currency, 2)}</span>
-                    </td>
-                    <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[10%] sm:w-[15%] overflow-hidden text-ellipsis">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <a href={txUrl} target="_blank" rel="noopener noreferrer">
-                          <img
-                            src="/logos/etherscan-logo.webp"
-                            alt="Explorer"
-                            width={isMobile ? 12 : 14}
-                            height={isMobile ? 12 : 14}
-                            className="rounded-full"
-                            onError={(e) => (e.target.src = "/fallback-image.webp")}
-                            loading="lazy"
-                          />
-                        </a>
-                        <span className="text-[6px] sm:text-[9px] text-white/60 truncate">
-                          {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : "N/A"}
-                        </span>
-                      </div>
-                    </td>
-                  </motion.tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="w-full table-fixed text-[9px] sm:text-[11px]">
+            <div className="border-b border-white/10 bg-black/10 flex">
+              <div className="w-[12%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Token</div>
+              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">From/To</div>
+              <div className="w-[20%] sm:w-[20%] px-3 py-2 text-white font-medium text-center">Token Value</div>
+              <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">Value ({currency.toUpperCase()})</div>
+              <div className="w-[10%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Details</div>
+            </div>
+            <Virtuoso
+              className="hide-scrollbar virtuoso-container"
+              style={{ height: 'calc(50vh - 5rem)' }}
+              data={transactions}
+              itemContent={renderTransactionRow}
+              overscan={200}
+              components={{
+                EmptyPlaceholder: () => (
+                  <p className="text-[10px] sm:text-xs text-white/60 text-center">No transactions available.</p>
+                ),
+              }}
+            />
+          </div>
         ) : (
           <p className="text-[10px] sm:text-xs text-white/60 text-center">No large transactions available for this exchange.</p>
         )}
