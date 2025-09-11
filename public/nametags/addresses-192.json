@@ -3733,14 +3733,14 @@
       "vaults": {
         "Name Tag": "yearn: yCRV/1Inch Vault",
         "Token Name": "1INCH yVault (yv1INCH)",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       },
       "yearn-finance": {
         "Name Tag": "yearn: yCRV/1Inch Vault",
         "Description": "Yearn.Finance: Yield aggregator for lending platforms that rebalances for highest yield whenever the contract is interacted with.",
         "Subcategory": "Others",
         "Token Name": "1INCH yVault (yv1INCH)",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },
@@ -4081,7 +4081,7 @@
       "lido": {
         "Name Tag": "Lido: LIDO Vesting Recipient 1",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },

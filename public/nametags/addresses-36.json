@@ -1206,7 +1206,7 @@
         "Name Tag": "1inch: Aggregation Executor",
         "Description": "1inch Network is a DEX aggregator solution that searches deals across multiple liquidity sources, offering users better rates than individual exchanges.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },
@@ -2487,7 +2487,7 @@
         "Name Tag": "1inch: Team Investment Fund Collection",
         "Description": "1inch Network is a DEX aggregator solution that searches deals across multiple liquidity sources, offering users better rates than individual exchanges.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },

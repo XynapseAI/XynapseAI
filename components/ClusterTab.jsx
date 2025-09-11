@@ -1115,14 +1115,14 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                           <img
                             src={tokenLogo}
                             alt={`${wallet.chain} logo`}
-                            className="w-5 h-5 inline rounded-full"
+                            className="w-4 h-4 inline rounded-full"
                             onError={(e) => (e.target.src = "/fallback-image.webp")}
                           />
                         )}
                         <img
                           src={wallet.name_tag_image}
                           alt="Nametag logo"
-                          className="w-5 h-5 inline mr-2 rounded-full"
+                          className="w-4 h-4 inline mr-2 rounded-full"
                           onError={(e) => (e.target.src = "/fallback-image.webp")}
                         />
                         {truncateAddressWithHover(wallet.holder_address, wallet.name_tag)}

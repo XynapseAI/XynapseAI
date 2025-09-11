@@ -1542,7 +1542,7 @@
       "lido": {
         "Name Tag": "Lido: Node Operators Registry",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
@@ -2253,7 +2253,7 @@
         "Name Tag": "Zapper.Fi: 1Inch Zap In",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },

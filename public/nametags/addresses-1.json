@@ -353,12 +353,12 @@
         "Description": "1inch Network is a DEX aggregator solution that searches deals across multiple liquidity sources, offering users better rates than individual exchanges.",
         "Subcategory": "Main",
         "Token Name": "Chi Gastoken by 1inch (CHI)",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       },
       "blocked": {
         "Name Tag": "1inch: CHI Token",
         "Description": "These addresses have been blocked by a custodial stablecoin provider (such as USDT and USDC).",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },

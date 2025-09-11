@@ -478,7 +478,7 @@
       "lido": {
         "Name Tag": "Lido: EVM Script Executor",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
@@ -1689,7 +1689,7 @@
       "lido": {
         "Name Tag": "Lido: LIDO Vesting Recipient 8",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
@@ -2073,7 +2073,7 @@
       "lido": {
         "Name Tag": "Lido: Increase Node Operator Staking Limit",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },

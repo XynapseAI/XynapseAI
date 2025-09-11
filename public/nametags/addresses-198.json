@@ -1688,7 +1688,7 @@
       "compound-governance": {
         "Name Tag": "Compound Voting: 1inch.exchange",
         "Description": "Top voters in Compound's Governance Leaderboard.",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },

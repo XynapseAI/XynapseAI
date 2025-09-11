@@ -858,7 +858,7 @@
         "Name Tag": "Lido: wstETH Token",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
         "Token Name": "Wrapped liquid staked Ether 2.0 (wstETH)",
-        "image": "/icons/default.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },

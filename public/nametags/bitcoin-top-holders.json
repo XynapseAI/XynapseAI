@@ -115,7 +115,7 @@
         "Name Tag": "SilkRoad-FBI-Confiscated",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -139,7 +139,7 @@
         "Name Tag": "Mr.100",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -331,7 +331,7 @@
         "Name Tag": "967",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -619,7 +619,7 @@
         "Name Tag": "92995586",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -775,7 +775,7 @@
         "Name Tag": "111784770",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1111,7 +1111,7 @@
         "Name Tag": "82375777",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1303,7 +1303,7 @@
         "Name Tag": "559",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1483,7 +1483,7 @@
         "Name Tag": "45505834",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1639,7 +1639,7 @@
         "Name Tag": "107637282",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -2143,7 +2143,7 @@
         "Name Tag": "98590549",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -2407,7 +2407,7 @@
         "Name Tag": "Satoshi Nakamoto",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/bitcoin.webp"
+        "image": "/icons/satoshi.webp"
       }
     }
   }

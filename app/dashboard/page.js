@@ -523,7 +523,7 @@ export default function Dashboard() {
                         height={20}
                         className="w-5 h-5 object-contain mr-2"
                       />
-                      <MatrixHoverEffect text="Sign in with Google" hoverColor="#00BFFF" />
+                      <MatrixHoverEffect text="Sign in with Google"/>
                     </button>
                   )}
                   {error && (

@@ -1149,7 +1149,7 @@
       "lido": {
         "Name Tag": "Lido: Deposit Security Module",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
@@ -2010,7 +2010,7 @@
       "lido": {
         "Name Tag": "Lido: 1inch Liquidity Farming",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },

@@ -595,12 +595,12 @@
       "beacon-depositor": {
         "Name Tag": "Lido: Deployer 3",
         "Description": "An address that has deposited ETH into the Beacon Chain to become a validator.",
-        "image": "/icons/default.webp"
+        "image": "/icons/lido.webp"
       },
       "lido": {
         "Name Tag": "Lido: Deployer 3",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },

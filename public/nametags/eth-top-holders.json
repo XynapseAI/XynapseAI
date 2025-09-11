@@ -259,7 +259,7 @@
         "Name Tag": "Rain Lohmus",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -307,7 +307,7 @@
         "Name Tag": "Vb 3",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -427,7 +427,7 @@
         "Name Tag": "QuadrigaCX 4",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -571,7 +571,7 @@
         "Name Tag": "Iconomi: MultiSig 1",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1171,7 +1171,7 @@
         "Name Tag": "Liquity: Active Pool",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1195,7 +1195,7 @@
         "Name Tag": "Multisig Exploit Hacker",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   }

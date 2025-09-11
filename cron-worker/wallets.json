@@ -32,7 +32,23 @@
     "name": "BitMEX Hot Wallet"
   },
   {
-    "address": "0x18b0F4547A89fe4C5FE84F258BeA3601FA281e9f",
+    "address": "0x559432E18b281731c054cD703D4B49872BE4ed53",
+    "name": "OKX Hot Wallet"
+  },
+  {
+    "address": "0xA9D1e08C7793af67e9d92fe308d5697FB81d3E43",
+    "name": "Coinbase Hot Wallet"
+  },
+  {
+    "address": "0xA9D1e08C7793af67e9d92fe308d5697FB81d3E43",
+    "name": "Coinbase Hot Wallet"
+  },
+  {
+    "address": "0xcc9463117D7F6dE7289b7447EeFbCE18A04357f7",
+    "name": "Upbit Hot Wallet"
+  },
+  {
+    "address": "0x45300136662dD4e58fc0DF61E6290DFfD992B785",
     "name": "Kucoin Hot Wallet"
   }
 ]

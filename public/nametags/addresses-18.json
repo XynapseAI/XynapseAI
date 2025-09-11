@@ -3243,7 +3243,7 @@
         "Description": "1inch Network is a DEX aggregator solution that searches deals across multiple liquidity sources, offering users better rates than individual exchanges.",
         "Subcategory": "Others",
         "Token Name": "1INCH Token (1INCH)",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       },
       "defi": {
         "Token Name": "1INCH Token (1INCH)",
@@ -3263,7 +3263,7 @@
         "Name Tag": "1inch v3: Aggregation Router",
         "Description": "1inch Network is a DEX aggregator solution that searches deals across multiple liquidity sources, offering users better rates than individual exchanges.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },
@@ -3274,12 +3274,12 @@
         "Name Tag": "1inch v2: Aggregation Router",
         "Description": "1inch Network is a DEX aggregator solution that searches deals across multiple liquidity sources, offering users better rates than individual exchanges.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       },
       "dex": {
         "Name Tag": "1inch v2: Aggregation Router",
         "Description": "A decentralized exchange (also known as a DEX) is an exchange market that does not rely on a 3rd party service to hold the client funds but instead trades occur directly between users (peer to peer) through an automated process.",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },
@@ -3290,12 +3290,12 @@
         "Name Tag": "1inch v5: Aggregation Router",
         "Description": "1inch Network is a DEX aggregator solution that searches deals across multiple liquidity sources, offering users better rates than individual exchanges.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       },
       "dex": {
         "Name Tag": "1inch v5: Aggregation Router",
         "Description": "A decentralized exchange (also known as a DEX) is an exchange market that does not rely on a 3rd party service to hold the client funds but instead trades occur directly between users (peer to peer) through an automated process.",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },
@@ -3306,12 +3306,12 @@
         "Name Tag": "1inch v4: Aggregation Router",
         "Description": "1inch Network is a DEX aggregator solution that searches deals across multiple liquidity sources, offering users better rates than individual exchanges.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       },
       "dex": {
         "Name Tag": "1inch v4: Aggregation Router",
         "Description": "A decentralized exchange (also known as a DEX) is an exchange market that does not rely on a 3rd party service to hold the client funds but instead trades occur directly between users (peer to peer) through an automated process.",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },
@@ -3346,7 +3346,7 @@
       "dex": {
         "Name Tag": "1inch: Exchange 2",
         "Description": "A decentralized exchange (also known as a DEX) is an exchange market that does not rely on a 3rd party service to hold the client funds but instead trades occur directly between users (peer to peer) through an automated process.",
-        "image": "/icons/default.webp"
+        "image": "/icons/1inch.webp"
       }
     }
   },

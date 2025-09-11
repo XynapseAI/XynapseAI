@@ -84,14 +84,12 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
     });
   };
 
-  // Filter transactions based on filterType and rootAddress. Use txHash for consistency.
+  // Filter transactions based on filterType and rootAddress
   const filteredTransactions = transactions.filter((tx) => {
     if (filterType === 'all') return true;
-    // For incoming: only show if it's incoming to root (global filter)
     if (filterType === 'incoming') {
       return tx.type === 'incoming' && tx.target?.toLowerCase() === rootAddress?.toLowerCase();
     }
-    // For outgoing: only show if it's outgoing from root (global filter)
     if (filterType === 'outgoing') {
       return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootAddress?.toLowerCase();
     }
@@ -311,9 +309,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   // Re-aggregate and re-init graph when filterType changes (using full data)
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0) {
-      const { nodes: newNodes, edges: newEdges } = aggregateWallets(fullIncomingData, fullOutgoingData, walletAddress, page, filterType);
+      const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(fullIncomingData, fullOutgoingData, walletAddress, page, filterType);
       setNodes(newNodes);
       setEdges(newEdges);
+      setNametags((prev) => ({ ...prev, ...newNametags }));
       // Re-init cytoscape to update graph
       if (cyRef.current) {
         cyRef.current.destroy();
@@ -469,6 +468,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     };
 
     const addWallet = (address, tx, type) => {
+      // Only add wallet if it matches the filter criteria
+      if (filterType === 'incoming' && type !== 'incoming') return;
+      if (filterType === 'outgoing' && type !== 'outgoing') return;
+
       if (!walletMap.has(address)) {
         walletMap.set(address, {
           address: address.toLowerCase(),
@@ -495,8 +498,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     };
 
     // Filter transactions based on filterType for graph (nodes/edges)
-    const filteredIncoming = filterType === 'all' || filterType === 'incoming' ? incomingData : [];
-    const filteredOutgoing = filterType === 'all' || filterType === 'outgoing' ? outgoingData : [];
+    const filteredIncoming = filterType === 'all' || filterType === 'incoming'
+      ? incomingData.filter((tx) => tx.address.toLowerCase() !== rootAddress.toLowerCase() && tx.type === 'incoming')
+      : [];
+    const filteredOutgoing = filterType === 'all' || filterType === 'outgoing'
+      ? outgoingData.filter((tx) => tx.address.toLowerCase() !== rootAddress.toLowerCase() && tx.type === 'outgoing')
+      : [];
 
     filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming'));
     filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing'));
@@ -526,7 +533,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             target: rootAddress.toLowerCase(),
             value: Number(tx.value).toFixed(6),
             type: 'incoming',
-            txHash: tx.hash, // Fixed: use txHash
+            txHash: tx.hash,
             block_time: tx.block_time,
             tokenSymbol: tx.tokenSymbol,
             contractAddress: tx.contractAddress,
@@ -544,7 +551,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             target: tx.address.toLowerCase(),
             value: Number(tx.value).toFixed(6),
             type: 'outgoing',
-            txHash: tx.hash, // Fixed: use txHash
+            txHash: tx.hash,
             block_time: tx.block_time,
             tokenSymbol: tx.tokenSymbol,
             contractAddress: tx.contractAddress,
@@ -599,9 +606,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       updateUrl(selectedChain, address);
       logger.log('Cached walletInfo.image:', cached.wallet?.image);
       // Re-aggregate for current filterType
-      const { nodes: newNodes, edges: newEdges } = aggregateWallets(cached.incoming || [], cached.outgoing || [], address, page, filterType);
+      const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(cached.incoming || [], cached.outgoing || [], address, page, filterType);
       setNodes(newNodes);
       setEdges(newEdges);
+      setNametags((prev) => ({ ...prev, ...newNametags }));
       return;
     }
 
@@ -700,7 +708,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setLoading(false);
       setLoadingMessage('');
     }
-  }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]); // Removed nodes, edges from deps to avoid loop
+  }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]);
 
   const initializeCytoscape = useCallback(() => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) return;
@@ -797,10 +805,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         const cluster = clusters.find((c) => c.wallets.some((w) => w.id === walletId));
         if (cluster && !isRootNode) {
           logger.log('Hover cluster:', cluster);
-          // For cluster, filter transactions related to cluster wallets, but respect global filter for root-related
+          // For cluster, filter transactions related to cluster wallets, respecting global filter
           let clusterTxs = cluster.transactions || [];
           if (filterType !== 'all') {
-            // If filter is incoming/outgoing, only include if related to root
             clusterTxs = clusterTxs.filter((tx) => {
               if (filterType === 'incoming') return tx.type === 'incoming' && tx.target?.toLowerCase() === rootId;
               if (filterType === 'outgoing') return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootId;
@@ -811,17 +818,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         } else {
           // For node (including root)
           let relatedTxs = edges
-            .map((edge) => ({ ...edge.data, type: edge.data.type })) // Ensure type is present
+            .map((edge) => ({ ...edge.data, type: edge.data.type }))
             .filter((tx) => tx.source === walletId || tx.target === walletId);
-          if (isRootNode && filterType !== 'all') {
-            // For root node, apply global filter
+          if (filterType !== 'all') {
             relatedTxs = relatedTxs.filter((tx) => {
-              if (filterType === 'incoming') return tx.type === 'incoming';
-              if (filterType === 'outgoing') return tx.type === 'outgoing';
+              if (filterType === 'incoming') return tx.type === 'incoming' && tx.target?.toLowerCase() === rootId;
+              if (filterType === 'outgoing') return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootId;
               return false;
             });
           }
-          // For non-root node, show all related tx (no global filter on non-root)
           logger.log('Hover node:', walletId, relatedTxs);
           setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
         }
@@ -838,7 +843,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     } catch (err) {
       logger.error('Error initializing Cytoscape:', err);
     }
-  }, [nodes, edges, walletInfo, filterType, walletAddress]); // Added walletAddress to deps
+  }, [nodes, edges, walletInfo, filterType, walletAddress]);
 
   useEffect(() => {
     initializeCytoscape();
@@ -1128,7 +1133,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               </div>
               <select
                 value={filterType}
-                onChange={(e) => handleFilterChange(e.target.value)} // Changed: no refetch
+                onChange={(e) => handleFilterChange(e.target.value)}
                 className="bg-black/10 backdrop-blur-sm border border-white/10 text-white px-2 py-1 rounded text-[9px] sm:text-[10px]"
               >
                 <option value="all">All Transactions</option>

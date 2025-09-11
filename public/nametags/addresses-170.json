@@ -805,7 +805,7 @@
       "lido": {
         "Name Tag": "Lido: LIDO Vesting Recipient 5",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/default.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
@@ -2669,7 +2669,7 @@
         "Name Tag": "Idle.finance: Lido Multi Rewards",
         "Description": "Idle.finance: Earn the yield you deserve without worry about finding the best option, either if you want to optimize returns or risks.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
