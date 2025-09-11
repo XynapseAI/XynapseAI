@@ -151,33 +151,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  useEffect(() => {
-    const fetchCoinPrice = async (coinId, setPrice, setLoading) => {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/coingecko?action=coin-details&id=${coinId}&vs_currency=${currency}`, {
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-        });
-        const result = await response.json();
-        if (response.ok && result.data?.market_data?.current_price?.[currency]) {
-          setPrice(result.data.market_data.current_price[currency]);
-          logger.log(`Fetched ${coinId} price:`, { price: result.data.market_data.current_price[currency] });
-        } else {
-          throw new Error(`Failed to fetch ${coinId} price`);
-        }
-      } catch (err) {
-        logger.error(`Error fetching ${coinId} price:`, { error: err.message, stack: err.stack });
-        setPrice(0);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCoinPrice('bitcoin', setBtcPrice, setIsLoadingPrices);
-    fetchCoinPrice('dogecoin', setDogePrice, setIsLoadingPrices);
-    fetchCoinPrice('litecoin', setLtcPrice, setIsLoadingPrices);
-  }, [currency]);
-
   // Fetch chain logos with local cache
   useEffect(() => {
     const fetchChainLogos = async () => {
@@ -212,6 +185,62 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     };
     fetchChainLogos();
   }, []);
+
+  // Fetch coin prices using CoinGecko /simple/price endpoint
+  const fetchCoinPrices = async () => {
+    setIsLoadingPrices(true);
+    const cacheKey = `coingecko:coin-prices:${currency}`;
+    const cachedPrices = getCachedData(cacheKey, 12 * 60 * 60 * 1000); // Cache 12 hours
+    if (cachedPrices) {
+      setBtcPrice(cachedPrices.bitcoin || 0);
+      setDogePrice(cachedPrices.dogecoin || 0);
+      setLtcPrice(cachedPrices.litecoin || 0);
+      logger.info(`Cache hit for coin prices: bitcoin, dogecoin, litecoin`);
+      setIsLoadingPrices(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,dogecoin,litecoin&vs_currencies=${currency}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Your-App-Name/1.0'
+          },
+        }
+      );
+      const result = await response.json();
+      if (response.ok) {
+        const prices = {
+          bitcoin: result.bitcoin?.[currency] || 0,
+          dogecoin: result.dogecoin?.[currency] || 0,
+          litecoin: result.litecoin?.[currency] || 0,
+        };
+        setBtcPrice(prices.bitcoin);
+        setDogePrice(prices.dogecoin);
+        setLtcPrice(prices.litecoin);
+        setCachedData(cacheKey, prices);
+        logger.info(`Fetched and cached coin prices:`, { prices });
+      } else {
+        throw new Error('Failed to fetch coin prices');
+      }
+    } catch (err) {
+      logger.error(`Error fetching coin prices:`, { error: err.message, stack: err.stack });
+      setBtcPrice(0);
+      setDogePrice(0);
+      setLtcPrice(0);
+      setError('Failed to fetch coin prices');
+      toast.error('Failed to fetch coin prices', { position: 'top-center', autoClose: 3000 });
+    } finally {
+      setIsLoadingPrices(false);
+    }
+  };
+
+  // Fetch coin prices and volume history when exchangeId or currency changes
+  useEffect(() => {
+    fetchCoinPrices();
+  }, [currency]);
 
   useEffect(() => {
     const mappedId = mapExchangeId(exchangeIdFromQuery);
@@ -291,7 +320,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       return;
     }
     const cacheKey = `coingecko:volume-chart:${exchangeId}:7:${currency}`;
-    const cachedData = getCachedData(cacheKey, 2 * 60 * 60 * 1000); // 2 giờ
+    const cachedData = getCachedData(cacheKey, 2 * 60 * 60 * 1000); // 2 hours
     if (cachedData) {
       setVolumeHistory(cachedData);
       logger.info(`Cache hit for volume history: ${exchangeId} from localStorage`);
@@ -329,14 +358,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     }
   };
 
-
-  // Fetch portfolio and wallets with prices
+  // Fetch portfolio and wallets without prices
   const fetchPortfolioAndWallets = async (exchangeId) => {
     setIsLoadingPortfolio(true);
     setIsLoadingWallets(true);
-    setIsLoadingPrices(true);
     try {
-      logger.info(`Fetching portfolio/wallet data and prices for exchange: ${exchangeId}`);
+      logger.info(`Fetching portfolio/wallet data for exchange: ${exchangeId}`);
 
       const csrfToken = document.cookie.split('; ').find(row => row.startsWith('csrf_token='))?.split('=')[1] || 'dev-csrf';
 
@@ -373,38 +400,27 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         exchangeId,
         portfolio: result.portfolio,
         wallets: result.wallets,
-        prices: result.prices,
       });
       if (!result.portfolio || !result.wallets) {
         throw new Error(`No portfolio or wallet data found for exchange: ${exchangeId}`);
       }
       setPortfolioData(result.portfolio || []);
       setWalletData(result.wallets || []);
-      setBtcPrice(result.prices?.bitcoin || 0);
-      setDogePrice(result.prices?.dogecoin || 0);
-      setLtcPrice(result.prices?.litecoin || 0);
-      logger.log('Fetched portfolio, wallet data, and prices:', {
+      logger.log('Fetched portfolio and wallet data:', {
         exchangeId,
         portfolioCount: result.portfolio.length,
         walletCount: result.wallets.length,
-        btcPrice: result.prices?.bitcoin,
-        dogePrice: result.prices?.dogecoin,
-        ltcPrice: result.prices?.litecoin,
       });
     } catch (err) {
       const errorMessage = err.message || 'Unknown error fetching portfolio/wallet data';
       logger.error('Error fetching portfolio/wallet data:', { exchangeId, error: errorMessage, stack: err.stack });
       setPortfolioData([]);
       setWalletData([]);
-      setBtcPrice(0);
-      setDogePrice(0);
-      setLtcPrice(0);
       setError(errorMessage);
       toast.error(errorMessage, { position: 'top-center', autoClose: 3000 });
     } finally {
       setIsLoadingPortfolio(false);
       setIsLoadingWallets(false);
-      setIsLoadingPrices(false);
     }
   };
 
@@ -512,7 +528,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   throw new Error(parsedObj.detail);
                 }
                 transactionsData.push(parsedObj);
-                // Use debounced state update
                 debouncedSetTransactions([...transactionsData]);
               } catch (parseError) {
                 logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
@@ -651,7 +666,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   throw new Error(parsedObj.detail);
                 }
                 transactionsData.push(parsedObj);
-                // Use debounced state update
                 debouncedSetWalletTransactions([...transactionsData]);
               } catch (parseError) {
                 logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
@@ -714,7 +728,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       }
 
       const cacheKey = `sim:balances:auth:${walletAddress}`;
-      const cachedData = getCachedData(cacheKey, 60 * 1000); // 1 phút
+      const cachedData = getCachedData(cacheKey, 60 * 1000);
       if (cachedData) {
         setWalletBalances(cachedData);
         logger.info(`Cache hit for wallet balances: ${cacheKey} from localStorage`);

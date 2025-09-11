@@ -216,39 +216,6 @@ function mapExchangeName(exchangeId) {
   return EXCHANGE_MAPPING[exchangeId.toLowerCase()] || exchangeId.toLowerCase();
 }
 
-async function fetchCoinPrices(coinIds = ['bitcoin', 'dogecoin', 'litecoin'], currency = 'usd') {
-  const redisClient = await getRedisClient();
-  const cacheKey = `coingecko:coin-prices:${coinIds.join(',')}:${currency}`;
-  const cachedPrices = await redisClient.get(cacheKey);
-  if (cachedPrices) {
-    logger.info(`Cache hit for coin prices: ${coinIds.join(',')}`);
-    return JSON.parse(cachedPrices);
-  }
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-  try {
-    const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds.join(',')}&vs_currencies=${currency}`, {
-      headers: { 'Content-Type': 'application/json', 'User-Agent': 'Your-App-Name/1.0' },
-    });
-    const result = await response.json();
-    if (response.ok) {
-      const prices = {
-        bitcoin: result.bitcoin?.[currency] || 0,
-        dogecoin: result.dogecoin?.[currency] || 0,
-        litecoin: result.litecoin?.[currency] || 0,
-      };
-      await redisClient.setEx(cacheKey, 24 * 60 * 60, JSON.stringify(prices));
-      logger.info(`Fetched and cached coin prices:`, { prices });
-      return prices;
-    }
-    throw new Error('Failed to fetch coin prices');
-  } catch (error) {
-    await trackViolation(null, `Error fetching coin prices: ${error.message}`);
-    logger.error(`Error fetching coin prices:`, { error: error.message, stack: error.stack });
-    return { bitcoin: 0, dogecoin: 0, litecoin: 0 };
-  }
-}
-
 export async function OPTIONS(request) {
   const origin = request.headers.get('origin');
   const pathname = new URL(request.url).pathname;
@@ -271,7 +238,7 @@ export async function GET(request) {
   const referer = request.headers.get('referer');
   const pathname = new URL(request.url).pathname;
   const params = Object.fromEntries(request.nextUrl.searchParams);
-  const { exchange, currency = 'usd' } = params; // Lấy currency từ query params
+  const { exchange, currency = 'usd' } = params;
 
   logger.info('GET /api/token-cluster requested', { ip, origin, referer, query: Object.keys(params) });
 
@@ -320,7 +287,7 @@ export async function GET(request) {
       const cacheKey = isAuthenticated
         ? `token_cluster:auth:${mappedExchange}:${currency}`
         : `token_cluster:public:${mappedExchange}:${currency}`;
-      const cacheTTL = isAuthenticated ? 300 : 3600; // 5 phút cho auth, 1 giờ cho public
+      const cacheTTL = isAuthenticated ? 300 : 3600;
 
       const cachedData = await withRetry(async () => await redisClient.get(cacheKey));
       if (cachedData) {
@@ -328,14 +295,7 @@ export async function GET(request) {
         return NextResponse.json(JSON.parse(cachedData), { headers });
       }
 
-      // Fetch prices for Bitcoin, Dogecoin, and Litecoin
-      const prices = await fetchCoinPrices(['bitcoin', 'dogecoin', 'litecoin'], currency);
-      const btcPrice = prices.bitcoin;
-      const dogePrice = prices.dogecoin;
-      const ltcPrice = prices.litecoin;
-      logger.info('Coin prices for calculations:', { btcPrice, dogePrice, ltcPrice });
-
-      // Query cho non-Bitcoin, non-Dogecoin, non-Litecoin tokens
+      // Query for non-Bitcoin, non-Dogecoin, non-Litecoin tokens
       const portfolioQuery = `
         WITH wallet_tokens AS (
           SELECT 
@@ -396,7 +356,7 @@ export async function GET(request) {
       const portfolioResult = await withRetry(async () => await query(portfolioQuery, [`%${mappedExchange}%`]));
       logger.info('Portfolio result from wallet_holders:', { rows: portfolioResult.rows });
 
-      // Query cho Bitcoin, Dogecoin, Litecoin
+      // Query for Bitcoin, Dogecoin, Litecoin
       const specialCoinsPortfolioQuery = `
         SELECT 
           th.coingecko_id AS token_address,
@@ -414,33 +374,18 @@ export async function GET(request) {
             json_build_object(
               'chain', th.chain,
               'balance', th.balance,
-              'balance_usd', COALESCE(th.balance_usd, 
-                CASE 
-                  WHEN th.coingecko_id = 'bitcoin' THEN th.balance * $2
-                  WHEN th.coingecko_id = 'dogecoin' THEN th.balance * $3
-                  WHEN th.coingecko_id = 'litecoin' THEN th.balance * $4
-                END),
+              'balance_usd', th.balance_usd,
               'wallets', json_build_array(
                 json_build_object(
                   'holder_address', th.holder_address,
                   'balance', th.balance,
-                  'value', COALESCE(th.balance_usd, 
-                    CASE 
-                      WHEN th.coingecko_id = 'bitcoin' THEN th.balance * $2
-                      WHEN th.coingecko_id = 'dogecoin' THEN th.balance * $3
-                      WHEN th.coingecko_id = 'litecoin' THEN th.balance * $4
-                    END)
+                  'value', th.balance_usd
                 )
               )
             )
           ) AS chain_details,
           SUM(th.balance) AS total_balance,
-          SUM(COALESCE(th.balance_usd, 
-            CASE 
-              WHEN th.coingecko_id = 'bitcoin' THEN th.balance * $2
-              WHEN th.coingecko_id = 'dogecoin' THEN th.balance * $3
-              WHEN th.coingecko_id = 'litecoin' THEN th.balance * $4
-            END)) AS total_balance_usd
+          SUM(th.balance_usd) AS total_balance_usd
         FROM token_holders th
         WHERE LOWER(th.name) LIKE LOWER($1)
           AND LOWER(th.chain) IN ('bitcoin', 'dogecoin', 'litecoin')
@@ -455,10 +400,10 @@ export async function GET(request) {
         LIMIT 50
       `;
       const specialCoinsPortfolioResult = await withRetry(async () =>
-        await query(specialCoinsPortfolioQuery, [`%${mappedExchange}%`, btcPrice, dogePrice, ltcPrice]));
+        await query(specialCoinsPortfolioQuery, [`%${mappedExchange}%`]));
       logger.info('Special coins portfolio result:', { rows: specialCoinsPortfolioResult.rows });
 
-      // Query cho non-Bitcoin, non-Dogecoin, non-Litecoin wallets
+      // Query for non-Bitcoin, non-Dogecoin, non-Litecoin wallets
       const walletQuery = `
         SELECT 
           exchange_name,
@@ -477,18 +422,13 @@ export async function GET(request) {
       const walletResult = await withRetry(async () => await query(walletQuery, [`%${mappedExchange}%`]));
       logger.info('Wallet result from wallet_holders:', { rows: walletResult.rows });
 
-      // Query cho Bitcoin, Dogecoin, Litecoin wallets
+      // Query for Bitcoin, Dogecoin, Litecoin wallets
       const specialCoinsWalletQuery = `
         SELECT 
           source AS exchange_name,
           chain,
           holder_address,
-          COALESCE(balance_usd, 
-            CASE 
-              WHEN token_address = 'bitcoin' THEN balance * $2
-              WHEN token_address = 'dogecoin' THEN balance * $3
-              WHEN token_address = 'litecoin' THEN balance * $4
-            END) AS total_value_usd,
+          balance_usd AS total_value_usd,
           1 AS token_count,
           name_tag,
           image
@@ -505,7 +445,7 @@ export async function GET(request) {
         LIMIT 100
       `;
       const specialCoinsWalletResult = await withRetry(async () =>
-        await query(specialCoinsWalletQuery, [`%${mappedExchange}%`, btcPrice, dogePrice, ltcPrice]));
+        await query(specialCoinsWalletQuery, [`%${mappedExchange}%`]));
       logger.info('Special coins wallet result:', { rows: specialCoinsWalletResult.rows });
 
       if (
@@ -528,7 +468,7 @@ export async function GET(request) {
         );
       }
 
-      // Dữ liệu trả về, bao gồm cả giá coin
+      // Response data without prices
       const responseData = {
         success: true,
         portfolio: [
@@ -571,11 +511,6 @@ export async function GET(request) {
             })),
           ]
           : [],
-        prices: {
-          bitcoin: btcPrice,
-          dogecoin: dogePrice,
-          litecoin: ltcPrice,
-        }, // Thêm giá coin vào response
       };
 
       await withRetry(async () => {
