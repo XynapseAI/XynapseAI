@@ -585,7 +585,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render Tasks Section
   const renderTasksSection = useCallback(
     () => (
-      <div className="relative bg-black/80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <div className="relative bg-black/80 rounded-xl overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
         <LoadingOverlay
           isLoading={tasksLoading || taskProgressLoading}
           isMobile={isMobile}
@@ -762,7 +762,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render Leaderboard Section
   const renderLeaderboardSection = useCallback(
     () => (
-      <div className="relative bg-black/5 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <div className="relative bg-black/5 rounded-xl overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
         <LoadingOverlay
           isLoading={leaderboardLoading}
           isMobile={isMobile}
@@ -1011,7 +1011,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-black/80 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
+        className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-black/80 rounded-xl flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
       >
         <LoadingOverlay isLoading={true} isMobile={isMobile} />
       </motion.div>
