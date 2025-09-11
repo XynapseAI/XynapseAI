@@ -5,7 +5,6 @@ import { createClient } from 'redis';
 import { auth } from '@/lib/auth';
 import cookie from 'cookie';
 import crypto from 'crypto';
-import { verifyRecaptcha } from '../../../utils/verifyRecaptcha';
 
 let redisClient;
 async function getRedisClient() {
@@ -61,7 +60,7 @@ function securityHeaders(origin) {
   if (origin && origin !== 'null') {
     headers['Access-Control-Allow-Origin'] = origin;
     headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
-    headers['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRF-Token, X-Recaptcha-Token';
+    headers['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRF-Token';
     headers['Access-Control-Allow-Credentials'] = 'true';
   }
   return headers;
@@ -246,7 +245,6 @@ async function fetchCoinPrice(coinId, currency = 'usd') {
   }
 }
 
-// ---------- OPTIONS handler ----------
 export async function OPTIONS(request) {
   const origin = request.headers.get('origin');
   const pathname = new URL(request.url).pathname;
@@ -263,7 +261,6 @@ export async function OPTIONS(request) {
   });
 }
 
-// ---------- GET handler ----------
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -289,21 +286,6 @@ export async function GET(request) {
   }
 
   try {
-    const recaptchaToken = request.headers.get('x-recaptcha-token');
-    logger.info('Checking reCAPTCHA token', { ip, hasToken: !!recaptchaToken, tokenLength: recaptchaToken ? recaptchaToken.length : 0 });
-    if (!recaptchaToken) {
-      logger.warn('Missing reCAPTCHA token header', { ip });
-      return NextResponse.json({ detail: 'Missing reCAPTCHA token in header' }, { status: 400, headers });
-    }
-    // Luôn verify token qua Google reCAPTCHA
-    try {
-      const { score } = await verifyRecaptcha(recaptchaToken, 'get_token_cluster', ip);
-      logger.info('reCAPTCHA OK', { ip, score });
-    } catch (err) {
-      logger.warn('reCAPTCHA verification failed', { ip, reason: err?.message });
-      return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers });
-    }
-
     const session = await auth();
     const userId = session?.user?.id || null;
 
