@@ -1,13 +1,11 @@
-// components/Header.jsx
 'use client';
-
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Power, Search } from 'lucide-react';
 import { useCurrency } from './CurrencyContext';
 import { logger } from '../utils/clientLogger';
-import '../styles/globals.css'
+import '../styles/globals.css';
 
 export default function Header({ activeTab, setActiveTab, handleSignOut, selectedAddress }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -37,10 +35,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     { id: 'treemap', label: 'Treemap' },
     { id: 'watchlists', label: 'Watchlists' },
     { id: 'profile', label: 'Profile' },
-    // { id: 'ai', label: 'AI' },
   ];
 
-  // Handle click outside to close menu or search dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -54,7 +50,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Handle exchange search
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -78,25 +73,30 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     }
   };
 
-  // Handle exchange selection
   const handleExchangeSelect = (exchange) => {
-    router.push(`/cluster?exchangeId=${exchange.id}`, { scroll: false });
+    router.push(`/cluster?clusterId=${exchange.id}`, { scroll: false }); // Đổi exchangeId thành clusterId
     setSearchQuery('');
     setSearchResults([]);
     setIsSearchDropdownOpen(false);
+    setActiveTab('cluster');
   };
 
-  // Handle tab navigation
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
-    const query = tabId === 'watchlists' && selectedAddress
-      ? `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}`
-      : `tab=${tabId}`;
-    router.push(`/dashboard?${query}`, { scroll: false });
+    const clusterId = new URLSearchParams(window.location.search).get('clusterId'); // Đổi exchangeId thành clusterId
+    let query = '';
+    if (tabId === 'watchlists' && selectedAddress) {
+      query = `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}`;
+    } else if (tabId === 'cluster' && clusterId) {
+      query = `tab=${tabId}&clusterId=${encodeURIComponent(clusterId)}`; // Đổi exchangeId thành clusterId
+    } else {
+      query = `tab=${tabId}`;
+    }
+    const path = tabId === 'cluster' ? `/cluster?clusterId=${clusterId || 'binance'}` : `/dashboard?${query}`;
+    router.push(path, { scroll: false });
     setIsMenuOpen(false);
   };
 
-  // Matrix text animation
   const handleMouseEnter = (e) => {
     const container = e.currentTarget.querySelector('.matrix-text');
     if (container) {
@@ -181,7 +181,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   return (
     <header className="h-[4vh] sm:h-[5vh] bg-white/5 backdrop-blur-xs border-b border-white/10 rounded-b-xl flex justify-between items-center sticky top-0 z-20 font-saira">
-      {/* Mobile Menu Toggle */}
       <div className="block sm:hidden">
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -206,7 +205,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         </button>
       </div>
 
-      {/* Desktop Tabs */}
       <div className="hidden sm:flex justify-center items-end flex-grow h-full">
         {tabs.map((tab, index) => (
           <div key={tab.id} className="flex items-end">
@@ -221,7 +219,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         ))}
       </div>
 
-      {/* Desktop Right Section: Currency Selector, Sign Out */}
       <div className="flex items-center gap-2 sm:gap-3 p-2 mr-2">
         <select
           id="currency-select"
@@ -235,18 +232,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
             </option>
           ))}
         </select>
-        {/* <motion.button
-          onClick={handleSignOut}
-          className="flex w-5 sm:w-6 h-5 sm:h-6 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md transition-all duration-300 no-hover-effect"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          aria-label="Sign out"
-        >
-          <Power size={14} />
-        </motion.button> */}
       </div>
 
-      {/* Mobile Menu */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
@@ -259,9 +246,9 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           >
             <div className="flex justify-between items-center mb-3">
               <img
-                src="/logos/logo-landscape.webp" // Replace with the actual path to your PNG image
+                src="/logos/logo-landscape.webp"
                 alt="Menu"
-                className="h-14 w-auto" // Adjust size as needed
+                className="h-14 w-auto"
               />
               <div className="flex items-center gap-2">
                 <select
@@ -276,13 +263,6 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                     </option>
                   ))}
                 </select>
-                {/* <button
-                  onClick={() => setIsMenuOpen(false)}
-                  className="text-white text-[12px] font-bold no-hover-effect"
-                  aria-label="Close menu"
-                >
-                  ✕
-                </button> */}
               </div>
             </div>
             <nav className="flex flex-col space-y-2 flex-grow overflow-y-auto custom-scrollbar">
@@ -301,18 +281,10 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                 </div>
               ))}
             </nav>
-            {/* <motion.button
-              onClick={handleSignOut}
-              className="self-end mt-3 w-5 h-5 rounded-full text-red-400 flex items-center justify-center border border-white/10 bg-white/5 backdrop-blur-md transition-all duration-300 no-hover-effect"
-              aria-label="Sign out"
-            >
-              <Power size={14} />
-            </motion.button> */}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Mobile Overlay */}
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div

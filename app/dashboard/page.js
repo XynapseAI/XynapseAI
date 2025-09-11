@@ -20,12 +20,12 @@ import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { LoadingOverlay } from '@/utils/helpers';
 import { CurrencyProvider } from '../../components/CurrencyContext';
+import crypto from 'crypto';
 
 gsap.registerPlugin(MotionPathPlugin);
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
-// Custom hook to handle user data state and logic
 const useUserData = (session, csrfToken, setIsAnalyzing) => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,7 +40,6 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
 
     setLoading(true);
     try {
-      // Kiểm tra xem reCAPTCHA đã sẵn sàng chưa
       if (!recaptchaRef.current) {
         throw new Error('reCAPTCHA component is not initialized');
       }
@@ -66,10 +65,6 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
           return;
         }
         throw new Error(result.detail || 'Failed to fetch user data');
-      }
-      if (response.headers.get('X-Clear-IndexedDB') === 'true') {
-        await clearAllCaches(session.user.id);
-        console.log('Cleared IndexedDB cache due to server instruction');
       }
       setUserData({
         ...result.user,
@@ -149,7 +144,6 @@ export default function Dashboard() {
   const searchParams = useSearchParams();
   const [isMounted, setIsMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
-  const [selectedAddress, setSelectedAddress] = useState(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [providers, setProviders] = useState(null);
@@ -157,8 +151,7 @@ export default function Dashboard() {
   const [csrfToken, setCsrfToken] = useState(null);
   const starsBackgroundRef = useRef(null);
   const recaptchaRef = useRef(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { userData, loading, error, handleAnalyzeTweets } = useUserData(session, csrfToken, setIsAnalyzing);
+  const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
 
   const fetchProvidersWithRetry = useCallback(async (retries = 3, delay = 1000) => {
     for (let i = 0; i < retries; i++) {
@@ -184,14 +177,14 @@ export default function Dashboard() {
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
+    const clusterId = searchParams.get('clusterId'); // Đổi exchangeId thành clusterId
     if (tab && ['market', 'ai', 'profile', 'treemap', 'watchlists', 'cluster'].includes(tab)) {
       setActiveTab(tab);
     }
-    const address = searchParams.get('address');
-    if (address) {
-      setSelectedAddress(address);
+    if (clusterId && tab === 'cluster') {
+      router.push(`/cluster?clusterId=${clusterId}`, { scroll: false });
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (status !== 'authenticated' || session?.csrfToken || csrfToken) return;
@@ -207,7 +200,6 @@ export default function Dashboard() {
           credentials: 'include',
         });
         const result = await response.json();
-        console.log('CSRF Token Response:', result); // Debug CSRF token
         if (response.ok) {
           setCsrfToken(result.csrfToken);
           await update({ csrfToken: result.csrfToken });
@@ -317,8 +309,6 @@ export default function Dashboard() {
         }
       }
 
-      console.log('Client-side caches cleared');
-
       try {
         const token = await recaptchaRef.current?.executeAsync();
         const response = await fetch(`${API_BASE_URL}/api/clear-cache`, {
@@ -332,10 +322,7 @@ export default function Dashboard() {
           credentials: 'include',
         });
         if (!response.ok) {
-          const errorData = await response.json();
-          console.warn('Failed to clear server-side cache:', errorData.detail || response.statusText);
-        } else {
-          console.log('Server-side cache cleared');
+          console.warn('Failed to clear server-side cache:', response.statusText);
         }
       } catch (cacheErr) {
         console.warn('Failed to clear server-side cache:', cacheErr.message);
@@ -385,7 +372,6 @@ export default function Dashboard() {
   const handleGoogleSignIn = async () => {
     try {
       const result = await signIn('google', { callbackUrl: '/dashboard', redirect: false });
-      console.log('Google sign-in result:', result);
       if (result?.error) {
         if (result.error.includes('Rate limit exceeded')) {
           toast.error('Too many sign-in attempts. Please try again later.', { position: 'top-center' });
@@ -398,13 +384,7 @@ export default function Dashboard() {
         window.location.href = `${API_BASE_URL}/api/auth/signin/google`;
         return;
       }
-      try {
-        new URL(result.url);
-        window.location.href = result.url;
-      } catch (urlError) {
-        console.error('Invalid URL in Google sign-in:', urlError, { url: result.url });
-        window.location.href = `${API_BASE_URL}/api/auth/signin/google`;
-      }
+      window.location.href = result.url;
     } catch (err) {
       console.error('Error signing in with Google:', err);
       toast.error(`Failed to sign in with Google: ${err.message}`, { position: 'top-center' });
@@ -433,7 +413,7 @@ export default function Dashboard() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           handleSignOut={handleSignOut}
-          selectedAddress={selectedAddress}
+          selectedAddress={searchParams.get('address') || undefined}
         />
         <main className="flex-1 flex items-center justify-center overflow-hidden">
           <motion.div
@@ -444,8 +424,8 @@ export default function Dashboard() {
           >
             {showLoginForm ? (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, ease: 'easeOut' }}
                 className={`w-full h-full flex items-center justify-center bg-black/5 text-white font-saira relative ${styles.container}`}
               >
@@ -524,7 +504,7 @@ export default function Dashboard() {
                   {providers?.google && (
                     <button
                       onClick={handleGoogleSignIn}
-                      className={`w-full px-4 py-3 bg-black/10 border border-white/20 rounded-full text-white text-sm font-medium uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:bg-gray-700/50 ${styles['button-glow']}`}
+                      className={`w-full px-4 py-3 bg-black/10 border border-white/20 rounded-full text-white text-sm font-medium uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:bg-gray-700/50`}
                     >
                       <Image
                         src="/logos/google.webp"
@@ -561,7 +541,7 @@ export default function Dashboard() {
                 {activeTab === 'cluster' && (
                   <ClusterTab
                     recaptchaRef={recaptchaRef}
-                    initialExchangeId={searchParams.get('exchangeId') || undefined}
+                    initialExchangeId={searchParams.get('clusterId') || 'binance'} // Đổi exchangeId thành clusterId
                   />
                 )}
                 {activeTab === 'treemap' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
@@ -577,7 +557,7 @@ export default function Dashboard() {
                     handleSignOut={handleSignOut}
                   />
                 )}
-                {activeTab === 'watchlists' && <WatchlistsTab toast={toast} initialAddress={selectedAddress} />}
+                {activeTab === 'watchlists' && <WatchlistsTab toast={toast} initialAddress={searchParams.get('address') || undefined} />}
               </>
             )}
           </motion.div>

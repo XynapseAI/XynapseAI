@@ -75,8 +75,9 @@ const v2Client = twitterClient.v2;
 // Dynamic import for postgres.js after dotenv
 const { query } = await import('../utils/postgres.js');
 
-// Track last tweet time
+// Track last tweet time and tweet queue
 let lastTweetTime = 0;
+const tweetQueue = []; // Queue to store transactions to be tweeted
 
 // Fetch watchlist addresses from database
 async function getWatchlistAddresses() {
@@ -252,12 +253,12 @@ async function postTweet(transaction, fromName, toName) {
   const chainName = CHAIN_ID_TO_NAME[chain] || chain;
   const { txUrl } = getExplorerUrls(chain, hash);
 
-  // Check if transaction is within the last 72 hours
+  // Check if transaction is within the last 2 hours
   const now = new Date();
   const txTime = new Date(block_time);
   const hoursDiff = (now - txTime) / (1000 * 60 * 60);
-  if (hoursDiff > 24) {
-    logger.info(`Transaction ${hash} is older than 72 hours, skipping`);
+  if (hoursDiff > 2) {
+    logger.info(`Transaction ${hash} is older than 2 hours, skipping`);
     return;
   }
 
@@ -300,6 +301,26 @@ async function postTweet(transaction, fromName, toName) {
   }
 }
 
+// Process tweet queue with 1-hour spacing
+async function processTweetQueue() {
+  while (true) {
+    if (tweetQueue.length === 0) {
+      await new Promise(resolve => setTimeout(resolve, 60000)); // Check queue every minute
+      continue;
+    }
+
+    const now = Date.now();
+    if (now - lastTweetTime >= 3600000) { // 1 hour since last tweet
+      const { transaction, fromName, toName } = tweetQueue.shift(); // Get first transaction
+      await postTweet(transaction, fromName, toName);
+    } else {
+      const waitTime = 3600000 - (now - lastTweetTime);
+      logger.info(`Waiting ${waitTime / 1000}s before posting next tweet`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+}
+
 // Main bot logic
 async function main() {
   // Create posted_transactions table if not exists
@@ -318,6 +339,10 @@ async function main() {
 
   while (true) {
     try {
+      // Clean up old transactions (older than 7 days)
+      await query('DELETE FROM posted_transactions WHERE posted_at < NOW() - INTERVAL \'7 days\'');
+      logger.info('Cleaned up old transactions from posted_transactions');
+
       const watchlist = await getWatchlistAddresses();
       const addresses = watchlist.map(w => w.address);
       const nameTags = await getNameTags(addresses);
@@ -342,24 +367,28 @@ async function main() {
         await new Promise(resolve => setTimeout(resolve, 10 * 1000)); // Wait 10s between addresses
       }
 
-      // Find the transaction with the highest USD value
+      // Process all qualifying transactions
       if (transactionsInHour.length > 0) {
-        const largestTx = transactionsInHour.reduce((max, tx) =>
-          tx.value_usd > max.value_usd ? tx : max, transactionsInHour[0]);
+        const txAddresses = new Set();
+        transactionsInHour.forEach(tx => {
+          if (tx.from && tx.from !== 'None') txAddresses.add(tx.from);
+          if (tx.to && tx.to !== 'None') txAddresses.add(tx.to);
+        });
+        const txNameTags = txAddresses.size > 0 ? await getNameTags([...txAddresses]) : {};
 
-        const txAddresses = [largestTx.from, largestTx.to].filter(addr => addr && addr !== 'None');
-        const txNameTags = txAddresses.length > 0 ? await getNameTags(txAddresses) : {};
-        const fromName = txNameTags[largestTx.from.toLowerCase()] || largestTx.walletName || 'Unknown wallet';
-        const toName = largestTx.to === 'None' ? 'None' : (txNameTags[largestTx.to.toLowerCase()] || 'Unknown wallet');
-
-        logger.info(`Selected largest transaction ${largestTx.hash} with value ${largestTx.value_usd} USD`);
-        await postTweet(largestTx, fromName, toName);
+        // Add transactions to queue
+        for (const tx of transactionsInHour) {
+          const fromName = txNameTags[tx.from.toLowerCase()] || tx.walletName || 'Unknown wallet';
+          const toName = tx.to === 'None' ? 'None' : (txNameTags[tx.to.toLowerCase()] || 'Unknown wallet');
+          tweetQueue.push({ transaction: tx, fromName, toName });
+          logger.info(`Added transaction ${tx.hash} with value ${tx.value_usd} USD to tweet queue`);
+        }
       } else {
-        logger.info('No qualifying transactions found in the last hour');
+        logger.info('No qualifying transactions found in the last 2 hours');
       }
 
-      logger.info('Completed watchlist scan, sleeping for 1 hour');
-      await new Promise(resolve => setTimeout(resolve, 3600000)); // Sleep 1h
+      logger.info('Completed watchlist scan, sleeping for 2 hours');
+      await new Promise(resolve => setTimeout(resolve, 7200000)); // Sleep 2h
     } catch (err) {
       logger.error(`Main loop error: ${err.message}`, { stack: err.stack });
       await new Promise(resolve => setTimeout(resolve, 300000)); // Wait 5 min on error
@@ -371,4 +400,9 @@ async function main() {
 main().catch(err => {
   logger.error(`Fatal error: ${err.message}`, { stack: err.stack });
   process.exit(1);
+});
+
+// Start tweet queue processor
+processTweetQueue().catch(err => {
+  logger.error(`Tweet queue processor error: ${err.message}`, { stack: err.stack });
 });

@@ -97,11 +97,11 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
   return null;
 };
 
-const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
+const ClusterTab = ({ recaptchaRef, initialClusterId , activeTab, setActiveTab}) => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const exchangeIdFromQuery = searchParams.get("exchangeId") || initialExchangeId || "binance";
+  const clusterIdFromQuery = searchParams.get("clusterId") || initialClusterId || "binance";
   const { currency } = useCurrency();
   const [exchangeData, setExchangeData] = useState(null);
   const [volumeHistory, setVolumeHistory] = useState([]);
@@ -117,7 +117,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const [transactionsError, setTransactionsError] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [chainLogos, setChainLogos] = useState({});
-  const [activeTab, setActiveTab] = useState("portfolio");
   const [selectedWallet, setSelectedWallet] = useState(null);
   const [walletBalances, setWalletBalances] = useState([]);
   const [walletTransactions, setWalletTransactions] = useState([]);
@@ -237,17 +236,17 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     }
   };
 
-  // Fetch coin prices and volume history when exchangeId or currency changes
+  // Fetch coin prices and volume history when clusterId or currency changes
   useEffect(() => {
     fetchCoinPrices();
   }, [currency]);
 
   useEffect(() => {
-    const mappedId = mapExchangeId(exchangeIdFromQuery);
+    const mappedId = mapExchangeId(clusterIdFromQuery);
     if (btcPrice && dogePrice && ltcPrice) {
       fetchVolumeHistory(mappedId);
     }
-  }, [exchangeIdFromQuery, currency, btcPrice, dogePrice, ltcPrice]);
+  }, [clusterIdFromQuery, currency, btcPrice, dogePrice, ltcPrice]);
 
   // Fetch exchange data with local cache
   const fetchExchangeData = async (originalId, mappedId) => {
@@ -359,11 +358,11 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   };
 
   // Fetch portfolio and wallets without prices
-  const fetchPortfolioAndWallets = async (exchangeId) => {
+  const fetchPortfolioAndWallets = async (clusterId) => {
     setIsLoadingPortfolio(true);
     setIsLoadingWallets(true);
     try {
-      logger.info(`Fetching portfolio/wallet data for exchange: ${exchangeId}`);
+      logger.info(`Fetching portfolio/wallet data for cluster: ${clusterId}`);
 
       const csrfToken = document.cookie.split('; ').find(row => row.startsWith('csrf_token='))?.split('=')[1] || 'dev-csrf';
 
@@ -375,7 +374,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         headers['Authorization'] = `Bearer ${session.accessToken}`;
       }
 
-      const response = await fetch(`/api/token-cluster?exchange=${encodeURIComponent(exchangeId)}&currency=${encodeURIComponent(currency)}`, {
+      const response = await fetch(`/api/token-cluster?exchange=${encodeURIComponent(clusterId)}&currency=${encodeURIComponent(currency)}`, {
         headers,
         credentials: 'include',
         signal: AbortSignal.timeout(30000),
@@ -387,33 +386,33 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         try {
           const result = JSON.parse(text);
           errorMessage = result.detail || errorMessage;
-          logger.error(`API error response: ${errorMessage}`, { exchangeId, status: response.status, text });
+          logger.error(`API error response: ${errorMessage}`, { clusterId, status: response.status, text });
         } catch {
           errorMessage = `Failed to fetch portfolio/wallet data: Invalid JSON response`;
-          logger.error(`Invalid JSON response: ${text}`, { exchangeId, status: response.status });
+          logger.error(`Invalid JSON response: ${text}`, { clusterId, status: response.status });
         }
         throw new Error(errorMessage);
       }
 
       const result = await response.json();
       logger.log('API response for portfolio/wallets:', {
-        exchangeId,
+        clusterId,
         portfolio: result.portfolio,
         wallets: result.wallets,
       });
       if (!result.portfolio || !result.wallets) {
-        throw new Error(`No portfolio or wallet data found for exchange: ${exchangeId}`);
+        throw new Error(`No portfolio or wallet data found for cluster: ${clusterId}`);
       }
       setPortfolioData(result.portfolio || []);
       setWalletData(result.wallets || []);
       logger.log('Fetched portfolio and wallet data:', {
-        exchangeId,
+        clusterId,
         portfolioCount: result.portfolio.length,
         walletCount: result.wallets.length,
       });
     } catch (err) {
       const errorMessage = err.message || 'Unknown error fetching portfolio/wallet data';
-      logger.error('Error fetching portfolio/wallet data:', { exchangeId, error: errorMessage, stack: err.stack });
+      logger.error('Error fetching portfolio/wallet data:', { clusterId, error: errorMessage, stack: err.stack });
       setPortfolioData([]);
       setWalletData([]);
       setError(errorMessage);
@@ -804,7 +803,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 }
                 balancesData.push(parsedObj);
               } catch (parseError) {
-                console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
+                logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
               }
             } else {
               break;
@@ -828,7 +827,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               throw new Error(parsed.detail);
             }
           } catch (e) {
-            console.error(`Error parsing final buffer: ${e.message}`, { buffer });
+            logger.error(`Error parsing final buffer: ${e.message}`, { buffer });
           }
         }
       }
@@ -848,10 +847,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
   // Trigger fetches with debouncing
   useEffect(() => {
-    const mappedId = mapExchangeId(exchangeIdFromQuery);
-    fetchExchangeData(exchangeIdFromQuery, mappedId);
-    fetchPortfolioAndWallets(exchangeIdFromQuery);
-  }, [exchangeIdFromQuery, currency]);
+    const mappedId = mapExchangeId(clusterIdFromQuery);
+    fetchExchangeData(clusterIdFromQuery, mappedId);
+    fetchPortfolioAndWallets(clusterIdFromQuery);
+  }, [clusterIdFromQuery, currency]);
 
   useEffect(() => {
     if (status === "authenticated" && walletData.length > 0) {
@@ -880,7 +879,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const handleSearchSelect = (result) => {
     if (result.type === "exchange" || result.type === "organization") {
       const mappedId = mapExchangeId(result.exchangeId || result.id);
-      router.push(`/cluster?exchangeId=${mappedId}`, { scroll: false });
+      router.push(`/cluster?clusterId=${mappedId}`, { scroll: false });
     } else if (result.type === "wallet" || result.type === "nametag") {
       const address = result.address?.toLowerCase();
       if (
@@ -1090,7 +1089,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               </tbody>
             </table>
           ) : (
-            <p className="text-[10px] sm:text-sm text-white/60 text-center py-4">No portfolio data available for this exchange.</p>
+            <p className="text-[10px] sm:text-sm text-white/60 text-center py-4">No portfolio data available for this cluster.</p>
           )}
         </div>
       </div>
@@ -1181,7 +1180,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             </tbody>
           </table>
         ) : (
-          <p className="text-[10px] sm:text-sm text-white/60 text-center py-4">No wallet data available for this exchange.</p>
+          <p className="text-[10px] sm:text-sm text-white/60 text-center py-4">No wallet data available for this cluster.</p>
         )}
       </div>
     );
@@ -1395,7 +1394,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             />
           </div>
         ) : (
-          <p className="text-[10px] sm:text-xs text-white/60 text-center">No large transactions available for this exchange.</p>
+          <p className="text-[10px] sm:text-xs text-white/60 text-center">No large transactions available for this cluster.</p>
         )}
       </div>
     );
@@ -1411,7 +1410,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       <div className="w-full mb-2">
         <UniversalSearch
           onSelect={handleSearchSelect}
-          placeholder="Search wallets, nametags, or exchanges..."
+          placeholder="Search wallets, nametags, or clusters..."
           className="max-w-[300px]"
           size="default"
         />
@@ -1424,7 +1423,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
-          Some entities without complete organization information may not be displayed. Note: Token/coin data is aggregated from on-chain sources and is for reference only. Certain exchanges or organizations may have incomplete.
+          Some entities without complete organization information may not be displayed. Note: Token/coin data is aggregated from on-chain sources and is for reference only. Certain clusters or organizations may have incomplete data.
         </motion.div>
       )}
 
@@ -1457,7 +1456,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-white/5 rounded-xl p-3">
-                    <h5 className="text-[10px] font-bold text-white uppercase mb-2">Exchange Info</h5>
+                    <h5 className="text-[10px] font-bold text-white uppercase mb-2">Cluster Info</h5>
                     <div className="space-y-2 text-[10px] sm:text-xs">
                       <div className="flex justify-between">
                         <span className="text-white/60">Country:</span>
@@ -1519,7 +1518,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 </div>
               </div>
             ) : (
-              <p className="text-[10px] sm:text-xs text-white/60 text-center">No exchange data available. Please select another exchange.</p>
+              <p className="text-[10px] sm:text-xs text-white/60 text-center">No cluster data available. Please select another cluster.</p>
             )}
           </div>
           <div className="flex-1 p-2 sm:p-4 mr-2 sm:mr-0">
@@ -1555,7 +1554,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-[10px] sm:text-xs text-white/60 text-center">No volume data available for this exchange.</p>
+              <p className="text-[10px] sm:text-xs text-white/60 text-center">No volume data available for this cluster.</p>
             )}
           </div>
         </motion.div>

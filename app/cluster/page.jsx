@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import ClusterTab from '../../components/ClusterTab';
 import Header from '../../components/Header';
 import { CurrencyProvider } from '../../components/CurrencyContext';
@@ -8,13 +8,18 @@ import { ToastContainer } from 'react-toastify';
 import { useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-export default function ClusterPage({ searchParams }) {
-  const exchangeId = searchParams.exchangeId || 'binance';
+export default function ClusterPage() {
+  const [activeTab, setActiveTab] = useState("portfolio");
 
   return (
     <div className="min-h-screen bg-black">
       <CurrencyProvider>
-        <Header />
+        <Header
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          handleSignOut={() => { /* Sign out */ }}
+          selectedAddress={null}
+        />
         <Suspense
           fallback={
             <div className="flex justify-center items-center h-screen bg-black/80 text-white">
@@ -23,7 +28,7 @@ export default function ClusterPage({ searchParams }) {
             </div>
           }
         >
-          <ClusterTabWrapper exchangeId={exchangeId} />
+          <ClusterTabWrapper activeTab={activeTab} setActiveTab={setActiveTab} />
         </Suspense>
         <ToastContainer
           position="top-center"
@@ -42,11 +47,18 @@ export default function ClusterPage({ searchParams }) {
 }
 
 // Client component to handle useSearchParams
-function ClusterTabWrapper({ exchangeId }) {
+function ClusterTabWrapper({ activeTab, setActiveTab }) {
   'use client';
   const searchParams = useSearchParams();
   const recaptchaRef = useRef(null);
-  const finalExchangeId = searchParams.get('exchangeId') || exchangeId;
+  const finalClusterId = searchParams.get('clusterId') || 'binance';
 
-  return <ClusterTab recaptchaRef={recaptchaRef} initialExchangeId={finalExchangeId} toast={ToastContainer} />;
+  return (
+    <ClusterTab
+      recaptchaRef={recaptchaRef}
+      initialClusterId={finalClusterId}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+    />
+  );
 }
