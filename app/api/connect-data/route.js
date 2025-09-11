@@ -11,6 +11,20 @@ import cookie from 'cookie';
 
 const scrypt = util.promisify(crypto.scrypt);
 
+// Kiểm tra bắt buộc biến môi trường (nâng cấp mới)
+function validateEnvVars() {
+  const requiredVars = ['DATABASE_URL', 'REDIS_URL', 'NEXT_PUBLIC_APP_URL'];
+  const missing = requiredVars.filter(varName => !process.env[varName]);
+  if (missing.length > 0) {
+    logger.error('Missing required environment variables', { missing });
+    throw new Error(`Missing required env vars: ${missing.join(', ')}`);
+  }
+  logger.info('All required environment variables validated');
+}
+
+// Gọi kiểm tra ngay lập tức
+validateEnvVars();
+
 // Khởi tạo PrismaClient toàn cục
 let prisma = global.__prisma || new PrismaClient({
   errorFormat: 'minimal',
@@ -18,28 +32,18 @@ let prisma = global.__prisma || new PrismaClient({
 });
 if (!global.__prisma) global.__prisma = prisma;
 
-let redisClient;
+// Nâng cấp: Tạo client mới mỗi lần để tránh global state issues trong serverless
 async function getRedisClient() {
-  if (!redisClient) {
-    redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-    redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }));
-    try {
-      await redisClient.connect();
-      logger.info('Redis connected (initial)');
-    } catch (err) {
-      logger.error('Redis initial connect failed', { err });
-      throw new Error('Redis connection failed');
-    }
-  } else if (!redisClient.isOpen) {
-    try {
-      await redisClient.connect();
-      logger.info('Redis reconnected');
-    } catch (err) {
-      logger.error('Redis reconnect failed', { err });
-      throw new Error('Redis connection failed');
-    }
+  const client = createClient({ url: process.env.REDIS_URL });
+  client.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }));
+  try {
+    await client.connect();
+    logger.info('Redis connected');
+    return client;
+  } catch (err) {
+    logger.error('Redis connect failed', { err });
+    throw new Error('Redis connection failed');
   }
-  return redisClient;
 }
 
 const serializeBigInt = (obj) => {
@@ -60,51 +64,68 @@ async function withRetry(fn, retries = 3, delay = 1000) {
   }
 }
 
+// Nâng cấp: Sử dụng try-finally để disconnect client
 async function checkRateLimit(ip, userId) {
-  const client = await getRedisClient();
-  const windowSeconds = 15 * 60;
-  const ipKey = `rate:ip:${ip}`;
-  const userKey = userId ? `rate:user:${userId}` : null;
-  const ipMax = process.env.NODE_ENV === 'development' ? 1000 : 500; // Tăng giới hạn
-  const userMax = process.env.NODE_ENV === 'development' ? 500 : 200; // Tăng giới hạn
+  let client;
+  try {
+    client = await getRedisClient();
+    const windowSeconds = 15 * 60;
+    const ipKey = `rate:ip:${ip}`;
+    const userKey = userId ? `rate:user:${userId}` : null;
+    const ipMax = process.env.NODE_ENV === 'development' ? 1000 : 500;
+    const userMax = process.env.NODE_ENV === 'development' ? 500 : 200;
 
-  const ipCount = Number(await client.incr(ipKey));
-  if (ipCount === 1) await client.expire(ipKey, windowSeconds);
-  if (ipCount > ipMax) {
-    const ttl = await client.ttl(ipKey);
-    throw Object.assign(new Error('Too many requests from this IP'), { ttl });
-  }
+    const ipCount = Number(await client.incr(ipKey));
+    if (ipCount === 1) await client.expire(ipKey, windowSeconds);
+    if (ipCount > ipMax) {
+      const ttl = await client.ttl(ipKey);
+      throw Object.assign(new Error('Too many requests from this IP'), { ttl });
+    }
 
-  if (userKey) {
-    const uCount = Number(await client.incr(userKey));
-    if (uCount === 1) await client.expire(userKey, windowSeconds);
-    if (uCount > userMax) {
-      const ttl = await client.ttl(userKey);
-      throw Object.assign(new Error('Too many requests for this user'), { ttl });
+    if (userKey) {
+      const uCount = Number(await client.incr(userKey));
+      if (uCount === 1) await client.expire(userKey, windowSeconds);
+      if (uCount > userMax) {
+        const ttl = await client.ttl(userKey);
+        throw Object.assign(new Error('Too many requests for this user'), { ttl });
+      }
+    }
+  } finally {
+    if (client) {
+      await client.quit().catch(err => logger.warn('Redis disconnect failed', { err: err?.message }));
     }
   }
 }
 
+// Nâng cấp: Sử dụng try-finally để disconnect client
 async function trackViolation(ip, reason, severity = 'warn') {
   if (severity === 'warn') {
     logger.warn('Violation recorded (warning)', { ip, reason });
     return;
   }
 
-  const client = await getRedisClient();
-  const key = `violations:${ip}`;
-  const maxViolations = 5;
-  const windowMs = 15 * 60 * 1000;
-  const violations = parseInt(await client.get(key)) || 0;
-  if (violations >= maxViolations) {
-    await client.setEx(`banned_ip:${ip}`, 3600, 'banned');
-    logger.info('IP banned', { ip, reason });
-    throw new Error('IP banned due to repeated violations.');
+  let client;
+  try {
+    client = await getRedisClient();
+    const key = `violations:${ip}`;
+    const maxViolations = 5;
+    const windowMs = 15 * 60 * 1000;
+    const violations = parseInt(await client.get(key)) || 0;
+    if (violations >= maxViolations) {
+      await client.setEx(`banned_ip:${ip}`, 3600, 'banned');
+      logger.info('IP banned', { ip, reason });
+      throw new Error('IP banned due to repeated violations.');
+    }
+    await client.multi().incr(key).expire(key, Math.floor(windowMs / 1000)).exec();
+    logger.warn('Violation recorded (severe)', { ip, reason, violations: violations + 1 });
+  } finally {
+    if (client) {
+      await client.quit().catch(err => logger.warn('Redis disconnect failed', { err: err?.message }));
+    }
   }
-  await client.multi().incr(key).expire(key, Math.floor(windowMs / 1000)).exec();
-  logger.warn('Violation recorded (severe)', { ip, reason, violations: violations + 1 });
 }
 
+// Nâng cấp: Xóa logic cho phép null origin trong dev
 async function isAllowedOrigin(origin, referer, pathname) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
@@ -154,9 +175,10 @@ async function isAllowedOrigin(origin, referer, pathname) {
       return false;
     }
 
+    // Nâng cấp: Xóa logic cho phép null origin trong dev - giờ block và log warn
     if (!origin && process.env.NODE_ENV === 'development') {
-      logger.warn('Origin is null, allowing in development mode');
-      return true;
+      logger.warn('Null origin blocked in development - use configured origin for testing');
+      return false;
     }
 
     logger.warn('Invalid origin or referer', { origin, referer });
@@ -176,18 +198,11 @@ function parseCookies(request) {
   }
 }
 
+// Nâng cấp: Xóa logic bypass CSRF trong dev
 async function checkDoubleSubmitCSRF(request) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
   const cookieToken = cookies['csrf_token'] || '';
-  if (
-    process.env.NODE_ENV === 'development' &&
-    headerToken === 'dev-csrf' &&
-    cookieToken === 'dev-csrf'
-  ) {
-    logger.info('Development CSRF bypass used');
-    return true;
-  }
   if (!headerToken || !cookieToken) {
     logger.warn('CSRF tokens missing', { headerProvided: !!headerToken, cookieProvided: !!cookieToken });
     return false;
@@ -333,10 +348,11 @@ export async function GET(request) {
       return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers });
     }
 
+    let redisClient;
     try {
-      const client = await getRedisClient();
+      redisClient = await getRedisClient();
       const cacheKey = `user:${effectiveUid}`;
-      const cached = await client.get(cacheKey);
+      const cached = await redisClient.get(cacheKey);
       if (cached) {
         logger.info('Cache hit for user', { uid: effectiveUid });
         const parsed = JSON.parse(cached);
@@ -397,12 +413,13 @@ export async function GET(request) {
         },
       };
 
-      await client.setEx(cacheKey, 300, JSON.stringify(serializeBigInt(data)));
+      await redisClient.setEx(cacheKey, 300, JSON.stringify(serializeBigInt(data)));
       logger.info('Fetched and cached user', { uid: effectiveUid });
       return NextResponse.json(data, { headers });
-    } catch (err) {
-      logger.error('Error in GET /api/connect-data', { err: err?.message });
-      return NextResponse.json({ detail: `Server error` }, { status: 500, headers });
+    } finally {
+      if (redisClient) {
+        await redisClient.quit().catch(err => logger.warn('Redis disconnect failed in GET', { err: err?.message }));
+      }
     }
   } catch (err) {
     logger.error('Unexpected error in GET', { err: err?.message });
@@ -474,6 +491,7 @@ export async function POST(request) {
       return NextResponse.json({ detail: 'Not authorized' }, { status: 401, headers });
     }
 
+    let redisClient;
     try {
       const userData = {
         email,
@@ -520,9 +538,10 @@ export async function POST(request) {
         })
       );
 
-      const client = await getRedisClient();
+      // Nâng cấp: Sử dụng client local và finally để clear cache
+      redisClient = await getRedisClient();
       try {
-        await client.del(`user:${id}`);
+        await redisClient.del(`user:${id}`);
       } catch (err) {
         logger.warn('Failed to clear cache for user', { id, err: err?.message });
       }
@@ -544,6 +563,10 @@ export async function POST(request) {
     } catch (err) {
       logger.error('Error processing POST /api/connect-data', { err: err?.message });
       return NextResponse.json({ detail: 'Server error' }, { status: 500, headers });
+    } finally {
+      if (redisClient) {
+        await redisClient.quit().catch(err => logger.warn('Redis disconnect failed in POST', { err: err?.message }));
+      }
     }
   } catch (err) {
     logger.error('Unexpected error in POST', { err: err?.message });
