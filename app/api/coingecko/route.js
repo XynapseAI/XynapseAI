@@ -53,8 +53,6 @@ function securityHeaders(origin) {
     ) || origin;
     baseHeaders['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
     baseHeaders['Access-Control-Allow-Headers'] = 'Content-Type';
-    // Only enable if credentials are required
-    // baseHeaders['Access-Control-Allow-Credentials'] = 'true';
   }
   return baseHeaders;
 }
@@ -183,37 +181,50 @@ const allowedOrigins = [
   "https://xynapseai.net",
   "https://www.xynapseai.net",
   "https://xynapse-ai-xynapse-projects.vercel.app",
-  ...(process.env.VERCEL_ENV === "production" ? [] : [
-    "https://specific-preview.vercel.app", // Replace with specific preview URLs
-  ]),
 ].filter((v, i, a) => a.indexOf(v) === i);
 
 const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
 
-function isAllowedOrigin(origin) {
+function isAllowedOrigin(origin, userAgent) {
   if (!origin || origin === 'null') {
-    logger.warn("No valid Origin provided", { origin });
-    return process.env.VERCEL_ENV !== "production";
+    if (process.env.VERCEL_ENV === "production") {
+      // Allow server-side or trusted non-browser requests in production
+      const isServerSide = userAgent && (
+        userAgent.includes('Next.js') ||
+        userAgent.includes('Vercel') ||
+        userAgent.includes('node-fetch') ||
+        userAgent.includes('axios')
+      );
+      if (isServerSide) {
+        logger.info("Allowing request without Origin for trusted server-side call", { userAgent });
+        return true;
+      }
+      logger.warn("No valid Origin provided in production, rejecting request", { origin, userAgent });
+      return false;
+    }
+    logger.info("Allowing request without Origin in non-production", { origin, userAgent });
+    return true;
   }
   if (allowedOrigins.some((allowed) =>
     allowed.includes("*") ? new RegExp(allowed.replace("*", ".*")).test(origin) : allowed === origin
   )) {
-    logger.info(`Origin allowed: ${origin}`);
+    logger.info(`Origin allowed: ${origin}`, { userAgent });
     return true;
   }
   if (process.env.VERCEL_ENV !== "production" && vercelPreviewRegex.test(origin)) {
-    logger.info(`Origin allowed by Vercel preview regex: ${origin}`);
+    logger.info(`Origin allowed by Vercel preview regex: ${origin}`, { userAgent });
     return true;
   }
-  logger.error(`CORS error: Origin ${origin} not allowed`);
+  logger.error(`CORS error: Origin ${origin} not allowed`, { userAgent });
   return false;
 }
 
 // ================= OPTIONS Handler =================
 export async function OPTIONS(request) {
   const origin = request.headers.get("origin");
-  if (!isAllowedOrigin(origin)) {
-    logger.warn('CORS origin not allowed for OPTIONS', { origin });
+  const userAgent = request.headers.get("user-agent");
+  if (!isAllowedOrigin(origin, userAgent)) {
+    logger.warn('CORS origin not allowed for OPTIONS', { origin, userAgent });
     return NextResponse.json({ success: false, detail: "Not allowed by CORS" }, { status: 403, headers: securityHeaders(origin) });
   }
   return new NextResponse(null, {
@@ -226,11 +237,12 @@ export async function OPTIONS(request) {
 export async function GET(request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const origin = request.headers.get("origin");
-  logger.info(`Request to /api/coingecko from IP ${ip}`, { origin, timestamp: new Date().toISOString() });
+  const userAgent = request.headers.get("user-agent");
+  logger.info(`Request to /api/coingecko from IP ${ip}`, { origin, userAgent, timestamp: new Date().toISOString() });
 
   try {
     // Check CORS
-    if (!isAllowedOrigin(origin)) {
+    if (!isAllowedOrigin(origin, userAgent)) {
       await trackViolation(ip, "CORS blocked", 'warn');
       return NextResponse.json({ success: false, detail: "Not allowed by CORS" }, { status: 403, headers: securityHeaders(origin) });
     }
