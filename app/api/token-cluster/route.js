@@ -216,32 +216,36 @@ function mapExchangeName(exchangeId) {
   return EXCHANGE_MAPPING[exchangeId.toLowerCase()] || exchangeId.toLowerCase();
 }
 
-async function fetchCoinPrice(coinId, currency = 'usd') {
+async function fetchCoinPrices(coinIds = ['bitcoin', 'dogecoin', 'litecoin'], currency = 'usd') {
   const redisClient = await getRedisClient();
-  const cacheKey = `coingecko:coin-details:${coinId}:${currency}`;
-  const cachedPrice = await redisClient.get(cacheKey);
-  if (cachedPrice) {
-    logger.info(`Cache hit for coin price: ${coinId}`);
-    return JSON.parse(cachedPrice);
+  const cacheKey = `coingecko:coin-prices:${coinIds.join(',')}:${currency}`;
+  const cachedPrices = await redisClient.get(cacheKey);
+  if (cachedPrices) {
+    logger.info(`Cache hit for coin prices: ${coinIds.join(',')}`);
+    return JSON.parse(cachedPrices);
   }
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
   try {
-    const response = await fetch(`${apiUrl}/api/coingecko?action=coin-details&id=${coinId}`, {
-      headers: { 'Content-Type': 'application/json' },
+    const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinIds.join(',')}&vs_currencies=${currency}`, {
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'Your-App-Name/1.0' },
     });
     const result = await response.json();
-    if (response.ok && result.data?.market_data?.current_price?.[currency]) {
-      const price = result.data.market_data.current_price[currency];
-      await redisClient.setEx(cacheKey, 12 * 60 * 60, JSON.stringify(price)); // 12 giờ
-      logger.info(`Fetched and cached ${coinId} price:`, { price });
-      return price;
+    if (response.ok) {
+      const prices = {
+        bitcoin: result.bitcoin?.[currency] || 0,
+        dogecoin: result.dogecoin?.[currency] || 0,
+        litecoin: result.litecoin?.[currency] || 0,
+      };
+      await redisClient.setEx(cacheKey, 24 * 60 * 60, JSON.stringify(prices));
+      logger.info(`Fetched and cached coin prices:`, { prices });
+      return prices;
     }
-    throw new Error(`Failed to fetch ${coinId} price`);
+    throw new Error('Failed to fetch coin prices');
   } catch (error) {
-    await trackViolation(null, `Error fetching ${coinId} price: ${error.message}`);
-    logger.error(`Error fetching ${coinId} price:`, { error: error.message, stack: error.stack });
-    return 0;
+    await trackViolation(null, `Error fetching coin prices: ${error.message}`);
+    logger.error(`Error fetching coin prices:`, { error: error.message, stack: error.stack });
+    return { bitcoin: 0, dogecoin: 0, litecoin: 0 };
   }
 }
 
@@ -325,9 +329,10 @@ export async function GET(request) {
       }
 
       // Fetch prices for Bitcoin, Dogecoin, and Litecoin
-      const btcPrice = await fetchCoinPrice('bitcoin', currency);
-      const dogePrice = await fetchCoinPrice('dogecoin', currency);
-      const ltcPrice = await fetchCoinPrice('litecoin', currency);
+      const prices = await fetchCoinPrices(['bitcoin', 'dogecoin', 'litecoin'], currency);
+      const btcPrice = prices.bitcoin;
+      const dogePrice = prices.dogecoin;
+      const ltcPrice = prices.litecoin;
       logger.info('Coin prices for calculations:', { btcPrice, dogePrice, ltcPrice });
 
       // Query cho non-Bitcoin, non-Dogecoin, non-Litecoin tokens

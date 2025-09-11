@@ -15,6 +15,7 @@ import { cacheData, getCachedData, clearCache, clearAllCaches } from '../utils/i
 import { LoadingOverlay } from '@/utils/helpers';
 import { debounce } from 'lodash';
 import LoginPrompt from './LoginPrompt';
+import { logger } from '../utils/clientLogger'; // Import clientLogger
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
@@ -65,7 +66,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const debouncedExecuteRecaptcha = useCallback(
     async (action, retries = 2) => {
       if (!recaptchaRef.current) {
-        console.error('reCAPTCHA ref is null');
+        logger.error('reCAPTCHA ref is null');
         throw new Error('reCAPTCHA not initialized');
       }
       try {
@@ -77,7 +78,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         if (!token) throw new Error('Empty reCAPTCHA token');
         return token;
       } catch (error) {
-        console.error(`reCAPTCHA error for ${action}: ${error.message}`);
+        logger.error(`reCAPTCHA error for ${action}: ${error.message}`);
         if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           return debouncedExecuteRecaptcha(action, retries - 1);
@@ -103,7 +104,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       localStorage.setItem('csrf_token', csrf);
     },
     onError: (err) => {
-      console.error('Error fetching CSRF token:', err);
+      logger.error('Error fetching CSRF token:', err);
       toast.error('Failed to fetch CSRF token. Please try again.', {
         position: 'top-center',
         autoClose: 5000,
@@ -137,7 +138,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       await queryClient.invalidateQueries(['userData', session?.user?.id]);
     },
     onError: (err) => {
-      console.error('Create charge error:', {
+      logger.error('Create charge error:', {
         message: err.message,
         response: err.response?.data,
         status: err.response?.status,
@@ -189,13 +190,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           isPremium: response.data.user.isPremium || false,
           tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
           twitterHandle: response.data.user.twitterHandle || null,
-          profilePicture: response.data.user.profilePicture || '', // Ensure camelCase
+          profilePicture: response.data.user.profilePicture || '',
           googleName: response.data.user.googleName || '',
         };
         await cacheData(cacheKey, user, 24 * 60 * 60 * 1000);
         return user;
       } catch (err) {
-        console.error('Error fetching user data:', err.response?.data || err.message);
+        logger.error('Error fetching user data:', err.response?.data || err.message);
         throw err;
       }
     },
@@ -204,7 +205,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
     onError: async (err) => {
-      console.error('Error fetching user data:', err.response?.data || err.message);
+      logger.error('Error fetching user data:', err.response?.data || err.message);
       if (err.response?.status === 429) {
         toast.error('Too many requests. Please wait and try again.', {
           position: 'top-center',
@@ -232,7 +233,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Force refetch if profilePicture is undefined but twitterHandle exists
   useEffect(() => {
     if (userData?.twitterHandle && !userData?.profilePicture && status === 'authenticated') {
-      console.warn('Profile picture is undefined with Twitter handle, triggering refetch');
+      logger.warn('Profile picture is undefined with Twitter handle, triggering refetch');
       const cacheKey = `userData-${session.user.id}`;
       clearCache(cacheKey).then(() => {
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
@@ -327,7 +328,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         },
         withCredentials: true,
       }).catch(err => {
-        console.error('Leaderboard fetch error:', err.response?.data || err.message);
+        logger.error('Leaderboard fetch error:', err.response?.data || err.message);
         throw err;
       });
       if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch leaderboard.');
@@ -339,7 +340,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     retry: 1,
     retryDelay: 2000,
     onError: (err) => {
-      console.error('Leaderboard error:', err);
+      logger.error('Leaderboard error:', err);
       toast.error(`Failed to fetch leaderboard: ${err.message}`, { position: 'top-center', autoClose: 5000 });
     },
   });
@@ -350,7 +351,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       window.location.href = '/api/twitter/connect';
     },
     onError: (err) => {
-      console.error('Connect Twitter error:', err);
+      logger.error('Connect Twitter error:', err);
       toast.error(`Unable to connect Twitter: ${err.message}`, { position: 'top-center', autoClose: 5000 });
     },
   });
@@ -367,7 +368,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           withCredentials: true,
         }
       ).catch(err => {
-        console.error('Disconnect Twitter error:', err.response?.data || err.message);
+        logger.error('Disconnect Twitter error:', err.response?.data || err.message);
         throw err;
       });
       if (!response.data.success) throw new Error(response.data.detail || 'Unable to disconnect Twitter');
@@ -385,7 +386,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       ]);
     },
     onError: (err) => {
-      console.error('Disconnect Twitter mutation error:', err);
+      logger.error('Disconnect Twitter mutation error:', err);
       const errorMessage = err.response?.status === 429
         ? 'Too many requests. Please try again later.'
         : err.response?.status === 403
@@ -445,7 +446,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      toast.error(`Unable to disconnect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
+      toast.error(`Unable to connect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
     },
   });
 
@@ -515,14 +516,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Get Profile Picture Src
   const getProfilePictureSrc = useCallback((profilePicture, twitterHandle, googleName) => {
-
     const isValidUrl = (url) => {
       try {
         const parsedUrl = new URL(url);
         const allowedHosts = ['pbs.twimg.com', 'lh3.googleusercontent.com', 'example.com'];
         return allowedHosts.includes(parsedUrl.hostname);
       } catch (err) {
-        console.warn(`Invalid URL: ${url}`, err);
+        logger.warn(`Invalid URL: ${url}`, err);
         return false;
       }
     };
@@ -986,7 +986,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           toast.success('Twitter connected successfully!', { position: 'top-center', autoClose: 5000 });
         })
         .catch((err) => {
-          console.error('Error handling Twitter connection callback:', err);
+          logger.error('Error handling Twitter connection callback:', err);
           toast.error('Failed to refresh data after Twitter connection.', {
             position: 'top-center',
             autoClose: 5000,
@@ -1001,7 +1001,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       toast.success('Cache cleared successfully.', { position: 'top-center', autoClose: 5000 });
       window.location.reload();
     } catch (err) {
-      console.error('Error clearing cache:', err);
+      logger.error('Error clearing cache:', err);
       toast.error('Failed to clear cache.', { position: 'top-center', autoClose: 5000 });
     }
   };
@@ -1107,15 +1107,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         <div className="flex items-center gap-1">
                           {userData.tier === 'Basic' ? (
                             <>
-                              {/* <motion.button
-                                onClick={() => createChargeMutation.mutate()}
-                                disabled={createChargeMutation.isLoading}
-                                className={`ml-1 px-2.5 py-1 rounded-lg text-[7px] sm:text-[8px] font-medium text-white border border-neon-blue/50 bg-neon-blue/20 hover:bg-neon-blue/40 transition-all duration-300 ${createChargeMutation.isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                whileHover={{ scale: createChargeMutation.isLoading ? 1 : 1.02 }}
-                                whileTap={{ scale: createChargeMutation.isLoading ? 1 : 0.97 }}
-                              >
-                                {createChargeMutation.isLoading ? 'Processing...' : 'Upgrade Plan'}
-                              </motion.button> */}
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 className="w-3 h-3 text-silver"
@@ -1130,7 +1121,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 <circle cx="12" cy="7" r="4" />
                               </svg>
                               <span className="text-silver">{userData.tier}</span>
-
                             </>
                           ) : (
                             <>
@@ -1155,13 +1145,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           <span className="text-white/60">Twitter:</span>
                           {userData.twitterHandle ? (
                             <div className="flex items-center gap-2">
-                              {/* <Image
-                                src={getProfilePictureSrc(userData.profilePicture, userData.twitterHandle, userData.googleName)}
-                                alt={userData.twitterHandle}
-                                width={isMobile ? 14 : 16}
-                                height={isMobile ? 14 : 16}
-                                className="rounded-full border border-white/10"
-                              /> */}
                               <div className="flex items-center gap-2">
                                 <a
                                   href={`https://x.com/${userData.twitterHandle}`}
@@ -1241,47 +1224,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             )}
           </div>
         </motion.div>
-
-        {/* Tab Navigation */}
-        {/* <motion.div
-          className="border border-white/10 rounded-xl bg-black/20 flex flex-col"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <div className="p-0 border-b border-white/10 bg-black/10 flex h-[52px]">
-            {['tasks', 'leaderboard', 'points'].map((tab) => (
-              <motion.button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 text-xs font-bold text-white uppercase tracking-wider py-2 no-hover-effect flex items-center justify-center gap-2 ${activeTab === tab ? 'border-b-2 border-white/60' : 'text-white/80 hover:text-neon-blue'}`}
-              >
-                {tab === 'tasks' && (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12H12V2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-                {tab === 'leaderboard' && (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                )}
-                {tab === 'points' && (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                  </svg>
-                )}
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </motion.button>
-            ))}
-          </div>
-          <AnimatePresence mode="wait">
-            {activeTab === 'tasks' && renderTasksSection()}
-            {activeTab === 'leaderboard' && renderLeaderboardSection()}
-            {activeTab === 'points' && renderPointsSection()}
-          </AnimatePresence>
-        </motion.div> */}
       </div>
 
       <style jsx>{`

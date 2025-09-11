@@ -151,6 +151,33 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  useEffect(() => {
+    const fetchCoinPrice = async (coinId, setPrice, setLoading) => {
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/coingecko?action=coin-details&id=${coinId}&vs_currency=${currency}`, {
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+        const result = await response.json();
+        if (response.ok && result.data?.market_data?.current_price?.[currency]) {
+          setPrice(result.data.market_data.current_price[currency]);
+          logger.log(`Fetched ${coinId} price:`, { price: result.data.market_data.current_price[currency] });
+        } else {
+          throw new Error(`Failed to fetch ${coinId} price`);
+        }
+      } catch (err) {
+        logger.error(`Error fetching ${coinId} price:`, { error: err.message, stack: err.stack });
+        setPrice(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCoinPrice('bitcoin', setBtcPrice, setIsLoadingPrices);
+    fetchCoinPrice('dogecoin', setDogePrice, setIsLoadingPrices);
+    fetchCoinPrice('litecoin', setLtcPrice, setIsLoadingPrices);
+  }, [currency]);
+
   // Fetch chain logos with local cache
   useEffect(() => {
     const fetchChainLogos = async () => {
@@ -324,7 +351,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       const response = await fetch(`/api/token-cluster?exchange=${encodeURIComponent(exchangeId)}&currency=${encodeURIComponent(currency)}`, {
         headers,
         credentials: 'include',
-        signal: AbortSignal.timeout(30000), // Add timeout to prevent hanging
+        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {
@@ -1278,12 +1305,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             <div className="flex flex-col items-center gap-1">
               <span
                 className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium ${tx.type === "receive"
-                    ? "bg-neon-green/20 text-neon-green"
-                    : tx.type === "send"
-                      ? "bg-neon-blue/20 text-neon-blue"
-                      : tx.type === "swap"
-                        ? "bg-purple-400/20 text-purple-400"
-                        : "bg-white/20 text-white/60"
+                  ? "bg-neon-green/20 text-neon-green"
+                  : tx.type === "send"
+                    ? "bg-neon-blue/20 text-neon-blue"
+                    : tx.type === "swap"
+                      ? "bg-purple-400/20 text-purple-400"
+                      : "bg-white/20 text-white/60"
                   }`}
               >
                 {typeDisplay}
