@@ -64,7 +64,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Execute reCAPTCHA
   const debouncedExecuteRecaptcha = useCallback(
     async (action, retries = 2) => {
-      if (process.env.NODE_ENV === 'development') return 'development-token';
       if (!recaptchaRef.current) {
         console.error('reCAPTCHA ref is null');
         throw new Error('reCAPTCHA not initialized');
@@ -72,7 +71,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       try {
         await recaptchaRef.current.reset();
         const token = await Promise.race([
-          recaptchaRef.current.executeAsync({ action }),
+          recaptchaRef.current.executeAsync(),
           new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
         ]);
         if (!token) throw new Error('Empty reCAPTCHA token');
@@ -319,9 +318,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       if (cached) {
         return cached;
       }
+      const token = await debouncedExecuteRecaptcha('get_leaderboard');
       const response = await axios.get('/api/connect-data', {
         headers: {
           'x-csrf-token': csrfToken,
+          'X-Recaptcha-Token': token,
           'Authorization': `Bearer ${session?.accessToken}`,
         },
         withCredentials: true,

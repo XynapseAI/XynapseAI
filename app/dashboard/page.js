@@ -40,9 +40,16 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
 
     setLoading(true);
     try {
-      const recaptchaToken = process.env.NODE_ENV === 'development' ? 'development-token' : await recaptchaRef.current?.executeAsync();
+      // Kiểm tra xem reCAPTCHA đã sẵn sàng chưa
+      if (!recaptchaRef.current) {
+        throw new Error('reCAPTCHA component is not initialized');
+      }
+      const recaptchaToken = await recaptchaRef.current.executeAsync();
+      if (!recaptchaToken) {
+        throw new Error('Failed to obtain reCAPTCHA token');
+      }
       const jwtToken = session?.accessToken;
-      const response = await fetch(`${API_BASE_URL}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+      const response = await fetch(`${API_BASE_URL}/user?uid=${encodeURIComponent(session.user.id)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -79,7 +86,9 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
       toast.error(`Error: ${err.message}`, { position: 'top-center' });
     } finally {
       setLoading(false);
-      if (recaptchaRef.current) recaptchaRef.current.reset();
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+      }
     }
   }, [session, csrfToken]);
 
@@ -189,7 +198,7 @@ export default function Dashboard() {
 
     const fetchCsrfToken = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/csrf`, {
+        const response = await fetch(`${API_BASE_URL}/auth/csrf`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -198,6 +207,7 @@ export default function Dashboard() {
           credentials: 'include',
         });
         const result = await response.json();
+        console.log('CSRF Token Response:', result); // Debug CSRF token
         if (response.ok) {
           setCsrfToken(result.csrfToken);
           await update({ csrfToken: result.csrfToken });
@@ -523,7 +533,7 @@ export default function Dashboard() {
                         height={20}
                         className="w-5 h-5 object-contain mr-2"
                       />
-                      <MatrixHoverEffect text="Sign in with Google"/>
+                      <MatrixHoverEffect text="Sign in with Google" />
                     </button>
                   )}
                   {error && (
@@ -572,12 +582,22 @@ export default function Dashboard() {
             )}
           </motion.div>
         </main>
-        <ReCAPTCHA
-          ref={recaptchaRef}
-          sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
-          size="invisible"
-          badge="bottomright"
-        />
+        {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ? (
+          <ReCAPTCHA
+            ref={recaptchaRef}
+            sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+            size="invisible"
+            badge="bottomright"
+            onError={() => {
+              console.error('reCAPTCHA initialization failed');
+              toast.error('Failed to initialize reCAPTCHA', { position: 'top-center' });
+            }}
+          />
+        ) : (
+          <p className="text-[8px] text-red-600 ml-2">
+            Error: reCAPTCHA site key is missing. Please configure NEXT_PUBLIC_RECAPTCHA_SITE_KEY.
+          </p>
+        )}
         <p className="text-[8px] text-gray-600 ml-2">
           Protected by reCAPTCHA. See{' '}
           <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-neon-blue">

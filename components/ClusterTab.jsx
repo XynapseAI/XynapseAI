@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useCallback } from 'react';
 import debounce from 'lodash/debounce';
 import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts";
@@ -133,6 +132,42 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   const [toggledToken, setToggledToken] = useState(null);
   const portfolioRef = useRef(null);
 
+  // Execute reCAPTCHA
+  const debouncedExecuteRecaptcha = useCallback(
+    debounce(async (action, retries = 3) => {
+      if (!recaptchaRef.current) {
+        logger.error('reCAPTCHA ref is null', { action });
+        console.error('reCAPTCHA ref is null'); 
+        throw new Error('reCAPTCHA not initialized');
+      }
+      try {
+        await recaptchaRef.current.reset();
+        const token = await Promise.race([
+          recaptchaRef.current.executeAsync(),
+
+
+          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 30000)),
+        ]);
+        if (!token) {
+          logger.error('Empty reCAPTCHA token', { action });
+          console.error('Empty reCAPTCHA token'); 
+          throw new Error('Empty reCAPTCHA token');
+        }
+        logger.info('reCAPTCHA token generated successfully', { action, tokenLength: token.length });
+        return token;
+      } catch (error) {
+        logger.error(`reCAPTCHA error for ${action}: ${error.message}`, { action, retries });
+        console.error(`reCAPTCHA error for ${action}: ${error.message}`); // Thêm console.error
+        if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return debouncedExecuteRecaptcha(action, retries - 1);
+        }
+        throw new Error(`reCAPTCHA failed after ${3 - retries} attempts: ${error.message}`);
+      }
+    }, 500),
+    [recaptchaRef]
+  );
+
   // Handle click outside to close toggle
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -163,7 +198,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       }
 
       try {
-        const response = await fetch("/api/coingecko/chains", {
+        const response = await fetch("/api/coingecko?action=chains", {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
         });
@@ -205,8 +240,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
     setIsLoadingExchange(true);
     try {
+      const token = await debouncedExecuteRecaptcha('fetch_exchange_data');
       const response = await fetch(`/api/coingecko?action=exchange-details&id=${mappedId}`, {
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Recaptcha-Token": token,
+        },
         credentials: "include",
       });
       const result = await response.json();
@@ -274,8 +313,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
     setIsLoadingVolume(true);
     try {
+      const token = await debouncedExecuteRecaptcha('fetch_volume_history');
       const response = await fetch(`/api/coingecko?action=volume-chart&id=${exchangeId}&days=7`, {
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Recaptcha-Token": token,
+        },
         credentials: "include",
       });
       const result = await response.json();
@@ -302,7 +345,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     }
   };
 
-
   // Fetch portfolio and wallets with prices
   const fetchPortfolioAndWallets = async (exchangeId) => {
     setIsLoadingPortfolio(true);
@@ -311,11 +353,26 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     try {
       logger.info(`Fetching portfolio/wallet data and prices for exchange: ${exchangeId}`);
 
-      const csrfToken = document.cookie.split('; ').find(row => row.startsWith('csrf_token='))?.split('=')[1] || 'dev-csrf';
+      // Fetch CSRF token
+      const csrfResponse = await fetch('/api/csrf-token', {
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (!csrfResponse.ok) {
+        throw new Error('Failed to fetch CSRF token');
+      }
+      const { csrfToken } = await csrfResponse.json();
+      if (!csrfToken) {
+        throw new Error('Empty CSRF token received');
+      }
+      localStorage.setItem('csrf_token', csrfToken); // Lưu CSRF token như ProfileTab.jsx
+
+      const token = await debouncedExecuteRecaptcha('fetch_portfolio_wallets');
 
       const headers = {
         'Content-Type': 'application/json',
-        'X-CSRF-Token': csrfToken,
+        'x-csrf-token': csrfToken, // Thêm CSRF token
+        'X-Recaptcha-Token': token,
       };
       if (status === 'authenticated' && session?.accessToken) {
         headers['Authorization'] = `Bearer ${session.accessToken}`;
@@ -324,7 +381,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       const response = await fetch(`/api/token-cluster?exchange=${encodeURIComponent(exchangeId)}&currency=${encodeURIComponent(currency)}`, {
         headers,
         credentials: 'include',
-        signal: AbortSignal.timeout(30000), // Add timeout to prevent hanging
+        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {
@@ -381,13 +438,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     }
   };
 
-  // Memoized authenticated data
-  const memoizedPortfolioData = useMemo(() => portfolioData, [portfolioData, status]);
-  const memoizedWalletData = useMemo(() => walletData, [walletData, status]);
-  const memoizedTransactions = useMemo(() => transactions, [transactions, status]);
-  const memoizedWalletBalances = useMemo(() => walletBalances, [walletBalances, status]);
-  const memoizedWalletTransactions = useMemo(() => walletTransactions, [walletTransactions, status]);
-
   // Fetch transactions with authenticated cache
   const fetchTransactions = async (input, minValueUsd = null) => {
     if (status !== "authenticated") {
@@ -416,11 +466,13 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         return;
       }
 
+      const token = await debouncedExecuteRecaptcha('fetch_transactions');
       const response = await fetch(`/api/sim`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+          "Authorization": session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+          "X-Recaptcha-Token": token,
         },
         credentials: "include",
         body: JSON.stringify({
@@ -485,7 +537,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   throw new Error(parsedObj.detail);
                 }
                 transactionsData.push(parsedObj);
-                // Use debounced state update
                 debouncedSetTransactions([...transactionsData]);
               } catch (parseError) {
                 logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
@@ -556,11 +607,13 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
         return;
       }
 
+      const token = await debouncedExecuteRecaptcha('fetch_wallet_transactions');
       const response = await fetch(`/api/sim`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+          "Authorization": session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+          "X-Recaptcha-Token": token,
         },
         credentials: "include",
         body: JSON.stringify({
@@ -624,7 +677,6 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                   throw new Error(parsedObj.detail);
                 }
                 transactionsData.push(parsedObj);
-                // Use debounced state update
                 debouncedSetWalletTransactions([...transactionsData]);
               } catch (parseError) {
                 logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
@@ -687,18 +739,20 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
       }
 
       const cacheKey = `sim:balances:auth:${walletAddress}`;
-      const cachedData = getCachedData(cacheKey, 60 * 1000); // 1 phút
+      const cachedData = getCachedData(cacheKey, 60 * 1000);
       if (cachedData) {
         setWalletBalances(cachedData);
         logger.info(`Cache hit for wallet balances: ${cacheKey} from localStorage`);
         return;
       }
 
+      const token = await debouncedExecuteRecaptcha('fetch_wallet_balances');
       const response = await fetch(`/api/sim`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+          "Authorization": session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+          "X-Recaptcha-Token": token,
         },
         credentials: "include",
         body: JSON.stringify({
@@ -763,7 +817,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
                 }
                 balancesData.push(parsedObj);
               } catch (parseError) {
-                console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
+                logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
               }
             } else {
               break;
@@ -787,7 +841,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
               throw new Error(parsed.detail);
             }
           } catch (e) {
-            console.error(`Error parsing final buffer: ${e.message}`, { buffer });
+            logger.error(`Error parsing final buffer: ${e.message}`, { buffer });
           }
         }
       }
@@ -870,10 +924,10 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
   };
 
   const uniqueWalletData = useMemo(() => {
-    logger.log("Processing walletData for deduplication:", { walletData: memoizedWalletData });
+    logger.log("Processing walletData for deduplication:", { walletData });
     const walletMap = new Map();
 
-    memoizedWalletData.forEach((wallet, index) => {
+    walletData.forEach((wallet, index) => {
       const addr = wallet.holder_address?.toLowerCase();
       if (!addr) return;
 
@@ -904,13 +958,13 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
     const deduplicated = Array.from(walletMap.values());
     logger.log("Deduplicated wallet data:", { deduplicated });
     return deduplicated;
-  }, [memoizedWalletData]);
+  }, [walletData]);
 
   const groupedPortfolio = useMemo(() => {
-    logger.log("Processing portfolio data for chain details:", { portfolioData: memoizedPortfolioData });
-    const totalValue = memoizedPortfolioData.reduce((sum, item) => sum + (Number(item.total_balance_usd) || 0), 0);
+    logger.log("Processing portfolio data for chain details:", { portfolioData });
+    const totalValue = portfolioData.reduce((sum, item) => sum + (Number(item.total_balance_usd) || 0), 0);
 
-    const grouped = memoizedPortfolioData.map((item, index) => {
+    const grouped = portfolioData.map((item, index) => {
       const metadataChains = new Set(
         (item.chain_details || []).map((token) => token.chain?.toLowerCase()).filter(Boolean),
       );
@@ -931,7 +985,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
     logger.log("Grouped portfolio after processing:", { filtered, selectedChain });
     return filtered;
-  }, [memoizedPortfolioData, selectedChain]);
+  }, [portfolioData, selectedChain]);
 
   const totalPortfolioValue = useMemo(() => {
     return groupedPortfolio.reduce((sum, item) => sum + (Number(item.total_balance_usd) || 0), 0);
@@ -939,12 +993,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
 
   const chains = useMemo(() => {
     const chainSet = new Set(["all"]);
-    memoizedPortfolioData.forEach((item) => {
+    portfolioData.forEach((item) => {
       (item.chain_details || []).forEach((token) => {
         if (token.chain) chainSet.add(token.chain.toLowerCase());
       });
     });
-    memoizedWalletData.forEach((wallet) => {
+    walletData.forEach((wallet) => {
       (wallet.metadata || []).forEach((token) => {
         if (token.chain) chainSet.add(token.chain.toLowerCase());
       });
@@ -957,7 +1011,7 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
           value === "litecoin" ? LITECOIN_LOGO :
             chainLogos[value.toLowerCase()] || "/fallback-image.webp",
     }));
-  }, [memoizedPortfolioData, memoizedWalletData, chainLogos]);
+  }, [portfolioData, walletData, chainLogos]);
 
   const truncateAddressWithHover = (address, nameTag) => {
     const truncated = truncateAddress(address).text;
@@ -1278,12 +1332,12 @@ const ClusterTab = ({ recaptchaRef, initialExchangeId }) => {
             <div className="flex flex-col items-center gap-1">
               <span
                 className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium ${tx.type === "receive"
-                    ? "bg-neon-green/20 text-neon-green"
-                    : tx.type === "send"
-                      ? "bg-neon-blue/20 text-neon-blue"
-                      : tx.type === "swap"
-                        ? "bg-purple-400/20 text-purple-400"
-                        : "bg-white/20 text-white/60"
+                  ? "bg-neon-green/20 text-neon-green"
+                  : tx.type === "send"
+                    ? "bg-neon-blue/20 text-neon-blue"
+                    : tx.type === "swap"
+                      ? "bg-purple-400/20 text-purple-400"
+                      : "bg-white/20 text-white/60"
                   }`}
               >
                 {typeDisplay}

@@ -1,4 +1,3 @@
-// utils/verifyRecaptcha.js
 import axios from 'axios';
 import { logger } from './serverLogger';
 import Bottleneck from 'bottleneck';
@@ -10,12 +9,15 @@ const limiter = new Bottleneck({
 
 const verifyWithRateLimit = limiter.wrap(async (token, action, ip) => {
   try {
+    if (!process.env.RECAPTCHA_SECRET_KEY) {
+      throw new Error('Missing RECAPTCHA_SECRET_KEY');
+    }
     const response = await axios.post(
       'https://www.google.com/recaptcha/api/siteverify',
       new URLSearchParams({
         secret: process.env.RECAPTCHA_SECRET_KEY,
         response: token,
-        ...(ip && { remoteip: ip }), // Keep IP if provided, no validation
+        ...(ip && { remoteip: ip }),
       }),
       {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -37,11 +39,6 @@ export async function verifyRecaptcha(token, action, ip) {
   }
   if (!action || typeof action !== 'string') {
     throw new Error('Invalid reCAPTCHA action');
-  }
-
-  if (!process.env.RECAPTCHA_SECRET_KEY) {
-    logger.error('Missing RECAPTCHA_SECRET_KEY');
-    throw new Error('Server configuration error: Missing RECAPTCHA_SECRET_KEY');
   }
 
   try {

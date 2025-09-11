@@ -321,20 +321,16 @@ export async function GET(request) {
     }
 
     const recaptchaToken = request.headers.get('x-recaptcha-token');
-    if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
+    if (!recaptchaToken) {
       logger.warn('Missing reCAPTCHA token header', { ip });
       return NextResponse.json({ detail: 'Missing reCAPTCHA token in header' }, { status: 400, headers });
     }
-    if (process.env.NODE_ENV !== 'development') {
-      try {
-        const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-        logger.info('reCAPTCHA OK', { ip, score });
-      } catch (err) {
-        logger.warn('reCAPTCHA failed', { ip, reason: err?.message });
-        return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers });
-      }
-    } else if (recaptchaToken === 'development-token') {
-      logger.info('Development reCAPTCHA bypass used');
+    try {
+      const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
+      logger.info('reCAPTCHA OK', { ip, score });
+    } catch (err) {
+      logger.warn('reCAPTCHA failed', { ip, reason: err?.message });
+      return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers });
     }
 
     try {
