@@ -299,6 +299,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [page, setPage] = useState(1);
   const [selectedEntity, setSelectedEntity] = useState({ type: null, data: { transactions: [] } });
 
+
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
   // Reset selectedEntity when filterType changes to avoid stale data
@@ -670,13 +671,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setFullOutgoingData(data.outgoing);
       // Aggregate for current filterType
       const { nodes, edges, nametags: newNametags } = aggregateWallets(data.incoming, data.outgoing, address, page, filterType);
-      await cacheData(cacheKey, { 
-        incoming: data.incoming, 
-        outgoing: data.outgoing, 
-        nodes, 
-        edges, 
-        wallet: data.wallet, 
-        nametags: newNametags 
+      await cacheData(cacheKey, {
+        incoming: data.incoming,
+        outgoing: data.outgoing,
+        nodes,
+        edges,
+        wallet: data.wallet,
+        nametags: newNametags
       }, CACHE_TTL);
       setNodes((prev) => page === 1 ? nodes : [...prev, ...nodes]);
       setEdges((prev) => page === 1 ? edges : [...prev, ...edges]);
@@ -948,9 +949,16 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   }, [walletAddress, selectedChain, fetchTransactions]);
 
   // Handle filter change without refetch (use full data)
-  const handleFilterChange = useCallback((newFilterType) => {
-    setFilterType(newFilterType);
-    // No refetch, just re-aggregate
+  const handleFilterChange = useCallback(() => {
+    setFilterType((prev) => {
+      if (prev === 'all') {
+        return 'incoming';
+      } else if (prev === 'incoming') {
+        return 'outgoing';
+      } else {
+        return 'all';
+      }
+    });
   }, []);
 
   const mappedChains = coingeckoChains.length > 0 ? mapCoinGeckoChains(coingeckoChains) : chains;
@@ -1131,15 +1139,28 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   </div>
                 )}
               </div>
-              <select
-                value={filterType}
-                onChange={(e) => handleFilterChange(e.target.value)}
-                className="bg-black/10 backdrop-blur-sm border border-white/10 text-white px-2 py-1 rounded text-[9px] sm:text-[10px]"
+              <motion.button
+                onClick={handleFilterChange}
+                className="text-white px-2 sm:px-3 py-1 rounded-lg border border-white/20 bg-black/10 hover:bg-neon-blue/20 transition-all duration-300 flex items-center gap-2 text-[9px] sm:text-[10px]"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                <option value="all">All Transactions</option>
-                <option value="incoming">Incoming</option>
-                <option value="outgoing">Outgoing</option>
-              </select>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-3 sm:h-4 w-3 sm:w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                  />
+                </svg>
+                <span className="font-medium">Filter</span>
+              </motion.button>
             </div>
             <div className="relative flex items-center w-full sm:w-auto">
               <input
