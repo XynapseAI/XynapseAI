@@ -597,7 +597,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
               >
                 <h2 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider">Crypto</h2>
               </motion.div>
-              <div className="h-6 w-px bg-white/20"></div>
+              {/* <div className="h-6 w-px bg-white/20"></div>
               <motion.button
                 className="text-[8px] sm:text-[10px] font-bold text-white/50 uppercase cursor-not-allowed flex items-center gap-1 transition-colors duration-300 px-2 py-1"
                 disabled
@@ -605,7 +605,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 whileHover={{ scale: 1.02 }}
               >
                 Stock <span className="text-[6px] sm:text-[8px] text-white/30">(Soon)</span>
-              </motion.button>
+              </motion.button> */}
             </div>
 
             {/* Controls */}

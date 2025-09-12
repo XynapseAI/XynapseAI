@@ -373,14 +373,14 @@
       }
     }
   },
-  "twenty one capital (xxi)": {
-    "Address": "twenty one capital (xxi)",
+  "xxi": {
+    "Address": "xxi",
     "Labels": {
       "bitcoin": {
         "Name Tag": "Twenty One Capital (XXI)",
         "Description": "Corporate treasury of MicroStrategy holding Bitcoin.",
         "Subcategory": "Corporate",
-        "image": "/icons/twentyone.webp"
+        "image": "/icons/twenty_one.webp"
       }
     }
   },

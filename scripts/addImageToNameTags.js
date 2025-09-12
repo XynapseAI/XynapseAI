@@ -83,7 +83,7 @@ const keywordToImage = {
   mt: 'mtgox.webp',
   microstrategy: 'microstrategy.webp',
   mara: 'mara.webp',
-  twenty: 'twentyone.webp',
+  twenty: 'twenty_one.webp',
   marathon: 'marathon.webp',
   riot: 'riot.webp',
   trump: 'trump.webp',

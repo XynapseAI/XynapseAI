@@ -76,10 +76,10 @@ export default function Docs() {
                 className="space-y-8"
             >
                 <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">About Xynapse Analytics</h1>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     Xynapse Analytics is a cutting-edge blockchain intelligence platform designed to empower users with deep insights into on-chain activities. Launched in 2025, our mission is to bridge the gap between complex blockchain data and actionable decision-making for traders, analysts, institutions, and crypto enthusiasts.
                 </p>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     Powered by advanced AI and machine learning, Xynapse tracks over 1 million wallet addresses across 65+ blockchains, offering real-time data on token movements, wallet balances, and capital flows. Our proprietary name-tagging system labels wallets of major entities like Binance, Tether Treasury, and DeFi protocols, providing unparalleled transparency into the crypto ecosystem.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -118,7 +118,7 @@ export default function Docs() {
                 className="space-y-8"
             >
                 <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Features</h1>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     Xynapse Analytics equips you with a powerful suite of tools to navigate the blockchain landscape with confidence. From real-time wallet tracking to AI-driven insights, our platform is designed to give you an edge in the fast-paced world of crypto.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -169,7 +169,7 @@ export default function Docs() {
                 className="space-y-8"
             >
                 <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Use Cases</h1>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     Xynapse Analytics serves a wide range of users, from individual traders to institutional investors, by providing tailored tools for blockchain analysis. Explore how our platform can empower your crypto journey.
                 </p>
                 <div className="space-y-6">
@@ -214,7 +214,7 @@ export default function Docs() {
                 className="space-y-8"
             >
                 <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Documentation</h1>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     Our comprehensive documentation empowers you to harness the full potential of Xynapse Analytics. Whether you`&apos;`re a beginner or an advanced user, our guides provide step-by-step instructions to navigate our platform and leverage its features.
                 </p>
                 <div className="space-y-6">
@@ -265,7 +265,7 @@ export default function Docs() {
                 className="space-y-8"
             >
                 <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">API</h1>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     The Xynapse API enables developers to integrate our real-time blockchain data into their applications, unlocking powerful analytics for dApps, trading bots, and custom dashboards.
                 </p>
                 <div className="space-y-6">
@@ -307,7 +307,7 @@ export default function Docs() {
                 className="space-y-8"
             >
                 <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Support</h1>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     Our dedicated support team is committed to helping you succeed with Xynapse Analytics. Whether you need technical assistance, have questions about features, or want to share feedback, we’re here for you.
                 </p>
                 <div className="space-y-6">
@@ -354,7 +354,7 @@ export default function Docs() {
                 className="space-y-8"
             >
                 <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Community</h1>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     Join the Xynapse Analytics community to connect with thousands of crypto enthusiasts, traders, and developers. Share insights, discuss on-chain trends, and stay updated with the latest platform developments.
                 </p>
                 <div className="space-y-6">
@@ -396,7 +396,7 @@ export default function Docs() {
                 className="space-y-8"
             >
                 <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Pricing</h1>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     Our pricing plans are coming soon! Designed for individual analysts, traders, and enterprise teams, our plans will offer flexible access to Xynapse’s powerful analytics tools.
                 </p>
                 <div className="bg-gray-900/50 border border-white/20 rounded-lg p-6 text-center">
@@ -417,7 +417,7 @@ export default function Docs() {
                 className="space-y-8"
             >
                 <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Brand Kit</h1>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     The Xynapse Analytics Brand Kit provides official assets and guidelines to ensure consistent representation of our brand across media, partnerships, and promotional materials.
                 </p>
                 <div className="space-y-6">
@@ -459,7 +459,7 @@ export default function Docs() {
                 className="space-y-8"
             >
                 <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">Contact Us</h1>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">
+                <p className="text-sm sm:text-base text-gray-500 leading-relaxed">
                     We’re here to help you unlock the full potential of Xynapse Analytics. Reach out with questions, feedback, or partnership inquiries, and our team will respond promptly.
                 </p>
                 <div className="space-y-6">
@@ -564,10 +564,10 @@ export default function Docs() {
                                         }
                                     }}
                                     className={`block w-full text-left text-xs font-medium transition-all duration-300 rounded-lg px-4 py-2 ${item.disabled
-                                        ? "text-gray-600 cursor-not-allowed"
+                                        ? "text-gray-500 cursor-not-allowed"
                                         : activeSection === item.id
                                             ? "text-white bg-white/10"
-                                            : "text-gray-400 hover:text-white hover:bg-white/5"
+                                            : "text-gray-500 hover:text-white hover:bg-white/5"
                                         }`}
                                     disabled={item.disabled}
                                 >
@@ -616,10 +616,10 @@ export default function Docs() {
                                     }
                                 }}
                                 className={`w-full text-left px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${item.disabled
-                                    ? "text-gray-600 cursor-not-allowed"
+                                    ? "text-gray-500 cursor-not-allowed"
                                     : activeSection === item.id
                                         ? "bg-white/10 text-white"
-                                        : "text-gray-400 hover:bg-white/5 hover:text-white"
+                                        : "text-gray-500 hover:bg-white/5 hover:text-white"
                                     }`}
                                 disabled={item.disabled}
                                 aria-label={item.name}
