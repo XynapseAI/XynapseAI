@@ -1,17 +1,17 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { motion, useInView } from "framer-motion"
-import { useRouter } from "next/navigation"
+import { motion, useInView, useScroll, useTransform } from "framer-motion"
+import { Canvas, useFrame } from "@react-three/fiber"
+import { OrbitControls, Sphere, Float, Environment, Stars, Torus } from "@react-three/drei"
+import { ArrowUpRight } from "lucide-react"
+import Lenis from "@studio-freight/lenis"
 import { gsap } from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import { MotionPathPlugin } from "gsap/MotionPathPlugin"
 import Link from "next/link"
 import Image from "next/image"
-import '../styles/globals.css'
-import '../styles/pages.css'
-import { TermsOfServiceContent } from '../components/TermsOfService'
-import { PrivacyPolicyContent } from '../components/PrivacyPolicy'
+import "../styles/pages.css"
 
 gsap.registerPlugin(ScrollTrigger, MotionPathPlugin)
 
@@ -94,11 +94,11 @@ function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
   return (
     <div
       className="relative flex items-center justify-center p-2 rounded-2xl border-2 border-gray-400/50 bg-black/10 backdrop-blur-lg transition-all duration-300 cursor-pointer group w-[160px] z-50 hover:bg-black/60"
-      style={{ position: 'absolute', left: `${position.x}px`, top: `${position.y}px` }}
+      style={{ position: "absolute", left: `${position.x}px`, top: `${position.y}px` }}
       onClick={() => onSelect(address)}
       draggable
       onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', address)
+        e.dataTransfer.setData("text/plain", address)
       }}
       onDrag={(e) => {
         if (e.clientX && e.clientY) {
@@ -108,7 +108,7 @@ function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
     >
       {image && (
         <Image
-          src={image}
+          src={image || "/placeholder.svg"}
           alt={`${displayName} logo`}
           className="w-5 h-5 rounded-full mr-2"
           width={500}
@@ -125,17 +125,27 @@ function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
 // SimulatedTreemap Component
 function SimulatedTreemap() {
   const [nodes, setNodes] = useState([
-    { address: '0x123...abc', nametag: 'Binance Deposit Wallet', image: '/icons/binance.webp', position: { x: 150, y: 200 } },
-    { address: '0x456...def', nametag: 'OKX Hot Wallet', image: '/icons/okx.webp', position: { x: -50, y: 150 } },
-    { address: '0x789...ghi', nametag: 'Bybit Hot Wallet', image: '/icons/bybit.webp', position: { x: -50, y: 250 } },
-    { address: '0xabc...123', nametag: 'Tether Treasury', image: '/icons/tether.webp', position: { x: 350, y: 100 } },
-    { address: '0xdef...456', nametag: 'Binance Hot Wallet', image: '/icons/binance.webp', position: { x: 350, y: 200 } },
-    { address: '0xghi...789', nametag: 'Coinbase Wallet', image: '/icons/coinbase.webp', position: { x: 350, y: 300 } },
+    {
+      address: "0x123...abc",
+      nametag: "Binance Deposit Wallet",
+      image: "/icons/binance.webp",
+      position: { x: 150, y: 200 },
+    },
+    { address: "0x456...def", nametag: "OKX Hot Wallet", image: "/icons/okx.webp", position: { x: -50, y: 150 } },
+    { address: "0x789...ghi", nametag: "Bybit Hot Wallet", image: "/icons/bybit.webp", position: { x: -50, y: 250 } },
+    { address: "0xabc...123", nametag: "Tether Treasury", image: "/icons/tether.webp", position: { x: 350, y: 100 } },
+    {
+      address: "0xdef...456",
+      nametag: "Binance Hot Wallet",
+      image: "/icons/binance.webp",
+      position: { x: 350, y: 200 },
+    },
+    { address: "0xghi...789", nametag: "Coinbase Wallet", image: "/icons/coinbase.webp", position: { x: 350, y: 300 } },
   ])
 
   const handleDrag = (e, address) => {
     e.preventDefault()
-    const nodeIndex = nodes.findIndex(n => n.address === address)
+    const nodeIndex = nodes.findIndex((n) => n.address === address)
     if (nodeIndex !== -1) {
       const updatedNodes = [...nodes]
       updatedNodes[nodeIndex].position = {
@@ -151,9 +161,10 @@ function SimulatedTreemap() {
     alert(`Clicked on wallet: ${address}`)
   }
 
-  const getPath = (startX, startY, endX, endY, color) => {
+  const getPath = (startX, startY, endX, endY, color, key) => {
     return (
       <path
+        key={key}
         d={`M${startX} ${startY} C${startX + 100} ${startY}, ${endX - 100} ${endY}, ${endX} ${endY}`}
         stroke={color}
         strokeWidth="2"
@@ -175,7 +186,8 @@ function SimulatedTreemap() {
             startNode.position.y + 20,
             node.position.x + 60,
             node.position.y + 20,
-            index % 2 === 0 ? "#00BFFF" : "#EF4444"
+            index % 2 === 0 ? "#00BFFF" : "#EF4444",
+            `path-${node.address}-${index}`
           )
         })}
       </svg>
@@ -194,357 +206,337 @@ function SimulatedTreemap() {
   )
 }
 
-export default function Home() {
-  const router = useRouter()
-  const card1Ref = useRef(null)
-  const card2Ref = useRef(null)
-  const card3Ref = useRef(null)
-  const sectionRef = useRef(null)
-  const cardsContainerRef = useRef(null)
+function UniverseBackground() {
+  const groupRef = useRef(null)
   const starsRef = useRef(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [modalContent, setModalContent] = useState(null)
+
+  useFrame((state) => {
+    if (groupRef.current) {
+      const time = state.clock.getElapsedTime()
+      groupRef.current.rotation.z = time * 0.01
+    }
+  })
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (groupRef.current) {
+        const scrollY = window.scrollY
+        groupRef.current.rotation.x = scrollY * 0.0001
+        groupRef.current.rotation.y = scrollY * 0.00005
+      }
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  return (
+    <group ref={groupRef}>
+      <Stars radius={100} depth={50} count={500} factor={4} saturation={0} fade speed={0.3} />
+      <group ref={starsRef}>
+        {Array.from({ length: 30 }).map((_, i) => (
+          <Float key={i} speed={0.3 + Math.random() * 0.2} rotationIntensity={0.05}>
+            <Sphere
+              args={[0.03 + Math.random() * 0.02, 8, 8]}
+              position={[(Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60]}
+            >
+              <meshStandardMaterial
+                color={Math.random() > 0.7 ? "#FFD700" : "#FFFFFF"}
+                emissive={Math.random() > 0.7 ? "#FFD700" : "#FFFFFF"}
+                emissiveIntensity={0.4 + Math.random() * 0.3}
+                transparent
+                opacity={0.7}
+              />
+            </Sphere>
+          </Float>
+        ))}
+      </group>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Float key={`spiral-${i}`} speed={0.2 + i * 0.1} rotationIntensity={0.05}>
+          <Torus
+            args={[5 + i * 1.5, 0.03, 16, 100]}
+            position={[0, 0, -20]}
+            rotation={[Math.PI / 2, 0, i * 0.4]}
+          >
+            <meshStandardMaterial
+              color="#00BFFF"
+              emissive="#00BFFF"
+              emissiveIntensity={0.5 - i * 0.05}
+              transparent
+              opacity={0.6 - i * 0.05}
+            />
+          </Torus>
+        </Float>
+      ))}
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Float key={`nebula-${i}`} speed={0.2} rotationIntensity={0.05}>
+          <Sphere
+            args={[6 + Math.random() * 4, 16, 16]}
+            position={[(Math.random() - 0.5) * 80, (Math.random() - 0.5) * 80, (Math.random() - 0.5) * 80]}
+          >
+            <meshStandardMaterial
+              color={Math.random() > 0.5 ? "#4B0082" : "#8A2BE2"}
+              transparent
+              opacity={0.15}
+              emissive={Math.random() > 0.5 ? "#4B0082" : "#8A2BE2"}
+              emissiveIntensity={0.12}
+            />
+          </Sphere>
+        </Float>
+      ))}
+      <Environment preset="night" />
+      <ambientLight intensity={0.25} color="#000033" />
+      <pointLight position={[10, 10, 10]} intensity={0.6} color="#FFD700" />
+      <pointLight position={[-10, -10, -10]} intensity={0.4} color="#00BFFF" />
+    </group>
+  )
+}
+
+function HeroSection() {
+  const { scrollYProgress } = useScroll()
+  const heroRef = useRef(null)
+
+  const titleY = useTransform(scrollYProgress, [0, 0.3], [0, -100])
+  const subtitleY = useTransform(scrollYProgress, [0, 0.3], [0, -50])
+  const buttonsY = useTransform(scrollYProgress, [0, 0.3], [0, -25])
+  const backgroundScale = useTransform(scrollYProgress, [0, 0.5], [1, 1.2])
+
+  const floatingAnimation = {
+    y: [-10, 10, -10],
+    transition: {
+      duration: 6,
+      repeat: Number.POSITIVE_INFINITY,
+      ease: "easeInOut",
+    },
+  }
+
+  return (
+    <section ref={heroRef} className="relative min-h-screen flex items-center justify-center px-6 z-10 overflow-hidden">
+      <motion.div
+        style={{ scale: backgroundScale }}
+        className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-transparent to-blue-900/20 pointer-events-none"
+      />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {Array.from({ length: 30 }).map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 bg-white/80 rounded-full"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+            }}
+            animate={{
+              y: [-20, -100, -20],
+              opacity: [0, 1, 0],
+              scale: [0.5, 1.5, 0.5],
+            }}
+            transition={{
+              duration: 10 + Math.random() * 5,
+              repeat: Number.POSITIVE_INFINITY,
+              delay: Math.random() * 8,
+              ease: "easeInOut",
+            }}
+          />
+        ))}
+      </div>
+      <motion.div className="text-center max-w-6xl mx-auto relative">
+        <motion.div style={{ y: titleY }}>
+          <motion.h1
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="text-5xl md:text-7xl lg:text-8xl font-bold mb-8 leading-tight relative"
+          >
+            {["UNLOCK", "ON-CHAIN", "INSIGHTS"].map((word, wordIndex) => (
+              <motion.div
+                key={word}
+                initial={{ opacity: 0, y: 100, rotateX: -90 }}
+                animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                transition={{
+                  duration: 1.2,
+                  delay: wordIndex * 0.3,
+                  ease: [0.25, 0.46, 0.45, 0.94],
+                }}
+                className="block"
+              >
+                <span
+                  className="text-white"
+                  style={{
+                    background:
+                      wordIndex === 1
+                        ? "linear-gradient(to right, #60A5FA, #22D3EE)"
+                        : "linear-gradient(to right, #FFFFFF, #DBEAFE, #CFFAFE)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}
+                >
+                  {word.split("").map((letter, letterIndex) => (
+                    <motion.span
+                      key={letterIndex}
+                      initial={{ opacity: 0, y: 50 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        duration: 0.5,
+                        delay: wordIndex * 0.3 + letterIndex * 0.05,
+                        ease: "easeOut",
+                      }}
+                      className="inline-block"
+                      whileHover={{
+                        scale: 1.1,
+                        transition: { duration: 0.2 },
+                      }}
+                      style={{
+                        color: "#FFFFFF",
+                      }}
+                    >
+                      {letter}
+                    </motion.span>
+                  ))}
+                </span>
+              </motion.div>
+            ))}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 blur-3xl -z-10" />
+          </motion.h1>
+        </motion.div>
+        <motion.div style={{ y: subtitleY }}>
+          <motion.p
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 1.2 }}
+            className="text-xl md:text-2xl text-white/70 mb-12 max-w-4xl mx-auto leading-relaxed relative"
+          >
+            <motion.span animate={floatingAnimation} className="inline-block">
+              WITH AI PRECISION
+            </motion.span>
+            <br />
+            <motion.span
+              animate={{ ...floatingAnimation, transition: { ...floatingAnimation.transition, delay: 1 } }}
+              className="inline-block"
+            >
+              Access comprehensive wallet data, track large organizations, and visualize fund flows in real-time.
+            </motion.span>
+          </motion.p>
+        </motion.div>
+        <motion.div
+          style={{ y: buttonsY }}
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 1.8 }}
+          className="flex flex-col sm:flex-row gap-6 justify-center items-center"
+        >
+          <Link
+            href="/dashboard"
+            target="_blank"
+            className="px-8 py-4 bg-white text-black rounded-lg text-lg font-medium transition-all duration-300 hover:bg-gray-200 flex items-center gap-2"
+          >
+            <span>LAUNCH APP</span>
+            <motion.div
+              animate={{ rotate: [0, 360] }}
+              transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+            >
+              <ArrowUpRight className="w-5 h-5" />
+            </motion.div>
+          </Link>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 2.5 }}
+          className="absolute bottom-2 sm:bottom-8 left-1 transform -translate-x-1/2"
+        >
+          <motion.div
+            animate={{ y: [0, 10, 0] }}
+            transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+            className="flex flex-col items-center gap-2 text-white/50"
+          >
+            <span className="text-sm font-medium">Scroll to explore</span>
+            <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
+              <motion.div
+                animate={{ y: [0, 12, 0] }}
+                transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+                className="w-1 h-3 bg-white/50 rounded-full mt-2"
+              />
+            </div>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </section>
+  )
+}
+
+export default function Home() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [lenis, setLenis] = useState(null)
   const [isProductOpen, setIsProductOpen] = useState(false)
   const [isResourcesOpen, setIsResourcesOpen] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false) // Added mobile menu state
 
   useEffect(() => {
-    const path = router.asPath
-    if (path === '/privacy-policy') {
-      setModalContent('privacy')
-      setIsModalOpen(true)
-      document.body.style.overflow = 'hidden'
-    } else if (path === '/terms-of-service') {
-      setModalContent('terms')
-      setIsModalOpen(true)
-      document.body.style.overflow = 'hidden'
-    }
-  }, [router.asPath])
-
-  const openModal = (content) => {
-    setModalContent(content)
-    setIsModalOpen(true)
-    document.body.style.overflow = 'hidden'
-    router.push(content === 'privacy' ? '/privacy-policy' : '/terms-of-service', undefined, {
-      shallow: true,
+    const lenisInstance = new Lenis({
+      duration: 1.5,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      wheelMultiplier: 1.2,
+      touchMultiplier: 2,
     })
-  }
 
-  const closeModal = () => {
-    setIsModalOpen(false)
-    setModalContent(null)
-    document.body.style.overflow = 'auto'
-    router.push('/', undefined, { shallow: true })
-  }
+    setLenis(lenisInstance)
 
-  useEffect(() => {
-    const initAnimation = () => {
-      if (!sectionRef.current || !card1Ref.current || !card2Ref.current || !card3Ref.current) {
-        setTimeout(initAnimation, 100)
-        return
-      }
-
-      ScrollTrigger.getAll().forEach((trigger) => trigger.kill())
-
-      const viewportWidth = window.innerWidth
-      const viewportHeight = window.innerHeight
-      const isMobile = viewportWidth < 640
-      const cardWidth = isMobile ? viewportWidth * 0.9 : Math.min(viewportWidth * 0.8, 1000)
-      const cardHeight = isMobile ? viewportHeight * 0.35 : viewportHeight * 0.3
-
-      if (cardsContainerRef.current) {
-        cardsContainerRef.current.style.minHeight = `${cardHeight * 3}px`
-      }
-      if (sectionRef.current) {
-        sectionRef.current.style.minHeight = `${viewportHeight * 2}px`
-        sectionRef.current.style.marginTop = isMobile ? "-10vh" : "0"
-      }
-
-      gsap.set([card1Ref.current, card2Ref.current, card3Ref.current], {
-        opacity: 0,
-        y: 300,
-        scale: isMobile ? 0.95 : 0.9,
-        width: cardWidth,
-        height: cardHeight,
-        xPercent: -50,
-        left: "50%",
-        overwrite: "auto",
-      })
-
-      const cardTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: isMobile ? "top 10%" : "top 15%",
-          end: isMobile ? `+=${viewportHeight * 3.5}` : `+=${viewportHeight * 4}`,
-          scrub: 1.5,
-          pin: true,
-          pinSpacing: true,
-          markers: false,
-          immediateRender: true,
-          anticipatePin: 1,
-        },
-      })
-
-      cardTl
-        .to(
-          card1Ref.current,
-          {
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            duration: isMobile ? 1.2 : 1.5,
-            ease: "power4.out",
-          },
-          0
-        )
-        .to(
-          card1Ref.current,
-          {
-            opacity: 0.2,
-            y: -cardHeight * 0.8,
-            scale: 0.9,
-            duration: isMobile ? 0.8 : 1,
-            ease: "power4.in",
-          },
-          isMobile ? 1.8 : 2.5
-        )
-        .to(
-          card2Ref.current,
-          {
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            duration: isMobile ? 1.2 : 1.5,
-            ease: "power4.out",
-          },
-          isMobile ? 1.5 : 2.2
-        )
-        .to(
-          card2Ref.current,
-          {
-            opacity: 0.2,
-            y: -cardHeight * 0.8,
-            scale: 0.9,
-            duration: isMobile ? 0.8 : 1,
-            ease: "power4.in",
-          },
-          isMobile ? 3.3 : 4.7
-        )
-        .to(
-          card3Ref.current,
-          {
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            duration: isMobile ? 1.2 : 1.5,
-            ease: "power4.out",
-          },
-          isMobile ? 3.0 : 4.4
-        )
-        .to(
-          card3Ref.current,
-          {
-            opacity: 0.2,
-            y: -cardHeight * 0.8,
-            scale: 0.9,
-            duration: isMobile ? 0.8 : 1,
-            ease: "power4.in",
-          },
-          isMobile ? 4.8 : 6.9
-        )
-
-      if (starsRef.current) {
-        starsRef.current.innerHTML = ""
-
-        const animateStar = (star) => {
-          gsap.to(star, {
-            left: `${gsap.utils.random(0, 100)}%`,
-            top: `${gsap.utils.random(0, 100)}%`,
-            opacity: gsap.utils.random(0.3, 0.9),
-            duration: gsap.utils.random(50, 100),
-            ease: "power1.inOut",
-            onComplete: () => animateStar(star),
-          })
-        }
-
-        const numStars = isMobile ? 8 : 12
-        for (let i = 0; i < numStars; i++) {
-          const star = document.createElement("div")
-          star.className = "star-dot"
-          gsap.set(star, {
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            opacity: gsap.utils.random(0.3, 0.9),
-          })
-          starsRef.current.appendChild(star)
-          animateStar(star)
-        }
-
-        const createMeteor = () => {
-          const meteorContainer = document.createElement("div")
-          meteorContainer.className = "meteor-container"
-          starsRef.current.appendChild(meteorContainer)
-
-          const meteorTail = document.createElement("div")
-          meteorTail.className = "meteor-tail"
-          meteorContainer.appendChild(meteorTail)
-
-          const isFromRight = Math.random() > 0.5
-          const startX = isFromRight ? gsap.utils.random(70, 90) : gsap.utils.random(10, 30)
-          const startY = -10
-          const endX = isFromRight ? gsap.utils.random(10, 30) : gsap.utils.random(70, 90)
-          const endY = 110
-
-          const angle = (Math.atan2(endY - startY, endX - startX) * 180) / Math.PI + 90
-
-          gsap.set(meteorContainer, {
-            x: `${startX}vw`,
-            y: `${startY}vh`,
-            rotation: angle,
-            opacity: 0,
-            scale: 1,
-            zIndex: 5,
-          })
-
-          const duration = gsap.utils.random(3, 5)
-
-          const meteorTl = gsap.timeline({
-            onComplete: () => {
-              meteorContainer.remove()
-              setTimeout(createMeteor, gsap.utils.random(8000, 15000))
-            },
-          })
-
-          meteorTl
-            .to(meteorContainer, {
-              opacity: 1,
-              duration: duration * 0.2,
-              ease: "power1.out",
-            })
-            .to(
-              meteorContainer,
-              {
-                motionPath: {
-                  path: [
-                    { x: `${startX}vw`, y: `${startY}vh` },
-                    { x: `${endX}vw`, y: `${endY}vh` },
-                  ],
-                  curviness: 0.3,
-                },
-                opacity: 0,
-                duration: duration * 0.8,
-                ease: "power1.in",
-              },
-              `<${duration * 0.2}`,
-            )
-            .fromTo(
-              meteorTail,
-              { scaleY: 0, opacity: 0 },
-              {
-                scaleY: 1,
-                opacity: 0.8,
-                duration: duration * 0.3,
-                ease: "power1.out",
-              },
-              `<0`,
-            )
-            .to(
-              meteorTail,
-              {
-                scaleY: 0,
-                opacity: 0,
-                duration: duration * 0.7,
-                ease: "power1.in",
-              },
-              `>-0.1`,
-            )
-        }
-
-        setTimeout(createMeteor, gsap.utils.random(2000, 5000))
-      }
-
-      ScrollTrigger.refresh()
+    function raf(time) {
+      lenisInstance.raf(time)
+      requestAnimationFrame(raf)
     }
 
-    initAnimation()
-
-    const handleResize = () => {
-      ScrollTrigger.refresh()
-      initAnimation()
-    }
-
-    window.addEventListener("resize", handleResize)
+    requestAnimationFrame(raf)
 
     return () => {
-      ScrollTrigger.getAll().forEach((trigger) => trigger.kill())
-      window.removeEventListener("resize", handleResize)
-      document.body.style.overflow = "auto"
+      lenisInstance.destroy()
     }
   }, [])
 
-  const cardData = [
-    {
-      title: "Token Flow Intelligence",
-      description:
-        "Track the movement of new and trending tokens across 65+ blockchains, with AI-driven predictions to identify high-potential assets.",
-      image: "/icons/token-flow.svg",
-    },
-    {
-      title: "Whale Wallet Monitoring",
-      description:
-        "Monitor major wallets in real-time, with AI alerts for significant transactions and holdings.",
-      image: "/icons/whale-wallet.svg",
-    },
-    {
-      title: "Fund Flow Visualization",
-      description:
-        "Visualize capital flows with interactive treemaps, revealing the flow of funds between top holders and exchanges.",
-      image: "/icons/treemap.svg",
-    },
-  ]
-
   const partnerLogos = [
-    '/logos/logo1.webp',
-    '/logos/logo2.webp',
-    '/logos/logo3.webp',
-    '/logos/logo4.webp',
-    '/logos/logo5.webp',
-    '/logos/logo6.webp',
-    '/logos/logo7.webp',
-    '/logos/logo8.webp',
-    '/logos/logo9.webp',
-    '/logos/logo10.webp',
-    '/logos/logo11.webp',
-    '/logos/logo12.webp',
-    '/logos/logo13.webp',
-    '/logos/logo14.webp',
-    '/logos/logo15.webp',
-    '/logos/logo16.webp',
-    '/logos/logo17.webp',
-    '/logos/logo18.webp',
-    '/logos/logo19.webp',
-    '/logos/logo20.webp',
-    '/logos/logo21.webp',
-    '/logos/logo22.webp',
-    '/logos/logo23.webp',
-    '/logos/logo24.webp',
-    '/logos/logo25.webp',
-    '/logos/logo26.webp',
-    '/logos/logo27.webp',
-    '/logos/logo28.webp',
-    '/logos/logo29.webp',
-    '/logos/logo30.webp',
-    '/logos/logo31.webp',
-    '/logos/logo32.webp',
-    '/logos/logo33.webp',
-    '/logos/logo34.webp',
-    '/logos/logo35.webp',
-    '/logos/logo36.webp',
-    '/logos/logo37.webp',
-    '/logos/logo38.webp',
-    '/logos/logo39.webp',
-    '/logos/logo40.webp',
-    '/logos/logo41.webp',
+    "/logos/logo1.webp",
+    "/logos/logo2.webp",
+    "/logos/logo3.webp",
+    "/logos/logo4.webp",
+    "/logos/logo5.webp",
+    "/logos/logo6.webp",
+    "/logos/logo7.webp",
+    "/logos/logo8.webp",
+    "/logos/logo9.webp",
+    "/logos/logo10.webp",
+    "/logos/logo11.webp",
+    "/logos/logo12.webp",
+    "/logos/logo13.webp",
+    "/logos/logo14.webp",
+    "/logos/logo15.webp",
+    "/logos/logo16.webp",
+    "/logos/logo17.webp",
+    "/logos/logo18.webp",
+    "/logos/logo19.webp",
+    "/logos/logo20.webp",
+    "/logos/logo21.webp",
+    "/logos/logo22.webp",
+    "/logos/logo23.webp",
+    "/logos/logo24.webp",
+    "/logos/logo25.webp",
+    "/logos/logo26.webp",
+    "/logos/logo27.webp",
+    "/logos/logo28.webp",
+    "/logos/logo29.webp",
+    "/logos/logo30.webp",
+    "/logos/logo31.webp",
+    "/logos/logo32.webp",
+    "/logos/logo33.webp",
+    "/logos/logo34.webp",
+    "/logos/logo35.webp",
+    "/logos/logo36.webp",
+    "/logos/logo37.webp",
+    "/logos/logo38.webp",
+    "/logos/logo39.webp",
+    "/logos/logo40.webp",
+    "/logos/logo41.webp",
   ]
 
   const row1Logos = partnerLogos.slice(0, 14)
@@ -552,25 +544,50 @@ export default function Home() {
   const row3Logos = partnerLogos.slice(28, 41)
 
   const trustedByLogos = [
-    '/logos/logo1.webp',
-    '/logos/logo2.webp',
-    '/logos/logo3.webp',
-    '/logos/logo4.webp',
-    '/logos/logo5.webp',
+    "/logos/logo1.webp",
+    "/logos/logo2.webp",
+    "/logos/logo3.webp",
+    "/logos/logo4.webp",
+    "/logos/logo5.webp",
   ]
 
   const simulatedTopHolders = [
-    { address: '', balance: 1090000, source: 'Satoshi Nakamoto.', image: '/icons/bitcoin.webp' },
-    { address: '', balance: 632457, source: 'MicroStrategy Inc.', image: '/icons/microstrategy.webp' },
-    { address: '34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo', balance: 248597, source: 'Binance Cold Wallet', image: '/icons/binance.webp' },
-    { address: 'bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2', balance: 140574, source: 'Robinhood Cold Wallet', image: '/icons/robinhood.webp' },
-    { address: '3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6', balance: 140398, source: 'Binance Cold Wallet', image: '/icons/binance.webp' },
-    { address: 'bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97', balance: 130010, source: 'Bitfinex Cold Wallet', image: '/icons/bitfinex.webp' },
+    { address: "", balance: 1090000, source: "Satoshi Nakamoto.", image: "/icons/bitcoin.webp" },
+    { address: "", balance: 632457, source: "MicroStrategy Inc.", image: "/icons/microstrategy.webp" },
+    {
+      address: "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo",
+      balance: 248597,
+      source: "Binance Cold Wallet",
+      image: "/icons/binance.webp",
+    },
+    {
+      address: "bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2",
+      balance: 140574,
+      source: "Robinhood Cold Wallet",
+      image: "/icons/robinhood.webp",
+    },
+    {
+      address: "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6",
+      balance: 140398,
+      source: "Binance Cold Wallet",
+      image: "/icons/binance.webp",
+    },
+    {
+      address: "bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97",
+      balance: 130010,
+      source: "Bitfinex Cold Wallet",
+      image: "/icons/bitfinex.webp",
+    },
   ]
 
   return (
-    <div className="min-h-screen flex flex-col bg-black text-white overflow-x-hidden font-saira">
-      {/* Header */}
+    <div className="min-h-screen bg-black text-white overflow-x-hidden font-saira">
+      <div className="fixed inset-0 z-0">
+        <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 2]} performance={{ min: 0.5 }}>
+          <UniverseBackground />
+          <OrbitControls enableZoom={false} enablePan={false} enableRotate={false} />
+        </Canvas>
+      </div>
       <header className="w-full py-1.5 px-6 flex justify-between items-center z-50 sticky top-0 bg-black/50 backdrop-blur-lg">
         <div className="flex items-center">
           <Image
@@ -583,7 +600,6 @@ export default function Home() {
           />
         </div>
         <div className="flex items-center gap-4">
-          {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-10 m-2">
             <div className="relative group">
               <button
@@ -611,11 +627,7 @@ export default function Home() {
                     key={link.name}
                     href={link.href}
                     target={link.disabled ? "_self" : "_blank"}
-                    className={`block px-4 py-2 text-sm transition-all duration-300 ${
-                      link.disabled
-                        ? "text-gray-600 cursor-not-allowed"
-                        : "text-gray-400 hover:text-white"
-                    }`}
+                    className={`block px-4 py-2 text-sm transition-all duration-300 ${link.disabled ? "text-gray-600 cursor-not-allowed" : "text-gray-400 hover:text-white"}`}
                   >
                     {link.name}
                   </Link>
@@ -639,8 +651,6 @@ export default function Home() {
                 onMouseLeave={() => setIsResourcesOpen(false)}
               >
                 {[
-                  // { name: "Blog", href: "/docs#blog", disabled: false },
-                  // { name: "Support", href: "/docs#support", disabled: false },
                   { name: "Brand Kit", href: "/docs#brandkit", disabled: false },
                   { name: "Contact", href: "/docs#contact", disabled: false },
                   { name: "Docs", href: "/docs#docs", disabled: false },
@@ -682,7 +692,7 @@ export default function Home() {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 w-3/5 h-full bg-black/80 backdrop-blur-sm border-l border-white/10 rounded-l-xl p-6"
+            className="fixed right-0 top-0 w-3/5 h-full bg-black/70 backdrop-blur-sm border-l border-white/10 rounded-l-xl p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -704,11 +714,7 @@ export default function Home() {
                     key={link.name}
                     href={link.href}
                     target={link.disabled ? "_self" : "_blank"}
-                    className={`block text-xs mb-2 transition-all duration-300 ${
-                      link.disabled
-                        ? "text-gray-600 cursor-not-allowed"
-                        : "text-gray-400 hover:text-white"
-                    }`}
+                    className={`block text-xs mb-2 transition-all duration-300 ${link.disabled ? "text-gray-600 cursor-not-allowed" : "text-gray-400 hover:text-white"}`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {link.name}
@@ -718,8 +724,6 @@ export default function Home() {
               <div>
                 <h3 className="text-sm font-bold text-white mb-4 tracking-wider">RESOURCES</h3>
                 {[
-                  // { name: "Blog", href: "/docs#blog", disabled: false },
-                  // { name: "Support", href: "/docs#support", disabled: false },
                   { name: "Brand Kit", href: "/docs#brandkit", disabled: false },
                   { name: "Contact", href: "/docs#contact", disabled: false },
                   { name: "Docs", href: "/docs#docs", disabled: false },
@@ -760,37 +764,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Hero Section */}
-      <section className="min-h-screen flex flex-col items-center justify-center py-16 bg-gradient-to-b from-black via-gray-900 to-black relative overflow-hidden">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="text-center z-10 max-w-4xl mx-auto px-6"
-        >
-          <h1 className="text-2xl sm:text-2xl md:text-5xl font-bold text-white mb-6 tracking-tight">
-            UNLOCK ON-CHAIN INSIGHTS
-            <br />
-            <span className="text-gray-400">WITH AI PRECISION</span>
-          </h1>
-          <p className="text-[11px] sm:text-sm text-gray-400 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Access comprehensive wallet data, track large organizations, and visualize fund flows in real-time.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/dashboard"
-              target="_blank"
-              className="px-4 py-2 bg-white text-black rounded-lg text-xs font-medium transition-all duration-300 hover:bg-gray-200"
-            >
-              <MatrixHoverEffect text="LAUNCH APP" hoverColor="#000000" />
-            </Link>
-          </div>
-        </motion.div>
-        <div ref={starsRef} className="absolute inset-0 z-0" />
-      </section>
-
-      {/* Trusted By */}
-      <section className="py-16 bg-gray-900/20 border-y border-white/10">
+      <HeroSection />
+      <section className="py-16 bg-gray-900/20 border-y border-white/5 relative z-10">
         <p className="text-center text-gray-400 text-sm font-bold mb-12 tracking-wider">
           TRUSTED BY LEADING BLOCKCHAIN ANALYSTS
         </p>
@@ -799,7 +774,7 @@ export default function Home() {
             {[...trustedByLogos, ...trustedByLogos].map((logo, index) => (
               <Image
                 key={`trusted-${index}`}
-                src={logo}
+                src={logo || "/placeholder.svg"}
                 alt="Trusted Partner"
                 width={64}
                 height={64}
@@ -809,37 +784,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Powered by Elite AI Models */}
-      <section ref={sectionRef} className="py-16 flex flex-col items-center relative">
-        <div ref={cardsContainerRef} className="relative flex items-start justify-center pt-8">
-          {[card1Ref, card2Ref, card3Ref].map((ref, index) => (
-            <motion.div
-              key={index}
-              ref={ref}
-              className="absolute bg-gradient-to-br from-gray-900 via-black to-gray-800 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl flex flex-row items-center justify-between p-8 w-full max-w-4xl sm:h-[300px] h-[240px] transition-all duration-300 card"
-            >
-              <div className="flex-1 pr-8">
-                <h3 className="text-2xl sm:text-3xl font-bold text-white mb-4 tracking-tight">
-                  {cardData[index].title}
-                </h3>
-                <p className="text-sm sm:text-base text-gray-400 leading-relaxed">{cardData[index].description}</p>
-              </div>
-              <div className="flex-none w-24 h-24">
-                <Image
-                  src={cardData[index].image}
-                  alt={cardData[index].title}
-                  width={96}
-                  height={96}
-                  className="w-full h-full object-contain rounded-lg opacity-80"
-                />
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Why Choose Us */}
       <section className="py-20 flex flex-col items-center relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -856,7 +800,6 @@ export default function Home() {
             />
           </p>
         </motion.div>
-
         <div className="w-full max-w-6xl mx-auto px-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {[
@@ -889,11 +832,7 @@ export default function Home() {
                     stroke="currentColor"
                     strokeWidth={2}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
                   </svg>
                 ),
                 text: "Over 1M Name Tags & Labels",
@@ -927,11 +866,7 @@ export default function Home() {
                     stroke="currentColor"
                     strokeWidth={2}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 17V7m0 10h6m-6 0H3m12 0h6M5 7h14"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10h6m-6 0H3m12 0h6M5 7h14" />
                   </svg>
                 ),
                 text: "Fund Flow Visualization via Treemap",
@@ -953,9 +888,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Market Intelligence */}
-      <section className="py-20 bg-gradient-to-b from-black to-gray-900 relative overflow-hidden">
+      <section className="py-20 bg-gradient-to-b from-black/20 to-gray-900/20 backdrop-blur-xs relative overflow-hidden z-10">
         <div className="max-w-6xl mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -969,7 +902,6 @@ export default function Home() {
               Real-time wallet and transaction data across multiple chains with AI-enhanced analysis
             </p>
           </motion.div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
             {[
               {
@@ -1007,7 +939,6 @@ export default function Home() {
               </motion.div>
             ))}
           </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
@@ -1037,7 +968,6 @@ export default function Home() {
                 ))}
               </ul>
             </motion.div>
-
             <motion.div
               initial={{ opacity: 0, x: 50 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -1069,9 +999,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Advanced Analytics */}
-      <section className="py-20 bg-black relative">
+      <section className="py-20 bg-black/30 backdrop-blur-sm relative z-10">
         <div className="max-w-6xl mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1080,12 +1008,13 @@ export default function Home() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h3 className="text-3xl sm:text-4xl font-bold text-white mb-6 tracking-tight">ADVANCED ON-CHAIN ANALYTICS</h3>
+            <h3 className="text-3xl sm:text-4xl font-bold text-white mb-6 tracking-tight">
+              ADVANCED ON-CHAIN ANALYTICS
+            </h3>
             <p className="text-lg text-gray-400 max-w-2xl mx-auto">
               AI algorithms to dissect wallet patterns and entity behaviors
             </p>
           </motion.div>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
@@ -1098,13 +1027,7 @@ export default function Home() {
                 <div className="flex justify-center items-center p-2 border-b border-white/10 bg-white/5">
                   <h4 className="text-xs font-bold text-white text-center uppercase tracking-wider flex items-center gap-2">
                     Top 100
-                    <Image
-                      src="/logos/bitcoin.webp"
-                      alt="BTC logo"
-                      className="w-4 h-4"
-                      width={500}
-                      height={500}
-                    />
+                    <Image src="/logos/bitcoin.webp" alt="BTC logo" className="w-4 h-4" width={500} height={500} />
                     Holders
                   </h4>
                 </div>
@@ -1155,7 +1078,7 @@ export default function Home() {
                           <td className="px-4 py-3 text-white">
                             <div className="flex items-center gap-3 group relative">
                               <Image
-                                src={holder.image}
+                                src={holder.image || "/placeholder.svg"}
                                 alt={`${holder.source} logo`}
                                 className="w-5 h-5 rounded-lg"
                                 width={500}
@@ -1165,14 +1088,12 @@ export default function Home() {
                                 className="text-white font-medium cursor-pointer hover:text-white/80 transition-colors"
                                 title={holder.address}
                               >
-                                {holder.source || holder.address.slice(0, 6) + '...' + holder.address.slice(-4)}
+                                {holder.source || holder.address.slice(0, 6) + "..." + holder.address.slice(-4)}
                               </span>
                             </div>
                           </td>
                           <td className="px-4 py-3 font-bold text-white">
-                            <span className="px-2 py-1 rounded-lg">
-                              {holder.balance.toLocaleString("en-US")}
-                            </span>
+                            <span className="px-2 py-1 rounded-lg">{holder.balance.toLocaleString("en-US")}</span>
                           </td>
                         </motion.tr>
                       ))}
@@ -1182,7 +1103,6 @@ export default function Home() {
                 </div>
               </div>
             </motion.div>
-
             <motion.div
               initial={{ opacity: 0, x: 50 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -1214,9 +1134,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Our Vision */}
-      <section className="py-20 bg-gradient-to-b from-gray-900 to-black relative">
+      <section className="py-20 bg-gradient-to-b from-gray-900/30 to-black/30 backdrop-blur-sm relative z-10">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <motion.div
@@ -1228,7 +1146,6 @@ export default function Home() {
             >
               <SimulatedTreemap />
             </motion.div>
-
             <motion.div
               initial={{ opacity: 0, x: 50 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -1259,21 +1176,20 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Partners Section */}
-      <section className="py-20 bg-black m-20 sm:m-52">
+      <section className="py-20 bg-black/10 backdrop-blur-xs m-20 sm:m-52 relative z-10">
         <div className="text-center mb-20">
-          <p className="text-xl sm:text-1xl font-bold text-gray-400 tracking-wider">COMPREHENSIVE DATA ACROSS 65+ BLOCKCHAINS</p>
+          <p className="text-xl sm:text-1xl font-bold text-gray-400 tracking-wider">
+            COMPREHENSIVE DATA ACROSS 65+ BLOCKCHAINS
+          </p>
         </div>
         <div className="relative w-full overflow-hidden">
           <div className="absolute inset-y-0 left-0 w-4 sm:w-32 bg-gradient-to-r from-black to-transparent z-10"></div>
           <div className="absolute inset-y-0 right-0 w-4 sm:w-32 bg-gradient-to-l from-black to-transparent z-10"></div>
-
           <div className="flex animate-marquee-right-to-left mb-8">
             {[...row1Logos, ...row1Logos].map((logo, index) => (
               <Image
                 key={`row1-${index}`}
-                src={logo}
+                src={logo || "/placeholder.svg"}
                 alt="Blockchain Partner"
                 width={80}
                 height={80}
@@ -1281,12 +1197,11 @@ export default function Home() {
               />
             ))}
           </div>
-
           <div className="flex animate-reverse-marquee mb-8">
             {[...row2Logos, ...row2Logos].map((logo, index) => (
               <Image
                 key={`row2-${index}`}
-                src={logo}
+                src={logo || "/placeholder.svg"}
                 alt="Blockchain Partner"
                 width={80}
                 height={80}
@@ -1294,12 +1209,11 @@ export default function Home() {
               />
             ))}
           </div>
-
           <div className="flex animate-marquee-right-to-left">
             {[...row3Logos, ...row3Logos].map((logo, index) => (
               <Image
                 key={`row3-${index}`}
-                src={logo}
+                src={logo || "/placeholder.svg"}
                 alt="Blockchain Partner"
                 width={80}
                 height={80}
@@ -1309,9 +1223,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="py-16 bg-gray-900/50 backdrop-blur-lg border-t border-white/20">
+      <footer className="py-16 bg-black/30 backdrop-blur-xs relative z-10">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
             <div>
@@ -1325,7 +1237,6 @@ export default function Home() {
                 />
               </div>
             </div>
-
             {[
               {
                 title: "PRODUCT",
@@ -1338,8 +1249,6 @@ export default function Home() {
               {
                 title: "RESOURCES",
                 links: [
-                  // { name: "Blog", href: "/docs#blog", disabled: false },
-                  // { name: "Support", href: "/docs#support", disabled: false },
                   { name: "About", href: "/docs#about", disabled: false },
                   { name: "Brand Kit", href: "/docs#brandkit", disabled: false },
                   { name: "Contact", href: "/docs#contact", disabled: false },
@@ -1348,9 +1257,7 @@ export default function Home() {
               },
               {
                 title: "CONTACT",
-                links: [
-                  { name: "Email", href: "mailto:mail.xynapse@gmail.com", disabled: false },
-                ],
+                links: [{ name: "Email: mail.xynapse@gmail.com", href: "mailto:mail.xynapse@gmail.com", disabled: false }],
               },
             ].map((col, index) => (
               <div key={index}>
@@ -1360,11 +1267,7 @@ export default function Home() {
                     key={link.name}
                     href={link.href}
                     target={link.disabled ? "_self" : "_blank"}
-                    className={`block text-xs mb-2 transition-all duration-300 ${
-                      link.disabled
-                        ? "text-gray-600 cursor-not-allowed"
-                        : "text-gray-500 hover:text-white"
-                    }`}
+                    className={`block text-xs mb-2 transition-all duration-300 ${link.disabled ? "text-gray-600 cursor-not-allowed" : "text-gray-500 hover:text-white"}`}
                   >
                     <MatrixHoverEffect text={link.name} hoverColor={link.disabled ? "#4B5563" : "#00BFFF"} />
                   </Link>
@@ -1372,17 +1275,10 @@ export default function Home() {
               </div>
             ))}
           </div>
-
           <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-white/20">
             <div className="flex gap-6 mb-4 md:mb-0">
               <Link href="https://x.com" target="_blank" className="text-gray-500 hover:text-white transition-colors">
-                <Image
-                  src="/logos/x.webp"
-                  alt="X Logo"
-                  width={24}
-                  height={24}
-                  className="h-5 sm:h-6 w-auto"
-                />
+                <Image src="/logos/x.webp" alt="X Logo" width={24} height={24} className="h-5 sm:h-6 w-auto" />
               </Link>
               <span>
                 <Image
@@ -1394,63 +1290,27 @@ export default function Home() {
                 />
               </span>
             </div>
-            <div className="flex gap-6 text-xs text-gray-500">
-              <button
-                onClick={() => openModal('terms')}
-                className="hover:text-white transition-colors"
-              >
-                <MatrixHoverEffect text="Terms" hoverColor="#00BFFF" />
-              </button>
-              <button
-                onClick={() => openModal('privacy')}
-                className="hover:text-white transition-colors"
-              >
-                <MatrixHoverEffect text="Privacy" hoverColor="#00BFFF" />
-              </button>
-            </div>
           </div>
-
           <p className="text-center text-xs text-gray-500 mt-8">
             Copyright © 2025 Xynapse Analytics. All rights reserved.
           </p>
         </div>
       </footer>
-
-      {/* Modal for Terms and Privacy */}
-      {isModalOpen && (
-        <div
-          className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
-          onClick={closeModal}
-        >
-          <div
-            className="bg-gray-900/50 backdrop-blur-lg border border-white/20 rounded-2xl w-full max-w-7xl h-[90vh] relative flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 z-10 backdrop-blur-lg border-b border-white/20 p-6 flex justify-between items-center">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white uppercase">
-                {modalContent === 'privacy'
-                  ? 'Xynapse Privacy Policy'
-                  : 'Xynapse Terms of Service'}
-                <span className="block text-sm sm:text-base text-gray-300 mt-1">
-                  Effective Date: June 21, 2025
-                </span>
-              </h1>
-              <button
-                onClick={closeModal}
-                aria-label="Close modal"
-                className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="text-xs sm:text-sm flex-1 overflow-y-auto custom-scrollbar p-6 prose prose-invert max-w-none">
-              {modalContent === 'privacy' ? <PrivacyPolicyContent /> : <TermsOfServiceContent />}
-            </div>
-          </div>
-        </div>
-      )}
-
       <style jsx>{`
+        @keyframes marquee-right-to-left {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        @keyframes reverse-marquee {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
+        }
+        .animate-marquee-right-to-left {
+          animation: marquee-right-to-left 30s linear infinite;
+        }
+        .animate-reverse-marquee {
+          animation: reverse-marquee 35s linear infinite;
+        }
         .hamburger-icon {
           display: block;
           width: 24px;
@@ -1460,7 +1320,6 @@ export default function Home() {
           left: 0;
           transition: all 0.3s ease;
         }
-
         .hamburger-icon::before,
         .hamburger-icon::after {
           content: '';
@@ -1471,68 +1330,22 @@ export default function Home() {
           left: 0;
           transition: all 0.3s ease;
         }
-
         .hamburger-icon::before {
           top: -8px;
         }
-
         .hamburger-icon::after {
           top: 8px;
         }
-
         .hamburger-icon.open {
           background: transparent;
         }
-
         .hamburger-icon.open::before {
           transform: rotate(45deg);
           top: 0;
         }
-
         .hamburger-icon.open::after {
           transform: rotate(-45deg);
           top: 0;
-        }
-
-        .star-dot {
-          position: absolute;
-          width: 2px;
-          height: 2px;
-          background: white;
-          border-radius: 50%;
-          opacity: 0.7;
-        }
-
-        .meteor-container {
-          position: absolute;
-          width: 2px;
-          height: 2px;
-        }
-
-        .meteor-tail {
-          position: absolute;
-          width: 2px;
-          height: 100px;
-          background: linear-gradient(to bottom, white, transparent);
-          transform-origin: top center;
-        }
-
-        @keyframes marquee-right-to-left {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-
-        @keyframes reverse-marquee {
-          0% { transform: translateX(-50%); }
-          100% { transform: translateX(0); }
-        }
-
-        .animate-marquee-right-to-left {
-          animation: marquee-right-to-left 30s linear infinite;
-        }
-
-        .animate-reverse-marquee {
-          animation: reverse-marquee 35s linear infinite;
         }
       `}</style>
     </div>

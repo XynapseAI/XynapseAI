@@ -1,6 +1,7 @@
 // utils/helpers.js
-import { CHAIN_EXPLORER_MAP, CHAIN_ID_TO_NAME } from './constants';
+import { CHAIN_EXPLORER_MAP, CHAIN_ID_TO_NAME, SUPPORTED_SVM_CHAINS } from './constants';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isAddress } from 'ethers'; // Import để kiểm tra EVM address nếu cần
 
 export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
   <AnimatePresence>
@@ -33,18 +34,48 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
 export const getExplorerUrls = (chain, hash, address) => {
   // Normalize chain name to lowercase to avoid case sensitivity issues
   const normalizedChain = (String(chain || 'ethereum')).toLowerCase();
-  const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
-  const explorer = CHAIN_EXPLORER_MAP[normalizedChain] || CHAIN_EXPLORER_MAP.ethereum;
+  const isSVM = SUPPORTED_SVM_CHAINS.includes(normalizedChain);
 
-  logger.log('getExplorerUrls:', {
-    inputChain: chain,
-    normalizedChain,
-    chainName,
-    explorerBaseUrl: explorer.baseUrl,
-  });
+  let txUrl = '#';
+  let addressUrl = '#';
 
-  const txUrl = explorer.supportsTx && hash ? `${explorer.baseUrl}/tx/${hash}` : '#';
-  const addressUrl = explorer.supportsAddress && address ? `${explorer.baseUrl}/address/${address}` : '#';
+  if (isSVM) {
+    // SVM chains: Use Solscan for Solana, Eclipse Explorer for Eclipse
+    if (normalizedChain === 'solana') {
+      txUrl = hash ? `https://solscan.io/tx/${hash}` : '#';
+      addressUrl = address ? `https://solscan.io/account/${address}` : '#';
+    } else if (normalizedChain === 'eclipse') {
+      txUrl = hash ? `https://explorer.eclipse.xyz/tx/${hash}` : '#';
+      addressUrl = address ? `https://explorer.eclipse.xyz/account/${address}` : '#';
+    }
+  } else {
+    // EVM chains: Use existing mapping
+    const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
+    const explorer = CHAIN_EXPLORER_MAP[normalizedChain] || CHAIN_EXPLORER_MAP.ethereum;
+
+    logger.log('getExplorerUrls (EVM):', {
+      inputChain: chain,
+      normalizedChain,
+      chainName,
+      explorerBaseUrl: explorer.baseUrl,
+    });
+
+    const supportsTx = explorer.supportsTx ?? true; // Default to true if not specified
+    const supportsAddress = explorer.supportsAddress ?? true; // Default to true if not specified
+
+    txUrl = supportsTx && hash ? `${explorer.baseUrl}/tx/${hash}` : '#';
+    addressUrl = supportsAddress && address ? `${explorer.baseUrl}/address/${address}` : '#';
+  }
+
+  // Log for SVM as well
+  if (isSVM) {
+    logger.log('getExplorerUrls (SVM):', {
+      inputChain: chain,
+      normalizedChain,
+      txUrl,
+      addressUrl,
+    });
+  }
 
   return { txUrl, addressUrl };
 };
@@ -112,18 +143,18 @@ export const truncateAddress = (address, nameTags = {}, source) => {
   const nameTag = nameTags[normalizedAddress]?.nameTag || nameTags[normalizedAddress]?.name;
   const image = nameTags[normalizedAddress]?.image || null;
 
-  const isEvmAddress = address.match(/^0x[a-fA-F0-9]{40}$/);
-  const isNonEvmAddress = address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/);
+  const isEvmAddress = isAddress(address); // Sử dụng ethers để kiểm tra chính xác
+  const isSvmAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address); // Regex cho Solana/SVM address (base58, 32-44 chars)
 
   let shortAddress;
-  if (source === 'Blockchair' && (isEvmAddress || isNonEvmAddress)) {
+  if (source === 'Blockchair' && (isEvmAddress || isSvmAddress)) {
     shortAddress = isEvmAddress
       ? `${address.slice(0, 6)}...${address.slice(-4)}`
       : `${address.slice(0, 6)}...${address.slice(-6)}`;
   } else if (isEvmAddress) {
     shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
-  } else if (isNonEvmAddress) {
-    shortAddress = `${address.slice(0, 6)}...${address.slice(-6)}`;
+  } else if (isSvmAddress) {
+    shortAddress = `${address.slice(0, 6)}...${address.slice(-6)}`; // Truncate dài hơn cho SVM
   } else {
     shortAddress = address; // Fallback for unrecognized formats
   }
@@ -173,6 +204,11 @@ export const logger = {
   },
   error: (message, data) => {
     console.error(message, data);
+  },
+  warn: (message, data) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(message, data);
+    }
   },
 };
 

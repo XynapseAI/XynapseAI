@@ -29,6 +29,8 @@ export const GECKOTERMINAL_CHAIN_MAPPING = {
   'monad_testnet': 'monad',
 };
 
+export const SUPPORTED_SVM_CHAINS = ['solana', 'eclipse'];
+
 // utils/constants.js
 export const chains = [
   { value: '1', label: 'Ethereum', image: '/icons/ethereum.webp', testnet: false },

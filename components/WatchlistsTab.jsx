@@ -11,7 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { isAddress } from 'ethers';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { SUPPORTED_CHAINS, CHAIN_MAPPING, CHAIN_ID_TO_NAME } from '../utils/constants';
+import { SUPPORTED_CHAINS, CHAIN_MAPPING, CHAIN_ID_TO_NAME, SUPPORTED_SVM_CHAINS } from '../utils/constants';
 import { formatDistanceToNow } from 'date-fns';
 import useSWR from 'swr';
 import { cacheData, getCachedData } from '../utils/indexedDB';
@@ -130,7 +130,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   });
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-  const SUPPORTED_SVM_CHAINS = ['solana', 'eclipse'];
   const EVM_LOGOS = ['ethereum', 'base', 'bnb'];
   const SVM_LOGOS = ['solana', 'eclipse'];
 
@@ -1116,7 +1115,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     let displayValue = Number(tx.value).toLocaleString("en-US", { maximumFractionDigits: 1 });
     let typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
 
-    if (tx.type === 'swap' && tx.swap_details) {
+    if (tx.type === 'swap' && tx.swap_details && !isSVM) {
       const sent = tx.swap_details.sent[0];
       const received = tx.swap_details.received[0];
       if (sent && received) {
@@ -1133,10 +1132,15 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         tokenLogo = received.logo || '/icons/default.webp';
       }
       typeDisplay = 'Swap';
-    } else if (tx.type === 'other') {
+    } else if (tx.type === 'other' && !isSVM) {
       typeDisplay = 'Other';
       displayValue = tx.value || 'N/A';
     }
+
+    // Truncate hash for SVM
+    const truncatedHash = isSVM
+      ? `${tx.hash.slice(0, 6)}...${tx.hash.slice(-4)}`
+      : tx.hash;
 
     return (
       <motion.tr
@@ -1172,65 +1176,101 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             <span className="text-[8px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
           </div>
         </td>
-        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[35%] sm:w-[30%] overflow-hidden text-ellipsis">
-          <div className="flex flex-col items-center gap-1">
-            <span
-              className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === 'receive'
-                ? 'bg-neon-green/20 text-neon-green'
-                : tx.type === 'send'
-                  ? 'bg-neon-blue/20 text-neon-blue'
-                  : tx.type === 'swap'
-                    ? 'bg-purple-400/20 text-purple-400'
-                    : 'bg-white/20 text-white/60'
-                }`}
-            >
-              {typeDisplay}
-            </span>
-            <div className="flex items-center justify-center gap-2">
-              {addressImage && (
+        {isSVM ? (
+          <>
+            <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[45%] sm:w-[50%] overflow-hidden text-ellipsis">
+              <div className="flex items-center justify-center gap-2">
+                {/* Placeholder for Solscan logo */}
                 <img
-                  src={addressImage}
-                  alt={`${displayAddress} logo`}
+                  src="/logos/solscan.webp" // Update this path when the actual logo is added
+                  alt="Solscan Explorer"
                   width={isMobile ? 12 : 14}
                   height={isMobile ? 12 : 14}
                   className="rounded-full"
-                  onError={(e) => (e.target.src = '/icons/default.webp')}
+                  onError={(e) => (e.target.src = '/fallback-image.webp')}
                   loading="lazy"
                 />
-              )}
-              <a
-                href={addressUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-neon-blue hover:text-neon-blue/80 truncate"
-                title={addressToShow}
-              >
-                {displayAddress}
-              </a>
-            </div>
-          </div>
-        </td>
-        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[38%] sm:w-[40%] overflow-hidden text-ellipsis">
-          {displayValue}
-        </td>
-        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[15%] sm:w-[20%] overflow-hidden text-ellipsis">
-          <div className="flex flex-col items-center gap-0.5">
-            <a href={txUrl} target="_blank" rel="noopener noreferrer">
-              <img
-                src="/logos/etherscan-logo.webp"
-                alt="Explorer"
-                width={isMobile ? 12 : 14}
-                height={isMobile ? 12 : 14}
-                className="rounded-full"
-                onError={(e) => (e.target.src = '/fallback-image.webp')}
-                loading="lazy"
-              />
-            </a>
-            <span className="text-[6px] sm:text-[7px] text-white/60">
-              {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
-            </span>
-          </div>
-        </td>
+                <a
+                  href={txUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-neon-blue hover:text-neon-blue/80 truncate"
+                  title={tx.hash}
+                >
+                  {truncatedHash}
+                </a>
+              </div>
+            </td>
+            <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[45%] sm:w-[40%] overflow-hidden text-ellipsis">
+              <span className="text-[8px] sm:text-[9px] text-white/60">
+                {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
+              </span>
+            </td>
+          </>
+        ) : (
+          <>
+            <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[35%] sm:w-[30%] overflow-hidden text-ellipsis">
+              <div className="flex flex-col items-center gap-1">
+                <span
+                  className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${
+                    tx.type === 'receive'
+                      ? 'bg-neon-green/20 text-neon-green'
+                      : tx.type === 'send'
+                      ? 'bg-neon-blue/20 text-neon-blue'
+                      : tx.type === 'swap'
+                      ? 'bg-purple-400/20 text-purple-400'
+                      : 'bg-white/20 text-white/60'
+                  }`}
+                >
+                  {typeDisplay}
+                </span>
+                <div className="flex items-center justify-center gap-2">
+                  {addressImage && (
+                    <img
+                      src={addressImage}
+                      alt={`${displayAddress} logo`}
+                      width={isMobile ? 12 : 14}
+                      height={isMobile ? 12 : 14}
+                      className="rounded-full"
+                      onError={(e) => (e.target.src = '/icons/default.webp')}
+                      loading="lazy"
+                    />
+                  )}
+                  <a
+                    href={addressUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-neon-blue hover:text-neon-blue/80 truncate"
+                    title={addressToShow}
+                  >
+                    {displayAddress}
+                  </a>
+                </div>
+              </div>
+            </td>
+            <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[38%] sm:w-[40%] overflow-hidden text-ellipsis">
+              {displayValue}
+            </td>
+            <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[15%] sm:w-[20%] overflow-hidden text-ellipsis">
+              <div className="flex flex-col items-center gap-0.5">
+                <a href={txUrl} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src="/logos/etherscan-logo.webp"
+                    alt="Explorer"
+                    width={isMobile ? 12 : 14}
+                    height={isMobile ? 12 : 14}
+                    className="rounded-full"
+                    onError={(e) => (e.target.src = '/fallback-image.webp')}
+                    loading="lazy"
+                  />
+                </a>
+                <span className="text-[6px] sm:text-[7px] text-white/60">
+                  {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
+                </span>
+              </div>
+            </td>
+          </>
+        )}
       </motion.tr>
     );
   };

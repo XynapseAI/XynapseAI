@@ -30,9 +30,6 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
-// Added log: Log successful loading of .env file
-logger.info('Successfully loaded .env file and validated environment variables'); // Added log
-
 // Configure logging
 const isProduction = process.env.NODE_ENV === 'production';
 const logger = winston.createLogger({
@@ -46,6 +43,9 @@ const logger = winston.createLogger({
     ...(isProduction ? [] : [new winston.transports.Console()]) // Console logs only in non-production
   ]
 });
+
+// Added log: Log successful loading of .env file (Moved here after logger initialization)
+logger.info('Successfully loaded .env file and validated environment variables'); // Moved log
 
 // Added log: Log logger configuration
 logger.info(`Logger configured with level ${isProduction ? 'error' : 'info'} and transports: ${isProduction ? 'file only' : 'file and console'}`); // Added log
