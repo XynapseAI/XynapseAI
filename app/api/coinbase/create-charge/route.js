@@ -225,7 +225,7 @@ export async function POST(req) {
     if (process.env.NODE_ENV !== 'development') {
       try {
         const { score } = await verifyRecaptcha(recaptchaToken, 'create_charge', ip);
-        if (score < 0.5) {
+        if (score < 0.1) {
           await trackViolation(ip, 'reCAPTCHA score too low');
           logger.warn('reCAPTCHA score too low', { ip, score });
           return NextResponse.json({ detail: 'reCAPTCHA verification failed: score too low' }, { status: 403, headers: securityHeaders(origin) });

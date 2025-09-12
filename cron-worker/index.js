@@ -108,7 +108,7 @@ async function readWalletFile() {
   }
 }
 
-async function findDepositWallets(primaryWallets, chain = 'ethereum', txLimit = 500) {
+async function findDepositWallets(primaryWallets, chain = 'ethereum', txLimit = 200) {
   const depositWallets = [];
   const now = new Date();
   const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -171,7 +171,7 @@ async function getPendingWallets() {
 
 async function savePendingWallets(wallets) {
   try {
-    const batchSize = 500; // Tăng kích thước batch
+    const batchSize = 200; // Tăng kích thước batch
     for (let i = 0; i < wallets.length; i += batchSize) {
       const batch = wallets.slice(i, i + batchSize);
       const values = batch.flatMap(wallet => [
