@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { createClient } from 'redis';
 import { logger } from '../../../../utils/serverLogger';
+import { verifyRecaptcha } from '../../../../utils/verifyRecaptcha';
 import { requireAuth } from '../../middleware/auth';
 import cookie from 'cookie';
 import crypto from 'crypto';
@@ -104,8 +105,8 @@ async function checkRateLimit(ip, userId = null) {
   const windowSeconds = 15 * 60;
   const ipKey = `rate:ip:${ip}`;
   const userKey = userId ? `rate:user:${userId}` : null;
-  const ipMax = process.env.NODE_ENV === 'development' ? 100 : 30;
-  const userMax = process.env.NODE_ENV === 'development' ? 50 : 20;
+  const ipMax = process.env.NODE_ENV === 'development' ? 100 : 50;
+  const userMax = process.env.NODE_ENV === 'development' ? 50 : 30;
 
   const ipCount = Number(await client.incr(ipKey));
   if (ipCount === 1) await client.expire(ipKey, windowSeconds);
@@ -168,7 +169,7 @@ function securityHeaders(origin) {
   if (origin && allowedOrigins.includes(origin)) {
     headers['Access-Control-Allow-Origin'] = origin;
     headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS';
-    headers['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRF-Token';
+    headers['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRF-Token, X-Recaptcha-Token'; // Add X-Recaptcha-Token
     headers['Access-Control-Allow-Credentials'] = 'true';
   }
   return headers;
@@ -212,6 +213,31 @@ export async function POST(req) {
     if (!csrfOk) {
       await trackViolation(ip, 'Invalid CSRF token');
       return NextResponse.json({ detail: 'Invalid CSRF check' }, { status: 403, headers: securityHeaders(origin) });
+    }
+
+    // reCAPTCHA verification
+    const recaptchaToken = req.headers.get('x-recaptcha-token');
+    if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
+      await trackViolation(ip, 'Missing reCAPTCHA token');
+      logger.warn('Missing reCAPTCHA token header', { ip });
+      return NextResponse.json({ detail: 'Missing reCAPTCHA token in header' }, { status: 400, headers: securityHeaders(origin) });
+    }
+    if (process.env.NODE_ENV !== 'development') {
+      try {
+        const { score } = await verifyRecaptcha(recaptchaToken, 'create_charge', ip);
+        if (score < 0.5) {
+          await trackViolation(ip, 'reCAPTCHA score too low');
+          logger.warn('reCAPTCHA score too low', { ip, score });
+          return NextResponse.json({ detail: 'reCAPTCHA verification failed: score too low' }, { status: 403, headers: securityHeaders(origin) });
+        }
+        logger.info('reCAPTCHA OK', { ip, score });
+      } catch (err) {
+        await trackViolation(ip, 'reCAPTCHA verification failed');
+        logger.warn('reCAPTCHA failed', { ip, reason: err?.message });
+        return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(origin) });
+      }
+    } else {
+      logger.info('reCAPTCHA bypassed in development');
     }
 
     let body;
