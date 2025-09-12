@@ -57,7 +57,6 @@ async function isAllowedOrigin(origin, referer, pathname) {
   logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
 
   try {
-    // Kiểm tra origin hợp lệ
     if (origin && origin !== 'null') {
       if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
         logger.warn('Blocked origin: non-HTTPS origin in production', { origin });
@@ -72,7 +71,6 @@ async function isAllowedOrigin(origin, referer, pathname) {
       return false;
     }
 
-    // Kiểm tra referer nếu không có origin
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
       if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
@@ -88,20 +86,17 @@ async function isAllowedOrigin(origin, referer, pathname) {
       return false;
     }
 
-    // Cho phép internal/SSR request
     if (!origin && !referer) {
       logger.info('Allowing internal/SSR request');
       return true;
     }
 
-    // Chặn null origin trong production
     if (!origin && process.env.NODE_ENV === 'production') {
       logger.error('Null origin blocked in production', { pathname });
       await trackViolation('unknown', 'Null origin in production');
       return false;
     }
 
-    // Cho phép null origin trong development
     if (!origin && process.env.NODE_ENV === 'development') {
       logger.warn('Origin is null, allowing in development mode');
       return true;

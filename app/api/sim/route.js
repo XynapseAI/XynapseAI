@@ -12,15 +12,14 @@ import { query } from "../../../utils/postgres";
 
 const isValidTokenSymbol = (symbol) => {
   if (!symbol || typeof symbol !== 'string') return false;
-  // Loại bỏ các symbol chứa URL, từ khóa không mong muốn, hoặc ký tự đặc biệt không hợp lệ
   const invalidPatterns = [
     /t\.me/i,
     /http/i,
     /www\./i,
     /claim/i,
-    /[^a-zA-Z0-9\s\-\+\.]/, // Chỉ cho phép chữ, số, khoảng trắng, dấu gạch ngang, dấu cộng, dấu chấm
+    /[^a-zA-Z0-9\s\-\+\.]/, 
   ];
-  return !invalidPatterns.some((pattern) => pattern.test(symbol)) && symbol.length <= 10; // Giới hạn độ dài tối đa
+  return !invalidPatterns.some((pattern) => pattern.test(symbol)) && symbol.length <= 10; 
 };
 
 // ================= Security Headers =================
@@ -148,7 +147,7 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
     const response = await axios.get(url, {
       ...config,
       timeout: 30000,
-      responseType: config.responseType || 'json', // Đảm bảo responseType luôn có giá trị mặc định
+      responseType: config.responseType || 'json',
     });
     return response;
   } catch (error) {

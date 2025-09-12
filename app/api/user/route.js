@@ -101,8 +101,8 @@ async function isAllowedOrigin(origin, referer, pathname) {
   ].filter(Boolean);
 
   const wildcardPatterns = [
-    /^https:\/\/[a-zA-Z0-9-]+\.xynapseai\.net$/, // Hỗ trợ *.xynapseai.net
-    /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/, // Hỗ trợ *.vercel.app
+    /^https:\/\/[a-zA-Z0-9-]+\.xynapseai\.net$/, 
+    /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/,
   ];
 
   logger.info('Checking origin', { origin, referer, pathname });

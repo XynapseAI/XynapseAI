@@ -11,7 +11,6 @@ import cookie from 'cookie';
 
 const scrypt = util.promisify(crypto.scrypt);
 
-// Kiểm tra bắt buộc biến môi trường (nâng cấp mới)
 function validateEnvVars() {
   const requiredVars = ['DATABASE_URL', 'REDIS_URL', 'NEXT_PUBLIC_APP_URL'];
   const missing = requiredVars.filter(varName => !process.env[varName]);
@@ -22,17 +21,14 @@ function validateEnvVars() {
   logger.info('All required environment variables validated');
 }
 
-// Gọi kiểm tra ngay lập tức
 validateEnvVars();
 
-// Khởi tạo PrismaClient toàn cục
 let prisma = global.__prisma || new PrismaClient({
   errorFormat: 'minimal',
   datasources: { db: { url: process.env.DATABASE_URL } },
 });
 if (!global.__prisma) global.__prisma = prisma;
 
-// Nâng cấp: Tạo client mới mỗi lần để tránh global state issues trong serverless
 async function getRedisClient() {
   const client = createClient({ url: process.env.REDIS_URL });
   client.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }));
@@ -64,7 +60,6 @@ async function withRetry(fn, retries = 3, delay = 1000) {
   }
 }
 
-// Nâng cấp: Sử dụng try-finally để disconnect client
 async function checkRateLimit(ip, userId) {
   let client;
   try {
@@ -97,7 +92,6 @@ async function checkRateLimit(ip, userId) {
   }
 }
 
-// Nâng cấp: Sử dụng try-finally để disconnect client
 async function trackViolation(ip, reason, severity = 'warn') {
   if (severity === 'warn') {
     logger.warn('Violation recorded (warning)', { ip, reason });
@@ -125,7 +119,6 @@ async function trackViolation(ip, reason, severity = 'warn') {
   }
 }
 
-// Nâng cấp: Xóa logic cho phép null origin trong dev
 async function isAllowedOrigin(origin, referer, pathname) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
@@ -175,7 +168,6 @@ async function isAllowedOrigin(origin, referer, pathname) {
       return false;
     }
 
-    // Nâng cấp: Xóa logic cho phép null origin trong dev - giờ block và log warn
     if (!origin && process.env.NODE_ENV === 'development') {
       logger.warn('Null origin blocked in development - use configured origin for testing');
       return false;
@@ -198,7 +190,6 @@ function parseCookies(request) {
   }
 }
 
-// Nâng cấp: Xóa logic bypass CSRF trong dev
 async function checkDoubleSubmitCSRF(request) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
@@ -513,7 +504,6 @@ export async function POST(request) {
         twitter_handle: null,
       };
 
-      // Kiểm tra xem có cần reset API key không
       const existingUser = await prisma.users.findUnique({ where: { id }, select: { api_key_hash: true } });
       let apiKeyData = {};
       if (!existingUser) {
@@ -538,7 +528,6 @@ export async function POST(request) {
         })
       );
 
-      // Nâng cấp: Sử dụng client local và finally để clear cache
       redisClient = await getRedisClient();
       try {
         await redisClient.del(`user:${id}`);

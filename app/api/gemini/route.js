@@ -34,7 +34,7 @@ async function checkRateLimit(ip) {
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
   if (requests >= 5) {
-    throw new Error('Quá nhiều yêu cầu, vui lòng thử lại sau.');
+    throw new Error('Too many request , please try again later.');
   }
   await redisClient.multi()
     .incr(key)
@@ -119,7 +119,7 @@ export async function POST(request) {
 
     let tokenAnalysis = '';
     let links = [];
-    let fullContents = []; // Khai báo fullContents
+    let fullContents = []; 
 
     if (prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge|crypto|token|coin|blockchain)\b/i) && (prompt.match(/\b(Analyze|Analysis|Predict)\b/i) || tokenSymbol)) {
       const effectiveTokenSymbol = tokenSymbol?.toUpperCase() || prompt.match(/\b(btc|bitcoin|eth|sol|ada|xrp|doge)\b/i)?.[0]?.toUpperCase() || 'BTC';
@@ -276,7 +276,6 @@ ${fullContents.length ? fullContents.map(c => `From ${c.url}:\n${c.content.slice
           const { snippets, links: searchLinks } = await braveSearch({ query: prompt, count: 5, freshness: 'pw' });
           searchContext += snippets ? `### Web Insights\n${snippets}\n` : '';
           links = links.concat(searchLinks || []);
-          // Lấy full content từ top 3 links của deepSearch
           for (const link of searchLinks.slice(0, 3)) {
             const content = await fetchFullContent(link.url);
             if (content) fullContents.push({ url: link.url, content });

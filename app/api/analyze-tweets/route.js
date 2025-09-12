@@ -48,7 +48,7 @@ async function checkRateLimit(ip) {
 }
 
 const bodySchema = z.object({
-  uid: z.string().max(100, 'UID không hợp lệ'),
+  uid: z.string().max(100, 'Invalid UID'),
   recaptchaToken: z.string().nonempty('Token reCAPTCHA là bắt buộc'),
 });
 
@@ -70,7 +70,7 @@ async function checkCSRF(request, session) {
 
 export async function POST(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  logger.info(`Yêu cầu tới /api/analyze-tweets từ IP ${ip}`);
+  logger.info(`Request to /api/analyze-tweets từ IP ${ip}`);
 
   const origin = request.headers.get('origin');
   if (!origin || !allowedOrigins.includes(origin)) {
@@ -81,18 +81,18 @@ export async function POST(request) {
   try {
     await checkRateLimit(ip);
   } catch (err) {
-    logger.error(`Lỗi giới hạn yêu cầu: ${err.message}`, { ip });
+    logger.error(`Rate limit: ${err.message}`, { ip });
     return NextResponse.json({ detail: err.message }, { status: 429 });
   }
 
   const session = await auth();
   if (!session || !session.user?.id) {
-    logger.warn('Chưa đăng nhập', { ip });
-    return NextResponse.json({ detail: 'Chưa đăng nhập' }, { status: 401 });
+    logger.warn('Please Login', { ip });
+    return NextResponse.json({ detail: 'Please login' }, { status: 401 });
   }
 
   if (!(await checkCSRF(request, session))) {
-    return NextResponse.json({ detail: 'CSRF check không hợp lệ.' }, { status: 403 });
+    return NextResponse.json({ detail: 'Invalid CSRF .' }, { status: 403 });
   }
 
   let body;
@@ -108,20 +108,20 @@ export async function POST(request) {
     parsedBody = bodySchema.parse(body);
   } catch (err) {
     logger.warn(`Validation error: ${err.message}`, { ip });
-    return NextResponse.json({ detail: 'Xác thực thất bại', errors: err.errors }, { status: 400 });
+    return NextResponse.json({ detail: 'Verify failed', errors: err.errors }, { status: 400 });
   }
 
   const { uid, recaptchaToken } = parsedBody;
   if (uid !== session.user.id) {
     logger.warn(`Truy cập bị từ chối: uid=${uid}, sessionUserId=${session.user.id}`, { ip });
-    return NextResponse.json({ detail: 'Truy cập bị từ chối' }, { status: 403 });
+    return NextResponse.json({ detail: 'Access failed' }, { status: 403 });
   }
 
   try {
     await verifyRecaptcha(recaptchaToken, 'analyze_tweets', ip);
   } catch (error) {
     logger.error(`Xác minh reCAPTCHA thất bại: ${error.message}`, { ip });
-    return NextResponse.json({ detail: `Xác minh reCAPTCHA thất bại: ${error.message}` }, { status: 403 });
+    return NextResponse.json({ detail: `Verify reCAPTCHA failed: ${error.message}` }, { status: 403 });
   }
 
   return new NextResponse(

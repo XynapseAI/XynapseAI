@@ -14,7 +14,6 @@ const schema = z.object({
   uid: z.string().max(100),
 });
 
-// Hàm chuyển đổi BigInt thành chuỗi
 const serializeBigInt = (obj) => {
   return JSON.parse(
     JSON.stringify(obj, (key, value) =>

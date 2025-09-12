@@ -30,7 +30,7 @@ async function checkRateLimit(ip) {
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
   if (requests >= 5) {
-    throw new Error('Quá nhiều yêu cầu, vui lòng thử lại sau.');
+    throw new Error('Too many request.');
   }
   await redisClient.multi()
     .incr(key)
@@ -150,7 +150,6 @@ export async function POST(request) {
             aiAnalysis += `Unable to fetch web articles. `;
           }
 
-          // Lấy full content từ top 3 links
           controller.enqueue(JSON.stringify({ progress: 'Fetching full content from articles...' }));
           let fullContents = [];
           for (const link of links.slice(0, 10)) {

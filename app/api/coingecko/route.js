@@ -67,7 +67,6 @@ async function checkIPBan(ip) {
 }
 
 async function trackViolation(ip, reason = "Unknown", severity = 'severe') {
-  // Ignore non-critical cho tất cả severity 'warn'
   const nonCriticalReasons = [
     "CORS blocked", "Missing or invalid id parameter", "Missing vs_currencies parameter",
     "Missing or invalid query parameter", "Missing or invalid tokenType parameter",
@@ -97,7 +96,7 @@ async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:coingecko:${ip}`;
   const windowMs = 60 * 1000;
-  const maxRequests = 25;  // An toàn dưới 30/min của CoinGecko
+  const maxRequests = 25;  
   const requests = parseInt(await redisClient.get(key)) || 0;
   if (requests >= maxRequests) {
     const ttl = await redisClient.ttl(key);
@@ -122,7 +121,7 @@ axiosRetry(axios, {
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: process.env.NODE_ENV === "production" ? 5 : 5,
   minTime: process.env.NODE_ENV === "production" ? 2400 : 1000,  // ~25/min
-  reservoir: 25,  // Giảm từ 30, reservoirRefreshAmount: 25,
+  reservoir: 25, 
   reservoirRefreshAmount: 25,
   reservoirRefreshInterval: 60 * 1000,
 });
@@ -144,7 +143,6 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   }
 });
 
-// List of supported CoinGecko currencies (gi��� nguyên)
 const VALID_CURRENCIES = [
   "usd", "eur", "gbp", "cny", "jpy", "krw", "rub", "inr", "brl", "aud",
   "cad", "chf", "hkd", "sgd", "twd", "thb", "vnd", "php", "idr", "myr",
@@ -161,7 +159,7 @@ const allowedOrigins = [
   ...(process.env.VERCEL_ENV === "production" ? [] : ["https://*.vercel.app"]),
 ].filter((v, i, a) => a.indexOf(v) === i);
 
-const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;  // Fix: Định nghĩa regex
+const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/; 
 
 function isAllowedOrigin(origin, referer) {
   if (!origin && !referer) {
@@ -241,7 +239,6 @@ export async function GET(request) {
   const params = Object.fromEntries(request.nextUrl.searchParams);
   const { action = "market-info", ids, vs_currencies = "usd", limit, start, query, id, tokenType, days, address } = params;
 
-  // Validate parameters (sử dụng severity 'warn' cho trackViolation)
   if (["tickers", "coin-details", "exchange-details", "volume-chart"].includes(action) && (!id || typeof id !== "string" || id.trim() === "")) {
     await trackViolation(ip, "Missing or invalid id parameter", 'warn');
     return NextResponse.json({ success: false, detail: "Missing or invalid id parameter" }, { status: 400, headers });
@@ -283,7 +280,7 @@ export async function GET(request) {
   }
   const selectedCurrency = validCurrencies[0] || "usd";
 
-  const client = await getRedisClient();  // Lấy client một lần để reuse
+  const client = await getRedisClient();  
 
   try {
     let data;

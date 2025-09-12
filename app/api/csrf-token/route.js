@@ -107,7 +107,6 @@ export async function GET(request) {
     // Save CSRF token to session
     session.csrfToken = csrfToken;
 
-    // Chuẩn bị headers cho response
     const headers = new Headers({
       'Content-Type': 'application/json',
       'Content-Security-Policy': "default-src 'self'",
@@ -123,7 +122,7 @@ export async function GET(request) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
-      maxAge: 2 * 60 * 60, // 2 hours, đồng bộ với session
+      maxAge: 2 * 60 * 60,
     }));
 
     return NextResponse.json({ success: true, csrfToken }, { headers });

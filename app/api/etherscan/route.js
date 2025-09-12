@@ -33,7 +33,6 @@ const allowedOrigins = [
   'https://xynapse-ai-xynapse-projects.vercel.app',
 ].filter(Boolean);
 
-// Kiểm tra Origin/Referer
 function isAllowedOrigin(origin, referer) {
   try {
     if (origin && (allowedOrigins.includes(origin) || new URL(origin).hostname.endsWith('xynapseai.net'))) {
@@ -135,7 +134,7 @@ export const POST = handlerWrapper(async (request) => {
 
   const internalToken = request.headers.get('x-internal-token');
   if (!internalToken || internalToken !== process.env.INTERNAL_API_TOKEN) {
-    const session = await auth(); // Không truyền request trực tiếp
+    const session = await auth(); 
     if (!session || !session.user?.id) {
       logger.error(`Authentication error: No session or UID`, { ip });
       return NextResponse.json({ detail: 'Unauthorized: Please log in.' }, { status: 401 });

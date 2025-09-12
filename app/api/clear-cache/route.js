@@ -113,23 +113,19 @@ export async function POST(request) {
     return NextResponse.json({ detail: "Not allowed by CORS" }, { status: 403, headers: securityHeaders });
   }
 
-  // Kiểm tra session
   const session = await auth();
   if (!session || !session.user?.id) {
     logger.warn("Session not authenticated or missing user ID", { ip, session });
     return NextResponse.json({ detail: "Not authenticated" }, { status: 401, headers: securityHeaders });
   }
 
-  // Kiểm tra rate limit
   const rateLimitResponse = await checkRateLimit(session.user.id, ip);
   if (rateLimitResponse) return rateLimitResponse;
 
-  // Kiểm tra CSRF
   if (!(await checkCSRF(request, session))) {
     return NextResponse.json({ detail: "Invalid CSRF token" }, { status: 403, headers: securityHeaders });
   }
 
-  // Xử lý body
   let body;
   try {
     body = await request.json();
@@ -146,9 +142,7 @@ export async function POST(request) {
 
   try {
     const redisClient = await getRedisClient();
-    // Kiểm tra xem Redis có sẵn sàng không
     await redisClient.ping();
-    // Xóa từng key một cách an toàn
     const deletePromises = cacheKeys.map((key) => redisClient.del(key).catch((err) => {
       logger.error(`Failed to delete cache key ${key}: ${err.message}`, { stack: err.stack });
       return 0;
