@@ -820,7 +820,7 @@
         "Name Tag": "Satoshi Nakamoto",
         "Description": "An unidentified Bitcoin wallet (Bech32 format).",
         "Subcategory": "Others",
-        "image": "/icons/satoshi.webp"
+        "image": "/icons/bitcoin.webp"
       }
     }
   },

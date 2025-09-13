@@ -97,7 +97,7 @@ const keywordToImage = {
   river: 'river.webp',
   paxos: 'paxos.webp',
   maskex: 'maskex.webp',
-  satoshi: 'satoshi.webp',
+  satoshi: 'bitcoin.webp',
   okex: 'okx.webp',
   uk: 'uk.webp',
   coincheck: 'coincheck.webp',

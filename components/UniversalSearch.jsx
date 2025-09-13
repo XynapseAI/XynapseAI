@@ -108,6 +108,7 @@ export default function UniversalSearch({
     { id: "huobi-global", name: "Huobi", type: "organization", image: "/icons/huobi.webp" },
     { id: "kucoin", name: "KuCoin", type: "organization", image: "/icons/kucoin.webp" },
     { id: "gate-io", name: "Gate.io", type: "organization", image: "/icons/gateio.webp" },
+    { id: "world-liberty-fi", name: "World Liberty Fi", type: "organization", image: "/icons/wlfi.webp" },
   ];
 
   // Capitalize function
