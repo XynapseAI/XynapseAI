@@ -13,8 +13,8 @@ import { formatDistanceToNow } from 'date-fns';
 import cytoscape from 'cytoscape';
 import cola from 'cytoscape-cola';
 import nodeHtmlLabel from 'cytoscape-node-html-label';
-import { chains, mapCoinGeckoChains, getPlatformImage, getExplorerUrls } from '../utils/constants';
-import { LoadingOverlay } from '@/utils/helpers';
+import { chains, mapCoinGeckoChains, getPlatformImage } from '../utils/constants';
+import { LoadingOverlay, getExplorerUrls } from '@/utils/helpers';
 import { cacheData, getCachedData } from '../utils/indexedDB';
 import { detectClusters } from '../utils/clustering';
 import axios from 'axios';
@@ -61,16 +61,11 @@ const SUPPORTED_CHAINS = [
   'tron', // Tron
 ];
 
-const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
-  const handleTxClick = (txHash) => {
-    const explorerUrl = getExplorerUrls(selectedChain)?.tx + txHash;
-    if (explorerUrl) {
-      window.open(explorerUrl, '_blank');
-    } else {
-      logger.error('Explorer URL not available for this chain.');
-    }
-  };
+const isValidDate = (date) => {
+  return date instanceof Date && !isNaN(date);
+};
 
+const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
   const handleCopyAddress = (address) => {
     navigator.clipboard.writeText(address);
     toast.success('Address copied to clipboard!', {
@@ -125,6 +120,20 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
               const fromNtag = nametags[tx.source?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
               const toNtag = nametags[tx.target?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
               const displayValue = formatLargeNumber(Number(tx.value) || 0, 1);
+              const { txUrl } = getExplorerUrls(selectedChain, tx.txHash, '');
+
+              // Validate and format block_time
+              let formattedTime = 'N/A';
+              if (tx.block_time) {
+                const date = new Date(
+                  typeof tx.block_time === 'number' ? tx.block_time * 1000 : tx.block_time
+                );
+                if (isValidDate(date)) {
+                  formattedTime = formatDistanceToNow(date, { addSuffix: true });
+                } else {
+                  logger.warn(`Invalid block_time for tx ${tx.txHash}: ${tx.block_time}`);
+                }
+              }
 
               return (
                 <motion.tr
@@ -236,10 +245,10 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
                   </td>
                   <td className="px-2 py-2 text-white/80 text-[8px] sm:text-[10px] text-center">
                     <div className="flex flex-col items-center gap-0.5">
-                      <a href={getExplorerUrls(selectedChain)?.tx + tx.txHash} target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); handleTxClick(tx.txHash); }}>
+                      <a href={txUrl} target="_blank" rel="noopener noreferrer">
                         <img
                           src="/logos/etherscan-logo.webp"
-                          alt="Etherscan"
+                          alt="Explorer"
                           width={isMobile ? 10 : 12}
                           height={isMobile ? 10 : 12}
                           className="rounded-full mx-auto cursor-pointer"
@@ -248,7 +257,7 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
                         />
                       </a>
                       <span className="text-[5px] sm:text-[7px] text-white/60 truncate">
-                        {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
+                        {formattedTime}
                       </span>
                     </div>
                   </td>
@@ -286,8 +295,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [isMobile, setIsMobile] = useState(false);
   const [coingeckoChains, setCoingeckoChains] = useState([]);
   const [tokenImages, setTokenImages] = useState({});
-  const [fullIncomingData, setFullIncomingData] = useState([]); // Store full incoming data
-  const [fullOutgoingData, setFullOutgoingData] = useState([]); // Store full outgoing data
+  const [fullIncomingData, setFullIncomingData] = useState([]); // Store full incoming data (Layer 1)
+  const [fullOutgoingData, setFullOutgoingData] = useState([]); // Store full outgoing data (Layer 1)
+  const [fullLayer3Data, setFullLayer3Data] = useState([]); // Store Layer 3 transactions
   const cyRef = useRef(null);
   const containerRef = useRef(null);
   const chainDropdownRef = useRef(null);
@@ -299,7 +309,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [page, setPage] = useState(1);
   const [selectedEntity, setSelectedEntity] = useState({ type: null, data: { transactions: [] } });
 
-
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
   // Reset selectedEntity when filterType changes to avoid stale data
@@ -307,10 +316,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     setSelectedEntity({ type: null, data: { transactions: [] } });
   }, [filterType]);
 
-  // Re-aggregate and re-init graph when filterType changes (using full data)
+  // Re-aggregate and re-init graph when filterType or Layer 3 data changes
   useEffect(() => {
-    if (fullIncomingData.length > 0 || fullOutgoingData.length > 0) {
-      const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(fullIncomingData, fullOutgoingData, walletAddress, page, filterType);
+    if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
+      const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(
+        fullIncomingData,
+        fullOutgoingData,
+        fullLayer3Data,
+        walletAddress,
+        page,
+        filterType
+      );
       setNodes(newNodes);
       setEdges(newEdges);
       setNametags((prev) => ({ ...prev, ...newNametags }));
@@ -320,7 +336,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
       setTimeout(() => initializeCytoscape(), 100); // Small delay to ensure DOM ready
     }
-  }, [filterType, fullIncomingData, fullOutgoingData, walletAddress, page]);
+  }, [filterType, fullIncomingData, fullOutgoingData, fullLayer3Data, walletAddress, page]);
 
   // Fetch token images from database and fallback to CoinGecko
   useEffect(() => {
@@ -447,11 +463,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     router.replace(`/dashboard?${newParams.toString()}`, { scroll: false });
   };
 
-  const aggregateWallets = (incomingData, outgoingData, rootAddress, page, filterType) => {
+  const aggregateWallets = (incomingData, outgoingData, layer3Data, rootAddress, page, filterType) => {
     const walletMap = new Map();
     const nametags = {};
+    const edges = [];
 
-    // Initialize root node with walletInfo data
+    // Initialize root node (Layer 1)
     walletMap.set(rootAddress.toLowerCase(), {
       address: rootAddress.toLowerCase(),
       nametag: walletInfo.nametag || 'Unknown',
@@ -462,16 +479,20 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       txCount: 0,
       latestBlockTime: null,
       type: 'root',
+      layer: 1,
     });
     nametags[rootAddress.toLowerCase()] = {
       name: walletInfo.nametag || 'Unknown',
       image: walletInfo.image || '/icons/default.webp',
     };
 
-    const addWallet = (address, tx, type) => {
+    const addWallet = (address, tx, type, layer) => {
       // Only add wallet if it matches the filter criteria
       if (filterType === 'incoming' && type !== 'incoming') return;
       if (filterType === 'outgoing' && type !== 'outgoing') return;
+
+      // For Layer 3, only add if nametag is valid
+      if (layer === 3 && (!tx.nametag || tx.nametag === 'Unknown')) return;
 
       if (!walletMap.has(address)) {
         walletMap.set(address, {
@@ -484,6 +505,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           txCount: 0,
           latestBlockTime: null,
           type,
+          layer,
         });
         nametags[address.toLowerCase()] = {
           name: tx.nametag || 'Unknown',
@@ -506,8 +528,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       ? outgoingData.filter((tx) => tx.address.toLowerCase() !== rootAddress.toLowerCase() && tx.type === 'outgoing')
       : [];
 
-    filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming'));
-    filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing'));
+    // Layer 2: Add wallets from incoming and outgoing transactions
+    filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming', 2));
+    filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing', 2));
+
+    // Layer 3: Add wallets from layer3Data with valid nametags
+    const filteredLayer3 = layer3Data.filter((tx) => tx.nametag && tx.nametag !== 'Unknown');
+    filteredLayer3.forEach((tx) => {
+      // Determine the address based on transaction direction
+      const address = tx.type === 'incoming' ? tx.address : tx.address;
+      addWallet(address, tx, tx.type, 3);
+    });
 
     const nodes = Array.from(walletMap.values()).map((wallet) => ({
       data: {
@@ -520,11 +551,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         txCount: wallet.txCount,
         latestBlockTime: wallet.latestBlockTime,
         type: wallet.type,
+        layer: wallet.layer,
         isRoot: wallet.address === rootAddress.toLowerCase(),
       },
     }));
 
-    const edges = [];
+    // Create edges for Layer 1 and Layer 2
     filteredIncoming.forEach((tx, index) => {
       if (walletMap.has(tx.address.toLowerCase()) && walletMap.has(rootAddress.toLowerCase())) {
         edges.push({
@@ -539,6 +571,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             tokenSymbol: tx.tokenSymbol,
             contractAddress: tx.contractAddress,
             tokenImage: tx.tokenImage,
+            layer: 2,
           },
         });
       }
@@ -557,6 +590,30 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             tokenSymbol: tx.tokenSymbol,
             contractAddress: tx.contractAddress,
             tokenImage: tx.tokenImage,
+            layer: 2,
+          },
+        });
+      }
+    });
+
+    // Create edges for Layer 3
+    filteredLayer3.forEach((tx, index) => {
+      const layer2Address = tx.layer2Address.toLowerCase();
+      const layer3Address = tx.address.toLowerCase();
+      if (walletMap.has(layer2Address) && walletMap.has(layer3Address)) {
+        edges.push({
+          data: {
+            id: `layer3-edge-${page}-${index}-${tx.hash}`,
+            source: tx.type === 'incoming' ? layer3Address : layer2Address,
+            target: tx.type === 'incoming' ? layer2Address : layer3Address,
+            value: Number(tx.value).toFixed(6),
+            type: tx.type,
+            txHash: tx.hash,
+            block_time: tx.block_time,
+            tokenSymbol: tx.tokenSymbol,
+            contractAddress: tx.contractAddress,
+            tokenImage: tx.tokenImage,
+            layer: 3,
           },
         });
       }
@@ -599,6 +656,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (cached) {
       setFullIncomingData(cached.incoming || []);
       setFullOutgoingData(cached.outgoing || []);
+      setFullLayer3Data(cached.layer3 || []);
       setNodes(cached.nodes || []);
       setEdges(cached.edges || []);
       setWalletInfo(cached.wallet || walletInfo);
@@ -607,7 +665,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       updateUrl(selectedChain, address);
       logger.log('Cached walletInfo.image:', cached.wallet?.image);
       // Re-aggregate for current filterType
-      const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(cached.incoming || [], cached.outgoing || [], address, page, filterType);
+      const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(
+        cached.incoming || [],
+        cached.outgoing || [],
+        cached.layer3 || [],
+        address,
+        page,
+        filterType
+      );
       setNodes(newNodes);
       setEdges(newEdges);
       setNametags((prev) => ({ ...prev, ...newNametags }));
@@ -618,7 +683,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     setLoadingMessage(`Fetching transactions (page ${page})...`);
 
     try {
-      const payload = { wallet_address: address, chain: selectedChain, limit: selectedLimit, page };
+      const payload = { wallet_address: address, chain: selectedChain, limit: selectedLimit, page, fetchLayer3: true };
       const signature = generateHmacSignature(payload);
       const response = await fetch(`${apiBaseUrl}/api/get-transactions`, {
         method: 'POST',
@@ -643,7 +708,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         throw new Error(data.error || 'Invalid response from API.');
       }
 
-      if (data.incoming.length === 0 && data.outgoing.length === 0) {
+      if (data.incoming.length === 0 && data.outgoing.length === 0 && data.layer3.length === 0) {
         toast.info('No transactions found for this address on the selected chain.', {
           position: 'top-center',
           autoClose: 5000,
@@ -659,6 +724,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         setNametags({});
         setFullIncomingData([]);
         setFullOutgoingData([]);
+        setFullLayer3Data([]);
         setWalletInfo({ address: '', nametag: 'Unknown', image: null, chainLogo: '/icons/default.webp' });
         setLoading(false);
         setLoadingMessage('');
@@ -669,11 +735,20 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       // Store full data
       setFullIncomingData(data.incoming);
       setFullOutgoingData(data.outgoing);
+      setFullLayer3Data(data.layer3);
       // Aggregate for current filterType
-      const { nodes, edges, nametags: newNametags } = aggregateWallets(data.incoming, data.outgoing, address, page, filterType);
+      const { nodes, edges, nametags: newNametags } = aggregateWallets(
+        data.incoming,
+        data.outgoing,
+        data.layer3,
+        address,
+        page,
+        filterType
+      );
       await cacheData(cacheKey, {
         incoming: data.incoming,
         outgoing: data.outgoing,
+        layer3: data.layer3,
         nodes,
         edges,
         wallet: data.wallet,
@@ -703,6 +778,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         setNametags({});
         setFullIncomingData([]);
         setFullOutgoingData([]);
+        setFullLayer3Data([]);
         setWalletInfo({ address: '', nametag: 'Unknown', image: null, chainLogo: '/icons/default.webp' });
       }
     } finally {
@@ -740,12 +816,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               },
               'background-fit': 'cover',
               'background-clip': 'node',
-              'background-color': '#666',
-              'width': (ele) => ele.data('isRoot') ? 72 : 48,
-              'height': (ele) => ele.data('isRoot') ? 72 : 48,
+              'background-color': (ele) => ele.data('layer') === 3 ? '#FFD700' : '#666', // Gold for Layer 3 nodes
+              'width': (ele) => ele.data('isRoot') ? 80 : ele.data('layer') === 3 ? 64 : 56,
+              'height': (ele) => ele.data('isRoot') ? 80 : ele.data('layer') === 3 ? 64 : 56,
               'text-valign': 'center',
               'text-halign': 'center',
-              'font-size': '10px',
+              'font-size': '12px',
               'color': '#fff',
               'border-width': 1,
               'border-color': '#fff',
@@ -755,16 +831,16 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           {
             selector: 'edge',
             style: {
-              'width': 2,
-              'line-color': (ele) => ele.data('type') === 'incoming' ? '#00BFFF' : '#EF4444',
+              'width': (ele) => ele.data('layer') === 3 ? 1.5 : 2,
+              'line-color': (ele) => ele.data('type') === 'incoming' ? (ele.data('layer') === 3 ? '#FFD700' : '#00BFFF') : (ele.data('layer') === 3 ? '#FFD700' : '#EF4444'),
               'curve-style': 'bezier',
             },
           },
         ],
         layout: {
           name: 'cola',
-          nodeSpacing: 80,
-          edgeLength: 200,
+          nodeSpacing: (ele) => ele.data('layer') === 3 ? 120 : 80,
+          edgeLength: (ele) => ele.data('layer') === 3 ? 250 : 200,
           animate: true,
           maxSimulationTime: 3000,
         },
@@ -789,11 +865,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             const nametag = data.isRoot ? '' : (data.label !== 'Unknown' ? data.label : truncateAddress(data.id));
             logger.log(`Rendering node label for ${data.id}, isRoot: ${data.isRoot}, image: ${image}`);
             return `
-            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[9px] py-1 px-2 rounded">
-              ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}</div>`}
-              <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol}</div>
-            </div>
-          `;
+              <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[10px] sm:text-[11px] py-1 px-2 rounded">
+                ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
+                <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol}</div>
+              </div>
+            `;
           },
         },
       ]);
@@ -838,6 +914,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         const cluster = clusters.find((c) => c.wallets.some((w) => w.id === wallet));
         if (cluster && !node.data('isRoot')) {
           node.style('border-color', `hsl(${cluster.clusterId * 60}, 70%, 50%)`);
+          node.style('border-width', 2);
+        }
+        if (node.data('layer') === 3) {
+          node.style('border-color', '#FFD700');
           node.style('border-width', 2);
         }
       });
@@ -914,7 +994,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => document.addEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleLoadMore = useCallback(() => {
@@ -934,6 +1014,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setPage(1);
       setFullIncomingData([]);
       setFullOutgoingData([]);
+      setFullLayer3Data([]);
       fetchTransactions(walletAddress, 1);
     } else {
       toast.error('Invalid wallet address.', {
@@ -1044,6 +1125,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             // Reset full data and refetch for new chain
                             setFullIncomingData([]);
                             setFullOutgoingData([]);
+                            setFullLayer3Data([]);
                             if (walletAddress) handleSearch();
                           }}
                           className={`flex items-center w-full text-left px-2 sm:px-3 py-1.5 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && chain.value !== '1' ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1112,6 +1194,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                           // Reset full data and refetch for new limit
                           setFullIncomingData([]);
                           setFullOutgoingData([]);
+                          setFullLayer3Data([]);
                           if (walletAddress) handleSearch();
                         }}
                         className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && limit > 200 ? 'opacity-50 cursor-not-allowed' : ''}`}
