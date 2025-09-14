@@ -404,7 +404,7 @@ function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 1.2 }}
-            className="text-xl md:text-2xl text-white/70 mb-12 max-w-4xl mx-auto leading-relaxed relative"
+            className="text-lg md:text-xl text-white/70 mb-12 max-w-4xl mx-auto leading-relaxed relative"
           >
             <motion.span animate={floatingAnimation} className="inline-block">
               WITH AI PRECISION
@@ -428,7 +428,7 @@ function HeroSection() {
           <Link
             href="/dashboard"
             target="_blank"
-            className="px-8 py-4 bg-white text-black rounded-lg text-lg font-medium transition-all duration-300 hover:bg-gray-200 flex items-center gap-2"
+            className="px-4 py-2 bg-white text-black rounded-xl text-sm font-medium transition-all duration-300 hover:bg-gray-200 flex items-center gap-2"
           >
             <span>LAUNCH APP</span>
             <motion.div
@@ -581,21 +581,21 @@ export default function Home() {
   ]
 
   return (
-    <div className="min-h-screen bg-black text-white overflow-x-hidden font-saira">
+    <div className="min-h-screen bg-black/5 text-white overflow-x-hidden font-saira">
       <div className="fixed inset-0 z-0">
         <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 2]} performance={{ min: 0.5 }}>
           <UniverseBackground />
           <OrbitControls enableZoom={false} enablePan={false} enableRotate={false} />
         </Canvas>
       </div>
-      <header className="w-full py-1.5 px-6 flex justify-between items-center z-50 sticky top-0 bg-black/50 backdrop-blur-lg">
+      <header className="w-full py-0.5 px-4 flex justify-between items-center sticky top-0 bg-black/5 backdrop-blur-xs z-50">
         <div className="flex items-center">
           <Image
             src="/logos/logo-landscape.webp"
             alt="Xynapse Logo"
             width={120}
             height={56}
-            className="h-14 sm:h-20 w-auto"
+            className="h-12 sm:h-16 w-auto"
             priority
           />
         </div>

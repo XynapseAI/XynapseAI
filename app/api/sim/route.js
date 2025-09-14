@@ -361,7 +361,7 @@ async function fetchImageUrl(metadataUrl, ip) {
 }
 
 // ================= Stream Helper =================
-function createJsonStream(controller, data, chunkSize = 100) {
+function createJsonStream(controller, data, chunkSize = 200) {
   if (!controller || controller.locked) {
     logger.error("Cannot create JSON stream: Controller is closed or invalid");
     return;
