@@ -143,7 +143,8 @@
     "wagmi": "^2.16.0",
     "web3": "^4.16.0",
     "winston": "^3.17.0",
-    "zod": "^4.0.14"
+    "zod": "^4.0.14",
+    "ws": "^8.14.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

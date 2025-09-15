@@ -1,43 +1,30 @@
 // app/api/mempool-transactions/route.js
 import { NextResponse } from 'next/server';
-import axios from 'axios';
-import axiosRetry from 'axios-retry';
-import Bottleneck from 'bottleneck';
 import { createClient } from 'redis';
 import { logger } from '../../../utils/serverLogger';
 import { auth } from '@/lib/auth';
 
-// Redis Client (configured for Upstash or similar serverless Redis)
+// Redis Client
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
     redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379', // Ensure REDIS_URL points to Upstash or similar
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
     });
-    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message, stack: err.stack }));
-    try {
-      await redisClient.connect();
-      logger.info('Redis connected', { timestamp: new Date().toISOString() });
-    } catch (err) {
-      logger.error('Redis initial connect failed', { err });
-      throw new Error('Redis connection failed');
-    }
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message }));
+    await redisClient.connect();
+    logger.info('Redis connected');
   } else if (!redisClient.isOpen) {
-    try {
-      await redisClient.connect();
-      logger.info('Redis reconnected');
-    } catch (err) {
-      logger.error('Redis reconnect failed', { err });
-      throw new Error('Redis connection failed');
-    }
+    await redisClient.connect();
+    logger.info('Redis reconnected');
   }
   return redisClient;
 }
 
-// Security Headers
+// Security Headers (unchanged)
 function securityHeaders(origin) {
   const baseHeaders = {
-    'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self'; connect-src 'self' wss://mempool.space https://mempool.space;",
+    'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self'; connect-src 'self' https://xynapse-ai.vercel.app;",
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
@@ -53,7 +40,7 @@ function securityHeaders(origin) {
   return baseHeaders;
 }
 
-// Allowed Origins
+// Allowed Origins (unchanged)
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   'https://xynapseai.net',
@@ -66,7 +53,7 @@ const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/;
 
 function isAllowedOrigin(origin, referer) {
   if (!origin && !referer) {
-    logger.info('No Origin or Referer (likely SSR or server-to-server), allowing request');
+    logger.info('No Origin or Referer, allowing request');
     return true;
   }
   let checkOrigin;
@@ -77,7 +64,7 @@ function isAllowedOrigin(origin, referer) {
     checkOrigin = null;
   }
   if (!checkOrigin) {
-    logger.info('No valid Origin or Referer, allowing for SSR compatibility');
+    logger.info('No valid Origin or Referer, allowing for SSR');
     return true;
   }
   if (allowedOrigins.some((allowed) =>
@@ -94,7 +81,7 @@ function isAllowedOrigin(origin, referer) {
   return false;
 }
 
-// IP Ban and Rate Limiting
+// IP Ban and Rate Limiting (unchanged)
 async function banIP(ip, durationSeconds = 1800) {
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
@@ -147,41 +134,6 @@ async function checkRateLimit(ip) {
   logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`);
 }
 
-// Axios Retry and Rate Limiting
-axiosRetry(axios, {
-  retries: 3,
-  retryDelay: (retryCount) => {
-    logger.info(`Retry attempt ${retryCount} for Mempool API`);
-    return Math.pow(2, retryCount) * 1000 + Math.random() * 200;
-  },
-  retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
-});
-
-const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 5,
-  minTime: process.env.NODE_ENV === 'production' ? 2400 : 1000,
-  reservoir: 25,
-  reservoirRefreshAmount: 25,
-  reservoirRefreshInterval: 60 * 1000,
-});
-
-const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
-  try {
-    const response = await axios.get(url, {
-      ...config,
-      headers: {
-        ...config.headers,
-        'User-Agent': 'Your-App-Name/1.0',
-      },
-      timeout: 10000,
-    });
-    return response;
-  } catch (error) {
-    logger.error(`Axios error: ${error.message}`, { url, status: error.response?.status });
-    throw error;
-  }
-});
-
 // OPTIONS Handler
 export async function OPTIONS(request) {
   const origin = request.headers.get('origin');
@@ -227,22 +179,17 @@ export async function GET(request) {
     return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers });
   }
 
-  const { searchParams } = new URL(request.url);
-  const addresses = searchParams.get('addresses')?.split(',').map(addr => addr.trim()) || [];
-  const isGeneralQuery = addresses.length === 0;
-
   try {
     const session = await auth();
     if (!session) {
-      logger.warn('Unauthorized access to mempool transactions', { addresses, isGeneralQuery });
+      logger.warn('Unauthorized access to mempool transactions');
       return NextResponse.json(
         { success: false, detail: 'Authentication required' },
         { status: 401, headers }
       );
     }
 
-    const cacheKey = isGeneralQuery ? 'mempool-transactions' : `mempool:transactions:${addresses.join(',')}`;
-    const cacheTTL = 5 * 60; // 5 minutes
+    const cacheKey = 'mempool-transactions';
     const redisClient = await getRedisClient();
     const cachedData = await redisClient.get(cacheKey);
 
@@ -251,71 +198,22 @@ export async function GET(request) {
       return NextResponse.json(JSON.parse(cachedData), { headers });
     }
 
-    let transactions = [];
-
-    if (isGeneralQuery) {
-      // Fetch recent mempool transactions (for polling fallback)
-      try {
-        const response = await fetchWithRateLimit('https://mempool.space/api/v1/transactions', {
-          headers: {
-            'User-Agent': 'Your-App-Name/1.0',
-          },
-        });
-        transactions = response.data.map(tx => ({
-          txid: tx.txid,
-          value: tx.vout.reduce((sum, output) => sum + output.value, 0),
-          fee: tx.fee,
-          size: tx.size,
-          status: tx.status,
-          timestamp: tx.firstSeen || Math.floor(Date.now() / 1000),
-        }));
-        logger.info('Fetched general mempool transactions', { txCount: transactions.length });
-      } catch (error) {
-        logger.error('Error fetching general mempool transactions:', { error: error.message });
-        throw error;
-      }
-    } else {
-      // Fetch transactions for specific addresses
-      for (const address of addresses) {
-        if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-zA-Z0-9]{39,59}$/.test(address)) {
-          logger.warn(`Invalid Bitcoin address: ${address}`);
-          await trackViolation(ip, 'Invalid Bitcoin address', 'warn');
-          continue;
-        }
-
-        try {
-          const response = await fetchWithRateLimit(`https://mempool.space/api/address/${address}/txs`, {
-            headers: {
-              'User-Agent': 'Your-App-Name/1.0',
-            },
-          });
-          transactions.push(...response.data);
-          logger.info(`Fetched transactions for address: ${address}`, { txCount: response.data.length });
-        } catch (error) {
-          logger.error(`Error fetching transactions for address ${address}:`, { error: error.message });
-        }
-      }
-    }
-
-    // Filter out duplicates by txid
-    transactions = Array.from(new Map(transactions.map(tx => [tx.txid, tx])).values());
-
-    await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data: transactions }));
-    logger.info(`Fetched and cached mempool transactions: ${cacheKey}`, { txCount: transactions.length });
-
-    return NextResponse.json({ success: true, data: transactions }, { headers });
+    // If no cache, return empty response (WebSocket server should populate Redis)
+    logger.warn('No cached mempool transactions found');
+    return NextResponse.json(
+      { success: true, data: [] },
+      { status: 200, headers }
+    );
   } catch (error) {
     logger.error('Mempool API error:', { error: error.message, stack: error.stack });
     await trackViolation(ip, `Mempool API error: ${error.message}`, 'severe');
     return NextResponse.json(
       {
         success: false,
-        detail: error.response?.status === 429
-          ? 'Mempool API rate limit exceeded. Please try again in a few minutes.'
-          : `Failed to fetch data: ${error.message}`,
+        detail: `Failed to fetch data: ${error.message}`,
         data: [],
       },
-      { status: error.response?.status || 500, headers }
+      { status: 500, headers }
     );
   }
 }
