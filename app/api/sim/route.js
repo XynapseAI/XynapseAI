@@ -393,7 +393,7 @@ function createJsonStream(controller, data, chunkSize = 200) {
     if (controller.desiredSize <= 0) {
       // Backpressure: Wait until buffer is ready
       logger.info("Backpressure detected, waiting...");
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 200));
       sendNextChunk();
       return;
     }

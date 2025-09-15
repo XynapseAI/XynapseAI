@@ -30,6 +30,7 @@ import { useCurrency } from './CurrencyContext';
 import { logger } from '../utils/clientLogger';
 import remarkGfm from 'remark-gfm';
 import ReactMarkdown from "react-markdown";
+import { Virtuoso } from 'react-virtuoso';
 
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
@@ -133,6 +134,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     analysisLogs,
     setIsAnalyzing,
     setIsPredicting,
+    mempoolTransactions,
+    isLoadingMempool,
+    mempoolError,
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
 
   const dropdownRef = useRef(null)
@@ -306,9 +310,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     setActiveMarketTab("dex");
     setShowTrades(false);
     if (selectedToken) {
-      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-      if (chain && tokenAddress) {
-        fetchDexData(chain, tokenAddress);
+      if (selectedToken.id === "bitcoin") {
+      } else {
+        const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+        if (chain && tokenAddress) {
+          fetchDexData(chain, tokenAddress);
+        }
       }
     }
   };
@@ -1560,17 +1567,17 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 </thead>
                                 <tbody>
                                   {onChainData.topHolders.slice(0, 100).map((holder, index) => {
-                                    const isNonEvmChain = NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase())
-                                    const address = holder.address?.toLowerCase()
+                                    const isNonEvmChain = NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase());
+                                    const address = holder.address?.toLowerCase();
                                     const { text: displayText, image, shortAddress } = truncateAddress(
                                       holder.address,
                                       nameTags,
-                                      holder.source,
-                                    )
+                                      isNonEvmChain ? 'Blockchair' : undefined
+                                    );
                                     const isValidAddress =
                                       holder.address &&
                                       (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || // EVM address
-                                        holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/)) // Non-EVM (e.g., Bitcoin)
+                                        holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/)); // Non-EVM (e.g., Bitcoin)
 
                                     return (
                                       <motion.tr
@@ -1591,14 +1598,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                   logger.error("Name tag image failed to load:", {
                                                     address,
                                                     src: image,
-                                                  })
-                                                  e.target.src = "/icons/default.webp"
+                                                  });
+                                                  e.target.src = "/icons/default.webp";
                                                 }}
                                               />
                                             )}
                                             {isNonEvmChain && isValidAddress ? (
                                               <a
-                                                href={`https://blockchair.com/${selectedToken?.id.toLowerCase()}/address/${holder.address}`}
+                                                href={`https://mempool.space/address/${holder.address}`}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="text-white hover:text-white/80 transition-colors font-medium"
@@ -1624,8 +1631,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             {isValidAddress && (
                                               <motion.button
                                                 onClick={() => {
-                                                  navigator.clipboard.writeText(holder.address)
-                                                  toast.success("Address copied!", { autoClose: 2000 })
+                                                  navigator.clipboard.writeText(holder.address);
+                                                  toast.success("Address copied!", { autoClose: 2000 });
                                                 }}
                                                 className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
                                                 title="Copy address"
@@ -1656,7 +1663,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           </span>
                                         </td>
                                       </motion.tr>
-                                    )
+                                    );
                                   })}
                                 </tbody>
                               </table>
@@ -1861,15 +1868,27 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                       {session ? (
                         <>
-                          <LoadingOverlay isLoading={isLoadingDex && !dexData.trades?.length} isMobile={isMobile} className="h-full w-full" />
-                          {dexError ? (
+                          <LoadingOverlay
+                            isLoading={
+                              (selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex) &&
+                              !(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades)?.length
+                            }
+                            isMobile={isMobile}
+                            className="h-full w-full"
+                          />
+                          {(selectedToken?.id === "bitcoin" ? mempoolError : dexError) ? (
                             <div className="text-[10px] text-xs text-center p-6">
-                              <p className="text-white/60 mb-4">Unable to load DEX trades data. Please try again.</p>
+                              <p className="text-white/60 mb-4">
+                                Unable to load {selectedToken?.id === "bitcoin" ? "mempool transactions" : "DEX trades data"}. Please try again.
+                              </p>
                               <motion.button
                                 onClick={() => {
-                                  const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain)
-                                  if (chain && tokenAddress) {
-                                    fetchDexData(chain, tokenAddress)
+                                  if (selectedToken?.id === "bitcoin") {
+                                  } else {
+                                    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+                                    if (chain && tokenAddress) {
+                                      fetchDexData(chain, tokenAddress);
+                                    }
                                   }
                                 }}
                                 className="px-4 py-2 text-white text-sm border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
@@ -1879,31 +1898,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 Retry
                               </motion.button>
                             </div>
-                          ) : isLoadingDex && !dexData.trades?.length ? (
+                          ) : (selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex) &&
+                            !(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades)?.length ? (
                             <SkeletonLoader count={5} isMobile={isMobile} />
-                          ) : dexData.trades.length > 0 ? (
+                          ) : (selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades).length > 0 ? (
                             <div className="overflow-x-auto">
                               <table className="w-full text-[9px] sm:text-[11px]">
-                                {/* Table content remains unchanged */}
                                 <thead className="top-0 z-10 border-b border-white/10 bg-black/80">
                                   <tr>
-                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                      <div className="flex items-center gap-2">
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="h-5 w-5 stroke-white/60 fill-none"
-                                          viewBox="0 0 24 24"
-                                          strokeWidth="2"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
-                                          />
-                                        </svg>
-                                        Token
-                                      </div>
-                                    </th>
                                     <th className="px-3 py-1.5 text-white text-left font-semibold">
                                       <div className="flex items-center gap-2">
                                         <svg
@@ -1969,7 +1971,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                                           />
                                         </svg>
-                                        Tx/Time
+                                        {selectedToken?.id === "bitcoin" ? "Time" : "Tx/Time"}
                                       </div>
                                     </th>
                                     <th className="px-3 py-1.5 text-white text-left font-semibold">
@@ -1980,231 +1982,251 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           viewBox="0 0 24 24"
                                           strokeWidth="2"
                                         >
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M6 15h12M9 18h6" />
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d={selectedToken?.id === "bitcoin"
+                                              ? "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v12a2 2 0 01-2 2z"
+                                              : "M3 12h18M6 15h12M9 18h6"}
+                                          />
                                         </svg>
-                                        Pool
+                                        {selectedToken?.id === "bitcoin" ? "Status" : "Pool"}
                                       </div>
                                     </th>
                                   </tr>
                                 </thead>
-                                <tbody>
-                                  {dexData.trades.slice(0, 100).map((trade, index) => (
-                                    <motion.tr
-                                      key={`${trade.tx_hash}-${index}`}
-                                      initial={{ opacity: 0, y: 10 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      transition={{ duration: 0.3, ease: "easeOut", delay: index * 0.02 }}
-                                      className="border-t border-white/10 bg-black/80 transition-all duration-300"
-                                    >
-                                      <td className="px-4 py-3 text-white">
-                                        <div className="flex items-center gap-2">
-                                          {selectedToken?.image && (
-                                            <img
-                                              src={selectedToken.image || "/placeholder.svg"}
-                                              alt={`${selectedToken.symbol} logo`}
-                                              className="w-4 h-4 rounded-lg flex-shrink-0"
-                                              onError={(e) => (e.target.src = "/fallback-image.webp")}
+                              </table>
+                              <Virtuoso
+                                style={{ height: '400px' }} // Adjust height as needed
+                                data={selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades}
+                                itemContent={(index, item) => (
+                                  <motion.tr
+                                    key={selectedToken?.id === "bitcoin" ? `${item.txid}-${index}` : `${item.tx_hash}-${index}`}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.3, ease: "easeOut", delay: index * 0.02 }}
+                                    className="text-[9px] sm:text-[11px] border-t border-white/10 bg-black/80 transition-all duration-300"
+                                  >
+                                    <td className="px-4 py-3 text-white">
+                                      <div className="flex items-center gap-2 group relative">
+                                        <a
+                                          href={
+                                            selectedToken?.id === "bitcoin"
+                                              ? `https://mempool.space/address/${item.inputs[0].address}`
+                                              : getExplorerUrls(selectedChain, item.tx_hash, item.tx_from_address.address).addressUrl
+                                          }
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-white hover:text-white/80 transition-colors font-medium"
+                                          title={selectedToken?.id === "bitcoin" ? item.inputs[0].address : item.tx_from_address.address}
+                                        >
+                                          {selectedToken?.id === "bitcoin"
+                                            ? item.inputs[0].nameTag || `${item.inputs[0].address.slice(0, 6)}...${item.inputs[0].address.slice(-4)}`
+                                            : item.tx_from_address.nameTag || `${item.tx_from_address.address.slice(0, 6)}...${item.tx_from_address.address.slice(-4)}`}
+                                        </a>
+                                        <motion.button
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(
+                                              selectedToken?.id === "bitcoin" ? item.inputs[0].address : item.tx_from_address.address
+                                            );
+                                            toast.success("Address copied!", { autoClose: 2000 });
+                                          }}
+                                          className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                          title="Copy address"
+                                          whileHover={{ scale: 1.1 }}
+                                          whileTap={{ scale: 0.9 }}
+                                        >
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="w-4 h-4"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            strokeWidth={2}
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
                                             />
-                                          )}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3 text-white">
-                                        <div className="flex items-center gap-2 group relative">
-                                          <a
-                                            href={
-                                              getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address)
-                                                .addressUrl
-                                            }
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="text-white hover:text-white/80 transition-colors font-medium"
-                                            title={trade.tx_from_address}
+                                          </svg>
+                                        </motion.button>
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-white">
+                                      <div className="flex items-center gap-2 group relative">
+                                        <a
+                                          href={
+                                            selectedToken?.id === "bitcoin"
+                                              ? `https://mempool.space/address/${item.outputs[0].address}`
+                                              : getExplorerUrls(selectedChain, item.tx_hash, item.to_token_address.address).addressUrl
+                                          }
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-white hover:text-white/80 transition-colors font-medium"
+                                          title={selectedToken?.id === "bitcoin" ? item.outputs[0].address : item.to_token_address.address}
+                                        >
+                                          {selectedToken?.id === "bitcoin"
+                                            ? item.outputs[0].nameTag || `${item.outputs[0].address.slice(0, 6)}...${item.outputs[0].address.slice(-4)}`
+                                            : item.to_token_address.nameTag || `${item.to_token_address.address.slice(0, 6)}...${item.to_token_address.address.slice(-4)}`}
+                                        </a>
+                                        <motion.button
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(
+                                              selectedToken?.id === "bitcoin" ? item.outputs[0].address : item.to_token_address.address
+                                            );
+                                            toast.success("Address copied!", { autoClose: 2000 });
+                                          }}
+                                          className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                          title="Copy address"
+                                          whileHover={{ scale: 1.1 }}
+                                          whileTap={{ scale: 0.9 }}
+                                        >
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="w-4 h-4"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            strokeWidth={2}
                                           >
-                                            {(() => {
-                                              if (!trade.tx_from_address || typeof trade.tx_from_address !== "string")
-                                                return "N/A"
-                                              return `${trade.tx_from_address.slice(0, 6)}...${trade.tx_from_address.slice(-4)}`
-                                            })()}
-                                          </a>
-                                          {trade.tx_from_address && typeof trade.tx_from_address === "string" && (
-                                            <motion.button
-                                              onClick={() => {
-                                                navigator.clipboard.writeText(trade.tx_from_address)
-                                                toast.success("Address copied!", { autoClose: 2000 })
-                                              }}
-                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-                                              title="Copy address"
-                                              whileHover={{ scale: 1.1 }}
-                                              whileTap={{ scale: 0.9 }}
-                                            >
-                                              <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                className="w-4 h-4"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                                strokeWidth={2}
-                                              >
-                                                <path
-                                                  strokeLinecap="round"
-                                                  strokeLinejoin="round"
-                                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                />
-                                              </svg>
-                                            </motion.button>
-                                          )}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3 text-white">
-                                        <div className="flex items-center gap-2 group relative">
-                                          <a
-                                            href={
-                                              getExplorerUrls(selectedChain, trade.tx_hash, trade.to_token_address)
-                                                .addressUrl
-                                            }
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="text-white hover:text-white/80 transition-colors font-medium"
-                                            title={trade.to_token_address}
-                                          >
-                                            {(() => {
-                                              if (!trade.to_token_address || typeof trade.to_token_address !== "string")
-                                                return "N/A"
-                                              return `${trade.to_token_address.slice(0, 6)}...${trade.to_token_address.slice(-4)}`
-                                            })()}
-                                          </a>
-                                          {trade.to_token_address && typeof trade.to_token_address === "string" && (
-                                            <motion.button
-                                              onClick={() => {
-                                                navigator.clipboard.writeText(trade.to_token_address)
-                                                toast.success("Address copied!", { autoClose: 2000 })
-                                              }}
-                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-                                              title="Copy address"
-                                              whileHover={{ scale: 1.1 }}
-                                              whileTap={{ scale: 0.9 }}
-                                            >
-                                              <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                className="w-4 h-4"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                                strokeWidth={2}
-                                              >
-                                                <path
-                                                  strokeLinecap="round"
-                                                  strokeLinejoin="round"
-                                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                />
-                                              </svg>
-                                            </motion.button>
-                                          )}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3 text-white">
-                                        <div className="flex flex-col gap-1">
-                                          <span className="font-semibold">
-                                            {Math.floor(
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                            />
+                                          </svg>
+                                        </motion.button>
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-white">
+                                      <div className="flex flex-col gap-1">
+                                        <span className="font-semibold">
+                                          {selectedToken?.id === "bitcoin"
+                                            ? `${item.value_btc.toLocaleString("en-US", { maximumFractionDigits: 8 })} BTC`
+                                            : `${Math.floor(
                                               Number.parseFloat(
-                                                trade.kind === "sell"
-                                                  ? trade.from_token_amount
-                                                  : trade.to_token_amount || 0,
-                                              ),
-                                            ).toLocaleString("en-US")}{" "}
-                                            {(() => {
+                                                item.kind === "sell" ? item.from_token_amount : item.to_token_amount || 0
+                                              )
+                                            ).toLocaleString("en-US")} ${(() => {
                                               const tokenAddress =
-                                                trade.kind === "sell" ? trade.from_token_address : trade.to_token_address
+                                                item.kind === "sell" ? item.from_token_address : item.to_token_address;
                                               return tokenAddress.toLowerCase() ===
                                                 selectedToken?.detail_platforms?.[
                                                   chains.find((c) => c.value === selectedChain)?.coingeckoId
                                                 ]?.contract_address?.toLowerCase()
                                                 ? selectedToken?.symbol?.toUpperCase()
-                                                : "Token"
-                                            })()}
+                                                : "Token";
+                                            })()}`}
+                                        </span>
+                                        <div className="flex items-center gap-2 text-[8px]">
+                                          <span className="text-white/60">
+                                            ${Math.floor(
+                                              Number.parseFloat(
+                                                selectedToken?.id === "bitcoin" ? item.value_usd : item.volume_in_usd
+                                              )
+                                            ).toLocaleString("en-US")}
                                           </span>
-                                          <div className="flex items-center gap-2 text-xs">
-                                            <span className="text-white/60">
-                                              ${Math.floor(Number.parseFloat(trade.volume_in_usd)).toLocaleString("en-US")}
-                                            </span>
+                                          {selectedToken?.id !== "bitcoin" && (
                                             <span
-                                              className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${trade.kind === "buy" ? "bg-emerald-400/10 text-emerald-400" : "bg-red-500/10 text-red-500/80"}`}
+                                              className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${item.kind === "buy"
+                                                ? "bg-emerald-400/10 text-emerald-400"
+                                                : "bg-red-500/10 text-red-500/80"
+                                                }`}
                                             >
-                                              {trade.kind.charAt(0).toUpperCase() + trade.kind.slice(1)}
+                                              {item.kind.charAt(0).toUpperCase() + item.kind.slice(1)}
                                             </span>
-                                          </div>
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3 text-white text-center">
-                                        <div className="flex flex-col gap-1 items-center group relative">
-                                          <a
-                                            href={
-                                              getExplorerUrls(selectedChain, trade.tx_hash, trade.tx_from_address).txUrl
-                                            }
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            title={trade.tx_hash}
-                                            className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 transition-all duration-300"
-                                          >
-                                            <img
-                                              src="/logos/etherscan-logo.webp"
-                                              alt="Etherscan"
-                                              className="w-3 h-3"
-                                              onError={(e) => (e.target.src = "/fallback-image.webp")}
-                                            />
-                                          </a>
-                                          <span className="text-[9px] text-white/60 text-center">
-                                            {formatDistanceToNow(new Date(trade.block_timestamp), { addSuffix: true })}
-                                          </span>
-                                          {trade.tx_hash && typeof trade.tx_hash === "string" && (
-                                            <motion.button
-                                              onClick={() => {
-                                                navigator.clipboard.writeText(trade.tx_hash)
-                                                toast.success("Transaction hash copied!", { autoClose: 2000 })
-                                              }}
-                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-                                              title="Copy transaction hash"
-                                              whileHover={{ scale: 1.1 }}
-                                              whileTap={{ scale: 0.9 }}
-                                            >
-                                              <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                className="w-4 h-4"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                                strokeWidth={2}
-                                              >
-                                                <path
-                                                  strokeLinecap="round"
-                                                  strokeLinejoin="round"
-                                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                />
-                                              </svg>
-                                            </motion.button>
                                           )}
                                         </div>
-                                      </td>
-                                      <td className="px-4 py-3 text-white">
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-white text-center">
+                                      <div className="flex flex-col gap-1 items-center group relative">
+                                        <a
+                                          href={
+                                            selectedToken?.id === "bitcoin"
+                                              ? `https://mempool.space/tx/${item.txid}`
+                                              : getExplorerUrls(selectedChain, item.tx_hash, item.tx_from_address).txUrl
+                                          }
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          title={selectedToken?.id === "bitcoin" ? item.txid : item.tx_hash}
+                                          className="flex-shrink-0 p-1 rounded-lg hover:bg-white/10 transition-all duration-300"
+                                        >
+                                          <img
+                                            src={selectedToken?.id === "bitcoin" ? "/logos/mempool-logo.webp" : "/logos/etherscan-logo.webp"}
+                                            alt={selectedToken?.id === "bitcoin" ? "Mempool" : "Explorer"}
+                                            className="w-3 h-3"
+                                            onError={(e) => (e.target.src = "/fallback-image.webp")}
+                                          />
+                                        </a>
+                                        <span className="text-[9px] text-white/60 text-center">
+                                          {formatDistanceToNow(
+                                            new Date((selectedToken?.id === "bitcoin" ? item.timestamp * 1000 : item.block_timestamp)),
+                                            { addSuffix: true }
+                                          )}
+                                        </span>
+                                        {(selectedToken?.id === "bitcoin" ? item.txid : item.tx_hash) && (
+                                          <motion.button
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(
+                                                selectedToken?.id === "bitcoin" ? item.txid : item.tx_hash
+                                              );
+                                              toast.success("Transaction hash copied!", { autoClose: 2000 });
+                                            }}
+                                            className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                            title="Copy transaction hash"
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
+                                          >
+                                            <svg
+                                              xmlns="http://www.w3.org/2000/svg"
+                                              className="w-4 h-4"
+                                              fill="none"
+                                              viewBox="0 0 24 24"
+                                              stroke="currentColor"
+                                              strokeWidth={2}
+                                            >
+                                              <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                              />
+                                            </svg>
+                                          </motion.button>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-white">
+                                      {selectedToken?.id === "bitcoin" ? (
+                                        <span
+                                          className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${item.status.confirmed
+                                            ? "bg-emerald-400/10 text-emerald-400"
+                                            : "bg-yellow-500/10 text-yellow-500"
+                                            }`}
+                                        >
+                                          {item.status.confirmed ? "Confirmed" : "Pending"}
+                                        </span>
+                                      ) : (
                                         <motion.button
-                                          onClick={() => trade.pool_address && handlePoolClick(trade.pool_address)}
+                                          onClick={() => item.pool_address && handlePoolClick(item.pool_address)}
                                           className="flex items-center gap-2 text-[10px] sm:text-xs hover:bg-white/10 p-2 rounded-xl transition-all duration-300"
                                           title={
-                                            dexData.pools.find((p) => p.attributes.address === trade.pool_address)
+                                            dexData.pools.find((p) => p.attributes.address === item.pool_address)
                                               ?.attributes.name || "View Pool Details"
                                           }
-                                          disabled={!trade.pool_address || !dexData.poolTokens[trade.pool_address]}
+                                          disabled={!item.pool_address || !dexData.poolTokens[item.pool_address]}
                                           whileHover={{ scale: 1.05 }}
                                           whileTap={{ scale: 0.95 }}
                                         >
                                           {(() => {
                                             const poolTokens =
-                                              trade.pool_address && typeof trade.pool_address === "string"
-                                                ? dexData.poolTokens[trade.pool_address] || {}
-                                                : {}
-                                            const tokenAddresses = Object.keys(poolTokens)
-                                            const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null
-                                            const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null
+                                              item.pool_address && typeof item.pool_address === "string"
+                                                ? dexData.poolTokens[item.pool_address] || {}
+                                                : {};
+                                            const tokenAddresses = Object.keys(poolTokens);
+                                            const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null;
+                                            const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null;
                                             return token1 && token2 ? (
                                               <div className="flex items-center gap-2">
                                                 <img
@@ -2223,20 +2245,23 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               </div>
                                             ) : (
                                               <span className="text-white/60">N/A</span>
-                                            )
+                                            );
                                           })()}
                                         </motion.button>
-                                      </td>
-                                    </motion.tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                      )}
+                                    </td>
+                                  </motion.tr>
+                                )}
+                              />
                             </div>
                           ) : (
-                            !isLoadingDex && (
+                            !(selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex) && (
                               <div className="text-[10px] text-white/60 text-center p-6">
-                                No DEX data available for {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
-                                {chains.find((c) => c.value === selectedChain)?.label || "selected chain"}.
+                                No {selectedToken?.id === "bitcoin" ? "mempool transactions" : "DEX data"} available for{" "}
+                                {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
+                                {selectedToken?.id === "bitcoin"
+                                  ? "Bitcoin network"
+                                  : chains.find((c) => c.value === selectedChain)?.label || "selected chain"}.
                               </div>
                             )
                           )}
