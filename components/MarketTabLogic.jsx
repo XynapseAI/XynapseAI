@@ -78,6 +78,13 @@ const CACHE_DURATIONS = {
   TOP_HOLDERS: 12 * 60 * 60 * 1000, // 12 h
 };
 
+// WebSocket and Polling Configuration
+const MEMPOOL_WS_URL = 'wss://mempool.space/api/v1/ws';
+const POLLING_INTERVAL = 30000; // 30 seconds
+const MAX_RECONNECT_ATTEMPTS = 5;
+const BASE_RECONNECT_DELAY = 5000; // 5 seconds
+
+
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
   console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
 }
@@ -484,177 +491,237 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [session, status]
   );
 
-  const connectMempoolWebSocket = useCallback(() => {
-  if (selectedToken?.id !== 'bitcoin' || mempoolWsRef.current) return;
+  const connectMempoolWebSocket = useCallback((selectedToken, setMempoolTransactions, setMempoolError, setIsLoadingMempool, mempoolTxCache, btcNameTags) => {
+    if (selectedToken?.id !== 'bitcoin' || typeof window === 'undefined') return () => { };
 
-  setIsLoadingMempool(true);
-  setMempoolError(null);
+    setIsLoadingMempool(true);
+    setMempoolError(null);
 
-  const wsUrl = 'wss://mempool.space/api/v1/ws';
-  let ws = new WebSocket(wsUrl);
-  mempoolWsRef.current = ws;
-  let reconnectAttempts = 0;
-  const maxReconnectAttempts = 5;
-  const baseReconnectDelay = 5000; // 5 seconds
-  let pingInterval = null;
+    let ws = new WebSocket(MEMPOOL_WS_URL);
+    let mempoolWsRef = { current: ws };
+    let reconnectAttempts = 0;
+    let pingInterval = null;
+    let isActive = true;
 
-  const reconnect = () => {
-    if (reconnectAttempts >= maxReconnectAttempts) {
-      setMempoolError('Max reconnection attempts reached. Please try again later.');
-      setIsLoadingMempool(false);
-      mempoolWsRef.current = null;
-      return;
-    }
+    const reconnect = () => {
+      if (!isActive || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        setMempoolError('Max reconnection attempts reached. Switching to polling.');
+        setIsLoadingMempool(false);
+        mempoolWsRef.current = null;
+        startPolling(); // Switch to polling
+        return;
+      }
 
-    const delay = Math.min(baseReconnectDelay * Math.pow(2, reconnectAttempts), 30000); // Cap at 30 seconds
-    setTimeout(() => {
-      console.log(`Reconnecting to mempool WebSocket (attempt ${reconnectAttempts + 1})`);
-      ws = new WebSocket(wsUrl);
-      mempoolWsRef.current = ws;
-      reconnectAttempts++;
-      setupWebSocket();
-    }, delay);
-  };
-
-  const setupWebSocket = () => {
-    ws.onopen = () => {
-      console.log('Connected to mempool WebSocket');
-      reconnectAttempts = 0; // Reset attempts on successful connection
-      ws.send(JSON.stringify({ "track-mempool-txids": true }));
-
-      // Start heartbeat
-      pingInterval = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ ping: true }));
-        }
-      }, 30000); // Ping every 30 seconds
+      const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 30000);
+      setTimeout(() => {
+        if (!isActive || document.visibilityState !== 'visible') return;
+        console.log(`Reconnecting to mempool WebSocket (attempt ${reconnectAttempts + 1})`);
+        ws = new WebSocket(MEMPOOL_WS_URL);
+        mempoolWsRef.current = ws;
+        reconnectAttempts++;
+        setupWebSocket();
+      }, delay);
     };
 
-    ws.onmessage = async (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.pong) {
-          console.debug('Received pong from mempool WebSocket');
-          return;
-        }
+    const setupWebSocket = () => {
+      ws.onopen = () => {
+        console.log('Connected to mempool WebSocket');
+        reconnectAttempts = 0;
+        ws.send(JSON.stringify({ "track-mempool-txids": true }));
 
-        if (data['mempool-txids']?.added?.length > 0) {
-          const btcPrice = selectedToken?.current_price?.usd || 0;
-          if (!btcPrice) {
-            setMempoolError('BTC price not available');
+        pingInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN && isActive) {
+            ws.send(JSON.stringify({ ping: true }));
+          }
+        }, 30000);
+      };
+
+      ws.onmessage = async (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.pong) {
+            console.debug('Received pong from mempool WebSocket');
             return;
           }
 
-          // Limit processing to 10 transactions per message to avoid overload
-          const limit = pLimit(10);
-          const txPromises = data['mempool-txids'].added
-            .slice(0, 10) // Process only first 10 transactions
-            .filter((txid) => !mempoolTxCache.current.has(txid))
-            .map((txid) =>
-              limit(async () => {
-                try {
-                  const response = await axios.get(`https://mempool.space/api/tx/${txid}`, { timeout: 10000 });
-                  const tx = response.data;
-                  const totalValueSatoshi = tx.vout.reduce((sum, output) => sum + output.value, 0);
-                  const totalValueUSD = (totalValueSatoshi / 1e8) * btcPrice;
+          if (data['mempool-txids']?.added?.length > 0) {
+            const btcPrice = selectedToken?.current_price?.usd || 0;
+            if (!btcPrice) {
+              setMempoolError('BTC price not available');
+              return;
+            }
 
-                  if (totalValueUSD >= 1000000) {
-                    mempoolTxCache.current.add(txid);
+            const limit = pLimit(10);
+            const txPromises = data['mempool-txids'].added
+              .slice(0, 10)
+              .filter((txid) => !mempoolTxCache.current.has(txid))
+              .map((txid) =>
+                limit(async () => {
+                  try {
+                    const response = await axios.get(`https://mempool.space/api/tx/${txid}`, { timeout: 10000 });
+                    const tx = response.data;
+                    const totalValueSatoshi = tx.vout.reduce((sum, output) => sum + output.value, 0);
+                    const totalValueUSD = (totalValueSatoshi / 1e8) * btcPrice;
 
-                    // Apply nametags from bitcoin-top-holders.json
-                    const inputs = tx.vin.map((vin) => {
-                      const address = vin.prevout?.scriptpubkey_address || 'unknown';
-                      const normalizedAddress = address.toLowerCase();
-                      const nameTagData = btcNameTags[normalizedAddress]?.Labels?.bitcoin;
+                    if (totalValueUSD >= 1000000) {
+                      mempoolTxCache.current.add(txid);
+
+                      const inputs = tx.vin.map((vin) => {
+                        const address = vin.prevout?.scriptpubkey_address || 'unknown';
+                        const normalizedAddress = address.toLowerCase();
+                        const nameTagData = btcNameTags[normalizedAddress]?.Labels?.bitcoin;
+                        return {
+                          address,
+                          nameTag: nameTagData?.['Name Tag'] || null,
+                          image: nameTagData?.image || null,
+                        };
+                      });
+                      const outputs = tx.vout.map((vout) => {
+                        const address = vout.scriptpubkey_address || 'unknown';
+                        const normalizedAddress = address.toLowerCase();
+                        const nameTagData = btcNameTags[normalizedAddress]?.Labels?.bitcoin;
+                        return {
+                          address,
+                          nameTag: nameTagData?.['Name Tag'] || null,
+                          image: nameTagData?.image || null,
+                        };
+                      });
+
                       return {
-                        address,
-                        nameTag: nameTagData?.['Name Tag'] || null,
-                        image: nameTagData?.image || null,
+                        txid: tx.txid,
+                        value_usd: totalValueUSD,
+                        value_btc: totalValueSatoshi / 1e8,
+                        timestamp: tx.firstSeen || Date.now() / 1000,
+                        inputs,
+                        outputs,
+                        fee: tx.fee,
+                        size: tx.size,
+                        status: tx.status,
                       };
-                    });
-                    const outputs = tx.vout.map((vout) => {
-                      const address = vout.scriptpubkey_address || 'unknown';
-                      const normalizedAddress = address.toLowerCase();
-                      const nameTagData = btcNameTags[normalizedAddress]?.Labels?.bitcoin;
-                      return {
-                        address,
-                        nameTag: nameTagData?.['Name Tag'] || null,
-                        image: nameTagData?.image || null,
-                      };
-                    });
-
-                    return {
-                      txid: tx.txid,
-                      value_usd: totalValueUSD,
-                      value_btc: totalValueSatoshi / 1e8,
-                      timestamp: tx.firstSeen || Date.now() / 1000,
-                      inputs,
-                      outputs,
-                      fee: tx.fee,
-                      size: tx.size,
-                      status: tx.status,
-                    };
+                    }
+                    return null;
+                  } catch (error) {
+                    console.error(`Failed to fetch tx ${txid}:`, error.message);
+                    return null;
                   }
-                  return null;
-                } catch (error) {
-                  console.error(`Failed to fetch tx ${txid}:`, error.message);
-                  return null;
-                }
-              })
-            );
+                })
+              );
 
-          const newTxs = (await Promise.all(txPromises)).filter((tx) => tx !== null);
-          if (newTxs.length > 0) {
+            const newTxs = (await Promise.all(txPromises)).filter((tx) => tx !== null);
+            if (newTxs.length > 0) {
+              setMempoolTransactions((prev) => {
+                const updated = [...newTxs, ...prev].slice(0, 100);
+                return updated.sort((a, b) => b.timestamp - a.timestamp);
+              });
+            }
+          }
+        } catch (error) {
+          setMempoolError(`WebSocket message error: ${error.message}`);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('Mempool WebSocket error:', error);
+        setMempoolError(`WebSocket error: ${error.message}`);
+        setIsLoadingMempool(false);
+        clearInterval(pingInterval);
+        reconnect();
+      };
+
+      ws.onclose = () => {
+        console.log('Mempool WebSocket closed');
+        setIsLoadingMempool(false);
+        clearInterval(pingInterval);
+        mempoolWsRef.current = null;
+        if (isActive) reconnect();
+      };
+    };
+
+    const startPolling = () => {
+      const poll = async () => {
+        if (!isActive || document.visibilityState !== 'visible') return;
+        try {
+          const response = await axios.get('/api/mempool-transactions', { timeout: 10000 });
+          if (response.data.success && Array.isArray(response.data.data)) {
+            const btcPrice = selectedToken?.current_price?.usd || 0;
+            const newTxs = response.data.data
+              .filter((tx) => !mempoolTxCache.current.has(tx.txid) && (tx.value / 1e8) * btcPrice >= 1000000)
+              .map((tx) => {
+                mempoolTxCache.current.add(tx.txid);
+                const inputs = tx.vin?.map((vin) => {
+                  const address = vin.prevout?.scriptpubkey_address || 'unknown';
+                  const normalizedAddress = address.toLowerCase();
+                  const nameTagData = btcNameTags[normalizedAddress]?.Labels?.bitcoin;
+                  return {
+                    address,
+                    nameTag: nameTagData?.['Name Tag'] || null,
+                    image: nameTagData?.image || null,
+                  };
+                }) || [];
+                const outputs = tx.vout?.map((vout) => {
+                  const address = vout.scriptpubkey_address || 'unknown';
+                  const normalizedAddress = address.toLowerCase();
+                  const nameTagData = btcNameTags[normalizedAddress]?.Labels?.bitcoin;
+                  return {
+                    address,
+                    nameTag: nameTagData?.['Name Tag'] || null,
+                    image: nameTagData?.image || null,
+                  };
+                }) || [];
+                return {
+                  txid: tx.txid,
+                  value_usd: (tx.value / 1e8) * btcPrice,
+                  value_btc: tx.value / 1e8,
+                  timestamp: tx.timestamp || Date.now() / 1000,
+                  inputs,
+                  outputs,
+                  fee: tx.fee,
+                  size: tx.size,
+                  status: tx.status,
+                };
+              });
             setMempoolTransactions((prev) => {
-              const updated = [...newTxs, ...prev].slice(0, 100); // Limit to 100 transactions
-              return updated.sort((a, b) => b.timestamp - a.timestamp); // Sort by timestamp descending
+              const updated = [...newTxs, ...prev].slice(0, 100);
+              return updated.sort((a, b) => b.timestamp - a.timestamp);
             });
           }
+        } catch (error) {
+          setMempoolError(`Polling error: ${error.message}`);
         }
-      } catch (error) {
-        setMempoolError(`WebSocket message error: ${error.message}`);
-      }
+      };
+
+      poll(); // Immediate poll
+      const interval = setInterval(poll, POLLING_INTERVAL);
+      return () => clearInterval(interval);
     };
 
-    ws.onerror = (error) => {
-      console.error('Mempool WebSocket error:', error);
-      setMempoolError(`WebSocket error: ${error.message}`);
-      setIsLoadingMempool(false);
-      clearInterval(pingInterval);
-    };
+    setupWebSocket();
 
-    ws.onclose = () => {
-      console.log('Mempool WebSocket closed');
-      setIsLoadingMempool(false);
-      clearInterval(pingInterval);
-      mempoolWsRef.current = null;
-      reconnect();
-    };
-  };
-
-  setupWebSocket();
-
-  return () => {
-    if (mempoolWsRef.current) {
-      mempoolWsRef.current.close();
-      mempoolWsRef.current = null;
-    }
-    if (pingInterval) {
-      clearInterval(pingInterval);
-    }
-  };
-}, [selectedToken]);
-
-  useEffect(() => {
-    if (selectedToken?.id === 'bitcoin' && document.visibilityState === 'visible') {
-      connectMempoolWebSocket();
-    }
     return () => {
+      isActive = false;
       if (mempoolWsRef.current) {
         mempoolWsRef.current.close();
         mempoolWsRef.current = null;
       }
+      if (pingInterval) {
+        clearInterval(pingInterval);
+      }
     };
+  }, []);
+
+  useEffect(() => {
+    if (selectedToken?.id === 'bitcoin' && document.visibilityState === 'visible') {
+      const cleanup = connectMempoolWebSocket(
+        selectedToken,
+        setMempoolTransactions,
+        setMempoolError,
+        setIsLoadingMempool,
+        mempoolTxCache,
+        btcNameTags
+      );
+      return cleanup;
+    }
+    return () => { };
   }, [selectedToken, connectMempoolWebSocket]);
 
   const fetchNameTag = useCallback(

@@ -1,3 +1,4 @@
+// app/api/mempool-transactions/route.js
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
@@ -6,11 +7,13 @@ import { createClient } from 'redis';
 import { logger } from '../../../utils/serverLogger';
 import { auth } from '@/lib/auth';
 
-// ================= Redis Client =================
+// Redis Client (configured for Upstash or similar serverless Redis)
 let redisClient;
 async function getRedisClient() {
   if (!redisClient) {
-    redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379', // Ensure REDIS_URL points to Upstash or similar
+    });
     redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message, stack: err.stack }));
     try {
       await redisClient.connect();
@@ -31,10 +34,10 @@ async function getRedisClient() {
   return redisClient;
 }
 
-// ================= Security Headers =================
+// Security Headers
 function securityHeaders(origin) {
   const baseHeaders = {
-    'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self';",
+    'Content-Security-Policy': "default-src 'self'; frame-ancestors 'self'; connect-src 'self' wss://mempool.space https://mempool.space;",
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
@@ -46,12 +49,11 @@ function securityHeaders(origin) {
     baseHeaders['Access-Control-Allow-Origin'] = origin;
     baseHeaders['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
     baseHeaders['Access-Control-Allow-Headers'] = 'Content-Type';
-    baseHeaders['Access-Control-Allow-Credentials'] = 'true';
   }
   return baseHeaders;
 }
 
-// ================= Allowed Origins =================
+// Allowed Origins
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   'https://xynapseai.net',
@@ -92,7 +94,7 @@ function isAllowedOrigin(origin, referer) {
   return false;
 }
 
-// ================= IP Ban and Rate Limiting =================
+// IP Ban and Rate Limiting
 async function banIP(ip, durationSeconds = 1800) {
   const redisClient = await getRedisClient();
   await redisClient.setEx(`banned_ip:${ip}`, durationSeconds, 'banned');
@@ -145,7 +147,7 @@ async function checkRateLimit(ip) {
   logger.info(`Rate limit check passed for IP ${ip}: ${requests + 1}/${maxRequests} requests`);
 }
 
-// ================= Axios Retry and Rate Limiting =================
+// Axios Retry and Rate Limiting
 axiosRetry(axios, {
   retries: 3,
   retryDelay: (retryCount) => {
@@ -157,7 +159,7 @@ axiosRetry(axios, {
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 5,
-  minTime: process.env.NODE_ENV === 'production' ? 2400 : 1000, // ~25/min
+  minTime: process.env.NODE_ENV === 'production' ? 2400 : 1000,
   reservoir: 25,
   reservoirRefreshAmount: 25,
   reservoirRefreshInterval: 60 * 1000,
@@ -180,7 +182,7 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   }
 });
 
-// ================= OPTIONS Handler =================
+// OPTIONS Handler
 export async function OPTIONS(request) {
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
@@ -194,7 +196,7 @@ export async function OPTIONS(request) {
   });
 }
 
-// ================= GET Handler =================
+// GET Handler
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -252,13 +254,29 @@ export async function GET(request) {
     let transactions = [];
 
     if (isGeneralQuery) {
-      // Backward compatibility: Fetch general mempool transactions
-      logger.warn('General mempool transactions not implemented; returning empty array');
-      transactions = [];
+      // Fetch recent mempool transactions (for polling fallback)
+      try {
+        const response = await fetchWithRateLimit('https://mempool.space/api/v1/transactions', {
+          headers: {
+            'User-Agent': 'Your-App-Name/1.0',
+          },
+        });
+        transactions = response.data.map(tx => ({
+          txid: tx.txid,
+          value: tx.vout.reduce((sum, output) => sum + output.value, 0),
+          fee: tx.fee,
+          size: tx.size,
+          status: tx.status,
+          timestamp: tx.firstSeen || Math.floor(Date.now() / 1000),
+        }));
+        logger.info('Fetched general mempool transactions', { txCount: transactions.length });
+      } catch (error) {
+        logger.error('Error fetching general mempool transactions:', { error: error.message });
+        throw error;
+      }
     } else {
       // Fetch transactions for specific addresses
       for (const address of addresses) {
-        // Validate Bitcoin address (legacy or SegWit)
         if (!/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-zA-Z0-9]{39,59}$/.test(address)) {
           logger.warn(`Invalid Bitcoin address: ${address}`);
           await trackViolation(ip, 'Invalid Bitcoin address', 'warn');
@@ -275,12 +293,11 @@ export async function GET(request) {
           logger.info(`Fetched transactions for address: ${address}`, { txCount: response.data.length });
         } catch (error) {
           logger.error(`Error fetching transactions for address ${address}:`, { error: error.message });
-          // Continue with other addresses to avoid failing the entire request
         }
       }
     }
 
-    // Filter out duplicates by txid (if any)
+    // Filter out duplicates by txid
     transactions = Array.from(new Map(transactions.map(tx => [tx.txid, tx])).values());
 
     await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify({ success: true, data: transactions }));
