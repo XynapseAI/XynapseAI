@@ -1,19 +1,36 @@
+// utils/clustering.js
 import { logger } from './clientLogger';
 
-export function detectClusters(nodes, edges) {
+// Dynamic import for TensorFlow.js to avoid SSR issues
+let tf = null;
+const loadTensorFlow = async () => {
+  if (!tf) {
+    const tfCore = await import('@tensorflow/tfjs-core');
+    await import('@tensorflow/tfjs-backend-cpu');
+    tf = tfCore;
+    await tf.setBackend('cpu');
+    await tf.ready();
+  }
+  return tf;
+};
+
+export async function detectClusters(nodes, edges, options = { useML: true }) {
   const clusters = [];
   const nodeMap = new Map();
   const edgeMap = new Map();
   const adjacencyList = new Map();
 
-  // Initialize adjacency list
+  // Initialize adjacency list (graph structure for degrees)
+  const clusterableNodes = nodes.filter(
+    (node) => !node.isRoot && (node.layer === 2 || node.layer === 3) && node.label !== 'Unknown'
+  );
   nodes.forEach((node) => {
     nodeMap.set(node.id, node);
     adjacencyList.set(node.id, new Set());
   });
 
   // Build adjacency list from edges
-  edges.forEach((edge, index) => {
+  edges.forEach((edge) => {
     const source = edge.source;
     const target = edge.target;
     edgeMap.set(edge.id, edge);
@@ -23,50 +40,147 @@ export function detectClusters(nodes, edges) {
     }
   });
 
-  // Community detection using a simplified Louvain-like approach
-  const communities = new Map();
-  let clusterId = 0;
+  let communities = new Map();
 
-  // Initialize each node in its own community
-  nodes.forEach((node) => {
-    communities.set(node.id, clusterId);
-    clusterId++;
-  });
+  if (options.useML && clusterableNodes.length > 1) {
+    try {
+      const tf = await loadTensorFlow();
 
-  // Iterative modularity optimization
-  let changed = true;
-  let iterations = 0;
-  const maxIterations = 10;
+      // Feature extraction
+      const now = Date.now();
+      const features = [];
+      const nodeIds = [];
 
-  while (changed && iterations < maxIterations) {
-    changed = false;
-    iterations++;
+      clusterableNodes.forEach((node) => {
+        const degree = adjacencyList.get(node.id)?.size || 0;
+        const avgValue = node.totalValue / Math.max(node.txCount, 1);
+        const latestTime = node.latestBlockTime
+          ? typeof node.latestBlockTime === 'number'
+            ? node.latestBlockTime
+            : new Date(node.latestBlockTime).getTime()
+          : now;
+        const daysSince = (now - latestTime) / (1000 * 60 * 60 * 24);
+        const hasLabel = node.label !== 'Unknown' ? 1 : 0;
 
-    for (const nodeId of nodes.map((n) => n.id)) {
-      const currentCommunity = communities.get(nodeId);
-      const neighborCommunities = new Map();
-
-      // Count connections to each community
-      adjacencyList.get(nodeId).forEach((neighborId) => {
-        const neighborCommunity = communities.get(neighborId);
-        neighborCommunities.set(neighborCommunity, (neighborCommunities.get(neighborCommunity) || 0) + 1);
+        const feat = [
+          Math.log1p(parseFloat(node.totalValue) || 0),
+          Math.log1p(node.txCount || 0),
+          degree,
+          Math.log1p(avgValue || 0),
+          Math.min(daysSince, 365),
+          hasLabel,
+        ];
+        features.push(feat);
+        nodeIds.push(node.id);
       });
 
-      // Find the community with the most connections
-      let bestCommunity = currentCommunity;
-      let maxConnections = neighborCommunities.get(currentCommunity) || 0;
-
-      for (const [commId, count] of neighborCommunities) {
-        if (count > maxConnections) {
-          maxConnections = count;
-          bestCommunity = commId;
-        }
+      if (features.length < 2) {
+        throw new Error('Insufficient nodes for ML clustering');
       }
 
-      // Move node to the community with the most connections
-      if (bestCommunity !== currentCommunity) {
-        communities.set(nodeId, bestCommunity);
-        changed = true;
+      const n = features.length;
+      const d = features[0].length;
+      const featuresTensor = tf.tensor2d(features);
+
+      // Normalize features
+      const mean = tf.mean(featuresTensor, 0, true);
+      const std = tf.sqrt(tf.variance(featuresTensor, 0, true));
+      const normalized = featuresTensor.sub(mean).div(std.add(1e-8));
+
+      // KMeans
+      const k = Math.max(2, Math.floor(Math.sqrt(n)));
+      let centroids = tf.randomNormal([k, d]).mul(0.1).add(tf.mean(normalized, 0));
+      const maxIter = 50;
+      let assignments = new Array(n).fill(0);
+
+      for (let iter = 0; iter < maxIter; iter++) {
+        const dist = tf.tidy(() => {
+          const XX = tf.sum(tf.pow(normalized, 2), 1, true);
+          const CC = tf.sum(tf.pow(centroids, 2), 1, false);
+          const XC = tf.matMul(normalized, centroids, false, true);
+          return XX.add(CC).sub(tf.mul(XC, 2));
+        });
+
+        const newAssignments = tf.argMin(dist, 1).arraySync();
+        dist.dispose();
+
+        if (JSON.stringify(newAssignments) === JSON.stringify(assignments)) {
+          break;
+        }
+        assignments = newAssignments;
+
+        // Update centroids
+        const sums = tf.zeros([k, d]);
+        const counts = new Array(k).fill(0);
+        for (let i = 0; i < n; i++) {
+          const c = assignments[i];
+          counts[c]++;
+          const row = normalized.slice([i, 0], [1, d]);
+          sums.assign(sums.slice([c, 0], [1, d]).add(row));
+          row.dispose();
+        }
+        const validCounts = tf.tensor1d(counts).add(1e-8);
+        centroids.dispose();
+        centroids = sums.div(validCounts.expandDims(1));
+        sums.dispose();
+        validCounts.dispose();
+      }
+
+      nodeIds.forEach((id, idx) => {
+        communities.set(id, assignments[idx]);
+      });
+
+      normalized.dispose();
+      mean.dispose();
+      std.dispose();
+      centroids.dispose();
+
+      logger.log(`AI-based clustering completed: ${k} clusters for ${n} nodes`);
+    } catch (err) {
+      logger.warn('ML clustering failed, falling back to Louvain:', err.message);
+      options.useML = false;
+    }
+  }
+
+  if (!options.useML) {
+    // Fallback Louvain clustering
+    communities = new Map();
+    let clusterId = 0;
+    nodes.forEach((node) => {
+      communities.set(node.id, clusterId++);
+    });
+
+    let changed = true;
+    let iterations = 0;
+    const maxIterations = 10;
+
+    while (changed && iterations < maxIterations) {
+      changed = false;
+      iterations++;
+
+      for (const nodeId of nodes.map((n) => n.id)) {
+        const currentCommunity = communities.get(nodeId);
+        const neighborCommunities = new Map();
+
+        adjacencyList.get(nodeId)?.forEach((neighborId) => {
+          const neighborCommunity = communities.get(neighborId);
+          neighborCommunities.set(neighborCommunity, (neighborCommunities.get(neighborCommunity) || 0) + 1);
+        });
+
+        let bestCommunity = currentCommunity;
+        let maxConnections = neighborCommunities.get(currentCommunity) || 0;
+
+        for (const [commId, count] of neighborCommunities) {
+          if (count > maxConnections) {
+            maxConnections = count;
+            bestCommunity = commId;
+          }
+        }
+
+        if (bestCommunity !== currentCommunity) {
+          communities.set(nodeId, bestCommunity);
+          changed = true;
+        }
       }
     }
   }
@@ -106,13 +220,11 @@ export function detectClusters(nodes, edges) {
 
   // Create cluster objects
   communityGroups.forEach((group, commId) => {
-    // Only include clusters with at least one Layer 2 or Layer 3 node with a valid nametag
     const hasValidNametag = group.wallets.some(
       (wallet) => (wallet.layer === 2 || wallet.layer === 3) && wallet.label !== 'Unknown'
     );
-    if (!hasValidNametag) return;
+    if (!hasValidNametag || group.wallets.length < 2) return;
 
-    // Prefer Layer 3 nametag, then Layer 2, then default to 'Unknown Cluster'
     let clusterNametag = 'Unknown Cluster';
     const layer3Node = group.wallets.find((w) => w.layer === 3 && w.label !== 'Unknown');
     const layer2Node = group.wallets.find((w) => w.layer === 2 && w.label !== 'Unknown');
@@ -130,13 +242,11 @@ export function detectClusters(nodes, edges) {
     });
   });
 
-  // Filter out clusters with only the root node or no valid nametags
-  const filteredClusters = clusters.filter(
-    (cluster) =>
-      cluster.wallets.length > 1 ||
-      cluster.wallets.some((wallet) => !wallet.isRoot && wallet.label !== 'Unknown')
+  clusters.sort((a, b) =>
+    b.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue), 0) -
+    a.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue), 0)
   );
 
-  logger.log(`Detected ${filteredClusters.length} clusters`);
-  return filteredClusters;
+  logger.log(`Detected ${clusters.length} AI-enhanced clusters`);
+  return clusters;
 }

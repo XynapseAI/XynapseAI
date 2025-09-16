@@ -8,16 +8,35 @@ import { query } from '../../../utils/postgres';
 const chainIdToName = {
   '1': 'ethereum',
   '56': 'bsc',
+  '10': 'optimism',
+  '130': 'unichain',
+  '137': 'polygon',
+  '5000': 'mantle',
+  '42161': 'arbitrum',
+  '43114': 'avalanche',
+  '59144': 'linea',
+  '534352': 'scroll',
+  '7777777': 'zora',
   'solana': 'solana',
   'tron': 'tron',
 };
 
-const bodySchema = z.object({
+const getSchema = z.object({
   contractAddress: z.string().optional(),
   symbol: z.string().optional(),
   chain: z.string().nonempty('Chain is required'),
 }).refine((data) => data.contractAddress || data.symbol, {
   message: 'Either contractAddress or symbol must be provided',
+});
+
+const postSchema = z.object({
+  action: z.literal('update'),
+  coingecko_id: z.string().nonempty('CoinGecko ID is required'),
+  symbol: z.string().nonempty('Symbol is required'),
+  name: z.string().nonempty('Name is required'),
+  image: z.string().nonempty('Image URL is required'),
+  chain: z.string().nonempty('Chain is required'),
+  contractAddress: z.string().optional(),
 });
 
 export async function GET(request) {
@@ -27,7 +46,7 @@ export async function GET(request) {
   const chain = searchParams.get('chain');
 
   try {
-    const parsedParams = bodySchema.parse({ contractAddress, symbol, chain });
+    const parsedParams = getSchema.parse({ contractAddress, symbol, chain });
 
     // Convert chain ID to chain name
     const chainName = chainIdToName[chain] || chain;
@@ -74,6 +93,54 @@ export async function GET(request) {
     return NextResponse.json({
       success: false,
       error: `Failed to fetch token image: ${err.message}`,
+    }, { status: 500 });
+  }
+}
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const parsedBody = postSchema.parse(body);
+
+    const { coingecko_id, symbol, name, image, chain, contractAddress } = parsedBody;
+    const chainName = chainIdToName[chain] || chain;
+
+    // Prepare detail_platforms JSON
+    const detail_platforms = contractAddress
+      ? {
+          [chainName]: {
+            contract_address: contractAddress.toLowerCase(),
+            decimal_place: null,
+            geckoterminal_url: `https://www.geckoterminal.com/${chainName}/tokens/${contractAddress.toLowerCase()}`,
+          },
+        }
+      : { '': { contract_address: '', decimal_place: null } };
+
+    // Insert or update token in database
+    const result = await query(
+      `INSERT INTO tokens (coingecko_id, symbol, name, image, detail_platforms)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (coingecko_id)
+       DO UPDATE SET
+         symbol = EXCLUDED.symbol,
+         name = EXCLUDED.name,
+         image = EXCLUDED.image,
+         detail_platforms = EXCLUDED.detail_platforms,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING image`,
+      [coingecko_id.toLowerCase(), symbol.toLowerCase(), name, image, detail_platforms]
+    );
+
+    logger.info(`Updated token ${symbol} for chain ${chainName} in database`);
+    return NextResponse.json({
+      success: true,
+      data: { image: result.rows[0].image },
+    });
+  } catch (err) {
+    logger.error('Error updating token:', err.message);
+    return NextResponse.json({
+      success: false,
+      error: `Failed to update token: ${err.message}`,
     }, { status: 500 });
   }
 }

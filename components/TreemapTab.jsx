@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, memo, useCallback } from 'react';
+import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -19,6 +19,11 @@ import { cacheData, getCachedData } from '../utils/indexedDB';
 import { detectClusters } from '../utils/clustering';
 import axios from 'axios';
 import { logger } from '../utils/clientLogger';
+import { Virtuoso } from 'react-virtuoso';
+import { TableVirtuoso } from 'react-virtuoso';
+import { lazy, Suspense } from 'react';
+
+const TensorFlowJS = lazy(() => import('@tensorflow/tfjs-core'));
 
 cytoscape.use(cola);
 cytoscape.use(nodeHtmlLabel);
@@ -65,7 +70,7 @@ const isValidDate = (date) => {
   return date instanceof Date && !isNaN(date);
 };
 
-const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
+const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
   const handleCopyAddress = (address) => {
     navigator.clipboard.writeText(address);
     toast.success('Address copied to clipboard!', {
@@ -79,197 +84,261 @@ const TransactionTable = memo(({ transactions, isMobile, selectedChain, tokenIma
     });
   };
 
-  // Filter transactions based on filterType and rootAddress
-  const filteredTransactions = transactions.filter((tx) => {
-    if (filterType === 'all') return true;
-    if (filterType === 'incoming') {
-      return tx.type === 'incoming' && tx.target?.toLowerCase() === rootAddress?.toLowerCase();
+  const filteredTransactions = useMemo(() => {
+    const filtered = transactions.filter((tx) => {
+      if (filterType === 'all') return true;
+      if (filterType === 'incoming') {
+        return tx.type === 'incoming' && tx.target?.toLowerCase() === rootAddress?.toLowerCase();
+      }
+      if (filterType === 'outgoing') {
+        return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootAddress?.toLowerCase();
+      }
+      return false;
+    });
+    logger.log('Filtered transactions in VirtuosoTable:', filtered);
+    return filtered;
+  }, [transactions, filterType, rootAddress]);
+
+  if (filteredTransactions.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 max-h-[calc(100vh-12rem)] overflow-y-auto custom-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'
+          }`}
+      >
+        <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
+        <p className="text-white/60 text-[9px] sm:text-[10px]">
+          {filterType === 'all' ? 'Select a node or cluster to view transactions.' : `No ${filterType} transactions found.`}
+        </p>
+      </motion.div>
+    );
+  }
+
+  console.log('Rendering VirtuosoTable with filtered transactions:', filteredTransactions);
+
+  const fixedHeaderContent = () => (
+    <tr>
+      <th className="px-1 py-1 text-white font-medium text-left overflow-hidden border-r border-white/5" style={{ width: 'calc(100%1.5)' }}>From/To</th>
+      <th className="px-1 py-1 text-white font-medium text-center overflow-hidden border-r border-white/5" style={{ width: 'calc(100%/3)' }}>Value</th>
+      <th className="px-1 py-1 text-white font-medium text-center overflow-hidden" style={{ width: 'calc(100%/3)' }}>Details</th>
+    </tr>
+  );
+
+  const Row = (index, tx) => {
+    if (!tx) {
+      console.error(`No transaction data at index ${index}`);
+      return null;
     }
-    if (filterType === 'outgoing') {
-      return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootAddress?.toLowerCase();
+    console.log(`Rendering row ${index}:`, tx);
+    const tokenKey = tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase();
+    const tokenLogo = tokenImages[tokenKey] || '/icons/default.webp';
+    const fromNtag = nametags[tx.source?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
+    const toNtag = nametags[tx.target?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
+    const displayValue = formatLargeNumber(Number(tx.value) || 0, 1);
+    const { txUrl } = getExplorerUrls(selectedChain, tx.txHash, '');
+
+    let formattedTime = 'N/A';
+    if (tx.block_time) {
+      const date = new Date(typeof tx.block_time === 'number' ? tx.block_time * 1000 : tx.block_time);
+      if (isValidDate(date)) {
+        formattedTime = formatDistanceToNow(date, { addSuffix: true });
+      } else {
+        logger.warn(`Invalid block_time for tx ${tx.txHash}: ${tx.block_time}`);
+      }
     }
-    return false;
-  });
+
+    return (
+      <tr key={`${tx.txHash}-${index}`} className="border-t border-white/10 hover:bg-white/5 transition-all duration-300 custom-scrollbar">
+        <td className="px-1 py-1 text-white/80 text-[8px] sm:text-[10px] align-top text-left overflow-hidden border-r border-white/5" style={{ width: 'calc(100%/3)', verticalAlign: 'top' }}>
+          <div className="flex flex-col gap-0.5 min-w-0 h-full">
+            <div className="flex items-center gap-0.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={`h-2.5 w-2.5 ${tx.type === 'incoming' ? 'text-neon-blue' : 'text-red-500'} flex-shrink-0`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                {tx.type === 'incoming' ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                )}
+              </svg>
+              {isValidNametagImage(fromNtag.image) && (
+                <img
+                  src={fromNtag.image}
+                  alt="From wallet logo"
+                  width={isMobile ? 8 : 10}
+                  height={isMobile ? 8 : 10}
+                  className="rounded-full flex-shrink-0"
+                  onError={(e) => (e.target.style.display = 'none')}
+                  loading="lazy"
+                />
+              )}
+              <span className="text-[6px] sm:text-[7px] truncate flex-1 min-w-0">
+                {fromNtag.name !== 'Unknown' ? fromNtag.name : truncateAddress(tx.source)}
+              </span>
+              <motion.button
+                className="ml-0.5 flex-shrink-0"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => handleCopyAddress(tx.source)}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-2.5 w-2.5 text-white/60 hover:text-neon-blue"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </motion.button>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <div className="w-2.5 h-2.5 flex-shrink-0" />
+              {isValidNametagImage(toNtag.image) && (
+                <img
+                  src={toNtag.image}
+                  alt="To wallet logo"
+                  width={isMobile ? 8 : 10}
+                  height={isMobile ? 8 : 10}
+                  className="rounded-full flex-shrink-0"
+                  onError={(e) => (e.target.style.display = 'none')}
+                  loading="lazy"
+                />
+              )}
+              <span className="text-[6px] sm:text-[7px] truncate flex-1 min-w-0">
+                {toNtag.name !== 'Unknown' ? toNtag.name : truncateAddress(tx.target)}
+              </span>
+              <motion.button
+                className="ml-0.5 flex-shrink-0"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => handleCopyAddress(tx.target)}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-2.5 w-2.5 text-white/60 hover:text-neon-blue"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </motion.button>
+            </div>
+          </div>
+        </td>
+        <td className="px-1 py-1 text-white/80 text-[8px] sm:text-[10px] align-top text-center overflow-hidden border-r border-white/5" style={{ width: 'calc(100%/3)', verticalAlign: 'top' }}>
+          <div className="flex flex-col items-center justify-center gap-0.5 h-full">
+            <img
+              src={tokenLogo}
+              alt={`${tx.tokenSymbol || 'Token'} logo`}
+              width={isMobile ? 10 : 12}
+              height={isMobile ? 10 : 12}
+              className="rounded-full flex-shrink-0"
+              onError={(e) => (e.target.src = '/icons/default.webp')}
+              loading="lazy"
+            />
+            <span className="text-[6px] sm:text-[7px] font-semibold text-center truncate block w-full">
+              {displayValue} {tx.tokenSymbol || 'N/A'}
+            </span>
+          </div>
+        </td>
+        <td className="px-1 py-1 text-white/80 text-[8px] sm:text-[10px] align-top text-center overflow-hidden" style={{ width: 'calc(100%/3)', verticalAlign: 'top' }}>
+          <div className="flex flex-col items-center justify-center gap-0 h-full">
+            <a href={txUrl} target="_blank" rel="noopener noreferrer">
+              <img
+                src="/logos/etherscan-logo.webp"
+                alt="Explorer"
+                width={isMobile ? 8 : 10}
+                height={isMobile ? 8 : 10}
+                className="rounded-full mx-auto cursor-pointer flex-shrink-0"
+                onError={(e) => (e.target.src = '/icons/default.webp')}
+                loading="lazy"
+              />
+            </a>
+            <span className="text-[5px] sm:text-[6px] text-white/60 text-center truncate block w-full">
+              {formattedTime}
+            </span>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  const tableHeight = isMobile ? 'auto' : 'calc(100vh - 12rem)';
 
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3 }}
-      className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 max-h-[calc(100vh-12rem)] overflow-y-auto custom-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'}`}
+      className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'
+        }`}
+      style={{ height: isMobile ? 'auto' : 'calc(100vh - 8rem)', minHeight: '400px' }}
     >
       <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
-      {filteredTransactions.length === 0 ? (
-        <p className="text-white/60 text-[9px] sm:text-[10px]">
-          {filterType === 'all' ? 'Select a node or cluster to view transactions.' : `No ${filterType} transactions found.`}
-        </p>
-      ) : (
-        <table className="w-full table-fixed text-[8px] sm:text-[9px] bg-black/5 rounded-xl">
-          <thead className="border-b border-white/10 bg-black/10">
-            <tr>
-              <th className="w-[50%] px-2 py-2 text-white font-medium text-center">From/To</th>
-              <th className="w-[25%] px-2 py-2 text-white font-medium text-center">Value</th>
-              <th className="w-[25%] px-2 py-2 text-white font-medium text-center">Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTransactions.map((tx, index) => {
-              const tokenKey = tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase();
-              const tokenLogo = tokenImages[tokenKey] || '/icons/default.webp';
-              logger.log(`Transaction ${tx.txHash}: Using tokenKey=${tokenKey}, tokenLogo=${tokenLogo}`);
-              const fromNtag = nametags[tx.source?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
-              const toNtag = nametags[tx.target?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
-              const displayValue = formatLargeNumber(Number(tx.value) || 0, 1);
-              const { txUrl } = getExplorerUrls(selectedChain, tx.txHash, '');
-
-              // Validate and format block_time
-              let formattedTime = 'N/A';
-              if (tx.block_time) {
-                const date = new Date(
-                  typeof tx.block_time === 'number' ? tx.block_time * 1000 : tx.block_time
-                );
-                if (isValidDate(date)) {
-                  formattedTime = formatDistanceToNow(date, { addSuffix: true });
-                } else {
-                  logger.warn(`Invalid block_time for tx ${tx.txHash}: ${tx.block_time}`);
-                }
-              }
-
-              return (
-                <motion.tr
-                  key={`${tx.txHash}-${index}`}
-                  className="border-t border-white/10 hover:bg-white/5 transition-all duration-300"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.02 }}
-                >
-                  <td className="px-2 py-2 text-white/80 text-[8px] sm:text-[10px] text-center">
-                    <div className="flex flex-col items-center gap-1 relative">
-                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className={`h-3 w-3 ${tx.type === 'incoming' ? 'text-neon-blue' : 'text-red-500'}`}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          {tx.type === 'incoming' ? (
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                          ) : (
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                          )}
-                        </svg>
-                      </div>
-                      <div className="flex items-center gap-2 group relative w-full justify-center pl-4">
-                        {isValidNametagImage(fromNtag.image) && (
-                          <img
-                            src={fromNtag.image}
-                            alt="From wallet logo"
-                            width={isMobile ? 10 : 12}
-                            height={isMobile ? 10 : 12}
-                            className="rounded-full"
-                            onError={(e) => (e.target.style.display = 'none')}
-                            loading="lazy"
-                          />
-                        )}
-                        <span className="text-[7px] sm:text-[8px] truncate">
-                          {fromNtag.name !== 'Unknown' ? fromNtag.name : truncateAddress(tx.source)}
-                        </span>
-                        <motion.button
-                          className="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => handleCopyAddress(tx.source)}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-3 w-3 text-white/60 hover:text-neon-blue"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </motion.button>
-                      </div>
-                      <div className="flex items-center gap-2 group relative w-full justify-center pl-4">
-                        {isValidNametagImage(toNtag.image) && (
-                          <img
-                            src={toNtag.image}
-                            alt="To wallet logo"
-                            width={isMobile ? 10 : 12}
-                            height={isMobile ? 10 : 12}
-                            className="rounded-full"
-                            onError={(e) => (e.target.style.display = 'none')}
-                            loading="lazy"
-                          />
-                        )}
-                        <span className="text-[7px] sm:text-[8px] truncate">
-                          {toNtag.name !== 'Unknown' ? toNtag.name : truncateAddress(tx.target)}
-                        </span>
-                        <motion.button
-                          className="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => handleCopyAddress(tx.target)}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-3 w-3 text-white/60 hover:text-neon-blue"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </motion.button>
-                      </div>
-                    </div>
+      <div className="overflow-x-auto">
+        <TableVirtuoso
+          data={filteredTransactions}
+          fixedHeaderContent={fixedHeaderContent}
+          itemContent={Row}
+          style={{
+            height: tableHeight,
+            maxHeight: '70vh',
+            width: '100%',
+          }}
+          components={{
+            Table: ({ children, ...props }) => (
+              <table
+                {...props}
+                className="w-full text-[8px] sm:text-[9px] bg-black/5 rounded-xl table-fixed border-collapse custom-scrollbar"
+                style={{ ...props.style, tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse' }}
+              >
+                {children}
+              </table>
+            ),
+            TableHead: ({ children, ...props }) => (
+              <thead
+                {...props}
+                className="border-b border-white/10 bg-black/10 sticky top-0 z-10"
+              >
+                {children}
+              </thead>
+            ),
+            TableBody: ({ children, ...props }) => (
+              <tbody
+                {...props}
+                className="w-full"
+                style={{ ...props.style }}
+              >
+                {children}
+              </tbody>
+            ),
+            EmptyPlaceholder: () => (
+              <tbody>
+                <tr>
+                  <td colSpan={3} className="text-center text-white/60 text-[9px] sm:text-[10px] py-4">
+                    No transactions available
                   </td>
-                  <td className="px-2 py-2 text-white/80 text-[8px] sm:text-[10px] text-center">
-                    <div className="flex flex-col items-center justify-center gap-1">
-                      <img
-                        src={tokenLogo}
-                        alt={`${tx.tokenSymbol || 'Token'} logo`}
-                        width={isMobile ? 12 : 14}
-                        height={isMobile ? 12 : 14}
-                        className="rounded-full"
-                        onError={(e) => (e.target.src = '/icons/default.webp')}
-                        loading="lazy"
-                      />
-                      <span className="text-[7px] sm:text-[8px] font-semibold">{displayValue} {tx.tokenSymbol || 'N/A'}</span>
-                    </div>
-                  </td>
-                  <td className="px-2 py-2 text-white/80 text-[8px] sm:text-[10px] text-center">
-                    <div className="flex flex-col items-center gap-0.5">
-                      <a href={txUrl} target="_blank" rel="noopener noreferrer">
-                        <img
-                          src="/logos/etherscan-logo.webp"
-                          alt="Explorer"
-                          width={isMobile ? 10 : 12}
-                          height={isMobile ? 10 : 12}
-                          className="rounded-full mx-auto cursor-pointer"
-                          onError={(e) => (e.target.src = '/icons/default.webp')}
-                          loading="lazy"
-                        />
-                      </a>
-                      <span className="text-[5px] sm:text-[7px] text-white/60 truncate">
-                        {formattedTime}
-                      </span>
-                    </div>
-                  </td>
-                </motion.tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
+                </tr>
+              </tbody>
+            ),
+          }}
+          overscan={200}
+        />
+      </div>
     </motion.div>
   );
-});
+};
 
 const CACHE_TTL = 3600000; // 1 hour
 const NODES_PER_PAGE = 50;
@@ -302,7 +371,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const containerRef = useRef(null);
   const chainDropdownRef = useRef(null);
   const limitDropdownRef = useRef(null);
-  const [selectedLimit, setSelectedLimit] = useState(100);
+  const [selectedLimit, setSelectedLimit] = useState(50);
   const [isLimitDropdownOpen, setIsLimitDropdownOpen] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [filterType, setFilterType] = useState('all');
@@ -351,10 +420,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       logger.log('Fetching token images for:', uniqueTokens);
 
       const images = {};
-      // Initialize with tokenImage from transaction data
+      // Initialize with tokenImage from transaction data or hardcode ETH image
       edges.forEach((edge) => {
         const tokenKey = edge.data.contractAddress?.toLowerCase() || edge.data.tokenSymbol?.toLowerCase();
-        if (edge.data.tokenImage && edge.data.tokenImage !== '/icons/default.webp') {
+        if (edge.data.tokenSymbol?.toLowerCase() === 'eth' && selectedChain === '1') {
+          images[tokenKey] = 'https://coin-images.coingecko.com/coins/images/279/large/ethereum.png?1696501628';
+        } else if (edge.data.tokenImage && edge.data.tokenImage !== '/icons/default.webp') {
           images[tokenKey] = edge.data.tokenImage;
         }
       });
@@ -414,10 +485,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
             // Fallback to CoinGecko if not found in database
             logger.log(`Falling back to CoinGecko for ${token}`);
-            const cgResponse = await fetch(`${apiBaseUrl}/api/coingecko?action=token-details&${queryParam}&chain=${selectedChain}`, {
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-            });
+            const cgResponse = await fetch(
+              `${apiBaseUrl}/api/coingecko?action=token-details&${queryParam}&chain=${selectedChain}`,
+              {
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+              }
+            );
             const cgResult = await cgResponse.json();
 
             if (cgResponse.ok && cgResult.success && cgResult.data?.image?.thumb) {
@@ -436,6 +510,24 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   ttl: 4 * 3600 * 1000,
                 }),
               });
+
+              // Optionally save to database to avoid future CoinGecko calls
+              if (isContractAddress) {
+                await fetch(`${apiBaseUrl}/api/tokens`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    action: 'update',
+                    coingecko_id: cgResult.data.id || token,
+                    symbol: cgResult.data.symbol || token,
+                    name: cgResult.data.name || token,
+                    image: cgResult.data.image.thumb,
+                    chain: selectedChain,
+                    contractAddress: token,
+                  }),
+                });
+              }
             } else {
               logger.warn(`No valid image for ${token} from CoinGecko`);
               images[token] = '/icons/default.webp';
@@ -444,7 +536,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             logger.error(`Error fetching token image for ${token}:`, err.message);
             images[token] = '/icons/default.webp';
           }
-        }),
+        })
       );
       logger.log('Token images fetched:', images);
       setTokenImages(images);
@@ -787,15 +879,40 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }
   }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]);
 
-  const initializeCytoscape = useCallback(() => {
+  const filterTransactions = (transactions, filterType, rootId, walletId = null) => {
+    let txs = transactions || [];
+    if (walletId) {
+      // Lọc cho node
+      txs = txs
+        .map((edge) => ({ ...edge.data, type: edge.data.type }))
+        .filter((tx) => tx.source === walletId || tx.target === walletId);
+    }
+    if (filterType !== 'all') {
+      txs = txs.filter((tx) => {
+        if (filterType === 'incoming') return tx.type === 'incoming' && tx.target?.toLowerCase() === rootId;
+        if (filterType === 'outgoing') return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootId;
+        return false;
+      });
+    }
+    return [...txs]; // Deep copy
+  };
+
+
+  const initializeCytoscape = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) return;
 
     try {
+      // Load TensorFlow.js dynamically
+      await TensorFlowJS;
+      logger.log('TensorFlow.js loaded for clustering');
+
       logger.log('walletInfo.image for root node:', walletInfo.image);
 
       if (cyRef.current) {
         cyRef.current.destroy();
       }
+
+      const rootId = walletInfo.address.toLowerCase();
 
       cyRef.current = cytoscape({
         container: containerRef.current,
@@ -816,9 +933,14 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               },
               'background-fit': 'cover',
               'background-clip': 'node',
-              'background-color': (ele) => ele.data('layer') === 3 ? '#FFD700' : '#666', // Gold for Layer 3 nodes
-              'width': (ele) => ele.data('isRoot') ? 80 : ele.data('layer') === 3 ? 64 : 56,
-              'height': (ele) => ele.data('isRoot') ? 80 : ele.data('layer') === 3 ? 64 : 56,
+              'background-color': (ele) => {
+                if (ele.data('layer') === 1) return '#4F46E5';
+                if (ele.data('layer') === 2) return '#10B981';
+                if (ele.data('layer') === 3) return '#F59E0B';
+                return '#666';
+              },
+              'width': (ele) => (ele.data('isRoot') ? 150 : ele.data('layer') === 3 ? 64 : 56),
+              'height': (ele) => (ele.data('isRoot') ? 150 : ele.data('layer') === 3 ? 64 : 56),
               'text-valign': 'center',
               'text-halign': 'center',
               'font-size': '12px',
@@ -831,23 +953,35 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           {
             selector: 'edge',
             style: {
-              'width': (ele) => ele.data('layer') === 3 ? 1.5 : 2,
-              'line-color': (ele) => ele.data('type') === 'incoming' ? (ele.data('layer') === 3 ? '#FFD700' : '#00BFFF') : (ele.data('layer') === 3 ? '#FFD700' : '#EF4444'),
+              width: (ele) => (ele.data('layer') === 3 ? 1.5 : 2),
+              'line-color': (ele) =>
+                ele.data('type') === 'incoming'
+                  ? ele.data('layer') === 3
+                    ? '#FFD700'
+                    : '#00BFFF'
+                  : ele.data('layer') === 3
+                    ? '#FFD700'
+                    : '#EF4444',
               'curve-style': 'bezier',
             },
           },
         ],
         layout: {
           name: 'cola',
-          nodeSpacing: (ele) => ele.data('layer') === 3 ? 120 : 80,
-          edgeLength: (ele) => ele.data('layer') === 3 ? 250 : 200,
+          nodeSpacing: (node) => (node.data('layer') === 1 ? 200 : node.data('layer') === 2 ? 120 : 80),
+          edgeLength: (edge) => (edge.data('layer') === 2 ? 150 : 100),
+          fit: true,
+          padding: 50,
           animate: true,
-          maxSimulationTime: 3000,
+          animationDuration: 1000,
+          avoidOverlap: true,
+          handleDisconnected: true,
+          maxSimulationTime: 4000,
         },
       });
 
-      const clusters = detectClusters(
-        nodes.map((node) => node.data),
+      const clusters = await detectClusters(
+        nodes.map((node) => ({ ...node.data, timestamp: Date.now() })),
         edges.map((edge) => edge.data)
       );
 
@@ -860,16 +994,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           valignBox: 'bottom',
           tpl: (data) => {
             const cluster = clusters.find((c) => c.wallets.some((w) => w.id === data.id));
-            const clusterLabel = data.isRoot ? (walletInfo.nametag || 'Unknown') : (cluster ? cluster.nametag : 'Unknown');
+            const clusterLabel = data.isRoot ? walletInfo.nametag || 'Unknown' : cluster ? cluster.nametag : 'Unknown';
             const image = data.isRoot ? walletInfo.image : data.image;
-            const nametag = data.isRoot ? '' : (data.label !== 'Unknown' ? data.label : truncateAddress(data.id));
+            const nametag = data.isRoot ? '' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
             logger.log(`Rendering node label for ${data.id}, isRoot: ${data.isRoot}, image: ${image}`);
             return `
-              <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[10px] sm:text-[11px] py-1 px-2 rounded">
-                ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
-                <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol}</div>
-              </div>
-            `;
+            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[10px] sm:text-[11px] py-1 px-2 rounded">
+              ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
+              <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol
+              }</div>
+            </div>
+          `;
           },
         },
       ]);
@@ -880,31 +1015,16 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         const rootId = walletInfo.address.toLowerCase();
         const isRootNode = node.data('isRoot');
         const cluster = clusters.find((c) => c.wallets.some((w) => w.id === walletId));
+
+        logger.log(`Hover on node: ${walletId}, isRoot: ${isRootNode}, filterType: ${filterType}`);
+
         if (cluster && !isRootNode) {
-          logger.log('Hover cluster:', cluster);
-          // For cluster, filter transactions related to cluster wallets, respecting global filter
-          let clusterTxs = cluster.transactions || [];
-          if (filterType !== 'all') {
-            clusterTxs = clusterTxs.filter((tx) => {
-              if (filterType === 'incoming') return tx.type === 'incoming' && tx.target?.toLowerCase() === rootId;
-              if (filterType === 'outgoing') return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootId;
-              return false;
-            });
-          }
+          const clusterTxs = filterTransactions(cluster.transactions, filterType, rootId);
+          logger.log('Cluster transactions:', clusterTxs);
           setSelectedEntity({ type: 'cluster', data: { ...cluster, transactions: clusterTxs } });
         } else {
-          // For node (including root)
-          let relatedTxs = edges
-            .map((edge) => ({ ...edge.data, type: edge.data.type }))
-            .filter((tx) => tx.source === walletId || tx.target === walletId);
-          if (filterType !== 'all') {
-            relatedTxs = relatedTxs.filter((tx) => {
-              if (filterType === 'incoming') return tx.type === 'incoming' && tx.target?.toLowerCase() === rootId;
-              if (filterType === 'outgoing') return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootId;
-              return false;
-            });
-          }
-          logger.log('Hover node:', walletId, relatedTxs);
+          const relatedTxs = filterTransactions(edges, filterType, rootId, walletId);
+          logger.log('Node transactions:', relatedTxs);
           setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
         }
       });
@@ -921,13 +1041,41 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           node.style('border-width', 2);
         }
       });
+
+      cyRef.current.on('layoutstop', () => {
+        const root = cyRef.current.getElementById(rootId);
+        if (root.length) {
+          const rootPos = root.position();
+          cyRef.current.nodes().forEach((node) => {
+            const pos = node.position();
+            node.position({
+              x: pos.x - rootPos.x,
+              y: pos.y - rootPos.y,
+            });
+          });
+        }
+        requestAnimationFrame(() => cyRef.current?.fit());
+      });
     } catch (err) {
       logger.error('Error initializing Cytoscape:', err);
+      // Fallback to original clustering if TF.js fails
+      const fallbackClusters = detectClusters(nodes.map((n) => n.data), edges.map((e) => e.data), { useML: false });
+      // Update selected entity with fallback clusters
+      setSelectedEntity((prev) => {
+        const walletId = prev.data.id;
+        const rootId = walletInfo.address.toLowerCase();
+        const cluster = fallbackClusters.find((c) => c.wallets.some((w) => w.id === walletId));
+        if (cluster && prev.type === 'cluster') {
+          const clusterTxs = filterTransactions(cluster.transactions, filterType, rootId);
+          return { type: 'cluster', data: { ...cluster, transactions: clusterTxs } };
+        }
+        return prev;
+      });
     }
   }, [nodes, edges, walletInfo, filterType, walletAddress]);
 
   useEffect(() => {
-    initializeCytoscape();
+    initializeCytoscape().catch(console.error);
     return () => {
       if (cyRef.current) cyRef.current.destroy();
     };
@@ -1173,11 +1321,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 </motion.button>
                 {isLimitDropdownOpen && (
                   <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-sm">
-                    {[100, 200, 300, 500].map((limit) => (
+                    {[50, 100, 200, 300].map((limit) => (
                       <motion.button
                         key={limit}
                         onClick={() => {
-                          if (!isPremium && limit > 200) {
+                          if (!isPremium && limit > 100) {
                             toast.error('Premium account required to fetch more than 200 transactions.', {
                               position: 'top-center',
                               autoClose: 5000,
@@ -1197,12 +1345,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                           setFullLayer3Data([]);
                           if (walletAddress) handleSearch();
                         }}
-                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && limit > 200 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        whileHover={{ scale: !isPremium && limit > 200 ? 1 : 1.05 }}
-                        whileTap={{ scale: !isPremium && limit > 200 ? 1 : 0.95 }}
+                        className={`flex items-center w-full text-left px-2 sm:px-3 py-1 hover:bg-neon-blue/20 rounded-md text-white font-medium text-[9px] sm:text-[10px] transition-all duration-300 relative ${!isPremium && limit > 100 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        whileHover={{ scale: !isPremium && limit > 100 ? 1 : 1.05 }}
+                        whileTap={{ scale: !isPremium && limit > 100 ? 1 : 0.95 }}
                       >
                         {limit}
-                        {!isPremium && limit > 200 && (
+                        {!isPremium && limit > 100 && (
                           <span className="absolute right-2 top-1/2 transform -translate-y-1/2 group">
                             <img
                               src="/icons/crown.webp"
@@ -1311,7 +1459,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         )}
       </div>
       <AnimatePresence>
-        <TransactionTable
+        <VirtuosoTable
+          key={selectedEntity.data.transactions.length} // Ép re-render khi transactions thay đổi
           transactions={selectedEntity.data.transactions}
           isMobile={isMobile}
           selectedChain={selectedChain}
@@ -1323,41 +1472,38 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       </AnimatePresence>
 
       <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.4);
-        }
-        .shadow-neon-sm {
-          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
-        }
-        .node-label {
-          background: rgba(0, 0, 0, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          color: rgba(255, 255, 255, 0.8);
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 9px;
-          pointer-events: none;
-        }
-        @media (max-width: 640px) {
-          .text-[12px] { font-size: 10px; }
-          .text-[10px] { font-size: 8px; }
-          .text-[9px] { font-size: 7px; }
-          .w-56 { width: 12rem; }
-          .w-64 { width: 14rem; }
-          .w-28 { width: 6rem; }
-        }
-      `}</style>
+  .custom-scrollbar {
+    -ms-overflow-style: none;  /* Ẩn cho IE và Edge */
+    scrollbar-width: none;  /* Ẩn cho Firefox */
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    display: none;  /* Ẩn cho Chrome, Safari, và các browser dựa trên WebKit */
+  }
+
+  .shadow-neon-sm {
+    box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.1);
+  }
+
+  .node-label {
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 9px;
+    pointer-events: none;
+  }
+
+  @media (max-width: 640px) {
+    .text-[12px] { font-size: 10px; }
+    .text-[10px] { font-size: 8px; }
+    .text-[9px] { font-size: 7px; }
+    .w-56 { width: 12rem; }
+    .w-64 { width: 14rem; }
+    .w-28 { width: 6rem; }
+  } 
+`}</style>
     </motion.div>
   );
 }
