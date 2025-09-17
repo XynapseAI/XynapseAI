@@ -9,6 +9,7 @@ import Lenis from "@studio-freight/lenis"
 import { gsap } from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import { MotionPathPlugin } from "gsap/MotionPathPlugin"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import "../styles/pages.css"
@@ -118,6 +119,101 @@ function WalletNode({ address, nametag, image, onDrag, position, onSelect }) {
       <p className="text-white text-xs font-medium text-center truncate" title={displayName}>
         {displayName}
       </p>
+    </div>
+  )
+}
+
+// Replace the entire ChainLogosHover component with this:
+function ChainLogosHover() {
+  const containerRef = useRef(null)
+  const logosRef = useRef([])
+
+  const chainLogos = [
+    { src: "/icons/eth.webp", alt: "Ethereum" },
+    { src: "/icons/bitcoin.webp", alt: "Bitcoin" },
+    { src: "/icons/solana.webp", alt: "Solana" },
+    { src: "/icons/dogecoin.webp", alt: "Dogecoin" },
+  ]
+
+  const initialPositions = [
+  { x: 30, y: 30 },
+  { x: 60, y: 30 },
+  { x: 30, y: 60 },
+  { x: 60, y: 60 },
+]
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleMouseMove = (e) => {
+      const rect = container.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
+
+      logosRef.current.forEach((logoEl, i) => {
+        if (!logoEl) return
+        const logoRect = logoEl.getBoundingClientRect()
+        const logoCenterX = logoRect.left + logoRect.width / 2 - rect.left
+        const logoCenterY = logoRect.top + logoRect.height / 2 - rect.top
+
+        const dx = mouseX - logoCenterX
+        const dy = mouseY - logoCenterY
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const maxDist = 100
+        let force = dist < maxDist ? ((maxDist - dist) / maxDist) * 50 : 0
+        const angle = Math.atan2(dy, dx)
+        const moveX = -Math.cos(angle) * force  // Negative for repulsion
+        const moveY = -Math.sin(angle) * force  // Negative for repulsion
+
+        logoEl.style.transform = `translate(${moveX}px, ${moveY}px)`
+      })
+    }
+
+    const handleMouseLeave = () => {
+      logosRef.current.forEach((logoEl) => {
+        if (logoEl) {
+          logoEl.style.transform = "translate(0, 0)"
+        }
+      })
+    }
+
+    container.addEventListener("mousemove", handleMouseMove)
+    container.addEventListener("mouseleave", handleMouseLeave)
+
+    return () => {
+      container.removeEventListener("mousemove", handleMouseMove)
+      container.removeEventListener("mouseleave", handleMouseLeave)
+    }
+  }, [])
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full h-[400px] bg-transparent rounded-lg overflow-hidden"
+    >
+      {chainLogos.map((logo, i) => (
+        <div
+          key={i}
+          ref={(el) => (logosRef.current[i] = el)}
+          className="absolute w-32 h-32 transition-transform duration-300 will-change-transform flex items-center justify-center"
+          style={{
+            left: `${initialPositions[i].x}%`,
+            top: `${initialPositions[i].y}%`,
+            transform: "translate(-50%, -50%) translate(0, 0)",
+          }}
+        >
+          <div className="w-24 h-24 rounded-full flex items-center justify-center shadow-lg shadow-black/50 backdrop-blur-sm overflow-hidden">
+            <Image
+              src={logo.src || "/placeholder.svg"}
+              alt={logo.alt}
+              width={96}
+              height={96}
+              className="h-18 w-auto opacity-80 hover:opacity-100 transition-opacity duration-300 object-contain"
+            />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -404,7 +500,7 @@ function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 1.2 }}
-            className="text-lg md:text-xl text-white/70 mb-12 max-w-4xl mx-auto leading-relaxed relative"
+            className="text-sm md:text-lg text-white/70 mb-12 max-w-4xl mx-auto leading-relaxed relative"
           >
             <motion.span animate={floatingAnimation} className="inline-block">
               WITH AI PRECISION
@@ -450,7 +546,6 @@ function HeroSection() {
             transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
             className="flex flex-col items-center gap-2 text-white/50"
           >
-            <span className="text-sm font-medium">Scroll to explore</span>
             <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
               <motion.div
                 animate={{ y: [0, 12, 0] }}
@@ -471,6 +566,7 @@ export default function Home() {
   const [isProductOpen, setIsProductOpen] = useState(false)
   const [isResourcesOpen, setIsResourcesOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false) // Added mobile menu state
+  const [currentLogoIndex, setCurrentLogoIndex] = useState(0)
 
   useEffect(() => {
     const lenisInstance = new Lenis({
@@ -544,11 +640,11 @@ export default function Home() {
   const row3Logos = partnerLogos.slice(28, 41)
 
   const trustedByLogos = [
-    "/logos/logo1.webp",
-    "/logos/logo2.webp",
-    "/logos/logo3.webp",
+    "/logos/mempool.webp",
+    "/logos/coingecko.webp",
+    "/logos/dune.webp",
+    "/logos/infura.webp",
     "/logos/logo4.webp",
-    "/logos/logo5.webp",
   ]
 
   const simulatedTopHolders = [
@@ -581,7 +677,7 @@ export default function Home() {
   ]
 
   return (
-    <div className="min-h-screen bg-black/5 text-white overflow-x-hidden font-saira">
+    <div className="min-h-screen bg-black text-white overflow-x-hidden font-saira">
       <div className="fixed inset-0 z-0">
         <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 2]} performance={{ min: 0.5 }}>
           <UniverseBackground />
@@ -765,25 +861,60 @@ export default function Home() {
       )}
 
       <HeroSection />
-      <section className="py-16 bg-gray-900/20 border-y border-white/5 relative z-10">
+      <section className="py-16 bg-gray-900/20 relative z-10">
         <p className="text-center text-gray-400 text-sm font-bold mb-12 tracking-wider">
-          TRUSTED BY LEADING BLOCKCHAIN ANALYSTS
+          DATA PROVIDED BY TOP BLOCKCHAIN ANALYSTS
         </p>
-        <div className="w-full overflow-hidden">
-          <div className="flex animate-marquee-right-to-left">
-            {[...trustedByLogos, ...trustedByLogos].map((logo, index) => (
-              <Image
-                key={`trusted-${index}`}
-                src={logo || "/placeholder.svg"}
-                alt="Trusted Partner"
-                width={64}
-                height={64}
-                className="h-12 sm:h-16 mx-6 opacity-60 hover:opacity-100 transition-opacity duration-300 object-contain"
-              />
-            ))}
+        <div className="flex flex-col items-center justify-center">
+          <motion.div
+            key={currentLogoIndex}
+            initial={{ opacity: 0, x: currentLogoIndex > 0 ? -200 : 200, scale: 0.5 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: currentLogoIndex > 0 ? 200 : -200, scale: 0.5 }}
+            transition={{ duration: 0.4, type: "spring", stiffness: 400, damping: 20 }}
+            className="mb-8 flex justify-center"
+          >
+            <Image
+              src={trustedByLogos[currentLogoIndex] || "/placeholder.svg"}
+              alt="Trusted Partner"
+              width={192}
+              height={192}
+              className="h-40 sm:h-56 opacity-60 hover:opacity-100 transition-opacity duration-300 object-contain"
+            />
+          </motion.div>
+          <div className="flex gap-4">
+            <button
+              onClick={() => setCurrentLogoIndex((prev) => (prev > 0 ? prev - 1 : trustedByLogos.length - 1))}
+              className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-all duration-300 flex items-center justify-center"
+            >
+              <ChevronLeft className="w-6 h-6 text-white" />
+            </button>
+            <button
+              onClick={() => setCurrentLogoIndex((prev) => (prev < trustedByLogos.length - 1 ? prev + 1 : 0))}
+              className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-all duration-300 flex items-center justify-center"
+            >
+              <ChevronRight className="w-6 h-6 text-white" />
+            </button>
           </div>
         </div>
       </section>
+
+      <section className="py-16 bg-gray-900/20 border-y border-white/5 relative z-10">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-12">
+          <div className="lg:w-1/2 text-center lg:text-left">
+            <h3 className="text-2xl sm:text-3xl font-bold text-white mb-4 tracking-tight">
+              On-chain data on EVM, Bitcoin, Solana, Doge chains
+            </h3>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              Monitor real-time data on leading blockchains with advanced AI analytics.
+            </p>
+          </div>
+          <div className="lg:w-1/2">
+            <ChainLogosHover />
+          </div>
+        </div>
+      </section>
+
       <section className="py-20 flex flex-col items-center relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -835,7 +966,7 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
                   </svg>
                 ),
-                text: "Over 1M Name Tags & Labels",
+                text: "Over 500K Name Tags & Labels",
               },
               {
                 icon: (
@@ -869,7 +1000,7 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10h6m-6 0H3m12 0h6M5 7h14" />
                   </svg>
                 ),
-                text: "Fund Flow Visualization via Treemap",
+                text: "Fund Flow Visualization via Network Graph",
               },
             ].map((item, index) => (
               <motion.div
@@ -912,15 +1043,15 @@ export default function Home() {
               },
               {
                 title: "NAME TAGS COVERED",
-                value: 1000000,
+                value: 500000,
                 suffix: "+",
                 description: "Extensive labeling for addresses and entities",
               },
               {
-                title: "ACTIVE USERS",
-                value: 15847,
-                suffix: "",
-                description: "Analysts using our platform daily",
+                title: "ORGANIZATIONS",
+                value: 100,
+                suffix: "+",
+                description: "On-chain information of large organizations",
               },
             ].map((stat, index) => (
               <motion.div
@@ -1176,7 +1307,7 @@ export default function Home() {
           </div>
         </div>
       </section>
-      <section className="py-20 bg-black/10 backdrop-blur-xs m-20 sm:m-52 relative z-10">
+      <section className="py-20 bg-black/10 backdrop-blur-xs m-10 sm:m-52 relative z-10">
         <div className="text-center mb-20">
           <p className="text-xl sm:text-1xl font-bold text-gray-400 tracking-wider">
             COMPREHENSIVE DATA ACROSS 65+ BLOCKCHAINS
@@ -1205,7 +1336,7 @@ export default function Home() {
                 alt="Blockchain Partner"
                 width={80}
                 height={80}
-                className="h-10 sm:h-16 mx-4 sm:mx-8 opacity-60 hover:opacity-100 transition-opacity duration-200 object-contain"
+                className="h-14 sm:h-16 mx-4 sm:mx-8 opacity-60 hover:opacity-100 transition-opacity duration-200 object-contain"
               />
             ))}
           </div>
@@ -1217,7 +1348,7 @@ export default function Home() {
                 alt="Blockchain Partner"
                 width={80}
                 height={80}
-                className="h-10 sm:h-16 mx-4 sm:mx-8 opacity-60 hover:opacity-100 transition-opacity duration-200 object-contain"
+                className="h-14 sm:h-16 mx-4 sm:mx-8 opacity-60 hover:opacity-100 transition-opacity duration-200 object-contain"
               />
             ))}
           </div>
