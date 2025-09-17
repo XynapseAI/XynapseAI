@@ -185,17 +185,18 @@ async function savePostedTransaction(hash) {
 }
 
 // Generate tweet content using Gemini API
+// Generate tweet content using Gemini API
 async function getGeminiResponse(transaction, fromName, toName, chainName, txUrl) {
   const startTime = Date.now();
   const { chain, hash, from, to, value, token, block_time } = transaction;
   const currentDate = new Date().toISOString().split('T')[0];
   const formattedValue = Number(value).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&.');
   const prompt = `
-Write a witty, engaging tweet about a large cryptocurrency transaction. The current date is ${currentDate}. Focus on crypto trends, 20-40 words, no emojis, no @username.
-Use complete sentences with line breaks for readability. Avoid numbering (e.g., 1/, 2/). Include a clickable transaction link and a brief analysis of the transaction's significance (e.g., market impact, whale activity).
-Use uppercase for token symbol with $ prefix (e.g., $USDT).
+Write a concise, witty tweet about a large cryptocurrency transaction. The current date is ${currentDate}.
+Keep it 20-40 words, under 260 characters to allow for URLs, no emojis, no @username.
+Use complete sentences with line breaks for readability. Avoid numbering (e.g., 1/, 2/).
+Include sender (${fromName}) and recipient (${toName}), token amount, $ prefix for token (e.g., $USDT), chain (${chainName}), clickable transaction link, and brief market impact analysis (e.g., whale activity).
 Omit USD value, only show token amount.
-Always include the sender (${fromName}) and recipient (${toName}) names in the tweet.
 Transaction details:
 - Chain: ${chainName}
 - Token: ${token.toUpperCase()}
@@ -221,11 +222,14 @@ Transaction details:
 
     const content = response.data.candidates[0].content.parts[0].text;
     const duration = Date.now() - startTime;
-    if (content && content.length <= 280) {
-      logger.info(`Generated tweet for ${hash} in ${duration}ms: ${content}`);
+    const wordCount = content.split(/\s+/).length;
+
+    if (content && content.length <= 260 && wordCount >= 20 && wordCount <= 40) {
+      logger.info(`Generated tweet for ${hash} in ${duration}ms: ${content}`, { charCount: content.length, wordCount });
       return content;
     }
-    logger.warn(`Gemini response too long for ${hash}, using fallback`, { contentLength: content.length });
+
+    logger.warn(`Gemini response invalid for ${hash}: ${content.length} chars, ${wordCount} words`, { content });
     return `${formattedValue} $${token.toUpperCase()} moved from ${fromName} to ${toName} on ${chainName}.
 This whale transfer could signal market shifts.
 Details: ${txUrl}`;

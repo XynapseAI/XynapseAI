@@ -148,7 +148,7 @@ const chainIdToName = Object.fromEntries(
 const bodySchema = z.object({
   wallet_address: z.string().nonempty('Wallet address is required'),
   chain: z.enum(Object.keys(SUPPORTED_CHAINS), { message: 'Invalid chain' }),
-  limit: z.number().int().min(100).max(500, 'Limit must be between 100 and 500'),
+  limit: z.number().int().min(50).max(200, 'Limit must be between 50 and 200'),
   page: z.number().int().min(1).default(1),
   fetchLayer3: z.boolean().optional().default(false),
 });
@@ -386,15 +386,16 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
 
   logger.info(`Fetching Layer 3 transactions for ${validLayer2Addresses.length} valid Layer 2 addresses`);
 
+  const layer3Limit = 50; // Default limit for Layer 3 transactions
   const fetchPromises = validLayer2Addresses.map(async (address) => {
     try {
       let apiUrl;
       if (chain === 'solana') {
-        apiUrl = `${chainConfig.apiUrl}/account/transactions?account=${address}&limit=${limit}&offset=${(page - 1) * limit}`;
+        apiUrl = `${chainConfig.apiUrl}/account/transactions?account=${address}&limit=${layer3Limit}&offset=${(page - 1) * layer3Limit}`;
       } else if (chain === 'tron') {
-        apiUrl = `${chainConfig.apiUrl}/transaction?address=${address}&limit=${limit}&start=${(page - 1) * limit}`;
+        apiUrl = `${chainConfig.apiUrl}/transaction?address=${address}&limit=${layer3Limit}&start=${(page - 1) * layer3Limit}`;
       } else {
-        apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&apikey=${chainConfig.apiKey}`;
+        apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${layer3Limit}&sort=desc&apikey=${chainConfig.apiKey}`;
       }
 
       const response = await fetchWithRateLimit(apiUrl, { timeout: 20000 });
@@ -497,6 +498,13 @@ export async function POST(request) {
     }
 
     const { wallet_address, chain, limit, page, fetchLayer3 } = parsed.data;
+
+    // Insert new code here to validate non-premium user limits
+    const isPremium = request.headers.get('x-premium-user') === 'true'; // Adjust based on how premium status is passed
+    if (!isPremium && limit > 100) {
+      await trackViolation(ip, 'Non-premium user attempted to fetch more than 100 transactions');
+      return NextResponse.json({ error: 'Premium account required to fetch more than 100 transactions.' }, { status: 403, headers: securityHeaders });
+    }
     if (chain !== 'solana' && chain !== 'tron' && !isAddress(wallet_address)) {
       await trackViolation(ip, 'Invalid wallet address');
       return NextResponse.json({ error: 'Invalid wallet address.' }, { status: 400 });

@@ -4,14 +4,15 @@ import { createClient } from 'redis';
 import { logger } from '../utils/serverLogger.js';
 
 const MEMPOOL_WS_URL = 'wss://mempool.space/api/v1/ws';
-const CACHE_TTL = 30 * 60; 
-const PING_INTERVAL = 30000;
-const MAX_RECONNECT_ATTEMPTS = 5;
+const CACHE_TTL = 15 * 60; // Giảm TTL xuống 15 phút
+const PING_INTERVAL = 60000; // Tăng interval ping lên 60s
+const MAX_RECONNECT_ATTEMPTS = 10; // Tăng số lần thử reconnect
 const BASE_RECONNECT_DELAY = 5000;
 const MIN_USD_THRESHOLD = 1000000;
-const BTC_PRICE_CACHE_TTL = 5 * 60 * 1000;
+const BTC_PRICE_CACHE_TTL = 10 * 60 * 1000; // Tăng TTL giá BTC lên 10 phút
 const BTC_PRICE_RETRY_ATTEMPTS = 3;
-const BTC_PRICE_RETRY_DELAY = 2000;
+const BTC_PRICE_RETRY_DELAY = 3000;
+const MAX_CACHE_SIZE = 50; // Giới hạn cache giao dịch
 
 let redisClient;
 async function getRedisClient() {
@@ -19,24 +20,23 @@ async function getRedisClient() {
     const redisUrl = process.env.REDIS_URL;
 
     if (!redisUrl && process.env.NODE_ENV === 'production') {
-      const errorMessage = 'FATAL: REDIS_URL is not defined in the production environment.';
+      const errorMessage = 'FATAL: REDIS_URL is not defined in production.';
       logger.error(errorMessage);
       throw new Error(errorMessage);
     }
 
     const finalRedisUrl = redisUrl || 'redis://localhost:6379';
     const safeLogUrl = finalRedisUrl.includes('@') ? `redis://${finalRedisUrl.split('@')[1]}` : finalRedisUrl;
-    logger.info(`Attempting to connect to Redis at: ${safeLogUrl}`);
+    logger.info(`Connecting to Redis at: ${safeLogUrl}`);
 
     redisClient = createClient({ url: finalRedisUrl });
     redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message }));
-    
-    await redisClient.connect();
-    logger.info('Redis connected for WebSocket server');
 
+    await redisClient.connect();
+    logger.info('Redis connected');
   } else if (!redisClient.isOpen) {
     await redisClient.connect();
-    logger.info('Redis reconnected for WebSocket server');
+    logger.info('Redis reconnected');
   }
   return redisClient;
 }
@@ -48,7 +48,7 @@ async function storeInRedis(key, data) {
     await client.setEx(key, CACHE_TTL, serializedData);
     logger.info(`Stored data in Redis: ${key}`, { transactionCount: data.data.length });
   } catch (error) {
-    logger.error('Failed to store in Redis:', { key, error: error.message, stack: error.stack });
+    logger.error('Failed to store in Redis:', { key, error: error.message });
   }
 }
 
@@ -67,7 +67,7 @@ async function fetchBtcPrice() {
   const { default: axios } = await import('axios');
   for (let attempt = 1; attempt <= BTC_PRICE_RETRY_ATTEMPTS; attempt++) {
     try {
-      const response = await axios.get('https://mempool.space/api/v1/prices', { timeout: 10000 });
+      const response = await axios.get('https://mempool.space/api/v1/prices', { timeout: 5000 });
       const btcPrice = response.data.USD || 0;
       if (!btcPrice) {
         logger.warn(`BTC price fetch attempt ${attempt} returned no price`);
@@ -83,18 +83,24 @@ async function fetchBtcPrice() {
       }
     }
   }
-  logger.error('All BTC price fetch attempts failed, using cached or fallback price');
+  logger.error('All BTC price fetch attempts failed');
   return btcPriceCache.price || 0;
 }
 
-function startWebSocketServer() {
+function startWebSocketServer(httpServer) {
   let ws;
   let reconnectAttempts = 0;
   let pingInterval = null;
   const mempoolTxCache = new Set();
 
+  const wss = new WebSocket.Server({ server: httpServer }); // Gắn WebSocket vào HTTP server
+  logger.info('WebSocket server initialized on HTTP server');
+
   const connect = () => {
-    ws = new WebSocket(MEMPOOL_WS_URL);
+    ws = new WebSocket(MEMPOOL_WS_URL, {
+      headers: { 'User-Agent': 'xynapse-bot/1.0' }, // Thêm User-Agent
+      perMessageDeflate: false, // Tắt nén để giảm CPU
+    });
 
     ws.on('open', () => {
       logger.info('Connected to mempool WebSocket');
@@ -102,9 +108,14 @@ function startWebSocketServer() {
       ws.send(JSON.stringify({ "track-mempool-txids": true }));
       pingInterval = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ ping: true }));
+          ws.ping(); // Sử dụng ping của WebSocket thay vì message
+          logger.debug('Sent WebSocket ping');
         }
       }, PING_INTERVAL);
+    });
+
+    ws.on('pong', () => {
+      logger.debug('Received WebSocket pong');
     });
 
     ws.on('message', async (data) => {
@@ -127,7 +138,7 @@ function startWebSocketServer() {
         }
 
         const newTxs = parsed['mempool-txids'].added
-          .slice(0, 10)
+          .slice(0, 5) // Giảm số lượng tx xử lý mỗi lần
           .filter((txid) => !mempoolTxCache.has(txid));
 
         if (newTxs.length === 0) return;
@@ -142,7 +153,7 @@ function startWebSocketServer() {
         const { default: axios } = await import('axios');
         for (const txid of newTxs) {
           try {
-            const response = await axios.get(`https://mempool.space/api/tx/${txid}`, { timeout: 10000 });
+            const response = await axios.get(`https://mempool.space/api/tx/${txid}`, { timeout: 5000 });
             const tx = response.data;
             if (!tx.vout || !Array.isArray(tx.vout)) {
               logger.warn(`Invalid transaction data for txid ${txid}`);
@@ -153,6 +164,10 @@ function startWebSocketServer() {
 
             if (totalValueUSD >= MIN_USD_THRESHOLD) {
               mempoolTxCache.add(txid);
+              if (mempoolTxCache.size > MAX_CACHE_SIZE) {
+                const iterator = mempoolTxCache.values();
+                mempoolTxCache.delete(iterator.next().value); // Xóa mục cũ nhất
+              }
               transactions.push({
                 txid: tx.txid,
                 value_usd: totalValueUSD,
@@ -172,8 +187,6 @@ function startWebSocketServer() {
                 size: tx.size || 0,
                 status: tx.status || {},
               });
-            } else {
-                logger.debug(`Transaction ${txid} below USD threshold`, { totalValueUSD });
             }
           } catch (txError) {
             logger.error(`Failed to fetch tx ${txid}:`, { error: txError.message });
@@ -186,22 +199,19 @@ function startWebSocketServer() {
           try {
             const client = await getRedisClient();
             const existing = await client.get(cacheKey);
-            if(existing) {
-                allTxs = JSON.parse(existing).data;
+            if (existing) {
+              allTxs = JSON.parse(existing).data;
             }
           } catch (redisError) {
             logger.error('Failed to fetch existing transactions from Redis:', { error: redisError.message });
           }
-          
-          allTxs = [...transactions, ...allTxs].slice(0, 100).sort((a, b) => b.timestamp - a.timestamp);
+
+          allTxs = [...transactions, ...allTxs].slice(0, MAX_CACHE_SIZE).sort((a, b) => b.timestamp - a.timestamp);
           await storeInRedis(cacheKey, { success: true, data: allTxs });
           logger.info(`Processed and stored ${transactions.length} new transactions`);
         }
       } catch (error) {
-        logger.error('WebSocket message processing error:', {
-          error: error.message,
-          stack: error.stack,
-        });
+        logger.error('WebSocket message processing error:', { error: error.message });
       }
     });
 
@@ -223,12 +233,10 @@ function startWebSocketServer() {
       logger.error('Max reconnection attempts reached for WebSocket');
       return;
     }
-    const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 30000);
+    const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts), 60000);
     reconnectAttempts++;
-    setTimeout(() => {
-      logger.info(`Reconnecting to mempool WebSocket (attempt ${reconnectAttempts})`);
-      connect();
-    }, delay);
+    logger.info(`Scheduling WebSocket reconnect (attempt ${reconnectAttempts}) in ${delay}ms`);
+    setTimeout(connect, delay);
   };
 
   connect();
@@ -236,6 +244,8 @@ function startWebSocketServer() {
   return () => {
     if (ws) ws.close();
     if (pingInterval) clearInterval(pingInterval);
+    wss.close();
+    logger.info('WebSocket server closed');
   };
 }
 
