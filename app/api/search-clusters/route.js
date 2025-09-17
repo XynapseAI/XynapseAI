@@ -162,6 +162,9 @@ async function checkIp(ip) {
   }
 }
 
+// Capitalize function
+const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
+
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -257,13 +260,17 @@ export async function GET(request) {
 
     const searchTerm = `%${searchQuery.trim().toLowerCase()}%`;
 
-    // SQL query for distinct exchange_names and image
+    // SQL query for clusters with holder addresses
     const searchSql = `
-      SELECT exchange_name, MAX(image) as image
-      FROM wallet_holders 
-      WHERE LOWER(exchange_name) LIKE $1 
-      GROUP BY exchange_name
-      ORDER BY exchange_name ASC
+      SELECT 
+        COALESCE(wh.cluster_name, REGEXP_REPLACE(LOWER(wh.exchange_name), '\s*\d+$', '')) AS cluster_name,
+        MAX(wh.image) AS image,
+        json_agg(DISTINCT wh.holder_address) AS holder_addresses
+      FROM wallet_holders wh
+      WHERE LOWER(wh.exchange_name) LIKE $1 
+         OR COALESCE(LOWER(wh.cluster_name), REGEXP_REPLACE(LOWER(wh.exchange_name), '\s*\d+$', '')) LIKE $1
+      GROUP BY COALESCE(wh.cluster_name, REGEXP_REPLACE(LOWER(wh.exchange_name), '\s*\d+$', ''))
+      ORDER BY cluster_name ASC
       LIMIT 20
     `;
 
@@ -271,7 +278,11 @@ export async function GET(request) {
 
     const responseData = {
       success: true,
-      data: results.rows,
+      data: results.rows.map(row => ({
+        cluster_name: capitalize(row.cluster_name),
+        image: row.image || '/fallback-image.webp',
+        holder_addresses: row.holder_addresses || []
+      })),
       count: results.rows.length,
     };
 

@@ -192,11 +192,10 @@ async function getGeminiResponse(transaction, fromName, toName, chainName, txUrl
   const currentDate = new Date().toISOString().split('T')[0];
   const formattedValue = Number(value).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&.');
   const prompt = `
-Write a concise, witty tweet about a large cryptocurrency transaction. The current date is ${currentDate}.
-Keep it 20-40 words, under 260 characters to allow for URLs, no emojis, no @username.
+Write a concise tweet about a large cryptocurrency transaction. The current date is ${currentDate}.
+Keep it 20-40 words, under 260 characters to allow for URLs, no emojis, no @username , do not write words like Whoa, Wow, etc..
 Use complete sentences with line breaks for readability. Avoid numbering (e.g., 1/, 2/).
 Include sender (${fromName}) and recipient (${toName}), token amount, $ prefix for token (e.g., $USDT), chain (${chainName}), clickable transaction link, and brief market impact analysis (e.g., whale activity).
-Omit USD value, only show token amount.
 Transaction details:
 - Chain: ${chainName}
 - Token: ${token.toUpperCase()}
@@ -216,7 +215,7 @@ Transaction details:
           'Content-Type': 'application/json',
           'x-goog-api-key': process.env.GEMINI_API_KEY
         },
-        timeout: 10000
+        timeout: 20000
       }
     );
 
@@ -231,7 +230,7 @@ Transaction details:
 
     logger.warn(`Gemini response invalid for ${hash}: ${content.length} chars, ${wordCount} words`, { content });
     return `${formattedValue} $${token.toUpperCase()} moved from ${fromName} to ${toName} on ${chainName}.
-This whale transfer could signal market shifts.
+Whale transfer.
 Details: ${txUrl}`;
   } catch (err) {
     logger.error(`Failed to generate tweet for ${hash}: ${err.message}`, { stack: err.stack });

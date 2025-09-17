@@ -17,9 +17,9 @@ const isValidTokenSymbol = (symbol) => {
     /http/i,
     /www\./i,
     /claim/i,
-    /[^a-zA-Z0-9\s\-\+\.]/, 
+    /[^a-zA-Z0-9\s\-\+\.]/,
   ];
-  return !invalidPatterns.some((pattern) => pattern.test(symbol)) && symbol.length <= 10; 
+  return !invalidPatterns.some((pattern) => pattern.test(symbol)) && symbol.length <= 10;
 };
 
 // ================= Security Headers =================
@@ -775,8 +775,8 @@ export async function POST(request) {
               ? `chains=${SUPPORTED_SVM_CHAINS.join(",")}`
               : `chain_ids=${SUPPORTED_CHAIN_IDS}`;
 
-            const allTransactions = [];
-            for (const addr of targetAddresses) {
+            // Parallelize fetches for each address
+            const fetchPromises = targetAddresses.map(async (addr) => {
               const isEVM = isAddress(addr);
               const url = isEVM
                 ? `https://api.sim.dune.com/v1/evm/activity/${addr}?${chainParam}&limit=${effectiveLimit}&sort=desc`
@@ -980,30 +980,37 @@ export async function POST(request) {
                 );
 
                 const validTransactions = filteredTransactions.filter((tx) => tx !== null);
-                allTransactions.push(...validTransactions);
+                return validTransactions;
               } catch (error) {
                 logger.error(`Error fetching transactions for address ${addr}: ${error.message}`, { ip });
                 if (error.response?.status === 429) {
-                  controller.enqueue(
-                    new TextEncoder().encode(JSON.stringify({ detail: "Dune Sim API rate limit exceeded, please try again later." }))
-                  );
-                  controller.close();
-                  return;
+                  throw new Error("Dune Sim API rate limit exceeded, please try again later.");
                 } else if (error.response?.status === 404) {
                   logger.warn(`No transactions found for address ${addr}`, { ip });
-                  continue;
+                  return []; // Continue with empty for this address
                 } else {
-                  controller.enqueue(
-                    new TextEncoder().encode(JSON.stringify({ detail: `Failed to fetch transactions: ${error.message}` }))
-                  );
-                  controller.close();
-                  return;
+                  throw error; // Re-throw to handle in outer catch
                 }
               }
-            }
+            });
 
-            logger.info(`Processed transactions data: ${allTransactions.length} transactions`, { ip });
-            createJsonStream(controller, allTransactions);
+            try {
+              const results = await Promise.all(fetchPromises);
+              const allTransactions = results.flat();
+              logger.info(`Processed transactions data: ${allTransactions.length} transactions`, { ip });
+              createJsonStream(controller, allTransactions);
+            } catch (error) {
+              if (error.message.includes("rate limit")) {
+                controller.enqueue(
+                  new TextEncoder().encode(JSON.stringify({ detail: error.message }))
+                );
+              } else {
+                controller.enqueue(
+                  new TextEncoder().encode(JSON.stringify({ detail: `Failed to fetch transactions: ${error.message}` }))
+                );
+              }
+              controller.close();
+            }
             return;
           } else if (action === "collectibles" && address) {
             logger.info(`Processing collectibles for address: ${address}`, { ip });

@@ -212,6 +212,9 @@ const EXCHANGE_MAPPING = {
   bitfinex: 'bitfinex',
 };
 
+// Capitalize function
+const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1);
+
 function mapExchangeName(exchangeId) {
   return EXCHANGE_MAPPING[exchangeId.toLowerCase()] || exchangeId.toLowerCase();
 }
@@ -299,7 +302,7 @@ export async function GET(request) {
       const portfolioQuery = `
         WITH wallet_tokens AS (
           SELECT 
-            wh.exchange_name,
+            COALESCE(wh.cluster_name, REGEXP_REPLACE(LOWER(wh.exchange_name), '\s*\d+$', '')) AS cluster_name,
             wh.chain,
             wh.holder_address,
             t.token->>'token_address' AS token_address,
@@ -310,7 +313,7 @@ export async function GET(request) {
           FROM wallet_holders wh
           CROSS JOIN jsonb_array_elements(wh.metadata) AS t(token)
           LEFT JOIN tokens tk ON (t.token->>'token_address') = tk.coingecko_id
-          WHERE LOWER(wh.exchange_name) LIKE LOWER($1)
+          WHERE COALESCE(LOWER(wh.cluster_name), REGEXP_REPLACE(LOWER(wh.exchange_name), '\s*\d+$', '')) LIKE LOWER($1)
             AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
             AND (tk.image IS NOT NULL OR t.token->>'logo' IS NOT NULL)
             AND (tk.image != '' OR t.token->>'logo' != '')
@@ -406,17 +409,17 @@ export async function GET(request) {
       // Query for non-Bitcoin, non-Dogecoin, non-Litecoin wallets
       const walletQuery = `
         SELECT 
-          exchange_name,
-          chain,
-          holder_address,
-          total_value_usd,
-          token_count,
-          name_tag,
-          image
-        FROM wallet_holders
-        WHERE LOWER(exchange_name) LIKE LOWER($1)
-          AND LOWER(chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
-        ORDER BY total_value_usd DESC NULLS LAST
+          COALESCE(wh.cluster_name, REGEXP_REPLACE(LOWER(wh.exchange_name), '\s*\d+$', '')) AS cluster_name,
+          wh.chain,
+          wh.holder_address,
+          wh.total_value_usd,
+          wh.token_count,
+          wh.name_tag,
+          wh.image
+        FROM wallet_holders wh
+        WHERE COALESCE(LOWER(wh.cluster_name), REGEXP_REPLACE(LOWER(wh.exchange_name), '\s*\d+$', '')) LIKE LOWER($1)
+          AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
+        ORDER BY wh.total_value_usd DESC NULLS LAST
         LIMIT 100
       `;
       const walletResult = await withRetry(async () => await query(walletQuery, [`%${mappedExchange}%`]));
@@ -425,7 +428,7 @@ export async function GET(request) {
       // Query for Bitcoin, Dogecoin, Litecoin wallets
       const specialCoinsWalletQuery = `
         SELECT 
-          source AS exchange_name,
+          source AS cluster_name,
           chain,
           holder_address,
           balance_usd AS total_value_usd,
@@ -492,7 +495,7 @@ export async function GET(request) {
         wallets: isAuthenticated
           ? [
             ...specialCoinsWalletResult.rows.map((row) => ({
-              exchange_name: row.exchange_name,
+              cluster_name: capitalize(row.cluster_name),
               chain: row.chain,
               holder_address: row.holder_address,
               total_value_usd: Number(row.total_value_usd) || 0,
@@ -501,7 +504,7 @@ export async function GET(request) {
               image: row.image || (row.chain === 'bitcoin' ? '/logos/bitcoin.webp' : row.chain === 'dogecoin' ? '/logos/dogecoin.webp' : row.chain === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
             })),
             ...walletResult.rows.map((row) => ({
-              exchange_name: row.exchange_name,
+              cluster_name: capitalize(row.cluster_name),
               chain: row.chain,
               holder_address: row.holder_address,
               total_value_usd: Number(row.total_value_usd) || 0,

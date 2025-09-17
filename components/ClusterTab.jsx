@@ -97,7 +97,7 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
   return null;
 };
 
-const ClusterTab = ({ recaptchaRef, initialClusterId , activeTab, setActiveTab}) => {
+const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab }) => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -404,7 +404,11 @@ const ClusterTab = ({ recaptchaRef, initialClusterId , activeTab, setActiveTab})
         throw new Error(`No portfolio or wallet data found for cluster: ${clusterId}`);
       }
       setPortfolioData(result.portfolio || []);
-      setWalletData(result.wallets || []);
+      setWalletData(result.wallets.map(wallet => ({
+        ...wallet,
+        cluster_name: wallet.cluster_name || clusterId.charAt(0).toUpperCase() + clusterId.slice(1),
+        image: wallet.image || `/icons/${clusterId.toLowerCase()}.webp` || '/fallback-image.webp',
+      })) || []);
       logger.log('Fetched portfolio and wallet data:', {
         clusterId,
         portfolioCount: result.portfolio.length,
@@ -879,7 +883,18 @@ const ClusterTab = ({ recaptchaRef, initialClusterId , activeTab, setActiveTab})
   const handleSearchSelect = (result) => {
     if (result.type === "exchange" || result.type === "organization") {
       const mappedId = mapExchangeId(result.exchangeId || result.id);
-      router.push(`/cluster?clusterId=${mappedId}`, { scroll: false });
+      router.push(`/cluster?clusterId=${encodeURIComponent(mappedId)}`, { scroll: false });
+      setExchangeData({
+        name: result.name,
+        image: result.image || `/icons/${mappedId.toLowerCase()}.webp` || '/fallback-image.webp',
+        country: "N/A",
+        year_established: "N/A",
+        trust_score: "N/A",
+        trade_volume_24h_btc: 0,
+        centralized: true,
+        twitter_handle: null,
+        url: null,
+      });
     } else if (result.type === "wallet" || result.type === "nametag") {
       const address = result.address?.toLowerCase();
       if (
@@ -922,22 +937,22 @@ const ClusterTab = ({ recaptchaRef, initialClusterId , activeTab, setActiveTab})
         chainLower === "dogecoin" ? DOGECOIN_LOGO :
           chainLower === "litecoin" ? LITECOIN_LOGO :
             wallet.image || "/fallback-image.webp";
-      const nameTagLogo = wallet.image || "/fallback-image.webp";
 
       if (!walletMap.has(addr)) {
         walletMap.set(addr, {
           holder_address: wallet.holder_address,
-          exchange_name: wallet.exchange_name,
+          cluster_name: wallet.cluster_name,
           name_tag: wallet.name_tag || "N/A",
           image: logo,
-          name_tag_image: nameTagLogo,
           total_value_usd: Number(wallet.total_value_usd) || 0,
+          token_count: Number(wallet.token_count) || 0,
           key: `${addr}-${index}`,
           chain: wallet.chain,
         });
       } else {
         const existing = walletMap.get(addr);
         existing.total_value_usd += Number(wallet.total_value_usd) || 0;
+        existing.token_count += Number(wallet.token_count) || 0;
       }
     });
 
@@ -1116,18 +1131,15 @@ const ClusterTab = ({ recaptchaRef, initialClusterId , activeTab, setActiveTab})
           <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
             <thead className="border-b border-white/10 bg-black/10">
               <tr>
-                <th className={`${isMobile ? "w-[50%]" : "w-[60%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Wallet</th>
-                <th className={`${isMobile ? "w-[30%]" : "w-[20%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
-                <th className={`${isMobile ? "w-[20%]" : "w-[20%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Percentage</th>
+                <th className={`${isMobile ? "w-[40%]" : "w-[50%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Wallet</th>
+                <th className={`${isMobile ? "w-[20%]" : "w-[20%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Chain</th>
+                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
+                <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Tokens</th>
               </tr>
             </thead>
             <tbody>
               {uniqueWalletData.map((wallet, index) => {
                 const percentage = totalValue > 0 ? ((Number(wallet.total_value_usd) || 0) / totalValue) * 100 : 0;
-                const isSpecialAddress =
-                  /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-zA-Z0-9]{39,59}$/.test(wallet.holder_address) ||
-                  /^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{32,33}$/.test(wallet.holder_address) ||
-                  /^L[a-km-zA-HJ-NP-Z1-9]{26,34}$|^ltc1[a-zA-Z0-9]{39,59}$/.test(wallet.holder_address);
                 const chainLower = wallet.chain?.toLowerCase();
                 const isSpecialCoin = ["bitcoin", "dogecoin", "litecoin"].includes(chainLower);
                 const tokenLogo = isSpecialCoin
@@ -1138,7 +1150,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId , activeTab, setActiveTab})
                       : chainLower === "litecoin"
                         ? LITECOIN_LOGO
                         : null
-                  : null;
+                  : wallet.image;
 
                 return (
                   <motion.tr
@@ -1151,17 +1163,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId , activeTab, setActiveTab})
                   >
                     <td className="px-3 py-2.5 text-white truncate">
                       <div className="flex items-center gap-2">
-                        {isSpecialCoin && tokenLogo && (
-                          <img
-                            src={tokenLogo}
-                            alt={`${wallet.chain} logo`}
-                            className="w-4 h-4 inline rounded-full"
-                            onError={(e) => (e.target.src = "/fallback-image.webp")}
-                          />
-                        )}
                         <img
-                          src={wallet.name_tag_image}
-                          alt="Nametag logo"
+                          src={wallet.image}
+                          alt={`${wallet.cluster_name} logo`}
                           className="w-4 h-4 inline mr-2 rounded-full"
                           onError={(e) => (e.target.src = "/fallback-image.webp")}
                         />
@@ -1169,10 +1173,13 @@ const ClusterTab = ({ recaptchaRef, initialClusterId , activeTab, setActiveTab})
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-white truncate">
+                      <span className="font-semibold">{CHAIN_ID_TO_NAME[chainLower] || chainLower || "Unknown"}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-white truncate">
                       <span className="font-semibold">{formatPrice(Number(wallet.total_value_usd) || 0, currency, 2)}</span>
                     </td>
                     <td className="px-3 py-2.5 text-white truncate">
-                      <span className="font-semibold">{percentage.toFixed(2)}%</span>
+                      <span className="font-semibold">{wallet.token_count || 0}</span>
                     </td>
                   </motion.tr>
                 );
@@ -1469,6 +1476,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId , activeTab, setActiveTab})
                       <div className="flex justify-between">
                         <span className="text-white/60">Trust Score:</span>
                         <span className="text-white">{exchangeData.trust_score || "Not available"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-white/60">Number of Wallets:</span>
+                        <span className="text-white">{uniqueWalletData.length}</span>
                       </div>
                     </div>
                   </div>

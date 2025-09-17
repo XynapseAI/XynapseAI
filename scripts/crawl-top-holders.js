@@ -1,12 +1,10 @@
 // scripts/crawl-top-holders.js
 import axios from "axios";
 import { load } from "cheerio";
-import cron from "node-cron";
 import { PrismaClient } from "@prisma/client";
 
-// --- Khởi tạo Prisma Client ---
 const prisma = new PrismaClient({
-  log: ["error"], // Bật logging để debug
+  log: ["error"],
   errorFormat: "pretty",
 });
 
@@ -170,7 +168,6 @@ function getImageForNameTag(nameTag) {
 // Utility: Delay to avoid rate-limiting
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Hàm thử lại với retry logic
 async function withRetry(fn, retries = 3, delayMs = 2000) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
@@ -239,7 +236,6 @@ async function crawlEtherscanTopHolders(url, chainName, chainLabel) {
       return;
     }
 
-    // Lưu vào database
     await saveHoldersToDatabase(holders, chainName, chainLabel);
     console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database`);
   } catch (err) {
@@ -334,7 +330,6 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
       await delay(3000);
     }
 
-    // Thêm dữ liệu cứng cho Bitcoin
     if (chainLabel === "bitcoin") {
       const specialAddress = "1a1zp1ep5qgefi2dmptftl5slmv7divfna";
       holders.push({
@@ -352,7 +347,7 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
       return;
     }
 
-    // Lưu vào database
+    // Save database
     await saveHoldersToDatabase(holders, chainName, chainLabel);
     console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database`);
   } catch (err) {
@@ -360,9 +355,8 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
   }
 }
 
-// Hàm lưu dữ liệu vào database với batch và retry
 async function saveHoldersToDatabase(holders, chainName, chainLabel) {
-  const BATCH_SIZE = 50; // Kích thước batch
+  const BATCH_SIZE = 50;
   try {
     for (let i = 0; i < holders.length; i += BATCH_SIZE) {
       const batch = holders.slice(i, i + BATCH_SIZE);
@@ -417,18 +411,15 @@ async function runAllCrawlers() {
   console.log(`[${new Date().toISOString()}] Crawl cycle completed.`);
 }
 
-// Run immediately
-runAllCrawlers();
-
-// Schedule daily run at 0h UTC (7h AM Vietnam time)
-cron.schedule("0 7 * * *", () => {
-  console.log(`[${new Date().toISOString()}] Starting scheduled crawl...`);
-  runAllCrawlers();
-});
-
-// Cleanup Prisma connection on process exit
-process.on("SIGINT", async () => {
-  await prisma.$disconnect();
-  console.log("Prisma client disconnected");
-  process.exit(0);
-});
+// Run crawlers and exit
+(async () => {
+  try {
+    await runAllCrawlers();
+  } catch (error) {
+    console.error("Error during crawl:", error.message);
+  } finally {
+    await prisma.$disconnect();
+    console.log("Prisma client disconnected");
+    process.exit(0);
+  }
+})();

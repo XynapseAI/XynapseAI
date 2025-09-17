@@ -175,11 +175,12 @@ export default function UniversalSearch({
     if (clusterData?.success && clusterData.data) {
       results.push(
         ...clusterData.data.map((cluster) => ({
-          id: `cluster-${cluster.exchange_name}`,
+          id: `cluster-${cluster.cluster_name}`,
           type: "organization",
-          name: capitalize(cluster.exchange_name),
+          name: capitalize(cluster.cluster_name),
           image: cluster.image,
-          exchangeId: cluster.exchange_name,
+          exchangeId: cluster.cluster_name,
+          holder_addresses: cluster.holder_addresses || [], // Thêm danh sách ví
         })),
       );
     }
@@ -303,7 +304,7 @@ export default function UniversalSearch({
                   placeholder={placeholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`text-white border-b-2 border-b-white/20 bg-black/5 backdrop-blur-xs focus:border-none  ${config.modalInput}`}
+                  className={`text-white border-b-2 border-b-white/20 bg-black/5 backdrop-blur-xs focus:border-none ${config.modalInput}`}
                   aria-label="Search wallets, nametags, or exchanges"
                   autoFocus
                 />
@@ -362,6 +363,11 @@ export default function UniversalSearch({
                           </div>
                           {result.address && (
                             <div className="text-xs text-white/40 font-mono truncate mt-0.5">{result.address}</div>
+                          )}
+                          {result.holder_addresses && result.holder_addresses.length > 0 && (
+                            <div className="text-xs text-white/40 truncate mt-0.5">
+                              {result.holder_addresses.length} wallets
+                            </div>
                           )}
                         </div>
                       </motion.button>
