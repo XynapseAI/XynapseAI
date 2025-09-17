@@ -1,18 +1,18 @@
 // server/websocket.js
-import WebSocket from 'ws';
+import { WebSocketServer } from 'ws'; // Use WebSocketServer instead of WebSocket
 import { createClient } from 'redis';
 import { logger } from '../utils/serverLogger.js';
 
 const MEMPOOL_WS_URL = 'wss://mempool.space/api/v1/ws';
-const CACHE_TTL = 15 * 60; // Giảm TTL xuống 15 phút
-const PING_INTERVAL = 60000; // Tăng interval ping lên 60s
-const MAX_RECONNECT_ATTEMPTS = 10; // Tăng số lần thử reconnect
+const CACHE_TTL = 15 * 60; // 15 minutes
+const PING_INTERVAL = 60000; // 60 seconds
+const MAX_RECONNECT_ATTEMPTS = 10;
 const BASE_RECONNECT_DELAY = 5000;
 const MIN_USD_THRESHOLD = 1000000;
-const BTC_PRICE_CACHE_TTL = 10 * 60 * 1000; // Tăng TTL giá BTC lên 10 phút
+const BTC_PRICE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const BTC_PRICE_RETRY_ATTEMPTS = 3;
 const BTC_PRICE_RETRY_DELAY = 3000;
-const MAX_CACHE_SIZE = 50; // Giới hạn cache giao dịch
+const MAX_CACHE_SIZE = 50;
 
 let redisClient;
 async function getRedisClient() {
@@ -29,8 +29,21 @@ async function getRedisClient() {
     const safeLogUrl = finalRedisUrl.includes('@') ? `redis://${finalRedisUrl.split('@')[1]}` : finalRedisUrl;
     logger.info(`Connecting to Redis at: ${safeLogUrl}`);
 
-    redisClient = createClient({ url: finalRedisUrl });
-    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message }));
+    redisClient = createClient({ 
+      url: finalRedisUrl,
+      socket: {
+        reconnectStrategy: (retries) => Math.min(retries * 200, 5000),
+        connectTimeout: 10000,
+        keepAlive: 1000,
+      },
+      disablePipeline: true,
+    });
+    redisClient.on('error', (err) => {
+      logger.error('Redis Client Error', { error: err.message });
+      if (err.message.includes('Socket closed unexpectedly')) {
+        redisClient = null;
+      }
+    });
 
     await redisClient.connect();
     logger.info('Redis connected');
@@ -93,13 +106,13 @@ function startWebSocketServer(httpServer) {
   let pingInterval = null;
   const mempoolTxCache = new Set();
 
-  const wss = new WebSocket.Server({ server: httpServer }); // Gắn WebSocket vào HTTP server
+  const wss = new WebSocketServer({ server: httpServer }); // Use WebSocketServer
   logger.info('WebSocket server initialized on HTTP server');
 
   const connect = () => {
-    ws = new WebSocket(MEMPOOL_WS_URL, {
-      headers: { 'User-Agent': 'xynapse-bot/1.0' }, // Thêm User-Agent
-      perMessageDeflate: false, // Tắt nén để giảm CPU
+    ws = new WebSocketServer.WebSocket(MEMPOOL_WS_URL, { // Use WebSocketServer.WebSocket for client
+      headers: { 'User-Agent': 'xynapse-bot/1.0' },
+      perMessageDeflate: false,
     });
 
     ws.on('open', () => {
@@ -107,8 +120,8 @@ function startWebSocketServer(httpServer) {
       reconnectAttempts = 0;
       ws.send(JSON.stringify({ "track-mempool-txids": true }));
       pingInterval = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.ping(); // Sử dụng ping của WebSocket thay vì message
+        if (ws.readyState === WebSocketServer.WebSocket.OPEN) {
+          ws.ping();
           logger.debug('Sent WebSocket ping');
         }
       }, PING_INTERVAL);
@@ -138,7 +151,7 @@ function startWebSocketServer(httpServer) {
         }
 
         const newTxs = parsed['mempool-txids'].added
-          .slice(0, 5) // Giảm số lượng tx xử lý mỗi lần
+          .slice(0, 5)
           .filter((txid) => !mempoolTxCache.has(txid));
 
         if (newTxs.length === 0) return;
@@ -166,7 +179,7 @@ function startWebSocketServer(httpServer) {
               mempoolTxCache.add(txid);
               if (mempoolTxCache.size > MAX_CACHE_SIZE) {
                 const iterator = mempoolTxCache.values();
-                mempoolTxCache.delete(iterator.next().value); // Xóa mục cũ nhất
+                mempoolTxCache.delete(iterator.next().value);
               }
               transactions.push({
                 txid: tx.txid,
