@@ -7,7 +7,6 @@ import debounce from 'lodash.debounce';
 import rateLimit from 'axios-rate-limit';
 import pLimit from 'p-limit';
 import { GECKOTERMINAL_CHAIN_MAPPING, SUPPORTED_CHAINS, CHAIN_MAPPING } from '../utils/constants';
-import btcTopHolders from '../public/nametags/bitcoin-top-holders.json';
 import btcNameTags from '../public/nametags/btc-top-holders.json';
 import bnbNameTags from '../public/nametags/bnb-top-holders.json';
 import ethNameTags from '../public/nametags/eth-top-holders.json';
@@ -913,14 +912,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           const fetchFn = async () => {
             let topHolders = [];
 
-            // Map token symbol to corresponding JSON file for top holders
-            const topHoldersMap = {
-              bitcoin: btcTopHolders,
-              dogecoin: dogeNameTags,
-              litecoin: ltcNameTags,
-              ethereum: ethNameTags,
-            };
-
             // Map token symbol to corresponding JSON file for name tags
             const nameTagsMap = {
               bitcoin: btcNameTags,
@@ -929,24 +920,37 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               ethereum: ethNameTags,
             };
 
-            const jsonData = topHoldersMap[chain];
             const nameTagData = nameTagsMap[chain];
 
-            if (jsonData) {
-              topHolders = Object.values(jsonData).map((holder) => {
-                const address = holder.Address.toLowerCase();
+            // Fetch top holders from the database (top_holders table)
+            try {
+              const response = await axios.get(`${API_BASE_URL}/api/top-holders`, {
+                params: { chain: chain === 'binancecoin' ? 'bsc' : chain },
+                headers: {
+                  Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+                },
+                timeout: 15000,
+              });
+
+              if (!response.data.success || !Array.isArray(response.data.data)) {
+                throw new Error(`Invalid top holders data for ${chain}`);
+              }
+
+              topHolders = response.data.data.map((holder) => {
+                const address = holder.address.toLowerCase();
                 const nameTagEntry = nameTagData?.[address]?.Labels?.[chain];
                 return {
                   address,
-                  balance: parseFloat(holder.Balance) || 0,
+                  balance: parseFloat(holder.balance) || 0,
                   share: 0,
-                  nameTag: nameTagEntry?.['Name Tag'] || null,
-                  image: nameTagEntry?.image || null,
-                  source: 'JSON',
+                  nameTag: nameTagEntry?.['Name Tag'] || holder.name_tag || null,
+                  image: nameTagEntry?.image || holder.image || null,
+                  source: 'database',
                 };
               });
-            } else {
-              throw new Error(`No JSON data available for ${chain}`);
+            } catch (error) {
+              console.warn(`Failed to fetch top holders from database for ${chain}:`, error.message);
+              throw new Error(`No top holders data available for ${chain}`);
             }
 
             // Fetch CoinGecko treasury data for Bitcoin and Ethereum
@@ -2568,16 +2572,35 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 
             // If chain is 'bnb', merge with bnb-top-holders.json
             if (chain === 'bnb') {
-              const jsonHolders = Object.values(bnbNameTags).map((holder) => ({
-                address: holder.Address.toLowerCase(),
-                balance: parseFloat(holder.Balance) || 0,
-                nameTag: holder.Labels['binance-smart-chain']?.['Name Tag'] || null,
-                image: holder.Labels['binance-smart-chain']?.image || null,
-                source: 'JSON',
-                chain: 'bnb',
-              }));
+              let dbHolders = [];
+              try {
+                const response = await axios.get(`${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}/api/top-holders`, {
+                  params: { chain: 'bsc' },
+                  headers: {
+                    Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+                  },
+                  timeout: 15000,
+                });
 
-              // Merge holders from API and JSON, remove duplicates by address
+                if (response.data.success && Array.isArray(response.data.data)) {
+                  dbHolders = response.data.data.map((holder) => {
+                    const address = holder.address.toLowerCase();
+                    const nameTagEntry = bnbNameTags?.[address]?.Labels?.['binance-smart-chain'];
+                    return {
+                      address,
+                      balance: parseFloat(holder.balance) || 0,
+                      nameTag: nameTagEntry?.['Name Tag'] || holder.name_tag || null,
+                      image: nameTagEntry?.image || holder.image || null,
+                      source: 'database',
+                      chain: 'bnb',
+                    };
+                  });
+                }
+              } catch (error) {
+                console.warn(`Failed to fetch top holders from database for BNB:`, error.message);
+              }
+
+              // Merge holders from API and database, remove duplicates by address
               const uniqueAddresses = new Set();
               const mergedHolders = [
                 ...holders.filter((holder) => {
@@ -2588,7 +2611,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                   }
                   return false;
                 }),
-                ...jsonHolders.filter((holder) => {
+                ...dbHolders.filter((holder) => {
                   const addr = holder.address.toLowerCase();
                   if (!uniqueAddresses.has(addr)) {
                     uniqueAddresses.add(addr);
