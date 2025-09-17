@@ -14,7 +14,7 @@ const loadTensorFlow = async () => {
   return tf;
 };
 
-export async function detectClusters(nodes, edges, options = { useML: true }) {
+export async function detectClusters(nodes, edges, options = { useML: true, useDBSCAN: true, useGNN: true }) {
   const clusters = [];
   const nodeMap = new Map();
   const edgeMap = new Map();
@@ -78,64 +78,103 @@ export async function detectClusters(nodes, edges, options = { useML: true }) {
         throw new Error('Insufficient nodes for ML clustering');
       }
 
-      const n = features.length;
-      const d = features[0].length;
-      const featuresTensor = tf.tensor2d(features);
+      let embeddings = tf.tensor2d(features); // Default features
 
-      // Normalize features
-      const mean = tf.mean(featuresTensor, 0, true);
-      const std = tf.sqrt(tf.variance(featuresTensor, 0, true));
-      const normalized = featuresTensor.sub(mean).div(std.add(1e-8));
+      // New: GNN integration - simple GraphConv
+      if (options.useGNN) {
+        try {
+          // Simple GNN: adjacency matrix + features
+          const n = features.length;
+          const adj = tf.zeros([n, n]);
+          // Build adj from adjacencyList
+          nodeIds.forEach((id, i) => {
+            adjacencyList.get(id).forEach(neighId => {
+              const j = nodeIds.indexOf(neighId);
+              if (j !== -1) adj.assign(1, [i, j], [1, 1]);
+            });
+          });
 
-      // KMeans
-      const k = Math.max(2, Math.floor(Math.sqrt(n)));
-      let centroids = tf.randomNormal([k, d]).mul(0.1).add(tf.mean(normalized, 0));
-      const maxIter = 50;
-      let assignments = new Array(n).fill(0);
-
-      for (let iter = 0; iter < maxIter; iter++) {
-        const dist = tf.tidy(() => {
-          const XX = tf.sum(tf.pow(normalized, 2), 1, true);
-          const CC = tf.sum(tf.pow(centroids, 2), 1, false);
-          const XC = tf.matMul(normalized, centroids, false, true);
-          return XX.add(CC).sub(tf.mul(XC, 2));
-        });
-
-        const newAssignments = tf.argMin(dist, 1).arraySync();
-        dist.dispose();
-
-        if (JSON.stringify(newAssignments) === JSON.stringify(assignments)) {
-          break;
+          // GraphConv: H = sigma(A * W * X) (simple 1 layer)
+          const w = tf.randomNormal([features[0].length, 16]); // Hidden dim 16
+          const wx = tf.matMul(embeddings, w);
+          const h = tf.tanh(tf.matMul(adj, wx));
+          embeddings = h; // Use as new features
+          logger.log('GNN embeddings generated');
+        } catch (gnnErr) {
+          logger.warn('GNN failed, using raw features:', gnnErr.message);
         }
-        assignments = newAssignments;
-
-        // Update centroids
-        const sums = tf.zeros([k, d]);
-        const counts = new Array(k).fill(0);
-        for (let i = 0; i < n; i++) {
-          const c = assignments[i];
-          counts[c]++;
-          const row = normalized.slice([i, 0], [1, d]);
-          sums.assign(sums.slice([c, 0], [1, d]).add(row));
-          row.dispose();
-        }
-        const validCounts = tf.tensor1d(counts).add(1e-8);
-        centroids.dispose();
-        centroids = sums.div(validCounts.expandDims(1));
-        sums.dispose();
-        validCounts.dispose();
       }
 
-      nodeIds.forEach((id, idx) => {
-        communities.set(id, assignments[idx]);
-      });
+      // Normalize
+      const mean = tf.mean(embeddings, 0, true);
+      const std = tf.sqrt(tf.variance(embeddings, 0, true));
+      const normalized = embeddings.sub(mean).div(std.add(1e-8));
 
+      // New: DBSCAN instead of KMeans
+      if (options.useDBSCAN) {
+        const labels = dbscan(normalized.arraySync(), 0.5, 2); // eps=0.5, minPts=2
+        nodeIds.forEach((id, idx) => {
+          if (labels[idx] !== -1) { // -1 is noise
+            communities.set(id, labels[idx]);
+          }
+        });
+        logger.log(`DBSCAN clustering completed: ${new Set(labels.filter(l => l !== -1)).size} clusters`);
+      } else {
+        // Fallback to KMeans
+        const n = features.length;
+        const d = features[0].length;
+        const k = Math.max(2, Math.floor(Math.sqrt(n)));
+        let centroids = tf.randomNormal([k, d]).mul(0.1).add(tf.mean(normalized, 0));
+        const maxIter = 50;
+        let assignments = new Array(n).fill(0);
+
+        for (let iter = 0; iter < maxIter; iter++) {
+          const dist = tf.tidy(() => {
+            const XX = tf.sum(tf.pow(normalized, 2), 1, true);
+            const CC = tf.sum(tf.pow(centroids, 2), 1, false);
+            const XC = tf.matMul(normalized, centroids, false, true);
+            return XX.add(CC).sub(tf.mul(XC, 2));
+          });
+
+          const newAssignments = tf.argMin(dist, 1).arraySync();
+          dist.dispose();
+
+          if (JSON.stringify(newAssignments) === JSON.stringify(assignments)) {
+            break;
+          }
+          assignments = newAssignments;
+
+          // Update centroids
+          const sums = tf.zeros([k, d]);
+          const counts = new Array(k).fill(0);
+          for (let i = 0; i < n; i++) {
+            const c = assignments[i];
+            counts[c]++;
+            const row = normalized.slice([i, 0], [1, d]);
+            sums.assign(sums.slice([c, 0], [1, d]).add(row));
+            row.dispose();
+          }
+          const validCounts = tf.tensor1d(counts).add(1e-8);
+          centroids.dispose();
+          centroids = sums.div(validCounts.expandDims(1));
+          sums.dispose();
+          validCounts.dispose();
+        }
+
+        nodeIds.forEach((id, idx) => {
+          communities.set(id, assignments[idx]);
+        });
+
+        centroids.dispose();
+        logger.log(`KMeans clustering completed: ${k} clusters for ${n} nodes`);
+      }
+
+      // Dispose tensors
       normalized.dispose();
       mean.dispose();
       std.dispose();
-      centroids.dispose();
+      embeddings.dispose();
 
-      logger.log(`AI-based clustering completed: ${k} clusters for ${n} nodes`);
     } catch (err) {
       logger.warn('ML clustering failed, falling back to Louvain:', err.message);
       options.useML = false;
@@ -184,6 +223,19 @@ export async function detectClusters(nodes, edges, options = { useML: true }) {
       }
     }
   }
+
+  // New: Risk analysis
+  const calculateRiskScore = (node) => {
+    // Simple rule-based: high value + low tx + old activity = high risk
+    const valueScore = parseFloat(node.totalValue) > 1000 ? 0.3 : 0;
+    const txScore = node.txCount < 5 ? 0.3 : 0;
+    const timeScore = node.latestBlockTime
+      ? (Date.now() - new Date(node.latestBlockTime).getTime()) / (1000 * 60 * 60 * 24 * 30) > 6
+        ? 0.4
+        : 0
+      : 0;
+    return Math.min(1, valueScore + txScore + timeScore);
+  };
 
   // Group nodes by community
   const communityGroups = new Map();
@@ -234,11 +286,13 @@ export async function detectClusters(nodes, edges, options = { useML: true }) {
       clusterNametag = layer2Node.label;
     }
 
+    const clusterRisk = Math.max(...group.wallets.map(w => calculateRiskScore(w)));
     clusters.push({
       clusterId: commId,
       nametag: clusterNametag,
       wallets: group.wallets,
       transactions: group.transactions,
+      riskScore: clusterRisk, // New
     });
   });
 
@@ -247,6 +301,55 @@ export async function detectClusters(nodes, edges, options = { useML: true }) {
     a.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue), 0)
   );
 
-  logger.log(`Detected ${clusters.length} AI-enhanced clusters`);
+  logger.log(`Detected ${clusters.length} enhanced clusters with risk analysis`);
   return clusters;
+}
+
+// New: Vanilla DBSCAN implementation
+function dbscan(data, eps, minPts) {
+  const n = data.length;
+  const labels = new Array(n).fill(-2); // -2 unvisited, -1 noise
+  let clusterId = 0;
+
+  const dist = (p1, p2) => Math.sqrt(p1.reduce((sum, val, i) => sum + (val - p2[i]) ** 2, 0)); // Euclidean
+
+  const regionQuery = (pIdx) => {
+    const neighbors = [];
+    for (let i = 0; i < n; i++) {
+      if (i !== pIdx && dist(data[pIdx], data[i]) < eps) {
+        neighbors.push(i);
+      }
+    }
+    return neighbors;
+  };
+
+  const expandCluster = (pIdx, neighbors) => {
+    labels[pIdx] = clusterId;
+    let i = 0;
+    while (i < neighbors.length) {
+      const qIdx = neighbors[i];
+      if (labels[qIdx] === -1) labels[qIdx] = clusterId;
+      if (labels[qIdx] === -2) {
+        labels[qIdx] = clusterId;
+        const newNeighbors = regionQuery(qIdx);
+        if (newNeighbors.length >= minPts) {
+          neighbors.push(...newNeighbors);
+        }
+      }
+      i++;
+    }
+  };
+
+  for (let i = 0; i < n; i++) {
+    if (labels[i] !== -2) continue;
+    const neighbors = regionQuery(i);
+    if (neighbors.length < minPts) {
+      labels[i] = -1;
+    } else {
+      expandCluster(i, neighbors);
+      clusterId++;
+    }
+  }
+
+  return labels;
 }

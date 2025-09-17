@@ -151,7 +151,7 @@ function ChainLogosHover() {
       const mouseX = e.clientX - rect.left
       const mouseY = e.clientY - rect.top
 
-      logosRef.current.forEach((logoEl, i) => {
+      logosRef.current.forEach((logoEl) => {
         if (!logoEl) return
         const logoRect = logoEl.getBoundingClientRect()
         const logoCenterX = logoRect.left + logoRect.width / 2 - rect.left

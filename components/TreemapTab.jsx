@@ -13,6 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import cytoscape from 'cytoscape';
 import cola from 'cytoscape-cola';
 import nodeHtmlLabel from 'cytoscape-node-html-label';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'; // New import for charts
 import { chains, mapCoinGeckoChains, getPlatformImage } from '../utils/constants';
 import { LoadingOverlay, getExplorerUrls } from '@/utils/helpers';
 import { cacheData, getCachedData } from '../utils/indexedDB';
@@ -340,6 +341,70 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
   );
 };
 
+const TrendChart = ({ transactions }) => {
+  if (transactions.length === 0) return null;
+
+  const chartData = useMemo(() => {
+    const sortedTx = transactions
+      .filter(tx => tx.block_time)
+      .sort((a, b) => new Date(a.block_time) - new Date(b.block_time))
+      .map(tx => ({
+        time: new Date(tx.block_time).toLocaleDateString(),
+        value: Number(tx.value),
+      }));
+
+    // Aggregate by date
+    const aggregated = {};
+    sortedTx.forEach(({ time, value }) => {
+      aggregated[time] = (aggregated[time] || 0) + value;
+    });
+
+    return Object.entries(aggregated).map(([time, value]) => ({ time, value }));
+  }, [transactions]);
+
+  return (
+    <div className="w-full h-64 bg-black/50 rounded-xl p-2">
+      <h5 className="text-white text-xs mb-2">Transaction Trends</h5>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+          <XAxis dataKey="time" stroke="#ccc" fontSize={10} />
+          <YAxis stroke="#ccc" fontSize={10} />
+          <Tooltip />
+          <Line type="monotone" dataKey="value" stroke="#00BFFF" strokeWidth={2} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
+// New dashboard component
+const ClusterDashboard = ({ entity, isMobile }) => {
+  if (!entity || entity.type === 'node') return null; // Only for clusters
+
+  const { data: cluster } = entity;
+  const totalValue = cluster.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue), 0);
+  const riskScore = cluster.riskScore || 0; // From clustering
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 ${isMobile ? 'w-full mt-2' : 'w-96 fixed left-4 top-32'}`}
+      style={{ maxHeight: 'calc(100vh - 8rem)', overflowY: 'auto' }}
+    >
+      <h4 className="text-white text-sm font-bold mb-2">Cluster Dashboard: {cluster.nametag}</h4>
+      <div className="space-y-2 text-xs text-white/80">
+        <p>Total Value: {formatLargeNumber(totalValue)}</p>
+        <p>Wallets: {cluster.wallets.length}</p>
+        <p>Transactions: {cluster.transactions.length}</p>
+        <p>Risk Score: {(riskScore * 100).toFixed(1)}% {riskScore > 0.7 && <span className="text-red-500 ml-1">⚠️ High Risk</span>}</p>
+        <TrendChart transactions={cluster.transactions} />
+      </div>
+    </motion.div>
+  );
+};
+
 const CACHE_TTL = 3600000; // 1 hour
 const NODES_PER_PAGE = 50;
 
@@ -377,6 +442,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [filterType, setFilterType] = useState('all');
   const [page, setPage] = useState(1);
   const [selectedEntity, setSelectedEntity] = useState({ type: null, data: { transactions: [] } });
+  const [clusters, setClusters] = useState([]);
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
@@ -902,11 +968,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (!containerRef.current || !nodes.length || !walletInfo.address) return;
 
     try {
-      // Load TensorFlow.js dynamically
       await TensorFlowJS;
       logger.log('TensorFlow.js loaded for clustering');
-
-      logger.log('walletInfo.image for root node:', walletInfo.image);
 
       if (cyRef.current) {
         cyRef.current.destroy();
@@ -914,6 +977,201 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
       const rootId = walletInfo.address.toLowerCase();
 
+      // Create elements with compound structure for clusters
+      let elements = [...nodes, ...edges];
+
+      // New: Add compound nodes for clusters (after detecting clusters)
+      const detectedClusters = await detectClusters(
+        nodes.map((node) => ({ ...node.data, timestamp: Date.now() })),
+        edges.map((edge) => edge.data),
+        { useDBSCAN: true, useGNN: true } // New options
+      );
+      setClusters(detectedClusters); // Update state for dashboard
+
+      // Add compound parents
+      detectedClusters.forEach((cluster) => {
+        const parentId = `cluster-${cluster.clusterId}`;
+        elements.push({
+          data: { id: parentId, label: cluster.nametag },
+          style: { 'background-color': `hsl(${cluster.clusterId * 60}, 70%, 50%)`, width: 200, height: 150 }
+        });
+        cluster.wallets.forEach((wallet) => {
+          elements.push({
+            data: { id: wallet.id, parent: parentId, ...wallet.data } // Assign parent
+          });
+        });
+      });
+
+      cyRef.current = cytoscape({
+        container: containerRef.current,
+        elements,
+        style: [
+          {
+            selector: 'node',
+            style: {
+              'background-image': (ele) => {
+                const image = ele.data('isRoot') ? walletInfo.image : ele.data('image');
+                logger.log(`Node ${ele.data('id')} image (isRoot: ${ele.data('isRoot')}):`, image);
+                if (isValidNametagImage(image)) {
+                  return image.startsWith('http')
+                    ? image
+                    : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${image}`;
+                }
+                return 'none';
+              },
+              'background-fit': 'cover',
+              'background-clip': 'node',
+              'background-color': (ele) => {
+                if (ele.data('layer') === 1) return '#4F46E5';
+                if (ele.data('layer') === 2) return '#10B981';
+                if (ele.data('layer') === 3) return '#F59E0B';
+                return '#666';
+              },
+              'width': (ele) => (ele.data('isRoot') ? 150 : ele.data('layer') === 3 ? 64 : 56),
+              'height': (ele) => (ele.data('isRoot') ? 150 : ele.data('layer') === 3 ? 64 : 56),
+              'text-valign': 'center',
+              'text-halign': 'center',
+              'font-size': '12px',
+              'color': '#fff',
+              'border-width': 1,
+              'border-color': '#fff',
+              'border-opacity': 0.5,
+            },
+          },
+          {
+            selector: 'edge',
+            style: {
+              width: (ele) => (ele.data('layer') === 3 ? 1.5 : 2),
+              'line-color': (ele) =>
+                ele.data('type') === 'incoming'
+                  ? ele.data('layer') === 3
+                    ? '#FFD700'
+                    : '#00BFFF'
+                  : ele.data('layer') === 3
+                    ? '#FFD700'
+                    : '#EF4444',
+              'curve-style': 'bezier',
+            },
+          },
+          {
+            selector: 'node[?parent]',
+            style: {
+              'background-opacity': 0.8,
+              'width': 40,
+              'height': 40,
+            }
+          },
+          {
+            selector: ':parent',
+            style: {
+              'background-opacity': 0.3,
+              'text-valign': 'center',
+              'color': '#fff',
+              'font-size': '14px',
+            }
+          },
+        ],
+        layout: {
+          name: 'cola',
+          nodeSpacing: (node) => (node.data('layer') === 1 ? 200 : node.data('layer') === 2 ? 120 : 80),
+          edgeLength: (edge) => (edge.data('layer') === 2 ? 150 : 100),
+          fit: true,
+          padding: 50,
+          animate: true,
+          animationDuration: 1000,
+          avoidOverlap: true,
+          handleDisconnected: true,
+          maxSimulationTime: 4000,
+          compoundSpringLength: () => 100,
+        },
+      });
+
+      cyRef.current.on('tap', 'node:parent', (evt) => {
+        const node = evt.target;
+        node.children().toggleClass('collapsed', !node.hasClass('collapsed'));
+        cyRef.current.layout({ name: 'cola' }).run();
+      });
+
+      cyRef.current.nodeHtmlLabel([
+        {
+          query: 'node',
+          halign: 'center',
+          valign: 'bottom',
+          halignBox: 'center',
+          valignBox: 'bottom',
+          tpl: (data) => {
+            const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id === data.id));
+            const risk = cluster?.riskScore || 0;
+            const clusterLabel = data.isRoot ? walletInfo.nametag || 'Unknown' : cluster ? cluster.nametag : 'Unknown';
+            const image = data.isRoot ? walletInfo.image : data.image;
+            const nametag = data.isRoot ? '' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
+            logger.log(`Rendering node label for ${data.id}, isRoot: ${data.isRoot}, image: ${image}`);
+            return `
+            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[10px] sm:text-[11px] py-1 px-2 rounded">
+              ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
+              <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol}</div>
+              <div>Risk: ${(risk * 100).toFixed(0)}%</div>
+            </div>
+          `;
+          },
+        },
+      ]);
+
+      cyRef.current.on('mouseover', 'node', (evt) => {
+        const node = evt.target;
+        const walletId = node.data('id');
+        const rootId = walletInfo.address.toLowerCase();
+        const isRootNode = node.data('isRoot');
+        const risk = detectedClusters.find(c => c.wallets.some(w => w.id === walletId))?.riskScore;
+        if (risk > 0.7) {
+          toast.warn(`High risk detected for ${walletId}: ${(risk * 100).toFixed(1)}%`, { theme: 'dark' });
+        }
+        logger.log(`Hover on node: ${walletId}, isRoot: ${isRootNode}, filterType: ${filterType}`);
+
+        if (!isRootNode && detectedClusters.find((c) => c.wallets.some((w) => w.id === walletId))) {
+          const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id === walletId));
+          const clusterTxs = filterTransactions(cluster.transactions, filterType, rootId);
+          logger.log('Cluster transactions:', clusterTxs);
+          setSelectedEntity({ type: 'cluster', data: { ...cluster, transactions: clusterTxs } });
+        } else {
+          const relatedTxs = filterTransactions(edges, filterType, rootId, walletId);
+          logger.log('Node transactions:', relatedTxs);
+          setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
+        }
+      });
+
+      cyRef.current.nodes().forEach((node) => {
+        const wallet = node.data('id');
+        const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id === wallet));
+        if (cluster && !node.data('isRoot')) {
+          node.style('border-color', `hsl(${cluster.clusterId * 60}, 70%, 50%)`);
+          node.style('border-width', 2);
+        }
+        if (node.data('layer') === 3) {
+          node.style('border-color', '#FFD700');
+          node.style('border-width', 2);
+        }
+      });
+
+      cyRef.current.on('layoutstop', () => {
+        const root = cyRef.current.getElementById(rootId);
+        if (root.length) {
+          const rootPos = root.position();
+          cyRef.current.nodes().forEach((node) => {
+            const pos = node.position();
+            node.position({
+              x: pos.x - rootPos.x,
+              y: pos.y - rootPos.y,
+            });
+          });
+        }
+        requestAnimationFrame(() => cyRef.current?.fit());
+      });
+    } catch (err) {
+      logger.error('Error initializing Cytoscape:', err);
+      // Fallback: Use old clustering without compounds
+      const fallbackClusters = detectClusters(nodes.map((n) => n.data), edges.map((e) => e.data), { useML: false });
+      setClusters(fallbackClusters);
       cyRef.current = cytoscape({
         container: containerRef.current,
         elements: [...nodes, ...edges],
@@ -923,7 +1181,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             style: {
               'background-image': (ele) => {
                 const image = ele.data('isRoot') ? walletInfo.image : ele.data('image');
-                logger.log(`Node ${ele.data('id')} image (isRoot: ${ele.data('isRoot')}):`, image);
                 if (isValidNametagImage(image)) {
                   return image.startsWith('http')
                     ? image
@@ -978,98 +1235,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           handleDisconnected: true,
           maxSimulationTime: 4000,
         },
-      });
-
-      const clusters = await detectClusters(
-        nodes.map((node) => ({ ...node.data, timestamp: Date.now() })),
-        edges.map((edge) => edge.data)
-      );
-
-      cyRef.current.nodeHtmlLabel([
-        {
-          query: 'node',
-          halign: 'center',
-          valign: 'bottom',
-          halignBox: 'center',
-          valignBox: 'bottom',
-          tpl: (data) => {
-            const cluster = clusters.find((c) => c.wallets.some((w) => w.id === data.id));
-            const clusterLabel = data.isRoot ? walletInfo.nametag || 'Unknown' : cluster ? cluster.nametag : 'Unknown';
-            const image = data.isRoot ? walletInfo.image : data.image;
-            const nametag = data.isRoot ? '' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
-            logger.log(`Rendering node label for ${data.id}, isRoot: ${data.isRoot}, image: ${image}`);
-            return `
-            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[10px] sm:text-[11px] py-1 px-2 rounded">
-              ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
-              <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol
-              }</div>
-            </div>
-          `;
-          },
-        },
-      ]);
-
-      cyRef.current.on('mouseover', 'node', (evt) => {
-        const node = evt.target;
-        const walletId = node.data('id');
-        const rootId = walletInfo.address.toLowerCase();
-        const isRootNode = node.data('isRoot');
-        const cluster = clusters.find((c) => c.wallets.some((w) => w.id === walletId));
-
-        logger.log(`Hover on node: ${walletId}, isRoot: ${isRootNode}, filterType: ${filterType}`);
-
-        if (cluster && !isRootNode) {
-          const clusterTxs = filterTransactions(cluster.transactions, filterType, rootId);
-          logger.log('Cluster transactions:', clusterTxs);
-          setSelectedEntity({ type: 'cluster', data: { ...cluster, transactions: clusterTxs } });
-        } else {
-          const relatedTxs = filterTransactions(edges, filterType, rootId, walletId);
-          logger.log('Node transactions:', relatedTxs);
-          setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
-        }
-      });
-
-      cyRef.current.nodes().forEach((node) => {
-        const wallet = node.data('id');
-        const cluster = clusters.find((c) => c.wallets.some((w) => w.id === wallet));
-        if (cluster && !node.data('isRoot')) {
-          node.style('border-color', `hsl(${cluster.clusterId * 60}, 70%, 50%)`);
-          node.style('border-width', 2);
-        }
-        if (node.data('layer') === 3) {
-          node.style('border-color', '#FFD700');
-          node.style('border-width', 2);
-        }
-      });
-
-      cyRef.current.on('layoutstop', () => {
-        const root = cyRef.current.getElementById(rootId);
-        if (root.length) {
-          const rootPos = root.position();
-          cyRef.current.nodes().forEach((node) => {
-            const pos = node.position();
-            node.position({
-              x: pos.x - rootPos.x,
-              y: pos.y - rootPos.y,
-            });
-          });
-        }
-        requestAnimationFrame(() => cyRef.current?.fit());
-      });
-    } catch (err) {
-      logger.error('Error initializing Cytoscape:', err);
-      // Fallback to original clustering if TF.js fails
-      const fallbackClusters = detectClusters(nodes.map((n) => n.data), edges.map((e) => e.data), { useML: false });
-      // Update selected entity with fallback clusters
-      setSelectedEntity((prev) => {
-        const walletId = prev.data.id;
-        const rootId = walletInfo.address.toLowerCase();
-        const cluster = fallbackClusters.find((c) => c.wallets.some((w) => w.id === walletId));
-        if (cluster && prev.type === 'cluster') {
-          const clusterTxs = filterTransactions(cluster.transactions, filterType, rootId);
-          return { type: 'cluster', data: { ...cluster, transactions: clusterTxs } };
-        }
-        return prev;
       });
     }
   }, [nodes, edges, walletInfo, filterType, walletAddress]);
@@ -1459,6 +1624,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         )}
       </div>
       <AnimatePresence>
+        {selectedEntity.type === 'cluster' && (
+          <ClusterDashboard entity={selectedEntity} isMobile={isMobile} />
+        )}
         <VirtuosoTable
           key={selectedEntity.data.transactions.length} // Ép re-render khi transactions thay đổi
           transactions={selectedEntity.data.transactions}

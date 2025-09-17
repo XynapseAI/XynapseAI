@@ -132,7 +132,7 @@ async function fetchTransactions(address) {
   try {
     const response = await axios.post(
       `${process.env.API_BASE_URL}/api/sim`,
-      { action: 'transactions', address, minValueUsd: 50_000_000 },
+      { action: 'transactions', address, minValueUsd: 100_000_000 },
       {
         headers: {
           'X-Sim-Api-Key': process.env.SIM_API_KEY,
@@ -341,7 +341,7 @@ async function main() {
       const transactions = await fetchTransactions(wallet.address);
       logger.info(`Found ${transactions.length} transactions for wallet ${wallet.address}`);
       for (const tx of transactions) {
-        if (tx.value_usd >= 50_000_000) {
+        if (tx.value_usd >= 100_000_000) {
           const txTime = new Date(tx.block_time);
           const now = new Date();
           const hoursDiff = (now - txTime) / (1000 * 60 * 60);

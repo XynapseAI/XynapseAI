@@ -476,6 +476,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
 }
 
 export async function POST(request) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const startTime = Date.now();
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -683,8 +684,21 @@ export async function POST(request) {
       },
     };
 
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(result));
-    logger.info(`Request processed in ${Date.now() - startTime}ms`);
+    const calculateServerRisk = (txs) => {
+      return txs.map(tx => ({
+        ...tx,
+        riskScore: Math.random() > 0.8 ? 0.9 : 0.3 // Placeholder; integrate ML later
+      }));
+    };
+
+    const resultWithRisk = {
+      ...result,
+      incoming: calculateServerRisk(result.incoming),
+      outgoing: calculateServerRisk(result.outgoing),
+      layer3: calculateServerRisk(result.layer3),
+    };
+
+    await redisClient.setEx(cacheKey, 3600, JSON.stringify(resultWithRisk));
 
     return NextResponse.json(result, { headers: securityHeaders });
   } catch (error) {
