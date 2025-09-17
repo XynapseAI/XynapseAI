@@ -1,5 +1,5 @@
 // server/websocket.js
-import { WebSocketServer } from 'ws'; // Use WebSocketServer instead of WebSocket
+import { WebSocket, WebSocketServer } from 'ws'; // Import both WebSocket and WebSocketServer
 import { createClient } from 'redis';
 import { logger } from '../utils/serverLogger.js';
 
@@ -106,11 +106,11 @@ function startWebSocketServer(httpServer) {
   let pingInterval = null;
   const mempoolTxCache = new Set();
 
-  const wss = new WebSocketServer({ server: httpServer }); // Use WebSocketServer
+  const wss = new WebSocketServer({ server: httpServer }); // Use WebSocketServer for server
   logger.info('WebSocket server initialized on HTTP server');
 
   const connect = () => {
-    ws = new WebSocketServer.WebSocket(MEMPOOL_WS_URL, { // Use WebSocketServer.WebSocket for client
+    ws = new WebSocket(MEMPOOL_WS_URL, { // Use WebSocket for client
       headers: { 'User-Agent': 'xynapse-bot/1.0' },
       perMessageDeflate: false,
     });
@@ -120,7 +120,7 @@ function startWebSocketServer(httpServer) {
       reconnectAttempts = 0;
       ws.send(JSON.stringify({ "track-mempool-txids": true }));
       pingInterval = setInterval(() => {
-        if (ws.readyState === WebSocketServer.WebSocket.OPEN) {
+        if (ws.readyState === WebSocket.OPEN) {
           ws.ping();
           logger.debug('Sent WebSocket ping');
         }
