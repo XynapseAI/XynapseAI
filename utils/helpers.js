@@ -35,11 +35,16 @@ export const getExplorerUrls = (chain, hash, address) => {
   // Normalize chain name to lowercase to avoid case sensitivity issues
   const normalizedChain = (String(chain || 'ethereum')).toLowerCase();
   const isSVM = SUPPORTED_SVM_CHAINS.includes(normalizedChain);
+  const isBitcoin = normalizedChain === 'bitcoin';
 
   let txUrl = '#';
   let addressUrl = '#';
 
-  if (isSVM) {
+  if (isBitcoin) {
+    // Bitcoin: Use mempool.space
+    txUrl = hash ? `https://mempool.space/tx/${hash}` : '#';
+    addressUrl = address ? `https://mempool.space/address/${address}` : '#';
+  } else if (isSVM) {
     // SVM chains: Use Solscan for Solana, Eclipse Explorer for Eclipse
     if (normalizedChain === 'solana') {
       txUrl = hash ? `https://solscan.io/tx/${hash}` : '#';
@@ -67,9 +72,9 @@ export const getExplorerUrls = (chain, hash, address) => {
     addressUrl = supportsAddress && address ? `${explorer.baseUrl}/address/${address}` : '#';
   }
 
-  // Log for SVM as well
-  if (isSVM) {
-    logger.log('getExplorerUrls (SVM):', {
+  // Log for SVM and Bitcoin
+  if (isSVM || isBitcoin) {
+    logger.log('getExplorerUrls (SVM or Bitcoin):', {
       inputChain: chain,
       normalizedChain,
       txUrl,

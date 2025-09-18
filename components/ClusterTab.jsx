@@ -434,12 +434,93 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
   const memoizedWalletBalances = useMemo(() => walletBalances, [walletBalances, status]);
   const memoizedWalletTransactions = useMemo(() => walletTransactions, [walletTransactions, status]);
 
+  const fetchBitcoinTransactions = async (clusterId) => {
+    if (status !== "authenticated") {
+      setTransactionsError("Please log in to access Bitcoin transaction data.");
+      setIsLoadingTransactions(false);
+      return;
+    }
+    setIsLoadingTransactions(true);
+    setTransactionsError(null);
+    try {
+      const mappedId = mapExchangeId(clusterId);
+      const cacheKey = `mempool-transactions:${mappedId}`;
+      const cachedData = getCachedData(cacheKey, 60 * 1000);
+      if (cachedData) {
+        logger.info(`Cache hit for Bitcoin transactions: ${cacheKey}`);
+        return cachedData;
+      }
+
+      const response = await fetch(`/api/mempool-transactions`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        let errorMessage = `Failed to fetch Bitcoin transactions: ${response.status} ${response.statusText}`;
+        try {
+          const result = JSON.parse(text);
+          errorMessage = result.detail || errorMessage;
+        } catch {
+          errorMessage = `Failed to fetch Bitcoin transactions: Invalid JSON response`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      if (!result.success || !Array.isArray(result.data)) {
+        throw new Error("Invalid Bitcoin transaction data format");
+      }
+
+      const filteredTxs = result.data.filter((tx) => {
+        const fromAddresses = tx.inputs.map((input) => input.address.toLowerCase());
+        const toAddresses = tx.outputs.map((output) => output.address.toLowerCase());
+        const clusterWallets = uniqueWalletData
+          .filter((w) => w.chain?.toLowerCase() === "bitcoin")
+          .map((w) => w.holder_address.toLowerCase());
+        return (
+          fromAddresses.some((addr) => clusterWallets.includes(addr)) ||
+          toAddresses.some((addr) => clusterWallets.includes(addr))
+        );
+      });
+
+      const formattedTxs = filteredTxs.map((tx) => ({
+        txid: tx.txid,
+        chain: "bitcoin",
+        from: tx.inputs[0]?.address || "unknown",
+        to: tx.outputs[0]?.address || "unknown",
+        value_btc: tx.value_btc || 0,
+        value_usd: tx.value_usd || 0,
+        timestamp: tx.timestamp || Math.floor(Date.now() / 1000),
+        type: "transfer",
+        token_metadata: { symbol: "BTC", logo: BITCOIN_LOGO },
+      }));
+
+      setCachedData(cacheKey, formattedTxs);
+      logger.log("Fetched and cached Bitcoin transactions:", { clusterId, count: formattedTxs.length });
+      return formattedTxs;
+    } catch (err) {
+      const errorMessage = err.message || "Unknown error fetching Bitcoin transactions";
+      logger.error("Error fetching Bitcoin transactions:", { clusterId, error: errorMessage, stack: err.stack });
+      setTransactionsError(errorMessage);
+      toast.error(errorMessage, { position: "top-center", autoClose: 3000 });
+      return [];
+    } finally {
+      setIsLoadingTransactions(false);
+    }
+  };
+
   // Fetch transactions with authenticated cache
   const fetchTransactions = async (input, minValueUsd = null) => {
     if (status !== "authenticated") {
       setTransactionsError("Please log in to access transaction data.");
       setIsLoadingTransactions(false);
-      return;
+      return [];
     }
     setIsLoadingTransactions(true);
     setTransactionsError(null);
@@ -457,9 +538,8 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
       const cacheKey = `sim:transactions:auth:${walletAddresses.join(',')}:${minValueUsd || 'none'}`;
       const cachedData = getCachedData(cacheKey, 60 * 1000);
       if (cachedData) {
-        setTransactions(cachedData);
         logger.info(`Cache hit for transactions: ${cacheKey} from localStorage`);
-        return;
+        return cachedData;
       }
 
       const response = await fetch(`/api/sim`, {
@@ -531,7 +611,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                   throw new Error(parsedObj.detail);
                 }
                 transactionsData.push(parsedObj);
-                debouncedSetTransactions([...transactionsData]);
               } catch (parseError) {
                 logger.warn(`Failed to parse object: ${parseError.message}`, { objStr });
               }
@@ -553,7 +632,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
             const parsed = JSON.parse(buffer);
             if (!parsed.detail) {
               transactionsData.push(parsed);
-              debouncedSetTransactions([...transactionsData]);
             } else {
               throw new Error(parsed.detail);
             }
@@ -564,17 +642,60 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
       }
 
       setCachedData(cacheKey, transactionsData);
-      logger.log("Fetched and cached transactions:", { walletAddresses, minValueUsd, data: transactionsData });
+      logger.log("Fetched and cached transactions:", { walletAddresses, minValueUsd, count: transactionsData.length });
+      return transactionsData;
     } catch (err) {
       const errorMessage = err.message || "Unknown error fetching transactions";
       logger.error("Error fetching transactions:", { input, minValueUsd, error: errorMessage, stack: err.stack });
-      setTransactions([]);
       setTransactionsError(errorMessage);
       toast.error(errorMessage, { position: "top-center", autoClose: 3000 });
+      return [];
     } finally {
       setIsLoadingTransactions(false);
     }
   };
+
+  useEffect(() => {
+    if (status === "authenticated" && walletData.length > 0) {
+      const evmWallets = walletData.filter(
+        (w) => !["bitcoin", "dogecoin", "litecoin"].includes(w.chain?.toLowerCase())
+      );
+      const btcWallets = walletData.filter(
+        (w) => w.chain?.toLowerCase() === "bitcoin"
+      );
+      const fetchAllTransactions = async () => {
+        try {
+          setIsLoadingTransactions(true);
+          setTransactionsError(null);
+
+          const [evmTxs, btcTxs] = await Promise.all([
+            evmWallets.length > 0 ? fetchTransactions(evmWallets, 1000000) : Promise.resolve([]),
+            btcWallets.length > 0 ? fetchBitcoinTransactions(clusterIdFromQuery) : Promise.resolve([]),
+          ]);
+
+          const combinedTxs = [...evmTxs, ...btcTxs]
+            .filter((tx) => tx && (tx.hash || tx.txid)) // Loại bỏ các giao dịch không hợp lệ
+            .sort((a, b) => {
+              const timeA = a.block_time || a.timestamp || 0;
+              const timeB = b.block_time || b.timestamp || 0;
+              return timeB - timeA;
+            });
+
+          debouncedSetTransactions(combinedTxs);
+          logger.log("Combined transactions:", { evmCount: evmTxs.length, btcCount: btcTxs.length, total: combinedTxs.length });
+        } catch (err) {
+          const errorMessage = err.message || "Failed to fetch transactions";
+          logger.error("Error combining transactions:", { error: errorMessage, stack: err.stack });
+          setTransactionsError(errorMessage);
+          toast.error(errorMessage, { position: "top-center", autoClose: 3000 });
+          setTransactions([]);
+        } finally {
+          setIsLoadingTransactions(false);
+        }
+      };
+      fetchAllTransactions();
+    }
+  }, [walletData, status, clusterIdFromQuery, debouncedSetTransactions]);
 
   // Fetch wallet transactions with authenticated cache
   const fetchWalletTransactions = async (walletAddress) => {
@@ -1019,15 +1140,16 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
     return (
       <div className="flex items-center gap-2 group relative">
         <span className="truncate">{nameTag !== "N/A" ? nameTag : truncated}</span>
-        <motion.button
+        <motion.span
           onClick={(e) => {
             e.stopPropagation();
             navigator.clipboard.writeText(address);
             toast.success("Address copied!", { autoClose: 2000 });
           }}
-          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg no-hover-effect"
+          className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg cursor-pointer"
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
+          role="button"
           aria-label="Copy address"
         >
           <svg
@@ -1044,7 +1166,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-        </motion.button>
+        </motion.span>
       </div>
     );
   };
@@ -1200,26 +1322,28 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
 
     const renderTransactionRow = (index, tx) => {
       const chainName = typeof tx.chain === "string" ? tx.chain.toLowerCase() : (tx.chain_id || "unknown").toString().toLowerCase();
-      if (["bitcoin", "dogecoin", "litecoin"].includes(chainName)) return null;
+      const isBitcoin = chainName === "bitcoin";
 
       const fromWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
       const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
       const fromNtag = {
         name: fromWallet.name_tag || "N/A",
-        image: fromWallet.name_tag_image || "/fallback-image.webp",
+        image: fromWallet.image || (isBitcoin ? BITCOIN_LOGO : "/fallback-image.webp"),
       };
       const toNtag = {
         name: toWallet.name_tag || "N/A",
-        image: toWallet.name_tag_image || "/fallback-image.webp",
+        image: toWallet.image || (isBitcoin ? BITCOIN_LOGO : "/fallback-image.webp"),
       };
-      const chain = chainName !== "unknown" ? chainName : "ethereum";
-      const { txUrl } = getExplorerUrls(chain, tx.hash || "", "");
-      let tokenSymbol = tx.token_metadata?.symbol || tx.token || "Unknown";
-      const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Other";
-      let displayValue = Number(tx.value || 0).toLocaleString("en-US", { maximumFractionDigits: 1 });
-      let tokenLogo = tx.token_metadata?.logo || "/fallback-image.webp";
+      const chain = isBitcoin ? "bitcoin" : chainName !== "unknown" ? chainName : "ethereum";
+      const { txUrl } = getExplorerUrls(chain, tx.hash || tx.txid || "", "");
+      let tokenSymbol = isBitcoin ? "BTC" : tx.token_metadata?.symbol || tx.token || "Unknown";
+      const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Transfer";
+      let displayValue = isBitcoin
+        ? `${(Number(tx.value_btc) || 0).toLocaleString("en-US", { maximumFractionDigits: 8 })} BTC`
+        : Number(tx.value || 0).toLocaleString("en-US", { maximumFractionDigits: 1 });
+      let tokenLogo = isBitcoin ? BITCOIN_LOGO : tx.token_metadata?.logo || "/fallback-image.webp";
 
-      if (tx.type === "swap" && tx.swap_details) {
+      if (!isBitcoin && tx.type === "swap" && tx.swap_details) {
         const sent = tx.swap_details.sent[0];
         const received = tx.swap_details.received[0];
         if (sent && received) {
@@ -1235,13 +1359,16 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
           tokenSymbol = received.symbol;
           tokenLogo = received.logo || "/fallback-image.webp";
         }
-      } else if (tx.type === "other") {
+      } else if (!isBitcoin && tx.type === "other") {
         displayValue = tx.value || "N/A";
       }
 
+      // Determine the appropriate timestamp field based on chain type
+      const time = isBitcoin ? tx.timestamp : tx.block_time;
+
       return (
         <motion.div
-          key={`${tx.hash}-${index}`}
+          key={`${isBitcoin ? tx.txid : tx.hash}-${index}`}
           className="flex border-t border-white/10 hover:bg-white/5 transition-all duration-300 py-2"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1296,12 +1423,12 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                     onError={(e) => (e.target.src = "/fallback-image.webp")}
                     loading="lazy"
                   />
-                  <button
+                  <span
                     onClick={() => handleWalletClick(tx.from)}
-                    className="text-white hover:text-white/80 no-hover-effect truncate"
+                    className="text-white hover:text-white/80 cursor-pointer no-hover-effect truncate"
                   >
                     {truncateAddressWithHover(tx.from, fromNtag.name)}
-                  </button>
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 group relative">
                   <img
@@ -1311,12 +1438,12 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                     onError={(e) => (e.target.src = "/fallback-image.webp")}
                     loading="lazy"
                   />
-                  <button
+                  <span
                     onClick={() => handleWalletClick(tx.to)}
-                    className="text-white hover:text-white/80 no-hover-effect truncate"
+                    className="text-white hover:text-white/80 cursor-pointer no-hover-effect truncate"
                   >
                     {truncateAddressWithHover(tx.to, toNtag.name)}
-                  </button>
+                  </span>
                 </div>
               </div>
             </div>
@@ -1324,14 +1451,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
           <div className="w-[20%] sm:w-[20%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-1">
               <span
-                className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium ${tx.type === "receive"
-                  ? "bg-neon-green/20 text-neon-green"
-                  : tx.type === "send"
-                    ? "bg-neon-blue/20 text-neon-blue"
-                    : tx.type === "swap"
-                      ? "bg-purple-400/20 text-purple-400"
-                      : "bg-white/20 text-white/60"
-                  }`}
+                className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium bg-neon-blue/20 text-neon-blue`}
               >
                 {typeDisplay}
               </span>
@@ -1345,7 +1465,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
             <div className="flex flex-col items-center gap-0.5">
               <a href={txUrl} target="_blank" rel="noopener noreferrer">
                 <img
-                  src="/logos/etherscan-logo.webp"
+                  src={isBitcoin ? "/logos/bitcoin.webp" : "/logos/etherscan-logo.webp"}
                   alt="Explorer"
                   width={isMobile ? 12 : 14}
                   height={isMobile ? 12 : 14}
@@ -1355,7 +1475,38 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                 />
               </a>
               <span className="text-[6px] sm:text-[9px] text-white/60 truncate">
-                {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : "N/A"}
+                {(() => {
+                  if (time && !isNaN(time)) {
+                    try {
+                      // Ensure time is treated as seconds and convert to milliseconds
+                      const date = new Date(Number(time) * 1000);
+                      if (isNaN(date.getTime())) {
+                        logger.warn("Invalid date for transaction:", {
+                          txid: tx.txid || tx.hash,
+                          time,
+                          chain: chainName,
+                        });
+                        return "N/A";
+                      }
+                      return formatDistanceToNow(date, { addSuffix: true });
+                    } catch (e) {
+                      logger.warn("Error formatting time for transaction:", {
+                        txid: tx.txid || tx.hash,
+                        time,
+                        chain: chainName,
+                        error: e.message,
+                      });
+                      return "N/A";
+                    }
+                  }
+                  logger.warn("Missing time for transaction:", {
+                    txid: tx.txid || tx.hash,
+                    block_time: tx.block_time,
+                    timestamp: tx.timestamp,
+                    chain: chainName,
+                  });
+                  return "N/A";
+                })()}
               </span>
             </div>
           </div>
