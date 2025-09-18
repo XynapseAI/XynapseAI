@@ -40,6 +40,45 @@ const EXCHANGE_MAPPING = {
   mtgox: "mtgox",
 };
 
+const normalizeTimestamp = (tx) => {
+  // Safely determine chain type
+  const chain = typeof tx.chain === 'string' ? tx.chain.toLowerCase() : (tx.chain_id || 'unknown').toString().toLowerCase();
+
+  if (chain === "bitcoin" && tx.timestamp) {
+    // Bitcoin timestamp is in seconds
+    return Number(tx.timestamp);
+  } else if (tx.block_time) {
+    // EVM block_time is an ISO string, convert to seconds
+    try {
+      const date = new Date(tx.block_time);
+      if (isNaN(date.getTime())) {
+        logger.warn("Invalid block_time date for transaction:", {
+          txid: tx.txid || tx.hash,
+          block_time: tx.block_time,
+          chain,
+        });
+        return 0;
+      }
+      return Math.floor(date.getTime() / 1000);
+    } catch (e) {
+      logger.warn("Error parsing block_time for transaction:", {
+        txid: tx.txid || tx.hash,
+        block_time: tx.block_time,
+        chain,
+        error: e.message,
+      });
+      return 0;
+    }
+  }
+  logger.warn("Missing timestamp for transaction:", {
+    txid: tx.txid || tx.hash,
+    block_time: tx.block_time,
+    timestamp: tx.timestamp,
+    chain,
+  });
+  return 0;
+};
+
 const formatLargeNumber = (value, currency, decimals = 2) => {
   const absValue = Math.abs(value);
   if (absValue >= 1e9) {
@@ -673,12 +712,16 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
             btcWallets.length > 0 ? fetchBitcoinTransactions(clusterIdFromQuery) : Promise.resolve([]),
           ]);
 
+          // Debug: Log transaction data
+          logger.log("EVM transactions:", { evmTxs: evmTxs.map(tx => ({ chain: tx.chain, chain_id: tx.chain_id, hash: tx.hash, block_time: tx.block_time })) });
+          logger.log("Bitcoin transactions:", { btcTxs: btcTxs.map(tx => ({ chain: tx.chain, txid: tx.txid, timestamp: tx.timestamp })) });
+
           const combinedTxs = [...evmTxs, ...btcTxs]
-            .filter((tx) => tx && (tx.hash || tx.txid)) // Loại bỏ các giao dịch không hợp lệ
+            .filter((tx) => tx && (tx.hash || tx.txid)) // Remove invalid transactions
             .sort((a, b) => {
-              const timeA = a.block_time || a.timestamp || 0;
-              const timeB = b.block_time || b.timestamp || 0;
-              return timeB - timeA;
+              const timeA = normalizeTimestamp(a);
+              const timeB = normalizeTimestamp(b);
+              return timeB - timeA; // Sort descending (newer first)
             });
 
           debouncedSetTransactions(combinedTxs);
@@ -1135,11 +1178,69 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
     }));
   }, [memoizedPortfolioData, memoizedWalletData, chainLogos]);
 
-  const truncateAddressWithHover = (address, nameTag) => {
-    const truncated = truncateAddress(address).text;
+  const truncateAddressWithHover = (address, nameTag, source) => {
+    if (!address || address === 'None' || typeof address !== 'string') {
+      return (
+        <div className="flex items-center gap-2 group relative">
+          <span className="truncate">N/A</span>
+        </div>
+      );
+    }
+
+    const normalizedAddress = address.toLowerCase();
+    let shortAddress;
+
+    // Custom truncation for Bitcoin addresses when source is Blockchair
+    if (source === 'Blockchair') {
+      // Handle both legacy (1..., 3...) and bech32 (bc1...) Bitcoin addresses
+      if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-zA-Z0-9]{39,59}$/.test(address)) {
+        shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
+      } else {
+        shortAddress = address; // Fallback for unrecognized formats
+      }
+    } else {
+      // Use existing truncateAddress for EVM and other addresses
+      const { text, shortAddress: computedShortAddress } = truncateAddress(address, { [normalizedAddress]: { name: nameTag } }, source);
+      shortAddress = computedShortAddress;
+      if (nameTag && nameTag !== 'N/A') {
+        return (
+          <div className="flex items-center gap-2 group relative">
+            <span className="truncate">{nameTag}</span>
+            <motion.span
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(address);
+                toast.success("Address copied!", { autoClose: 2000 });
+              }}
+              className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg cursor-pointer"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              role="button"
+              aria-label="Copy address"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+            </motion.span>
+          </div>
+        );
+      }
+    }
+
     return (
       <div className="flex items-center gap-2 group relative">
-        <span className="truncate">{nameTag !== "N/A" ? nameTag : truncated}</span>
+        <span className="truncate">{shortAddress}</span>
         <motion.span
           onClick={(e) => {
             e.stopPropagation();
@@ -1321,50 +1422,57 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
     }
 
     const renderTransactionRow = (index, tx) => {
-      const chainName = typeof tx.chain === "string" ? tx.chain.toLowerCase() : (tx.chain_id || "unknown").toString().toLowerCase();
-      const isBitcoin = chainName === "bitcoin";
+      // Safely handle chain
+      const chainName = typeof tx.chain === 'string' ? tx.chain.toLowerCase() : (tx.chain_id || 'unknown').toString().toLowerCase();
+      const isBitcoin = chainName === 'bitcoin';
 
       const fromWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
       const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
       const fromNtag = {
-        name: fromWallet.name_tag || "N/A",
-        image: fromWallet.image || (isBitcoin ? BITCOIN_LOGO : "/fallback-image.webp"),
+        name: fromWallet.name_tag || 'N/A',
+        image: fromWallet.image || (isBitcoin ? BITCOIN_LOGO : '/fallback-image.webp'),
       };
       const toNtag = {
-        name: toWallet.name_tag || "N/A",
-        image: toWallet.image || (isBitcoin ? BITCOIN_LOGO : "/fallback-image.webp"),
+        name: toWallet.name_tag || 'N/A',
+        image: toWallet.image || (isBitcoin ? BITCOIN_LOGO : '/fallback-image.webp'),
       };
-      const chain = isBitcoin ? "bitcoin" : chainName !== "unknown" ? chainName : "ethereum";
-      const { txUrl } = getExplorerUrls(chain, tx.hash || tx.txid || "", "");
-      let tokenSymbol = isBitcoin ? "BTC" : tx.token_metadata?.symbol || tx.token || "Unknown";
-      const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : "Transfer";
+      const chain = isBitcoin ? 'bitcoin' : chainName !== 'unknown' ? chainName : 'ethereum';
+      const { txUrl } = getExplorerUrls(chain, tx.hash || tx.txid || '', '');
+      let tokenSymbol = isBitcoin ? 'BTC' : tx.token_metadata?.symbol || tx.token || 'Unknown';
+      const typeDisplay = tx.type ? tx.type.charAt(0).toUpperCase() + tx.type.slice(1) : 'Transfer';
       let displayValue = isBitcoin
-        ? `${(Number(tx.value_btc) || 0).toLocaleString("en-US", { maximumFractionDigits: 8 })} BTC`
-        : Number(tx.value || 0).toLocaleString("en-US", { maximumFractionDigits: 1 });
-      let tokenLogo = isBitcoin ? BITCOIN_LOGO : tx.token_metadata?.logo || "/fallback-image.webp";
+        ? `${(Number(tx.value_btc) || 0).toLocaleString('en-US', { maximumFractionDigits: 8 })} BTC`
+        : Number(tx.value || 0).toLocaleString('en-US', { maximumFractionDigits: 1 });
+      let tokenLogo = isBitcoin ? BITCOIN_LOGO : tx.token_metadata?.logo || '/fallback-image.webp';
 
-      if (!isBitcoin && tx.type === "swap" && tx.swap_details) {
+      if (!isBitcoin && tx.type === 'swap' && tx.swap_details) {
         const sent = tx.swap_details.sent[0];
         const received = tx.swap_details.received[0];
         if (sent && received) {
-          displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol} → ${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
+          displayValue = `${Number(sent.amount).toLocaleString('en-US', { maximumFractionDigits: 1 })} ${sent.symbol} → ${Number(received.amount).toLocaleString('en-US', { maximumFractionDigits: 1 })} ${received.symbol}`;
           tokenSymbol = `${sent.symbol}/${received.symbol}`;
-          tokenLogo = sent.logo || received.logo || "/fallback-image.webp";
+          tokenLogo = sent.logo || received.logo || '/fallback-image.webp';
         } else if (sent) {
-          displayValue = `${Number(sent.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${sent.symbol}`;
+          displayValue = `${Number(sent.amount).toLocaleString('en-US', { maximumFractionDigits: 1 })} ${sent.symbol}`;
           tokenSymbol = sent.symbol;
-          tokenLogo = sent.logo || "/fallback-image.webp";
+          tokenLogo = sent.logo || '/fallback-image.webp';
         } else if (received) {
-          displayValue = `${Number(received.amount).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${received.symbol}`;
+          displayValue = `${Number(received.amount).toLocaleString('en-US', { maximumFractionDigits: 1 })} ${received.symbol}`;
           tokenSymbol = received.symbol;
-          tokenLogo = received.logo || "/fallback-image.webp";
+          tokenLogo = received.logo || '/fallback-image.webp';
         }
-      } else if (!isBitcoin && tx.type === "other") {
-        displayValue = tx.value || "N/A";
+      } else if (!isBitcoin && tx.type === 'other') {
+        displayValue = tx.value || 'N/A';
       }
 
-      // Determine the appropriate timestamp field based on chain type
-      const time = isBitcoin ? tx.timestamp : tx.block_time;
+      // Use normalized timestamp for display
+      const time = normalizeTimestamp(tx);
+
+      // Prepare nameTags for truncateAddress
+      const nameTags = {
+        [tx.from?.toLowerCase()]: { name: fromNtag.name, image: fromNtag.image },
+        [tx.to?.toLowerCase()]: { name: toNtag.name, image: toNtag.image },
+      };
 
       return (
         <motion.div
@@ -1383,17 +1491,17 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                   width={isMobile ? 14 : 16}
                   height={isMobile ? 14 : 16}
                   className="rounded-full mx-auto"
-                  onError={(e) => (e.target.src = "/fallback-image.webp")}
+                  onError={(e) => (e.target.src = '/fallback-image.webp')}
                   loading="lazy"
                 />
                 <img
-                  src={chainLogos[chain] || "/fallback-image.webp"}
-                  alt={`${CHAIN_ID_TO_NAME[chain] || chain || "Unknown"} logo`}
+                  src={chainLogos[chain] || '/fallback-image.webp'}
+                  alt={`${CHAIN_ID_TO_NAME[chain] || chain || 'Unknown'} logo`}
                   width={isMobile ? 8 : 10}
                   height={isMobile ? 8 : 10}
                   className="rounded-full absolute top-0 right-0"
-                  style={{ transform: "translate(25%, -25%)" }}
-                  onError={(e) => (e.target.src = "/fallback-image.webp")}
+                  style={{ transform: 'translate(25%, -25%)' }}
+                  onError={(e) => (e.target.src = '/fallback-image.webp')}
                   loading="lazy"
                 />
               </div>
@@ -1420,14 +1528,14 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                     src={fromNtag.image}
                     alt="From wallet logo"
                     className="w-3 h-3 rounded-full"
-                    onError={(e) => (e.target.src = "/fallback-image.webp")}
+                    onError={(e) => (e.target.src = '/fallback-image.webp')}
                     loading="lazy"
                   />
                   <span
                     onClick={() => handleWalletClick(tx.from)}
                     className="text-white hover:text-white/80 cursor-pointer no-hover-effect truncate"
                   >
-                    {truncateAddressWithHover(tx.from, fromNtag.name)}
+                    {truncateAddressWithHover(tx.from, fromNtag.name, isBitcoin ? 'Blockchair' : undefined)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 group relative">
@@ -1435,14 +1543,14 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                     src={toNtag.image}
                     alt="To wallet logo"
                     className="w-3 h-3 rounded-full"
-                    onError={(e) => (e.target.src = "/fallback-image.webp")}
+                    onError={(e) => (e.target.src = '/fallback-image.webp')}
                     loading="lazy"
                   />
                   <span
                     onClick={() => handleWalletClick(tx.to)}
                     className="text-white hover:text-white/80 cursor-pointer no-hover-effect truncate"
                   >
-                    {truncateAddressWithHover(tx.to, toNtag.name)}
+                    {truncateAddressWithHover(tx.to, toNtag.name, isBitcoin ? 'Blockchair' : undefined)}
                   </span>
                 </div>
               </div>
@@ -1465,12 +1573,12 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
             <div className="flex flex-col items-center gap-0.5">
               <a href={txUrl} target="_blank" rel="noopener noreferrer">
                 <img
-                  src={isBitcoin ? "/logos/bitcoin.webp" : "/logos/etherscan-logo.webp"}
+                  src={isBitcoin ? '/logos/bitcoin.webp' : '/logos/etherscan-logo.webp'}
                   alt="Explorer"
                   width={isMobile ? 12 : 14}
                   height={isMobile ? 12 : 14}
                   className="rounded-full"
-                  onError={(e) => (e.target.src = "/fallback-image.webp")}
+                  onError={(e) => (e.target.src = '/fallback-image.webp')}
                   loading="lazy"
                 />
               </a>
@@ -1478,34 +1586,32 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                 {(() => {
                   if (time && !isNaN(time)) {
                     try {
-                      // Ensure time is treated as seconds and convert to milliseconds
-                      const date = new Date(Number(time) * 1000);
+                      const date = new Date(time * 1000);
                       if (isNaN(date.getTime())) {
-                        logger.warn("Invalid date for transaction:", {
+                        logger.warn('Invalid date for transaction:', {
                           txid: tx.txid || tx.hash,
                           time,
                           chain: chainName,
                         });
-                        return "N/A";
+                        return 'N/A';
                       }
                       return formatDistanceToNow(date, { addSuffix: true });
                     } catch (e) {
-                      logger.warn("Error formatting time for transaction:", {
+                      logger.warn('Error formatting time for transaction:', {
                         txid: tx.txid || tx.hash,
                         time,
                         chain: chainName,
                         error: e.message,
                       });
-                      return "N/A";
+                      return 'N/A';
                     }
                   }
-                  logger.warn("Missing time for transaction:", {
+                  logger.warn('Missing time for transaction:', {
                     txid: tx.txid || tx.hash,
-                    block_time: tx.block_time,
-                    timestamp: tx.timestamp,
+                    time,
                     chain: chainName,
                   });
-                  return "N/A";
+                  return 'N/A';
                 })()}
               </span>
             </div>

@@ -141,6 +141,7 @@ export const formatPrice = (price, currency = 'usd', decimals = 8) => {
 
 export const truncateAddress = (address, nameTags = {}, source) => {
   if (!address || address === 'None' || typeof address !== 'string') {
+    logger.log("truncateAddress: Invalid address", { address, source });
     return { text: 'N/A', image: null, shortAddress: 'N/A' };
   }
 
@@ -148,26 +149,25 @@ export const truncateAddress = (address, nameTags = {}, source) => {
   const nameTag = nameTags[normalizedAddress]?.nameTag || nameTags[normalizedAddress]?.name;
   const image = nameTags[normalizedAddress]?.image || null;
 
-  const isEvmAddress = isAddress(address); // Sử dụng ethers để kiểm tra chính xác
-  const isSvmAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address); // Regex cho Solana/SVM address (base58, 32-44 chars)
+  const isEvmAddress = isAddress(address);
+  const isSvmAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+  const isBtcAddress = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-zA-Z0-9]{39,59}$/.test(address);
+
+  logger.log("truncateAddress: Processing", { address, source, isEvmAddress, isSvmAddress, isBtcAddress, nameTag });
 
   let shortAddress;
-  if (source === 'Blockchair' && (isEvmAddress || isSvmAddress)) {
-    shortAddress = isEvmAddress
-      ? `${address.slice(0, 6)}...${address.slice(-4)}`
-      : `${address.slice(0, 6)}...${address.slice(-6)}`;
-  } else if (isEvmAddress) {
+  if (isEvmAddress || isBtcAddress) {
     shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
   } else if (isSvmAddress) {
-    shortAddress = `${address.slice(0, 6)}...${address.slice(-6)}`; // Truncate dài hơn cho SVM
+    shortAddress = `${address.slice(0, 6)}...${address.slice(-6)}`;
   } else {
-    shortAddress = address; // Fallback for unrecognized formats
+    shortAddress = address;
   }
 
   return {
-    text: nameTag || shortAddress, // Primary display: nametag if available, else short address
+    text: nameTag || shortAddress,
     image,
-    shortAddress, // Always return the truncated address
+    shortAddress,
   };
 };
 
