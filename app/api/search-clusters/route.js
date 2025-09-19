@@ -317,47 +317,47 @@ export async function GET(request) {
     const searchTerm = `%${searchQuery.trim().toLowerCase()}%`;
 
     const searchSql = `
-      SELECT 
-        COALESCE(
-          CASE 
-            WHEN wh.cluster_name IS NOT NULL THEN SPLIT_PART(LOWER(wh.cluster_name), ':', 1)
-            ELSE SPLIT_PART(LOWER(wh.exchange_name), ':', 1)
-          END
-        ) AS normalized_cluster_name,
-        COALESCE(
-          (SELECT wh2.image 
-           FROM wallet_holders wh2 
-           WHERE COALESCE(
-             CASE 
-               WHEN wh2.cluster_name IS NOT NULL THEN SPLIT_PART(LOWER(wh2.cluster_name), ':', 1)
-               ELSE SPLIT_PART(LOWER(wh2.exchange_name), ':', 1)
-             END
-           ) = COALESCE(
-             CASE 
-               WHEN wh.cluster_name IS NOT NULL THEN SPLIT_PART(LOWER(wh.cluster_name), ':', 1)
-               ELSE SPLIT_PART(LOWER(wh.exchange_name), ':', 1)
-             END
-           )
-           AND wh2.image IS NOT NULL 
-           AND wh2.image != '' 
-           AND wh2.image != '/fallback-image.webp'
-           LIMIT 1
-          ),
-          MAX(wh.image)
-        ) AS image,
-        json_agg(DISTINCT wh.holder_address) AS holder_addresses
-      FROM wallet_holders wh
-      WHERE LOWER(wh.exchange_name) LIKE $1 
-         OR LOWER(wh.cluster_name) LIKE $1
-      GROUP BY COALESCE(
+  WITH normalized_clusters AS (
+    SELECT 
+      COALESCE(
         CASE 
           WHEN wh.cluster_name IS NOT NULL THEN SPLIT_PART(LOWER(wh.cluster_name), ':', 1)
           ELSE SPLIT_PART(LOWER(wh.exchange_name), ':', 1)
         END
-      )
-      ORDER BY normalized_cluster_name ASC
-      LIMIT 20
-    `;
+      ) AS normalized_cluster_name,
+      wh.image,
+      wh.holder_address
+    FROM wallet_holders wh
+    WHERE LOWER(wh.exchange_name) LIKE $1 
+       OR LOWER(wh.cluster_name) LIKE $1
+  ),
+  selected_image AS (
+    SELECT 
+      normalized_cluster_name,
+      COALESCE(
+        (SELECT image 
+         FROM normalized_clusters nc2 
+         WHERE nc2.normalized_cluster_name = nc1.normalized_cluster_name
+         AND nc2.image IS NOT NULL 
+         AND nc2.image != '' 
+         AND nc2.image != '/fallback-image.webp'
+         LIMIT 1
+        ),
+        MAX(image)
+      ) AS image
+    FROM normalized_clusters nc1
+    GROUP BY normalized_cluster_name
+  )
+  SELECT 
+    nc.normalized_cluster_name,
+    si.image,
+    json_agg(DISTINCT nc.holder_address) AS holder_addresses
+  FROM normalized_clusters nc
+  JOIN selected_image si ON nc.normalized_cluster_name = si.normalized_cluster_name
+  GROUP BY nc.normalized_cluster_name, si.image
+  ORDER BY nc.normalized_cluster_name ASC
+  LIMIT 20
+`;
 
     const results = await withRetry(() => query(searchSql, [searchTerm]));
 
