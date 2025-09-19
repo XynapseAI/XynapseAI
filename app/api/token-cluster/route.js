@@ -463,11 +463,18 @@ export async function GET(request) {
           specialCoinsPortfolioResult: specialCoinsPortfolioResult.rows,
           walletResult: walletResult.rows,
           specialCoinsWalletResult: specialCoinsWalletResult.rows,
+          queryExchange: exchange,
+          mappedExchange,
         });
         await trackViolation(ip, `No data found for exchange: ${exchange}`, 'warn');
         return NextResponse.json(
-          { success: false, detail: `No portfolio or wallet data found for exchange: ${exchange}` },
-          { status: 404, headers }
+          {
+            success: true, // Change to success: true to allow partial data
+            portfolio: [],
+            wallets: isAuthenticated ? [] : [],
+            message: `No portfolio or wallet data found for cluster: ${exchange}. Please check the cluster name or try another.`,
+          },
+          { status: 200, headers } // Use 200 to indicate a successful response with no data
         );
       }
 

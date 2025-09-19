@@ -2121,6 +2121,9 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
       setIsPredicting(true);
       setAnalysisLogs([]);
 
+      // Log session details for debugging
+      console.log('Prediction session:', { status, accessToken: session?.accessToken, userId: session?.user?.id });
+
       try {
         const fetchFn = async () => {
           const recaptchaToken = await executeRecaptcha('predict');
@@ -2145,11 +2148,14 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 - **Sources**: Include relevant links in [text](url) format from Brave API results, at least 5-10 sources.
 `;
 
+          console.log('Sending prediction request:', { tokenSymbol: selectedToken.symbol, recaptchaToken });
+
           const response = await fetch('/api/gemini', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${session?.accessToken || ''}`,
+              'x-recaptcha-token': recaptchaToken,
             },
             body: JSON.stringify({
               prompt,
@@ -2157,14 +2163,53 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
               tokenSymbol: selectedToken.symbol?.toUpperCase(),
               recaptchaToken,
             }),
-            signal: AbortSignal.timeout(30000),
+            signal: AbortSignal.timeout(60000),
           });
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
+            if (response.status === 401) {
+              // Attempt to refresh token
+              try {
+                const { data: newSession } = await axios.get('/api/auth/session');
+                if (newSession?.accessToken) {
+                  console.log('Token refreshed, retrying prediction');
+                  // Retry request with new token
+                  const retryResponse = await fetch('/api/gemini', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${newSession.accessToken}`,
+                      'x-recaptcha-token': recaptchaToken,
+                    },
+                    body: JSON.stringify({
+                      prompt,
+                      deepSearch: true,
+                      tokenSymbol: selectedToken.symbol?.toUpperCase(),
+                      recaptchaToken,
+                    }),
+                    signal: AbortSignal.timeout(60000),
+                  });
+                  if (!retryResponse.ok) {
+                    throw new Error(`HTTP error after token refresh! status: ${retryResponse.status}, detail: ${errorData.detail || 'Unknown error'}`);
+                  }
+                  return await processResponse(retryResponse);
+                } else {
+                  throw new Error('Failed to refresh session token');
+                }
+              } catch (refreshError) {
+                console.error('Token refresh failed:', refreshError.message);
+                throw new Error('Session expired. Please log in again.');
+              }
+            }
             throw new Error(`HTTP error! status: ${response.status}, detail: ${errorData.detail || 'Unknown error'}`);
           }
 
+          return await processResponse(response);
+        };
+
+        // Helper function to process response
+        const processResponse = async (response) => {
           const reader = response.body.getReader();
           let result = '';
           let links = [];
@@ -2202,11 +2247,15 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       } catch (error) {
         let errorMessage = 'Error predicting price. Please try again.';
         if (error.name === 'AbortError') {
-          errorMessage = 'Request took too long. Please check your network connection and try again.';
+          errorMessage = 'Request timed out. Please check your network or try again later.';
         } else if (error.message.includes('HTTP error')) {
           errorMessage = error.message;
         } else if (error.message.includes('reCAPTCHA')) {
           errorMessage = 'reCAPTCHA verification error. Please try again.';
+        } else if (error.message.includes('Session expired')) {
+          errorMessage = 'Session expired. Please log in again.';
+        } else if (error.response?.status === 429) {
+          errorMessage = 'Too many requests. Please try again after a minute.';
         }
         console.error(`Prediction error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
           error,
@@ -2214,9 +2263,8 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
           data: error.response?.data,
         });
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        // Preserve existing prediction data
-        if (!localCache.current[cacheKey]?.data) {
-          setPrediction(prediction); // Keep previous prediction if available
+        if (localCache.current[cacheKey]?.data) {
+          setPrediction(localCache.current[cacheKey].data.content);
         }
       } finally {
         setIsPredicting(false);
@@ -2225,7 +2273,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
         }
       }
     }, 500),
-    [selectedToken, priceHistory, analysis, currency, session, status, executeRecaptcha, toast, prediction]
+    [selectedToken, priceHistory, analysis, currency, session, status, executeRecaptcha, toast]
   );
 
   const debouncedSearch = useCallback(

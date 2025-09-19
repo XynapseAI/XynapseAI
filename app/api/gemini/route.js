@@ -139,7 +139,7 @@ export async function POST(request) {
               tokenSymbol: effectiveTokenSymbol,
               recaptchaToken,
             },
-            { timeout: 10000 }
+            { timeout: 40000 }
           );
           tokenAnalysis = analysisResponse.data.aiAnalysis || 'No social media analysis available.';
           links = analysisResponse.data.links || [];
@@ -250,7 +250,7 @@ ${fullContents.length ? fullContents.map(c => `From ${c.url}:\n${c.content.slice
         try {
           const interactions = await axios.get(`${process.env.NEXTAUTH_URL}/api/ai-interaction`, {
             params: { uid: session.user.id, limit: 5 },
-            timeout: 8000,
+            timeout: 40000,
           });
           recentInteractions = interactions.data.interactions
             .map((i) => `Query: ${i.query}\nResponse: ${i.response}`)
@@ -338,7 +338,7 @@ Answer in a natural, professional tone (500-800 words for analysis/prediction, c
       {
         params: { key: process.env.GEMINI_API_KEY },
         headers: { 'Content-Type': 'application/json' },
-        timeout: 30000,
+        timeout: 40000,
       }
     );
 

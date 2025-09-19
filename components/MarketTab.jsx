@@ -1499,7 +1499,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     whileHover={{ y: -1 }}
                     transition={{ duration: 0.2 }}
                   >
-                    DEX TRADES
+                    ON-CHAIN
                     {activeMarketTab === "dex" && (
                       <motion.div
                         className="absolute bottom-0 left-0 right-0 h-0.5 bg-white"

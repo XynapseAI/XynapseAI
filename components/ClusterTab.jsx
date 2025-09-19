@@ -269,7 +269,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
       setDogePrice(0);
       setLtcPrice(0);
       setError('Failed to fetch coin prices');
-      toast.error('Failed to fetch coin prices', { position: 'top-center', autoClose: 3000 });
     } finally {
       setIsLoadingPrices(false);
     }
@@ -390,7 +389,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
       logger.error("Error fetching volume history:", { exchangeId, error: errorMessage, stack: err.stack });
       setVolumeHistory([]);
       setError(errorMessage);
-      toast.error(errorMessage, { position: "top-center", autoClose: 3000 });
     } finally {
       setIsLoadingVolume(false);
     }
@@ -400,6 +398,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
   const fetchPortfolioAndWallets = async (clusterId) => {
     setIsLoadingPortfolio(true);
     setIsLoadingWallets(true);
+    setError(null); // Clear previous errors
     try {
       logger.info(`Fetching portfolio/wallet data for cluster: ${clusterId}`);
 
@@ -416,7 +415,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
       const response = await fetch(`/api/token-cluster?exchange=${encodeURIComponent(clusterId)}&currency=${encodeURIComponent(currency)}`, {
         headers,
         credentials: 'include',
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(50000),
       });
 
       if (!response.ok) {
@@ -438,33 +437,46 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
         clusterId,
         portfolio: result.portfolio,
         wallets: result.wallets,
+        message: result.message,
       });
-      if (!result.portfolio || !result.wallets) {
-        throw new Error(`No portfolio or wallet data found for cluster: ${clusterId}`);
+
+      if (!result.success) {
+        throw new Error(result.detail || `No portfolio or wallet data found for cluster: ${clusterId}`);
       }
-      setPortfolioData(result.portfolio || []);
-      setWalletData(result.wallets.map(wallet => ({
-        ...wallet,
-        cluster_name: wallet.cluster_name || clusterId.charAt(0).toUpperCase() + clusterId.slice(1),
-        image: wallet.image || `/icons/${clusterId.toLowerCase()}.webp` || '/fallback-image.webp',
-      })) || []);
-      logger.log('Fetched portfolio and wallet data:', {
-        clusterId,
-        portfolioCount: result.portfolio.length,
-        walletCount: result.wallets.length,
-      });
+
+      // Handle partial or no data with a user-friendly message
+      if (result.message) {
+        setError(result.message); // Set the message as a warning, not an error
+        setPortfolioData([]);
+        setWalletData([]);
+        toast.info(result.message, { position: 'top-center', autoClose: 5000 });
+        logger.info(`No data returned for cluster: ${clusterId}`, { message: result.message });
+      } else {
+        setPortfolioData(result.portfolio || []);
+        setWalletData(
+          result.wallets.map(wallet => ({
+            ...wallet,
+            cluster_name: wallet.cluster_name || clusterId.charAt(0).toUpperCase() + clusterId.slice(1),
+            image: wallet.image || `/icons/${clusterId.toLowerCase()}.webp` || '/fallback-image.webp',
+          })) || []
+        );
+        logger.log('Fetched portfolio and wallet data:', {
+          clusterId,
+          portfolioCount: result.portfolio?.length || 0,
+          walletCount: result.wallets?.length || 0,
+        });
+      }
     } catch (err) {
       const errorMessage = err.message || 'Unknown error fetching portfolio/wallet data';
       logger.error('Error fetching portfolio/wallet data:', { clusterId, error: errorMessage, stack: err.stack });
       setPortfolioData([]);
       setWalletData([]);
       setError(errorMessage);
-      toast.error(errorMessage, { position: 'top-center', autoClose: 3000 });
     } finally {
       setIsLoadingPortfolio(false);
       setIsLoadingWallets(false);
     }
-  };
+  }
 
   // Memoized authenticated data
   const memoizedPortfolioData = useMemo(() => portfolioData, [portfolioData, status]);
@@ -547,7 +559,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
       const errorMessage = err.message || "Unknown error fetching Bitcoin transactions";
       logger.error("Error fetching Bitcoin transactions:", { clusterId, error: errorMessage, stack: err.stack });
       setTransactionsError(errorMessage);
-      toast.error(errorMessage, { position: "top-center", autoClose: 3000 });
       return [];
     } finally {
       setIsLoadingTransactions(false);
@@ -687,7 +698,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
       const errorMessage = err.message || "Unknown error fetching transactions";
       logger.error("Error fetching transactions:", { input, minValueUsd, error: errorMessage, stack: err.stack });
       setTransactionsError(errorMessage);
-      toast.error(errorMessage, { position: "top-center", autoClose: 3000 });
       return [];
     } finally {
       setIsLoadingTransactions(false);
@@ -730,7 +740,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
           const errorMessage = err.message || "Failed to fetch transactions";
           logger.error("Error combining transactions:", { error: errorMessage, stack: err.stack });
           setTransactionsError(errorMessage);
-          toast.error(errorMessage, { position: "top-center", autoClose: 3000 });
           setTransactions([]);
         } finally {
           setIsLoadingTransactions(false);
