@@ -92,6 +92,7 @@ const BLOCKED_TOKEN_ADDRESSES = [
   "0x128f3e482f5bd5f08fe1b216e60ec0a6013deab9",
   "0x5f4bde007dc06b867f86ebfe4802e34a1ffeed63",
   "0x05d68f36dc47048a2725db632f6d442a95c230c4",
+  "0x57d9750893adb0d1ee07bac44c8bb45c45b58f73",
 ];
 
 // --- Non-EVM chains ---

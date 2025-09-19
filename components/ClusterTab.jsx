@@ -1302,7 +1302,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                     className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.02 }}
+                    transition={{ duration: 0.3, delay: index * 0.01 }}
                   >
                     <td className="px-3 py-2.5 text-white truncate">
                       <img
@@ -1649,7 +1649,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
               style={{ height: 'calc(50vh - 5rem)' }}
               data={transactions}
               itemContent={renderTransactionRow}
-              overscan={200}
+              overscan={400}
               components={{
                 EmptyPlaceholder: () => (
                   <p className="text-[10px] sm:text-xs text-white/60 text-center">No transactions available.</p>

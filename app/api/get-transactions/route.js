@@ -47,7 +47,7 @@ async function checkIPBan(ip) {
 async function trackViolation(ip) {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 100; // Tăng ngưỡng để linh hoạt hơn
+  const maxViolations = 100;
   const windowMs = 30 * 60 * 1000;
   const violations = parseInt(await redisClient.get(key)) || 0;
 
@@ -61,7 +61,7 @@ async function trackViolation(ip) {
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:get_transactions:ip:${ip}`;
-  const maxRequests = 300; // Tăng giới hạn cho production
+  const maxRequests = 300;
   const windowMs = 30 * 60 * 1000;
   const requests = parseInt(await redisClient.get(key)) || 0;
   if (requests >= maxRequests) throw new Error('Too many requests.');
@@ -70,8 +70,8 @@ async function checkRateLimit(ip) {
 
 let circuitOpen = false;
 let failureCount = 0;
-const maxFailures = 15; // Tăng ngưỡng để tránh gián đoạn sớm
-const resetTimeout = 120000; // Tăng thời gian reset
+const maxFailures = 15; 
+const resetTimeout = 120000;
 
 async function fetchWithRateLimit(url, config) {
   if (circuitOpen) throw new Error('Service temporarily unavailable.');
@@ -93,16 +93,16 @@ async function fetchWithRateLimit(url, config) {
 }
 
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 3, // Tăng đồng thời
-  minTime: process.env.NODE_ENV === 'production' ? 500 : 1000, // Giảm độ trễ
-  reservoir: 50, // Tăng reservoir
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 3, 
+  minTime: process.env.NODE_ENV === 'production' ? 500 : 1000,
+  reservoir: 50,
   reservoirRefreshAmount: 50,
   reservoirRefreshInterval: 60 * 1000,
 });
 
 axiosRetry(axios, {
-  retries: 5, // Giảm số lần thử lại để tăng tốc
-  retryDelay: (retryCount) => Math.pow(2, retryCount) * 500 + Math.random() * 100, // Giảm độ trễ retry
+  retries: 5, 
+  retryDelay: (retryCount) => Math.pow(2, retryCount) * 500 + Math.random() * 100, 
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED' || error.response?.status === 400,
 });
 
@@ -166,7 +166,7 @@ async function getChainLogo(coingeckoId) {
     });
     const chain = response.data.find((c) => c.id === coingeckoId);
     const logo = chain?.image?.thumb || '/icons/default.webp';
-    await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, logo); // Cache 7 ngày
+    await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, logo);
     return logo;
   } catch {
     return '/icons/default.webp';
@@ -181,7 +181,6 @@ async function getNametagsBatch(addresses, chain) {
   const redisClient = await getRedisClient();
 
   try {
-    // Truy vấn database với index
     const result = await query(
       `SELECT address, nametag, image, description, subcategory 
        FROM nametags 
@@ -231,7 +230,6 @@ async function getNametagsBatch(addresses, chain) {
         args: [node],
       }));
 
-      // Giả lập multicall thủ công
       const resolverResults = await Promise.allSettled(
         resolverCalls.map(async (call) => {
           const contract = new ethers.Contract(call.contractAddress, call.abi, provider);
@@ -351,7 +349,7 @@ async function getTokenImage(tokenAddress, chain) {
     );
     if (response.rows.length > 0 && response.rows[0].image) {
       const image = response.rows[0].image;
-      await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, image); // Cache 7 ngày
+      await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, image);
       logger.info(`Token image for ${tokenAddress} on ${chain}: ${image} (source: database)`);
       return image;
     }
@@ -364,7 +362,7 @@ async function getTokenImage(tokenAddress, chain) {
       }
     );
     const image = cgResponse.data.image?.thumb || '/icons/default.webp';
-    await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, image); // Cache 7 ngày
+    await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, image);
     logger.info(`Token image for ${tokenAddress} on ${chain}: ${image} (source: CoinGecko)`);
     return image;
   } catch (error) {

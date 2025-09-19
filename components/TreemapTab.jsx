@@ -13,7 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import cytoscape from 'cytoscape';
 import cola from 'cytoscape-cola';
 import nodeHtmlLabel from 'cytoscape-node-html-label';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'; // New import for charts
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { chains, mapCoinGeckoChains, getPlatformImage } from '../utils/constants';
 import { LoadingOverlay, getExplorerUrls } from '@/utils/helpers';
 import { cacheData, getCachedData } from '../utils/indexedDB';
@@ -50,27 +50,15 @@ const isValidNametagImage = (image) => {
   return image && image !== '/icons/default.webp';
 };
 
-// List of supported chains
 const SUPPORTED_CHAINS = [
-  '1', // Ethereum
-  '56', // BNB Chain
-  '10', // Optimism
-  '130', // Unichain
-  '137', // Polygon
-  '5000', // Mantle
-  '42161', // Arbitrum
-  '43114', // Avalanche C
-  '59144', // Linea
-  '534352', // Scroll
-  '7777777', // Zora
-  'solana', // Solana
-  'tron', // Tron
+  '1', '56', '10', '130', '137', '5000', '42161', '43114', '59144', '534352', '7777777', 'solana', 'tron',
 ];
 
 const isValidDate = (date) => {
   return date instanceof Date && !isNaN(date);
 };
 
+// VirtuosoTable component remains unchanged for brevity
 const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
   const handleCopyAddress = (address) => {
     navigator.clipboard.writeText(address);
@@ -106,8 +94,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.3 }}
-        className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 max-h-[calc(100vh-12rem)] overflow-y-auto custom-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'
-          }`}
+        className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 max-h-[calc(100vh-12rem)] hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'}`}
       >
         <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
         <p className="text-white/60 text-[9px] sm:text-[10px]">
@@ -117,13 +104,11 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
     );
   }
 
-  console.log('Rendering VirtuosoTable with filtered transactions:', filteredTransactions);
-
   const fixedHeaderContent = () => (
-    <tr>
-      <th className="px-1 py-1 text-white font-medium text-left overflow-hidden border-r border-white/5" style={{ width: 'calc(100%1.5)' }}>From/To</th>
-      <th className="px-1 py-1 text-white font-medium text-center overflow-hidden border-r border-white/5" style={{ width: 'calc(100%/3)' }}>Value</th>
-      <th className="px-1 py-1 text-white font-medium text-center overflow-hidden" style={{ width: 'calc(100%/3)' }}>Details</th>
+    <tr className="grid grid-cols-[2fr_1fr_1fr] gap-2">
+      <th className="px-2 py-1 text-white font-medium text-left overflow-hidden border-r border-white/5">From/To</th>
+      <th className="px-2 py-1 text-white font-medium text-center overflow-hidden border-r border-white/5">Value</th>
+      <th className="px-2 py-1 text-white font-medium text-center overflow-hidden">Details</th>
     </tr>
   );
 
@@ -132,7 +117,6 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
       console.error(`No transaction data at index ${index}`);
       return null;
     }
-    console.log(`Rendering row ${index}:`, tx);
     const tokenKey = tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase();
     const tokenLogo = tokenImages[tokenKey] || '/icons/default.webp';
     const fromNtag = nametags[tx.source?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
@@ -151,13 +135,13 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
     }
 
     return (
-      <tr key={`${tx.txHash}-${index}`} className="border-t border-white/10 hover:bg-white/5 transition-all duration-300 custom-scrollbar">
-        <td className="px-1 py-1 text-white/80 text-[8px] sm:text-[10px] align-top text-left overflow-hidden border-r border-white/5" style={{ width: 'calc(100%/3)', verticalAlign: 'top' }}>
-          <div className="flex flex-col gap-0.5 min-w-0 h-full">
-            <div className="flex items-center gap-0.5">
+      <tr key={`${tx.txHash}-${index}`} className="grid grid-cols-[2fr_1fr_1fr] gap-2 border-t border-white/10 hover:bg-white/5 transition-all duration-300">
+        <td className="px-2 py-1 text-white/80 text-[8px] sm:text-[10px] text-left overflow-hidden border-r border-white/5 align-middle">
+          <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex items-center gap-1 group relative">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className={`h-2.5 w-2.5 ${tx.type === 'incoming' ? 'text-neon-blue' : 'text-red-500'} flex-shrink-0`}
+                className={`h-3 w-3 ${tx.type === 'incoming' ? 'text-neon-blue' : 'text-red-500'} flex-shrink-0`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -173,25 +157,25 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
                 <img
                   src={fromNtag.image}
                   alt="From wallet logo"
-                  width={isMobile ? 8 : 10}
-                  height={isMobile ? 8 : 10}
+                  width={isMobile ? 10 : 12}
+                  height={isMobile ? 10 : 12}
                   className="rounded-full flex-shrink-0"
                   onError={(e) => (e.target.style.display = 'none')}
                   loading="lazy"
                 />
               )}
-              <span className="text-[6px] sm:text-[7px] truncate flex-1 min-w-0">
+              <span className="text-[7px] sm:text-[8px] truncate flex-1 min-w-0">
                 {fromNtag.name !== 'Unknown' ? fromNtag.name : truncateAddress(tx.source)}
               </span>
               <motion.button
-                className="ml-0.5 flex-shrink-0"
+                className="ml-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => handleCopyAddress(tx.source)}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-2.5 w-2.5 text-white/60 hover:text-neon-blue"
+                  className="h-3 w-3 text-white/60 hover:text-neon-blue"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -201,31 +185,31 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
                 </svg>
               </motion.button>
             </div>
-            <div className="flex items-center gap-0.5">
-              <div className="w-2.5 h-2.5 flex-shrink-0" />
+            <div className="flex items-center gap-1 group relative">
+              <div className="w-3 h-3 flex-shrink-0" />
               {isValidNametagImage(toNtag.image) && (
                 <img
                   src={toNtag.image}
                   alt="To wallet logo"
-                  width={isMobile ? 8 : 10}
-                  height={isMobile ? 8 : 10}
+                  width={isMobile ? 10 : 12}
+                  height={isMobile ? 10 : 12}
                   className="rounded-full flex-shrink-0"
                   onError={(e) => (e.target.style.display = 'none')}
                   loading="lazy"
                 />
               )}
-              <span className="text-[6px] sm:text-[7px] truncate flex-1 min-w-0">
+              <span className="text-[7px] sm:text-[8px] truncate flex-1 min-w-0">
                 {toNtag.name !== 'Unknown' ? toNtag.name : truncateAddress(tx.target)}
               </span>
               <motion.button
-                className="ml-0.5 flex-shrink-0"
+                className="ml-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => handleCopyAddress(tx.target)}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-2.5 w-2.5 text-white/60 hover:text-neon-blue"
+                  className="h-3 w-3 text-white/60 hover:text-neon-blue"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -237,36 +221,36 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
             </div>
           </div>
         </td>
-        <td className="px-1 py-1 text-white/80 text-[8px] sm:text-[10px] align-top text-center overflow-hidden border-r border-white/5" style={{ width: 'calc(100%/3)', verticalAlign: 'top' }}>
-          <div className="flex flex-col items-center justify-center gap-0.5 h-full">
+        <td className="px-2 py-1 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden border-r border-white/5 align-middle">
+          <div className="flex flex-col items-center justify-center gap-1">
             <img
               src={tokenLogo}
               alt={`${tx.tokenSymbol || 'Token'} logo`}
-              width={isMobile ? 10 : 12}
-              height={isMobile ? 10 : 12}
+              width={isMobile ? 12 : 14}
+              height={isMobile ? 12 : 14}
               className="rounded-full flex-shrink-0"
               onError={(e) => (e.target.src = '/icons/default.webp')}
               loading="lazy"
             />
-            <span className="text-[6px] sm:text-[7px] font-semibold text-center truncate block w-full">
+            <span className="text-[7px] sm:text-[8px] font-semibold text-center truncate w-full">
               {displayValue} {tx.tokenSymbol || 'N/A'}
             </span>
           </div>
         </td>
-        <td className="px-1 py-1 text-white/80 text-[8px] sm:text-[10px] align-top text-center overflow-hidden" style={{ width: 'calc(100%/3)', verticalAlign: 'top' }}>
-          <div className="flex flex-col items-center justify-center gap-0 h-full">
+        <td className="px-2 py-1 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden align-middle">
+          <div className="flex flex-col items-center justify-center gap-1">
             <a href={txUrl} target="_blank" rel="noopener noreferrer">
               <img
                 src="/logos/etherscan-logo.webp"
                 alt="Explorer"
-                width={isMobile ? 8 : 10}
-                height={isMobile ? 8 : 10}
+                width={isMobile ? 10 : 12}
+                height={isMobile ? 10 : 12}
                 className="rounded-full mx-auto cursor-pointer flex-shrink-0"
                 onError={(e) => (e.target.src = '/icons/default.webp')}
                 loading="lazy"
               />
             </a>
-            <span className="text-[5px] sm:text-[6px] text-white/60 text-center truncate block w-full">
+            <span className="text-[6px] sm:text-[7px] text-white/60 text-center truncate w-full">
               {formattedTime}
             </span>
           </div>
@@ -275,137 +259,220 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
     );
   };
 
-  const tableHeight = isMobile ? 'auto' : 'calc(100vh - 12rem)';
+  const tableHeight = isMobile ? 'auto' : 'calc(100vh - 8rem)';
 
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.3 }}
-      className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'
-        }`}
-      style={{ height: isMobile ? 'auto' : 'calc(100vh - 8rem)', minHeight: '400px' }}
+      className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'}`}
+      style={{ height: tableHeight, minHeight: '400px' }}
     >
       <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
-      <div className="overflow-x-auto">
-        <TableVirtuoso
-          data={filteredTransactions}
-          fixedHeaderContent={fixedHeaderContent}
-          itemContent={Row}
-          style={{
-            height: tableHeight,
-            maxHeight: '70vh',
-            width: '100%',
-          }}
-          components={{
-            Table: ({ children, ...props }) => (
-              <table
-                {...props}
-                className="w-full text-[8px] sm:text-[9px] bg-black/5 rounded-xl table-fixed border-collapse custom-scrollbar"
-                style={{ ...props.style, tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse' }}
-              >
-                {children}
-              </table>
-            ),
-            TableHead: ({ children, ...props }) => (
-              <thead
-                {...props}
-                className="border-b border-white/10 bg-black/10 sticky top-0 z-10"
-              >
-                {children}
-              </thead>
-            ),
-            TableBody: ({ children, ...props }) => (
-              <tbody
-                {...props}
-                className="w-full"
-                style={{ ...props.style }}
-              >
-                {children}
-              </tbody>
-            ),
-            EmptyPlaceholder: () => (
-              <tbody>
-                <tr>
-                  <td colSpan={3} className="text-center text-white/60 text-[9px] sm:text-[10px] py-4">
-                    No transactions available
-                  </td>
-                </tr>
-              </tbody>
-            ),
-          }}
-          overscan={200}
-        />
-      </div>
+      <TableVirtuoso
+        data={filteredTransactions}
+        fixedHeaderContent={fixedHeaderContent}
+        itemContent={Row}
+        style={{
+          height: tableHeight,
+          maxHeight: '70vh',
+          width: '100%',
+          overflowX: 'hidden',
+        }}
+        className="hide-scrollbar"
+        components={{
+          Table: ({ children, ...props }) => (
+            <table
+              {...props}
+              className="w-full text-[8px] sm:text-[9px] bg-black/5 rounded-xl border-collapse"
+              style={{ ...props.style, tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse' }}
+            >
+              {children}
+            </table>
+          ),
+          TableHead: ({ children, ...props }) => (
+            <thead
+              {...props}
+              className="border-b border-white/10 bg-black/10 sticky top-0 z-10"
+            >
+              {children}
+            </thead>
+          ),
+          TableBody: ({ children, ...props }) => (
+            <tbody
+              {...props}
+              className="w-full hide-scrollbar"
+              style={{ ...props.style }}
+            >
+              {children}
+            </tbody>
+          ),
+          EmptyPlaceholder: () => (
+            <tbody>
+              <tr>
+                <td colSpan={3} className="text-center text-white/60 text-[9px] sm:text-[10px] py-4">
+                  No transactions available
+                </td>
+              </tr>
+            </tbody>
+          ),
+          Scroller: (props) => (
+            <div
+              {...props}
+              className="hide-scrollbar"
+              style={{ ...props.style, overflowX: 'hidden', overflowY: 'auto' }}
+            />
+          ),
+        }}
+        overscan={400}
+      />
     </motion.div>
   );
 };
 
-const TrendChart = ({ transactions }) => {
-  if (transactions.length === 0) return null;
+// Optimized TrendChart with dynamic time intervals and dual metrics
+const TrendChart = memo(({ transactions }) => {
+  const getTimeInterval = useCallback((timestamps) => {
+    const minTime = Math.min(...timestamps);
+    const maxTime = Math.max(...timestamps);
+    const range = maxTime - minTime;
+    if (range > 30 * 24 * 3600 * 1000) return 'monthly'; // > 30 days
+    if (range > 7 * 24 * 3600 * 1000) return 'weekly'; // > 7 days
+    return 'daily';
+  }, []);
 
   const chartData = useMemo(() => {
-    const sortedTx = transactions
-      .filter(tx => tx.block_time)
-      .sort((a, b) => new Date(a.block_time) - new Date(b.block_time))
-      .map(tx => ({
-        time: new Date(tx.block_time).toLocaleDateString(),
-        value: Number(tx.value),
-      }));
+    if (transactions.length === 0) return [];
 
-    // Aggregate by date
+    const validTxs = transactions.filter(tx => tx.block_time && !isNaN(new Date(tx.block_time).getTime()));
+    if (validTxs.length === 0) return [];
+
+    const timestamps = validTxs.map(tx => new Date(tx.block_time).getTime());
+    const interval = getTimeInterval(timestamps);
+
     const aggregated = {};
-    sortedTx.forEach(({ time, value }) => {
-      aggregated[time] = (aggregated[time] || 0) + value;
+    validTxs.forEach(tx => {
+      const date = new Date(tx.block_time);
+      let key;
+      if (interval === 'monthly') {
+        key = `${date.getFullYear()}-${date.getMonth() + 1}`;
+      } else if (interval === 'weekly') {
+        const weekStart = new Date(date.setDate(date.getDate() - date.getDay()));
+        key = weekStart.toISOString().split('T')[0];
+      } else {
+        key = date.toISOString().split('T')[0];
+      }
+      if (!aggregated[key]) {
+        aggregated[key] = { value: 0, count: 0 };
+      }
+      aggregated[key].value += Number(tx.value) || 0;
+      aggregated[key].count += 1;
     });
 
-    return Object.entries(aggregated).map(([time, value]) => ({ time, value }));
-  }, [transactions]);
+    return Object.entries(aggregated)
+      .map(([time, data]) => ({
+        time,
+        value: data.value,
+        count: data.count,
+      }))
+      .sort((a, b) => new Date(a.time) - new Date(b.time));
+  }, [transactions, getTimeInterval]);
+
+  if (chartData.length === 0) return null;
 
   return (
-    <div className="w-full h-64 bg-black/50 rounded-xl p-2">
-      <h5 className="text-white text-xs mb-2">Transaction Trends</h5>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-          <XAxis dataKey="time" stroke="#ccc" fontSize={10} />
-          <YAxis stroke="#ccc" fontSize={10} />
-          <Tooltip />
-          <Line type="monotone" dataKey="value" stroke="#00BFFF" strokeWidth={2} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
+      className="w-full h-48 bg-black/50 rounded-xl p-1"
+    >
+      <h5 className="text-white text-[9px] mb-1">Transaction Trends</h5>
+      <Suspense fallback={<div>Loading chart...</div>}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+            <XAxis dataKey="time" stroke="#ccc" fontSize={8} />
+            <YAxis yAxisId="left" stroke="#ccc" fontSize={8} />
+            <YAxis yAxisId="right" orientation="right" stroke="#ccc" fontSize={8} />
+            <Tooltip
+              contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '4px' }}
+              labelStyle={{ color: '#fff' }}
+            />
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="value"
+              stroke="#00BFFF"
+              strokeWidth={2}
+              dot={false}
+              animationDuration={500}
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="count"
+              stroke="#FFD700"
+              strokeWidth={2}
+              dot={false}
+              animationDuration={500}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </Suspense>
+    </motion.div>
   );
-};
+});
 
-// New dashboard component
-const ClusterDashboard = ({ entity, isMobile }) => {
-  if (!entity || entity.type === 'node') return null; // Only for clusters
+// Optimized ClusterDashboard with additional metrics
+const ClusterDashboard = memo(({ entity, isMobile }) => {
+  if (!entity || entity.type !== 'cluster') return null;
 
   const { data: cluster } = entity;
-  const totalValue = cluster.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue), 0);
-  const riskScore = cluster.riskScore || 0; // From clustering
+  const totalValue = useMemo(() => cluster.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue || 0), 0), [cluster]);
+  const riskScore = cluster.riskScore || 0;
+  const avgTxValue = useMemo(() => {
+    const txCount = cluster.transactions.length;
+    return txCount > 0 ? totalValue / txCount : 0;
+  }, [cluster, totalValue]);
+  const topTokens = useMemo(() => {
+    const tokenCounts = {};
+    cluster.transactions.forEach(tx => {
+      const token = tx.tokenSymbol || 'Unknown';
+      tokenCounts[token] = (tokenCounts[token] || 0) + 1;
+    });
+    return Object.entries(tokenCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([token]) => token);
+  }, [cluster.transactions]);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 ${isMobile ? 'w-full mt-2' : 'w-96 fixed left-4 top-32'}`}
-      style={{ maxHeight: 'calc(100vh - 8rem)', overflowY: 'auto' }}
+      transition={{ duration: 0.3 }}
+      className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-2 hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-72 fixed left-4 top-32'}`}
+      style={{ maxHeight: 'calc(100vh - 8rem)' }}
     >
-      <h4 className="text-white text-sm font-bold mb-2">Cluster Dashboard: {cluster.nametag}</h4>
-      <div className="space-y-2 text-xs text-white/80">
+      <h4 className="text-white text-[11px] font-bold mb-1">Cluster: {cluster.nametag}</h4>
+      <div className="space-y-1 text-[9px] text-white/80">
         <p>Total Value: {formatLargeNumber(totalValue)}</p>
         <p>Wallets: {cluster.wallets.length}</p>
         <p>Transactions: {cluster.transactions.length}</p>
+        <p>Avg. Tx Value: {formatLargeNumber(avgTxValue)}</p>
+        <p>Top Tokens: {topTokens.join(', ') || 'N/A'}</p>
         <p>Risk Score: {(riskScore * 100).toFixed(1)}% {riskScore > 0.7 && <span className="text-red-500 ml-1">⚠️ High Risk</span>}</p>
-        <TrendChart transactions={cluster.transactions} />
+        <Suspense fallback={<div>Loading chart...</div>}>
+          <TrendChart transactions={cluster.transactions} />
+        </Suspense>
       </div>
     </motion.div>
   );
-};
+});
 
-const CACHE_TTL = 3600000; // 1 hour
+const CACHE_TTL = 3600000;
 const NODES_PER_PAGE = 50;
 
 export default function TreemapTab({ initialChain = 'ethereum', initialAddress = '' }) {
@@ -429,9 +496,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   const [isMobile, setIsMobile] = useState(false);
   const [coingeckoChains, setCoingeckoChains] = useState([]);
   const [tokenImages, setTokenImages] = useState({});
-  const [fullIncomingData, setFullIncomingData] = useState([]); // Store full incoming data (Layer 1)
-  const [fullOutgoingData, setFullOutgoingData] = useState([]); // Store full outgoing data (Layer 1)
-  const [fullLayer3Data, setFullLayer3Data] = useState([]); // Store Layer 3 transactions
+  const [fullIncomingData, setFullIncomingData] = useState([]);
+  const [fullOutgoingData, setFullOutgoingData] = useState([]);
+  const [fullLayer3Data, setFullLayer3Data] = useState([]);
   const cyRef = useRef(null);
   const containerRef = useRef(null);
   const chainDropdownRef = useRef(null);
@@ -446,12 +513,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
-  // Reset selectedEntity when filterType changes to avoid stale data
   useEffect(() => {
     setSelectedEntity({ type: null, data: { transactions: [] } });
   }, [filterType]);
 
-  // Re-aggregate and re-init graph when filterType or Layer 3 data changes
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
       const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(
@@ -465,15 +530,13 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setNodes(newNodes);
       setEdges(newEdges);
       setNametags((prev) => ({ ...prev, ...newNametags }));
-      // Re-init cytoscape to update graph
       if (cyRef.current) {
         cyRef.current.destroy();
       }
-      setTimeout(() => initializeCytoscape(), 100); // Small delay to ensure DOM ready
+      setTimeout(() => initializeCytoscape(), 100);
     }
   }, [filterType, fullIncomingData, fullOutgoingData, fullLayer3Data, walletAddress, page]);
 
-  // Fetch token images from database and fallback to CoinGecko
   useEffect(() => {
     const fetchTokenImages = async () => {
       const uniqueTokens = [
@@ -486,7 +549,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       logger.log('Fetching token images for:', uniqueTokens);
 
       const images = {};
-      // Initialize with tokenImage from transaction data or hardcode ETH image
       edges.forEach((edge) => {
         const tokenKey = edge.data.contractAddress?.toLowerCase() || edge.data.tokenSymbol?.toLowerCase();
         if (edge.data.tokenSymbol?.toLowerCase() === 'eth' && selectedChain === '1') {
@@ -496,7 +558,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         }
       });
 
-      // Filter out tokens that already have images
       const tokensToFetch = uniqueTokens.filter((token) => !images[token]);
 
       await Promise.all(
@@ -507,7 +568,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           }
 
           try {
-            // Check cache first
             const cacheResponse = await fetch(`${apiBaseUrl}/api/cache?key=token_image_${token}`, {
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
@@ -519,7 +579,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               return;
             }
 
-            // Query local database for token image
             const isContractAddress = isAddress(token);
             const queryParam = isContractAddress ? `contractAddress=${token}` : `symbol=${token}`;
             logger.log(`Querying database for token ${token} with ${queryParam}&chain=${selectedChain}`);
@@ -533,8 +592,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             if (dbResponse.ok && dbResult.success && dbResult.data?.image) {
               logger.log(`Database hit for ${token}:`, dbResult.data.image);
               images[token] = dbResult.data.image;
-
-              // Cache the result
               await fetch(`${apiBaseUrl}/api/cache`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -549,7 +606,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               return;
             }
 
-            // Fallback to CoinGecko if not found in database
             logger.log(`Falling back to CoinGecko for ${token}`);
             const cgResponse = await fetch(
               `${apiBaseUrl}/api/coingecko?action=token-details&${queryParam}&chain=${selectedChain}`,
@@ -563,8 +619,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             if (cgResponse.ok && cgResult.success && cgResult.data?.image?.thumb) {
               logger.log(`CoinGecko hit for ${token}:`, cgResult.data.image.thumb);
               images[token] = cgResult.data.image.thumb;
-
-              // Cache the CoinGecko result
               await fetch(`${apiBaseUrl}/api/cache`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -576,8 +630,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   ttl: 4 * 3600 * 1000,
                 }),
               });
-
-              // Optionally save to database to avoid future CoinGecko calls
               if (isContractAddress) {
                 await fetch(`${apiBaseUrl}/api/tokens`, {
                   method: 'POST',
@@ -626,7 +678,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     const nametags = {};
     const edges = [];
 
-    // Initialize root node (Layer 1)
     walletMap.set(rootAddress.toLowerCase(), {
       address: rootAddress.toLowerCase(),
       nametag: walletInfo.nametag || 'Unknown',
@@ -645,11 +696,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     };
 
     const addWallet = (address, tx, type, layer) => {
-      // Only add wallet if it matches the filter criteria
       if (filterType === 'incoming' && type !== 'incoming') return;
       if (filterType === 'outgoing' && type !== 'outgoing') return;
-
-      // For Layer 3, only add if nametag is valid
       if (layer === 3 && (!tx.nametag || tx.nametag === 'Unknown')) return;
 
       if (!walletMap.has(address)) {
@@ -678,7 +726,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         : tx.block_time;
     };
 
-    // Filter transactions based on filterType for graph (nodes/edges)
     const filteredIncoming = filterType === 'all' || filterType === 'incoming'
       ? incomingData.filter((tx) => tx.address.toLowerCase() !== rootAddress.toLowerCase() && tx.type === 'incoming')
       : [];
@@ -686,14 +733,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       ? outgoingData.filter((tx) => tx.address.toLowerCase() !== rootAddress.toLowerCase() && tx.type === 'outgoing')
       : [];
 
-    // Layer 2: Add wallets from incoming and outgoing transactions
     filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming', 2));
     filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing', 2));
 
-    // Layer 3: Add wallets from layer3Data with valid nametags
     const filteredLayer3 = layer3Data.filter((tx) => tx.nametag && tx.nametag !== 'Unknown');
     filteredLayer3.forEach((tx) => {
-      // Determine the address based on transaction direction
       const address = tx.type === 'incoming' ? tx.address : tx.address;
       addWallet(address, tx, tx.type, 3);
     });
@@ -714,7 +758,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       },
     }));
 
-    // Create edges for Layer 1 and Layer 2
     filteredIncoming.forEach((tx, index) => {
       if (walletMap.has(tx.address.toLowerCase()) && walletMap.has(rootAddress.toLowerCase())) {
         edges.push({
@@ -754,7 +797,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
     });
 
-    // Create edges for Layer 3
     filteredLayer3.forEach((tx, index) => {
       const layer2Address = tx.layer2Address.toLowerCase();
       const layer3Address = tx.address.toLowerCase();
@@ -808,7 +850,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       return;
     }
 
-    // Cache key without filterType to store full data
     const cacheKey = `graph_full_${selectedChain}_${address}_${page}`;
     const cached = await getCachedData(cacheKey);
     if (cached) {
@@ -822,7 +863,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setWalletAddress(address);
       updateUrl(selectedChain, address);
       logger.log('Cached walletInfo.image:', cached.wallet?.image);
-      // Re-aggregate for current filterType
       const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(
         cached.incoming || [],
         cached.outgoing || [],
@@ -890,11 +930,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
 
       logger.log('API response walletInfo.image:', data.wallet.image);
-      // Store full data
       setFullIncomingData(data.incoming);
       setFullOutgoingData(data.outgoing);
       setFullLayer3Data(data.layer3);
-      // Aggregate for current filterType
       const { nodes, edges, nametags: newNametags } = aggregateWallets(
         data.incoming,
         data.outgoing,
@@ -920,7 +958,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       updateUrl(selectedChain, address);
     } catch (err) {
       logger.error(`Error: ${err.message}`);
-      // Only show error toast for actual API failures
       if (nodes.length === 0 && edges.length === 0) {
         toast.error(`Failed to fetch transactions: ${err.message}`, {
           position: 'top-center',
@@ -945,10 +982,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }
   }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]);
 
-  const filterTransactions = (transactions, filterType, rootId, walletId = null) => {
+  const filterTransactions = useCallback((transactions, filterType, rootId, walletId = null) => {
     let txs = transactions || [];
     if (walletId) {
-      // Lọc cho node
       txs = txs
         .map((edge) => ({ ...edge.data, type: edge.data.type }))
         .filter((tx) => tx.source === walletId || tx.target === walletId);
@@ -960,9 +996,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         return false;
       });
     }
-    return [...txs]; // Deep copy
-  };
-
+    return [...txs];
+  }, []);
 
   const initializeCytoscape = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) return;
@@ -976,19 +1011,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
 
       const rootId = walletInfo.address.toLowerCase();
-
-      // Create elements with compound structure for clusters
       let elements = [...nodes, ...edges];
 
-      // New: Add compound nodes for clusters (after detecting clusters)
       const detectedClusters = await detectClusters(
         nodes.map((node) => ({ ...node.data, timestamp: Date.now() })),
         edges.map((edge) => edge.data),
-        { useDBSCAN: true, useGNN: true } // New options
+        { useDBSCAN: true, useGNN: true }
       );
-      setClusters(detectedClusters); // Update state for dashboard
+      setClusters(detectedClusters);
 
-      // Add compound parents
       detectedClusters.forEach((cluster) => {
         const parentId = `cluster-${cluster.clusterId}`;
         elements.push({
@@ -997,7 +1028,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         });
         cluster.wallets.forEach((wallet) => {
           elements.push({
-            data: { id: wallet.id, parent: parentId, ...wallet.data } // Assign parent
+            data: { id: wallet.id, parent: parentId, ...wallet.data }
           });
         });
       });
@@ -1045,10 +1076,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               'line-color': (ele) =>
                 ele.data('type') === 'incoming'
                   ? ele.data('layer') === 3
-                    ? '#FFD700'
+                    ? '#ffffffff'
                     : '#00BFFF'
                   : ele.data('layer') === 3
-                    ? '#FFD700'
+                    ? '#ffffffff'
                     : '#EF4444',
               'curve-style': 'bezier',
             },
@@ -1117,28 +1148,35 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         },
       ]);
 
-      cyRef.current.on('mouseover', 'node', (evt) => {
+      // Optimized hover handler to ensure data updates
+      cyRef.current.on('mouseover', 'node', throttle((evt) => {
         const node = evt.target;
         const walletId = node.data('id');
         const rootId = walletInfo.address.toLowerCase();
         const isRootNode = node.data('isRoot');
-        const risk = detectedClusters.find(c => c.wallets.some(w => w.id === walletId))?.riskScore;
+        const cluster = detectedClusters.find(c => c.wallets.some(w => w.id === walletId));
+        const risk = cluster?.riskScore || 0;
+
         if (risk > 0.7) {
           toast.warn(`High risk detected for ${walletId}: ${(risk * 100).toFixed(1)}%`, { theme: 'dark' });
         }
-        logger.log(`Hover on node: ${walletId}, isRoot: ${isRootNode}, filterType: ${filterType}`);
 
-        if (!isRootNode && detectedClusters.find((c) => c.wallets.some((w) => w.id === walletId))) {
-          const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id === walletId));
-          const clusterTxs = filterTransactions(cluster.transactions, filterType, rootId);
-          logger.log('Cluster transactions:', clusterTxs);
-          setSelectedEntity({ type: 'cluster', data: { ...cluster, transactions: clusterTxs } });
-        } else {
-          const relatedTxs = filterTransactions(edges, filterType, rootId, walletId);
-          logger.log('Node transactions:', relatedTxs);
-          setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
-        }
-      });
+        // Clear previous selection to force update
+        setSelectedEntity({ type: null, data: { transactions: [] } });
+
+        // Use setTimeout to ensure state update is processed
+        setTimeout(() => {
+          if (!isRootNode && cluster) {
+            const clusterTxs = filterTransactions(cluster.transactions, filterType, rootId);
+            logger.log('Cluster transactions:', clusterTxs);
+            setSelectedEntity({ type: 'cluster', data: { ...cluster, transactions: clusterTxs } });
+          } else {
+            const relatedTxs = filterTransactions(edges, filterType, rootId, walletId);
+            logger.log('Node transactions:', relatedTxs);
+            setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
+          }
+        }, 0);
+      }, 100));
 
       cyRef.current.nodes().forEach((node) => {
         const wallet = node.data('id');
@@ -1169,7 +1207,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       });
     } catch (err) {
       logger.error('Error initializing Cytoscape:', err);
-      // Fallback: Use old clustering without compounds
       const fallbackClusters = detectClusters(nodes.map((n) => n.data), edges.map((e) => e.data), { useML: false });
       setClusters(fallbackClusters);
       cyRef.current = cytoscape({
@@ -1237,7 +1274,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         },
       });
     }
-  }, [nodes, edges, walletInfo, filterType, walletAddress]);
+  }, [nodes, edges, walletInfo, filterType, walletAddress, filterTransactions]);
 
   useEffect(() => {
     initializeCytoscape().catch(console.error);
@@ -1263,11 +1300,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     if (SUPPORTED_CHAINS.includes(chainFromUrl)) {
       setSelectedChain(chainFromUrl);
     } else {
-      setSelectedChain('1'); // Default to Ethereum if chain is not supported
+      setSelectedChain('1');
     }
     if (addressFromUrl && (isAddress(addressFromUrl) || ['solana', 'tron'].includes(chainFromUrl))) {
       setWalletAddress(addressFromUrl);
-      // Fetch if address from URL
       fetchTransactions(addressFromUrl, 1);
     }
   }, [searchParams, initialChain, initialAddress]);
@@ -1307,7 +1343,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleLoadMore = useCallback(() => {
@@ -1323,7 +1359,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       (['solana', 'tron'].includes(selectedChain) && walletAddress.match(/^[A-Za-z0-9]{32,44}$/)) ||
       (!['solana', 'tron'].includes(selectedChain) && isAddress(walletAddress))
     ) {
-      // Reset page and full data before fetch
       setPage(1);
       setFullIncomingData([]);
       setFullOutgoingData([]);
@@ -1342,7 +1377,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }
   }, [walletAddress, selectedChain, fetchTransactions]);
 
-  // Handle filter change without refetch (use full data)
   const handleFilterChange = useCallback(() => {
     setFilterType((prev) => {
       if (prev === 'all') {
@@ -1362,7 +1396,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto custom-scrollbar' : 'flex'}`}
+      className={`font-jetbrains w-full max-w-9xl mx-auto mt-4 sm:mt-5 p-2 sm:p-3 h-[calc(100vh)] rounded-xl bg-white/5 ${isMobile ? 'pb-8 overflow-y-auto hide-scrollbar' : 'flex'}`}
     >
       <ToastContainer
         position="top-center"
@@ -1413,7 +1447,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   <span>{isChainDropdownOpen ? '▲' : '▼'}</span>
                 </motion.button>
                 {isChainDropdownOpen && (
-                  <div className="absolute bg-black/50 rounded-xl mt-1 w-36 max-h-56 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-xs z-50">
+                  <div className="absolute bg-black/50 rounded-xl mt-1 w-36 max-h-56 overflow-y-auto hide-scrollbar border border-white/10 shadow-neon-xs z-50">
                     {mappedChains
                       .filter((chain) => SUPPORTED_CHAINS.includes(chain.value))
                       .map((chain) => (
@@ -1435,7 +1469,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                             setSelectedChain(chain.value);
                             setIsChainDropdownOpen(false);
                             updateUrl(chain.value, walletAddress);
-                            // Reset full data and refetch for new chain
                             setFullIncomingData([]);
                             setFullOutgoingData([]);
                             setFullLayer3Data([]);
@@ -1485,7 +1518,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                   <span>{isLimitDropdownOpen ? '▲' : '▼'}</span>
                 </motion.button>
                 {isLimitDropdownOpen && (
-                  <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-28 max-h-60 overflow-y-auto custom-scrollbar border border-white/10 shadow-neon-sm">
+                  <div className="absolute z-20 bg-white/5 rounded-xl mt-1 w-28 max-h-60 overflow-y-auto hide-scrollbar border border-white/10 shadow-neon-sm">
                     {[50, 100, 150, 200].map((limit) => (
                       <motion.button
                         key={limit}
@@ -1504,7 +1537,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                           }
                           setSelectedLimit(limit);
                           setIsLimitDropdownOpen(false);
-                          // Reset full data and refetch for new limit
                           setFullIncomingData([]);
                           setFullOutgoingData([]);
                           setFullLayer3Data([]);
@@ -1640,12 +1672,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       </AnimatePresence>
 
       <style jsx>{`
-  .custom-scrollbar {
+  .hide-scrollbar {
     -ms-overflow-style: none;  /* Ẩn cho IE và Edge */
     scrollbar-width: none;  /* Ẩn cho Firefox */
   }
 
-  .custom-scrollbar::-webkit-scrollbar {
+  .hide-scrollbar::-webkit-scrollbar {
     display: none;  /* Ẩn cho Chrome, Safari, và các browser dựa trên WebKit */
   }
 

@@ -32,7 +32,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   const tabs = [
     { id: 'market', label: 'Market' },
     { id: 'cluster', label: 'Cluster' },
-    { id: 'treemap', label: 'Treemap' },
+    { id: 'treemap', label: 'Graph' },
     { id: 'watchlists', label: 'Watchlists' },
     { id: 'profile', label: 'Profile' },
   ];
@@ -74,7 +74,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   const handleExchangeSelect = (exchange) => {
-    router.push(`/cluster?clusterId=${exchange.id}`, { scroll: false }); // Đổi exchangeId thành clusterId
+    router.push(`/cluster?clusterId=${exchange.id}`, { scroll: false });
     setSearchQuery('');
     setSearchResults([]);
     setIsSearchDropdownOpen(false);
@@ -83,12 +83,12 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
-    const clusterId = new URLSearchParams(window.location.search).get('clusterId'); // Đổi exchangeId thành clusterId
+    const clusterId = new URLSearchParams(window.location.search).get('clusterId'); 
     let query = '';
     if (tabId === 'watchlists' && selectedAddress) {
       query = `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}`;
     } else if (tabId === 'cluster' && clusterId) {
-      query = `tab=${tabId}&clusterId=${encodeURIComponent(clusterId)}`; // Đổi exchangeId thành clusterId
+      query = `tab=${tabId}&clusterId=${encodeURIComponent(clusterId)}`;
     } else {
       query = `tab=${tabId}`;
     }
