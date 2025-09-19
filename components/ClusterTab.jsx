@@ -1573,11 +1573,11 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
             <div className="flex flex-col items-center gap-0.5">
               <a href={txUrl} target="_blank" rel="noopener noreferrer">
                 <img
-                  src={isBitcoin ? '/logos/bitcoin.webp' : '/logos/etherscan-logo.webp'}
+                  src={isBitcoin ? '/logos/mempool-logo.webp' : '/logos/etherscan-logo.webp'}
                   alt="Explorer"
                   width={isMobile ? 12 : 14}
                   height={isMobile ? 12 : 14}
-                  className="rounded-full"
+                  className="rounded-xl"
                   onError={(e) => (e.target.src = '/fallback-image.webp')}
                   loading="lazy"
                 />

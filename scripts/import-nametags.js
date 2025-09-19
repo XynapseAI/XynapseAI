@@ -1,4 +1,5 @@
 // scripts/import-nametags.js
+import 'dotenv/config';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { query } from '../utils/postgres.js';
