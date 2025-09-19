@@ -1984,32 +1984,32 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setAnalysisLogs([]);
 
       try {
-        const fetchFn = async () => {
+        const fetchFn = async (retryCount = 0) => {
           const recaptchaToken = await executeRecaptcha('analyze');
           const prompt = `
-Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base analysis heavily on real-time data from Brave API searches, incorporating specific facts, figures, and quotes from credible sources.
+Analyze **${selectedToken.symbol.toUpperCase()}** in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base the analysis on real-time data from Brave API searches, tweet data, and AI interactions, incorporating specific facts, figures, and quotes from credible sources.
 
 **Data**:
 - **Current Price**: $${selectedToken.current_price?.[currency]?.toFixed(2) || 'N/A'}
 - **24h Price Change**: ${selectedToken.price_change_percentage_24h?.toFixed(2) || 'N/A'}%
 - **Market Cap**: $${selectedToken.market_cap?.[currency]?.toLocaleString() || 'N/A'}
 - **24h Volume**: $${selectedToken.total_volume?.[currency]?.toLocaleString() || 'N/A'}
-- **Social Media/Web**: Fetch recent sentiment from Twitter/X and web articles via Brave API, prioritizing latest news from the past week.
+- **Social Media/Web**: Fetch recent sentiment from Twitter/X and web articles via Brave API, prioritizing news from the past 7 days.
 
 **Requirements**:
-- **Overview**: Provide a detailed summary of market performance, recent trends, volatility, and historical context with specific data points, charts description (e.g., candlestick patterns), and comparisons to similar assets.
-- **US Economic Impact**: Analyze effects of the most recent CPI (include latest value and date), Non-Farm Payrolls (latest figures and date), GDP growth (quarterly data), and Federal Reserve interest rate decisions (latest rate and meeting date). Discuss how these macroeconomic factors influence the token, with evidence from sources.
-- **Stock Market Correlation**: Discuss detailed correlation with S&P 500 and Nasdaq, referencing their recent performance (e.g., index changes over past 7 days, 30 days), and statistical correlations if available from sources.
-- **Political News Impact**: Evaluate influence of the latest political events or policies on the crypto market, citing specific events, dates, and impacts (e.g., regulatory changes, elections).
+- **Overview**: Summarize market performance, recent trends, volatility, and historical context. Include candlestick patterns, comparisons to similar assets (e.g., BTC, ETH), and specific price movements (e.g., 7-day, 30-day changes).
+- **US Economic Impact**: Analyze the impact of the latest CPI (include value and date), Non-Farm Payrolls (latest figures and date), GDP growth (quarterly data), and Federal Reserve interest rate decisions (latest rate and meeting date). Explain how these factors influence ${selectedToken.symbol.toUpperCase()} using evidence from sources.
+- **Stock Market Correlation**: Discuss correlations with S&P 500 and Nasdaq, referencing their performance (e.g., index changes over 7 days, 30 days). Provide statistical correlations if available.
+- **Political News Impact**: Evaluate the influence of recent political events or policies (e.g., regulatory changes, elections) on the crypto market, citing specific events and dates.
 - **Sentiment Analysis**:
-  - *Social Media*: Summarize Twitter/X sentiment with quantitative metrics (e.g., positive/negative ratio), highlighting key influencers, viral tweets, and trends from recent data.
-  - *Web*: Extract in-depth insights from recent articles (via Brave API), prioritizing credible sources like Bloomberg, Reuters, CoinDesk. Include quotes and summaries from 3-5 articles.
+  - *Social Media*: Summarize Twitter/X sentiment with quantitative metrics (e.g., positive/negative tweet ratio, key influencers, viral tweets) based on provided tweet data.
+  - *Web*: Extract insights from recent articles (via Brave API), prioritizing credible sources (e.g., Bloomberg, Reuters, CoinDesk). Include 3-5 quotes with article titles and publication dates.
 - **Technical Analysis**:
-  - *Price Patterns*: Identify support/resistance levels, moving averages (50-day, 200-day with values), RSI, MACD, and other indicators with specific values.
-  - *Volume Trends*: Analyze trading volume changes over 24h, 7d, 30d, and implications for liquidity and momentum.
-- **Risk Factors**: Discuss potential risks like market manipulation, regulatory risks, or technological issues, backed by recent news.
-- **Conclusion**: Provide balanced, actionable insights with a neutral tone, summarizing key takeaways.
-- **References**: Provide a JSON array of links in the format [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...] from Brave API results, including at least 5-10 sources.
+  - *Price Patterns*: Identify support/resistance levels, 50-day and 200-day moving averages (include values), RSI, MACD, and other indicators. Provide specific values where possible.
+  - *Volume Trends*: Analyze trading volume changes over 24h, 7d, 30d, and their implications for liquidity and momentum.
+- **Risk Factors**: Discuss risks like market manipulation, regulatory changes, or technological issues, supported by recent news.
+- **Conclusion**: Summarize key takeaways with balanced, actionable insights in a neutral tone.
+- **References**: Return a JSON array of links in the format [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...], including at least 5-10 sources from Brave API results.
 
 **Output Format**:
 {
@@ -2018,20 +2018,40 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
 }
 `;
 
+          console.log('Sending analysis request:', { tokenSymbol: selectedToken.symbol, recaptchaToken });
+
           const response = await fetch('/api/token-analysis', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${session?.accessToken || ''}`,
+              'x-recaptcha-token': recaptchaToken,
             },
             body: JSON.stringify({
               tokenSymbol: selectedToken.symbol?.toUpperCase(),
               recaptchaToken,
             }),
+            signal: AbortSignal.timeout(90000), // Increase timeout to 90 seconds
           });
 
           if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            if (response.status === 401 && retryCount < 1) {
+              // Attempt to refresh token
+              try {
+                const { data: newSession } = await axios.get('/api/auth/session');
+                if (newSession?.accessToken) {
+                  console.log('Token refreshed, retrying analysis');
+                  return await fetchFn(retryCount + 1); // Retry with new token
+                } else {
+                  throw new Error('Failed to refresh session token');
+                }
+              } catch (refreshError) {
+                console.error('Token refresh failed:', refreshError.message);
+                throw new Error('Session expired. Please log in again.');
+              }
+            }
+            throw new Error(`HTTP error! status: ${response.status}, detail: ${errorData.detail || 'Unknown error'}`);
           }
 
           const reader = response.body.getReader();
@@ -2070,20 +2090,20 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
         setAnalysisLinks(links);
       } catch (error) {
         let errorMessage = 'Error analyzing token. Please try again.';
-        if (error.code === 'ECONNABORTED') {
-          errorMessage = 'Request took too long. Please check your network connection and try again.';
-        } else if (error.response?.status === 401) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Request timed out. Please check your network or try again later.';
+        } else if (error.message.includes('HTTP error')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('reCAPTCHA')) {
+          errorMessage = 'reCAPTCHA verification error. Please try again.';
+        } else if (error.message.includes('Session expired')) {
           errorMessage = 'Session expired. Please log in again.';
-        } else if (error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')) {
-          errorMessage = 'reCAPTCHA verification failed. Please try again.';
         } else if (error.response?.status === 429) {
           errorMessage = 'Too many requests. Please try again after a minute.';
         } else if (error.response?.status === 413) {
           errorMessage = 'Request too large. Please try again later.';
         } else if (error.response?.data?.errors) {
-          errorMessage = `'Data error: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
-        } else if (error.message.includes('reCAPTCHA')) {
-          errorMessage = 'reCAPTCHA verification error. Please try again.';
+          errorMessage = `Data error: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
         }
         console.error(`Analysis error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
           error,
@@ -2091,9 +2111,8 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
           data: error.response?.data,
         });
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        // Preserve existing analysis data
-        if (!localCache.current[cacheKey]?.data) {
-          setAnalysis(analysis); // Keep previous analysis if available
+        if (localCache.current[cacheKey]?.data) {
+          setAnalysis(localCache.current[cacheKey].data.content);
         }
       } finally {
         setIsAnalyzing(false);
@@ -2102,7 +2121,7 @@ Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bo
         }
       }
     }, 500),
-    [selectedToken, currency, session, status, executeRecaptcha, toast, analysis]
+    [selectedToken, currency, session, status, executeRecaptcha, toast]
   );
 
   // Replace the debouncedHandlePrediction function
