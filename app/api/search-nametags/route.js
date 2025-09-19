@@ -55,7 +55,7 @@ async function checkRateLimit(ip, endpoint) {
   try {
     client = await getRedisClient();
     const windowSeconds = 15 * 60;
-    const maxRequests = process.env.NODE_ENV === 'development' ? 1000 : 500;
+    const maxRequests = process.env.NODE_ENV === 'development' ? 1000 : 400;
     const key = `rate_limit:${endpoint}:${ip}`;
     const count = Number(await client.incr(key));
     if (count === 1) await client.expire(key, windowSeconds);
@@ -96,11 +96,11 @@ async function trackViolation(ip, reason, severity = 'warn') {
   try {
     client = await getRedisClient();
     const key = `violations:${ip}`;
-    const maxViolations = 5;
+    const maxViolations = 20;
     const windowMs = 15 * 60 * 1000;
     const violations = parseInt(await client.get(key)) || 0;
     if (violations >= maxViolations) {
-      await client.setEx(`banned_ip:${ip}`, 3600, 'banned');
+      await client.setEx(`banned_ip:${ip}`, 600, 'banned');
       logger.info('IP banned', { ip, reason });
       throw new Error('IP banned due to repeated violations.');
     }
@@ -180,7 +180,7 @@ async function checkIp(ip) {
     const response = await fetch(`https://ipinfo.io/${ip}/json?token=${process.env.IPINFO_TOKEN}`);
     const data = await response.json();
     const { abuse } = data;
-    if (abuse && abuse.score > 50) {
+    if (abuse && abuse.score > 80) {
       logger.warn(`Suspicious IP detected: ${ip}`);
       return false;
     }
@@ -340,8 +340,9 @@ export async function GET(request) {
 
     return NextResponse.json(responseData, { headers });
   } catch (error) {
-    await trackViolation(ip, `Error in nametag search: ${error.message}`, 'severe');
-    logger.error('Error in nametag search:', { error: error.message, stack: error.stack });
+    const isSystemError = error.message.includes('Redis') || error.message.includes('Database') || error.message === 'Internal server error';
+    await trackViolation(ip, `Error in nametag search: ${error.message}`, isSystemError ? 'warn' : 'severe');
+    logger.error(`Error in nametag search:`, { error: error.message, stack: error.stack });
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500, headers }
