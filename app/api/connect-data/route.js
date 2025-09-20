@@ -18,7 +18,9 @@ function validateEnvVars() {
     logger.error('Missing required environment variables', { missing });
     throw new Error(`Missing required env vars: ${missing.join(', ')}`);
   }
-  logger.info('All required environment variables validated');
+  if (process.env.NODE_ENV !== 'production') {
+    logger.info('All required environment variables validated');
+  }
 }
 
 validateEnvVars();
@@ -29,17 +31,37 @@ let prisma = global.__prisma || new PrismaClient({
 });
 if (!global.__prisma) global.__prisma = prisma;
 
+let redisClient;
 async function getRedisClient() {
-  const client = createClient({ url: process.env.REDIS_URL });
-  client.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }));
-  try {
-    await client.connect();
-    logger.info('Redis connected');
-    return client;
-  } catch (err) {
-    logger.error('Redis connect failed', { err });
-    throw new Error('Redis connection failed');
+  if (redisClient?.isOpen) {
+    return redisClient;
   }
+  const maxRetries = 3;
+  const delay = 1000;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+      redisClient.on('error', (err) => logger.error('Redis Client Error', { err: err?.message }));
+      await redisClient.connect();
+      if (process.env.NODE_ENV !== 'production') {
+        logger.info('Redis connected');
+      }
+      return redisClient;
+    } catch (err) {
+      if (i === maxRetries - 1) throw new Error('Failed to connect to Redis');
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn(`Redis connection failed, retrying...`, { attempt: i + 1, err: err?.message });
+      }
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+function getClientIp(request) {
+  const xForwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const xRealIp = request.headers.get('x-real-ip')?.trim();
+  const vercelIp = request.headers.get('x-vercel-forwarded-for')?.trim();
+  return xRealIp || vercelIp || xForwardedFor || 'unknown';
 }
 
 const serializeBigInt = (obj) => {
@@ -54,16 +76,17 @@ async function withRetry(fn, retries = 3, delay = 1000) {
       return await fn();
     } catch (err) {
       if (i === retries - 1) throw err;
-      logger.warn(`Database connection failed, retrying...`, { attempt: i + 1 });
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn(`Database connection failed, retrying...`, { attempt: i + 1, err: err?.message });
+      }
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 }
 
 async function checkRateLimit(ip, userId) {
-  let client;
+  const client = await getRedisClient();
   try {
-    client = await getRedisClient();
     const windowSeconds = 15 * 60;
     const ipKey = `rate:ip:${ip}`;
     const userKey = userId ? `rate:user:${userId}` : null;
@@ -86,21 +109,24 @@ async function checkRateLimit(ip, userId) {
       }
     }
   } finally {
-    if (client) {
-      await client.quit().catch(err => logger.warn('Redis disconnect failed', { err: err?.message }));
-    }
+    await client.quit().catch(err => {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn('Redis disconnect failed', { err: err?.message });
+      }
+    });
   }
 }
 
 async function trackViolation(ip, reason, severity = 'warn') {
   if (severity === 'warn') {
-    logger.warn('Violation recorded (warning)', { ip, reason });
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('Violation recorded (warning)', { ip, reason });
+    }
     return;
   }
 
-  let client;
+  const client = await getRedisClient();
   try {
-    client = await getRedisClient();
     const key = `violations:${ip}`;
     const maxViolations = 5;
     const windowMs = 15 * 60 * 1000;
@@ -111,14 +137,18 @@ async function trackViolation(ip, reason, severity = 'warn') {
       throw new Error('IP banned due to repeated violations.');
     }
     await client.multi().incr(key).expire(key, Math.floor(windowMs / 1000)).exec();
-    logger.warn('Violation recorded (severe)', { ip, reason, violations: violations + 1 });
-  } finally {
-    if (client) {
-      await client.quit().catch(err => logger.warn('Redis disconnect failed', { err: err?.message }));
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('Violation recorded (severe)', { ip, reason, violations: violations + 1 });
     }
+  } finally {
+    await client.quit().catch(err => {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn('Redis disconnect failed', { err: err?.message });
+      }
+    });
   }
 }
-
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function isAllowedOrigin(origin, referer, pathname) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
@@ -128,55 +158,44 @@ async function isAllowedOrigin(origin, referer, pathname) {
     'https://xynapse-ai.vercel.app',
   ].filter(Boolean);
 
-  logger.info('Checking origin', { origin, referer, pathname, configured });
+  if (process.env.NODE_ENV !== 'production') {
+    return configured.includes(origin) || configured.includes(referer ? new URL(referer).origin : null);
+  }
 
   try {
     if (origin && origin !== 'null') {
-      if (process.env.NODE_ENV === 'production' && !origin.startsWith('https://')) {
-        logger.warn('Blocked origin: non-HTTPS origin in production', { origin });
+      if (!origin.startsWith('https://')) {
+        await trackViolation(ip, 'Non-HTTPS origin in production');
         return false;
       }
       if (configured.includes(origin)) {
-        logger.info('Origin allowed', { origin });
         return true;
       }
-      logger.warn('Invalid origin', { origin });
+      await trackViolation(ip, 'Invalid origin');
       return false;
     }
 
     if (!origin && referer) {
       const refOrigin = new URL(referer).origin;
-      if (process.env.NODE_ENV === 'production' && !refOrigin.startsWith('https://')) {
-        logger.warn('Blocked referer: non-HTTPS in production', { referer });
+      if (!refOrigin.startsWith('https://')) {
+        await trackViolation(ip, 'Non-HTTPS referer in production');
         return false;
       }
       if (configured.includes(refOrigin)) {
-        logger.info('Referer origin allowed', { referer, refOrigin });
         return true;
       }
-      logger.warn('Invalid referer', { referer });
+      await trackViolation(ip, 'Invalid referer');
       return false;
     }
 
     if (!origin && !referer) {
-      logger.info('Allowing internal/SSR request');
-      return true;
+      return true; // Internal/SSR request
     }
 
-    if (!origin && process.env.NODE_ENV === 'production') {
-      logger.warn('Null origin blocked in production', { pathname });
-      return false;
-    }
-
-    if (!origin && process.env.NODE_ENV === 'development') {
-      logger.warn('Null origin blocked in development - use configured origin for testing');
-      return false;
-    }
-
-    logger.warn('Invalid origin or referer', { origin, referer });
+    await trackViolation(ip, 'Invalid origin or referer');
     return false;
-  } catch (err) {
-    logger.error('Error validating origin', { err: err?.message, origin, referer, pathname });
+  } catch {
+    await trackViolation(ip, 'Error validating origin');
     return false;
   }
 }
@@ -190,17 +209,75 @@ function parseCookies(request) {
   }
 }
 
-async function checkDoubleSubmitCSRF(request) {
+async function generateCSRFToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+async function setCSRFToken(ip, userId) {
+  const client = await getRedisClient();
+  const token = await generateCSRFToken();
+  const key = `csrf:${userId || ip}`;
+  await client.setEx(key, 15 * 60, token);
+  return token;
+}
+
+async function checkDoubleSubmitCSRF(request, ip, userId) {
   const headerToken = request.headers.get('x-csrf-token') || '';
   const cookies = parseCookies(request);
   const cookieToken = cookies['csrf_token'] || '';
+
+  if (process.env.NODE_ENV !== 'production') {
+    logger.info('Checking CSRF tokens', {
+      headerToken: headerToken ? 'provided' : 'missing',
+      cookieToken: cookieToken ? 'provided' : 'missing',
+    });
+  }
+
+  if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('Development CSRF bypass used');
+    }
+    return true;
+  }
+
   if (!headerToken || !cookieToken) {
-    logger.warn('CSRF tokens missing', { headerProvided: !!headerToken, cookieProvided: !!cookieToken });
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF tokens missing', {
+        headerProvided: !!headerToken,
+        cookieProvided: !!cookieToken,
+      });
+    }
     return false;
   }
-  const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
-  if (!valid) {
-    logger.warn('CSRF token mismatch');
+
+  if (process.env.NODE_ENV === 'development') {
+    const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken));
+    if (!valid && process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF token mismatch in development', {
+        headerToken: mask(headerToken),
+        cookieToken: mask(cookieToken),
+      });
+    }
+    return valid;
+  }
+
+  const client = await getRedisClient();
+  const storedToken = await client.get(`csrf:${userId || ip}`);
+  if (!storedToken) {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF token not found in Redis', { key: `csrf:${userId || ip}` });
+    }
+    return false;
+  }
+
+  const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
+    crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken));
+  if (!valid && process.env.NODE_ENV !== 'production') {
+    logger.warn('CSRF token mismatch', {
+      headerToken: mask(headerToken),
+      cookieToken: mask(cookieToken),
+      storedToken: mask(storedToken),
+    });
   }
   return valid;
 }
@@ -219,9 +296,8 @@ async function hashApiKey(apiKey) {
   };
 }
 
-function securityHeaders(origin) {
-  const csp =
-    "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';";
+function securityHeaders(csrfToken = null) {
+  const csp = "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self';";
   const headers = {
     'Content-Security-Policy': csp,
     'X-Frame-Options': 'DENY',
@@ -230,11 +306,14 @@ function securityHeaders(origin) {
     'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
     'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
   };
-  if (origin && origin !== 'null') {
-    headers['Access-Control-Allow-Origin'] = origin;
-    headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
-    headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Recaptcha-Token, X-CSRF-Token';
-    headers['Access-Control-Allow-Credentials'] = 'true';
+  if (csrfToken) {
+    headers['Set-Cookie'] = cookie.serialize('csrf_token', csrfToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60,
+      path: '/',
+    });
   }
   return headers;
 }
@@ -252,91 +331,120 @@ const postSchema = z.object({
   emailVerified: z.boolean().optional(),
 });
 
-// ---------- OPTIONS handler ----------
 export async function OPTIONS(request) {
+  const ip = getClientIp(request);
   const origin = request.headers.get('origin');
-  const pathname = new URL(request.url).pathname;
   const referer = request.headers.get('referer');
-  
+  const pathname = new URL(request.url).pathname;
+
   if (!(await isAllowedOrigin(origin, referer, pathname))) {
-    logger.warn('CORS origin not allowed for OPTIONS', { origin, referer });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
+    await trackViolation(ip, 'CORS blocked');
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
   }
 
-  return new NextResponse(null, {
-    status: 204,
-    headers: securityHeaders(origin),
-  });
+  const headers = {
+    ...securityHeaders(),
+    ...(origin && origin !== 'null' && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+  };
+
+  return new NextResponse(null, { status: 204, headers });
 }
 
-// ---------- GET handler ----------
 export async function GET(request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const ip = getClientIp(request);
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
   const pathname = new URL(request.url).pathname;
   const params = Object.fromEntries(request.nextUrl.searchParams);
-  logger.info('GET /api/connect-data requested', { ip, origin, referer, query: Object.keys(params) });
-
-  if (!(await isAllowedOrigin(origin, referer, pathname))) {
-    logger.warn('CORS origin not allowed for GET', { origin, referer });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
+  if (process.env.NODE_ENV !== 'production') {
+    logger.info('GET /api/connect-data requested', { ip, pathname });
   }
 
-  const headers = securityHeaders(origin);
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+    await trackViolation(ip, 'CORS blocked');
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
+  }
+
+  const headers = {
+    ...securityHeaders(),
+    ...(origin && origin !== 'null' && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+  };
 
   try {
     const session = await auth();
     const userId = session?.user?.id || null;
 
+    if (!session || !userId) {
+      await trackViolation(ip, 'Unauthenticated request');
+      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers });
+    }
+
     try {
       await checkRateLimit(ip, userId);
     } catch (err) {
-      logger.warn('Rate limit exceeded', { ip, userId });
+      await trackViolation(ip, err.message);
       return NextResponse.json(
-        { detail: err.message },
+        { detail: 'Too many requests' },
         { status: 429, headers: { ...headers, 'Retry-After': err.ttl.toString() } }
       );
     }
 
-    if (!session || !session.user?.id) {
-      logger.warn('Unauthenticated GET request', { ip });
-      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers });
-    }
-
-    const csrfOk = await checkDoubleSubmitCSRF(request);
+    let newCsrfToken;
+    const csrfOk = await checkDoubleSubmitCSRF(request, ip, userId);
     if (!csrfOk) {
-      logger.warn('Invalid CSRF token', { ip });
-      return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers });
+      newCsrfToken = await setCSRFToken(ip, userId);
+      return NextResponse.json({ detail: 'Invalid CSRF token. Please try again.' }, { status: 403, headers: securityHeaders(newCsrfToken) });
     }
 
     let parsedParams;
     try {
       parsedParams = getSchema.parse(params);
-    } catch (err) {
-      logger.warn('GET validation failed', { ip, err: err?.errors ?? err?.message });
-      return NextResponse.json({ detail: 'Invalid input data', errors: err.errors }, { status: 400, headers });
+    } catch {
+      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+      return NextResponse.json({ detail: 'Invalid input data' }, { status: 400, headers: securityHeaders(newCsrfToken) });
     }
 
     const { uid } = parsedParams;
     const effectiveUid = uid || session.user.id;
 
     if (effectiveUid !== session.user.id) {
-      logger.warn('Access denied: UID mismatch', { uid: effectiveUid, sessionUserId: mask(session.user.id) });
-      return NextResponse.json({ detail: 'Access denied: Invalid UID' }, { status: 403, headers });
+      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+      await trackViolation(ip, 'Access denied: UID mismatch');
+      return NextResponse.json({ detail: 'Access denied: Invalid UID' }, { status: 403, headers: securityHeaders(newCsrfToken) });
     }
 
     const recaptchaToken = request.headers.get('x-recaptcha-token');
-    if (!recaptchaToken) {
-      logger.warn('Missing reCAPTCHA token header', { ip });
-      return NextResponse.json({ detail: 'Missing reCAPTCHA token in header' }, { status: 400, headers });
+    if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
+      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+      await trackViolation(ip, 'Missing reCAPTCHA token');
+      return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400, headers: securityHeaders(newCsrfToken) });
     }
-    try {
-      const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-      logger.info('reCAPTCHA OK', { ip, score });
-    } catch (err) {
-      logger.warn('reCAPTCHA failed', { ip, reason: err?.message });
-      return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers });
+    if (process.env.NODE_ENV !== 'development') {
+      try {
+        const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
+        if (score < 0.7) {
+          newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+          await trackViolation(ip, 'reCAPTCHA score too low');
+          return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+        }
+        if (process.env.NODE_ENV !== 'production') {
+          logger.info('reCAPTCHA OK', { ip, score });
+        }
+      } catch {
+        newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+        await trackViolation(ip, 'reCAPTCHA verification failed');
+        return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });
+      }
     }
 
     let redisClient;
@@ -345,12 +453,11 @@ export async function GET(request) {
       const cacheKey = `user:${effectiveUid}`;
       const cached = await redisClient.get(cacheKey);
       if (cached) {
-        logger.info('Cache hit for user', { uid: effectiveUid });
         const parsed = JSON.parse(cached);
-        return NextResponse.json(parsed, { headers });
+        newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+        return NextResponse.json(parsed, { headers: securityHeaders(newCsrfToken) });
       }
 
-      logger.info('Cache miss, querying DB for user', { uid: effectiveUid });
       const user = await withRetry(() =>
         prisma.users.findUnique({
           where: { id: effectiveUid },
@@ -377,8 +484,8 @@ export async function GET(request) {
       );
 
       if (!user) {
-        logger.warn('User not found in DB', { uid: effectiveUid });
-        return NextResponse.json({ detail: 'User not found' }, { status: 404, headers });
+        newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+        return NextResponse.json({ detail: 'User not found' }, { status: 404, headers: securityHeaders(newCsrfToken) });
       }
 
       const data = {
@@ -405,81 +512,100 @@ export async function GET(request) {
       };
 
       await redisClient.setEx(cacheKey, 300, JSON.stringify(serializeBigInt(data)));
-      logger.info('Fetched and cached user', { uid: effectiveUid });
-      return NextResponse.json(data, { headers });
+      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+      return NextResponse.json(data, { headers: securityHeaders(newCsrfToken) });
     } finally {
       if (redisClient) {
-        await redisClient.quit().catch(err => logger.warn('Redis disconnect failed in GET', { err: err?.message }));
+        await redisClient.quit().catch(err => {
+          if (process.env.NODE_ENV !== 'production') {
+            logger.warn('Redis disconnect failed in GET', { err: err?.message });
+          }
+        });
       }
     }
   } catch (err) {
     logger.error('Unexpected error in GET', { err: err?.message });
     return NextResponse.json({ detail: 'Server error' }, { status: 500, headers });
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
-// ---------- POST handler ----------
 export async function POST(request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const ip = getClientIp(request);
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
   const pathname = new URL(request.url).pathname;
-  logger.info('POST /api/connect-data requested', { ip, origin, referer });
-
-  if (!(await isAllowedOrigin(origin, referer, pathname))) {
-    logger.warn('CORS origin not allowed for POST', { origin, referer });
-    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders(origin) });
+  if (process.env.NODE_ENV !== 'production') {
+    logger.info('POST /api/connect-data requested', { ip, pathname });
   }
 
-  const headers = securityHeaders(origin);
+  if (!(await isAllowedOrigin(origin, referer, pathname))) {
+    await trackViolation(ip, 'CORS blocked');
+    return NextResponse.json({ detail: 'Not allowed by CORS' }, { status: 403, headers: securityHeaders() });
+  }
+
+  const headers = {
+    ...securityHeaders(),
+    ...(origin && origin !== 'null' && {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, X-Recaptcha-Token, X-CSRF-Token',
+      'Access-Control-Allow-Credentials': 'true',
+    }),
+  };
 
   try {
     const session = await auth();
     const userId = session?.user?.id || null;
 
+    if (!session || !userId) {
+      await trackViolation(ip, 'Unauthenticated request');
+      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers });
+    }
+
     try {
       await checkRateLimit(ip, userId);
     } catch (err) {
-      logger.warn('Rate limit exceeded', { ip, userId });
+      await trackViolation(ip, err.message);
       return NextResponse.json(
-        { detail: err.message },
+        { detail: 'Too many requests' },
         { status: 429, headers: { ...headers, 'Retry-After': err.ttl.toString() } }
       );
     }
 
-    if (!session || !session.user?.id) {
-      logger.warn('Unauthenticated POST request', { ip });
-      return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers });
-    }
-
-    const csrfOk = await checkDoubleSubmitCSRF(request);
+    let newCsrfToken;
+    const csrfOk = await checkDoubleSubmitCSRF(request, ip, userId);
     if (!csrfOk) {
-      logger.warn('Invalid CSRF token', { ip });
-      return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers });
+      newCsrfToken = await setCSRFToken(ip, userId);
+      await trackViolation(ip, 'Invalid CSRF token');
+      return NextResponse.json({ detail: 'Invalid CSRF token. Please try again.' }, { status: 403, headers: securityHeaders(newCsrfToken) });
     }
 
     let body;
     try {
       body = await request.json();
     } catch {
-      logger.warn('Invalid JSON body on POST', { ip });
-      return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400, headers });
+      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+      await trackViolation(ip, 'Invalid JSON body');
+      return NextResponse.json({ detail: 'Invalid JSON body' }, { status: 400, headers: securityHeaders(newCsrfToken) });
     }
 
     let parsedBody;
     try {
       parsedBody = postSchema.parse(body);
-    } catch (err) {
-      logger.warn('POST validation failed', { ip, errors: err?.errors ?? err?.message });
-      return NextResponse.json({ detail: 'Invalid input data', errors: err.errors }, { status: 400, headers });
+    } catch {
+      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
+      await trackViolation(ip, 'Invalid input data');
+      return NextResponse.json({ detail: 'Invalid input data' }, { status: 400, headers: securityHeaders(newCsrfToken) });
     }
 
     const { id, email, profilePicture, googleId, googleName, emailVerified } = parsedBody;
 
     if (session.user.id !== id) {
+      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
       await trackViolation(ip, 'Unauthorized user update', 'severe');
-      logger.warn('Not authorized to update this user', { id, sessionUserId: mask(session.user.id) });
-      return NextResponse.json({ detail: 'Not authorized' }, { status: 401, headers });
+      return NextResponse.json({ detail: 'Not authorized' }, { status: 401, headers: securityHeaders(newCsrfToken) });
     }
 
     let redisClient;
@@ -504,14 +630,15 @@ export async function POST(request) {
         twitter_handle: null,
       };
 
-      const existingUser = await prisma.users.findUnique({ where: { id }, select: { api_key_hash: true } });
+      const existingUser = await withRetry(() =>
+        prisma.users.findUnique({ where: { id }, select: { api_key_hash: true } })
+      );
       let apiKeyData = {};
       if (!existingUser) {
         const plainApiKey = crypto.randomBytes(32).toString('hex');
         apiKeyData = await hashApiKey(plainApiKey);
       }
 
-      logger.info('Creating/updating user (safely)', { id: mask(id) });
       const updatedUser = await withRetry(() =>
         prisma.users.upsert({
           where: { id },
@@ -532,10 +659,12 @@ export async function POST(request) {
       try {
         await redisClient.del(`user:${id}`);
       } catch (err) {
-        logger.warn('Failed to clear cache for user', { id, err: err?.message });
+        if (process.env.NODE_ENV !== 'production') {
+          logger.warn('Failed to clear cache for user', { id: mask(id), err: err?.message });
+        }
       }
 
-      logger.info('User created/updated successfully', { id: mask(id) });
+      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
       return NextResponse.json(
         {
           success: true,
@@ -547,18 +676,25 @@ export async function POST(request) {
             email_verified: updatedUser.email_verified,
           }),
         },
-        { headers }
+        { headers: securityHeaders(newCsrfToken) }
       );
     } catch (err) {
+      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
       logger.error('Error processing POST /api/connect-data', { err: err?.message });
-      return NextResponse.json({ detail: 'Server error' }, { status: 500, headers });
+      return NextResponse.json({ detail: 'Server error' }, { status: 500, headers: securityHeaders(newCsrfToken) });
     } finally {
       if (redisClient) {
-        await redisClient.quit().catch(err => logger.warn('Redis disconnect failed in POST', { err: err?.message }));
+        await redisClient.quit().catch(err => {
+          if (process.env.NODE_ENV !== 'production') {
+            logger.warn('Redis disconnect failed in POST', { err: err?.message });
+          }
+        });
       }
     }
   } catch (err) {
     logger.error('Unexpected error in POST', { err: err?.message });
     return NextResponse.json({ detail: 'Server error' }, { status: 500, headers });
+  } finally {
+    await prisma.$disconnect();
   }
 }

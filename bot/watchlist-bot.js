@@ -65,22 +65,22 @@ logger.info('Postgres module imported successfully');
 let lastTweetTime = 0;
 const tweetQueue = [];
 
-// Fetch watchlist addresses from database
+// Fetch watchlist addresses from bot_wallets table
 async function getWatchlistAddresses() {
   const startTime = Date.now();
   try {
-    const result = await query('SELECT wallet_address, name FROM watchlists');
+    const result = await query('SELECT wallet_address, name FROM bot_wallets');
     const validAddresses = result.rows.filter(row =>
       /^0x[a-fA-F0-9]{40}$/.test(row.wallet_address)
     );
     const duration = Date.now() - startTime;
-    logger.info(`Fetched ${validAddresses.length} valid wallet addresses from watchlist in ${duration}ms`);
+    logger.info(`Fetched ${validAddresses.length} valid wallet addresses from bot_wallets in ${duration}ms`);
     return validAddresses.map(row => ({
-      address: row.wallet_address,
+      address: row.wallet_address.toLowerCase(), // Chuẩn hóa về chữ thường
       name: row.name || 'Unnamed Wallet'
     }));
   } catch (err) {
-    logger.error(`Failed to fetch watchlist: ${err.message}`, { stack: err.stack });
+    logger.error(`Failed to fetch bot_wallets: ${err.message}`, { stack: err.stack });
     throw err;
   }
 }
@@ -186,7 +186,6 @@ async function savePostedTransaction(hash) {
   }
 }
 
-// Generate tweet content using Gemini API
 // Generate tweet content using Gemini API
 async function getGeminiResponse(transaction, fromName, toName, chainName, txUrl) {
   const startTime = Date.now();
@@ -335,7 +334,7 @@ async function main() {
     // Fetch watchlist and process transactions
     const watchlist = await getWatchlistAddresses();
     const addresses = watchlist.map(w => w.address);
-    logger.info(`Processing ${addresses.length} addresses from watchlist`);
+    logger.info(`Processing ${addresses.length} addresses from bot_wallets`);
     const nameTags = await getNameTags(addresses);
     let transactionsInHour = [];
 

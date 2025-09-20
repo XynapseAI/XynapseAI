@@ -24,32 +24,39 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'pbs.twimg.com', // Hình ảnh từ Twitter
-        port: '',
+        hostname: 'pbs.twimg.com',
         pathname: '/**',
       },
       {
         protocol: 'https',
-        hostname: 'lh3.googleusercontent.com', // Hình ảnh từ Google
-        port: '',
+        hostname: 'lh3.googleusercontent.com',
         pathname: '/**',
       },
     ],
   },
   async headers() {
+    const allowedOrigins = [
+      process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
+      'https://xynapseai.net',
+      'https://www.xynapseai.net',
+      'https://xynapse-ai-xynapse-projects.vercel.app',
+      'https://xynapse-ai.vercel.app',
+    ].filter(Boolean);
+
     return [
       {
         source: '/api/:path*',
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
+            value: allowedOrigins.join(','),
           },
           { key: 'Access-Control-Allow-Methods', value: 'GET,POST,OPTIONS' },
           {
             key: 'Access-Control-Allow-Headers',
             value: 'Content-Type,Authorization,X-CSRF-Token,X-Recaptcha-Token',
           },
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
         ],
       },
     ]
@@ -68,7 +75,6 @@ const nextConfig: NextConfig = {
   },
   webpack: (config, options) => {
     if (options.isServer) {
-      // Handle Node.js built-in modules for server-side code
       config.resolve.alias = {
         ...config.resolve.alias,
         'node:crypto': 'crypto',
@@ -76,13 +82,23 @@ const nextConfig: NextConfig = {
         'node:path': 'path',
       }
     } else {
-      // Avoid including Node.js built-in modules in client-side bundle
       config.resolve.fallback = {
         ...config.resolve.fallback,
         crypto: false,
         fs: false,
         path: false,
       }
+    }
+    if (!options.dev) {
+      config.optimization.minimizer.push(
+        new (require('terser-webpack-plugin'))({
+          terserOptions: {
+            compress: {
+              drop_console: true, 
+            },
+          },
+        })
+      );
     }
     return config
   },

@@ -64,26 +64,31 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Execute reCAPTCHA
   const debouncedExecuteRecaptcha = useCallback(
-    async (action, retries = 2) => {
+    async (action, retries = 3) => {
       if (!recaptchaRef.current) {
-        logger.error('reCAPTCHA ref is null');
+        if (process.env.NODE_ENV !== 'production') {
+          logger.error('reCAPTCHA ref is null');
+        }
         throw new Error('reCAPTCHA not initialized');
       }
-      try {
-        await recaptchaRef.current.reset();
-        const token = await Promise.race([
-          recaptchaRef.current.executeAsync(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
-        ]);
-        if (!token) throw new Error('Empty reCAPTCHA token');
-        return token;
-      } catch (error) {
-        logger.error(`reCAPTCHA error for ${action}: ${error.message}`);
-        if (retries > 0 && (error.message.includes('timeout') || error.message.includes('network'))) {
+      for (let i = 0; i < retries; i++) {
+        try {
+          await recaptchaRef.current.reset();
+          const token = await Promise.race([
+            recaptchaRef.current.executeAsync(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
+          ]);
+          if (!token) throw new Error('Empty reCAPTCHA token');
+          return token;
+        } catch (error) {
+          if (process.env.NODE_ENV !== 'production') {
+            logger.error(`reCAPTCHA attempt ${i + 1} failed for ${action}: ${error.message}`);
+          }
+          if (i === retries - 1) {
+            throw new Error(`reCAPTCHA failed after ${retries} attempts: ${error.message}`);
+          }
           await new Promise((resolve) => setTimeout(resolve, 1000));
-          return debouncedExecuteRecaptcha(action, retries - 1);
         }
-        throw new Error(`reCAPTCHA failed after ${3 - retries} attempts: ${error.message}`);
       }
     },
     [recaptchaRef]
@@ -104,13 +109,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       localStorage.setItem('csrf_token', csrf);
     },
     onError: (err) => {
-      logger.error('Error fetching CSRF token:', err);
+      if (process.env.NODE_ENV !== 'production') {
+        logger.error('Error fetching CSRF token:', err);
+      }
       toast.error('Failed to fetch CSRF token. Please try again.', {
         position: 'top-center',
         autoClose: 5000,
       });
     },
   });
+
 
   // Create charge mutation
   const createChargeMutation = useMutation({
@@ -196,7 +204,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         await cacheData(cacheKey, user, 24 * 60 * 60 * 1000);
         return user;
       } catch (err) {
-        logger.error('Error fetching user data:', err.response?.data || err.message);
+        if (process.env.NODE_ENV !== 'production') {
+          logger.error('Error fetching user data:', err.response?.data || err.message);
+        }
         throw err;
       }
     },
@@ -205,28 +215,24 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
     onError: async (err) => {
-      logger.error('Error fetching user data:', err.response?.data || err.message);
+      if (process.env.NODE_ENV !== 'production') {
+        logger.error('Error fetching user data:', err.response?.data || err.message);
+      }
+      let errorMessage = 'Failed to fetch user data';
       if (err.response?.status === 429) {
-        toast.error('Too many requests. Please wait and try again.', {
-          position: 'top-center',
-          autoClose: 5000,
-        });
+        errorMessage = 'Too many requests. Please wait and try again.';
       } else if (err.response?.status === 403) {
-        toast.error('Authentication failed. Please try logging in again.', {
-          position: 'top-center',
-          autoClose: 5000,
-        });
+        errorMessage = 'Authentication failed. Please try logging in again.';
         await signOut({ redirect: false });
         window.location.href = '/auth/signin';
       } else if (err.response?.status === 404) {
+        errorMessage = 'User not found. Please log in again.';
         await signOut({ redirect: false });
         window.location.href = '/auth/signin';
       } else {
-        toast.error(`Failed to fetch user data: ${err.message}`, {
-          position: 'top-center',
-          autoClose: 5000,
-        });
+        errorMessage = err.response?.data?.detail || err.message || 'Failed to fetch user data';
       }
+      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
     },
   });
 
