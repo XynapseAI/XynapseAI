@@ -60,6 +60,20 @@ const isValidDate = (date) => {
 
 // VirtuosoTable component remains unchanged for brevity
 const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
+  if (!transactions || !Array.isArray(transactions)) {
+    logger.warn('Invalid transactions in VirtuosoTable:', transactions);
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+        className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-3 max-h-[calc(100vh-12rem)] hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-96 fixed right-4 top-32'}`}
+      >
+        <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
+        <p className="text-white/60 text-[9px] sm:text-[10px]">No transactions available.</p>
+      </motion.div>
+    );
+  }
   const handleCopyAddress = (address) => {
     navigator.clipboard.writeText(address);
     toast.success('Address copied to clipboard!', {
@@ -427,7 +441,10 @@ const TrendChart = memo(({ transactions }) => {
 
 // Optimized ClusterDashboard with additional metrics
 const ClusterDashboard = memo(({ entity, isMobile }) => {
-  if (!entity || entity.type !== 'cluster') return null;
+  if (!entity || entity.type !== 'cluster' || !entity.data || !entity.data.wallets || !entity.data.transactions) {
+    logger.warn('Invalid cluster data:', entity);
+    return null;
+  }
 
   const { data: cluster } = entity;
   const totalValue = useMemo(() => cluster.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue || 0), 0), [cluster]);
@@ -456,7 +473,7 @@ const ClusterDashboard = memo(({ entity, isMobile }) => {
       className={`bg-black/50 backdrop-blur-md border border-white/10 rounded-xl p-2 hide-scrollbar ${isMobile ? 'w-full mt-2' : 'w-72 fixed left-4 top-32'}`}
       style={{ maxHeight: 'calc(100vh - 8rem)' }}
     >
-      <h4 className="text-white text-[11px] font-bold mb-1">Cluster: {cluster.nametag}</h4>
+      <h4 className="text-white text-[11px] font-bold mb-1">Cluster: {cluster.nametag || 'Unknown'}</h4>
       <div className="space-y-1 text-[9px] text-white/80">
         <p>Total Value: {formatLargeNumber(totalValue)}</p>
         <p>Wallets: {cluster.wallets.length}</p>
@@ -983,24 +1000,53 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]);
 
   const filterTransactions = useCallback((transactions, filterType, rootId, walletId = null) => {
-    let txs = transactions || [];
-    if (walletId) {
-      txs = txs
-        .map((edge) => ({ ...edge.data, type: edge.data.type }))
-        .filter((tx) => tx.source === walletId || tx.target === walletId);
+    if (!transactions || !Array.isArray(transactions)) {
+      logger.warn('Invalid transactions array:', transactions);
+      return [];
     }
+
+    let txs = transactions.map(tx => ({
+      ...tx,
+      source: tx.source?.toLowerCase(),
+      target: tx.target?.toLowerCase(),
+    }));
+
+    if (walletId) {
+      logger.log(`Filtering transactions for walletId: ${walletId}`);
+      txs = txs.filter(
+        (tx) =>
+          (tx.source === walletId.toLowerCase() || tx.target === walletId.toLowerCase()) &&
+          tx.source && tx.target
+      );
+    }
+
     if (filterType !== 'all') {
+      logger.log(`Applying filterType: ${filterType}, rootId: ${rootId}`);
       txs = txs.filter((tx) => {
-        if (filterType === 'incoming') return tx.type === 'incoming' && tx.target?.toLowerCase() === rootId;
-        if (filterType === 'outgoing') return tx.type === 'outgoing' && tx.source?.toLowerCase() === rootId;
+        if (!tx.source || !tx.target) {
+          logger.warn('Invalid transaction (missing source or target):', tx);
+          return false;
+        }
+        if (filterType === 'incoming') {
+          return tx.type === 'incoming' && tx.target === rootId?.toLowerCase();
+        }
+        if (filterType === 'outgoing') {
+          return tx.type === 'outgoing' && tx.source === rootId?.toLowerCase();
+        }
         return false;
       });
     }
-    return [...txs];
+
+    const uniqueTxs = [...new Set(txs.map(JSON.stringify))].map(JSON.parse);
+    logger.log(`Filtered transactions (walletId: ${walletId || 'none'}, filterType: ${filterType}):`, uniqueTxs.length);
+    return uniqueTxs;
   }, []);
 
   const initializeCytoscape = useCallback(async () => {
-    if (!containerRef.current || !nodes.length || !walletInfo.address) return;
+    if (!containerRef.current || !nodes.length || !walletInfo.address) {
+      logger.warn('Cannot initialize Cytoscape: missing container, nodes, or walletInfo.address');
+      return;
+    }
 
     try {
       await TensorFlowJS;
@@ -1008,6 +1054,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
       if (cyRef.current) {
         cyRef.current.destroy();
+        logger.log('Destroyed previous Cytoscape instance');
       }
 
       const rootId = walletInfo.address.toLowerCase();
@@ -1018,17 +1065,25 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         edges.map((edge) => edge.data),
         { useDBSCAN: true, useGNN: true }
       );
+      logger.log('Detected clusters:', detectedClusters.map(c => ({
+        clusterId: c.clusterId,
+        nametag: c.nametag,
+        walletCount: c.wallets.length,
+        transactionCount: c.transactions.length,
+      })));
       setClusters(detectedClusters);
 
+      // Gán parent cho node con
       detectedClusters.forEach((cluster) => {
-        const parentId = `cluster-${cluster.clusterId}`;
-        elements.push({
-          data: { id: parentId, label: cluster.nametag },
-          style: { 'background-color': `hsl(${cluster.clusterId * 60}, 70%, 50%)`, width: 200, height: 150 }
-        });
         cluster.wallets.forEach((wallet) => {
-          elements.push({
-            data: { id: wallet.id, parent: parentId, ...wallet.data }
+          elements = elements.map((ele) => {
+            if (ele.data.id.toLowerCase() === wallet.id.toLowerCase()) {
+              return {
+                ...ele,
+                data: { ...ele.data, parent: `cluster-${cluster.clusterId}` },
+              };
+            }
+            return ele;
           });
         });
       });
@@ -1090,7 +1145,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               'background-opacity': 0.8,
               'width': 40,
               'height': 40,
-            }
+            },
           },
           {
             selector: ':parent',
@@ -1099,7 +1154,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               'text-valign': 'center',
               'color': '#fff',
               'font-size': '14px',
-            }
+            },
           },
         ],
         layout: {
@@ -1108,19 +1163,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           edgeLength: (edge) => (edge.data('layer') === 2 ? 150 : 100),
           fit: true,
           padding: 50,
-          animate: true,
-          animationDuration: 1000,
+          animate: false,
           avoidOverlap: true,
           handleDisconnected: true,
           maxSimulationTime: 4000,
           compoundSpringLength: () => 100,
         },
-      });
-
-      cyRef.current.on('tap', 'node:parent', (evt) => {
-        const node = evt.target;
-        node.children().toggleClass('collapsed', !node.hasClass('collapsed'));
-        cyRef.current.layout({ name: 'cola' }).run();
       });
 
       cyRef.current.nodeHtmlLabel([
@@ -1131,15 +1179,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           halignBox: 'center',
           valignBox: 'bottom',
           tpl: (data) => {
-            const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id === data.id));
+            const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id.toLowerCase() === data.id.toLowerCase()));
             const risk = cluster?.riskScore || 0;
             const clusterLabel = data.isRoot ? walletInfo.nametag || 'Unknown' : cluster ? cluster.nametag : 'Unknown';
             const image = data.isRoot ? walletInfo.image : data.image;
             const nametag = data.isRoot ? '' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
-            logger.log(`Rendering node label for ${data.id}, isRoot: ${data.isRoot}, image: ${image}`);
             return `
             <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[10px] sm:text-[11px] py-1 px-2 rounded">
               ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
+              ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
               <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol}</div>
               <div>Risk: ${(risk * 100).toFixed(0)}%</div>
             </div>
@@ -1148,39 +1196,61 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         },
       ]);
 
-      // Optimized hover handler to ensure data updates
+      // Sửa logic hover
       cyRef.current.on('mouseover', 'node', throttle((evt) => {
         const node = evt.target;
-        const walletId = node.data('id');
+        const walletId = node.data('id')?.toLowerCase();
         const rootId = walletInfo.address.toLowerCase();
         const isRootNode = node.data('isRoot');
-        const cluster = detectedClusters.find(c => c.wallets.some(w => w.id === walletId));
-        const risk = cluster?.riskScore || 0;
 
-        if (risk > 0.7) {
-          toast.warn(`High risk detected for ${walletId}: ${(risk * 100).toFixed(1)}%`, { theme: 'dark' });
+        if (!walletId) {
+          logger.warn('No walletId found for node:', node.data());
+          return;
         }
 
-        // Clear previous selection to force update
+        logger.log('Hover on node:', { walletId, isRootNode });
+
+        // Reset selectedEntity
         setSelectedEntity({ type: null, data: { transactions: [] } });
 
-        // Use setTimeout to ensure state update is processed
-        setTimeout(() => {
-          if (!isRootNode && cluster) {
-            const clusterTxs = filterTransactions(cluster.transactions, filterType, rootId);
-            logger.log('Cluster transactions:', clusterTxs);
-            setSelectedEntity({ type: 'cluster', data: { ...cluster, transactions: clusterTxs } });
-          } else {
-            const relatedTxs = filterTransactions(edges, filterType, rootId, walletId);
-            logger.log('Node transactions:', relatedTxs);
-            setSelectedEntity({ type: 'node', data: { id: walletId, transactions: relatedTxs } });
-          }
-        }, 0);
-      }, 100));
+        // Tìm cụm chứa node
+        const cluster = detectedClusters.find((c) =>
+          c.wallets.some((w) => w.id.toLowerCase() === walletId)
+        );
+
+        if (!isRootNode && cluster) {
+          // Lọc giao dịch cho cụm
+          const clusterTxs = filterTransactions(cluster.transactions, filterType, rootId);
+          logger.log(`Cluster ${cluster.clusterId} found for node ${walletId}, transactions:`, clusterTxs.length);
+          setSelectedEntity({
+            type: 'cluster',
+            data: {
+              ...cluster,
+              transactions: clusterTxs,
+            },
+          });
+        } else {
+          // Lọc giao dịch cho node
+          const relatedTxs = filterTransactions(
+            edges.map((e) => ({ ...e.data, source: e.data.source.toLowerCase(), target: e.data.target.toLowerCase() })),
+            filterType,
+            rootId,
+            walletId
+          );
+          logger.log(`Node ${walletId} transactions:`, relatedTxs.length);
+          setSelectedEntity({
+            type: 'node',
+            data: {
+              id: walletId,
+              transactions: relatedTxs,
+            },
+          });
+        }
+      }, 100)); // Tăng throttle lên 100ms để giảm tải
 
       cyRef.current.nodes().forEach((node) => {
-        const wallet = node.data('id');
-        const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id === wallet));
+        const wallet = node.data('id').toLowerCase();
+        const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id.toLowerCase() === wallet));
         if (cluster && !node.data('isRoot')) {
           node.style('border-color', `hsl(${cluster.clusterId * 60}, 70%, 50%)`);
           node.style('border-width', 2);
@@ -1345,6 +1415,20 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    const runClustering = async () => {
+      const detectedClusters = await detectClusters(
+        nodes.map((node) => ({ ...node.data, timestamp: Date.now() })),
+        edges.map((edge) => edge.data),
+        { useDBSCAN: true, useGNN: true }
+      );
+      setClusters(detectedClusters);
+    };
+    if (nodes.length > 0 && edges.length > 0) {
+      runClustering().catch(console.error);
+    }
+  }, [nodes, edges]);
 
   const handleLoadMore = useCallback(() => {
     setPage((prev) => {
@@ -1657,10 +1741,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       </div>
       <AnimatePresence>
         {selectedEntity.type === 'cluster' && (
-          <ClusterDashboard entity={selectedEntity} isMobile={isMobile} />
+          <ClusterDashboard key={selectedEntity.data.clusterId} entity={selectedEntity} isMobile={isMobile} />
         )}
         <VirtuosoTable
-          key={selectedEntity.data.transactions.length} // Ép re-render khi transactions thay đổi
+          key={`${selectedEntity.type}-${selectedEntity.data.id || selectedEntity.data.clusterId}`}
           transactions={selectedEntity.data.transactions}
           isMobile={isMobile}
           selectedChain={selectedChain}
@@ -1673,12 +1757,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
       <style jsx>{`
   .hide-scrollbar {
-    -ms-overflow-style: none;  /* Ẩn cho IE và Edge */
-    scrollbar-width: none;  /* Ẩn cho Firefox */
+    -ms-overflow-style: none;  
+    scrollbar-width: none; 
   }
 
   .hide-scrollbar::-webkit-scrollbar {
-    display: none;  /* Ẩn cho Chrome, Safari, và các browser dựa trên WebKit */
+    display: none; 
   }
 
   .shadow-neon-sm {

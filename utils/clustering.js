@@ -20,19 +20,19 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
   const edgeMap = new Map();
   const adjacencyList = new Map();
 
-  // Initialize adjacency list (graph structure for degrees)
+  // Initialize adjacency list
   const clusterableNodes = nodes.filter(
     (node) => !node.isRoot && (node.layer === 2 || node.layer === 3) && node.label !== 'Unknown'
   );
   nodes.forEach((node) => {
-    nodeMap.set(node.id, node);
-    adjacencyList.set(node.id, new Set());
+    nodeMap.set(node.id.toLowerCase(), node);
+    adjacencyList.set(node.id.toLowerCase(), new Set());
   });
 
   // Build adjacency list from edges
   edges.forEach((edge) => {
-    const source = edge.source;
-    const target = edge.target;
+    const source = edge.source.toLowerCase();
+    const target = edge.target.toLowerCase();
     edgeMap.set(edge.id, edge);
     if (adjacencyList.has(source) && adjacencyList.has(target)) {
       adjacencyList.get(source).add(target);
@@ -42,17 +42,16 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
 
   let communities = new Map();
 
+  // ML clustering logic giữ nguyên
   if (options.useML && clusterableNodes.length > 1) {
     try {
       const tf = await loadTensorFlow();
-
-      // Feature extraction
       const now = Date.now();
       const features = [];
       const nodeIds = [];
 
       clusterableNodes.forEach((node) => {
-        const degree = adjacencyList.get(node.id)?.size || 0;
+        const degree = adjacencyList.get(node.id.toLowerCase())?.size || 0;
         const avgValue = node.totalValue / Math.max(node.txCount, 1);
         const latestTime = node.latestBlockTime
           ? typeof node.latestBlockTime === 'number'
@@ -71,50 +70,44 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
           hasLabel,
         ];
         features.push(feat);
-        nodeIds.push(node.id);
+        nodeIds.push(node.id.toLowerCase());
       });
 
       if (features.length < 2) {
         throw new Error('Insufficient nodes for ML clustering');
       }
 
-      let embeddings = tf.tensor2d(features); // Default features
+      let embeddings = tf.tensor2d(features);
 
-      // New: GNN integration - simple GraphConv
       if (options.useGNN) {
         try {
-          // Simple GNN: adjacency matrix + features
           const n = features.length;
           const adj = tf.zeros([n, n]);
-          // Build adj from adjacencyList
           nodeIds.forEach((id, i) => {
-            adjacencyList.get(id).forEach(neighId => {
-              const j = nodeIds.indexOf(neighId);
+            adjacencyList.get(id)?.forEach((neighId) => {
+              const j = nodeIds.indexOf(neighId.toLowerCase());
               if (j !== -1) adj.assign(1, [i, j], [1, 1]);
             });
           });
 
-          // GraphConv: H = sigma(A * W * X) (simple 1 layer)
-          const w = tf.randomNormal([features[0].length, 16]); // Hidden dim 16
+          const w = tf.randomNormal([features[0].length, 16]);
           const wx = tf.matMul(embeddings, w);
           const h = tf.tanh(tf.matMul(adj, wx));
-          embeddings = h; // Use as new features
+          embeddings = h;
           logger.log('GNN embeddings generated');
         } catch (gnnErr) {
           logger.warn('GNN failed, using raw features:', gnnErr.message);
         }
       }
 
-      // Normalize
       const mean = tf.mean(embeddings, 0, true);
       const std = tf.sqrt(tf.variance(embeddings, 0, true));
       const normalized = embeddings.sub(mean).div(std.add(1e-8));
 
-      // New: DBSCAN instead of KMeans
       if (options.useDBSCAN) {
-        const labels = dbscan(normalized.arraySync(), 0.5, 2); // eps=0.5, minPts=2
+        const labels = dbscan(normalized.arraySync(), 0.5, 2);
         nodeIds.forEach((id, idx) => {
-          if (labels[idx] !== -1) { // -1 is noise
+          if (labels[idx] !== -1) {
             communities.set(id, labels[idx]);
           }
         });
@@ -174,7 +167,6 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
       mean.dispose();
       std.dispose();
       embeddings.dispose();
-
     } catch (err) {
       logger.warn('ML clustering failed, falling back to Louvain:', err.message);
       options.useML = false;
@@ -226,7 +218,6 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
 
   // New: Risk analysis
   const calculateRiskScore = (node) => {
-    // Simple rule-based: high value + low tx + old activity = high risk
     const valueScore = parseFloat(node.totalValue) > 1000 ? 0.3 : 0;
     const txScore = node.txCount < 5 ? 0.3 : 0;
     const timeScore = node.latestBlockTime
@@ -243,7 +234,7 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
     if (!communityGroups.has(commId)) {
       communityGroups.set(commId, { wallets: [], transactions: [] });
     }
-    const node = nodeMap.get(nodeId);
+    const node = nodeMap.get(nodeId.toLowerCase());
     if (node) {
       communityGroups.get(commId).wallets.push(node);
     }
@@ -251,22 +242,30 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
 
   // Assign transactions to clusters
   edges.forEach((edge) => {
-    const sourceComm = communities.get(edge.source);
-    const targetComm = communities.get(edge.target);
-    if (sourceComm === targetComm && communityGroups.has(sourceComm)) {
-      communityGroups.get(sourceComm).transactions.push({
-        ...edge,
-        source: edge.source,
-        target: edge.target,
+    const source = edge.source.toLowerCase();
+    const target = edge.target.toLowerCase();
+    const sourceComm = communities.get(source);
+    const targetComm = communities.get(target);
+    if (
+      sourceComm !== undefined &&
+      targetComm !== undefined &&
+      sourceComm === targetComm &&
+      communityGroups.has(sourceComm)
+    ) {
+      const txData = {
+        id: edge.id,
+        source,
+        target,
         type: edge.type,
         value: edge.value,
         txHash: edge.txHash,
         block_time: edge.block_time,
         tokenSymbol: edge.tokenSymbol,
-        contractAddress: edge.contractAddress,
+        contractAddress: edge.contractAddress?.toLowerCase(),
         tokenImage: edge.tokenImage,
         layer: edge.layer,
-      });
+      };
+      communityGroups.get(sourceComm).transactions.push(txData);
     }
   });
 
@@ -286,13 +285,21 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
       clusterNametag = layer2Node.label;
     }
 
-    const clusterRisk = Math.max(...group.wallets.map(w => calculateRiskScore(w)));
+    const clusterRisk = Math.max(...group.wallets.map((w) => calculateRiskScore(w)));
+    const uniqueTxs = [...new Set(group.transactions.map(JSON.stringify))].map(JSON.parse);
+    logger.log(`Cluster ${commId}:`, {
+      nametag: clusterNametag,
+      walletCount: group.wallets.length,
+      transactionCount: uniqueTxs.length,
+      wallets: group.wallets.map(w => w.id),
+      transactions: uniqueTxs.map(tx => tx.id),
+    });
     clusters.push({
       clusterId: commId,
       nametag: clusterNametag,
       wallets: group.wallets,
-      transactions: group.transactions,
-      riskScore: clusterRisk, // New
+      transactions: uniqueTxs,
+      riskScore: clusterRisk,
     });
   });
 
