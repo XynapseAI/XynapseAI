@@ -10,7 +10,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 // Define log directory
 const logsDir = isVercel ? '/tmp/logs' : path.join(process.cwd(), 'logs');
 
-// Ensure log directory exists (synchronous)
+// Ensure log directory exists
 const ensureLogDir = (dir) => {
   try {
     fs.mkdirSync(dir, { recursive: true });
@@ -20,7 +20,7 @@ const ensureLogDir = (dir) => {
       console.error(`Failed to create log directory ${dir}: ${error.message}`);
       return false;
     }
-    return true; // Directory already exists
+    return true;
   }
 };
 
@@ -35,10 +35,10 @@ const logFormat = winston.format.combine(
   )
 );
 
-// Initialize transports array
+// Initialize transports
 const transports = [];
 
-// Add console transport in non-production environments
+// Add console transport only in non-production environments
 if (!isProduction) {
   transports.push(
     new winston.transports.Console({
@@ -52,16 +52,16 @@ if (!isProduction) {
   );
 }
 
-// Create logger
+// Create base logger
 const logger = winston.createLogger({
   level: isProduction ? 'info' : 'debug',
   format: logFormat,
   transports,
 });
 
-// Add transports based on environment (synchronous)
+// Add file or console transports depending on environment
 if (!isVercel) {
-  // Local environment or non-Vercel production: Add file transports
+  // Local (dev or prod): log to files
   const logDirCreated = ensureLogDir(logsDir);
   if (logDirCreated) {
     logger.add(
@@ -76,21 +76,22 @@ if (!isVercel) {
         level: logger.level,
       })
     );
-    logger.info(`File transports added for directory: ${logsDir}`);
+    if (!isProduction) {
+      logger.info(`File transports added at: ${logsDir}`);
+    }
   } else {
-    logger.warn('File transports not added due to directory creation failure');
+    logger.warn('Failed to create log directory; file transports not added');
   }
 } else if (isProduction) {
-  // Vercel in production: Add console transport (rely on Vercel's logging)
+  // Vercel production: use console only (Vercel collects console output)
   logger.add(
     new winston.transports.Console({
       level: 'info',
       format: logFormat,
     })
   );
-  logger.info('Console transport added for Vercel in production; relying on Vercel logging');
 } else {
-  // Vercel in development: Add file transports
+  // Vercel dev: log to files
   const logDirCreated = ensureLogDir(logsDir);
   if (logDirCreated) {
     logger.add(
@@ -105,16 +106,12 @@ if (!isVercel) {
         level: 'debug',
       })
     );
-    logger.info(`File transports added for directory: ${logsDir}`);
-  } else {
-    logger.warn('File transports not added due to directory creation failure on Vercel');
+    logger.info(`File transports added for Vercel dev at: ${logsDir}`);
   }
 }
 
 logger.info(
-  `Server logger initialized in ${
-    isVercel ? 'Vercel' : 'Local'
-  } mode, production: ${isProduction}`
+  `Server logger initialized → ${isVercel ? 'Vercel' : 'Local'}, production: ${isProduction}`
 );
 
 export { logger };

@@ -48,6 +48,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const itemsPerPage = 10;
 
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      console.log = () => {};
+      console.error = () => {};
+      console.warn = () => {};
+    }
+  }, []);
+
   // Handle responsive design
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 640);
@@ -249,72 +257,72 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   }, [userData, session, csrfToken, queryClient]);
 
   // Fetch Tasks
-  const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
-    queryKey: ['tasks', session?.user?.id, csrfToken],
-    queryFn: async () => {
-      const cacheKey = `tasks-${session.user.id}`;
-      const cached = await getCachedData(cacheKey);
-      if (cached) return cached;
+  // const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
+  //   queryKey: ['tasks', session?.user?.id, csrfToken],
+  //   queryFn: async () => {
+  //     const cacheKey = `tasks-${session.user.id}`;
+  //     const cached = await getCachedData(cacheKey);
+  //     if (cached) return cached;
 
-      const response = await axios.get('/api/tasks', {
-        headers: {
-          'x-csrf-token': csrfToken,
-        },
-        withCredentials: true,
-      });
-      if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch tasks.');
-      await cacheData(cacheKey, response.data.tasks, 10 * 60 * 1000);
-      return response.data.tasks;
-    },
-    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-    staleTime: 10 * 60 * 1000,
-  });
+  //     const response = await axios.get('/api/tasks', {
+  //       headers: {
+  //         'x-csrf-token': csrfToken,
+  //       },
+  //       withCredentials: true,
+  //     });
+  //     if (!response.data.success) throw new Error(response.data.detail || 'Failed to fetch tasks.');
+  //     await cacheData(cacheKey, response.data.tasks, 10 * 60 * 1000);
+  //     return response.data.tasks;
+  //   },
+  //   enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+  //   staleTime: 10 * 60 * 1000,
+  // });
 
   // Fetch Task Progress
-  const { data: taskProgress, isLoading: taskProgressLoading, error: taskProgressError } = useQuery({
-    queryKey: ['taskProgress', session?.user?.id, csrfToken],
-    queryFn: async () => {
-      const cacheKey = `taskProgress-${session.user.id}`;
-      const cached = await getCachedData(cacheKey);
-      if (cached) return cached;
+  // const { data: taskProgress, isLoading: taskProgressLoading, error: taskProgressError } = useQuery({
+  //   queryKey: ['taskProgress', session?.user?.id, csrfToken],
+  //   queryFn: async () => {
+  //     const cacheKey = `taskProgress-${session.user.id}`;
+  //     const cached = await getCachedData(cacheKey);
+  //     if (cached) return cached;
 
-      const token = await debouncedExecuteRecaptcha('task_progress');
-      const response = await axios.get(`/api/task-progress?uid=${session.user.id}`, {
-        headers: {
-          'x-csrf-token': csrfToken,
-          'X-Recaptcha-Token': token,
-        },
-        withCredentials: true,
-      });
-      const progress = response.data.progress || {};
-      await cacheData(cacheKey, progress, 10 * 60 * 1000);
-      return progress;
-    },
-    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-    staleTime: 10 * 60 * 1000,
-  });
+  //     const token = await debouncedExecuteRecaptcha('task_progress');
+  //     const response = await axios.get(`/api/task-progress?uid=${session.user.id}`, {
+  //       headers: {
+  //         'x-csrf-token': csrfToken,
+  //         'X-Recaptcha-Token': token,
+  //       },
+  //       withCredentials: true,
+  //     });
+  //     const progress = response.data.progress || {};
+  //     await cacheData(cacheKey, progress, 10 * 60 * 1000);
+  //     return progress;
+  //   },
+  //   enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+  //   staleTime: 10 * 60 * 1000,
+  // });
 
   // Fetch Point History
-  const { data: pointData, isLoading: pointLoading, error: pointError } = useQuery({
-    queryKey: ['pointHistory', session?.user?.id, csrfToken],
-    queryFn: async () => {
-      const cacheKey = `pointHistory-${session.user.id}`;
-      const cached = await getCachedData(cacheKey);
-      if (cached) return cached;
+  // const { data: pointData, isLoading: pointLoading, error: pointError } = useQuery({
+  //   queryKey: ['pointHistory', session?.user?.id, csrfToken],
+  //   queryFn: async () => {
+  //     const cacheKey = `pointHistory-${session.user.id}`;
+  //     const cached = await getCachedData(cacheKey);
+  //     if (cached) return cached;
 
-      const response = await axios.get(`/api/point-history?uid=${session.user.id}`, {
-        headers: {
-          'x-csrf-token': csrfToken,
-        },
-        withCredentials: true,
-      });
+  //     const response = await axios.get(`/api/point-history?uid=${session.user.id}`, {
+  //       headers: {
+  //         'x-csrf-token': csrfToken,
+  //       },
+  //       withCredentials: true,
+  //     });
 
-      if (!response.data.success) throw new Error('Invalid point history data.');
-      return response.data;
-    },
-    enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-    staleTime: 10 * 60 * 1000,
-  });
+  //     if (!response.data.success) throw new Error('Invalid point history data.');
+  //     return response.data;
+  //   },
+  //   enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
+  //   staleTime: 10 * 60 * 1000,
+  // });
 
   // Fetch Leaderboard
   const { data: rankings, isLoading: leaderboardLoading, error: leaderboardError } = useQuery({
@@ -462,41 +470,41 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   );
 
   // Handle Task Verification
-  const verifyTaskMutation = useMutation({
-    mutationFn: async (task) => {
-      const token = await debouncedExecuteRecaptcha('verify_task');
-      const response = await axios.post(
-        '/api/twitter/verify-task',
-        { taskId: task.id, userId: session.user.id, recaptchaToken: token },
-        {
-          headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
-          withCredentials: true,
-        }
-      );
-      if (!response.data.success) throw new Error(response.data.detail || 'Failed to verify task');
-      return response.data;
-    },
-    onSuccess: (data, task) => {
-      toast.success(`Task ${task.description} verified! +${task.points} points`, { position: 'top-center', autoClose: 5000 });
-      queryClient.invalidateQueries(['taskProgress', session?.user?.id, csrfToken]);
-      queryClient.invalidateQueries(['pointHistory', session?.user?.id, csrfToken]);
-      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
-    },
-    onError: (err) => {
-      toast.error(
-        err.response?.status === 429
-          ? 'API rate limit exceeded. Please try again later.'
-          : err.response?.status === 403
-            ? 'Authentication failed. Please try again.'
-            : err.message.includes('reCAPTCHA')
-              ? 'reCAPTCHA verification failed. Please try again.'
-              : err.message.includes('Twitter account not connected')
-                ? 'Please connect your Twitter account to perform this task.'
-                : `Verification failed: ${err.message}`,
-        { position: 'top-center', autoClose: 5000 }
-      );
-    },
-  });
+  // const verifyTaskMutation = useMutation({
+  //   mutationFn: async (task) => {
+  //     const token = await debouncedExecuteRecaptcha('verify_task');
+  //     const response = await axios.post(
+  //       '/api/twitter/verify-task',
+  //       { taskId: task.id, userId: session.user.id, recaptchaToken: token },
+  //       {
+  //         headers: { 'x-csrf-token': csrfToken, 'Content-Type': 'application/json' },
+  //         withCredentials: true,
+  //       }
+  //     );
+  //     if (!response.data.success) throw new Error(response.data.detail || 'Failed to verify task');
+  //     return response.data;
+  //   },
+  //   onSuccess: (data, task) => {
+  //     toast.success(`Task ${task.description} verified! +${task.points} points`, { position: 'top-center', autoClose: 5000 });
+  //     queryClient.invalidateQueries(['taskProgress', session?.user?.id, csrfToken]);
+  //     queryClient.invalidateQueries(['pointHistory', session?.user?.id, csrfToken]);
+  //     queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
+  //   },
+  //   onError: (err) => {
+  //     toast.error(
+  //       err.response?.status === 429
+  //         ? 'API rate limit exceeded. Please try again later.'
+  //         : err.response?.status === 403
+  //           ? 'Authentication failed. Please try again.'
+  //           : err.message.includes('reCAPTCHA')
+  //             ? 'reCAPTCHA verification failed. Please try again.'
+  //             : err.message.includes('Twitter account not connected')
+  //               ? 'Please connect your Twitter account to perform this task.'
+  //               : `Verification failed: ${err.message}`,
+  //       { position: 'top-center', autoClose: 5000 }
+  //     );
+  //   },
+  // });
 
   // Get Days Active
   const getDaysActive = useCallback(() => {
@@ -590,384 +598,384 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   );
 
   // Render Tasks Section
-  const renderTasksSection = useCallback(
-    () => (
-      <div className="relative bg-black/80 rounded-xl overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
-        <LoadingOverlay
-          isLoading={tasksLoading || taskProgressLoading}
-          isMobile={isMobile}
-          className="h-full z-50"
-        />
-        {tasksError && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center"
-          >
-            Error: {tasksError.message}
-          </motion.div>
-        )}
-        {!tasks?.length && !tasksError && !(tasksLoading || taskProgressLoading) && (
-          <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4 h-full flex items-center justify-center">
-            No tasks available.
-          </p>
-        )}
-        {tasks?.length > 0 && (
-          <>
-            {!userData?.twitterHandle && (
-              <motion.div
-                className="mb-2 p-2 text-center"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <p className="text-[9px] sm:text-[11px] text-white/80 mb-2">
-                  Connect your Twitter account to perform tasks.
-                </p>
-                <motion.button
-                  onClick={() => connectTwitterMutation.mutate()}
-                  className="px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Connect Twitter
-                </motion.button>
-              </motion.div>
-            )}
-            <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/80 rounded-xl">
-              <thead className="border-b border-white/10 bg-black/80">
-                <tr>
-                  <th className={`${isMobile ? 'w-[50%]' : 'w-[60%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Task</th>
-                  <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Points</th>
-                  <th className={`${isMobile ? 'w-[30%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {getPaginatedData(tasks, 'tasks').map((task, index) => (
-                  <motion.tr
-                    key={task.id}
-                    className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.02 }}
-                  >
-                    <td className="px-3 py-2.5 text-white truncate">
-                      {task.task_type === 'follow' ? (
-                        <span>
-                          Follow{' '}
-                          <a
-                            href={`https://x.com/intent/follow?screen_name=XynapseAI`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-neon-blue underline"
-                          >
-                            @XynapseAI
-                          </a>{' '}
-                          on Twitter
-                          {task.is_daily
-                            ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
-                            : ''}
-                        </span>
-                      ) : task.task_type === 'retweet' ? (
-                        <span>
-                          Retweet{' '}
-                          <a
-                            href={`https://x.com/intent/retweet?tweet_id=${task.target_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-neon-blue underline"
-                          >
-                            this post
-                          </a>
-                          {task.is_daily
-                            ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
-                            : ''}
-                        </span>
-                      ) : (
-                        <span>
-                          {task.description}{' '}
-                          {task.is_daily
-                            ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
-                            : ''}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-neon-green truncate">+{task.points}</td>
-                    <td className="px-3 py-2.5 text-white truncate">
-                      <motion.button
-                        onClick={() => verifyTaskMutation.mutate(task)}
-                        disabled={
-                          verifyTaskMutation.isLoading ||
-                          (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                          (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                          (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                        }
-                        className={`px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium transition-all duration-300 border border-white/10 bg-white/5 ${verifyTaskMutation.isLoading ||
-                          (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                          (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                          (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                          ? 'text-white/50 cursor-not-allowed opacity-50'
-                          : 'text-white hover:bg-neon-blue/20'
-                          }`}
-                        whileHover={{
-                          scale:
-                            verifyTaskMutation.isLoading ||
-                              (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                              (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                              (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                              ? 1
-                              : 1.05,
-                        }}
-                        whileTap={{
-                          scale:
-                            verifyTaskMutation.isLoading ||
-                              (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                              (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                              (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                              ? 1
-                              : 0.95,
-                        }}
-                      >
-                        {verifyTaskMutation.isLoading ? 'Verifying...' : 'Verify'}
-                      </motion.button>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-            {tasks?.length > itemsPerPage && (
-              <div className="flex justify-end gap-2 mt-2">
-                <motion.button
-                  onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
-                  disabled={currentPage.tasks === 1}
-                  className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
-                  whileHover={{ scale: currentPage.tasks === 1 ? 1 : 1.05 }}
-                  whileTap={{ scale: currentPage.tasks === 1 ? 1 : 0.95 }}
-                >
-                  &lt;
-                </motion.button>
-                <span className="text-[9px] sm:text-[11px] text-white/60 mt-1">
-                  {currentPage.tasks} / {getTotalPages(tasks)}
-                </span>
-                <motion.button
-                  onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
-                  disabled={currentPage.tasks === getTotalPages(tasks)}
-                  className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
-                  whileHover={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 1.05 }}
-                  whileTap={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 0.95 }}
-                >
-                  &gt;
-                </motion.button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    ),
-    [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, connectTwitterMutation]
-  );
+  // const renderTasksSection = useCallback(
+  //   () => (
+  //     <div className="relative bg-black/80 rounded-xl overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+  //       <LoadingOverlay
+  //         isLoading={tasksLoading || taskProgressLoading}
+  //         isMobile={isMobile}
+  //         className="h-full z-50"
+  //       />
+  //       {tasksError && (
+  //         <motion.div
+  //           initial={{ opacity: 0, y: -10 }}
+  //           animate={{ opacity: 1, y: 0 }}
+  //           className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center"
+  //         >
+  //           Error: {tasksError.message}
+  //         </motion.div>
+  //       )}
+  //       {!tasks?.length && !tasksError && !(tasksLoading || taskProgressLoading) && (
+  //         <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4 h-full flex items-center justify-center">
+  //           No tasks available.
+  //         </p>
+  //       )}
+  //       {tasks?.length > 0 && (
+  //         <>
+  //           {!userData?.twitterHandle && (
+  //             <motion.div
+  //               className="mb-2 p-2 text-center"
+  //               initial={{ opacity: 0, y: -10 }}
+  //               animate={{ opacity: 1, y: 0 }}
+  //             >
+  //               <p className="text-[9px] sm:text-[11px] text-white/80 mb-2">
+  //                 Connect your Twitter account to perform tasks.
+  //               </p>
+  //               <motion.button
+  //                 onClick={() => connectTwitterMutation.mutate()}
+  //                 className="px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300"
+  //                 whileHover={{ scale: 1.05 }}
+  //                 whileTap={{ scale: 0.95 }}
+  //               >
+  //                 Connect Twitter
+  //               </motion.button>
+  //             </motion.div>
+  //           )}
+  //           <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/80 rounded-xl">
+  //             <thead className="border-b border-white/10 bg-black/80">
+  //               <tr>
+  //                 <th className={`${isMobile ? 'w-[50%]' : 'w-[60%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Task</th>
+  //                 <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Points</th>
+  //                 <th className={`${isMobile ? 'w-[30%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Action</th>
+  //               </tr>
+  //             </thead>
+  //             <tbody>
+  //               {getPaginatedData(tasks, 'tasks').map((task, index) => (
+  //                 <motion.tr
+  //                   key={task.id}
+  //                   className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
+  //                   initial={{ opacity: 0, y: 10 }}
+  //                   animate={{ opacity: 1, y: 0 }}
+  //                   transition={{ duration: 0.3, delay: index * 0.02 }}
+  //                 >
+  //                   <td className="px-3 py-2.5 text-white truncate">
+  //                     {task.task_type === 'follow' ? (
+  //                       <span>
+  //                         Follow{' '}
+  //                         <a
+  //                           href={`https://x.com/intent/follow?screen_name=XynapseAI`}
+  //                           target="_blank"
+  //                           rel="noopener noreferrer"
+  //                           className="text-neon-blue underline"
+  //                         >
+  //                           @XynapseAI
+  //                         </a>{' '}
+  //                         on Twitter
+  //                         {task.is_daily
+  //                           ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+  //                           : ''}
+  //                       </span>
+  //                     ) : task.task_type === 'retweet' ? (
+  //                       <span>
+  //                         Retweet{' '}
+  //                         <a
+  //                           href={`https://x.com/intent/retweet?tweet_id=${task.target_id}`}
+  //                           target="_blank"
+  //                           rel="noopener noreferrer"
+  //                           className="text-neon-blue underline"
+  //                         >
+  //                           this post
+  //                         </a>
+  //                         {task.is_daily
+  //                           ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+  //                           : ''}
+  //                       </span>
+  //                     ) : (
+  //                       <span>
+  //                         {task.description}{' '}
+  //                         {task.is_daily
+  //                           ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+  //                           : ''}
+  //                       </span>
+  //                     )}
+  //                   </td>
+  //                   <td className="px-3 py-2.5 text-neon-green truncate">+{task.points}</td>
+  //                   <td className="px-3 py-2.5 text-white truncate">
+  //                     <motion.button
+  //                       onClick={() => verifyTaskMutation.mutate(task)}
+  //                       disabled={
+  //                         verifyTaskMutation.isLoading ||
+  //                         (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+  //                         (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+  //                         (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+  //                       }
+  //                       className={`px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium transition-all duration-300 border border-white/10 bg-white/5 ${verifyTaskMutation.isLoading ||
+  //                         (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+  //                         (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+  //                         (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+  //                         ? 'text-white/50 cursor-not-allowed opacity-50'
+  //                         : 'text-white hover:bg-neon-blue/20'
+  //                         }`}
+  //                       whileHover={{
+  //                         scale:
+  //                           verifyTaskMutation.isLoading ||
+  //                             (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+  //                             (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+  //                             (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+  //                             ? 1
+  //                             : 1.05,
+  //                       }}
+  //                       whileTap={{
+  //                         scale:
+  //                           verifyTaskMutation.isLoading ||
+  //                             (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+  //                             (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+  //                             (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
+  //                             ? 1
+  //                             : 0.95,
+  //                       }}
+  //                     >
+  //                       {verifyTaskMutation.isLoading ? 'Verifying...' : 'Verify'}
+  //                     </motion.button>
+  //                   </td>
+  //                 </motion.tr>
+  //               ))}
+  //             </tbody>
+  //           </table>
+  //           {tasks?.length > itemsPerPage && (
+  //             <div className="flex justify-end gap-2 mt-2">
+  //               <motion.button
+  //                 onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
+  //                 disabled={currentPage.tasks === 1}
+  //                 className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+  //                 whileHover={{ scale: currentPage.tasks === 1 ? 1 : 1.05 }}
+  //                 whileTap={{ scale: currentPage.tasks === 1 ? 1 : 0.95 }}
+  //               >
+  //                 &lt;
+  //               </motion.button>
+  //               <span className="text-[9px] sm:text-[11px] text-white/60 mt-1">
+  //                 {currentPage.tasks} / {getTotalPages(tasks)}
+  //               </span>
+  //               <motion.button
+  //                 onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
+  //                 disabled={currentPage.tasks === getTotalPages(tasks)}
+  //                 className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+  //                 whileHover={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 1.05 }}
+  //                 whileTap={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 0.95 }}
+  //               >
+  //                 &gt;
+  //               </motion.button>
+  //             </div>
+  //           )}
+  //         </>
+  //       )}
+  //     </div>
+  //   ),
+  //   [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, connectTwitterMutation]
+  // );
 
-  // Render Leaderboard Section
-  const renderLeaderboardSection = useCallback(
-    () => (
-      <div className="relative bg-black/5 rounded-xl overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
-        <LoadingOverlay
-          isLoading={leaderboardLoading}
-          isMobile={isMobile}
-          className="h-full z-50"
-        />
-        {leaderboardError && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center"
-          >
-            Error: {leaderboardError.message}
-            <button
-              onClick={() => window.location.reload()}
-              className="ml-2 px-2 py-1 bg-neon-blue text-black rounded-xl text-[9px] sm:text-[11px]"
-            >
-              Retry
-            </button>
-          </motion.div>
-        )}
-        {!leaderboardLoading && !leaderboardError && rankings?.length === 0 && (
-          <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4 h-full flex items-center justify-center">
-            No ranking data available.
-          </p>
-        )}
-        {!leaderboardLoading && rankings?.length > 0 && (
-          <>
-            <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
-              <thead className="border-b border-white/10 bg-black/10">
-                <tr>
-                  <th className={`${isMobile ? 'w-[20%]' : 'w-[15%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Rank</th>
-                  <th className={`${isMobile ? 'w-[60%]' : 'w-[65%]'} px-3 py-2 text-white text-left font-semibold truncate`}>User</th>
-                  <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-right font-semibold truncate`}>Points</th>
-                </tr>
-              </thead>
-              <tbody>
-                {userData && renderUserRow(userData, -1, true)}
-                {getPaginatedData(rankings, 'leaderboard').map((user, index) => renderUserRow(user, index, false))}
-              </tbody>
-            </table>
-            {rankings?.length > itemsPerPage && (
-              <div className="flex justify-end gap-2 mt-2">
-                <motion.button
-                  onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
-                  disabled={currentPage.leaderboard === 1}
-                  className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
-                  whileHover={{ scale: currentPage.leaderboard === 1 ? 1 : 1.05 }}
-                  whileTap={{ scale: currentPage.leaderboard === 1 ? 1 : 0.95 }}
-                >
-                  &lt;
-                </motion.button>
-                <span className="text-[9px] sm:text-[11px] text-white/60 mt-1">
-                  {currentPage.leaderboard} / {getTotalPages(rankings)}
-                </span>
-                <motion.button
-                  onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
-                  disabled={currentPage.leaderboard === getTotalPages(rankings)}
-                  className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
-                  whileHover={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 1.05 }}
-                  whileTap={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 0.95 }}
-                >
-                  &gt;
-                </motion.button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    ),
-    [leaderboardLoading, leaderboardError, rankings, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, renderUserRow]
-  );
+  // // Render Leaderboard Section
+  // const renderLeaderboardSection = useCallback(
+  //   () => (
+  //     <div className="relative bg-black/5 rounded-xl overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+  //       <LoadingOverlay
+  //         isLoading={leaderboardLoading}
+  //         isMobile={isMobile}
+  //         className="h-full z-50"
+  //       />
+  //       {leaderboardError && (
+  //         <motion.div
+  //           initial={{ opacity: 0, y: -10 }}
+  //           animate={{ opacity: 1, y: 0 }}
+  //           className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center"
+  //         >
+  //           Error: {leaderboardError.message}
+  //           <button
+  //             onClick={() => window.location.reload()}
+  //             className="ml-2 px-2 py-1 bg-neon-blue text-black rounded-xl text-[9px] sm:text-[11px]"
+  //           >
+  //             Retry
+  //           </button>
+  //         </motion.div>
+  //       )}
+  //       {!leaderboardLoading && !leaderboardError && rankings?.length === 0 && (
+  //         <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4 h-full flex items-center justify-center">
+  //           No ranking data available.
+  //         </p>
+  //       )}
+  //       {!leaderboardLoading && rankings?.length > 0 && (
+  //         <>
+  //           <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
+  //             <thead className="border-b border-white/10 bg-black/10">
+  //               <tr>
+  //                 <th className={`${isMobile ? 'w-[20%]' : 'w-[15%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Rank</th>
+  //                 <th className={`${isMobile ? 'w-[60%]' : 'w-[65%]'} px-3 py-2 text-white text-left font-semibold truncate`}>User</th>
+  //                 <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-right font-semibold truncate`}>Points</th>
+  //               </tr>
+  //             </thead>
+  //             <tbody>
+  //               {userData && renderUserRow(userData, -1, true)}
+  //               {getPaginatedData(rankings, 'leaderboard').map((user, index) => renderUserRow(user, index, false))}
+  //             </tbody>
+  //           </table>
+  //           {rankings?.length > itemsPerPage && (
+  //             <div className="flex justify-end gap-2 mt-2">
+  //               <motion.button
+  //                 onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
+  //                 disabled={currentPage.leaderboard === 1}
+  //                 className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+  //                 whileHover={{ scale: currentPage.leaderboard === 1 ? 1 : 1.05 }}
+  //                 whileTap={{ scale: currentPage.leaderboard === 1 ? 1 : 0.95 }}
+  //               >
+  //                 &lt;
+  //               </motion.button>
+  //               <span className="text-[9px] sm:text-[11px] text-white/60 mt-1">
+  //                 {currentPage.leaderboard} / {getTotalPages(rankings)}
+  //               </span>
+  //               <motion.button
+  //                 onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
+  //                 disabled={currentPage.leaderboard === getTotalPages(rankings)}
+  //                 className={`px-3 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+  //                 whileHover={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 1.05 }}
+  //                 whileTap={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 0.95 }}
+  //               >
+  //                 &gt;
+  //               </motion.button>
+  //             </div>
+  //           )}
+  //         </>
+  //       )}
+  //     </div>
+  //   ),
+  //   [leaderboardLoading, leaderboardError, rankings, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, renderUserRow]
+  // );
 
-  // Render Points Section
-  const renderPointsSection = useCallback(
-    () => (
-      <div className="relative flex flex-col gap-4">
-        <div className="relative min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] bg-white/5 rounded-xl p-2 border border-white/10">
-          <LoadingOverlay
-            isLoading={pointLoading}
-            isMobile={isMobile}
-            className="h-full z-50"
-          />
-          {pointError && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center"
-            >
-              Error: {pointError.message}
-            </motion.div>
-          )}
-          {!pointLoading && !pointError && (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={pointData?.history} margin={{ top: 10, right: 15, bottom: 5, left: isMobile ? 0 : 10 }}>
-                <CartesianGrid stroke="#ffffff1a" strokeDasharray="5 5" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#FFFFFF"
-                  tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={50}
-                />
-                <YAxis
-                  stroke="#FFFFFF"
-                  tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
-                  tickFormatter={(value) => Math.floor(value).toLocaleString('en-US')}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="taskPoints"
-                  stroke="#FFFFFF"
-                  fill="url(#chartGradient)"
-                  strokeWidth={3}
-                  dot={false}
-                  activeDot={{ fill: '#FFFFFF', r: 4, stroke: '#FFFFFF', strokeWidth: 3 }}
-                />
-                <ReferenceDot
-                  x={pointData?.history[pointData.history.length - 1]?.date}
-                  y={pointData?.history[pointData.history.length - 1]?.taskPoints}
-                  r={4}
-                  fill="#FFFFFF"
-                  stroke="#FFFFFF"
-                  strokeWidth={3}
-                  className="animate-pulse"
-                />
-                <defs>
-                  <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <motion.div
-            className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
-              Total Points
-            </h3>
-            <p className="text-xl sm:text-2xl font-bold text-neon-blue">{userData?.points || 0}</p>
-          </motion.div>
-          <motion.div
-            className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
-              Task Points
-            </h3>
-            <div className="flex items-center justify-center gap-2">
-              <p className="text-xl sm:text-2xl font-bold text-neon-blue">{pointData?.taskPoints || 0}</p>
-              <motion.p
-                className={`text-[8px] sm:text-[10px] font-semibold text-${pointData?.taskGrowth.color} ${pointData?.taskGrowth.value != 0 ? 'animate-pulse' : ''}`}
-                animate={{ opacity: pointData?.taskGrowth.value != 0 ? [1, 0.7, 1] : 1 }}
-                transition={{ duration: 1.5, repeat: pointData?.taskGrowth.value != 0 ? Infinity : 0 }}
-              >
-                {pointData?.taskGrowth.value}%{' '}
-                {pointData?.taskGrowth.value > 0 ? '↑' : pointData?.taskGrowth.value < 0 ? '↓' : '–'}
-              </motion.p>
-            </div>
-          </motion.div>
-        </div>
-        {pointData?.history?.length > itemsPerPage && (
-          <div className="flex justify-end gap-2 mt-2">
-            <motion.button
-              onClick={() => handlePageChange('points', currentPage.points - 1)}
-              disabled={currentPage.points === 1}
-              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
-              whileHover={{ scale: currentPage.points === 1 ? 1 : 1.05 }}
-              whileTap={{ scale: currentPage.points === 1 ? 1 : 0.95 }}
-            >
-              &lt;
-            </motion.button>
-            <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
-              {currentPage.points} / {getTotalPages(pointData?.history || [])}
-            </span>
-            <motion.button
-              onClick={() => handlePageChange('points', currentPage.points + 1)}
-              disabled={currentPage.points === getTotalPages(pointData?.history || [])}
-              className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
-              whileHover={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 1.05 }}
-              whileTap={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 0.95 }}
-            >
-              &gt;
-            </motion.button>
-          </div>
-        )}
-      </div>
-    ),
-    [pointLoading, pointError, pointData, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange]
-  );
+  // // Render Points Section
+  // const renderPointsSection = useCallback(
+  //   () => (
+  //     <div className="relative flex flex-col gap-4">
+  //       <div className="relative min-h-[calc(50vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] bg-white/5 rounded-xl p-2 border border-white/10">
+  //         <LoadingOverlay
+  //           isLoading={pointLoading}
+  //           isMobile={isMobile}
+  //           className="h-full z-50"
+  //         />
+  //         {pointError && (
+  //           <motion.div
+  //             initial={{ opacity: 0, y: -10 }}
+  //             animate={{ opacity: 1, y: 0 }}
+  //             className="text-red-400 text-[8px] sm:text-[10px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center"
+  //           >
+  //             Error: {pointError.message}
+  //           </motion.div>
+  //         )}
+  //         {!pointLoading && !pointError && (
+  //           <ResponsiveContainer width="100%" height="100%">
+  //             <LineChart data={pointData?.history} margin={{ top: 10, right: 15, bottom: 5, left: isMobile ? 0 : 10 }}>
+  //               <CartesianGrid stroke="#ffffff1a" strokeDasharray="5 5" />
+  //               <XAxis
+  //                 dataKey="date"
+  //                 stroke="#FFFFFF"
+  //                 tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
+  //                 angle={-45}
+  //                 textAnchor="end"
+  //                 height={50}
+  //               />
+  //               <YAxis
+  //                 stroke="#FFFFFF"
+  //                 tick={{ fontSize: isMobile ? 6 : 8, fill: '#FFFFFF' }}
+  //                 tickFormatter={(value) => Math.floor(value).toLocaleString('en-US')}
+  //               />
+  //               <Tooltip content={<CustomTooltip />} />
+  //               <Line
+  //                 type="monotone"
+  //                 dataKey="taskPoints"
+  //                 stroke="#FFFFFF"
+  //                 fill="url(#chartGradient)"
+  //                 strokeWidth={3}
+  //                 dot={false}
+  //                 activeDot={{ fill: '#FFFFFF', r: 4, stroke: '#FFFFFF', strokeWidth: 3 }}
+  //               />
+  //               <ReferenceDot
+  //                 x={pointData?.history[pointData.history.length - 1]?.date}
+  //                 y={pointData?.history[pointData.history.length - 1]?.taskPoints}
+  //                 r={4}
+  //                 fill="#FFFFFF"
+  //                 stroke="#FFFFFF"
+  //                 strokeWidth={3}
+  //                 className="animate-pulse"
+  //               />
+  //               <defs>
+  //                 <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+  //                   <stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.3} />
+  //                   <stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.05} />
+  //                 </linearGradient>
+  //               </defs>
+  //             </LineChart>
+  //           </ResponsiveContainer>
+  //         )}
+  //       </div>
+  //       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+  //         <motion.div
+  //           className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
+  //           whileHover={{ scale: 1.02 }}
+  //           whileTap={{ scale: 0.98 }}
+  //         >
+  //           <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
+  //             Total Points
+  //           </h3>
+  //           <p className="text-xl sm:text-2xl font-bold text-neon-blue">{userData?.points || 0}</p>
+  //         </motion.div>
+  //         <motion.div
+  //           className="rounded-xl border border-white/10 bg-white/5 p-2 min-h-[100px] flex flex-col items-center justify-center"
+  //           whileHover={{ scale: 1.02 }}
+  //           whileTap={{ scale: 0.98 }}
+  //         >
+  //           <h3 className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-wider mb-2">
+  //             Task Points
+  //           </h3>
+  //           <div className="flex items-center justify-center gap-2">
+  //             <p className="text-xl sm:text-2xl font-bold text-neon-blue">{pointData?.taskPoints || 0}</p>
+  //             <motion.p
+  //               className={`text-[8px] sm:text-[10px] font-semibold text-${pointData?.taskGrowth.color} ${pointData?.taskGrowth.value != 0 ? 'animate-pulse' : ''}`}
+  //               animate={{ opacity: pointData?.taskGrowth.value != 0 ? [1, 0.7, 1] : 1 }}
+  //               transition={{ duration: 1.5, repeat: pointData?.taskGrowth.value != 0 ? Infinity : 0 }}
+  //             >
+  //               {pointData?.taskGrowth.value}%{' '}
+  //               {pointData?.taskGrowth.value > 0 ? '↑' : pointData?.taskGrowth.value < 0 ? '↓' : '–'}
+  //             </motion.p>
+  //           </div>
+  //         </motion.div>
+  //       </div>
+  //       {pointData?.history?.length > itemsPerPage && (
+  //         <div className="flex justify-end gap-2 mt-2">
+  //           <motion.button
+  //             onClick={() => handlePageChange('points', currentPage.points - 1)}
+  //             disabled={currentPage.points === 1}
+  //             className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+  //             whileHover={{ scale: currentPage.points === 1 ? 1 : 1.05 }}
+  //             whileTap={{ scale: currentPage.points === 1 ? 1 : 0.95 }}
+  //           >
+  //             &lt;
+  //           </motion.button>
+  //           <span className="text-[8px] sm:text-[10px] text-white/60 mt-1">
+  //             {currentPage.points} / {getTotalPages(pointData?.history || [])}
+  //           </span>
+  //           <motion.button
+  //             onClick={() => handlePageChange('points', currentPage.points + 1)}
+  //             disabled={currentPage.points === getTotalPages(pointData?.history || [])}
+  //             className={`px-3 py-1 text-[8px] sm:text-[10px] font-medium text-white border border-white/10 bg-white/5 rounded-xl ${currentPage.points === getTotalPages(pointData?.history || []) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+  //             whileHover={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 1.05 }}
+  //             whileTap={{ scale: currentPage.points === getTotalPages(pointData?.history || []) ? 1 : 0.95 }}
+  //           >
+  //             &gt;
+  //           </motion.button>
+  //         </div>
+  //       )}
+  //     </div>
+  //   ),
+  //   [pointLoading, pointError, pointData, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange]
+  // );
 
   // Handle Twitter redirect callback
   useEffect(() => {
