@@ -151,44 +151,56 @@ const VALID_CURRENCIES = [
 ];
 
 // ================= Allowed Origins =================
-const allowedOrigins = [
-  process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-  "https://xynapseai.net",
-  "https://www.xynapseai.net",
-  "https://xynapse-ai-xynapse-projects.vercel.app",
-  ...(process.env.VERCEL_ENV === "production" ? [] : ["https://*.vercel.app"]),
-].filter((v, i, a) => a.indexOf(v) === i);
+async function isAllowedOrigin(origin, referer, pathname, ip) {
+  const configured = [
+    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    'https://xynapseai.net',
+    'https://www.xynapseai.net',
+    'https://xynapse-ai-xynapse-projects.vercel.app',
+    'https://xynapse-ai.vercel.app',
+  ].filter(Boolean);
 
-const vercelPreviewRegex = /^https:\/\/.*\.vercel\.app$/; 
-
-function isAllowedOrigin(origin, referer) {
-  if (!origin && !referer) {
-    logger.info("No Origin or Referer (likely SSR or server-to-server), allowing request");
-    return true;
+  if (process.env.NODE_ENV !== 'production') {
+    return configured.includes(origin) || configured.includes(referer ? new URL(referer).origin : null);
   }
-  let checkOrigin;
+
   try {
-    checkOrigin = origin || (referer ? new URL(referer).origin : null);  // Wrap try-catch
-  } catch (err) {
-    logger.warn("Invalid referer URL", { referer, err });
-    checkOrigin = null;
+    if (!origin && !referer) {
+      await trackViolation(ip, 'Missing origin and referer in production');
+      return false; // Không cho phép request không có origin/referer trong production
+    }
+
+    if (origin && origin !== 'null') {
+      if (!origin.startsWith('https://')) {
+        await trackViolation(ip, 'Non-HTTPS origin in production');
+        return false;
+      }
+      if (configured.includes(origin)) {
+        return true;
+      }
+      await trackViolation(ip, 'Invalid origin');
+      return false;
+    }
+
+    if (referer) {
+      const refOrigin = new URL(referer).origin;
+      if (!refOrigin.startsWith('https://')) {
+        await trackViolation(ip, 'Non-HTTPS referer in production');
+        return false;
+      }
+      if (configured.includes(refOrigin)) {
+        return true;
+      }
+      await trackViolation(ip, 'Invalid referer');
+      return false;
+    }
+
+    await trackViolation(ip, 'Invalid origin or referer');
+    return false;
+  } catch {
+    await trackViolation(ip, 'Error validating origin');
+    return false;
   }
-  if (!checkOrigin) {
-    logger.info("No valid Origin or Referer, allowing for SSR compatibility");
-    return true;
-  }
-  if (allowedOrigins.some((allowed) =>
-    allowed.includes("*") ? new RegExp(allowed.replace("*", ".*")).test(checkOrigin) : allowed === checkOrigin
-  )) {
-    logger.info(`Origin allowed: ${checkOrigin}`);
-    return true;
-  }
-  if (vercelPreviewRegex.test(checkOrigin)) {
-    logger.info(`Origin allowed by Vercel preview regex: ${checkOrigin}`);
-    return true;
-  }
-  logger.error(`CORS error: Origin ${checkOrigin || "null"} not allowed`);
-  return false;
 }
 
 // ================= OPTIONS Handler =================

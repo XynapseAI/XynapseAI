@@ -1718,10 +1718,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                     <img
                       src={exchangeData.image || "/fallback-image.webp"}
                       alt={`${exchangeData.name} logo`}
-                      className="w-6 sm:w-8 h-6 sm:h-8 rounded-full"
+                      className="w-8 sm:w-10 h-8 sm:h-10 rounded-xl"
                       onError={(e) => (e.target.src = "/fallback-image.webp")}
                     />
-                    <h4 className="text-base sm:text-lg font-bold text-white">{exchangeData.name}</h4>
+                    <h4 className="ml-2 text-lg sm:text-xl font-bold text-white uppercase">{exchangeData.name}</h4>
                   </div>
                   <h4 className="ml-12 sm:ml-0 text-xs sm:text-lg font-bold text-white tracking-wider">
                     Total Value: {formatPrice(totalPortfolioValue, currency, 2)}

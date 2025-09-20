@@ -106,23 +106,56 @@ axiosRetry(axios, {
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED' || error.response?.status === 400,
 });
 
-const allowedOrigins = [
-  process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-  'https://xynapseai.net',
-  'https://www.xynapseai.net',
-  'https://xynapse-ai-xynapse-projects.vercel.app',
-  'https://xynapse-ai.vercel.app',
-].filter((v, i, a) => v && a.indexOf(v) === i);
+async function isAllowedOrigin(origin, referer, pathname, ip) {
+  const configured = [
+    process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    'https://xynapseai.net',
+    'https://www.xynapseai.net',
+    'https://xynapse-ai-xynapse-projects.vercel.app',
+    'https://xynapse-ai.vercel.app',
+  ].filter(Boolean);
 
-async function isAllowedOrigin(origin, referer) {
-  if (origin && allowedOrigins.includes(origin)) return true;
-  if (!origin && referer) {
-    const refOrigin = new URL(referer).origin;
-    if (allowedOrigins.includes(refOrigin)) return true;
+  if (process.env.NODE_ENV !== 'production') {
+    return configured.includes(origin) || configured.includes(referer ? new URL(referer).origin : null);
   }
-  if (!origin && !referer) return true;
-  if (!origin && process.env.NODE_ENV === 'development') return true;
-  return false;
+
+  try {
+    if (!origin && !referer) {
+      await trackViolation(ip, 'Missing origin and referer in production');
+      return false; // Không cho phép request không có origin/referer trong production
+    }
+
+    if (origin && origin !== 'null') {
+      if (!origin.startsWith('https://')) {
+        await trackViolation(ip, 'Non-HTTPS origin in production');
+        return false;
+      }
+      if (configured.includes(origin)) {
+        return true;
+      }
+      await trackViolation(ip, 'Invalid origin');
+      return false;
+    }
+
+    if (referer) {
+      const refOrigin = new URL(referer).origin;
+      if (!refOrigin.startsWith('https://')) {
+        await trackViolation(ip, 'Non-HTTPS referer in production');
+        return false;
+      }
+      if (configured.includes(refOrigin)) {
+        return true;
+      }
+      await trackViolation(ip, 'Invalid referer');
+      return false;
+    }
+
+    await trackViolation(ip, 'Invalid origin or referer');
+    return false;
+  } catch {
+    await trackViolation(ip, 'Error validating origin');
+    return false;
+  }
 }
 
 const SUPPORTED_CHAINS = {

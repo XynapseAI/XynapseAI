@@ -50,9 +50,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') {
-      console.log = () => {};
-      console.error = () => {};
-      console.warn = () => {};
+      console.log = () => { };
+      console.error = () => { };
+      console.warn = () => { };
     }
   }, []);
 
@@ -1247,8 +1247,49 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             )}
           </div>
         </motion.div>
-      </div>
 
+        {/* Tab Navigation */}
+        {/* <motion.div
+          className="border border-white/10 rounded-xl bg-black/20 flex flex-col"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <div className="p-0 border-b border-white/10 bg-black/10 flex h-[52px]">
+            {['tasks', 'leaderboard', 'points'].map((tab) => (
+              <motion.button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 text-xs font-bold text-white uppercase tracking-wider py-2 no-hover-effect flex items-center justify-center gap-2 ${activeTab === tab ? 'border-b-2 border-white/60' : 'text-white/80 hover:text-neon-blue'}`}
+              >
+                {tab === 'tasks' && (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12H12V2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+                {tab === 'leaderboard' && (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                )}
+                {tab === 'points' && (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                )}
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </motion.button>
+            ))}
+          </div>
+          <AnimatePresence mode="wait">
+            {activeTab === 'tasks' && renderTasksSection()}
+            {activeTab === 'leaderboard' && renderLeaderboardSection()}
+            {activeTab === 'points' && renderPointsSection()}
+          </AnimatePresence>
+        </motion.div> */}
+
+      </div>
       <style jsx>{`
         .hide-scrollbar::-webkit-scrollbar {
           display: none;

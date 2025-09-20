@@ -148,8 +148,9 @@ async function trackViolation(ip, reason, severity = 'warn') {
     });
   }
 }
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function isAllowedOrigin(origin, referer, pathname) {
+async function isAllowedOrigin(origin, referer, pathname, ip) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
     'https://xynapseai.net',
@@ -163,6 +164,11 @@ async function isAllowedOrigin(origin, referer, pathname) {
   }
 
   try {
+    if (!origin && !referer) {
+      await trackViolation(ip, 'Missing origin and referer in production');
+      return false; // Không cho phép request không có origin/referer trong production
+    }
+
     if (origin && origin !== 'null') {
       if (!origin.startsWith('https://')) {
         await trackViolation(ip, 'Non-HTTPS origin in production');
@@ -175,7 +181,7 @@ async function isAllowedOrigin(origin, referer, pathname) {
       return false;
     }
 
-    if (!origin && referer) {
+    if (referer) {
       const refOrigin = new URL(referer).origin;
       if (!refOrigin.startsWith('https://')) {
         await trackViolation(ip, 'Non-HTTPS referer in production');
@@ -186,10 +192,6 @@ async function isAllowedOrigin(origin, referer, pathname) {
       }
       await trackViolation(ip, 'Invalid referer');
       return false;
-    }
-
-    if (!origin && !referer) {
-      return true; // Internal/SSR request
     }
 
     await trackViolation(ip, 'Invalid origin or referer');
@@ -523,8 +525,7 @@ export async function GET(request) {
         });
       }
     }
-  } catch (err) {
-    logger.error('Unexpected error in GET', { err: err?.message });
+  } catch {
     return NextResponse.json({ detail: 'Server error' }, { status: 500, headers });
   } finally {
     await prisma.$disconnect();
@@ -678,9 +679,8 @@ export async function POST(request) {
         },
         { headers: securityHeaders(newCsrfToken) }
       );
-    } catch (err) {
+    } catch {
       newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      logger.error('Error processing POST /api/connect-data', { err: err?.message });
       return NextResponse.json({ detail: 'Server error' }, { status: 500, headers: securityHeaders(newCsrfToken) });
     } finally {
       if (redisClient) {
@@ -691,8 +691,7 @@ export async function POST(request) {
         });
       }
     }
-  } catch (err) {
-    logger.error('Unexpected error in POST', { err: err?.message });
+  } catch {
     return NextResponse.json({ detail: 'Server error' }, { status: 500, headers });
   } finally {
     await prisma.$disconnect();
