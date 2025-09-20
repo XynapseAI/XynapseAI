@@ -186,7 +186,8 @@ export async function GET(request) {
     return NextResponse.json({ success: false, detail: 'Invalid chain' }, { status: 400, headers: corsHeaders });
   }
 
-  const normalizedChain = chain.toLowerCase() === 'binancecoin' ? 'bsc' : chain.toLowerCase();
+  // Only normalize 'binancecoin' to 'bsc', preserve case for other chains
+  const normalizedChain = chain === 'binancecoin' ? 'bsc' : chain;
   const cacheKey = `top-holders_${normalizedChain}`;
   const cachedData = await withRetry(async () => {
     const redisClient = await getRedisClient();
@@ -211,6 +212,7 @@ export async function GET(request) {
       async start(controller) {
         try {
           let topHolders = [];
+          const nonEvmChains = ['bitcoin', 'dogecoin', 'litecoin'];
 
           // Fetch from top_holders table
           const dbHolders = await withRetry(async () => {
@@ -225,7 +227,8 @@ export async function GET(request) {
               take: 100, // Limit to top 100 holders
             });
             return holders.map((holder) => ({
-              address: holder.address.toLowerCase(),
+              // Preserve address case for non-EVM chains
+              address: nonEvmChains.includes(normalizedChain) ? holder.address : holder.address.toLowerCase(),
               balance: parseFloat(holder.balance) || 0,
               nameTag: holder.name_tag || null,
               image: holder.image || null,
@@ -247,7 +250,10 @@ export async function GET(request) {
 
               if (response.companies && Array.isArray(response.companies)) {
                 const treasuryHolders = response.companies.map((company) => ({
-                  address: (company.address || company.name || 'unknown').toLowerCase(),
+                  // Preserve address case for Bitcoin
+                  address: nonEvmChains.includes(normalizedChain)
+                    ? (company.address || company.name || 'unknown')
+                    : (company.address || company.name || 'unknown').toLowerCase(),
                   balance: parseFloat(company.total_holdings) || 0,
                   share: parseFloat(company.total_value_usd) / (company.total_holdings || 1) || 0,
                   nameTag: company.name || null,
@@ -260,7 +266,7 @@ export async function GET(request) {
                 topHolders = [
                   ...dbHolders,
                   ...treasuryHolders.filter((holder) => {
-                    const addr = holder.address.toLowerCase();
+                    const addr = nonEvmChains.includes(normalizedChain) ? holder.address : holder.address.toLowerCase();
                     if (!uniqueAddresses.has(addr) && addr !== 'unknown') {
                       uniqueAddresses.add(addr);
                       return true;

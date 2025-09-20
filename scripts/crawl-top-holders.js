@@ -168,7 +168,7 @@ function getImageForNameTag(nameTag) {
 // Utility: Delay to avoid rate-limiting
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function withRetry(fn, retries = 3, delayMs = 2000) {
+async function withRetry(fn, retries = 5, delayMs = 3000) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       return await fn();
@@ -205,7 +205,7 @@ async function crawlEtherscanTopHolders(url, chainName, chainLabel) {
 
         const addressAnchor = $(tds[1]).find('a[href^="/address/"]').first();
         if (!addressAnchor.length) return;
-        const address = addressAnchor.attr("href").split("/").pop().toLowerCase();
+        const address = addressAnchor.attr("href").split("/").pop();
         if (!address) return;
 
         let nameTag = cleanText($(tds[2]).text());
@@ -287,7 +287,7 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
               console.warn(`[${chainName}] Skipping row ${index + 1} in ${tableSelector}: Could not extract address from href`);
               return;
             }
-            const address = addressMatch[1].toLowerCase();
+            const address = addressMatch[1];
             if (!address) {
               console.warn(`[${chainName}] Skipping row ${index + 1} in ${tableSelector}: Empty address`);
               return;
@@ -331,7 +331,7 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
     }
 
     if (chainLabel === "bitcoin") {
-      const specialAddress = "1a1zp1ep5qgefi2dmptftl5slmv7divfna";
+      const specialAddress = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
       holders.push({
         chain: chainLabel,
         address: specialAddress,
@@ -347,7 +347,6 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
       return;
     }
 
-    // Save database
     await saveHoldersToDatabase(holders, chainName, chainLabel);
     console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database`);
   } catch (err) {
@@ -356,39 +355,45 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
 }
 
 async function saveHoldersToDatabase(holders, chainName, chainLabel) {
-  const BATCH_SIZE = 50;
+  const BATCH_SIZE = 25; // Reduced batch size to avoid timeout
   try {
     for (let i = 0; i < holders.length; i += BATCH_SIZE) {
       const batch = holders.slice(i, i + BATCH_SIZE);
       await withRetry(async () => {
-        await prisma.$transaction(async (tx) => {
-          for (const holder of batch) {
-            await tx.top_holders.upsert({
-              where: {
-                chain_address: {
-                  chain: chainLabel,
-                  address: holder.address,
-                },
-              },
-              update: {
-                balance: holder.balance,
-                name_tag: holder.name_tag,
-                image: holder.image,
-                updated_at: new Date(),
-              },
-              create: {
-                chain: chainLabel,
-                address: holder.address,
-                balance: holder.balance,
-                name_tag: holder.name_tag,
-                image: holder.image,
-                created_at: new Date(),
-                updated_at: new Date(),
-              },
-            });
-          }
-        });
-      }, 3, 2000);
+        await prisma.$transaction(
+          async (tx) => {
+            // Bulk upsert for better performance
+            await Promise.all(
+              batch.map((holder) =>
+                tx.top_holders.upsert({
+                  where: {
+                    chain_address: {
+                      chain: chainLabel,
+                      address: holder.address,
+                    },
+                  },
+                  update: {
+                    balance: holder.balance,
+                    name_tag: holder.name_tag,
+                    image: holder.image,
+                    updated_at: new Date(),
+                  },
+                  create: {
+                    chain: chainLabel,
+                    address: holder.address,
+                    balance: holder.balance,
+                    name_tag: holder.name_tag,
+                    image: holder.image,
+                    created_at: new Date(),
+                    updated_at: new Date(),
+                  },
+                })
+              )
+            );
+          },
+          { timeout: 10000 } // Increase transaction timeout to 10 seconds
+        );
+      }, 5, 3000); // Increased retries and delay
       console.log(`[${chainName}] Successfully saved batch ${i / BATCH_SIZE + 1} of ${Math.ceil(holders.length / BATCH_SIZE)} (${batch.length} holders)`);
     }
     console.log(`[${chainName}] Successfully saved ${holders.length} holders to database`);

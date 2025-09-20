@@ -1600,8 +1600,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   {onChainData.topHolders.slice(0, 100).map((holder, index) => {
                                     const isNonEvmChain = NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase());
                                     const address = holder.address?.toLowerCase();
-                                    const { text: displayText, image, shortAddress } = truncateAddress(
-                                      holder.address,
+                                    const { text: displayText, image, shortAddress, originalAddress } = truncateAddress(
+                                      holder.originalAddress || holder.address, // Sử dụng originalAddress nếu có
                                       nameTags,
                                       isNonEvmChain ? 'Blockchair' : undefined
                                     );
@@ -1636,33 +1636,33 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             )}
                                             {isNonEvmChain && isValidAddress ? (
                                               <a
-                                                href={`https://mempool.space/address/${holder.address}`}
+                                                href={`https://mempool.space/address/${originalAddress}`} // Sử dụng originalAddress cho URL
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="text-white hover:text-white/80 transition-colors font-medium"
-                                                title={holder.address}
+                                                title={originalAddress} // Hiển thị originalAddress khi hover
                                               >
                                                 <div className="flex flex-col">
                                                   {displayText !== shortAddress && <span>{displayText}</span>}
-                                                  <span>{shortAddress}</span>
+                                                  <span>{originalAddress}</span> {/* Hiển thị originalAddress */}
                                                 </div>
                                               </a>
                                             ) : (
                                               <span
                                                 className={`text-white font-medium ${isValidAddress ? "cursor-pointer hover:text-white/80 transition-colors" : "cursor-default"}`}
-                                                onClick={() => isValidAddress && handleAddressClick(holder.address)}
-                                                title={holder.address}
+                                                onClick={() => isValidAddress && handleAddressClick(originalAddress)} // Sử dụng originalAddress
+                                                title={originalAddress}
                                               >
                                                 <div className="flex flex-col">
                                                   {displayText !== shortAddress && <span>{displayText}</span>}
-                                                  <span>{shortAddress}</span>
+                                                  <span>{originalAddress}</span> {/* Hiển thị originalAddress */}
                                                 </div>
                                               </span>
                                             )}
                                             {isValidAddress && (
                                               <motion.button
                                                 onClick={() => {
-                                                  navigator.clipboard.writeText(holder.address);
+                                                  navigator.clipboard.writeText(originalAddress); // Sao chép originalAddress
                                                   toast.success("Address copied!", { autoClose: 2000 });
                                                 }}
                                                 className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"

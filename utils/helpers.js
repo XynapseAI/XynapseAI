@@ -1,7 +1,7 @@
 // utils/helpers.js
 import { CHAIN_EXPLORER_MAP, CHAIN_ID_TO_NAME, SUPPORTED_SVM_CHAINS } from './constants';
 import { motion, AnimatePresence } from 'framer-motion';
-import { isAddress } from 'ethers'; // Import để kiểm tra EVM address nếu cần
+import { isAddress } from 'ethers';
 
 export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
   <AnimatePresence>
@@ -32,7 +32,6 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
 );
 
 export const getExplorerUrls = (chain, hash, address) => {
-  // Normalize chain name to lowercase to avoid case sensitivity issues
   const normalizedChain = (String(chain || 'ethereum')).toLowerCase();
   const isSVM = SUPPORTED_SVM_CHAINS.includes(normalizedChain);
   const isBitcoin = normalizedChain === 'bitcoin';
@@ -41,11 +40,9 @@ export const getExplorerUrls = (chain, hash, address) => {
   let addressUrl = '#';
 
   if (isBitcoin) {
-    // Bitcoin: Use mempool.space
     txUrl = hash ? `https://mempool.space/tx/${hash}` : '#';
     addressUrl = address ? `https://mempool.space/address/${address}` : '#';
   } else if (isSVM) {
-    // SVM chains: Use Solscan for Solana, Eclipse Explorer for Eclipse
     if (normalizedChain === 'solana') {
       txUrl = hash ? `https://solscan.io/tx/${hash}` : '#';
       addressUrl = address ? `https://solscan.io/account/${address}` : '#';
@@ -54,7 +51,6 @@ export const getExplorerUrls = (chain, hash, address) => {
       addressUrl = address ? `https://explorer.eclipse.xyz/account/${address}` : '#';
     }
   } else {
-    // EVM chains: Use existing mapping
     const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
     const explorer = CHAIN_EXPLORER_MAP[normalizedChain] || CHAIN_EXPLORER_MAP.ethereum;
 
@@ -65,14 +61,13 @@ export const getExplorerUrls = (chain, hash, address) => {
       explorerBaseUrl: explorer.baseUrl,
     });
 
-    const supportsTx = explorer.supportsTx ?? true; // Default to true if not specified
-    const supportsAddress = explorer.supportsAddress ?? true; // Default to true if not specified
+    const supportsTx = explorer.supportsTx ?? true;
+    const supportsAddress = explorer.supportsAddress ?? true;
 
     txUrl = supportsTx && hash ? `${explorer.baseUrl}/tx/${hash}` : '#';
     addressUrl = supportsAddress && address ? `${explorer.baseUrl}/address/${address}` : '#';
   }
 
-  // Log for SVM and Bitcoin
   if (isSVM || isBitcoin) {
     logger.log('getExplorerUrls (SVM or Bitcoin):', {
       inputChain: chain,
@@ -100,32 +95,26 @@ export const SkeletonLoader = ({ count = 5, isMobile }) => (
 );
 
 export const formatPrice = (price, currency = 'usd', decimals = 8) => {
-  // Handle null, undefined, NaN, or non-numeric values
   if (price == null || isNaN(price) || typeof price !== 'number') {
     logger.error('Invalid price value:', { price, currency });
     return 'N/A';
   }
 
-  // Convert scientific notation to a regular number
   const normalizedPrice = Number(price.toFixed(decimals));
-
-  // Validate price range
-  const MAX_REASONABLE_PRICE = 1e12; // 1 trillion USD
-  const MIN_REASONABLE_PRICE = -1e12; // Allow negative prices up to -1 trillion
+  const MAX_REASONABLE_PRICE = 1e12;
+  const MIN_REASONABLE_PRICE = -1e12;
   if (normalizedPrice > MAX_REASONABLE_PRICE || normalizedPrice < MIN_REASONABLE_PRICE) {
     logger.error('Abnormal price value detected:', { price: normalizedPrice, currency });
     return 'N/A';
   }
 
-  // Adjust fraction digits based on price magnitude
   let fractionDigits = 2;
   if (Math.abs(normalizedPrice) < 0.0001) {
-    fractionDigits = decimals; // Use provided decimals for very small prices
+    fractionDigits = decimals;
   } else if (Math.abs(normalizedPrice) < 0.01) {
     fractionDigits = 4;
   }
 
-  // Use toLocaleString with currency style for proper formatting
   try {
     return normalizedPrice.toLocaleString('en-US', {
       style: 'currency',
@@ -142,7 +131,7 @@ export const formatPrice = (price, currency = 'usd', decimals = 8) => {
 export const truncateAddress = (address, nameTags = {}, source) => {
   if (!address || address === 'None' || typeof address !== 'string') {
     logger.log("truncateAddress: Invalid address", { address, source });
-    return { text: 'N/A', image: null, shortAddress: 'N/A' };
+    return { text: 'N/A', image: null, shortAddress: 'N/A', originalAddress: 'N/A' };
   }
 
   const normalizedAddress = address.toLowerCase();
@@ -168,6 +157,7 @@ export const truncateAddress = (address, nameTags = {}, source) => {
     text: nameTag || shortAddress,
     image,
     shortAddress,
+    originalAddress: address, // Lưu địa chỉ gốc để sử dụng cho URL
   };
 };
 
@@ -189,10 +179,10 @@ export const isValidToken = (token) => {
   if (!token || !token.image || token.image === '') return false;
   const nameOrSymbol = token.name || token.symbol || '';
   const invalidNamePatterns = [
-    /https?:\/\//i, // Matches URLs
-    /<[^>]+>/, // Matches HTML tags
-    /[\n\r\t]/, // Matches newlines or tabs
-    /[^a-zA-Z0-9\s\-$]/, // Matches non-alphanumeric characters except spaces, $, and -
+    /https?:\/\//i,
+    /<[^>]+>/,
+    /[\n\r\t]/,
+    /[^a-zA-Z0-9\s\-$]/,
   ];
   const isValid = !invalidNamePatterns.some((pattern) => pattern.test(nameOrSymbol));
   if (!isValid) {

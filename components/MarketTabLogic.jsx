@@ -523,11 +523,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             mempoolTxCache.current.add(tx.txid);
             const inputs = tx.inputs?.map((input) => ({
               address: input.address || 'unknown',
+              originalAddress: input.address || 'unknown', // Lưu địa chỉ gốc
               nameTag: btcNameTags[input.address?.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
               image: btcNameTags[input.address?.toLowerCase()]?.Labels?.bitcoin?.image || null,
             })) || [];
             const outputs = tx.outputs?.map((output) => ({
               address: output.address || 'unknown',
+              originalAddress: output.address || 'unknown', // Lưu địa chỉ gốc
               nameTag: btcNameTags[output.address?.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
               image: btcNameTags[output.address?.toLowerCase()]?.Labels?.bitcoin?.image || null,
             })) || [];
@@ -565,8 +567,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setIsLoadingMempool(false);
     }
   }, [selectedToken, btcNameTags, session]);
-
-
 
   useEffect(() => {
     if (selectedToken?.id !== 'bitcoin' || document.visibilityState !== 'visible') {
