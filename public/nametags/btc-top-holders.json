@@ -845,5 +845,16 @@
         "image": "/icons/kraken.webp"
       }
     }
+  },
+  "bc1qd4ysezhmypwty5dnw7c8nqy5h5nxg0xqsvaefd0qn5kq32vwnwqqgv4rzr": {
+    "Address": "bc1qd4ysezhmypwty5dnw7c8nqy5h5nxg0xqsvaefd0qn5kq32vwnwqqgv4rzr",
+    "Labels": {
+      "bitcoin": {
+        "Name Tag": "Bitfinex Wallet",
+        "Description": "An unidentified Bitcoin wallet (Bech32 format).",
+        "Subcategory": "Others",
+        "image": "/icons/bitfinex.webp"
+      }
+    }
   }
 }

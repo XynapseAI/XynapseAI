@@ -1329,5 +1329,49 @@
         "image": "/icons/vitalik.webp"
       }
     }
+  },
+  "0xCD531Ae9EFCCE479654c4926dec5F6209531Ca7b": {
+    "Address": "0xCD531Ae9EFCCE479654c4926dec5F6209531Ca7b",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Coinbase Prime 1",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/coinbase.webp"
+      }
+    }
+  },
+  "0xceB69F6342eCE283b2F5c9088Ff249B5d0Ae66ea": {
+    "Address": "0xceB69F6342eCE283b2F5c9088Ff249B5d0Ae66ea",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Coinbase Prime 2",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/coinbase.webp"
+      }
+    }
+  },
+  "0xA86309988947559b6E72Ef716C5058F479386C0F": {
+    "Address": "0xA86309988947559b6E72Ef716C5058F479386C0F",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Coinbase Prime: Custody Deposit Funder 1",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/coinbase.webp"
+      }
+    }
+  },
+  "0x1565f0c48c06bC006095591A4c3FE4A6F39712cF": {
+    "Address": "0x1565f0c48c06bC006095591A4c3FE4A6F39712cF",
+    "Labels": {
+      "uniswap": {
+        "Name Tag": "Coinbase Prime: Deposit Funder 1",
+        "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
+        "Subcategory": "Others",
+        "image": "/icons/coinbase.webp"
+      }
+    }
   }
 }

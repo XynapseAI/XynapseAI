@@ -273,7 +273,7 @@ const WalletBalances = ({
                   navigator.clipboard.writeText(walletAddress);
                   toast.success('Address copied!', { autoClose: 2000 });
                 }}
-                className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
+                className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
                 title="Copy address"
                 whileHover={{ scale: 1.1, y: -2 }}
                 whileTap={{ scale: 0.9 }}
@@ -296,7 +296,7 @@ const WalletBalances = ({
             </div>
             <motion.button
               onClick={onClose}
-              className="text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center bg-white/10 border border-white/10 backdrop-blur-md hover:bg-red-400/20 transition-all duration-300"
+              className="text-white text-lg font-bold rounded-full w-8 h-8 flex items-center justify-center bg-white/10 border border-white/10 backdrop-blur-md hover:bg-red-500/20 transition-all duration-300"
               aria-label="Close balances"
               whileHover={{ scale: 1.1, y: -2 }}
               whileTap={{ scale: 0.9 }}
@@ -330,7 +330,7 @@ const WalletBalances = ({
               <div className="relative">
                 <LoadingOverlay isLoading={isLoading} isMobile={isMobile} />
                 {error ? (
-                  <p className="text-[8px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
+                  <p className="text-[8px] sm:text-[10px] text-red-500 text-center bg-red-500/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
                     Error: {error} {isLoading && '(Retrying...)'}
                   </p>
                 ) : sortedBalances.length > 0 ? (
@@ -415,7 +415,7 @@ const WalletBalances = ({
               <div className="relative">
                 <LoadingOverlay isLoading={isLoadingTransactions} isMobile={isMobile} />
                 {transactionsError ? (
-                  <p className="text-[8px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
+                  <p className="text-[8px] sm:text-[10px] text-red-500 text-center bg-red-500/10 p-3 rounded min-h-[calc(100vh-12rem)] flex items-center justify-center">
                     Error: {transactionsError}
                   </p>
                 ) : validTransactions.length > 0 ? (
@@ -485,7 +485,7 @@ const WalletBalances = ({
                               <td className="px-2 py-2 text-white">
                                 <div className="flex flex-col items-center gap-1 group relative">
                                   <span
-                                    className={`inline-flex px-2 py-0.5 rounded-lg text-[7px] sm:text-[9px] font-medium ${tx.type === 'receive' ? 'bg-emerald-400/20 text-emerald-400' : 'bg-red-400/20 text-red-400'}`}
+                                    className={`inline-flex px-2 py-0.5 rounded-lg text-[7px] sm:text-[9px] font-medium ${tx.type === 'receive' ? 'bg-emerald-400/20 text-emerald-400' : 'bg-red-500/20 text-red-500'}`}
                                   >
                                     {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
                                   </span>
@@ -520,7 +520,7 @@ const WalletBalances = ({
                                           navigator.clipboard.writeText(tx.type === 'receive' ? tx.from : tx.to);
                                           toast.success('Address copied!', { autoClose: 2000 });
                                         }}
-                                        className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                        className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
                                         title="Copy address"
                                         whileHover={{ scale: 1.1, y: -2 }}
                                         whileTap={{ scale: 0.9 }}
@@ -572,7 +572,7 @@ const WalletBalances = ({
                                         navigator.clipboard.writeText(tx.hash);
                                         toast.success('Transaction hash copied!', { autoClose: 2000 });
                                       }}
-                                      className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                      className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
                                       title="Copy transaction hash"
                                       whileHover={{ scale: 1.1, y: -2 }}
                                       whileTap={{ scale: 0.9 }}

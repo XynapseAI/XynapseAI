@@ -1521,12 +1521,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return;
       }
 
+      // Handle Bitcoin addresses by redirecting to mempool.space
       if (selectedToken?.id.toLowerCase() === 'bitcoin') {
-        const blockchairUrl = `https://blockchair.com/bitcoin/address/${address}`;
+        const blockchairUrl = `https://mempool.space/address/${address}`;
         window.open(blockchairUrl, '_blank', 'noreferrer');
         return;
       }
 
+      // Validate EVM-compatible address (for Ethereum, BNB, and other EVM chains)
       if (!address?.match(/^0x[a-fA-F0-9]{40}$/)) {
         const errorMessage = `Invalid address format: ${address}`;
         console.error(errorMessage);
@@ -1534,6 +1536,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
         return;
       }
+
+      // For Ethereum and other EVM-compatible tokens (like BNB), fetch wallet balances
       setSelectedWallet(address);
       setWalletBalances([]);
       setTransactions(null);
