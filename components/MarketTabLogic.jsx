@@ -523,14 +523,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           .map((tx) => {
             mempoolTxCache.current.add(tx.txid);
             const inputs = tx.inputs?.map((input) => ({
-              address: input.address || 'unknown',
-              nameTag: btcNameTags[input.address?.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
-              image: btcNameTags[input.address?.toLowerCase()]?.Labels?.bitcoin?.image || null,
+              address: input.address || 'unknown', // Giữ nguyên địa chỉ gốc
+              nameTag: btcNameTags[input.address]?.Labels?.bitcoin?.['Name Tag'] || null,
+              image: btcNameTags[input.address]?.Labels?.bitcoin?.image || null,
             })) || [];
             const outputs = tx.outputs?.map((output) => ({
-              address: output.address || 'unknown',
-              nameTag: btcNameTags[output.address?.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
-              image: btcNameTags[output.address?.toLowerCase()]?.Labels?.bitcoin?.image || null,
+              address: output.address || 'unknown', // Giữ nguyên địa chỉ gốc
+              nameTag: btcNameTags[output.address]?.Labels?.bitcoin?.['Name Tag'] || null,
+              image: btcNameTags[output.address]?.Labels?.bitcoin?.image || null,
             })) || [];
             return {
               txid: tx.txid,
@@ -686,27 +686,27 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setIsLoadingNameTags(true);
       const newNameTags = {};
 
-      // Handle non-EVM addresses (Bitcoin, Dogecoin, Litecoin)
+      // Handle non-EVM addresses (Bitcoin, Dogecoin, Litecoin, and company names)
       const nonEvmAddresses = addresses.filter((addr) => !addr.match(/^0x[a-fA-F0-9]{40}$/));
       const nameTagsMap = {
-        bitcoin: btcNameTags, // Use btc-top-holders.json for Bitcoin name tags
+        bitcoin: btcNameTags,
         dogecoin: dogeNameTags,
         litecoin: ltcNameTags,
         ethereum: ethNameTags,
       };
 
       nonEvmAddresses.forEach((addr) => {
-        const normalizedAddress = addr.toLowerCase();
+        const lookupAddress = selectedToken?.id.toLowerCase() === 'bitcoin' ? addr : addr.toLowerCase();
         let nameTagData = null;
-        // Check each chain's name tag JSON file for the address
+        // Check each chain's name tag JSON file for the address or company name
         for (const [chain, tags] of Object.entries(nameTagsMap)) {
-          if (tags[normalizedAddress]?.Labels?.[chain]) {
-            nameTagData = tags[normalizedAddress].Labels[chain];
+          if (tags[lookupAddress]?.Labels?.[chain]) {
+            nameTagData = tags[lookupAddress].Labels[chain];
             break;
           }
         }
-        newNameTags[normalizedAddress] = {
-          nameTag: nameTagData?.['Name Tag'] || null,
+        newNameTags[lookupAddress] = {
+          nameTag: nameTagData?.['Name Tag'] || addr, // Sử dụng addr làm fallback
           image: nameTagData?.image || null,
           timestamp: Date.now(),
         };
@@ -724,7 +724,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
           const batchPromises = batches.map((batch) =>
             cacheLimiter.schedule(async () => {
-              const cacheKey = `nametags-batch-${batch.join('-')}-session_required`; // Session-dependent
+              const cacheKey = `nametags-batch-${batch.join('-')}-session_required`;
               const fetchFn = async () => {
                 const response = await axios.post(
                   `/api/nametags`,
@@ -797,7 +797,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       });
       setIsLoadingNameTags(false);
     },
-    [session, status, toast]
+    [session, status, toast, selectedToken]
   );
 
   const fetchPriceHistory = useCallback(
@@ -934,7 +934,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
             if (jsonData) {
               topHolders = Object.values(jsonData).map((holder) => {
-                const address = holder.Address.toLowerCase();
+                const address = chain === 'bitcoin' ? holder.Address : holder.Address.toLowerCase();
                 const nameTagEntry = nameTagData?.[address]?.Labels?.[chain];
                 return {
                   address,
@@ -943,6 +943,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                   nameTag: nameTagEntry?.['Name Tag'] || null,
                   image: nameTagEntry?.image || null,
                   source: 'JSON',
+                  isCompany: !address.match(/^(1|3|bc1)[a-zA-Z0-9]+$|^0x[a-fA-F0-9]{40}$/), // Đánh dấu bản ghi là tên công ty
                 };
               });
             } else {
@@ -960,33 +961,47 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                   timeout: 15000,
                 });
 
-                if (coingeckoResponse.data.success && Array.isArray(coingeckoResponse.data.data?.companies)) {
-                  const treasuryData = coingeckoResponse.data.data.companies.map((company) => {
-                    const address = company.address?.toLowerCase() || company.name?.toLowerCase() || 'unknown';
-                    const nameTagEntry = nameTagData?.[address]?.Labels?.[chain];
-                    return {
-                      address,
-                      balance: parseFloat(company.total_holdings) || 0,
-                      share: parseFloat(company.total_value_usd) / (company.total_holdings || 1) || 0,
-                      nameTag: nameTagEntry?.['Name Tag'] || company.name || null,
-                      image: nameTagEntry?.image || null,
-                      source: 'CoinGecko',
-                    };
-                  });
+                console.log('CoinGecko treasury response:', coingeckoResponse.data); // Log để kiểm tra dữ liệu
 
-                  // Merge with JSON data, avoiding duplicates
-                  const uniqueAddresses = new Set(topHolders.map((holder) => holder.address.toLowerCase()));
+                if (coingeckoResponse.data.success && Array.isArray(coingeckoResponse.data.data?.companies)) {
+                  const treasuryData = coingeckoResponse.data.data.companies
+                    .filter((company) => company.address && company.address !== 'unknown') // Chỉ lọc bỏ 'unknown'
+                    .map((company) => {
+                      const address = chain === 'bitcoin' ? company.address : company.address?.toLowerCase() || company.name || 'unknown';
+                      const nameTagEntry = nameTagData?.[address]?.Labels?.[chain];
+                      return {
+                        address,
+                        balance: parseFloat(company.total_holdings) || 0,
+                        share: parseFloat(company.total_value_usd) / (company.total_holdings || 1) || 0,
+                        nameTag: nameTagEntry?.['Name Tag'] || company.name || 'Unknown Company',
+                        image: nameTagEntry?.image || company.logo || null,
+                        source: 'CoinGecko',
+                        isCompany: !address.match(/^(1|3|bc1)[a-zA-Z0-9]+$|^0x[a-fA-F0-9]{40}$/), // Đánh dấu bản ghi là tên công ty
+                      };
+                    });
+
+                  // Merge with JSON data, prioritizing CoinGecko data
+                  const uniqueAddresses = new Set();
                   topHolders = [
-                    ...topHolders,
                     ...treasuryData.filter((company) => {
-                      const addr = company.address.toLowerCase();
+                      const addr = chain === 'bitcoin' ? company.address : company.address.toLowerCase();
                       if (!uniqueAddresses.has(addr) && addr !== 'unknown') {
                         uniqueAddresses.add(addr);
                         return true;
                       }
                       return false;
                     }),
+                    ...topHolders.filter((holder) => {
+                      const addr = chain === 'bitcoin' ? holder.address : holder.address.toLowerCase();
+                      if (!uniqueAddresses.has(addr)) {
+                        uniqueAddresses.add(addr);
+                        return true;
+                      }
+                      return false;
+                    }),
                   ];
+                } else {
+                  console.warn(`Invalid CoinGecko treasury data for ${chain}:`, coingeckoResponse.data);
                 }
               } catch (coingeckoError) {
                 console.warn(`Failed to fetch treasury data from CoinGecko for ${chain}:`, coingeckoError.message);

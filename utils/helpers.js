@@ -135,19 +135,25 @@ export const formatPrice = (price, currency = 'usd', decimals = 8) => {
 
 export const truncateAddress = (address, nameTags = {}, source) => {
   if (!address || address === 'None' || typeof address !== 'string') {
-    logger.log("truncateAddress: Invalid address", { address, source });
+    if (process.env.NODE_ENV === 'development') {
+      logger.log("truncateAddress: Invalid address", { address, source });
+    }
     return { text: 'N/A', image: null, shortAddress: 'N/A', originalAddress: 'N/A' };
   }
 
-  const normalizedAddress = address.toLowerCase();
-  const nameTag = nameTags[normalizedAddress]?.nameTag || nameTags[normalizedAddress]?.name;
-  const image = nameTags[normalizedAddress]?.image || null;
+  const lookupAddress = source === 'Blockchair' ? address : address.toLowerCase();
+  const nameTag = nameTags[lookupAddress]?.nameTag || nameTags[lookupAddress]?.name || address;
+  const image = nameTags[lookupAddress]?.image || null;
 
   const isEvmAddress = isAddress(address);
-  const isSvmAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+  const isSvmAddress = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address) &&
+    !/^(1|3|bc1)[a-zA-Z0-9]+$/.test(address);
   const isBtcAddress = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-zA-Z0-9]{39,59}$/.test(address);
+  const isCompany = !isEvmAddress && !isSvmAddress && !isBtcAddress; // Đánh dấu tên công ty
 
-  logger.log("truncateAddress: Processing", { address, source, isEvmAddress, isSvmAddress, isBtcAddress, nameTag });
+  if (process.env.NODE_ENV === 'development') {
+    logger.log("truncateAddress: Processing", { address, source, isEvmAddress, isSvmAddress, isBtcAddress, isCompany, nameTag });
+  }
 
   let shortAddress;
   if (isEvmAddress || isBtcAddress) {
@@ -155,14 +161,15 @@ export const truncateAddress = (address, nameTags = {}, source) => {
   } else if (isSvmAddress) {
     shortAddress = `${address.slice(0, 6)}...${address.slice(-6)}`;
   } else {
-    shortAddress = address;
+    shortAddress = address; // Giữ nguyên tên công ty
   }
 
   return {
-    text: nameTag || shortAddress,
+    text: nameTag,
     image,
     shortAddress,
-    originalAddress: address, // Lưu địa chỉ gốc để sử dụng cho URL
+    originalAddress: address,
+    isCompany, // Trả về để giao diện xử lý
   };
 };
 
