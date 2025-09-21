@@ -2457,7 +2457,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     const tokenSymbol = selectedToken.id.toLowerCase();
     const isNonEvmChain = NON_EVM_CHAINS.includes(tokenSymbol);
 
-    if (isNonEvmChain) {
+    if (isNonEvmChain || tokenSymbol === 'ethereum') {
       const tokenKey = `${selectedToken.id}-top-holders`;
       if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
         return;
@@ -2568,7 +2568,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                         if (parsedObj.detail) {
                           throw new Error(parsedObj.detail);
                         }
-                        data.push({ ...parsedObj, chain }); // Add chain info
+                        data.push({ ...parsedObj, chain });
                       } catch (parseError) {
                         console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
                       }
@@ -2604,7 +2604,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 
             let holders = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TOP_HOLDERS);
 
-            // If chain is 'bnb', merge with bnb-top-holders.json
             if (chain === 'bnb') {
               let dbHolders = [];
               try {
@@ -2634,7 +2633,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                 console.warn(`Failed to fetch top holders from database for BNB:`, error.message);
               }
 
-              // Merge holders from API and database, remove duplicates by address
               const uniqueAddresses = new Set();
               const mergedHolders = [
                 ...holders.filter((holder) => {
@@ -2655,7 +2653,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                 }),
               ];
 
-              // Sort by balance and take top 100
               holders = mergedHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
             }
 
@@ -2668,7 +2665,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 
         try {
           const results = await Promise.all(topHoldersPromises);
-          const mergedHolders = results.flat().sort((a, b) => b.balance - a.balance).slice(0, 100); // Limit to top 100 holders
+          const mergedHolders = results.flat().sort((a, b) => b.balance - a.balance).slice(0, 100);
           setOnChainData((prev) => ({
             ...prev,
             topHolders: mergedHolders,
