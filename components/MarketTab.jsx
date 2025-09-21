@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback , useMemo } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { motion } from "framer-motion"
@@ -1599,13 +1599,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 <tbody>
                                   {onChainData.topHolders.slice(0, 100).map((holder, index) => {
                                     const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
-                                    const address = isBitcoin ? holder.address : holder.address?.toLowerCase();
-                                    const addressData = useMemo(() => truncateAddress(
+                                    const address = holder.address?.toLowerCase();
+                                    const { text: displayText, image, shortAddress } = truncateAddress(
                                       holder.address,
                                       nameTags,
                                       isBitcoin ? 'Blockchair' : undefined
-                                    ), [holder.address, nameTags, isBitcoin]);
-                                    const { text: displayText, image, shortAddress, originalAddress } = addressData;
+                                    );
                                     const isValidAddress =
                                       holder.address &&
                                       (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || // EVM address
@@ -1624,7 +1623,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             {image && (
                                               <img
                                                 src={image || "/placeholder.svg"}
-                                                alt={`${displayText || 'Unknown'} logo`}
+                                                alt={`${displayText} logo`}
                                                 className="w-6 h-6 flex-shrink-0 rounded-lg"
                                                 onError={(e) => {
                                                   logger.error("Name tag image failed to load:", {
@@ -1637,14 +1636,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             )}
                                             {isBitcoin && isValidAddress ? (
                                               <a
-                                                href={`https://mempool.space/address/${originalAddress}`}
+                                                href={`https://mempool.space/address/${holder.address}`}
                                                 target="_blank"
                                                 rel="noreferrer"
                                                 className="text-white hover:text-white/80 transition-colors font-medium"
-                                                title={originalAddress}
+                                                title={holder.address}
                                               >
                                                 <div className="flex flex-col">
-                                                  {displayText !== shortAddress && <span>{displayText || 'Unknown'}</span>}
+                                                  {displayText !== shortAddress && <span>{displayText}</span>}
                                                   <span>{shortAddress}</span>
                                                 </div>
                                               </a>
@@ -1652,18 +1651,18 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               <span
                                                 className={`text-white font-medium ${isValidAddress ? "cursor-pointer hover:text-white/80 transition-colors" : "cursor-default"}`}
                                                 onClick={() => isValidAddress && handleAddressClick(holder.address)}
-                                                title={originalAddress}
+                                                title={holder.address}
                                               >
                                                 <div className="flex flex-col">
-                                                  {displayText !== shortAddress && <span>{displayText || holder.nameTag || 'Unknown'}</span>}
-                                                  <span>{shortAddress || holder.address}</span>
+                                                  {displayText !== shortAddress && <span>{displayText}</span>}
+                                                  <span>{shortAddress}</span>
                                                 </div>
                                               </span>
                                             )}
                                             {isValidAddress && (
                                               <motion.button
                                                 onClick={() => {
-                                                  navigator.clipboard.writeText(originalAddress);
+                                                  navigator.clipboard.writeText(holder.address);
                                                   toast.success("Address copied!", { autoClose: 2000 });
                                                 }}
                                                 className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
