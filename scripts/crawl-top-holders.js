@@ -1,9 +1,8 @@
+// scripts/crawl-top-holders.js
 import axios from "axios";
 import { load } from "cheerio";
 import cron from "node-cron";
 import { PrismaClient } from "@prisma/client";
-import fs from "fs/promises";
-import path from "path";
 
 // --- Khởi tạo Prisma Client ---
 const prisma = new PrismaClient({
@@ -18,14 +17,12 @@ const TARGETS = [
     type: "etherscan",
     url: "https://etherscan.io/accounts/1?ps=100",
     chainLabel: "ethereum",
-    jsonFile: path.join("public", "nametags", "eth-top-holders.json"),
   },
   {
     name: "BNB Smart Chain",
     type: "etherscan",
     url: "https://bscscan.com/accounts/1?ps=100",
     chainLabel: "binance-smart-chain",
-    jsonFile: path.join("public", "nametags", "bnb-top-holders.json"),
   },
   {
     name: "Bitcoin",
@@ -35,7 +32,6 @@ const TARGETS = [
       "https://bitinfocharts.com/top-100-richest-bitcoin-addresses-2.html",
     ],
     chainLabel: "bitcoin",
-    jsonFile: path.join("public", "nametags", "bitcoin-top-holders.json"),
   },
   {
     name: "Litecoin",
@@ -45,7 +41,6 @@ const TARGETS = [
       "https://bitinfocharts.com/top-100-richest-litecoin-addresses-2.html",
     ],
     chainLabel: "litecoin",
-    jsonFile: path.join("public", "nametags", "litecoin-top-holders.json"),
   },
   {
     name: "Dogecoin",
@@ -55,7 +50,6 @@ const TARGETS = [
       "https://bitinfocharts.com/top-100-richest-dogecoin-addresses-2.html",
     ],
     chainLabel: "dogecoin",
-    jsonFile: path.join("public", "nametags", "dogecoin-top-holders.json"),
   },
 ];
 
@@ -191,34 +185,8 @@ async function withRetry(fn, retries = 3, delayMs = 2000) {
   }
 }
 
-// Utility: Save to JSON file
-async function saveToJsonFile(holders, jsonFile, chainName) {
-  try {
-    const jsonData = {};
-    holders.forEach((holder) => {
-      jsonData[holder.address] = {
-        Address: holder.address,
-        Balance: holder.balance,
-        Labels: {
-          [holder.chain]: {
-            "Name Tag": holder.name_tag,
-            Description: null,
-            Subcategory: "Others",
-            image: holder.image,
-          },
-        },
-      };
-    });
-
-    await fs.writeFile(jsonFile, JSON.stringify(jsonData, null, 2));
-    console.log(`[${chainName}] Successfully saved ${holders.length} holders to ${jsonFile}`);
-  } catch (error) {
-    console.error(`[${chainName}] Error saving to JSON file ${jsonFile}:`, error.message);
-  }
-}
-
 // Crawl function for Etherscan/BscScan pages
-async function crawlEtherscanTopHolders(url, chainName, chainLabel, jsonFile) {
+async function crawlEtherscanTopHolders(url, chainName, chainLabel) {
   console.log(`🚀 Starting data crawl for ${chainName} (Etherscan)...`);
   try {
     const { data } = await axios.get(url, {
@@ -273,16 +241,14 @@ async function crawlEtherscanTopHolders(url, chainName, chainLabel, jsonFile) {
 
     // Lưu vào database
     await saveHoldersToDatabase(holders, chainName, chainLabel);
-    // Lưu vào file JSON
-    await saveToJsonFile(holders, jsonFile, chainName);
-    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database and JSON file`);
+    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database`);
   } catch (err) {
     console.error(`❌ [${chainName}] Critical error during crawl:`, err.message || err);
   }
 }
 
 // Crawl function for Bitinfocharts pages using axios + cheerio
-async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel, jsonFile) {
+async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
   console.log(`🚀 Starting data crawl for ${chainName} (Bitinfocharts)...`);
   const holders = [];
 
@@ -325,7 +291,7 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel, jsonFil
               console.warn(`[${chainName}] Skipping row ${index + 1} in ${tableSelector}: Could not extract address from href`);
               return;
             }
-            const address = chainLabel === "bitcoin" ? addressMatch[1] : addressMatch[1].toLowerCase();
+            const address = addressMatch[1].toLowerCase();
             if (!address) {
               console.warn(`[${chainName}] Skipping row ${index + 1} in ${tableSelector}: Empty address`);
               return;
@@ -370,7 +336,7 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel, jsonFil
 
     // Thêm dữ liệu cứng cho Bitcoin
     if (chainLabel === "bitcoin") {
-      const specialAddress = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+      const specialAddress = "1a1zp1ep5qgefi2dmptftl5slmv7divfna";
       holders.push({
         chain: chainLabel,
         address: specialAddress,
@@ -388,9 +354,7 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel, jsonFil
 
     // Lưu vào database
     await saveHoldersToDatabase(holders, chainName, chainLabel);
-    // Lưu vào file JSON
-    await saveToJsonFile(holders, jsonFile, chainName);
-    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database and JSON file`);
+    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database`);
   } catch (err) {
     console.error(`❌ [${chainName}] Critical error during crawl:`, err.message || err);
   }
@@ -456,9 +420,9 @@ async function runAllCrawlers() {
   console.log(`[${new Date().toISOString()}] Starting crawl cycle...`);
   for (const target of TARGETS) {
     if (target.type === "etherscan") {
-      await crawlEtherscanTopHolders(target.url, target.name, target.chainLabel, target.jsonFile);
+      await crawlEtherscanTopHolders(target.url, target.name, target.chainLabel);
     } else if (target.type === "bitinfocharts") {
-      await crawlBitinfochartsTopHolders(target.urls, target.name, target.chainLabel, target.jsonFile);
+      await crawlBitinfochartsTopHolders(target.urls, target.name, target.chainLabel);
     }
   }
   console.log(`[${new Date().toISOString()}] Crawl cycle completed.`);
