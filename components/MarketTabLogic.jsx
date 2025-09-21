@@ -1517,14 +1517,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return;
       }
 
-      // Handle non-EVM chains (Bitcoin, Dogecoin, Litecoin)
-      if (['bitcoin', 'dogecoin', 'litecoin'].includes(selectedToken?.id.toLowerCase())) {
-        const blockchairUrl = `https://blockchair.com/${selectedToken.id.toLowerCase()}/address/${address}`;
+      // Check if the selected token is Bitcoin
+      if (selectedToken?.id.toLowerCase() === 'bitcoin') {
+        const blockchairUrl = `https://blockchair.com/bitcoin/address/${address}`;
         window.open(blockchairUrl, '_blank', 'noreferrer');
         return;
       }
 
-      // Validate address format
+      // Check if the address is a valid EVM address (for ETH, BNB, and other EVM chains)
       if (!address?.match(/^0x[a-fA-F0-9]{40}$/)) {
         const errorMessage = `Invalid address format: ${address}`;
         console.error(errorMessage);
@@ -1533,7 +1533,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return;
       }
 
-      // Set state for wallet balances
+      // For ETH and other EVM-compatible tokens, trigger WalletBalances
       setSelectedWallet(address);
       setWalletBalances([]);
       setTransactions(null);
@@ -1564,7 +1564,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
       fetchBalances();
     },
-    [fetchOnChainData, selectedToken, toast, executeRecaptcha]
+    [fetchOnChainData, selectedToken, toast, executeRecaptcha, setWalletBalancesError, setSelectedWallet, setWalletBalances, setTransactions, setTransactionsError, setIsLoadingWalletBalances]
   );
 
   const handleWalletSearch = useCallback(

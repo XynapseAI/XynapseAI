@@ -1598,17 +1598,17 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 </thead>
                                 <tbody>
                                   {onChainData.topHolders.slice(0, 100).map((holder, index) => {
-                                    const isNonEvmChain = NON_EVM_CHAINS.includes(selectedToken?.id.toLowerCase());
+                                    const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
                                     const address = holder.address?.toLowerCase();
                                     const { text: displayText, image, shortAddress } = truncateAddress(
                                       holder.address,
                                       nameTags,
-                                      isNonEvmChain ? 'Blockchair' : undefined
+                                      isBitcoin ? 'Blockchair' : undefined
                                     );
                                     const isValidAddress =
                                       holder.address &&
                                       (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || // EVM address
-                                        holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/)); // Non-EVM (e.g., Bitcoin)
+                                        holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/)); // Bitcoin address
 
                                     return (
                                       <motion.tr
@@ -1634,7 +1634,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 }}
                                               />
                                             )}
-                                            {isNonEvmChain && isValidAddress ? (
+                                            {isBitcoin && isValidAddress ? (
                                               <a
                                                 href={`https://mempool.space/address/${holder.address}`}
                                                 target="_blank"

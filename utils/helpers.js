@@ -35,6 +35,7 @@ export const getExplorerUrls = (chain, hash, address) => {
   const normalizedChain = (String(chain || 'ethereum')).toLowerCase();
   const isSVM = SUPPORTED_SVM_CHAINS.includes(normalizedChain);
   const isBitcoin = normalizedChain === 'bitcoin';
+  const isEthereum = normalizedChain === 'ethereum'; // Thêm kiểm tra cho Ethereum
 
   let txUrl = '#';
   let addressUrl = '#';
@@ -50,6 +51,10 @@ export const getExplorerUrls = (chain, hash, address) => {
       txUrl = hash ? `https://explorer.eclipse.xyz/tx/${hash}` : '#';
       addressUrl = address ? `https://explorer.eclipse.xyz/account/${address}` : '#';
     }
+  } else if (isEthereum) {
+    // Trả về URL Etherscan cho Ethereum
+    txUrl = hash ? `https://etherscan.io/tx/${hash}` : '#';
+    addressUrl = address ? `https://etherscan.io/address/${address}` : '#';
   } else {
     const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
     const explorer = CHAIN_EXPLORER_MAP[normalizedChain] || CHAIN_EXPLORER_MAP.ethereum;
