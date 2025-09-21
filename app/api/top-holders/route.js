@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server';
 import { logger } from '../../../utils/serverLogger';
 import { createClient } from 'redis';
-import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
 import Bottleneck from 'bottleneck';
-
-const prisma = new PrismaClient();
 
 let redisClient;
 async function getRedisClient() {
@@ -104,7 +101,10 @@ async function checkRateLimit(ip) {
   if (requests >= maxRequests) {
     throw new Error('Too many requests, please try again later.');
   }
-  await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
+  await redisClient.multi()
+    .incr(key)
+    .expire(key, windowMs / 1000)
+    .exec();
 }
 
 async function withRetry(fn, retries = 2, delay = 1000) {
@@ -147,6 +147,43 @@ const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   }
 });
 
+async function fetchTokenAddressFromSlug(slug, ip) {
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+  try {
+    const response = await fetchWithRateLimit(`${apiBaseUrl}/api/coingecko/token/${slug}`, {
+      headers: { 'Content-Type': 'application/json' },
+      retryCount: 0,
+    });
+
+    if (!response.data?.detail_platforms) {
+      await trackViolation(ip, `No detail_platforms found for slug ${slug}`);
+      logger.warn(`No detail_platforms found for slug ${slug}`, { ip });
+      return { chain: null, tokenAddress: null };
+    }
+
+    const availableChains = Object.keys(response.data.detail_platforms).filter(
+      (chain) =>
+        response.data.detail_platforms[chain]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)
+    );
+    const defaultChain = availableChains.includes('ethereum') ? 'ethereum' : availableChains[0] || null;
+
+    if (!defaultChain) {
+      await trackViolation(ip, `No valid chain found for slug ${slug}`);
+      logger.warn(`No valid chain found for slug ${slug}`, { ip });
+      return { chain: null, tokenAddress: null };
+    }
+
+    return {
+      chain: defaultChain,
+      tokenAddress: response.data.detail_platforms[defaultChain].contract_address,
+    };
+  } catch (error) {
+    await trackViolation(ip, `Error fetching token address for slug ${slug}: ${error.message}`);
+    logger.error(`Error fetching token address for slug ${slug}: ${error.message}`, { ip });
+    return { chain: null, tokenAddress: null };
+  }
+}
+
 export async function GET(request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -178,7 +215,13 @@ export async function GET(request) {
     return NextResponse.json({ success: false, detail: err.message }, { status: 429, headers: corsHeaders });
   }
 
-  const { chain } = params;
+  const { slug, chain } = params;
+
+  if (!slug || typeof slug !== 'string' || slug.trim() === '') {
+    await trackViolation(ip, 'Invalid slug');
+    logger.warn(`Invalid slug: ${slug}`, { ip });
+    return NextResponse.json({ success: false, detail: 'Invalid slug' }, { status: 400, headers: corsHeaders });
+  }
 
   if (!chain || typeof chain !== 'string' || chain.trim() === '') {
     await trackViolation(ip, 'Invalid chain');
@@ -186,16 +229,13 @@ export async function GET(request) {
     return NextResponse.json({ success: false, detail: 'Invalid chain' }, { status: 400, headers: corsHeaders });
   }
 
-  // Only normalize 'binancecoin' to 'bsc', preserve case for other chains
-  const normalizedChain = chain === 'binancecoin' ? 'bsc' : chain;
-  const cacheKey = `top-holders_${normalizedChain}`;
+  const cacheKey = `top-holders_${slug}_${chain}`;
   const cachedData = await withRetry(async () => {
     const redisClient = await getRedisClient();
     return await redisClient.get(cacheKey);
   });
-
   if (cachedData) {
-    logger.info(`Returning cached top holders data for ${normalizedChain}`, { ip });
+    logger.info(`Returning cached top holders data for ${slug} on ${chain}`, { ip });
     return new NextResponse(
       new ReadableStream({
         start(controller) {
@@ -211,96 +251,69 @@ export async function GET(request) {
     new ReadableStream({
       async start(controller) {
         try {
-          let topHolders = [];
-          const nonEvmChains = ['bitcoin', 'dogecoin', 'litecoin'];
-
-          // Fetch from top_holders table
-          const dbHolders = await withRetry(async () => {
-            const holders = await prisma.top_holders.findMany({
-              where: { chain: normalizedChain },
-              select: {
-                address: true,
-                balance: true,
-                name_tag: true,
-                image: true,
-              },
-              take: 100, // Limit to top 100 holders
-            });
-            return holders.map((holder) => ({
-              // Preserve address case for non-EVM chains
-              address: nonEvmChains.includes(normalizedChain) ? holder.address : holder.address.toLowerCase(),
-              balance: parseFloat(holder.balance) || 0,
-              nameTag: holder.name_tag || null,
-              image: holder.image || null,
-              source: 'database',
-            }));
-          });
-
-          topHolders = dbHolders;
-
-          // For Bitcoin and Ethereum, fetch additional treasury data from CoinGecko
-          if (['bitcoin', 'ethereum'].includes(normalizedChain)) {
-            try {
-              const response = await fetchWithRateLimit(
-                `https://api.coingecko.com/api/v3/companies/public_treasury/${normalizedChain}`,
-                {
-                  retryCount: 0,
-                }
-              );
-
-              if (response.companies && Array.isArray(response.companies)) {
-                const treasuryHolders = response.companies.map((company) => ({
-                  // Preserve address case for Bitcoin
-                  address: nonEvmChains.includes(normalizedChain)
-                    ? (company.address || company.name || 'unknown')
-                    : (company.address || company.name || 'unknown').toLowerCase(),
-                  balance: parseFloat(company.total_holdings) || 0,
-                  share: parseFloat(company.total_value_usd) / (company.total_holdings || 1) || 0,
-                  nameTag: company.name || null,
-                  image: null,
-                  source: 'CoinGecko',
-                }));
-
-                // Merge with database holders, avoid duplicates
-                const uniqueAddresses = new Set(dbHolders.map((holder) => holder.address));
-                topHolders = [
-                  ...dbHolders,
-                  ...treasuryHolders.filter((holder) => {
-                    const addr = nonEvmChains.includes(normalizedChain) ? holder.address : holder.address.toLowerCase();
-                    if (!uniqueAddresses.has(addr) && addr !== 'unknown') {
-                      uniqueAddresses.add(addr);
-                      return true;
-                    }
-                    return false;
-                  }),
-                ];
-              } else {
-                logger.warn(`No valid public treasury data for ${normalizedChain}`, { ip });
+          let topHolders;
+          if (['bitcoin', 'ethereum'].includes(chain.toLowerCase())) {
+            const response = await fetchWithRateLimit(
+              `https://api.coingecko.com/api/v3/companies/public_treasury/${chain}`,
+              {
+                retryCount: 0,
               }
-            } catch (coingeckoError) {
-              logger.warn(`Failed to fetch treasury data from CoinGecko for ${normalizedChain}:`, coingeckoError.message);
+            );
+
+            if (!response.companies || !Array.isArray(response.companies)) {
+              await trackViolation(ip, `No valid public treasury data for ${chain}`);
+              logger.warn(`No valid public treasury data for ${chain}`, { ip });
+              controller.enqueue(JSON.stringify({ success: false, detail: `No valid public treasury data for ${chain}` }));
+              controller.close();
+              return;
             }
+
+            topHolders = response.companies.map((company) => ({
+              address: company.address || company.name || 'Unknown',
+              balance: parseFloat(company.total_holdings) || 0,
+              share: parseFloat(company.total_value_usd) / (company.total_holdings || 1) || 0,
+              nameTag: company.name || null,
+              image: null,
+              source: 'CoinGecko',
+            }));
+          } else {
+            const tokenInfo = await fetchTokenAddressFromSlug(slug, ip);
+            if (!tokenInfo.tokenAddress) {
+              controller.enqueue(JSON.stringify({ success: false, detail: `No valid token address found for slug ${slug}` }));
+              controller.close();
+              return;
+            }
+
+            const response = await fetchWithRateLimit(
+              `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'}/api/sim`,
+              {
+                method: 'POST',
+                data: {
+                  action: 'top-holders',
+                  chain: tokenInfo.chain,
+                  tokenAddress: tokenInfo.tokenAddress,
+                },
+                retryCount: 0,
+              }
+            );
+
+            if (!response.success) {
+              throw new Error(response.detail || 'Failed to fetch top holders');
+            }
+
+            topHolders = response.data || [];
           }
 
-          // Sort by balance and limit to top 100
-          topHolders = topHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
-
-          if (topHolders.length === 0) {
-            throw new Error(`No top holders data available for ${normalizedChain}`);
-          }
-
-          // Cache the result
           await withRetry(async () => {
             const redisClient = await getRedisClient();
             await redisClient.setEx(cacheKey, 3600, JSON.stringify({ success: true, data: topHolders }));
           });
-
-          logger.info(`Successfully fetched top holders for ${normalizedChain}`, { ip });
+          logger.info(`Successfully fetched top holders for ${slug} on ${chain}`, { ip });
           controller.enqueue(JSON.stringify({ success: true, data: topHolders }));
           controller.close();
         } catch (error) {
           await trackViolation(ip, `Error fetching top holders: ${error.message}`);
-          logger.error(`Error fetching top holders for ${normalizedChain}: ${error.message}`, {
+          logger.error(`Error fetching top holders for ${slug} on ${chain}: ${error.message}`, {
             status: error.response?.status,
             data: error.response?.data,
             stack: error.stack,
@@ -315,8 +328,6 @@ export async function GET(request) {
                 : `Failed to fetch top holders: ${error.message}`;
           controller.enqueue(JSON.stringify({ success: false, detail }));
           controller.close();
-        } finally {
-          await prisma.$disconnect();
         }
       },
     }),

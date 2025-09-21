@@ -7,6 +7,7 @@ import debounce from 'lodash.debounce';
 import rateLimit from 'axios-rate-limit';
 import pLimit from 'p-limit';
 import { GECKOTERMINAL_CHAIN_MAPPING, SUPPORTED_CHAINS, CHAIN_MAPPING } from '../utils/constants';
+import btcTopHolders from '../public/nametags/bitcoin-top-holders.json';
 import btcNameTags from '../public/nametags/btc-top-holders.json';
 import bnbNameTags from '../public/nametags/bnb-top-holders.json';
 import ethNameTags from '../public/nametags/eth-top-holders.json';
@@ -42,7 +43,7 @@ const coingeckoAxios = rateLimit(axios.create(), {
 
 axiosRetry(coingeckoAxios, {
   retries: 3,
-  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100,
+  retryDelay: (retryCount) => Math.pow(2, retryCount) * 1000 + Math.random() * 100, // Exponential backoff with jitter
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED',
 });
 
@@ -51,6 +52,7 @@ const fetcher = async (url, params) => {
   if (!response.data.success) {
     throw new Error(response.data.detail || 'Failed to fetch market data');
   }
+  // Handle streaming response
   if (response.data instanceof ReadableStream) {
     const text = await new Response(response.data).text();
     const parsed = JSON.parse(text);
@@ -62,6 +64,7 @@ const fetcher = async (url, params) => {
   return response.data.data;
 };
 
+// Cache durations
 const CACHE_DURATIONS = {
   PRICE: 5 * 60 * 1000,
   METADATA: 4 * 60 * 60 * 1000,
@@ -71,7 +74,7 @@ const CACHE_DURATIONS = {
   TICKERS: 4 * 60 * 60 * 1000,
   TRENDING: 5 * 60 * 60 * 1000,
   NAMETAGS: 48 * 60 * 60 * 1000,
-  TOP_HOLDERS: 12 * 60 * 60 * 1000,
+  TOP_HOLDERS: 12 * 60 * 60 * 1000, // 12 h
 };
 
 const MEMPOOL_POLLING_INTERVAL = 60 * 1000;
@@ -80,12 +83,12 @@ if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
   console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
 }
 
-const NON_EVM_CHAINS = ['bitcoin', 'dogecoin', 'litecoin'];
-const BLOCKCHAIR_REQUEST_LIMIT = 60;
-const BLOCKCHAIR_REQUEST_WINDOW = 60 * 1000;
+const NON_EVM_CHAINS = ['bitcoin', 'ethereum', 'dogecoin', 'litecoin'];
+const BLOCKCHAIR_REQUEST_LIMIT = 60; // Limit of 30 requests per minute
+const BLOCKCHAIR_REQUEST_WINDOW = 60 * 1000; // 1 minute
 const blockchairRequestTracker = new Map();
-const DEX_REQUEST_LIMIT = 50;
-const DEX_REQUEST_WINDOW = 5 * 60 * 1000;
+const DEX_REQUEST_LIMIT = 50; // Max 5 requests per minute
+const DEX_REQUEST_WINDOW = 5 * 60 * 1000; // 1 minute
 const dexRequestTracker = new Map();
 const limit = pLimit(60);
 
@@ -171,18 +174,21 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [isLoadingMempool, setIsLoadingMempool] = useState(false);
   const [mempoolError, setMempoolError] = useState(null);
   const mempoolWsRef = useRef(null);
+  const mempoolTxCache = useRef(new Set());
 
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
   const getCachedData = async (key, fetchFn, ttl = CACHE_DURATIONS.DEFAULT, retryCount = 0, requiresSession = false, session = null, status = 'unauthenticated') => {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
 
+    // Validate session for session-dependent data
     if (requiresSession && status !== 'authenticated') {
       console.error(`Session required but not authenticated for key: ${key}`);
       throw new Error('Authentication required for this data');
     }
 
     try {
+      // Check local cache first
       const localCached = localCache.current[key];
       if (localCached && Date.now() - localCached.timestamp < ttl) {
         if (Date.now() - localCached.timestamp >= ttl) {
@@ -206,6 +212,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return localCached.data || [];
       }
 
+      // Check Redis cache
       try {
         const cacheResponse = await cacheLimiter.schedule(() =>
           axios.post(
@@ -246,6 +253,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         console.error(`Redis cache error for ${key}:`, cacheError.message);
       }
 
+      // Fetch new data if no cache is available
       const data = await fetchFn();
       if (data) {
         await cacheLimiter.schedule(() =>
@@ -271,9 +279,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     }
   };
 
+  // Cache warmup for trending tokens and top tokens
   const warmUpCache = useCallback(async () => {
     const cacheTrending = async () => {
-      const cacheKey = `trending-tokens-${currency}`;
+      const cacheKey = `trending-tokens-${currency}`; // Non-session-dependent
       const fetchFn = async () => {
         const response = await axios.get('/api/coingecko', {
           params: { action: 'trending', vs_currency: currency },
@@ -288,7 +297,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     };
 
     const cacheTopTokens = async () => {
-      const cacheKey = `market-info-default-${currency}`;
+      const cacheKey = `market-info-default-${currency}`; // Non-session-dependent
       const fetchFn = async () => {
         const response = await axios.get('/api/coingecko', {
           params: { start: 1, limit: tokensPerPage, vs_currencies: currency },
@@ -303,6 +312,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     };
     await Promise.all([cacheTrending(), cacheTopTokens()]);
   }, [currency, session, status]);
+
 
   const executeRecaptcha = useCallback(async (action, retries = 3) => {
     if (process.env.NEXT_PUBLIC_DISABLE_RECAPTCHA === 'true') {
@@ -328,10 +338,12 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     }
   }, [recaptchaRef]);
 
+
   const fetchSupportedChains = useCallback(async (retryCount = 0) => {
-    const cacheKey = 'supported-chains';
+    const cacheKey = 'supported-chains'; // Non-session-dependent
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
 
+    // Check local cache
     const cachedChains = localCache.current[cacheKey]?.data;
     if (cachedChains && Date.now() - localCache.current[cacheKey]?.timestamp < 48 * 60 * 60 * 1000) {
       setChains(cachedChains);
@@ -437,7 +449,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
   const fetchPoolTokenMetadata = useCallback(
     async (chain, poolAddress, retryCount = 0) => {
-      const cacheKey = `pool-${GECKOTERMINAL_CHAIN_MAPPING[chain]}-${poolAddress}-session_required`;
+      const cacheKey = `pool-${GECKOTERMINAL_CHAIN_MAPPING[chain]}-${poolAddress}-session_required`; // Session-dependent
       try {
         const fetchFn = async () => {
           const response = await coingeckoAxios.get(
@@ -484,6 +496,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     setIsLoadingMempool(true);
     setMempoolError(null);
     try {
+      // Fetch BTC price from CoinGecko
       const btcPriceResponse = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', { timeout: 10000 });
       const btcPrice = btcPriceResponse.data.bitcoin?.usd || 0;
       if (!btcPrice) {
@@ -492,6 +505,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return;
       }
 
+      // Fetch mempool transactions
       const response = await axios.get('/api/mempool-transactions', {
         headers: {
           Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
@@ -504,7 +518,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           .filter((tx) => {
             const isNew = !mempoolTxCache.current.has(tx.txid);
             const valueUSD = (tx.value_btc * btcPrice) || 0;
-            return isNew && valueUSD >= 1000000;
+            return isNew && valueUSD >= 1000000; // Only take transactions >= 1M USD
           })
           .map((tx) => {
             mempoolTxCache.current.add(tx.txid);
@@ -531,6 +545,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             };
           });
 
+        // Update mempoolTransactions with new data, keeping up to 100 transactions
         setMempoolTransactions((prev) => {
           const updated = [...newTxs, ...prev].slice(0, 100).sort((a, b) => b.timestamp - a.timestamp);
           return updated;
@@ -552,6 +567,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     }
   }, [selectedToken, btcNameTags, session]);
 
+
+
   useEffect(() => {
     if (selectedToken?.id !== 'bitcoin' || document.visibilityState !== 'visible') {
       setMempoolTransactions([]);
@@ -560,8 +577,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       return;
     }
 
+    // Call fetch initially
     fetchMempoolTransactions();
 
+    // Set up polling interval
     const interval = setInterval(() => {
       if (selectedToken?.id === 'bitcoin' && document.visibilityState === 'visible') {
         fetchMempoolTransactions();
@@ -578,7 +597,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       }
 
       const normalizedAddress = address.toLowerCase();
-      const cacheKey = `nametag-${normalizedAddress}-session_required`;
+      const cacheKey = `nametag-${normalizedAddress}-session_required`; // Session-dependent
       const cached = nameTagsRef.current[normalizedAddress];
       if (cached && Date.now() - cached.timestamp < NAME_TAG_CACHE_DURATION) {
         return { nameTag: cached.nameTag, image: cached.image };
@@ -667,9 +686,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setIsLoadingNameTags(true);
       const newNameTags = {};
 
+      // Handle non-EVM addresses (Bitcoin, Dogecoin, Litecoin)
       const nonEvmAddresses = addresses.filter((addr) => !addr.match(/^0x[a-fA-F0-9]{40}$/));
       const nameTagsMap = {
-        bitcoin: btcNameTags,
+        bitcoin: btcNameTags, // Use btc-top-holders.json for Bitcoin name tags
         dogecoin: dogeNameTags,
         litecoin: ltcNameTags,
         ethereum: ethNameTags,
@@ -678,6 +698,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       nonEvmAddresses.forEach((addr) => {
         const normalizedAddress = addr.toLowerCase();
         let nameTagData = null;
+        // Check each chain's name tag JSON file for the address
         for (const [chain, tags] of Object.entries(nameTagsMap)) {
           if (tags[normalizedAddress]?.Labels?.[chain]) {
             nameTagData = tags[normalizedAddress].Labels[chain];
@@ -691,6 +712,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         };
       });
 
+      // Handle EVM addresses with batching
       const evmAddresses = addresses.filter((addr) => addr.match(/^0x[a-fA-F0-9]{40}$/));
       if (evmAddresses.length > 0 && status === 'authenticated') {
         try {
@@ -702,7 +724,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
           const batchPromises = batches.map((batch) =>
             cacheLimiter.schedule(async () => {
-              const cacheKey = `nametags-batch-${batch.join('-')}-session_required`;
+              const cacheKey = `nametags-batch-${batch.join('-')}-session_required`; // Session-dependent
               const fetchFn = async () => {
                 const response = await axios.post(
                   `/api/nametags`,
@@ -793,7 +815,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        const cacheKey = `price-history-${tokenId}-${days}-${currency}`;
+        const cacheKey = `price-history-${tokenId}-${days}-${currency}`; // Non-session-dependent
         setIsLoadingSelectedToken(true);
 
         try {
@@ -883,7 +905,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         }
 
         const chain = normalizedTokenSymbol;
-        const cacheKey = `top-holders-${chain}-session_required`;
+        const cacheKey = `top-holders-${chain}-session_required`; // Session-dependent
         setIsLoadingOnChain(true);
         setOnChainError(null);
 
@@ -891,6 +913,15 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           const fetchFn = async () => {
             let topHolders = [];
 
+            // Map token symbol to corresponding JSON file for top holders
+            const topHoldersMap = {
+              bitcoin: btcTopHolders,
+              dogecoin: dogeNameTags,
+              litecoin: ltcNameTags,
+              ethereum: ethNameTags,
+            };
+
+            // Map token symbol to corresponding JSON file for name tags
             const nameTagsMap = {
               bitcoin: btcNameTags,
               dogecoin: dogeNameTags,
@@ -898,39 +929,28 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               ethereum: ethNameTags,
             };
 
+            const jsonData = topHoldersMap[chain];
             const nameTagData = nameTagsMap[chain];
 
-            try {
-              const response = await axios.get(`${API_BASE_URL}/api/top-holders`, {
-                params: { chain: chain === 'binancecoin' ? 'bsc' : chain },
-                headers: {
-                  Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-                },
-                timeout: 15000,
-              });
-
-              if (!response.data.success || !Array.isArray(response.data.data)) {
-                throw new Error(`Invalid top holders data for ${chain}`);
-              }
-
-              topHolders = response.data.data.map((holder) => {
-                const address = holder.address.toLowerCase();
+            if (jsonData) {
+              topHolders = Object.values(jsonData).map((holder) => {
+                const address = holder.Address.toLowerCase();
                 const nameTagEntry = nameTagData?.[address]?.Labels?.[chain];
                 return {
                   address,
-                  balance: parseFloat(holder.balance) || 0,
+                  balance: parseFloat(holder.Balance) || 0,
                   share: 0,
-                  nameTag: nameTagEntry?.['Name Tag'] || holder.name_tag || null,
-                  image: nameTagEntry?.image || holder.image || null,
-                  source: 'database',
+                  nameTag: nameTagEntry?.['Name Tag'] || null,
+                  image: nameTagEntry?.image || null,
+                  source: 'JSON',
                 };
               });
-            } catch (error) {
-              console.warn(`Failed to fetch top holders from database for ${chain}:`, error.message);
-              throw new Error(`No top holders data available for ${chain}`);
+            } else {
+              throw new Error(`No JSON data available for ${chain}`);
             }
 
-            if (['bitcoin'].includes(chain)) {
+            // Fetch CoinGecko treasury data for Bitcoin and Ethereum
+            if (['bitcoin', 'ethereum'].includes(chain)) {
               try {
                 const coingeckoResponse = await coingeckoAxios.get(`${API_BASE_URL}/api/coingecko`, {
                   params: { action: 'public-treasury', tokenType: chain },
@@ -954,6 +974,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                     };
                   });
 
+                  // Merge with JSON data, avoiding duplicates
                   const uniqueAddresses = new Set(topHolders.map((holder) => holder.address.toLowerCase()));
                   topHolders = [
                     ...topHolders,
@@ -972,6 +993,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               }
             }
 
+            // Sort by balance and limit to top 100
             topHolders = topHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
 
             if (topHolders.length === 0) {
@@ -1001,7 +1023,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             if (!localCache.current[cacheKey]?.data) {
               setOnChainData((prev) => ({
                 ...prev,
-                topHolders: prev.topHolders,
+                topHolders: prev.topHolders, // Preserve existing data
               }));
             }
           }
@@ -1022,7 +1044,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     debounce(
       async (tokenId, retryCount = 0) => {
         if (!tokenId || document.visibilityState !== 'visible') return;
-        const cacheKey = `ticker-${tokenId}`;
+        const cacheKey = `ticker-${tokenId}`; // Non-session-dependent
         setIsLoadingTickers(true);
         setTickerError(null);
 
@@ -1111,7 +1133,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        const cacheKey = `onchain-${simChain || 'wallet'}-${tokenAddress || address}-${action}-session_required`;
+        const cacheKey = `onchain-${simChain || 'wallet'}-${tokenAddress || address}-${action}-session_required`; // Session-dependent
         setIsLoadingOnChain(action === 'top-holders');
         if (action === 'wallet-balances') setIsLoadingWalletBalances(true);
         else if (action === 'transactions') setIsLoadingTransactions(true);
@@ -1285,6 +1307,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [chains, session, status, toast, executeRecaptcha]
   );
 
+
   const fetchDexData = useCallback(
     debounce(
       async (chain, tokenAddress, retryCount = 0) => {
@@ -1331,7 +1354,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setDexRequestCount((prev) => prev + 1);
         }
 
-        const cacheKey = `dex-${geckoChain}-${tokenAddress}-session_required`;
+        const cacheKey = `dex-${geckoChain}-${tokenAddress}-session_required`; // Session-dependent
         setIsLoadingDex(true);
         setDexError(null);
 
@@ -1438,7 +1461,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     debounce(
       async (retryCount = 0) => {
         if (document.visibilityState !== 'visible') return;
-        const cacheKey = `trending-tokens-${currency}`;
+        const cacheKey = `trending-tokens-${currency}`; // Non-session-dependent
         setIsLoadingTrending(true);
         setTrendingError(null);
 
@@ -1483,6 +1506,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [currency, session, status, toast]
   );
 
+
   const handleAddressClick = useCallback(
     (address) => {
       if (address === 'Unknown') {
@@ -1493,12 +1517,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return;
       }
 
-      if (selectedToken?.id.toLowerCase() === 'bitcoin') {
-        const blockchairUrl = `https://blockchair.com/bitcoin/address/${address}`;
+      // Handle non-EVM chains (Bitcoin, Dogecoin, Litecoin)
+      if (['bitcoin', 'dogecoin', 'litecoin'].includes(selectedToken?.id.toLowerCase())) {
+        const blockchairUrl = `https://blockchair.com/${selectedToken.id.toLowerCase()}/address/${address}`;
         window.open(blockchairUrl, '_blank', 'noreferrer');
         return;
       }
 
+      // Validate address format
       if (!address?.match(/^0x[a-fA-F0-9]{40}$/)) {
         const errorMessage = `Invalid address format: ${address}`;
         console.error(errorMessage);
@@ -1507,6 +1533,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return;
       }
 
+      // Set state for wallet balances
       setSelectedWallet(address);
       setWalletBalances([]);
       setTransactions(null);
@@ -1514,6 +1541,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setTransactionsError(null);
       setIsLoadingWalletBalances(true);
 
+      // Fetch wallet balances with reCAPTCHA
       const fetchBalances = async () => {
         try {
           const recaptchaToken = await executeRecaptcha('wallet-balances');
@@ -1642,6 +1670,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return { chain: tokenSymbol, tokenAddress: null, decimalPlace: null };
       }
 
+      // Special case for BNB
       if (tokenSymbol === 'bnb') {
         const bnbChainAddress = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
         const bnbPlatforms = {
@@ -1655,11 +1684,13 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           },
         };
 
+        // Ensure chains array is not empty
         if (!chains || chains.length === 0) {
           console.warn('Chains array is empty, falling back to BNB chain for BNB');
           return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
         }
 
+        // Filter available chains for BNB, excluding testnets in production
         const availableChains = chains.filter(
           (chain) =>
             bnbPlatforms[chain.value] &&
@@ -1667,6 +1698,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             (process.env.NODE_ENV === 'development' || !chain.testnet)
         );
 
+        // Prefer BNB chain if available, otherwise fall back to Ethereum
         if (
           bnbPlatforms['binance-smart-chain'] &&
           chains.some((net) => net.value === 'bnb') &&
@@ -1693,6 +1725,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
       }
 
+      // Existing logic for other tokens
       if (!chains || chains.length === 0) {
         console.warn('Chains array is empty, falling back to default chain: ethereum');
         return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
@@ -1951,32 +1984,32 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setAnalysisLogs([]);
 
       try {
-        const fetchFn = async (retryCount = 0) => {
+        const fetchFn = async () => {
           const recaptchaToken = await executeRecaptcha('analyze');
           const prompt = `
-Analyze **${selectedToken.symbol.toUpperCase()}** in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base the analysis on real-time data from Brave API searches, tweet data, and AI interactions, incorporating specific facts, figures, and quotes from credible sources.
+Analyze **${selectedToken.symbol}** in Markdown format (500-800 words). Use **bold**, *italics*, tables, and concise yet detailed language. Ensure *not investment advice*. Format with clear headings, subheadings, line breaks, and professional tone. Base analysis heavily on real-time data from Brave API searches, incorporating specific facts, figures, and quotes from credible sources.
 
 **Data**:
 - **Current Price**: $${selectedToken.current_price?.[currency]?.toFixed(2) || 'N/A'}
 - **24h Price Change**: ${selectedToken.price_change_percentage_24h?.toFixed(2) || 'N/A'}%
 - **Market Cap**: $${selectedToken.market_cap?.[currency]?.toLocaleString() || 'N/A'}
 - **24h Volume**: $${selectedToken.total_volume?.[currency]?.toLocaleString() || 'N/A'}
-- **Social Media/Web**: Fetch recent sentiment from Twitter/X and web articles via Brave API, prioritizing news from the past 7 days.
+- **Social Media/Web**: Fetch recent sentiment from Twitter/X and web articles via Brave API, prioritizing latest news from the past week.
 
 **Requirements**:
-- **Overview**: Summarize market performance, recent trends, volatility, and historical context. Include candlestick patterns, comparisons to similar assets (e.g., BTC, ETH), and specific price movements (e.g., 7-day, 30-day changes).
-- **US Economic Impact**: Analyze the impact of the latest CPI (include value and date), Non-Farm Payrolls (latest figures and date), GDP growth (quarterly data), and Federal Reserve interest rate decisions (latest rate and meeting date). Explain how these factors influence ${selectedToken.symbol.toUpperCase()} using evidence from sources.
-- **Stock Market Correlation**: Discuss correlations with S&P 500 and Nasdaq, referencing their performance (e.g., index changes over 7 days, 30 days). Provide statistical correlations if available.
-- **Political News Impact**: Evaluate the influence of recent political events or policies (e.g., regulatory changes, elections) on the crypto market, citing specific events and dates.
+- **Overview**: Provide a detailed summary of market performance, recent trends, volatility, and historical context with specific data points, charts description (e.g., candlestick patterns), and comparisons to similar assets.
+- **US Economic Impact**: Analyze effects of the most recent CPI (include latest value and date), Non-Farm Payrolls (latest figures and date), GDP growth (quarterly data), and Federal Reserve interest rate decisions (latest rate and meeting date). Discuss how these macroeconomic factors influence the token, with evidence from sources.
+- **Stock Market Correlation**: Discuss detailed correlation with S&P 500 and Nasdaq, referencing their recent performance (e.g., index changes over past 7 days, 30 days), and statistical correlations if available from sources.
+- **Political News Impact**: Evaluate influence of the latest political events or policies on the crypto market, citing specific events, dates, and impacts (e.g., regulatory changes, elections).
 - **Sentiment Analysis**:
-  - *Social Media*: Summarize Twitter/X sentiment with quantitative metrics (e.g., positive/negative tweet ratio, key influencers, viral tweets) based on provided tweet data.
-  - *Web*: Extract insights from recent articles (via Brave API), prioritizing credible sources (e.g., Bloomberg, Reuters, CoinDesk). Include 3-5 quotes with article titles and publication dates.
+  - *Social Media*: Summarize Twitter/X sentiment with quantitative metrics (e.g., positive/negative ratio), highlighting key influencers, viral tweets, and trends from recent data.
+  - *Web*: Extract in-depth insights from recent articles (via Brave API), prioritizing credible sources like Bloomberg, Reuters, CoinDesk. Include quotes and summaries from 3-5 articles.
 - **Technical Analysis**:
-  - *Price Patterns*: Identify support/resistance levels, 50-day and 200-day moving averages (include values), RSI, MACD, and other indicators. Provide specific values where possible.
-  - *Volume Trends*: Analyze trading volume changes over 24h, 7d, 30d, and their implications for liquidity and momentum.
-- **Risk Factors**: Discuss risks like market manipulation, regulatory changes, or technological issues, supported by recent news.
-- **Conclusion**: Summarize key takeaways with balanced, actionable insights in a neutral tone.
-- **References**: Return a JSON array of links in the format [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...], including at least 5-10 sources from Brave API results.
+  - *Price Patterns*: Identify support/resistance levels, moving averages (50-day, 200-day with values), RSI, MACD, and other indicators with specific values.
+  - *Volume Trends*: Analyze trading volume changes over 24h, 7d, 30d, and implications for liquidity and momentum.
+- **Risk Factors**: Discuss potential risks like market manipulation, regulatory risks, or technological issues, backed by recent news.
+- **Conclusion**: Provide balanced, actionable insights with a neutral tone, summarizing key takeaways.
+- **References**: Provide a JSON array of links in the format [{ "text": "Article Title", "url": "https://example.com", "description": "Summary", "image": "https://thumbnail.jpg" }, ...] from Brave API results, including at least 5-10 sources.
 
 **Output Format**:
 {
@@ -1985,40 +2018,20 @@ Analyze **${selectedToken.symbol.toUpperCase()}** in Markdown format (500-800 wo
 }
 `;
 
-          console.log('Sending analysis request:', { tokenSymbol: selectedToken.symbol, recaptchaToken });
-
           const response = await fetch('/api/token-analysis', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${session?.accessToken || ''}`,
-              'x-recaptcha-token': recaptchaToken,
             },
             body: JSON.stringify({
               tokenSymbol: selectedToken.symbol?.toUpperCase(),
               recaptchaToken,
             }),
-            signal: AbortSignal.timeout(90000), // Increase timeout to 90 seconds
           });
 
           if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            if (response.status === 401 && retryCount < 1) {
-              // Attempt to refresh token
-              try {
-                const { data: newSession } = await axios.get('/api/auth/session');
-                if (newSession?.accessToken) {
-                  console.log('Token refreshed, retrying analysis');
-                  return await fetchFn(retryCount + 1); // Retry with new token
-                } else {
-                  throw new Error('Failed to refresh session token');
-                }
-              } catch (refreshError) {
-                console.error('Token refresh failed:', refreshError.message);
-                throw new Error('Session expired. Please log in again.');
-              }
-            }
-            throw new Error(`HTTP error! status: ${response.status}, detail: ${errorData.detail || 'Unknown error'}`);
+            throw new Error(`HTTP error! status: ${response.status}`);
           }
 
           const reader = response.body.getReader();
@@ -2057,20 +2070,20 @@ Analyze **${selectedToken.symbol.toUpperCase()}** in Markdown format (500-800 wo
         setAnalysisLinks(links);
       } catch (error) {
         let errorMessage = 'Error analyzing token. Please try again.';
-        if (error.name === 'AbortError') {
-          errorMessage = 'Request timed out. Please check your network or try again later.';
-        } else if (error.message.includes('HTTP error')) {
-          errorMessage = error.message;
-        } else if (error.message.includes('reCAPTCHA')) {
-          errorMessage = 'reCAPTCHA verification error. Please try again.';
-        } else if (error.message.includes('Session expired')) {
+        if (error.code === 'ECONNABORTED') {
+          errorMessage = 'Request took too long. Please check your network connection and try again.';
+        } else if (error.response?.status === 401) {
           errorMessage = 'Session expired. Please log in again.';
+        } else if (error.response?.status === 403 && error.response?.data?.detail?.includes('reCAPTCHA')) {
+          errorMessage = 'reCAPTCHA verification failed. Please try again.';
         } else if (error.response?.status === 429) {
           errorMessage = 'Too many requests. Please try again after a minute.';
         } else if (error.response?.status === 413) {
           errorMessage = 'Request too large. Please try again later.';
         } else if (error.response?.data?.errors) {
-          errorMessage = `Data error: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
+          errorMessage = `'Data error: ${error.response.data.errors.map((e) => e.msg).join(', ')}`;
+        } else if (error.message.includes('reCAPTCHA')) {
+          errorMessage = 'reCAPTCHA verification error. Please try again.';
         }
         console.error(`Analysis error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
           error,
@@ -2078,8 +2091,9 @@ Analyze **${selectedToken.symbol.toUpperCase()}** in Markdown format (500-800 wo
           data: error.response?.data,
         });
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        if (localCache.current[cacheKey]?.data) {
-          setAnalysis(localCache.current[cacheKey].data.content);
+        // Preserve existing analysis data
+        if (!localCache.current[cacheKey]?.data) {
+          setAnalysis(analysis); // Keep previous analysis if available
         }
       } finally {
         setIsAnalyzing(false);
@@ -2088,7 +2102,7 @@ Analyze **${selectedToken.symbol.toUpperCase()}** in Markdown format (500-800 wo
         }
       }
     }, 500),
-    [selectedToken, currency, session, status, executeRecaptcha, toast]
+    [selectedToken, currency, session, status, executeRecaptcha, toast, analysis]
   );
 
   // Replace the debouncedHandlePrediction function
@@ -2106,9 +2120,6 @@ Analyze **${selectedToken.symbol.toUpperCase()}** in Markdown format (500-800 wo
       const cacheKey = `prediction-${selectedToken.symbol.toUpperCase()}-session_required`;
       setIsPredicting(true);
       setAnalysisLogs([]);
-
-      // Log session details for debugging
-      console.log('Prediction session:', { status, accessToken: session?.accessToken, userId: session?.user?.id });
 
       try {
         const fetchFn = async () => {
@@ -2134,14 +2145,11 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 - **Sources**: Include relevant links in [text](url) format from Brave API results, at least 5-10 sources.
 `;
 
-          console.log('Sending prediction request:', { tokenSymbol: selectedToken.symbol, recaptchaToken });
-
           const response = await fetch('/api/gemini', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${session?.accessToken || ''}`,
-              'x-recaptcha-token': recaptchaToken,
             },
             body: JSON.stringify({
               prompt,
@@ -2149,53 +2157,14 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
               tokenSymbol: selectedToken.symbol?.toUpperCase(),
               recaptchaToken,
             }),
-            signal: AbortSignal.timeout(60000),
+            signal: AbortSignal.timeout(30000),
           });
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            if (response.status === 401) {
-              // Attempt to refresh token
-              try {
-                const { data: newSession } = await axios.get('/api/auth/session');
-                if (newSession?.accessToken) {
-                  console.log('Token refreshed, retrying prediction');
-                  // Retry request with new token
-                  const retryResponse = await fetch('/api/gemini', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      Authorization: `Bearer ${newSession.accessToken}`,
-                      'x-recaptcha-token': recaptchaToken,
-                    },
-                    body: JSON.stringify({
-                      prompt,
-                      deepSearch: true,
-                      tokenSymbol: selectedToken.symbol?.toUpperCase(),
-                      recaptchaToken,
-                    }),
-                    signal: AbortSignal.timeout(60000),
-                  });
-                  if (!retryResponse.ok) {
-                    throw new Error(`HTTP error after token refresh! status: ${retryResponse.status}, detail: ${errorData.detail || 'Unknown error'}`);
-                  }
-                  return await processResponse(retryResponse);
-                } else {
-                  throw new Error('Failed to refresh session token');
-                }
-              } catch (refreshError) {
-                console.error('Token refresh failed:', refreshError.message);
-                throw new Error('Session expired. Please log in again.');
-              }
-            }
             throw new Error(`HTTP error! status: ${response.status}, detail: ${errorData.detail || 'Unknown error'}`);
           }
 
-          return await processResponse(response);
-        };
-
-        // Helper function to process response
-        const processResponse = async (response) => {
           const reader = response.body.getReader();
           let result = '';
           let links = [];
@@ -2233,15 +2202,11 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       } catch (error) {
         let errorMessage = 'Error predicting price. Please try again.';
         if (error.name === 'AbortError') {
-          errorMessage = 'Request timed out. Please check your network or try again later.';
+          errorMessage = 'Request took too long. Please check your network connection and try again.';
         } else if (error.message.includes('HTTP error')) {
           errorMessage = error.message;
         } else if (error.message.includes('reCAPTCHA')) {
           errorMessage = 'reCAPTCHA verification error. Please try again.';
-        } else if (error.message.includes('Session expired')) {
-          errorMessage = 'Session expired. Please log in again.';
-        } else if (error.response?.status === 429) {
-          errorMessage = 'Too many requests. Please try again after a minute.';
         }
         console.error(`Prediction error for ${selectedToken?.symbol || 'unknown'}: ${error.message}`, {
           error,
@@ -2249,8 +2214,9 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
           data: error.response?.data,
         });
         toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
-        if (localCache.current[cacheKey]?.data) {
-          setPrediction(localCache.current[cacheKey].data.content);
+        // Preserve existing prediction data
+        if (!localCache.current[cacheKey]?.data) {
+          setPrediction(prediction); // Keep previous prediction if available
         }
       } finally {
         setIsPredicting(false);
@@ -2259,7 +2225,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
         }
       }
     }, 500),
-    [selectedToken, priceHistory, analysis, currency, session, status, executeRecaptcha, toast]
+    [selectedToken, priceHistory, analysis, currency, session, status, executeRecaptcha, toast, prediction]
   );
 
   const debouncedSearch = useCallback(
@@ -2457,7 +2423,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     const tokenSymbol = selectedToken.id.toLowerCase();
     const isNonEvmChain = NON_EVM_CHAINS.includes(tokenSymbol);
 
-    if (isNonEvmChain || tokenSymbol === 'ethereum') {
+    if (isNonEvmChain) {
       const tokenKey = `${selectedToken.id}-top-holders`;
       if (lastFetchedTokenRef.current === tokenKey && onChainData.topHolders.length > 0) {
         return;
@@ -2568,7 +2534,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                         if (parsedObj.detail) {
                           throw new Error(parsedObj.detail);
                         }
-                        data.push({ ...parsedObj, chain });
+                        data.push({ ...parsedObj, chain }); // Add chain info
                       } catch (parseError) {
                         console.warn(`Failed to parse object: ${parseError.message}`, { objStr });
                       }
@@ -2604,35 +2570,18 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 
             let holders = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.TOP_HOLDERS);
 
+            // If chain is 'bnb', merge with bnb-top-holders.json
             if (chain === 'bnb') {
-              let dbHolders = [];
-              try {
-                const response = await axios.get(`${process.env.NEXT_PUBLIC_APP_URL || 'https://xynapse-ai.vercel.app'}/api/top-holders`, {
-                  params: { chain: 'bsc' },
-                  headers: {
-                    Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-                  },
-                  timeout: 15000,
-                });
+              const jsonHolders = Object.values(bnbNameTags).map((holder) => ({
+                address: holder.Address.toLowerCase(),
+                balance: parseFloat(holder.Balance) || 0,
+                nameTag: holder.Labels['binance-smart-chain']?.['Name Tag'] || null,
+                image: holder.Labels['binance-smart-chain']?.image || null,
+                source: 'JSON',
+                chain: 'bnb',
+              }));
 
-                if (response.data.success && Array.isArray(response.data.data)) {
-                  dbHolders = response.data.data.map((holder) => {
-                    const address = holder.address.toLowerCase();
-                    const nameTagEntry = bnbNameTags?.[address]?.Labels?.['binance-smart-chain'];
-                    return {
-                      address,
-                      balance: parseFloat(holder.balance) || 0,
-                      nameTag: nameTagEntry?.['Name Tag'] || holder.name_tag || null,
-                      image: nameTagEntry?.image || holder.image || null,
-                      source: 'database',
-                      chain: 'bnb',
-                    };
-                  });
-                }
-              } catch (error) {
-                console.warn(`Failed to fetch top holders from database for BNB:`, error.message);
-              }
-
+              // Merge holders from API and JSON, remove duplicates by address
               const uniqueAddresses = new Set();
               const mergedHolders = [
                 ...holders.filter((holder) => {
@@ -2643,7 +2592,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                   }
                   return false;
                 }),
-                ...dbHolders.filter((holder) => {
+                ...jsonHolders.filter((holder) => {
                   const addr = holder.address.toLowerCase();
                   if (!uniqueAddresses.has(addr)) {
                     uniqueAddresses.add(addr);
@@ -2653,6 +2602,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
                 }),
               ];
 
+              // Sort by balance and take top 100
               holders = mergedHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
             }
 
@@ -2665,7 +2615,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 
         try {
           const results = await Promise.all(topHoldersPromises);
-          const mergedHolders = results.flat().sort((a, b) => b.balance - a.balance).slice(0, 100);
+          const mergedHolders = results.flat().sort((a, b) => b.balance - a.balance).slice(0, 100); // Limit to top 100 holders
           setOnChainData((prev) => ({
             ...prev,
             topHolders: mergedHolders,

@@ -1,10 +1,12 @@
 // scripts/crawl-top-holders.js
 import axios from "axios";
 import { load } from "cheerio";
+import cron from "node-cron";
 import { PrismaClient } from "@prisma/client";
 
+// --- Khởi tạo Prisma Client ---
 const prisma = new PrismaClient({
-  log: ["error"],
+  log: ["error"], // Bật logging để debug
   errorFormat: "pretty",
 });
 
@@ -168,7 +170,8 @@ function getImageForNameTag(nameTag) {
 // Utility: Delay to avoid rate-limiting
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function withRetry(fn, retries = 5, delayMs = 3000) {
+// Hàm thử lại với retry logic
+async function withRetry(fn, retries = 3, delayMs = 2000) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       return await fn();
@@ -205,7 +208,7 @@ async function crawlEtherscanTopHolders(url, chainName, chainLabel) {
 
         const addressAnchor = $(tds[1]).find('a[href^="/address/"]').first();
         if (!addressAnchor.length) return;
-        const address = addressAnchor.attr("href").split("/").pop();
+        const address = addressAnchor.attr("href").split("/").pop().toLowerCase();
         if (!address) return;
 
         let nameTag = cleanText($(tds[2]).text());
@@ -236,6 +239,7 @@ async function crawlEtherscanTopHolders(url, chainName, chainLabel) {
       return;
     }
 
+    // Lưu vào database
     await saveHoldersToDatabase(holders, chainName, chainLabel);
     console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database`);
   } catch (err) {
@@ -287,7 +291,7 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
               console.warn(`[${chainName}] Skipping row ${index + 1} in ${tableSelector}: Could not extract address from href`);
               return;
             }
-            const address = addressMatch[1];
+            const address = addressMatch[1].toLowerCase();
             if (!address) {
               console.warn(`[${chainName}] Skipping row ${index + 1} in ${tableSelector}: Empty address`);
               return;
@@ -330,8 +334,9 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
       await delay(3000);
     }
 
+    // Thêm dữ liệu cứng cho Bitcoin
     if (chainLabel === "bitcoin") {
-      const specialAddress = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+      const specialAddress = "1a1zp1ep5qgefi2dmptftl5slmv7divfna";
       holders.push({
         chain: chainLabel,
         address: specialAddress,
@@ -347,6 +352,7 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
       return;
     }
 
+    // Lưu vào database
     await saveHoldersToDatabase(holders, chainName, chainLabel);
     console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database`);
   } catch (err) {
@@ -354,51 +360,57 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
   }
 }
 
+// Hàm lưu dữ liệu vào database với batch và retry
 async function saveHoldersToDatabase(holders, chainName, chainLabel) {
-  const BATCH_SIZE = 25; // Reduced batch size to avoid timeout
+  const BATCH_SIZE = 50;
   try {
     for (let i = 0; i < holders.length; i += BATCH_SIZE) {
       const batch = holders.slice(i, i + BATCH_SIZE);
       await withRetry(async () => {
         await prisma.$transaction(
-          async (tx) => {
-            // Bulk upsert for better performance
-            await Promise.all(
-              batch.map((holder) =>
-                tx.top_holders.upsert({
-                  where: {
-                    chain_address: {
-                      chain: chainLabel,
-                      address: holder.address,
-                    },
-                  },
-                  update: {
-                    balance: holder.balance,
-                    name_tag: holder.name_tag,
-                    image: holder.image,
-                    updated_at: new Date(),
-                  },
-                  create: {
-                    chain: chainLabel,
-                    address: holder.address,
-                    balance: holder.balance,
-                    name_tag: holder.name_tag,
-                    image: holder.image,
-                    created_at: new Date(),
-                    updated_at: new Date(),
-                  },
-                })
-              )
-            );
-          },
-          { timeout: 10000 } // Increase transaction timeout to 10 seconds
+          batch.map((holder) =>
+            prisma.top_holders.upsert({
+              where: {
+                chain_address: {
+                  chain: chainLabel,
+                  address: holder.address,
+                },
+              },
+              update: {
+                balance: holder.balance,
+                name_tag: holder.name_tag,
+                image: holder.image,
+                updated_at: new Date(),
+              },
+              create: {
+                chain: chainLabel,
+                address: holder.address,
+                balance: holder.balance,
+                name_tag: holder.name_tag,
+                image: holder.image,
+                created_at: new Date(),
+                updated_at: new Date(),
+              },
+            })
+          ),
+          { timeout: 10000 }
         );
-      }, 5, 3000); // Increased retries and delay
+      }, 3, 2000);
       console.log(`[${chainName}] Successfully saved batch ${i / BATCH_SIZE + 1} of ${Math.ceil(holders.length / BATCH_SIZE)} (${batch.length} holders)`);
     }
     console.log(`[${chainName}] Successfully saved ${holders.length} holders to database`);
   } catch (error) {
     console.error(`[${chainName}] Error saving to database:`, error.message);
+    throw error;
+  }
+}
+
+async function ensurePrismaConnected() {
+  try {
+    await prisma.$connect();
+    console.log("Prisma client connected");
+  } catch (error) {
+    console.error("Failed to connect Prisma client:", error.message);
     throw error;
   }
 }
@@ -416,15 +428,18 @@ async function runAllCrawlers() {
   console.log(`[${new Date().toISOString()}] Crawl cycle completed.`);
 }
 
-// Run crawlers and exit
-(async () => {
-  try {
-    await runAllCrawlers();
-  } catch (error) {
-    console.error("Error during crawl:", error.message);
-  } finally {
-    await prisma.$disconnect();
-    console.log("Prisma client disconnected");
-    process.exit(0);
-  }
-})();
+// Run immediately
+runAllCrawlers();
+
+// Schedule daily run at 0h UTC (7h AM Vietnam time)
+cron.schedule("0 7 * * *", () => {
+  console.log(`[${new Date().toISOString()}] Starting scheduled crawl...`);
+  runAllCrawlers();
+});
+
+// Cleanup Prisma connection on process exit
+process.on("SIGINT", async () => {
+  await prisma.$disconnect();
+  console.log("Prisma client disconnected");
+  process.exit(0);
+});
