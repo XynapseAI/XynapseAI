@@ -1284,7 +1284,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
   const renderPortfolioContent = () => {
     return (
       <div className="flex flex-col relative" ref={portfolioRef}>
-        <div className="bg-black-80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+        <div className="bg-gradient-to-br from-black/90 via-black/80 to-black/90 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
           {isLoadingPortfolio && (
             <LoadingOverlay
               isLoading={isLoadingPortfolio}
@@ -1296,7 +1296,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
             <SkeletonLoader count={5} isMobile={isMobile} />
           ) : groupedPortfolio.length > 0 ? (
             <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/80 rounded-xl">
-              <thead className="border-b border-white/10 bg-black/80">
+              <thead className="border-b border-white/10 bg-gradient-to-r from-black/90 to-black/80">
                 <tr>
                   <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Token</th>
                   <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Balance</th>
@@ -1308,19 +1308,22 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                 {groupedPortfolio.map((group, index) => (
                   <motion.tr
                     key={group.key}
-                    className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
+                    className="border-t border-white/10 hover:bg-gradient-to-r hover:from-white/10 hover:to-neon-blue/10 transition-all duration-300"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}
                     transition={{ duration: 0.3, delay: index * 0.01 }}
                   >
                     <td className="px-3 py-2.5 text-white truncate">
-                      <img
-                        src={group.logo}
-                        alt={`${group.symbol} logo`}
-                        className="w-5 h-5 inline mr-2 rounded-full"
-                        onError={(e) => (e.target.src = "/fallback-image.webp")}
-                      />
-                      {group.symbol}
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={group.logo}
+                          alt={`${group.symbol} logo`}
+                          className="w-5 h-5 inline mr-2 rounded-full shadow-lg"
+                          onError={(e) => (e.target.src = "/fallback-image.webp")}
+                        />
+                        {group.symbol}
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-white truncate">
                       <span className="font-semibold">{group.total_balance.toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
@@ -1329,7 +1332,18 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                       <span className="font-semibold">{formatPrice(group.total_balance_usd || 0, currency, 2)}</span>
                     </td>
                     <td className="px-3 py-2.5 text-white truncate">
-                      <span className="font-semibold">{group.percentage.toFixed(2)}%</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{group.percentage.toFixed(2)}%</span>
+                        <div className="w-full bg-white/10 rounded-full h-1.5">
+                          <motion.div
+                            className="bg-gradient-to-r from-neon-blue to-emerald-400 h-1.5 rounded-full"
+                            style={{ width: `${group.percentage}%` }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${group.percentage}%` }}
+                            transition={{ duration: 0.5 }}
+                          />
+                        </div>
+                      </div>
                     </td>
                   </motion.tr>
                 ))}
@@ -1349,7 +1363,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
     }
     const totalValue = uniqueWalletData.reduce((sum, wallet) => sum + (Number(wallet.total_value_usd) || 0), 0);
     return (
-      <div className="relative bg-black-80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <div className="relative bg-gradient-to-br from-black/90 via-black/80 to-black/90 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
         {isLoadingWallets && (
           <LoadingOverlay
             isLoading={isLoadingWallets}
@@ -1361,7 +1375,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
           <SkeletonLoader count={5} isMobile={isMobile} />
         ) : uniqueWalletData.length > 0 ? (
           <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
-            <thead className="border-b border-white/10 bg-black/10">
+            <thead className="border-b border-white/10 bg-gradient-to-r from-black/90 to-black/80">
               <tr>
                 <th className={`${isMobile ? "w-[40%]" : "w-[50%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Wallet</th>
                 <th className={`${isMobile ? "w-[20%]" : "w-[20%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Chain</th>
@@ -1387,9 +1401,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                 return (
                   <motion.tr
                     key={wallet.key}
-                    className="border-t border-white/10 hover:bg-white/10 transition-all duration-300 cursor-pointer"
+                    className="border-t border-white/10 hover:bg-gradient-to-r hover:from-white/10 hover:to-neon-blue/10 transition-all duration-300 cursor-pointer"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.05)", scale: 1.01 }}
                     transition={{ duration: 0.3, delay: index * 0.02 }}
                     onClick={() => handleWalletClick(wallet.holder_address)}
                   >
@@ -1398,14 +1413,22 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                         <img
                           src={wallet.image}
                           alt={`${wallet.cluster_name} logo`}
-                          className="w-4 h-4 inline mr-2 rounded-full"
+                          className="w-4 h-4 inline mr-2 rounded-full shadow-lg"
                           onError={(e) => (e.target.src = "/fallback-image.webp")}
                         />
                         {truncateAddressWithHover(wallet.holder_address, wallet.name_tag)}
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-white truncate">
-                      <span className="font-semibold">{CHAIN_ID_TO_NAME[chainLower] || chainLower || "Unknown"}</span>
+                      <div className="flex items-center gap-1">
+                        <img
+                          src={chainLogos[chainLower] || "/fallback-image.webp"}
+                          alt={`${CHAIN_ID_TO_NAME[chainLower] || chainLower} logo`}
+                          className="w-3 h-3 rounded-full"
+                          onError={(e) => (e.target.src = "/fallback-image.webp")}
+                        />
+                        <span className="font-semibold">{CHAIN_ID_TO_NAME[chainLower] || chainLower || "Unknown"}</span>
+                      </div>
                     </td>
                     <td className="px-3 py-2.5 text-white truncate">
                       <span className="font-semibold">{formatPrice(Number(wallet.total_value_usd) || 0, currency, 2)}</span>
@@ -1454,6 +1477,19 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
         : Number(tx.value || 0).toLocaleString('en-US', { maximumFractionDigits: 1 });
       let tokenLogo = isBitcoin ? BITCOIN_LOGO : tx.token_metadata?.logo || '/fallback-image.webp';
 
+      // Determine direction color: green for incoming (to cluster), red for outgoing (from cluster)
+      const isOutgoing = fromWallet.holder_address;
+      const directionColor = isOutgoing ? 'text-red-400' : 'text-green-400';
+      const arrowIcon = isOutgoing ? (
+        <svg className="h-3 sm:h-4 w-3 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+      ) : (
+        <svg className="h-3 sm:h-4 w-3 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        </svg>
+      );
+
       if (!isBitcoin && tx.type === 'swap' && tx.swap_details) {
         const sent = tx.swap_details.sent[0];
         const received = tx.swap_details.received[0];
@@ -1486,9 +1522,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
       return (
         <motion.div
           key={`${isBitcoin ? tx.txid : tx.hash}-${index}`}
-          className="flex border-t border-white/10 hover:bg-white/5 transition-all duration-300 py-2"
+          className="flex border-t border-white/10 hover:bg-gradient-to-r hover:from-white/5 hover:to-neon-blue/5 transition-all duration-300 py-2"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
+          whileHover={{ scale: 1.005 }}
           transition={{ duration: 0.3, delay: index * 0.02 }}
         >
           <div className="w-[12%] sm:w-[15%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
@@ -1499,7 +1536,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                   alt={`${tokenSymbol} logo`}
                   width={isMobile ? 14 : 16}
                   height={isMobile ? 14 : 16}
-                  className="rounded-full mx-auto"
+                  className="rounded-full mx-auto shadow-md"
                   onError={(e) => (e.target.src = '/fallback-image.webp')}
                   loading="lazy"
                 />
@@ -1519,18 +1556,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
           </div>
           <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex items-center justify-center gap-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-3 sm:h-4 w-3 sm:w-4 text-neon-blue"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 5v14m7-7l-7 7-7-7" />
-              </svg>
+              {arrowIcon}
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2 group relative">
                   <img
@@ -1567,12 +1593,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
           </div>
           <div className="w-[20%] sm:w-[20%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
             <div className="flex flex-col items-center gap-1">
-              <span
-                className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium bg-neon-blue/20 text-neon-blue`}
-              >
+              <span className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[7px] sm:text-[9px] font-medium bg-neon-blue/20 text-neon-blue`}>
                 {typeDisplay}
               </span>
-              <span className="truncate font-semibold text-[8px] sm:text-[10px]">{displayValue}</span>
+              <span className={`truncate font-semibold text-[8px] sm:text-[10px] ${directionColor}`}>{displayValue}</span>
             </div>
           </div>
           <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
@@ -1586,7 +1610,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                   alt="Explorer"
                   width={isMobile ? 12 : 14}
                   height={isMobile ? 12 : 14}
-                  className="rounded-xl"
+                  className="rounded-xl hover:scale-110 transition-transform"
                   onError={(e) => (e.target.src = '/fallback-image.webp')}
                   loading="lazy"
                 />
@@ -1630,7 +1654,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
     };
 
     return (
-      <div className="relative overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar bg-black/5 rounded-xl">
+      <div className="relative overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar bg-gradient-to-br from-black/90 via-black/80 to-black/90 rounded-xl">
         {isLoadingTransactions && (
           <LoadingOverlay
             isLoading={isLoadingTransactions}
@@ -1646,7 +1670,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
           </p>
         ) : transactions.length > 0 ? (
           <div className="w-full table-fixed text-[9px] sm:text-[11px]">
-            <div className="border-b border-white/10 bg-black/10 flex">
+            <div className="border-b border-white/10 bg-gradient-to-r from-black/90 to-black/80 flex">
               <div className="w-[12%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Token</div>
               <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">From/To</div>
               <div className="w-[20%] sm:w-[20%] px-3 py-2 text-white font-medium text-center">Token Value</div>
@@ -1673,12 +1697,22 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
     );
   };
 
+  // NEW: Function to get trust score badge class (inspired by Arkham/Nansen trust indicators)
+  const getTrustScoreBadge = (score) => {
+    if (score === "N/A" || !score) return "bg-gray-600 text-white/70";
+    const numScore = Number(score);
+    if (numScore >= 9) return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+    if (numScore >= 7) return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+    if (numScore >= 5) return "bg-orange-500/20 text-orange-400 border-orange-500/30";
+    return "bg-red-500/20 text-red-400 border-red-500/30";
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="font-saira w-full max-w-9xl mx-auto p-4 sm:p-6 bg-black/80 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
+      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-3 bg-gradient-to-br from-black/90 via-black/80 to-black/90 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
     >
       <div className="w-full mb-2">
         <UniversalSearch
@@ -1702,7 +1736,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
 
       <div className="flex flex-col flex-1 gap-4 sm:gap-5">
         <motion.div
-          className="min-h-[30vh] border border-white/10 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col md:flex-row"
+          className="min-h-[30vh] border border-white/10 rounded-xl bg-gradient-to-br from-black/90 via-black/80 to-black/90 backdrop-blur-sm flex flex-col md:flex-row shadow-2xl"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -1715,42 +1749,61 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
               <div>
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <div className="flex items-center gap-2">
-                    <img
+                    <motion.img
                       src={exchangeData.image || "/fallback-image.webp"}
                       alt={`${exchangeData.name} logo`}
-                      className="w-8 sm:w-10 h-8 sm:h-10 rounded-xl"
+                      className="w-8 sm:w-10 h-8 sm:h-10 rounded-xl shadow-lg"
                       onError={(e) => (e.target.src = "/fallback-image.webp")}
+                      whileHover={{ scale: 1.05, rotate: 5 }}
+                      transition={{ duration: 0.2 }}
                     />
-                    <h4 className="ml-2 text-lg sm:text-xl font-bold text-white uppercase">{exchangeData.name}</h4>
+                    <h4 className="ml-2 text-lg sm:text-xl font-bold text-white uppercase tracking-wide">{exchangeData.name}</h4>
                   </div>
-                  <h4 className="ml-12 sm:ml-0 text-xs sm:text-lg font-bold text-white tracking-wider">
+                  <motion.h4
+                    className="ml-12 sm:ml-0 text-xs sm:text-lg font-bold text-white tracking-wider bg-gradient-to-r from-emerald-400 to-neon-blue bg-clip-text text-transparent"
+                    initial={{ scale: 0.9 }}
+                    animate={{ scale: 1 }}
+                  >
                     Total Value: {formatPrice(totalPortfolioValue, currency, 2)}
-                  </h4>
+                  </motion.h4>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-white/5 rounded-xl p-3">
-                    <h5 className="text-[10px] font-bold text-white uppercase mb-2">Cluster Info</h5>
+                  <motion.div
+                    className="bg-white/5 rounded-xl p-3 border border-white/10 hover:border-white/20 transition-colors"
+                  >
+                    <h5 className="text-[10px] font-bold text-white uppercase mb-2 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Cluster Info
+                    </h5>
                     <div className="space-y-2 text-[10px] sm:text-xs">
                       <div className="flex justify-between">
                         <span className="text-white/60">Country:</span>
                         <span className="text-white">{exchangeData.country || "Not available"}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-white/60">Year Established:</span>
-                        <span className="text-white">{exchangeData.year_established || "Not available"}</span>
-                      </div>
-                      <div className="flex justify-between">
+                      {/* NEW: Added Trust Score badge, inspired by Arkham's trust indicators */}
+                      <div className="flex justify-between items-center">
                         <span className="text-white/60">Trust Score:</span>
-                        <span className="text-white">{exchangeData.trust_score || "Not available"}</span>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getTrustScoreBadge(exchangeData.trust_score)}`}>
+                          {exchangeData.trust_score || "N/A"}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-white/60">Number of Wallets:</span>
                         <span className="text-white">{uniqueWalletData.length}</span>
                       </div>
                     </div>
-                  </div>
-                  <div className="bg-white/5 rounded-xl p-3">
-                    <h5 className="text-[10px] font-bold text-white uppercase mb-2">Trading Volume</h5>
+                  </motion.div>
+                  <motion.div
+                    className="bg-white/5 rounded-xl p-3 border border-white/10 hover:border-white/20 transition-colors"
+                  >
+                    <h5 className="text-[10px] font-bold text-white uppercase mb-2 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      Trading Volume
+                    </h5>
                     <div className="space-y-2 text-[10px] sm:text-xs">
                       <div className="flex justify-between">
                         <span className="text-white/60">24h USD Volume:</span>
@@ -1765,17 +1818,18 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                         <span className="text-white">{exchangeData.centralized ? "Yes" : "No"}</span>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
-                <div className="flex gap-2 mt-4">
+                <div className="flex gap-2 mt-2">
                   {exchangeData.twitter_handle && (
                     <motion.a
                       href={`https://twitter.com/${exchangeData.twitter_handle}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 bg-white/10 rounded-xl hover:bg-white/20"
-                      whileHover={{ scale: 1.1, y: -2 }}
+                      className="p-1 bg-white/10 rounded-lg hover:bg-white/20 border border-white/20"
+                      whileHover={{ scale: 1.1, y: -2, backgroundColor: "rgba(255,255,255,0.2)" }}
                       whileTap={{ scale: 0.9 }}
+                      transition={{ duration: 0.2 }}
                     >
                       <img src="/logos/x.webp" alt="Twitter" className="w-3 h-3" />
                     </motion.a>
@@ -1785,9 +1839,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                       href={exchangeData.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="p-1 bg-white/10 rounded-xl hover:bg-white/20"
-                      whileHover={{ scale: 1.1, y: -2 }}
+                      className="p-1 bg-white/10 rounded-lg hover:bg-white/20 border border-white/20"
+                      whileHover={{ scale: 1.1, y: -2, backgroundColor: "rgba(255,255,255,0.2)" }}
                       whileTap={{ scale: 0.9 }}
+                      transition={{ duration: 0.2 }}
                     >
                       <img src="/logos/website.webp" alt="Website" className="w-3 h-3" />
                     </motion.a>
@@ -1824,7 +1879,8 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                   />
                   <defs>
                     <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.3} />
+                      <stop offset="0%" stopColor="#00FF88" stopOpacity={0.4} /> {/* CHANGED: Neon green gradient for volume */}
+                      <stop offset="50%" stopColor="#00AAFF" stopOpacity={0.3} />
                       <stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.05} />
                     </linearGradient>
                   </defs>
