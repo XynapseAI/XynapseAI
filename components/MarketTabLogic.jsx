@@ -1318,6 +1318,16 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
+        // Handle Bitcoin case
+        if (chain === 'bitcoin') {
+          setIsLoadingDex(false);
+          setDexError(null);
+          setDexData({ pools: [], trades: [], poolTokens: {} });
+          fetchMempoolTransactions(); // Trigger mempool data fetch for Bitcoin
+          return;
+        }
+
+        // Handle EVM chains
         if (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
           const errorMessage = 'Invalid chain or token address for DEX data';
           setDexError(errorMessage);
@@ -1354,7 +1364,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setDexRequestCount((prev) => prev + 1);
         }
 
-        const cacheKey = `dex-${geckoChain}-${tokenAddress}-session_required`; // Session-dependent
+        const cacheKey = `dex-${geckoChain}-${tokenAddress}-session_required`;
         setIsLoadingDex(true);
         setDexError(null);
 
@@ -1406,6 +1416,8 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                     ...trade.attributes,
                     pool_name: result.value.poolName,
                     pool_address: result.value.poolAddress,
+                    tx_from_address: { address: trade.attributes.tx_from_address || 'unknown' },
+                    to_token_address: { address: trade.attributes.to_token_address || 'unknown' },
                   }))
                 );
               }
@@ -1413,7 +1425,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             }, []);
 
             const validTrades = trades.filter((trade) => {
-              const isValid = trade.pool_address && typeof trade.pool_address === 'string' && trade.pool_address.match(/^0x[a-fA-F0-9]{40}$/);
+              const isValid =
+                trade.pool_address &&
+                typeof trade.pool_address === 'string' &&
+                trade.pool_address.match(/^0x[a-fA-F0-9]{40}$/) &&
+                trade.tx_from_address?.address &&
+                trade.to_token_address?.address &&
+                trade.tx_from_address.address !== 'unknown' &&
+                trade.to_token_address.address !== 'unknown';
               return isValid;
             });
 
@@ -1454,7 +1473,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       },
       300
     ),
-    [session, status, toast, fetchPoolTokenMetadata]
+    [session, status, toast, fetchPoolTokenMetadata, fetchMempoolTransactions]
   );
 
   const fetchTrendingTokens = useCallback(

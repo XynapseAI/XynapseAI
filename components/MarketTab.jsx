@@ -1506,7 +1506,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     whileHover={{ y: -1 }}
                     transition={{ duration: 0.2 }}
                   >
-                    DEX TRADES
+                    ON-CHAIN
                     {activeMarketTab === "dex" && (
                       <motion.div
                         className="absolute bottom-0 left-0 right-0 h-0.5 bg-white"
@@ -1590,13 +1590,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/));
 
                                   const HolderRow = React.memo(() => (
-                                    <div className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[10px]">
+                                    <div className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]">
                                       <div className="flex-1 flex items-center gap-2 group relative">
                                         {image && (
                                           <LazyImage
                                             src={image}
                                             alt={`${displayText} logo`}
-                                            className="w-5 h-5 rounded-md"
+                                            className="w-5 h-5 sm:w-6 sm:h-6 rounded-md"
                                           />
                                         )}
                                         {isBitcoin && isValidAddress ? (
@@ -1608,8 +1608,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             title={holder.address}
                                           >
                                             <div className="flex flex-col">
-                                              {displayText !== shortAddress && <span className="text-[10px]">{displayText}</span>}
-                                              <span className="text-[10px]">{shortAddress}</span>
+                                              {displayText !== shortAddress && <span className="text-[9px] sm:text-[11px]">{displayText}</span>}
+                                              <span className="text-[9px] sm:text-[11px] text-gray-500">{shortAddress}</span>
                                             </div>
                                           </a>
                                         ) : (
@@ -1619,8 +1619,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             title={holder.address}
                                           >
                                             <div className="flex flex-col">
-                                              {displayText !== shortAddress && <span className="text-[10px]">{displayText}</span>}
-                                              <span className="text-[10px]">{shortAddress}</span>
+                                              {displayText !== shortAddress && <span className="text-[9px] sm:text-[11px]">{displayText}</span>}
+                                              <span className="text-[9px] sm:text-[11px] text-gray-500">{shortAddress}</span>
                                             </div>
                                           </span>
                                         )}
@@ -1688,7 +1688,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           data={tickerData.slice(0, 30)}
                           itemContent={(index, ticker) => {
                             const TickerRow = React.memo(() => (
-                              <div className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[10px]">
+                              <div className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]">
                                 <div className="flex-1 flex items-center gap-2">
                                   {ticker.market.logo && (
                                     <LazyImage
@@ -1701,22 +1701,22 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     href={ticker.trade_url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-white hover:text-white/80 transition-colors font-medium truncate text-[10px]"
+                                    className="text-white hover:text-white/80 transition-colors font-medium truncate text-[9px] sm:text-[11px]"
                                     title={ticker.market.name}
                                   >
                                     {ticker.market.name}
                                   </a>
                                 </div>
-                                <div className="w-20 text-center text-white/90 font-medium text-[10px]">
+                                <div className="w-20 text-center text-white/90 font-medium text-[9px] sm:text-[11px]">
                                   <span className="bg-white/5 px-1.5 py-0.5 rounded-md">{ticker.base}/{ticker.target}</span>
                                 </div>
-                                <div className="w-28 text-right text-white font-semibold text-[10px]">
+                                <div className="w-28 text-right text-white font-semibold text-[9px] sm:text-[11px]">
                                   {ticker.converted_last.usd != null ? formatPrice(ticker.converted_last.usd, "usd", 8) : "N/A"}
                                 </div>
-                                <div className="w-28 text-right text-white/90 text-[10px]">
+                                <div className="w-28 text-right text-white/90 text-[9px] sm:text-[11px]">
                                   ${ticker.converted_volume.usd?.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || "N/A"}
                                 </div>
-                                <div className="w-28 text-right text-white/70 text-[10px]">
+                                <div className="w-28 text-right text-white/70 text-[9px] sm:text-[11px]">
                                   {ticker.last_traded_at ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A"}
                                 </div>
                               </div>
@@ -1746,7 +1746,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       )}
                     </div>
                   )}
-
                   {activeMarketTab === "dex" && (
                     <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                       {session ? (
@@ -1774,13 +1773,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
                                 const DexRow = React.memo(() => (
-                                  <div className="flex border-t border-white/10 bg-black/80 p-3 text-[10px]">
+                                  <div className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]">
                                     {/* Tx/Time */}
                                     <div className="w-20 flex flex-col gap-1 items-center group relative">
                                       <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
                                         <LazyImage src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" />
                                       </a>
-                                      <span className="text-[10px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
+                                      <span className="text-[8px] sm:text-[10px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
                                       {txHash && (
                                         <motion.button
                                           onClick={() => {
@@ -1806,7 +1805,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(selectedChain, txHash, item.tx_from_address?.address).addressUrl}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="text-white hover:text-white/80 transition-colors font-medium text-[10px]"
+                                        className="text-white hover:text-white/80 transition-colors font-medium text-[9px] sm:text-[11px]"
                                         title={isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address}
                                       >
                                         {fromAddressInfo.nameTag ? (
@@ -1815,7 +1814,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                             <span className="text-white/60 text-[8px]">(Address)</span>
                                           </span>
                                         ) : (
-                                          <span className="text-[10px]">{isBitcoin ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}` : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`}</span>
+                                          <span className="text-[9px] sm:text-[11px]">{isBitcoin ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}` : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`}</span>
                                         )}
                                       </a>
                                       <motion.button
@@ -1865,7 +1864,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                                     {/* Value */}
                                     <div className="w-28 flex flex-col gap-1 text-[10px]">
-                                      <span className="font-semibold flex items-center gap-1 text-[10px]">
+                                      <span className="font-semibold flex items-center gap-1 text-[9px] sm:text-[11px]">
                                         {isBitcoin ? (
                                           <>
                                             {(item.value_btc || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1876,37 +1875,37 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           <>
                                             {(Number.parseFloat(item.kind === "sell" ? item.from_token_amount : item.to_token_amount || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             {(() => {
-                                              const tokenAddress = item.kind === "sell" ? item.from_token_address : item.to_token_address;
-                                              return tokenAddress.toLowerCase() === selectedToken?.detail_platforms?.[chains.find((c) => c.value === selectedChain)?.coingeckoId]?.contract_address?.toLowerCase()
+                                              const tokenAddress = item.kind === "sell" ? item.from_token_address?.address : item.to_token_address?.address;
+                                              return tokenAddress?.toLowerCase() === selectedToken?.detail_platforms?.[chains.find((c) => c.value === selectedChain)?.coingeckoId]?.contract_address?.toLowerCase()
                                                 ? selectedToken?.symbol?.toUpperCase()
                                                 : "Token";
                                             })()}
                                           </>
                                         )}
                                       </span>
-                                      <div className="flex items-center gap-2 text-[10px]">
+                                      <div className="flex items-center gap-2 text-[9px] sm:text-[11px]">
                                         <span className="text-white/60">${(Number.parseFloat(isBitcoin ? item.value_usd : item.volume_in_usd || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                       </div>
                                     </div>
 
                                     {/* Fee/Status */}
-                                    <div className="w-20 flex flex-col gap-1 items-center text-[10px]">
-                                      {isBitcoin && <div className="text-[10px] text-white/70">Fee: {item.fee.toLocaleString("en-US")} satoshis</div>}
+                                    <div className="w-20 flex flex-col gap-1 items-center text-[9px] sm:text-[11px]">
+                                      {isBitcoin && <div className="text-[9px] sm:text-[11px] text-white/70">Fee: {item.fee.toLocaleString("en-US")} satoshis</div>}
                                       {isBitcoin ? (
-                                        <span className={`px-1 py-0.5 rounded-full text-[10px] font-semibold ${item.status.confirmed ? "bg-emerald-400/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-500"}`}>
+                                        <span className={`px-1 py-0.5 rounded-full text-[9px] sm:text-[11px] font-semibold ${item.status.confirmed ? "bg-emerald-400/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-500"}`}>
                                           {item.status.confirmed ? "Confirmed" : "Pending"}
                                         </span>
                                       ) : (
-                                        <span className="text-white/60 text-[10px]">—</span>
+                                        <span className="text-white/60 text-[9px] sm:text-[11px]">—</span>
                                       )}
                                     </div>
 
-                                    {/* Pool (nếu không Bitcoin) */}
+                                    {/* Pool (if not Bitcoin) */}
                                     {!isBitcoin && (
                                       <div className="w-20 flex justify-end">
                                         <motion.button
                                           onClick={() => item.pool_address && handlePoolClick(item.pool_address)}
-                                          className="flex items-center gap-1 text-[10px] hover:bg-white/10 p-1 rounded-md transition-all duration-300"
+                                          className="flex items-center gap-1 text-[9px] sm:text-[11px] hover:bg-white/10 p-1 rounded-md transition-all duration-300"
                                           title={dexData.pools.find((p) => p.attributes.address === item.pool_address)?.attributes.name || "View Pool Details"}
                                           disabled={!item.pool_address || !dexData.poolTokens[item.pool_address]}
                                           whileHover={{ scale: 1.05 }}
@@ -1924,7 +1923,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                                 <LazyImage src={token2.image_url || "/placeholder.svg"} alt={`${token2.symbol} logo`} className="w-3 h-3 rounded-md" />
                                               </div>
                                             ) : (
-                                              <span className="text-white/60 text-[10px]">N/A</span>
+                                              <span className="text-white/60 text-[9px] sm:text-[11px]">N/A</span>
                                             );
                                           })()}
                                         </motion.button>
@@ -1936,7 +1935,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               }}
                               components={{
                                 Header: () => (
-                                  <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[10px]">
+                                  <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
                                     <div className="w-20 text-center">Tx/Time</div>
                                     <div className="w-40">From Address</div>
                                     <div className="w-40">To Address</div>
@@ -1949,7 +1948,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             />
                           ) : (
                             !(selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex) && (
-                              <div className="text-[10px] text-white/60 text-center p-6">
+                              <div className="text-[9px] sm:text-[11px] text-white/60 text-center p-6">
                                 No {selectedToken?.id === "bitcoin" ? "mempool transactions" : "DEX data"} available for{" "}
                                 {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
                                 {selectedToken?.id === "bitcoin"
@@ -2099,7 +2098,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         logs={analysisLogs}
         actionType="predict"
       />
-
       {/* Pool Details Modal */}
       <Modal
         isOpen={!!selectedPool}
@@ -2111,7 +2109,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         ]}
         isMobile={isMobile}
       />
-
       {/* Toast Container */}
       <ToastContainer
         position="top-center"
