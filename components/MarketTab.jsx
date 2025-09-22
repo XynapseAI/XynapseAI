@@ -33,55 +33,13 @@ import ReactMarkdown from "react-markdown";
 import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
 
 const LazyImage = ({ src, alt, className, ...props }) => {
-  const [imageSrc, setImageSrc] = useState(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const imgRef = useRef(null);
-
+  const [imageSrc, setImageSrc] = useState('');
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          const img = new Image();
-          img.onload = () => {
-            setImageSrc(src);
-            setIsLoaded(true);
-          };
-          img.onerror = () => {
-            setImageSrc('/fallback-image.webp');
-            setIsLoaded(true);
-          };
-          img.src = src;
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '100px', threshold: 0.01 }
-    );
-
-    if (imgRef.current) {
-      observer.observe(imgRef.current);
-    }
-
-    return () => {
-      if (imgRef.current) {
-        observer.unobserve(imgRef.current);
-      }
-    };
+    const img = new Image();
+    img.onload = () => setImageSrc(src);
+    img.src = src;
   }, [src]);
-
-  return (
-    <div className={`relative ${className}`} style={{ overflow: 'hidden' }}>
-      <img
-        ref={imgRef}
-        src={imageSrc || '/placeholder.svg'}
-        alt={alt}
-        className={`${className} transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
-        {...props}
-      />
-      {!isLoaded && (
-        <div className="absolute inset-0 bg-white/10 animate-pulse" />
-      )}
-    </div>
-  );
+  return <img src={imageSrc || '/fallback-image.webp'} alt={alt} className={className} loading="lazy" {...props} />;
 };
 
 const CustomTooltip = ({ active, payload, label, currency }) => {

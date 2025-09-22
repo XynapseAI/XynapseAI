@@ -136,11 +136,11 @@ function ChainLogosHover() {
   ]
 
   const initialPositions = [
-  { x: 30, y: 30 },
-  { x: 60, y: 30 },
-  { x: 30, y: 60 },
-  { x: 60, y: 60 },
-]
+    { x: 30, y: 30 },
+    { x: 60, y: 30 },
+    { x: 30, y: 60 },
+    { x: 60, y: 60 },
+  ]
 
   useEffect(() => {
     const container = containerRef.current
@@ -478,12 +478,18 @@ function HeroSection() {
                         ease: "easeOut",
                       }}
                       className="inline-block"
-                      whileHover={{
-                        scale: 1.1,
-                        transition: { duration: 0.2 },
-                      }}
+                      whileHover={
+                        !/Mobi|Android/i.test(navigator.userAgent)
+                          ? { scale: 1.1, transition: { duration: 0.2 } }
+                          : undefined
+                      }
                       style={{
-                        color: "#FFFFFF",
+                        color: /Mobi|Android/i.test(navigator.userAgent)
+                          ? "transparent"
+                          : "#FFFFFF",
+                        WebkitTextFillColor: /Mobi|Android/i.test(navigator.userAgent)
+                          ? "transparent"
+                          : undefined,
                       }}
                     >
                       {letter}
