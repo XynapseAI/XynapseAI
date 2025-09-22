@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts"
 import { createPortal } from "react-dom"
 import "highlight.js/styles/github-dark.css"
@@ -30,22 +30,30 @@ import { useCurrency } from './CurrencyContext';
 import { logger } from '../utils/clientLogger';
 import remarkGfm from 'remark-gfm';
 import ReactMarkdown from "react-markdown";
-import { Virtuoso } from 'react-virtuoso';
+import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
+
+const LazyImage = ({ src, alt, className, ...props }) => {
+  const [imageSrc, setImageSrc] = useState('');
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => setImageSrc(src);
+    img.src = src;
+  }, [src]);
+  return <img src={imageSrc || '/fallback-image.webp'} alt={alt} className={className} loading="lazy" {...props} />;
+};
 
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
     return (
-      <motion.div
+      <div
         className="bg-black/95 backdrop-blur-xl border border-white/20 p-3 rounded-2xl text-white text-sm font-medium shadow-2xl"
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.2 }}
+        style={{ opacity: 1, scale: 1 }}
       >
         <p className="text-white/70 text-xs mb-1">{label}</p>
         <p className="text-white font-semibold">
           Price: <span className="text-emerald-400">{formatPrice(payload[0].value, currency, 8)}</span>
         </p>
-      </motion.div>
+      </div>
     )
   }
   return null
@@ -251,42 +259,36 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     }
   }, [initialTokenSlug, setSelectedToken])
 
-  const updateTooltipPosition = (tokenId, index) => {
-    const tokenElement = tokenRefs.current[`${tokenId}-${index}`]
+  const updateTooltipPosition = useCallback((tokenId, index) => {
+    const tokenElement = tokenRefs.current[`${tokenId}-${index}`];
     if (tokenElement) {
-      const rect = tokenElement.getBoundingClientRect()
+      const rect = tokenElement.getBoundingClientRect();
       setTooltipPosition({
         top: rect.bottom + window.scrollY + 8,
         left: rect.left + rect.width / 2 + window.scrollX,
-      })
+      });
     }
-  }
+  }, []);
 
   const TrendingTooltip = ({ token, position }) => {
-    if (!token) return null
+    if (!token) return null;
 
     return createPortal(
-      <motion.div
-        className="fixed z-50 bg-black/40 backdrop-blur-sm border border-white/30 p-4 rounded-2xl text-white shadow-2xl"
+      <div
+        className="fixed z-50 bg-black/40 backdrop-blur-sm border border-white/30 p-4 rounded-2xl text-white shadow-2xl transition-all duration-200"  // Bỏ motion, dùng CSS
         style={{
           top: `${position.top}px`,
           left: `${position.left}px`,
           transform: "translateX(-50%)",
+          opacity: token ? 1 : 0,
+          visibility: token ? 'visible' : 'hidden',
         }}
-        initial={{ opacity: 0, y: 10, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 10, scale: 0.9 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
       >
         <div className="flex items-center gap-3 mb-3">
-          <img
+          <LazyImage
             src={token.large || "/placeholder.svg"}
             alt={`${token.symbol} logo`}
             className="w-8 h-8"
-            onError={(e) => {
-              logger.error("Token large logo failed to load:", { symbol: token.symbol, src: token.large })
-              e.target.src = "/fallback-image.webp"
-            }}
           />
           <div>
             <div className="font-bold text-sm text-white">{token.symbol.toUpperCase()}</div>
@@ -307,7 +309,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             </span>
           </div>
         </div>
-      </motion.div>,
+      </div>,
       document.body,
     )
   }
@@ -626,6 +628,21 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     };
   }, [setIsDropdownOpen, setIsChainDropdownOpen]);
 
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');  // Trigger CSS animation nếu cần
+        }
+      });
+    }, { threshold: 0.1 });
+
+    const sections = document.querySelectorAll('.tab-content, .chart-panel');  // Class cho sections heavy
+    sections.forEach(sec => observer.observe(sec));
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -749,9 +766,10 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           >
             {isLoadingTrending && !trendingTokens?.length ? (
               <div className="flex items-center justify-center h-8">
+                <SkeletonLoader count={1} height={20} width="100%" />
               </div>
             ) : trendingError ? (
-              <div className="text-center">
+              <div className="text-center p-2">
                 <p className="text-red-500 text-[10px] mb-2">{trendingError}</p>
                 <motion.button
                   onClick={() => fetchTrendingTokens()}
@@ -763,31 +781,27 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                 </motion.button>
               </div>
             ) : trendingTokens.length === 0 ? (
-              <div className="text-white/60 text-[10px] text-center"></div>
+              <div className="text-white/60 text-[10px] text-center p-2">No trending data</div>
             ) : (
-              <div className="overflow-hidden">
+              <div className="overflow-hidden h-8 flex items-center">
                 <motion.div
                   className="flex items-center whitespace-nowrap"
                   animate={isTrendingHovered ? { x: 0 } : { x: ["0%", "-50%"] }}
                   transition={{
                     x: {
-                      repeat: Number.POSITIVE_INFINITY,
+                      repeat: Infinity,
                       repeatType: "loop",
-                      duration: trendingTokens.length * 4,
+                      duration: trendingTokens.length * 4, // Tăng duration để làm chậm
                       ease: "linear",
                     },
                   }}
                   style={{ display: "inline-flex", width: "max-content" }}
-                  onMouseEnter={() => {
-                    setIsTrendingHovered(true);
-                  }}
+                  onMouseEnter={() => setIsTrendingHovered(true)}
                   onMouseLeave={() => {
                     setIsTrendingHovered(false);
                     setTooltipToken(null);
                   }}
-                  onTouchStart={() => {
-                    setIsTrendingHovered(true);
-                  }}
+                  onTouchStart={() => setIsTrendingHovered(true)}
                   onTouchEnd={() => {
                     setIsTrendingHovered(false);
                     setTooltipToken(null);
@@ -798,9 +812,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       key={`${token.id}-${index}`}
                       ref={(el) => (tokenRefs.current[`${token.id}-${index}`] = el)}
                       className="relative mx-2 sm:mx-2.5 flex items-center gap-1 px-1.5 py-0.5 cursor-pointer transition-all duration-300"
-                      onClick={() => {
-                        handleTokenSelect(token);
-                      }}
+                      onClick={() => handleTokenSelect(token)}
                       onMouseEnter={() => {
                         setHoveredToken(`${token.id}-${index}`);
                         setTooltipToken(token);
@@ -819,22 +831,17 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         setHoveredToken(null);
                         setTooltipToken(null);
                       }}
-                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileHover={{ scale: 1.05, y: -1 }}  // Giảm y để nhẹ
                       whileTap={{ scale: 0.95 }}
                     >
-                      <img
+                      <LazyImage
                         src={token.thumb || token.image?.thumb || "/fallback-image.webp"}
                         alt={`${token.symbol} logo`}
                         className="w-3 sm:w-4 h-3 sm:h-4 rounded-lg"
-                        onError={(e) => {
-                          logger.error("Token logo failed to load:", { symbol: token.symbol, src: token.thumb });
-                          e.target.src = "/fallback-image.webp";
-                        }}
                       />
                       <span className="text-white text-[8px] sm:text-[10px] font-medium">{token.symbol.toUpperCase()}</span>
                       <span
-                        className={`text-[8px] sm:text-[9px] font-medium ${token.price_change_percentage_24h >= 0 ? "text-emerald-400" : "text-red-500"
-                          }`}
+                        className={`text-[8px] sm:text-[9px] font-medium ${token.price_change_percentage_24h >= 0 ? "text-emerald-400" : "text-red-500"}`}
                       >
                         {token.price_change_percentage_24h >= 0 ? "+" : ""}
                         {token.price_change_percentage_24h.toFixed(2)}%
@@ -1402,7 +1409,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         stroke="#FFFFFF"
                         fill="url(#chartGradient)"
                         strokeWidth={3}
-                        isAnimationActive={true}
+                        isAnimationActive={false}
                         animationDuration={1500}
                       />
                       {priceHistory.length > 0 && (
@@ -1528,7 +1535,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   )}
 
                   {activeMarketTab === "holders" && (
-                    <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
+                    <div className="flex-1 tab-content relative min-h-[500px] sm:min-h-[400px]">
                       {session ? (
                         <>
                           <LoadingOverlay isLoading={isLoadingOnChain} isMobile={isMobile} className="h-full w-full" />
@@ -1561,143 +1568,87 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               <p className="text-white/60">Unable to load top holders data. Please try again.</p>
                             </div>
                           ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-[9px] sm:text-[11px]">
-                                <thead className="top-0 z-10 border-b border-white/10 bg-black/80">
-                                  <tr>
-                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                      <div className="flex items-center gap-2">
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="h-5 w-5 stroke-white/60 fill-none"
-                                          viewBox="0 0 24 24"
-                                          strokeWidth="2"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                                          />
-                                        </svg>
-                                        Address/Name
-                                      </div>
-                                    </th>
-                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                      <div className="flex items-center gap-2">
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="h-5 w-5 fill-white/60"
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zm-10-8h-2v2H7v2h2v2h2v-2h2v-2h-2v-2z" />
-                                        </svg>
-                                        Balance
-                                      </div>
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {onChainData.topHolders.slice(0, 100).map((holder, index) => {
-                                    const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
-                                    const address = holder.address?.toLowerCase();
-                                    const { text: displayText, image, shortAddress } = truncateAddress(
-                                      holder.address,
-                                      nameTags,
-                                      isBitcoin ? 'Blockchair' : undefined
-                                    );
-                                    const isValidAddress =
-                                      holder.address &&
-                                      (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || // EVM address
-                                        holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/)); // Bitcoin address
+                            <div className="flex flex-col h-[600px]">
+                              <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[10px] sticky top-0 z-10">
+                                <div className="flex-1">Address/Name</div>
+                                <div className="w-28 text-right">Balance</div>
+                              </div>
+                              <Virtuoso
+                                style={{ height: '100%', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                className="hide-scrollbar"
+                                data={onChainData.topHolders.slice(0, 100)}
+                                itemContent={(index, holder) => {
+                                  const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
+                                  const address = holder.address?.toLowerCase();
+                                  const { text: displayText, image, shortAddress } = truncateAddress(
+                                    holder.address,
+                                    nameTags,
+                                    isBitcoin ? 'Blockchair' : undefined
+                                  );
+                                  const isValidAddress =
+                                    holder.address &&
+                                    (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/));
 
-                                    return (
-                                      <motion.tr
-                                        key={index}
-                                        className="border-t border-white/10 bg-black/80 transition-all duration-300"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3, delay: index * 0.02 }}
-                                      >
-                                        <td className="px-4 py-3 text-white">
-                                          <div className="flex items-center gap-3 group relative">
-                                            {image && (
-                                              <img
-                                                src={image || "/placeholder.svg"}
-                                                alt={`${displayText} logo`}
-                                                className="w-6 h-6 flex-shrink-0 rounded-lg"
-                                                onError={(e) => {
-                                                  logger.error("Name tag image failed to load:", {
-                                                    address,
-                                                    src: image,
-                                                  });
-                                                  e.target.src = "/icons/default.webp";
-                                                }}
-                                              />
-                                            )}
-                                            {isBitcoin && isValidAddress ? (
-                                              <a
-                                                href={`https://mempool.space/address/${holder.address}`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="text-white hover:text-white/80 transition-colors font-medium"
-                                                title={holder.address}
-                                              >
-                                                <div className="flex flex-col">
-                                                  {displayText !== shortAddress && <span>{displayText}</span>}
-                                                  <span>{shortAddress}</span>
-                                                </div>
-                                              </a>
-                                            ) : (
-                                              <span
-                                                className={`text-white font-medium ${isValidAddress ? "cursor-pointer hover:text-white/80 transition-colors" : "cursor-default"}`}
-                                                onClick={() => isValidAddress && handleAddressClick(holder.address)}
-                                                title={holder.address}
-                                              >
-                                                <div className="flex flex-col">
-                                                  {displayText !== shortAddress && <span>{displayText}</span>}
-                                                  <span>{shortAddress}</span>
-                                                </div>
-                                              </span>
-                                            )}
-                                            {isValidAddress && (
-                                              <motion.button
-                                                onClick={() => {
-                                                  navigator.clipboard.writeText(holder.address);
-                                                  toast.success("Address copied!", { autoClose: 2000 });
-                                                }}
-                                                className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-                                                title="Copy address"
-                                                whileHover={{ scale: 1.1 }}
-                                                whileTap={{ scale: 0.9 }}
-                                              >
-                                                <svg
-                                                  xmlns="http://www.w3.org/2000/svg"
-                                                  className="w-4 h-4"
-                                                  fill="none"
-                                                  viewBox="0 0 24 24"
-                                                  stroke="currentColor"
-                                                  strokeWidth={2}
-                                                >
-                                                  <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                  />
-                                                </svg>
-                                              </motion.button>
-                                            )}
-                                          </div>
-                                        </td>
-                                        <td className="px-4 py-3 font-bold text-white">
-                                          <span className="px-2 py-1 rounded-lg">
-                                            {Math.floor(holder.balance).toLocaleString("en-US")}
+                                  const HolderRow = React.memo(() => (
+                                    <div className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[10px]">
+                                      <div className="flex-1 flex items-center gap-2 group relative">
+                                        {image && (
+                                          <LazyImage
+                                            src={image}
+                                            alt={`${displayText} logo`}
+                                            className="w-5 h-5 rounded-md"
+                                          />
+                                        )}
+                                        {isBitcoin && isValidAddress ? (
+                                          <a
+                                            href={`https://mempool.space/address/${holder.address}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-white hover:text-white/80 transition-colors font-medium"
+                                            title={holder.address}
+                                          >
+                                            <div className="flex flex-col">
+                                              {displayText !== shortAddress && <span className="text-[10px]">{displayText}</span>}
+                                              <span className="text-[10px]">{shortAddress}</span>
+                                            </div>
+                                          </a>
+                                        ) : (
+                                          <span
+                                            className={`text-white font-medium ${isValidAddress ? "cursor-pointer hover:text-white/80 transition-colors" : "cursor-default"} text-[10px]`}
+                                            onClick={() => isValidAddress && handleAddressClick(holder.address)}
+                                            title={holder.address}
+                                          >
+                                            <div className="flex flex-col">
+                                              {displayText !== shortAddress && <span className="text-[10px]">{displayText}</span>}
+                                              <span className="text-[10px]">{shortAddress}</span>
+                                            </div>
                                           </span>
-                                        </td>
-                                      </motion.tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
+                                        )}
+                                        {isValidAddress && (
+                                          <motion.button
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(holder.address);
+                                              toast.success("Address copied!", { autoClose: 2000 });
+                                            }}
+                                            className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
+                                            title="Copy address"
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.9 }}
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                          </motion.button>
+                                        )}
+                                      </div>
+                                      <div className="w-28 text-right font-bold text-white text-[10px]">
+                                        <span>{Math.floor(holder.balance).toLocaleString("en-US")}</span>
+                                      </div>
+                                    </div>
+                                  ));
+                                  return <HolderRow key={index} />;
+                                }}
+                              />
                             </div>
                           ) : (
                             <div className="text-sm text-white/60 text-center p-6">
@@ -1731,157 +1682,59 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       ) : isLoadingTickers && !tickerData?.length ? (
                         <SkeletonLoader count={5} isMobile={isMobile} />
                       ) : tickerData.length > 0 ? (
-                        <div className="table-container">
-                          <table className="w-full text-[9px] sm:text-[11px]">
-                            <thead className="top-0 z-10 border-b border-white/10 bg-black/80">
-                              <tr>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M3 6l3 12h12l3-12H3zm9 10v-4m-4 4v-2m8 4v-2"
-                                      />
-                                    </svg>
-                                    Market
-                                  </div>
-                                </th>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M8 7h12m0 0l-4-4m4 4l-4 4M4 17h12m0 0l4-4m-4 4l4 4"
-                                      />
-                                    </svg>
-                                    Pair
-                                  </div>
-                                </th>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M7 12l3-3 3 3 5-5m0 0h-5m5 0v5"
-                                      />
-                                    </svg>
-                                    Price
-                                  </div>
-                                </th>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M5 8h4v10H5V8zm6 4h4v6h-4v-6zm6-2h4v8h-4v-8z"
-                                      />
-                                    </svg>
-                                    Volume
-                                  </div>
-                                </th>
-                                <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                  <div className="flex items-center gap-2">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5 stroke-white/60 fill-none"
-                                      viewBox="0 0 24 24"
-                                      strokeWidth="2"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                      />
-                                    </svg>
-                                    Last Traded
-                                  </div>
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {tickerData.slice(0, 30).map((ticker, index) => (
-                                <motion.tr
-                                  key={`${ticker.market.identifier}-${ticker.base}-${ticker.target}-${index}`}
-                                  className="border-t border-white/10 hover:bg-black/80 transition-all duration-300"
-                                  initial={{ opacity: 0, y: 10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.3, delay: index * 0.02 }}
-                                >
-                                  <td className="px-4 py-3 text-white">
-                                    <div className="flex items-center gap-3">
-                                      {ticker.market.logo && (
-                                        <img
-                                          src={ticker.market.logo || "/placeholder.svg"}
-                                          alt={`${ticker.market.name} logo`}
-                                          className="w-6 h-6 flex-shrink-0 rounded-lg"
-                                          onError={(e) => (e.target.src = "/fallback-image.webp")}
-                                        />
-                                      )}
-                                      <a
-                                        href={ticker.trade_url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-white hover:text-white/80 transition-colors font-medium truncate"
-                                        title={ticker.market.name}
-                                      >
-                                        {ticker.market.name}
-                                      </a>
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-white/90 font-medium">
-                                    <span className="bg-white/5 px-2 py-1 rounded-lg">
-                                      {ticker.base}/{ticker.target}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-white font-semibold">
-                                    {ticker.converted_last.usd != null
-                                      ? formatPrice(ticker.converted_last.usd, "usd", 8)
-                                      : "N/A"}
-                                  </td>
-                                  <td className="px-4 py-3 text-white/90">
-                                    $
-                                    {ticker.converted_volume.usd?.toLocaleString("en-US", {
-                                      minimumFractionDigits: 0,
-                                      maximumFractionDigits: 0,
-                                    }) || "N/A"}
-                                  </td>
-                                  <td className="px-4 py-3 text-white/70 text-[10px] sm:text-xs">
-                                    {ticker.last_traded_at
-                                      ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })
-                                      : "N/A"}
-                                  </td>
-                                </motion.tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                        <Virtuoso
+                          style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                          className="hide-scrollbar"
+                          data={tickerData.slice(0, 30)}
+                          itemContent={(index, ticker) => {
+                            const TickerRow = React.memo(() => (
+                              <div className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[10px]">
+                                <div className="flex-1 flex items-center gap-2">
+                                  {ticker.market.logo && (
+                                    <LazyImage
+                                      src={ticker.market.logo}
+                                      alt={`${ticker.market.name} logo`}
+                                      className="w-5 h-5 rounded-md"
+                                    />
+                                  )}
+                                  <a
+                                    href={ticker.trade_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-white hover:text-white/80 transition-colors font-medium truncate text-[10px]"
+                                    title={ticker.market.name}
+                                  >
+                                    {ticker.market.name}
+                                  </a>
+                                </div>
+                                <div className="w-20 text-center text-white/90 font-medium text-[10px]">
+                                  <span className="bg-white/5 px-1.5 py-0.5 rounded-md">{ticker.base}/{ticker.target}</span>
+                                </div>
+                                <div className="w-28 text-right text-white font-semibold text-[10px]">
+                                  {ticker.converted_last.usd != null ? formatPrice(ticker.converted_last.usd, "usd", 8) : "N/A"}
+                                </div>
+                                <div className="w-28 text-right text-white/90 text-[10px]">
+                                  ${ticker.converted_volume.usd?.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || "N/A"}
+                                </div>
+                                <div className="w-28 text-right text-white/70 text-[10px]">
+                                  {ticker.last_traded_at ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A"}
+                                </div>
+                              </div>
+                            ));
+                            return <TickerRow key={index} />;
+                          }}
+                          components={{
+                            Header: () => (
+                              <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[10px]">
+                                <div className="flex-1">Market</div>
+                                <div className="w-20 text-center">Pair</div>
+                                <div className="w-28 text-right">Price</div>
+                                <div className="w-28 text-right">Volume</div>
+                                <div className="w-28 text-right">Last Traded</div>
+                              </div>
+                            ),
+                          }}
+                        />
                       ) : (
                         !isLoadingTickers && (
                           <div className="text-sm text-white/60 text-center p-6">
@@ -1906,474 +1759,194 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             isMobile={isMobile}
                             className="h-full w-full"
                           />
-                          {(selectedToken?.id === "bitcoin" ? mempoolError : dexError) ? (
-                            <div className="text-[10px] text-xs text-center p-6">
-                              <p className="text-white/60 mb-4">
-                                Unable to load {selectedToken?.id === "bitcoin" ? "mempool transactions" : "DEX trades data"}. Please try again.
-                              </p>
-                              <motion.button
-                                onClick={() => {
-                                  if (selectedToken?.id === "bitcoin") {
-                                    fetchMempoolTransactions();
-                                  } else {
-                                    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-                                    if (chain && tokenAddress) {
-                                      fetchDexData(chain, tokenAddress);
-                                    }
-                                  }
-                                }}
-                                className="px-4 py-2 text-white text-sm border border-white/20 rounded-xl hover:bg-white/10 transition-all duration-300"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                              >
-                                Retry
-                              </motion.button>
-                            </div>
-                          ) : (selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex) &&
-                            !(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades)?.length ? (
-                            <SkeletonLoader count={5} isMobile={isMobile} />
-                          ) : (selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades).length > 0 ? (
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-[9px] sm:text-[11px]">
-                                <thead className="top-0 z-10 border-b border-white/10 bg-black/80">
-                                  <tr>
-                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                      <div className="flex items-center gap-2">
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="h-5 w-5 stroke-white/60 fill-none"
-                                          viewBox="0 0 24 24"
-                                          strokeWidth="2"
+                          {(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades).length > 0 ? (
+                            <Virtuoso
+                              style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                              className="hide-scrollbar"
+                              data={(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades).slice(0, 100)}
+                              itemContent={(index, item) => {
+                                const isBitcoin = selectedToken?.id === "bitcoin";
+                                const txHash = isBitcoin ? item.txid : item.tx_hash;
+                                const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
+                                const chain = isBitcoin ? 'bitcoin' : selectedChain;
+                                const explorerInfo = getExplorerInfo(chain, txHash, null);
+                                const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
+                                const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
+
+                                const DexRow = React.memo(() => (
+                                  <div className="flex border-t border-white/10 bg-black/80 p-3 text-[10px]">
+                                    {/* Tx/Time */}
+                                    <div className="w-20 flex flex-col gap-1 items-center group relative">
+                                      <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
+                                        <LazyImage src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" />
+                                      </a>
+                                      <span className="text-[10px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
+                                      {txHash && (
+                                        <motion.button
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(txHash);
+                                            toast.success("Transaction hash copied!", { autoClose: 2000 });
+                                          }}
+                                          className="absolute right-0 top-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                          title="Copy transaction hash"
+                                          whileHover={{ scale: 1.1 }}
+                                          whileTap={{ scale: 0.9 }}
                                         >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"
-                                          />
-                                        </svg>
-                                        Tx/Time
-                                      </div>
-                                    </th>
-                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                      <div className="flex items-center gap-2">
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="h-5 w-5 stroke-white/60 fill-none"
-                                          viewBox="0 0 24 24"
-                                          strokeWidth="2"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                                          />
-                                        </svg>
-                                        From Address
-                                      </div>
-                                    </th>
-                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                      <div className="flex items-center gap-2">
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="h-5 w-5 stroke-white/60 fill-none"
-                                          viewBox="0 0 24 24"
-                                          strokeWidth="2"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                                          />
-                                        </svg>
-                                        To Address
-                                      </div>
-                                    </th>
-                                    <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                      <div className="flex items-center gap-2">
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="h-5 w-5 stroke-white/60 fill-none"
-                                          viewBox="0 0 24 24"
-                                          strokeWidth="2"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm-7-7h14V7H5v4z"
-                                          />
-                                        </svg>
-                                        Value
-                                      </div>
-                                    </th>
-                                    <th className="px-3 py-1.5 text-white text-center font-semibold">
-                                      <div className="flex items-center justify-center gap-2">
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="h-5 w-5 stroke-white/60 fill-none"
-                                          viewBox="0 0 24 24"
-                                          strokeWidth="2"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                          />
-                                        </svg>
-                                        Fee/Status
-                                      </div>
-                                    </th>
-                                    {!selectedToken?.id === "bitcoin" && (
-                                      <th className="px-3 py-1.5 text-white text-left font-semibold">
-                                        <div className="flex items-center gap-2">
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            className="h-5 w-5 stroke-white/60 fill-none"
-                                            viewBox="0 0 24 24"
-                                            strokeWidth="2"
-                                          >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              d="M3 12h18M6 15h12M9 18h6"
-                                            />
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                           </svg>
-                                          Pool
-                                        </div>
-                                      </th>
-                                    )}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades).slice(0, 100).map((item, index) => {
-                                    const isBitcoin = selectedToken?.id === "bitcoin";
-                                    const txHash = isBitcoin ? item.txid : item.tx_hash;
-                                    const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
-                                    const chain = isBitcoin ? 'bitcoin' : selectedChain;
+                                        </motion.button>
+                                      )}
+                                    </div>
 
-                                    // Get explorer info for Tx/Time column
-                                    const explorerInfo = getExplorerInfo(chain, txHash, null);
-
-                                    // Get name tag info for addresses
-                                    const fromAddressInfo = getNameTagInfo(
-                                      isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address,
-                                      chain
-                                    );
-                                    const toAddressInfo = getNameTagInfo(
-                                      isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address,
-                                      chain
-                                    );
-
-                                    return (
-                                      <motion.tr
-                                        key={isBitcoin ? `${item.txid}-${index}` : `${item.tx_hash}-${index}`}
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3, ease: "easeOut", delay: index * 0.02 }}
-                                        className="border-t border-white/10 bg-black/80 transition-all duration-300"
+                                    {/* From Address */}
+                                    <div className="w-40 flex items-center gap-2 group relative">
+                                      {fromAddressInfo.image && <LazyImage src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" />}
+                                      <a
+                                        href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(selectedChain, txHash, item.tx_from_address?.address).addressUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-white hover:text-white/80 transition-colors font-medium text-[10px]"
+                                        title={isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address}
                                       >
-                                        {/* Tx/Time column with logo only */}
-                                        <td className="px-4 py-3 text-white">
-                                          <div className="flex flex-col gap-1 items-center group relative">
-                                            <a
-                                              href={explorerInfo.url}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="flex justify-center items-center p-1 rounded-lg hover:bg-white/10 transition-all duration-300"
-                                              title={txHash}
-                                            >
-                                              <img
-                                                src={explorerInfo.logo}
-                                                alt="Explorer"
-                                                className="w-4 h-4 rounded"
-                                                onError={(e) => (e.target.src = "/fallback-image.webp")}
-                                              />
-                                            </a>
-                                            <span className="text-[9px] text-white/60 text-center">
-                                              {formatDistanceToNow(new Date(timestamp), { addSuffix: true })}
-                                            </span>
-                                            {txHash && (
-                                              <motion.button
-                                                onClick={() => {
-                                                  navigator.clipboard.writeText(txHash);
-                                                  toast.success("Transaction hash copied!", { autoClose: 2000 });
-                                                }}
-                                                className="absolute right-0 top-0 text-white/40 hover:text-white/80 transition-colors opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-                                                title="Copy transaction hash"
-                                                whileHover={{ scale: 1.1 }}
-                                                whileTap={{ scale: 0.9 }}
-                                              >
-                                                <svg
-                                                  xmlns="http://www.w3.org/2000/svg"
-                                                  className="w-4 h-4"
-                                                  fill="none"
-                                                  viewBox="0 0 24 24"
-                                                  stroke="currentColor"
-                                                  strokeWidth={2}
-                                                >
-                                                  <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                  />
-                                                </svg>
-                                              </motion.button>
-                                            )}
-                                          </div>
-                                        </td>
-
-                                        {/* From Address with NameTag */}
-                                        <td className="px-4 py-3 text-white">
-                                          <div className="flex items-center gap-2 group relative">
-                                            {fromAddressInfo.image && (
-                                              <img
-                                                src={fromAddressInfo.image}
-                                                alt={`${fromAddressInfo.nameTag || 'Address'} logo`}
-                                                className="w-4 h-4 rounded-lg flex-shrink-0"
-                                                onError={(e) => {
-                                                  e.target.style.display = 'none';
-                                                }}
-                                              />
-                                            )}
-                                            <a
-                                              href={
-                                                isBitcoin
-                                                  ? `https://mempool.space/address/${item.inputs?.[0]?.address}`
-                                                  : getExplorerUrls(selectedChain, txHash, item.tx_from_address?.address).addressUrl
-                                              }
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="text-white hover:text-white/80 transition-colors font-medium"
-                                              title={isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address}
-                                            >
-                                              {fromAddressInfo.nameTag ? (
-                                                <span className="flex items-center gap-1">
-                                                  <span>{fromAddressInfo.nameTag}</span>
-                                                  <span className="text-white/60 text-[9px]">(Address)</span>
-                                                </span>
-                                              ) : (
-                                                <span>
-                                                  {isBitcoin
-                                                    ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}`
-                                                    : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`
-                                                  }
-                                                </span>
-                                              )}
-                                            </a>
-                                            <motion.button
-                                              onClick={() => {
-                                                navigator.clipboard.writeText(
-                                                  isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address
-                                                );
-                                                toast.success("Address copied!", { autoClose: 2000 });
-                                              }}
-                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-                                              title="Copy address"
-                                              whileHover={{ scale: 1.1 }}
-                                              whileTap={{ scale: 0.9 }}
-                                            >
-                                              <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                className="w-4 h-4"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                                strokeWidth={2}
-                                              >
-                                                <path
-                                                  strokeLinecap="round"
-                                                  strokeLinejoin="round"
-                                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                />
-                                              </svg>
-                                            </motion.button>
-                                          </div>
-                                        </td>
-
-                                        {/* To Address with NameTag */}
-                                        <td className="px-4 py-3 text-white">
-                                          <div className="flex items-center gap-2 group relative">
-                                            {toAddressInfo.image && (
-                                              <img
-                                                src={toAddressInfo.image}
-                                                alt={`${toAddressInfo.nameTag || 'Address'} logo`}
-                                                className="w-4 h-4 rounded-lg flex-shrink-0"
-                                                onError={(e) => {
-                                                  e.target.style.display = 'none';
-                                                }}
-                                              />
-                                            )}
-                                            <a
-                                              href={
-                                                isBitcoin
-                                                  ? `https://mempool.space/address/${item.outputs?.[0]?.address}`
-                                                  : getExplorerUrls(selectedChain, txHash, item.to_token_address?.address).addressUrl
-                                              }
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="text-white hover:text-white/80 transition-colors font-medium"
-                                              title={isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address}
-                                            >
-                                              {toAddressInfo.nameTag ? (
-                                                <span className="flex items-center gap-1">
-                                                  <span>{toAddressInfo.nameTag}</span>
-                                                  <span className="text-white/60 text-[9px]">(Address)</span>
-                                                </span>
-                                              ) : (
-                                                <span>
-                                                  {isBitcoin
-                                                    ? `${item.outputs?.[0]?.address?.slice(0, 6)}...${item.outputs?.[0]?.address?.slice(-4)}`
-                                                    : `${item.to_token_address?.address?.slice(0, 6)}...${item.to_token_address?.address?.slice(-4)}`
-                                                  }
-                                                </span>
-                                              )}
-                                            </a>
-                                            <motion.button
-                                              onClick={() => {
-                                                navigator.clipboard.writeText(
-                                                  isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address
-                                                );
-                                                toast.success("Address copied!", { autoClose: 2000 });
-                                              }}
-                                              className="absolute right-0 text-white/40 hover:text-white/80 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-white/10"
-                                              title="Copy address"
-                                              whileHover={{ scale: 1.1 }}
-                                              whileTap={{ scale: 0.9 }}
-                                            >
-                                              <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                className="w-4 h-4"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                                strokeWidth={2}
-                                              >
-                                                <path
-                                                  strokeLinecap="round"
-                                                  strokeLinejoin="round"
-                                                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                />
-                                              </svg>
-                                            </motion.button>
-                                          </div>
-                                        </td>
-
-                                        {/* Value column with 2 decimal places */}
-                                        <td className="px-4 py-3 text-white">
-                                          <div className="flex flex-col gap-1">
-                                            <span className="font-semibold flex items-center gap-1">
-                                              {isBitcoin ? (
-                                                <>
-                                                  {(item.value_btc || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                  <img
-                                                    src="/logos/bitcoin.webp"
-                                                    alt="BTC"
-                                                    className="w-3 h-3 rounded"
-                                                    onError={(e) => (e.target.src = "/fallback-image.webp")}
-                                                  />
-                                                  <span>BTC</span>
-                                                </>
-                                              ) : (
-                                                <>
-                                                  {(Number.parseFloat(
-                                                    item.kind === "sell" ? item.from_token_amount : item.to_token_amount || 0
-                                                  ) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                  {(() => {
-                                                    const tokenAddress =
-                                                      item.kind === "sell" ? item.from_token_address : item.to_token_address;
-                                                    return tokenAddress.toLowerCase() ===
-                                                      selectedToken?.detail_platforms?.[
-                                                        chains.find((c) => c.value === selectedChain)?.coingeckoId
-                                                      ]?.contract_address?.toLowerCase()
-                                                      ? selectedToken?.symbol?.toUpperCase()
-                                                      : "Token";
-                                                  })()}
-                                                </>
-                                              )}
-                                            </span>
-                                            <div className="flex items-center gap-2 text-xs">
-                                              <span className="text-white/60">
-                                                ${(Number.parseFloat(
-                                                  isBitcoin ? item.value_usd : item.volume_in_usd || 0
-                                                ) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        </td>
-
-                                        {/* Combined Fee/Status column */}
-                                        <td className="px-4 py-3 text-white text-center">
-                                          <div className="flex flex-col gap-1 items-center">
-                                            {isBitcoin && (
-                                              <div className="text-[9px] text-white/70 mb-1">
-                                                Fee: {item.fee.toLocaleString("en-US")} satoshis
-                                              </div>
-                                            )}
-                                            {isBitcoin ? (
-                                              <span
-                                                className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${item.status.confirmed
-                                                  ? "bg-emerald-400/10 text-emerald-400"
-                                                  : "bg-yellow-500/10 text-yellow-500"
-                                                  }`}
-                                              >
-                                                {item.status.confirmed ? "Confirmed" : "Pending"}
-                                              </span>
-                                            ) : (
-                                              <span className="text-white/60 text-[9px]">—</span>
-                                            )}
-                                          </div>
-                                        </td>
-
-                                        {/* Pool column (hidden for Bitcoin) */}
-                                        {!isBitcoin && (
-                                          <td className="px-4 py-3 text-white">
-                                            <motion.button
-                                              onClick={() => item.pool_address && handlePoolClick(item.pool_address)}
-                                              className="flex items-center gap-2 text-[10px] sm:text-xs hover:bg-white/10 p-2 rounded-xl transition-all duration-300"
-                                              title={
-                                                dexData.pools.find((p) => p.attributes.address === item.pool_address)
-                                                  ?.attributes.name || "View Pool Details"
-                                              }
-                                              disabled={!item.pool_address || !dexData.poolTokens[item.pool_address]}
-                                              whileHover={{ scale: 1.05 }}
-                                              whileTap={{ scale: 0.95 }}
-                                            >
-                                              {(() => {
-                                                const poolTokens =
-                                                  item.pool_address && typeof item.pool_address === "string"
-                                                    ? dexData.poolTokens[item.pool_address] || {}
-                                                    : {};
-                                                const tokenAddresses = Object.keys(poolTokens);
-                                                const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null;
-                                                const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null;
-                                                return token1 && token2 ? (
-                                                  <div className="flex items-center gap-2">
-                                                    <img
-                                                      src={token1.image_url || "/placeholder.svg"}
-                                                      alt={`${token1.symbol} logo`}
-                                                      className="w-4 h-4 rounded-lg flex-shrink-0"
-                                                      onError={(e) => (e.target.src = "/fallback-image.webp")}
-                                                    />
-                                                    <span className="text-white/40">/</span>
-                                                    <img
-                                                      src={token2.image_url || "/placeholder.svg"}
-                                                      alt={`${token2.symbol} logo`}
-                                                      className="w-4 h-4 rounded-lg flex-shrink-0"
-                                                      onError={(e) => (e.target.src = "/fallback-image.webp")}
-                                                    />
-                                                  </div>
-                                                ) : (
-                                                  <span className="text-white/60">N/A</span>
-                                                );
-                                              })()}
-                                            </motion.button>
-                                          </td>
+                                        {fromAddressInfo.nameTag ? (
+                                          <span className="flex items-center gap-1">
+                                            <span className="text-[10px]">{fromAddressInfo.nameTag}</span>
+                                            <span className="text-white/60 text-[8px]">(Address)</span>
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px]">{isBitcoin ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}` : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`}</span>
                                         )}
-                                      </motion.tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
+                                      </a>
+                                      <motion.button
+                                        onClick={() => navigator.clipboard.writeText(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
+                                        className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                        title="Copy address"
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                      </motion.button>
+                                    </div>
+
+                                    {/* To Address */}
+                                    <div className="w-40 flex items-center gap-2 group relative">
+                                      {toAddressInfo.image && <LazyImage src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" />}
+                                      <a
+                                        href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(selectedChain, txHash, item.to_token_address?.address).addressUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-white hover:text-white/80 transition-colors font-medium text-[10px]"
+                                        title={isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address}
+                                      >
+                                        {toAddressInfo.nameTag ? (
+                                          <span className="flex items-center gap-1">
+                                            <span className="text-[10px]">{toAddressInfo.nameTag}</span>
+                                            <span className="text-white/60 text-[8px]">(Address)</span>
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px]">{isBitcoin ? `${item.outputs?.[0]?.address?.slice(0, 6)}...${item.outputs?.[0]?.address?.slice(-4)}` : `${item.to_token_address?.address?.slice(0, 6)}...${item.to_token_address?.address?.slice(-4)}`}</span>
+                                        )}
+                                      </a>
+                                      <motion.button
+                                        onClick={() => navigator.clipboard.writeText(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
+                                        className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                        title="Copy address"
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                      </motion.button>
+                                    </div>
+
+                                    {/* Value */}
+                                    <div className="w-28 flex flex-col gap-1 text-[10px]">
+                                      <span className="font-semibold flex items-center gap-1 text-[10px]">
+                                        {isBitcoin ? (
+                                          <>
+                                            {(item.value_btc || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            <LazyImage src="/logos/bitcoin.webp" alt="BTC" className="w-3 h-3 rounded" />
+                                            <span>BTC</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            {(Number.parseFloat(item.kind === "sell" ? item.from_token_amount : item.to_token_amount || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            {(() => {
+                                              const tokenAddress = item.kind === "sell" ? item.from_token_address : item.to_token_address;
+                                              return tokenAddress.toLowerCase() === selectedToken?.detail_platforms?.[chains.find((c) => c.value === selectedChain)?.coingeckoId]?.contract_address?.toLowerCase()
+                                                ? selectedToken?.symbol?.toUpperCase()
+                                                : "Token";
+                                            })()}
+                                          </>
+                                        )}
+                                      </span>
+                                      <div className="flex items-center gap-2 text-[10px]">
+                                        <span className="text-white/60">${(Number.parseFloat(isBitcoin ? item.value_usd : item.volume_in_usd || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Fee/Status */}
+                                    <div className="w-20 flex flex-col gap-1 items-center text-[10px]">
+                                      {isBitcoin && <div className="text-[10px] text-white/70">Fee: {item.fee.toLocaleString("en-US")} satoshis</div>}
+                                      {isBitcoin ? (
+                                        <span className={`px-1 py-0.5 rounded-full text-[10px] font-semibold ${item.status.confirmed ? "bg-emerald-400/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-500"}`}>
+                                          {item.status.confirmed ? "Confirmed" : "Pending"}
+                                        </span>
+                                      ) : (
+                                        <span className="text-white/60 text-[10px]">—</span>
+                                      )}
+                                    </div>
+
+                                    {/* Pool (nếu không Bitcoin) */}
+                                    {!isBitcoin && (
+                                      <div className="w-20 flex justify-end">
+                                        <motion.button
+                                          onClick={() => item.pool_address && handlePoolClick(item.pool_address)}
+                                          className="flex items-center gap-1 text-[10px] hover:bg-white/10 p-1 rounded-md transition-all duration-300"
+                                          title={dexData.pools.find((p) => p.attributes.address === item.pool_address)?.attributes.name || "View Pool Details"}
+                                          disabled={!item.pool_address || !dexData.poolTokens[item.pool_address]}
+                                          whileHover={{ scale: 1.05 }}
+                                          whileTap={{ scale: 0.95 }}
+                                        >
+                                          {(() => {
+                                            const poolTokens = item.pool_address && typeof item.pool_address === "string" ? dexData.poolTokens[item.pool_address] || {} : {};
+                                            const tokenAddresses = Object.keys(poolTokens);
+                                            const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null;
+                                            const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null;
+                                            return token1 && token2 ? (
+                                              <div className="flex items-center gap-1">
+                                                <LazyImage src={token1.image_url || "/placeholder.svg"} alt={`${token1.symbol} logo`} className="w-3 h-3 rounded-md" />
+                                                <span className="text-white/40">/</span>
+                                                <LazyImage src={token2.image_url || "/placeholder.svg"} alt={`${token2.symbol} logo`} className="w-3 h-3 rounded-md" />
+                                              </div>
+                                            ) : (
+                                              <span className="text-white/60 text-[10px]">N/A</span>
+                                            );
+                                          })()}
+                                        </motion.button>
+                                      </div>
+                                    )}
+                                  </div>
+                                ));
+                                return <DexRow key={index} />;
+                              }}
+                              components={{
+                                Header: () => (
+                                  <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[10px]">
+                                    <div className="w-20 text-center">Tx/Time</div>
+                                    <div className="w-40">From Address</div>
+                                    <div className="w-40">To Address</div>
+                                    <div className="w-28 text-right">Value</div>
+                                    <div className="w-20 text-center">Fee/Status</div>
+                                    {!selectedToken?.id === "bitcoin" && <div className="w-20 text-right">Pool</div>}
+                                  </div>
+                                ),
+                              }}
+                            />
                           ) : (
                             !(selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex) && (
                               <div className="text-[10px] text-white/60 text-center p-6">
@@ -2555,4 +2128,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
   )
 }
 
-export default React.memo(MarketTab)
+export default React.memo(MarketTab, (prev, next) => {
+  return prev.selectedToken?.id === next.selectedToken?.id && prev.initialTokenSlug === next.initialTokenSlug;
+});

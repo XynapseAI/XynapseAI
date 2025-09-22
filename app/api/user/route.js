@@ -127,7 +127,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
   try {
     if (!origin && !referer) {
       await trackViolation(ip, 'Missing origin and referer in production');
-      return false; // Không cho phép request không có origin/referer trong production
+      return false;
     }
 
     if (origin && origin !== 'null') {
