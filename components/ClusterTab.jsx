@@ -1378,7 +1378,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
             <thead className="border-b border-white/10 bg-gradient-to-r from-black/90 to-black/80">
               <tr>
                 <th className={`${isMobile ? "w-[40%]" : "w-[50%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Wallet</th>
-                <th className={`${isMobile ? "w-[20%]" : "w-[20%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Chain</th>
+                {/* <th className={`${isMobile ? "w-[20%]" : "w-[20%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Chain</th> */}
                 <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Value ({currency.toUpperCase()})</th>
                 <th className={`${isMobile ? "w-[20%]" : "w-[15%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Tokens</th>
               </tr>
@@ -1419,7 +1419,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                         {truncateAddressWithHover(wallet.holder_address, wallet.name_tag)}
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-white truncate">
+                    {/* <td className="px-3 py-2.5 text-white truncate">
                       <div className="flex items-center gap-1">
                         <img
                           src={chainLogos[chainLower] || "/fallback-image.webp"}
@@ -1429,7 +1429,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                         />
                         <span className="font-semibold">{CHAIN_ID_TO_NAME[chainLower] || chainLower || "Unknown"}</span>
                       </div>
-                    </td>
+                    </td> */}
                     <td className="px-3 py-2.5 text-white truncate">
                       <span className="font-semibold">{formatPrice(Number(wallet.total_value_usd) || 0, currency, 2)}</span>
                     </td>
@@ -1785,7 +1785,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                       {/* NEW: Added Trust Score badge, inspired by Arkham's trust indicators */}
                       <div className="flex justify-between items-center">
                         <span className="text-white/60">Trust Score:</span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getTrustScoreBadge(exchangeData.trust_score)}`}>
+                        <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${getTrustScoreBadge(exchangeData.trust_score)}`}>
                           {exchangeData.trust_score || "N/A"}
                         </span>
                       </div>

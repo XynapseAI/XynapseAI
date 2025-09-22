@@ -1026,7 +1026,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-black/80 rounded-xl flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
+        className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-black/80 rounded-2xl flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
       >
         <LoadingOverlay isLoading={true} isMobile={isMobile} />
       </motion.div>

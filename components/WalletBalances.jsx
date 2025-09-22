@@ -1,4 +1,3 @@
-// components/WalletBalances.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -8,6 +7,7 @@ import { getExplorerUrls, truncateAddress, isValidToken, LoadingOverlay } from '
 import '../styles/MarketTab.css';
 import { toast } from 'react-toastify';
 import { logger } from '../utils/clientLogger';
+import { Virtuoso } from 'react-virtuoso';
 
 // Hardcoded fallback logos for common chains
 const FALLBACK_CHAIN_LOGOS = {
@@ -220,9 +220,246 @@ const WalletBalances = ({
     return valueB - valueA;
   });
 
+  const totalValue = sortedBalances.reduce((sum, balance) => sum + (Number(balance.value_usd) || 0), 0);
+
   const validTransactions = transactions?.filter((tx) =>
     isValidToken({ image: tx.token_metadata?.logo, symbol: tx.token })
   ) || [];
+
+  const renderPortfolioRow = (index, balance) => {
+    const value = Number(balance.value_usd) || 0;
+    const percentage = totalValue > 0 ? (value / totalValue) * 100 : 0;
+    return (
+      <motion.div
+        key={`${balance.chain}-${balance.address}-${index}`}
+        className="flex border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300 py-2"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: index * 0.02 }}
+      >
+        <div className="w-[30%] px-2 text-white text-[8px] sm:text-[10px] flex items-center gap-2 truncate">
+          {balance.logo && (
+            <div className="relative inline-block">
+              <img
+                src={balance.logo}
+                alt={`${balance.symbol} logo`}
+                className="w-4 h-4 rounded-full"
+                onError={(e) => {
+                  logger.error('Token logo failed to load:', {
+                    symbol: balance.symbol,
+                    src: balance.logo,
+                  });
+                  e.target.src = '/fallback-image.webp';
+                }}
+              />
+              <img
+                src={getPlatformImage(balance.chain)}
+                alt={`${getChainLabel(balance.chain)} logo`}
+                className="w-3 h-3 rounded-full absolute -right-1 -bottom-1"
+                onError={(e) => {
+                  logger.error('Platform logo failed to load:', {
+                    chain: balance.chain,
+                    chainName: getChainLabel(balance.chain),
+                    src: getPlatformImage(balance.chain),
+                  });
+                  e.target.src = '/fallback-image.webp';
+                }}
+              />
+            </div>
+          )}
+          <div className="flex flex-col">
+            <span className="font-medium">{balance.symbol || 'Unknown'}</span>
+            {balance.price_usd != null && (
+              <span className="text-[7px] sm:text-[9px] text-white/60">
+                ${formatNumber(balance.price_usd)}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="w-[25%] px-2 text-white text-[8px] sm:text-[10px] font-semibold flex items-center justify-center">
+          {balance.amount != null ? formatNumber(balance.amount) : 'N/A'}
+        </div>
+        <div className="w-[25%] px-2 text-white text-[8px] sm:text-[10px] font-semibold flex items-center justify-center">
+          {balance.value_usd != null ? `$${formatNumber(balance.value_usd)}` : 'N/A'}
+        </div>
+        <div className="w-[20%] px-2 text-white text-[8px] sm:text-[10px] flex flex-col items-center justify-center gap-1">
+          <span className="font-semibold">{percentage.toFixed(2)}%</span>
+          <div className="w-full bg-white/10 rounded-full h-1.5">
+            <motion.div
+              className="bg-gradient-to-r from-neon-blue to-emerald-400 h-1.5 rounded-full"
+              style={{ width: `${percentage}%` }}
+              initial={{ width: 0 }}
+              animate={{ width: `${percentage}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+  const renderTransactionRow = (index, tx) => {
+    const chainName = CHAIN_ID_TO_NAME[tx.chain] || tx.chain || 'ethereum';
+    const { txUrl, addressUrl } = getExplorerUrls(chainName, tx.hash, tx.type === 'receive' ? tx.from : tx.to);
+    const { text: displayAddress, image: addressImage } = truncateAddress(
+      tx.type === 'receive' ? tx.from : tx.to,
+      nameTags
+    );
+    const isValidAddress = (tx.type === 'receive' ? tx.from : tx.to)?.match(/^(0x[a-fA-F0-9]{40}|(1|3|bc1)[a-zA-Z0-9]+)$/);
+    const isValidTxHash = tx.hash?.match(/^(0x)?[a-fA-F0-9]+$/);
+
+    return (
+      <motion.div
+        key={`${tx.chain}-${tx.hash}-${index}`}
+        className="flex border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300 py-2"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: index * 0.02 }}
+      >
+        <div className="w-[25%] px-2 text-white text-[8px] sm:text-[10px] flex items-center gap-2 truncate">
+          {tx.token_metadata?.logo && (
+            <div className="relative inline-block">
+              <img
+                src={tx.token_metadata.logo}
+                alt={`${tx.token} logo`}
+                className="w-4 h-4 rounded-full"
+                onError={(e) => {
+                  logger.error('Token logo failed to load:', {
+                    symbol: tx.token,
+                    src: tx.token_metadata.logo,
+                  });
+                  e.target.src = '/fallback-image.webp';
+                }}
+              />
+              <img
+                src={getPlatformImage(tx.chain)}
+                alt={`${chainName} logo`}
+                className="w-3 h-3 rounded-full absolute -right-1 -bottom-1"
+                onError={(e) => {
+                  logger.error('Transaction chain logo failed to load:', {
+                    chain: tx.chain,
+                    chainName,
+                    src: getPlatformImage(tx.chain),
+                  });
+                  e.target.src = '/fallback-image.webp';
+                }}
+              />
+            </div>
+          )}
+          <span className="font-medium">{tx.token || 'Unknown'}</span>
+        </div>
+        <div className="w-[25%] px-2 text-white text-[8px] sm:text-[10px] flex flex-col items-center gap-1 group relative">
+          <span
+            className={`inline-flex px-2 py-0.5 rounded-lg text-[7px] sm:text-[9px] font-medium ${tx.type === 'receive' ? 'bg-emerald-400/20 text-emerald-400' : 'bg-red-500/20 text-red-500'}`}
+          >
+            {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
+          </span>
+          <div className="flex items-center gap-2">
+            {addressImage && (
+              <img
+                src={addressImage}
+                alt={`${displayAddress} logo`}
+                className="w-4 h-4 rounded-full"
+                onError={(e) => {
+                  logger.error('Address name tag image failed to load:', {
+                    address: tx.type === 'receive' ? tx.from : tx.to,
+                    src: addressImage,
+                  });
+                  e.target.src = '/icons/default.webp';
+                }}
+              />
+            )}
+            <a
+              href={addressUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-neon-blue hover:text-neon-blue/80 transition-colors font-medium text-[8px] sm:text-[10px]"
+              title={tx.type === 'receive' ? tx.from : tx.to}
+              onClick={() => handleAddressClick(tx.type === 'receive' ? tx.from : tx.to)}
+            >
+              {displayAddress}
+            </a>
+            {isValidAddress && (
+              <motion.button
+                onClick={() => {
+                  navigator.clipboard.writeText(tx.type === 'receive' ? tx.from : tx.to);
+                  toast.success('Address copied!', { autoClose: 2000 });
+                }}
+                className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
+                title="Copy address"
+                whileHover={{ scale: 1.1, y: -2 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="#F87171"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+              </motion.button>
+            )}
+          </div>
+        </div>
+        <div className="w-[25%] px-2 text-white text-[8px] sm:text-[10px] font-semibold flex items-center justify-center">
+          {tx.value_usd != null ? `$${formatNumber(tx.value_usd)}` : 'N/A'}
+        </div>
+        <div className="w-[25%] px-2 text-white text-[8px] sm:text-[10px] flex flex-col items-center gap-1 group relative">
+          <a
+            href={txUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex-shrink-0 p-1 rounded-lg hover:bg-neon-blue/20 transition-all duration-300"
+            title={tx.hash}
+          >
+            <img
+              src="/logos/etherscan-logo.webp"
+              alt="Etherscan"
+              className="w-4 h-4 object-contain"
+              onError={(e) => (e.target.src = '/fallback-image.webp')}
+            />
+          </a>
+          <span className="text-[7px] sm:text-[9px] text-white/60">
+            {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
+          </span>
+          {isValidTxHash && (
+            <motion.button
+              onClick={() => {
+                navigator.clipboard.writeText(tx.hash);
+                toast.success('Transaction hash copied!', { autoClose: 2000 });
+              }}
+              className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
+              title="Copy transaction hash"
+              whileHover={{ scale: 1.1, y: -2 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="#F87171"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+            </motion.button>
+          )}
+        </div>
+      </motion.div>
+    );
+  };
 
   const overlayContent = (
     <motion.div
@@ -324,8 +561,8 @@ const WalletBalances = ({
           </div>
         </div>
 
-        <div className="relative flex-1 overflow-y-auto custom-scrollbar">
-          <div className="min-h-[calc(100vh-12rem)] p-4 relative">
+        <div className="relative flex-1">
+          <div className="p-4">
             {activeTab === 'portfolio' && (
               <div className="relative">
                 <LoadingOverlay isLoading={isLoading} isMobile={isMobile} />
@@ -334,75 +571,46 @@ const WalletBalances = ({
                     Error: {error} {isLoading && '(Retrying...)'}
                   </p>
                 ) : sortedBalances.length > 0 ? (
-                  <div className="relative overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-[8px] sm:text-[10px]">
-                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/10">
-                        <tr>
-                          <th className="px-2 py-1 text-white text-left font-semibold w-[30%]">Token</th>
-                          <th className="px-2 py-1 text-white text-left font-semibold w-[35%]">Amount</th>
-                          <th className="px-2 py-1 text-white text-left font-semibold w-[35%]">Value (USD)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sortedBalances.map((balance, index) => (
-                          <motion.tr
-                            key={`${balance.chain}-${balance.address}-${index}`}
-                            className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.3, delay: index * 0.02 }}
-                          >
-                            <td className="px-2 py-2 text-white">
-                              <div className="flex items-center gap-2">
-                                {balance.logo && (
-                                  <div className="relative inline-block">
-                                    <img
-                                      src={balance.logo}
-                                      alt={`${balance.symbol} logo`}
-                                      className="w-4 h-4 rounded-full"
-                                      onError={(e) => {
-                                        logger.error('Token logo failed to load:', {
-                                          symbol: balance.symbol,
-                                          src: balance.logo,
-                                        });
-                                        e.target.src = '/fallback-image.webp';
-                                      }}
-                                    />
-                                    <img
-                                      src={getPlatformImage(balance.chain)}
-                                      alt={`${getChainLabel(balance.chain)} logo`}
-                                      className="w-3 h-3 rounded-full absolute -right-1 -bottom-1"
-                                      onError={(e) => {
-                                        logger.error('Platform logo failed to load:', {
-                                          chain: balance.chain,
-                                          chainName: getChainLabel(balance.chain),
-                                          src: getPlatformImage(balance.chain),
-                                        });
-                                        e.target.src = '/fallback-image.webp';
-                                      }}
-                                    />
-                                  </div>
-                                )}
-                                <div className="flex flex-col">
-                                  <span className="text-[8px] sm:text-[10px] font-medium">{balance.symbol || 'Unknown'}</span>
-                                  {balance.price_usd != null && (
-                                    <span className="text-[7px] sm:text-[9px] text-white/60">
-                                      ${formatNumber(balance.price_usd)}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-2 py-2 text-white font-semibold">
-                              {balance.amount != null ? formatNumber(balance.amount) : 'N/A'}
-                            </td>
-                            <td className="px-2 py-2 text-white font-semibold">
-                              {balance.value_usd != null ? `$${formatNumber(balance.value_usd)}` : 'N/A'}
-                            </td>
-                          </motion.tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 mb-4 p-3 bg-black/50 rounded-xl border border-white/10 sticky top-0 z-10">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4 text-emerald-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span className="text-sm font-bold text-white">
+                        Total Value: ${formatNumber(totalValue)}
+                      </span>
+                    </div>
+                    <div className="bg-black/80 rounded-xl border border-white/10 overflow-hidden">
+                      <div className="flex bg-black/10 border-b border-white/10 px-2 py-2 text-[8px] sm:text-[10px] font-semibold text-white sticky top-[4.5rem] z-10">
+                        <div className="w-[30%] px-2 text-left">Token</div>
+                        <div className="w-[25%] px-2 text-center">Amount</div>
+                        <div className="w-[25%] px-2 text-center">Value (USD)</div>
+                        <div className="w-[20%] px-2 text-center">Percentage</div>
+                      </div>
+                      <div className="max-h-[calc(100vh-16rem)] overflow-y-auto custom-scrollbar">
+                        <Virtuoso
+                          className="custom-scrollbar"
+                          style={{ height: 'auto', minHeight: '350px' }}
+                          data={sortedBalances}
+                          itemContent={renderPortfolioRow}
+                          overscan={200}
+                          components={{
+                            EmptyPlaceholder: () => null,
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2 min-h-[calc(100vh-12rem)] flex items-center justify-center">
@@ -419,187 +627,25 @@ const WalletBalances = ({
                     Error: {transactionsError}
                   </p>
                 ) : validTransactions.length > 0 ? (
-                  <div className="relative overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-[8px] sm:text-[10px]">
-                      <thead className="sticky top-0 z-10 border-b border-white/10 bg-black/10">
-                        <tr>
-                          <th className="px-2 py-1 text-white text-left font-semibold w-[25%]">Token</th>
-                          <th className="px-2 py-1 text-white text-left font-semibold w-[25%]">Address</th>
-                          <th className="px-2 py-1 text-white text-left font-semibold w-[25%]">Value</th>
-                          <th className="px-2 py-1 text-white text-left font-semibold w-[25%]">Tx/Time</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {validTransactions.map((tx, index) => {
-                          const chainName = CHAIN_ID_TO_NAME[tx.chain] || tx.chain || 'ethereum';
-                          const { txUrl, addressUrl } = getExplorerUrls(chainName, tx.hash, tx.type === 'receive' ? tx.from : tx.to);
-                          const { text: displayAddress, image: addressImage } = truncateAddress(
-                            tx.type === 'receive' ? tx.from : tx.to,
-                            nameTags
-                          );
-                          const isValidAddress = (tx.type === 'receive' ? tx.from : tx.to)?.match(/^(0x[a-fA-F0-9]{40}|(1|3|bc1)[a-zA-Z0-9]+)$/);
-                          const isValidTxHash = tx.hash?.match(/^(0x)?[a-fA-F0-9]+$/);
-
-                          return (
-                            <motion.tr
-                              key={`${tx.chain}-${tx.hash}-${index}`}
-                              className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.3, delay: index * 0.02 }}
-                            >
-                              <td className="px-2 py-2 text-white">
-                                <div className="flex items-center gap-2">
-                                  {tx.token_metadata?.logo && (
-                                    <div className="relative inline-block">
-                                      <img
-                                        src={tx.token_metadata.logo}
-                                        alt={`${tx.token} logo`}
-                                        className="w-4 h-4 rounded-full"
-                                        onError={(e) => {
-                                          logger.error('Token logo failed to load:', {
-                                            symbol: tx.token,
-                                            src: tx.token_metadata.logo,
-                                          });
-                                          e.target.src = '/fallback-image.webp';
-                                        }}
-                                      />
-                                      <img
-                                        src={getPlatformImage(tx.chain)}
-                                        alt={`${chainName} logo`}
-                                        className="w-3 h-3 rounded-full absolute -right-1 -bottom-1"
-                                        onError={(e) => {
-                                          logger.error('Transaction chain logo failed to load:', {
-                                            chain: tx.chain,
-                                            chainName,
-                                            src: getPlatformImage(tx.chain),
-                                          });
-                                          e.target.src = '/fallback-image.webp';
-                                        }}
-                                      />
-                                    </div>
-                                  )}
-                                  <span className="text-[8px] sm:text-[10px] font-medium">{tx.token || 'Unknown'}</span>
-                                </div>
-                              </td>
-                              <td className="px-2 py-2 text-white">
-                                <div className="flex flex-col items-center gap-1 group relative">
-                                  <span
-                                    className={`inline-flex px-2 py-0.5 rounded-lg text-[7px] sm:text-[9px] font-medium ${tx.type === 'receive' ? 'bg-emerald-400/20 text-emerald-400' : 'bg-red-500/20 text-red-500'}`}
-                                  >
-                                    {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    {addressImage && (
-                                      <img
-                                        src={addressImage}
-                                        alt={`${displayAddress} logo`}
-                                        className="w-4 h-4 rounded-full"
-                                        onError={(e) => {
-                                          logger.error('Address name tag image failed to load:', {
-                                            address: tx.type === 'receive' ? tx.from : tx.to,
-                                            src: addressImage,
-                                          });
-                                          e.target.src = '/icons/default.webp';
-                                        }}
-                                      />
-                                    )}
-                                    <a
-                                      href={addressUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-[8px] sm:text-[10px] text-neon-blue hover:text-neon-blue/80 transition-colors font-medium"
-                                      title={tx.type === 'receive' ? tx.from : tx.to}
-                                      onClick={() => handleAddressClick(tx.type === 'receive' ? tx.from : tx.to)}
-                                    >
-                                      {displayAddress}
-                                    </a>
-                                    {isValidAddress && (
-                                      <motion.button
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(tx.type === 'receive' ? tx.from : tx.to);
-                                          toast.success('Address copied!', { autoClose: 2000 });
-                                        }}
-                                        className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
-                                        title="Copy address"
-                                        whileHover={{ scale: 1.1, y: -2 }}
-                                        whileTap={{ scale: 0.9 }}
-                                      >
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          className="w-4 h-4"
-                                          fill="none"
-                                          viewBox="0 0 24 24"
-                                          stroke="#F87171"
-                                          strokeWidth={2}
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                          />
-                                        </svg>
-                                      </motion.button>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-2 py-2 text-white font-semibold">
-                                {tx.value_usd != null ? `$${formatNumber(tx.value_usd)}` : 'N/A'}
-                              </td>
-                              <td className="px-2 py-2 text-white">
-                                <div className="flex flex-col items-center gap-1 group relative">
-                                  <a
-                                    href={txUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="flex-shrink-0 p-1 rounded-lg hover:bg-neon-blue/20 transition-all duration-300"
-                                    title={tx.hash}
-                                  >
-                                    <img
-                                      src="/logos/etherscan-logo.webp"
-                                      alt="Etherscan"
-                                      className="w-4 h-4 object-contain"
-                                      onError={(e) => (e.target.src = '/fallback-image.webp')}
-                                    />
-                                  </a>
-                                  <span className="text-[7px] sm:text-[9px] text-white/60">
-                                    {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
-                                  </span>
-                                  {isValidTxHash && (
-                                    <motion.button
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(tx.hash);
-                                        toast.success('Transaction hash copied!', { autoClose: 2000 });
-                                      }}
-                                      className="absolute right-0 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
-                                      title="Copy transaction hash"
-                                      whileHover={{ scale: 1.1, y: -2 }}
-                                      whileTap={{ scale: 0.9 }}
-                                    >
-                                      <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="w-4 h-4"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="#F87171"
-                                        strokeWidth={2}
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                        />
-                                      </svg>
-                                    </motion.button>
-                                  )}
-                                </div>
-                              </td>
-                            </motion.tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div className="bg-black/80 rounded-xl border border-white/10 overflow-hidden">
+                    <div className="flex bg-black/10 border-b border-white/10 px-2 py-2 text-[8px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
+                      <div className="w-[25%] px-2 text-left">Token</div>
+                      <div className="w-[25%] px-2 text-center">Address</div>
+                      <div className="w-[25%] px-2 text-center">Value</div>
+                      <div className="w-[25%] px-2 text-center">Tx/Time</div>
+                    </div>
+                    <div className="max-h-[calc(100vh-12rem)] overflow-y-auto custom-scrollbar">
+                      <Virtuoso
+                        className="custom-scrollbar"
+                        style={{ height: 'auto', minHeight: '350px' }}
+                        data={validTransactions}
+                        itemContent={renderTransactionRow}
+                        overscan={200}
+                        components={{
+                          EmptyPlaceholder: () => null,
+                        }}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <p className="text-[8px] sm:text-[10px] text-white/60 text-center p-2 min-h-[calc(100vh-12rem)] flex items-center justify-center">
@@ -642,23 +688,9 @@ const WalletBalances = ({
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
-        table {
-          table-layout: auto;
-          width: 100%;
-        }
-        th,
-        td {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
         @media (max-width: 640px) {
-          table {
+          .custom-scrollbar {
             font-size: 8px;
-          }
-          th,
-          td {
-            padding: 0.4rem;
           }
         }
       `}</style>
