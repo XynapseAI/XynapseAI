@@ -25,7 +25,10 @@ import { Virtuoso } from 'react-virtuoso';
 const BITCOIN_LOGO = "/logos/bitcoin.webp";
 const DOGECOIN_LOGO = "/logos/dogecoin.webp";
 const LITECOIN_LOGO = "/logos/litecoin.webp";
-
+const NAMETAG_LOGOS = {
+  "binance cold wallet": "/logos/binance-cold-wallet.webp",
+  // Thêm các nametag khác nếu cần
+};
 const EXCHANGE_MAPPING = {
   okx: "okex",
   bybit: "bybit_spot",
@@ -1958,16 +1961,32 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
           setWalletBalancesError={setWalletBalancesError}
           setTransactionsError={setWalletTransactionsError}
           setWalletAddress={setSelectedWallet}
-          nameTags={uniqueWalletData.reduce((acc, w) => ({
-            ...acc,
-            [w.holder_address?.toLowerCase()]: {
-              name: w.name_tag || "N/A",
-              image: w.name_tag_image ||
-                (w.chain?.toLowerCase() === "bitcoin" ? BITCOIN_LOGO :
-                  w.chain?.toLowerCase() === "dogecoin" ? DOGECOIN_LOGO :
-                    w.chain?.toLowerCase() === "litecoin" ? LITECOIN_LOGO : "/fallback-image.webp"),
-            },
-          }), {})}
+          nameTags={uniqueWalletData.reduce((acc, w) => {
+            const normalizedAddress = w.holder_address?.toLowerCase();
+            const chainLower = w.chain?.toLowerCase();
+            const nameTagLower = w.name_tag?.toLowerCase();
+            let image;
+
+            // Ưu tiên logo từ NAMETAG_LOGOS nếu nametag khớp
+            if (nameTagLower && NAMETAG_LOGOS[nameTagLower]) {
+              image = NAMETAG_LOGOS[nameTagLower];
+            } else {
+              // Fallback về w.image hoặc logo của chain
+              image = w.name_tag_image || w.image ||
+                (chainLower === "bitcoin" ? BITCOIN_LOGO :
+                  chainLower === "dogecoin" ? DOGECOIN_LOGO :
+                    chainLower === "litecoin" ? LITECOIN_LOGO :
+                      "/fallback-image.webp");
+            }
+
+            return {
+              ...acc,
+              [normalizedAddress]: {
+                name: w.name_tag || "N/A",
+                image,
+              },
+            };
+          }, {})}
           isMobile={isMobile}
           chainLogos={chainLogos}
         />

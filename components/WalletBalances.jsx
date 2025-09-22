@@ -8,12 +8,14 @@ import '../styles/MarketTab.css';
 import { toast } from 'react-toastify';
 import { logger } from '../utils/clientLogger';
 import { Virtuoso } from 'react-virtuoso';
+import { bsc } from 'viem/chains';
 
 // Hardcoded fallback logos for common chains
 const FALLBACK_CHAIN_LOGOS = {
   ethereum: '/logos/ethereum.webp',
   base: '/logos/base.webp',
   bitcoin: '/logos/bitcoin.webp',
+  bsc: '/logos/bnb-logo.webp',
   // Add other chains as needed
 };
 
@@ -452,14 +454,14 @@ const WalletBalances = ({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-            </motion.button>
-          )}
-        </div>
-      </motion.div>
-    );
-  };
+                  />
+                </svg>
+              </motion.button>
+            )}
+          </div>
+        </motion.div>
+      );
+    };
 
   const overlayContent = (
     <motion.div
@@ -490,21 +492,19 @@ const WalletBalances = ({
                   d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
                 />
               </svg>
-              {walletImage && (
-                <img
-                  src={walletImage}
-                  alt={`${displayWalletAddress} logo`}
-                  className="w-6 h-6 rounded-xl"
-                  onError={(e) => {
-                    logger.error('Wallet name tag image failed to load:', {
-                      address: walletAddress,
-                      src: walletImage,
-                    });
-                    e.target.src = '/icons/default.webp';
-                  }}
-                />
-              )}
-              <span className="text-sm font-bold text-white tracking-tight">{displayWalletAddress}</span>
+              <img
+                src={nameTags[walletAddress.toLowerCase()]?.image || '/fallback-image.webp'}
+                alt={`${displayWalletAddress} logo`}
+                className="w-6 h-6 rounded-xl"
+                onError={(e) => {
+                  logger.error('Wallet name tag image failed to load:', {
+                    address: walletAddress,
+                    src: nameTags[walletAddress.toLowerCase()]?.image,
+                  });
+                  e.target.src = '/fallback-image.webp';
+                }}
+              />
+              <span className="text-sm font-bold text-white tracking-tight">{nameTags[walletAddress.toLowerCase()]?.name || displayWalletAddress}</span>
               <motion.button
                 onClick={() => {
                   navigator.clipboard.writeText(walletAddress);
@@ -592,7 +592,7 @@ const WalletBalances = ({
                       </span>
                     </div>
                     <div className="bg-black/80 rounded-xl border border-white/10 overflow-hidden">
-                      <div className="flex bg-black/10 border-b border-white/10 px-2 py-2 text-[8px] sm:text-[10px] font-semibold text-white sticky top-[4.5rem] z-10">
+                      <div className="flex bg-black/10 border-b border-white/10 px-2 py-2 text-[8px] sm:text-[10px] font-semibold text-white">
                         <div className="w-[30%] px-2 text-left">Token</div>
                         <div className="w-[25%] px-2 text-center">Amount</div>
                         <div className="w-[25%] px-2 text-center">Value (USD)</div>
@@ -604,7 +604,7 @@ const WalletBalances = ({
                           style={{ height: 'auto', minHeight: '350px' }}
                           data={sortedBalances}
                           itemContent={renderPortfolioRow}
-                          overscan={200}
+                          overscan={400}
                           components={{
                             EmptyPlaceholder: () => null,
                           }}
@@ -640,7 +640,7 @@ const WalletBalances = ({
                         style={{ height: 'auto', minHeight: '350px' }}
                         data={validTransactions}
                         itemContent={renderTransactionRow}
-                        overscan={200}
+                        overscan={400}
                         components={{
                           EmptyPlaceholder: () => null,
                         }}
@@ -656,44 +656,44 @@ const WalletBalances = ({
             )}
           </div>
         </div>
-      </div>
 
-      <style jsx>{`
-        .shadow-neon-sm {
-          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.15);
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 2px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.4);
-        }
-        .custom-scrollbar {
-          -ms-overflow-style: auto;
-          scrollbar-width: thin;
-          scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-        }
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        @media (max-width: 640px) {
-          .custom-scrollbar {
-            font-size: 8px;
+        <style jsx>{`
+          .shadow-neon-sm {
+            box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.15);
           }
-        }
-      `}</style>
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+          }
+          .custom-scrollbar {
+            -ms-overflow-style: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+          }
+          .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+          .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+          @media (max-width: 640px) {
+            .custom-scrollbar {
+              font-size: 8px;
+            }
+          }
+        `}</style>
+      </div>
     </motion.div>
   );
 

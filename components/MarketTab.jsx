@@ -33,13 +33,55 @@ import ReactMarkdown from "react-markdown";
 import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
 
 const LazyImage = ({ src, alt, className, ...props }) => {
-  const [imageSrc, setImageSrc] = useState('');
+  const [imageSrc, setImageSrc] = useState(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const imgRef = useRef(null);
+
   useEffect(() => {
-    const img = new Image();
-    img.onload = () => setImageSrc(src);
-    img.src = src;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          const img = new Image();
+          img.onload = () => {
+            setImageSrc(src);
+            setIsLoaded(true);
+          };
+          img.onerror = () => {
+            setImageSrc('/fallback-image.webp');
+            setIsLoaded(true);
+          };
+          img.src = src;
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '100px', threshold: 0.01 }
+    );
+
+    if (imgRef.current) {
+      observer.observe(imgRef.current);
+    }
+
+    return () => {
+      if (imgRef.current) {
+        observer.unobserve(imgRef.current);
+      }
+    };
   }, [src]);
-  return <img src={imageSrc || '/fallback-image.webp'} alt={alt} className={className} loading="lazy" {...props} />;
+
+  return (
+    <div className={`relative ${className}`} style={{ overflow: 'hidden' }}>
+      <img
+        ref={imgRef}
+        src={imageSrc || '/placeholder.svg'}
+        alt={alt}
+        className={`${className} transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
+        {...props}
+      />
+      {!isLoaded && (
+        <div className="absolute inset-0 bg-white/10 animate-pulse" />
+      )}
+    </div>
+  );
 };
 
 const CustomTooltip = ({ active, payload, label, currency }) => {
@@ -1689,7 +1731,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           itemContent={(index, ticker) => {
                             const TickerRow = React.memo(() => (
                               <div className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]">
-                                <div className="flex-1 flex items-center gap-2">
+                                <div className="flex-[2] flex items-center justify-center gap-2">
                                   {ticker.market.logo && (
                                     <LazyImage
                                       src={ticker.market.logo}
@@ -1707,16 +1749,16 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     {ticker.market.name}
                                   </a>
                                 </div>
-                                <div className="w-20 text-center text-white/90 font-medium text-[9px] sm:text-[11px]">
+                                <div className="flex-1 text-center text-white/90 font-medium text-[9px] sm:text-[11px]">
                                   <span className="bg-white/5 px-1.5 py-0.5 rounded-md">{ticker.base}/{ticker.target}</span>
                                 </div>
-                                <div className="w-28 text-right text-white font-semibold text-[9px] sm:text-[11px]">
+                                <div className="flex-1 text-center text-white font-semibold text-[9px] sm:text-[11px]">
                                   {ticker.converted_last.usd != null ? formatPrice(ticker.converted_last.usd, "usd", 8) : "N/A"}
                                 </div>
-                                <div className="w-28 text-right text-white/90 text-[9px] sm:text-[11px]">
+                                <div className="flex-1 text-center text-white/90 text-[9px] sm:text-[11px]">
                                   ${ticker.converted_volume.usd?.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) || "N/A"}
                                 </div>
-                                <div className="w-28 text-right text-white/70 text-[9px] sm:text-[11px]">
+                                <div className="flex-1 text-center text-white/70 text-[9px] sm:text-[11px]">
                                   {ticker.last_traded_at ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A"}
                                 </div>
                               </div>
@@ -1725,12 +1767,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           }}
                           components={{
                             Header: () => (
-                              <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[10px]">
-                                <div className="flex-1">Market</div>
-                                <div className="w-20 text-center">Pair</div>
-                                <div className="w-28 text-right">Price</div>
-                                <div className="w-28 text-right">Volume</div>
-                                <div className="w-28 text-right">Last Traded</div>
+                              <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
+                                <div className="flex-[2] text-center">Market</div>
+                                <div className="flex-1 text-center">Pair</div>
+                                <div className="flex-1 text-center">Price</div>
+                                <div className="flex-1 text-center">Volume</div>
+                                <div className="flex-1 text-center">Last Traded</div>
                               </div>
                             ),
                           }}
@@ -1746,6 +1788,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       )}
                     </div>
                   )}
+
                   {activeMarketTab === "dex" && (
                     <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                       {session ? (
@@ -1775,7 +1818,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 const DexRow = React.memo(() => (
                                   <div className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]">
                                     {/* Tx/Time */}
-                                    <div className="w-20 flex flex-col gap-1 items-center group relative">
+                                    <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
                                       <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
                                         <LazyImage src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" />
                                       </a>
@@ -1799,7 +1842,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     </div>
 
                                     {/* From Address */}
-                                    <div className="w-40 flex items-center gap-2 group relative">
+                                    <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                       {fromAddressInfo.image && <LazyImage src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" />}
                                       <a
                                         href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(selectedChain, txHash, item.tx_from_address?.address).addressUrl}
@@ -1811,7 +1854,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         {fromAddressInfo.nameTag ? (
                                           <span className="flex items-center gap-1">
                                             <span className="text-[10px]">{fromAddressInfo.nameTag}</span>
-                                            <span className="text-white/60 text-[8px]">(Address)</span>
                                           </span>
                                         ) : (
                                           <span className="text-[9px] sm:text-[11px]">{isBitcoin ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}` : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`}</span>
@@ -1831,7 +1873,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     </div>
 
                                     {/* To Address */}
-                                    <div className="w-40 flex items-center gap-2 group relative">
+                                    <div className="flex-[2] flex items-center justify-center gap-2 group relative">
                                       {toAddressInfo.image && <LazyImage src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" />}
                                       <a
                                         href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(selectedChain, txHash, item.to_token_address?.address).addressUrl}
@@ -1843,7 +1885,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         {toAddressInfo.nameTag ? (
                                           <span className="flex items-center gap-1">
                                             <span className="text-[10px]">{toAddressInfo.nameTag}</span>
-                                            <span className="text-white/60 text-[8px]">(Address)</span>
                                           </span>
                                         ) : (
                                           <span className="text-[10px]">{isBitcoin ? `${item.outputs?.[0]?.address?.slice(0, 6)}...${item.outputs?.[0]?.address?.slice(-4)}` : `${item.to_token_address?.address?.slice(0, 6)}...${item.to_token_address?.address?.slice(-4)}`}</span>
@@ -1863,8 +1904,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     </div>
 
                                     {/* Value */}
-                                    <div className="w-28 flex flex-col gap-1 text-[10px]">
-                                      <span className="font-semibold flex items-center gap-1 text-[9px] sm:text-[11px]">
+                                    <div className="flex-1 flex flex-col gap-1 items-center justify-center text-[10px]">
+                                      <span className="font-semibold flex items-center gap-1 text-[8px] sm:text-[10px]">
                                         {isBitcoin ? (
                                           <>
                                             {(item.value_btc || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1883,26 +1924,26 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           </>
                                         )}
                                       </span>
-                                      <div className="flex items-center gap-2 text-[9px] sm:text-[11px]">
+                                      <div className="flex items-center gap-2 text-[7px] sm:text-[9px]">
                                         <span className="text-white/60">${(Number.parseFloat(isBitcoin ? item.value_usd : item.volume_in_usd || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                       </div>
                                     </div>
 
                                     {/* Fee/Status */}
-                                    <div className="w-20 flex flex-col gap-1 items-center text-[9px] sm:text-[11px]">
-                                      {isBitcoin && <div className="text-[9px] sm:text-[11px] text-white/70">Fee: {item.fee.toLocaleString("en-US")} satoshis</div>}
+                                    <div className="flex-1 flex flex-col gap-1 items-center justify-center text-center text-[9px] sm:text-[11px]">
+                                      {isBitcoin && <div className="text-[7px] sm:text-[9px] text-white/70 text-center">Fee: {item.fee.toLocaleString("en-US")} satoshis</div>}
                                       {isBitcoin ? (
-                                        <span className={`px-1 py-0.5 rounded-full text-[9px] sm:text-[11px] font-semibold ${item.status.confirmed ? "bg-emerald-400/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-500"}`}>
+                                        <span className={`px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center ${item.status.confirmed ? "bg-emerald-400/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-500"}`}>
                                           {item.status.confirmed ? "Confirmed" : "Pending"}
                                         </span>
                                       ) : (
-                                        <span className="text-white/60 text-[9px] sm:text-[11px]">—</span>
+                                        <span className="text-white/60 text-7px] sm:text-[9px] text-center">—</span>
                                       )}
                                     </div>
 
                                     {/* Pool (if not Bitcoin) */}
                                     {!isBitcoin && (
-                                      <div className="w-20 flex justify-end">
+                                      <div className="flex-1 flex justify-center">
                                         <motion.button
                                           onClick={() => item.pool_address && handlePoolClick(item.pool_address)}
                                           className="flex items-center gap-1 text-[9px] sm:text-[11px] hover:bg-white/10 p-1 rounded-md transition-all duration-300"
@@ -1936,12 +1977,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               components={{
                                 Header: () => (
                                   <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
-                                    <div className="w-20 text-center">Tx/Time</div>
-                                    <div className="w-40">From Address</div>
-                                    <div className="w-40">To Address</div>
-                                    <div className="w-28 text-right">Value</div>
-                                    <div className="w-20 text-center">Fee/Status</div>
-                                    {!selectedToken?.id === "bitcoin" && <div className="w-20 text-right">Pool</div>}
+                                    <div className="flex-1 text-center">Tx/Time</div>
+                                    <div className="flex-[2] text-center">From Address</div>
+                                    <div className="flex-[2] text-center">To Address</div>
+                                    <div className="flex-1 text-center">Value</div>
+                                    <div className="flex-1 text-center">Fee/Status</div>
+                                    {!selectedToken?.id === "bitcoin" && <div className="flex-1 text-center">Pool</div>}
                                   </div>
                                 ),
                               }}
