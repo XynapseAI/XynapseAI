@@ -288,7 +288,6 @@ async function getNametagsBatch(addresses, chain) {
       }
 
       const ensStartTime = Date.now();
-      const registry = new ethers.Contract(ENS_REGISTRY, REGISTRY_ABI, provider);
       const reverseNodes = addressesWithoutNametag.map((addr) => ethers.namehash(`${addr.toLowerCase().slice(2)}.addr.reverse`));
 
       const resolverCalls = reverseNodes.map((node) => ({
@@ -545,7 +544,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
 }
 
 export async function POST(request) {
-  const startTime = Date.now();
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');

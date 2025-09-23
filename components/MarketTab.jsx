@@ -1805,7 +1805,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
                                           <LazyImage src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" />
                                         </a>
-                                        <span className="text-[8px] sm:text-[10px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
+                                        <span className="text-[7px] sm:text-[9px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
                                         {txHash && (
                                           <motion.button
                                             onClick={() => {

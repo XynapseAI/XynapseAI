@@ -6,7 +6,7 @@ export async function generateMetadata() {
   try {
     const session = await auth();
     const userName = session?.user?.name || '';
-    const title = `${userName} Xynapse Dashboard`;
+    const title = `${userName} Dashboard`;
     const description = `Manage your cryptocurrency wallet, track market trends, and analyze interactions with Xynapse's advanced dashboard.`;
     
     return {
