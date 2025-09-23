@@ -353,7 +353,7 @@ export async function GET(request) {
     if (process.env.NODE_ENV !== 'development') {
       try {
         const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-        if (score < 0.7) {
+        if (score < 0.5) {
           newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
           return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });
         }

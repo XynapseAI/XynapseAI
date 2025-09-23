@@ -7,11 +7,21 @@ const CurrencyContext = createContext();
 export const CurrencyProvider = ({ children }) => {
   const [currency, setCurrency] = useState('usd'); // Default currency
   const availableCurrencies = [
-    'usd', 'eth', 'btc', 'eur', 'bnb', 'cny', 'gbp', 'hkd', 'idr', 'jpy',
-    'krw', 'kwd', 'mmk', 'mxn', 'myr', 'ngn', 'nok', 'nzd', 'pln', 'rub',
-    'sar', 'sek', 'sgd', 'sol', 'thb', 'try', 'twd', 'uah', 'vef', 'vnd',
-    'xag', 'xau',
-  ];
+  'usd', 
+  'eur', 
+  'jpy', 
+  'gbp', 
+  'cny', 
+  'krw', 
+  'inr', 
+  'btc', 
+  'eth', 
+  'bnb',
+  'sol',
+  'usdt',
+  'usdc'
+];
+
 
   return (
     <CurrencyContext.Provider value={{ currency, setCurrency, availableCurrencies }}>

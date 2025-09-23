@@ -97,6 +97,7 @@
     "moment": "^2.30.1",
     "next": "^15.5.3",
     "next-auth": "^5.0.0-beta.29",
+    "next-intl": "^4.3.9",
     "node-cache": "^5.1.2",
     "node-cron": "^4.2.1",
     "node-fetch": "^2.7.0",

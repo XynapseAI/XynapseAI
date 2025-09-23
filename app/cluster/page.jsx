@@ -1,64 +1,90 @@
-"use client";
+import ClusterPage from '../../components/ClusterPage';
+import { auth } from '@/lib/auth';
 
-import { Suspense, useState } from 'react';
-import ClusterTab from '../../components/ClusterTab';
-import Header from '../../components/Header';
-import { CurrencyProvider } from '../../components/CurrencyContext';
-import { ToastContainer } from 'react-toastify';
-import { useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+// Disable static generation for dynamic routes with searchParams
+export const dynamic = 'force-dynamic';
 
-export default function ClusterPage() {
-  const [activeTab, setActiveTab] = useState("portfolio");
+// Server-side metadata for SEO
+export async function generateMetadata({ searchParams }) {
+  try {
+    const session = await auth();
+    const params = await searchParams;
+    const clusterId = params?.clusterId || 'binance';
+    const clusterName = clusterId.charAt(0).toUpperCase() + clusterId.slice(1);
+    // Use name, email, or fallback for user personalization
+    const userName = session?.user?.name ||'';
+    const title = `${userName} ${clusterName} Cluster | Xynapse`;
+    const description = `Explore ${clusterName} cluster details, track wallet balances, transactions, and market trends on Xynapse's advanced blockchain analytics platform.`;
 
-  return (
-    <div className="min-h-screen bg-black">
-      <CurrencyProvider>
-        <Header
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          handleSignOut={() => { /* Sign out */ }}
-          selectedAddress={null}
-        />
-        <Suspense
-          fallback={
-            <div className="flex justify-center items-center h-screen bg-black/80 text-white">
-              <div className="animate-spin rounded-full border-2 border-white/20 border-t-white w-8 h-8" />
-              <span className="ml-2">Loading cluster data...</span>
-            </div>
-          }
-        >
-          <ClusterTabWrapper activeTab={activeTab} setActiveTab={setActiveTab} />
-        </Suspense>
-        <ToastContainer
-          position="top-center"
-          autoClose={5000}
-          theme="dark"
-          toastStyle={{
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '16px',
-          }}
-        />
-      </CurrencyProvider>
-    </div>
-  );
+    return {
+      title,
+      description,
+      keywords: `cryptocurrency, ${clusterName}, blockchain, wallet, transactions, market trends, Xynapse`,
+      robots: 'index, follow',
+      alternates: {
+        canonical: `https://xynapseai.net/cluster?clusterId=${encodeURIComponent(clusterId)}`,
+      },
+      openGraph: {
+        title,
+        description,
+        url: `https://xynapseai.net/cluster?clusterId=${encodeURIComponent(clusterId)}`,
+        type: 'website',
+        images: [
+          {
+            url: 'https://xynapseai.net/logos/logo-landscape.webp',
+            width: 1200,
+            height: 630,
+            alt: `${clusterName} Cluster Logo`,
+          },
+        ],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: ['https://xynapseai.net/logos/logo-landscape.webp'],
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching session for metadata:', error);
+    const params = await searchParams;
+    const clusterId = params?.clusterId || 'binance';
+    const clusterName = clusterId.charAt(0).toUpperCase() + clusterId.slice(1);
+    return {
+      title: `${clusterName} Cluster | Xynapse`,
+      description: `Explore ${clusterName} cluster details, track wallet balances, transactions, and market trends on Xynapse's advanced blockchain analytics platform.`,
+      keywords: `cryptocurrency, ${clusterName}, blockchain, wallet, transactions, market trends, Xynapse`,
+      robots: 'index, follow',
+      alternates: {
+        canonical: `https://xynapseai.net/cluster?clusterId=${encodeURIComponent(clusterId)}`,
+      },
+      openGraph: {
+        title: `${clusterName} Cluster | Xynapse`,
+        description: `Explore ${clusterName} cluster details, track wallet balances, transactions, and market trends on Xynapse's advanced blockchain analytics platform.`,
+        url: `https://xynapseai.net/cluster?clusterId=${encodeURIComponent(clusterId)}`,
+        type: 'website',
+        images: [
+          {
+            url: 'https://xynapseai.net/logos/logo-landscape.webp',
+            width: 1200,
+            height: 630,
+            alt: `${clusterName} Cluster Logo`,
+          },
+        ],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: `${clusterName} Cluster | Xynapse`,
+        description: `Explore ${clusterName} cluster details, track wallet balances, transactions, and market trends on Xynapse's advanced blockchain analytics platform.`,
+        images: ['https://xynapseai.net/logos/logo-landscape.webp'],
+      },
+    };
+  }
 }
 
-// Client component to handle useSearchParams
-function ClusterTabWrapper({ activeTab, setActiveTab }) {
-  'use client';
-  const searchParams = useSearchParams();
-  const recaptchaRef = useRef(null);
-  const finalClusterId = searchParams.get('clusterId') || 'binance';
-
-  return (
-    <ClusterTab
-      recaptchaRef={recaptchaRef}
-      initialClusterId={finalClusterId}
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}
-    />
-  );
+// Server Component
+export default async function Cluster({ searchParams }) {
+  const params = await searchParams;
+  const initialClusterId = params?.clusterId || 'binance';
+  return <ClusterPage initialClusterId={initialClusterId} />;
 }

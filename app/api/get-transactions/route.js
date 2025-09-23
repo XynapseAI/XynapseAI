@@ -76,7 +76,7 @@ const resetTimeout = 120000;
 async function fetchWithRateLimit(url, config) {
   if (circuitOpen) throw new Error('Service temporarily unavailable.');
   try {
-    const response = await limiterBottleneck.schedule(() => axios.get(url, { ...config, timeout: 20000 })); // Giảm timeout
+    const response = await limiterBottleneck.schedule(() => axios.get(url, { ...config, timeout: 20000 }));
     failureCount = 0;
     return response;
   } catch (error) {
@@ -122,7 +122,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
   try {
     if (!origin && !referer) {
       await trackViolation(ip, 'Missing origin and referer in production');
-      return false; // Không cho phép request không có origin/referer trong production
+      return false;
     }
 
     if (origin && origin !== 'null') {
@@ -185,6 +185,43 @@ const bodySchema = z.object({
   page: z.number().int().min(1).default(1),
   fetchLayer3: z.boolean().optional().default(false),
 });
+
+// Hàm kiểm tra token symbol hợp lệ
+function isValidTokenSymbol(symbol) {
+  if (!symbol || typeof symbol !== 'string') return false;
+
+  // Loại bỏ khoảng trắng và chuyển về chữ thường
+  const cleanedSymbol = symbol.trim().toLowerCase();
+
+  // Kiểm tra độ dài (ví dụ: 2-20 ký tự)
+  if (cleanedSymbol.length < 2 || cleanedSymbol.length > 20) {
+    logger.warn(`Invalid token symbol length: ${symbol}`);
+    return false;
+  }
+
+  // Kiểm tra ký tự hợp lệ (chỉ cho phép chữ cái, số, dấu gạch ngang, dấu gạch dưới)
+  const validSymbolPattern = /^[a-z0-9\-_]+$/;
+  if (!validSymbolPattern.test(cleanedSymbol)) {
+    logger.warn(`Invalid token symbol characters: ${symbol}`);
+    return false;
+  }
+
+  // Kiểm tra xem có chứa URL hay không
+  const urlPattern = /(https?:\/\/|www\.|\.com|\.org|\.net|\.io)/i;
+  if (urlPattern.test(cleanedSymbol)) {
+    logger.warn(`Token symbol contains URL: ${symbol}`);
+    return false;
+  }
+
+  // Kiểm tra các từ khóa nghi ngờ
+  const suspiciousKeywords = ['claim', 'free', 'airdrop', 'promo', 'reward', 'bonus'];
+  if (suspiciousKeywords.some(keyword => cleanedSymbol.includes(keyword))) {
+    logger.warn(`Token symbol contains suspicious keyword: ${symbol}`);
+    return false;
+  }
+
+  return true;
+}
 
 async function getChainLogo(coingeckoId) {
   const cacheKey = `chain_logo_${coingeckoId}`;
@@ -251,11 +288,9 @@ async function getNametagsBatch(addresses, chain) {
       }
 
       const ensStartTime = Date.now();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const registry = new ethers.Contract(ENS_REGISTRY, REGISTRY_ABI, provider);
       const reverseNodes = addressesWithoutNametag.map((addr) => ethers.namehash(`${addr.toLowerCase().slice(2)}.addr.reverse`));
 
-      // Batch resolver lookup
       const resolverCalls = reverseNodes.map((node) => ({
         contractAddress: ENS_REGISTRY,
         abi: REGISTRY_ABI,
@@ -309,7 +344,7 @@ async function getNametagsBatch(addresses, chain) {
               } catch (cgError) {
                 logger.error(`Failed to fetch CoinGecko image for ENS ${shortName}:`, cgError.message);
               }
-              await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, JSON.stringify({ name, image })); // Cache 7 ngày
+              await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, JSON.stringify({ name, image }));
               await query(
                 `INSERT INTO nametags (address, nametag, image, description, subcategory) 
                  VALUES ($1, $2, $3, $4, $5) 
@@ -417,7 +452,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
 
   logger.info(`Fetching Layer 3 transactions for ${validLayer2Addresses.length} valid Layer 2 addresses`);
 
-  const layer3Limit = 50; // Default limit for Layer 3 transactions
+  const layer3Limit = 50;
   const fetchPromises = validLayer2Addresses.map(async (address) => {
     try {
       let apiUrl;
@@ -450,10 +485,13 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
           blockTime = tx.timestamp ? new Date(tx.timestamp).toISOString() : null;
         } else {
           value = (parseInt(tx.value) / 1e18).toString();
-          if (tx.tokenSymbol) {
+          if (tx.tokenSymbol && isValidTokenSymbol(tx.tokenSymbol)) {
             tokenSymbol = tx.tokenSymbol;
             contractAddress = tx.contractAddress;
             tokenImage = await getTokenImage(contractAddress, chain);
+          } else if (tx.tokenSymbol) {
+            logger.warn(`Filtered out invalid token symbol: ${tx.tokenSymbol} for contract ${tx.contractAddress}`);
+            return null;
           }
           blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
         }
@@ -507,7 +545,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
 }
 
 export async function POST(request) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const startTime = Date.now();
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
@@ -531,8 +568,7 @@ export async function POST(request) {
 
     const { wallet_address, chain, limit, page, fetchLayer3 } = parsed.data;
 
-    // Insert new code here to validate non-premium user limits
-    const isPremium = request.headers.get('x-premium-user') === 'true'; // Adjust based on how premium status is passed
+    const isPremium = request.headers.get('x-premium-user') === 'true';
     if (!isPremium && limit > 100) {
       await trackViolation(ip, 'Non-premium user attempted to fetch more than 100 transactions');
       return NextResponse.json({ error: 'Premium account required to fetch more than 100 transactions.' }, { status: 403, headers: securityHeaders });
@@ -551,7 +587,6 @@ export async function POST(request) {
       return NextResponse.json(JSON.parse(cached), { headers: securityHeaders });
     }
 
-    // Fetch native and token transactions concurrently
     const fetchPromises = [];
     let apiUrl;
     if (chain === 'solana') {
@@ -585,7 +620,6 @@ export async function POST(request) {
     const outgoing = [];
     const addresses = new Set();
 
-    // Process native transactions
     for (const tx of transactions) {
       let value = '0';
       let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
@@ -631,9 +665,12 @@ export async function POST(request) {
       }
     }
 
-    // Process token transactions
     const tokenPromises = tokenTransactions.map(async (tx) => {
       if (!isAddress(tx.contractAddress)) return null;
+      if (!isValidTokenSymbol(tx.tokenSymbol)) {
+        logger.warn(`Filtered out invalid token symbol: ${tx.tokenSymbol} for contract ${tx.contractAddress}`);
+        return null;
+      }
       let value = (parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18))).toString();
       let tokenSymbol = tx.tokenSymbol || 'Unknown';
       let contractAddress = tx.contractAddress;

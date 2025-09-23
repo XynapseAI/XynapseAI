@@ -63,7 +63,7 @@ export async function verifyRecaptcha(token, action, ip) {
       throw new Error(errorMessage);
     }
 
-    const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0');
+    const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0.5');
     if (score < minScore) {
       throw new Error(`reCAPTCHA score too low: ${score} < ${minScore}`);
     }

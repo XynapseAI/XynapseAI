@@ -219,7 +219,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         ))}
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-3 p-2 mr-2">
+      {/* <div className="flex items-center gap-2 sm:gap-3 p-2 mr-2">
         <select
           id="currency-select"
           value={currency}
@@ -232,7 +232,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
             </option>
           ))}
         </select>
-      </div>
+      </div> */}
 
       <AnimatePresence>
         {isMenuOpen && (
@@ -250,7 +250,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                 alt="Menu"
                 className="h-14 w-auto"
               />
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <select
                   id="mobile-currency-select"
                   value={currency}
@@ -263,7 +263,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                     </option>
                   ))}
                 </select>
-              </div>
+              </div> */}
             </div>
             <nav className="flex flex-col space-y-2 flex-grow overflow-y-auto custom-scrollbar">
               {tabs.map((tab, index) => (

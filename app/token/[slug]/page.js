@@ -75,7 +75,7 @@ export async function generateStaticParams() {
         'Content-Type': 'application/json',
         'x-cg-demo-api-key': process.env.COINGECKO_API_KEY || '',
       },
-      next: { revalidate: 86400 }, // Cache for 24 hours
+      next: { revalidate: 86400 },
     });
     if (!response) {
       console.error('Failed to fetch token list from CoinGecko');
@@ -83,11 +83,11 @@ export async function generateStaticParams() {
     }
 
     const tokens = response;
-    const topTokens = tokens.slice(0, 50);
+    const topTokens = tokens.slice(0, 100); // Tăng lên 100 token
 
     const redisClient = await getRedisClient();
     await Promise.all(
-      topTokens.slice(0, 20).map(async (token) => {
+      topTokens.slice(0, 50).map(async (token) => { // Cache 50 token
         const cacheKey = `token-full-${token.id}-1-usd`;
         const cached = await redisClient.get(cacheKey);
         if (!cached) {
@@ -121,17 +121,43 @@ export async function generateMetadata({ params }) {
     };
   }
   const capitalizedSlug = slug.charAt(0).toUpperCase() + slug.slice(1);
+  const title = `${tokenData.name || capitalizedSlug} | Xynapse Dashboard`;
+  const description = `Explore real-time market data, price history, and insights for ${tokenData.name || capitalizedSlug} (${tokenData.symbol?.toUpperCase() || 'token'}) on Xynapse Dashboard.`;
+  const image = tokenData.image?.large || 'https://xynapseai.net/default-image.jpg';
+
   return {
-    title: `${tokenData.name || capitalizedSlug}`,
-    description: `Explore market data and insights for ${tokenData.name || capitalizedSlug} on our crypto dashboard.`,
-    keywords: `${slug}, ${tokenData.symbol?.toUpperCase() || 'token'}, cryptocurrency, market data, blockchain`,
+    title,
+    description,
+    keywords: `${slug}, ${tokenData.symbol?.toUpperCase() || 'token'}, cryptocurrency, crypto market, blockchain, price data, token analysis`,
     robots: 'index, follow',
+    alternates: {
+      canonical: `https://xynapseai.net/dashboard?tab=market&token=${slug}`, // Thêm canonical URL
+    },
+    openGraph: {
+      title,
+      description,
+      url: `https://xynapseai.net/dashboard?tab=market&token=${slug}`,
+      type: 'website',
+      images: [
+        {
+          url: image,
+          width: 1200,
+          height: 630,
+          alt: `${tokenData.name || capitalizedSlug} Logo`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [image],
+    },
   };
 }
 
 export default async function TokenPage({ params, searchParams }) {
   const { slug } = await params;
-  // Redirect to new URL structure if accessed via /token/[slug]
   if (!searchParams.tab && !searchParams.token) {
     redirect(`/dashboard?tab=market&token=${slug}`);
   }
@@ -152,13 +178,37 @@ export default async function TokenPage({ params, searchParams }) {
   if (process.env.NODE_ENV === 'production') {
     await revalidateTokenPath(slug);
   }
+
+  // Thêm JSON-LD
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'CryptoCurrency',
+    name: data.data.name || slug,
+    tickerSymbol: data.data.symbol?.toUpperCase() || '',
+    description: data.data.description?.en || `Explore market data for ${data.data.name || slug}.`,
+    url: `https://xynapseai.net/dashboard?tab=market&token=${slug}`,
+    image: data.data.image?.large || 'https://xynapseai.net/default-image.jpg',
+    sameAs: data.data.links?.homepage?.[0] || '',
+    offers: {
+      '@type': 'Offer',
+      price: data.data.current_price?.usd || 0,
+      priceCurrency: 'USD',
+    },
+  };
+
   return (
-    <TokenPageClient
-      initialTokenSlug={slug}
-      initialTokenData={data.data}
-      initialTopHolders={data.topHolders || []}
-      initialPriceHistory={data.priceHistory || []}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <TokenPageClient
+        initialTokenSlug={slug}
+        initialTokenData={data.data}
+        initialTopHolders={data.topHolders || []}
+        initialPriceHistory={data.priceHistory || []}
+      />
+    </>
   );
 }
 
