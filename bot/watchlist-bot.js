@@ -5,6 +5,18 @@ import dotenv from 'dotenv';
 import axiosRetry from 'axios-retry';
 import { getExplorerUrls, CHAIN_ID_TO_NAME } from '../utils/constants.js';
 
+// Token configuration for price adjustments and exclusions
+const TOKEN_CONFIG = {
+  RAD: {
+    priceSource: 'coingecko',
+    coingeckoId: 'radicle',
+    defaultPrice: 0.684642,
+  },
+  ID: {
+    exclude: true, // Exclude ID token from processing
+  },
+};
+
 // Configure axios-retry for API requests
 axiosRetry(axios, {
   retries: 3,
@@ -74,6 +86,8 @@ logger.info('Postgres module imported successfully');
 // Track last tweet time and tweet queue
 let lastTweetTime = 0;
 const tweetQueue = [];
+const TWEET_SPACING_MS = 1800000; // 30 minutes
+const MAX_QUEUE_SIZE = 10; // Limit queue to avoid overload
 
 // Create bot_wallets table if it doesn't exist
 async function ensureBotWalletsTable() {
@@ -159,12 +173,31 @@ async function getNameTags(addresses) {
   }
 }
 
+// Fetch token price from CoinGecko
+async function fetchTokenPrice(tokenConfig) {
+  if (!tokenConfig.priceSource || tokenConfig.priceSource !== 'coingecko' || !tokenConfig.coingeckoId) {
+    return tokenConfig.defaultPrice || 0;
+  }
+  try {
+    const response = await axios.get(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${tokenConfig.coingeckoId}&vs_currencies=usd`,
+      { timeout: 10000 }
+    );
+    const price = response.data[tokenConfig.coingeckoId]?.usd || tokenConfig.defaultPrice;
+    logger.info(`Fetched ${tokenConfig.coingeckoId} price from CoinGecko: ${price} USD`);
+    return price;
+  } catch (err) {
+    logger.warn(`Failed to fetch ${tokenConfig.coingeckoId} price, using default: ${tokenConfig.defaultPrice}`, { error: err.message });
+    return tokenConfig.defaultPrice || 0;
+  }
+}
+
 // Fetch transactions for an address
 async function fetchTransactions(address) {
   const startTime = Date.now();
   try {
     const now = new Date();
-    const startTimeFilter = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(); // 24 giờ trước
+    const startTimeFilter = new Date(now.getTime() - 2.5 * 60 * 60 * 1000).toISOString(); // 2.5h trước (2h + buffer 30p)
     const response = await axios.post(
       `${process.env.API_BASE_URL}/api/sim`,
       {
@@ -194,16 +227,12 @@ async function fetchTransactions(address) {
       rawData: response.data
     });
 
-    let radPriceUsd = 0.684642;
-    try {
-      const priceResponse = await axios.get(
-        'https://api.coingecko.com/api/v3/simple/price?ids=radicle&vs_currencies=usd',
-        { timeout: 10000 }
-      );
-      radPriceUsd = priceResponse.data.radicle?.usd || radPriceUsd;
-      logger.info(`Fetched RAD price from CoinGecko: ${radPriceUsd} USD`);
-    } catch (err) {
-      logger.warn(`Failed to fetch RAD price, using default: ${radPriceUsd}`, { error: err.message });
+    // Fetch prices for tokens in configuration
+    const tokenPrices = {};
+    for (const token of Object.keys(TOKEN_CONFIG)) {
+      if (!TOKEN_CONFIG[token].exclude) {
+        tokenPrices[token] = await fetchTokenPrice(TOKEN_CONFIG[token]);
+      }
     }
 
     const transactions = response.data
@@ -213,10 +242,16 @@ async function fetchTransactions(address) {
           return null;
         }
 
-        let adjustedValueUsd = tx.value_usd; // Giữ nguyên value_usd từ API cho USDT
-        if (tx.token === 'RAD') {
+        // Skip excluded tokens
+        if (TOKEN_CONFIG[tx.token]?.exclude) {
+          logger.info(`Skipping transaction ${tx.hash} for excluded token ${tx.token}`);
+          return null;
+        }
+
+        let adjustedValueUsd = tx.value_usd; // Default to API value
+        if (TOKEN_CONFIG[tx.token] && tokenPrices[tx.token]) {
           const tokenAmount = Number(tx.value) / 1e18;
-          adjustedValueUsd = tokenAmount * radPriceUsd;
+          adjustedValueUsd = tokenAmount * tokenPrices[tx.token];
         }
 
         if (typeof adjustedValueUsd !== 'number' || isNaN(adjustedValueUsd) || adjustedValueUsd < 0 || adjustedValueUsd > 1_000_000_000_000) {
@@ -249,15 +284,40 @@ async function fetchTransactions(address) {
   }
 }
 
-// Check if transaction was already posted
+// Check if transaction was already posted (DB + optional Twitter check)
 async function isTransactionPosted(hash) {
   const startTime = Date.now();
   try {
-    const result = await query('SELECT 1 FROM posted_transactions WHERE hash = $1', [hash]);
-    logger.info(`Checked transaction ${hash}: ${result.rows.length > 0 ? 'already posted' : 'not posted'}`, {
+    // Check DB first
+    const dbResult = await query('SELECT 1 FROM posted_transactions WHERE hash = $1', [hash]);
+    if (dbResult.rows.length > 0) {
+      logger.info(`Transaction ${hash} already posted in DB`, {
+        queryDuration: Date.now() - startTime
+      });
+      return true;
+    }
+
+    // Optional: Check recent tweets if env enabled
+    if (process.env.CHECK_TWITTER_TWEETS === 'true') {
+      try {
+        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+        const tweets = await v2Client.userTimeline({ 'user.fields': 'created_at', start_time: twoHoursAgo, max_results: 50 });
+        for (const tweet of tweets.data?.data || []) {
+          if (tweet.text.includes(hash)) {
+            logger.info(`Transaction ${hash} found in recent tweet: ${tweet.id}`);
+            await savePostedTransaction(hash); // Sync to DB
+            return true;
+          }
+        }
+      } catch (twitterErr) {
+        logger.warn(`Failed to check recent tweets for ${hash}: ${twitterErr.message}`);
+      }
+    }
+
+    logger.info(`Transaction ${hash} not posted`, {
       queryDuration: Date.now() - startTime
     });
-    return result.rows.length > 0;
+    return false;
   } catch (err) {
     logger.error(`Failed to check posted transaction ${hash}: ${err.message}`, { stack: err.stack });
     return false;
@@ -283,7 +343,7 @@ async function getGeminiResponse(transaction, fromName, toName, chainName, txUrl
   const formattedValue = Number(value).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  })
+  });
   const formattedValueUsd = Number(value_usd).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const prompt = `
 Write a concise tweet about a large cryptocurrency transaction. Current date: ${currentDate}.
@@ -414,7 +474,7 @@ async function postTweet(transaction, fromName, toName) {
   return false;
 }
 
-// Process tweet queue with 1-hour spacing
+// Process tweet queue with 30-minute spacing
 async function processTweetQueue() {
   logger.info('Starting tweet queue processing', {
     queueSize: tweetQueue.length,
@@ -423,7 +483,7 @@ async function processTweetQueue() {
   });
   while (tweetQueue.length > 0) {
     const now = Date.now();
-    if (now - lastTweetTime >= 3600000) {
+    if (now - lastTweetTime >= TWEET_SPACING_MS) {
       const { transaction, fromName, toName } = tweetQueue.shift();
       logger.info(`Processing tweet from queue for transaction ${transaction.hash}`, {
         queueSize: tweetQueue.length,
@@ -434,11 +494,15 @@ async function processTweetQueue() {
         logger.warn(`Failed to post tweet for ${transaction.hash}, re-adding to queue`, {
           value_usd: transaction.value_usd
         });
-        tweetQueue.push({ transaction, fromName, toName }); // Re-add failed transaction
+        if (tweetQueue.length < MAX_QUEUE_SIZE) {
+          tweetQueue.push({ transaction, fromName, toName }); // Re-add if queue not full
+        } else {
+          logger.error(`Queue full, dropping failed transaction ${transaction.hash}`);
+        }
       }
       await new Promise(resolve => setTimeout(resolve, 1000)); // Short delay to avoid rate limits
     } else {
-      const waitTime = 3600000 - (now - lastTweetTime);
+      const waitTime = TWEET_SPACING_MS - (now - lastTweetTime);
       logger.info(`Waiting ${waitTime / 1000}s before processing next tweet`, {
         queueSize: tweetQueue.length
       });
@@ -501,7 +565,7 @@ async function main() {
             const txTime = new Date(tx.block_time);
             const now = new Date();
             const hoursDiff = (now - txTime) / (1000 * 60 * 60);
-            if (hoursDiff <= 3) {
+            if (hoursDiff <= 2) {
               if (await isTransactionPosted(tx.hash)) {
                 logger.info(`Transaction ${tx.hash} already posted, skipping`, {
                   value_usd: tx.value_usd,
@@ -522,7 +586,7 @@ async function main() {
                 hoursDiff
               });
             } else {
-              logger.info(`Transaction ${tx.hash} is older than 3 hours, skipping`, {
+              logger.info(`Transaction ${tx.hash} is older than 2 hours, skipping`, {
                 value_usd: tx.value_usd,
                 token: tx.token,
                 txTime: txTime.toISOString(),
@@ -541,7 +605,7 @@ async function main() {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    logger.info(`Found ${transactionsInHour.length} qualifying transactions in the last 3 hours`);
+    logger.info(`Found ${transactionsInHour.length} qualifying transactions in the last 2 hours`);
     if (transactionsInHour.length > 0) {
       const txAddresses = new Set();
       transactionsInHour.forEach(tx => {
@@ -550,14 +614,19 @@ async function main() {
       });
       const txNameTags = txAddresses.size > 0 ? await getNameTags([...txAddresses]) : {};
 
-      transactionsInHour.sort((a, b) => b.value_usd - a.value_usd);
+      // Sort by value_usd desc, then by time desc (newest first if tie)
+      transactionsInHour.sort((a, b) => {
+        if (b.value_usd !== a.value_usd) return b.value_usd - a.value_usd;
+        return new Date(b.block_time) - new Date(a.block_time);
+      });
 
       for (let i = 0; i < transactionsInHour.length; i++) {
         const tx = transactionsInHour[i];
         const fromName = txNameTags[tx.from.toLowerCase()] || tx.walletName || 'Unknown wallet';
         const toName = tx.to === 'None' ? 'None' : (txNameTags[tx.to.toLowerCase()] || 'Unknown wallet');
 
-        if (i === 0 && (Date.now() - lastTweetTime >= 3600000)) {
+        // Post first tx immediately if spacing allows
+        if (i === 0 && (Date.now() - lastTweetTime >= TWEET_SPACING_MS)) {
           logger.info(`Posting first transaction ${tx.hash} immediately`, {
             value_usd: tx.value_usd,
             value: tx.value,
@@ -570,21 +639,25 @@ async function main() {
             logger.warn(`Failed to post first transaction ${tx.hash}, adding to queue`, {
               value_usd: tx.value_usd
             });
-            tweetQueue.push({ transaction: tx, fromName, toName });
+            if (tweetQueue.length < MAX_QUEUE_SIZE) {
+              tweetQueue.push({ transaction: tx, fromName, toName });
+            }
           }
-        } else {
+        } else if (tweetQueue.length < MAX_QUEUE_SIZE) {
           logger.info(`Adding transaction ${tx.hash} to tweet queue`, {
             queueSize: tweetQueue.length + 1,
             value_usd: tx.value_usd,
             token: tx.token
           });
           tweetQueue.push({ transaction: tx, fromName, toName });
+        } else {
+          logger.warn(`Queue full, skipping transaction ${tx.hash}`);
         }
       }
 
       await processTweetQueue();
     } else {
-      logger.info('No qualifying transactions found in the last 3 hours');
+      logger.info('No qualifying transactions found in the last 2 hours');
     }
 
     logger.info(`Cron job completed in ${Date.now() - botStartTime}ms`, {

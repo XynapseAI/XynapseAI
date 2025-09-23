@@ -33,18 +33,15 @@ import ReactMarkdown from "react-markdown";
 import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
 
 const LazyImage = ({ src, alt, className, ...props }) => {
-  const [imageSrc, setImageSrc] = useState('');
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => setImageSrc(src);
-    img.src = src;
-  }, [src]);
   return (
     <img
-      src={imageSrc || '/fallback-image.webp'}
-      alt={alt || `Cryptocurrency image for ${src.split('/').pop().split('.')[0]}`}
+      src={src || '/fallback-image.webp'}
+      alt={alt || `Cryptocurrency image for ${src?.split('/')?.pop()?.split('.')[0] || 'unknown'}`}
       className={className}
       loading="lazy"
+      onError={(e) => {
+        e.target.src = '/fallback-image.webp';
+      }}
       {...props}
     />
   );

@@ -483,7 +483,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
             loading="lazy"
           />
         )}
-        Root Cluster: {cluster.nametag || 'Unknown'}
+        HotSpot: {cluster.nametag || 'Unknown'}
       </h4>
       <div className="grid grid-cols-2 gap-2 mb-2 text-[9px]">
         <div className="bg-white/10 p-2 rounded-lg">
@@ -504,7 +504,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
         </div>
       </div>
       <div className="bg-white/10 p-2 rounded-lg mb-2">
-        <p className="text-white/90 text-[10px] font-bold mb-1">Top 5 Tokens by Volume</p>
+        <p className="text-white/90 text-[10px] font-bold mb-1">Top Tokens by Volume</p>
         <div className="space-y-1">
           {topTokensVolume.map(([key, vol]) => {
             const tokenInfoItem = tokenImages[key];
@@ -1560,7 +1560,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 >
                   <img
                     src={getPlatformImage(selectedChain, coingeckoChains)}
-                    alt={`${mappedChains.find((c) => c.value === selectedChain)?.label || 'Chain'} logo`}
+                    alt={`${mappedChains.find((c) => c.value === selectedChain)?.label || ''}`}
                     width={isMobile ? 12 : 16}
                     height={isMobile ? 12 : 16}
                     className="rounded-lg"

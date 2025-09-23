@@ -481,6 +481,11 @@ export async function GET(request) {
             wallet_address: true,
             last_connected: true,
             twitter_handle: true,
+            twitter_handles: {
+              select: {
+                profile_picture: true,
+              },
+            },
           },
         })
       );
@@ -496,7 +501,7 @@ export async function GET(request) {
           id: user.id,
           email: user.email || '',
           googleId: user.google_id || null,
-          profilePicture: user.profile_picture || '',
+          profilePicture: user.twitter_handles?.[0]?.profile_picture || user.profile_picture || '',
           googleName: user.google_name || '',
           emailVerified: user.email_verified || false,
           points: Number(user.points || 0),

@@ -11,7 +11,7 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className={`absolute inset-0 flex items-center justify-center bg-black/80 z-50 ${!isMobile ? "backdrop-blur-sm" : "backdrop-blur-sm"} ${className}`}
+        className={`absolute inset-0 flex items-center justify-center bg-black/80 rounded-xl z-50 ${!isMobile ? "backdrop-blur-sm" : "backdrop-blur-sm"} ${className}`}
         aria-label="Loading animation"
       >
         <div className={`relative rounded-xl ${isMobile ? "w-10 h-10" : "w-12 h-12"}`}>
@@ -35,7 +35,7 @@ export const getExplorerUrls = (chain, hash, address) => {
   const normalizedChain = (String(chain || 'ethereum')).toLowerCase();
   const isSVM = SUPPORTED_SVM_CHAINS.includes(normalizedChain);
   const isBitcoin = normalizedChain === 'bitcoin';
-  const isEthereum = normalizedChain === 'ethereum'; // Thêm kiểm tra cho Ethereum
+  const isEthereum = normalizedChain === 'ethereum'; 
 
   let txUrl = '#';
   let addressUrl = '#';
@@ -52,7 +52,6 @@ export const getExplorerUrls = (chain, hash, address) => {
       addressUrl = address ? `https://explorer.eclipse.xyz/account/${address}` : '#';
     }
   } else if (isEthereum) {
-    // Trả về URL Etherscan cho Ethereum
     txUrl = hash ? `https://etherscan.io/tx/${hash}` : '#';
     addressUrl = address ? `https://etherscan.io/address/${address}` : '#';
   } else {
@@ -162,7 +161,7 @@ export const truncateAddress = (address, nameTags = {}, source) => {
     text: nameTag || shortAddress,
     image,
     shortAddress,
-    originalAddress: address, // Lưu địa chỉ gốc để sử dụng cho URL
+    originalAddress: address,
   };
 };
 

@@ -15,7 +15,7 @@ import { cacheData, getCachedData, clearCache, clearAllCaches } from '../utils/i
 import { LoadingOverlay } from '@/utils/helpers';
 import { debounce } from 'lodash';
 import LoginPrompt from './LoginPrompt';
-import { logger } from '../utils/clientLogger'; // Import clientLogger
+import { logger } from '../utils/clientLogger';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
@@ -56,7 +56,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     }
   }, []);
 
-  // Handle responsive design
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 640);
     window.addEventListener('resize', handleResize);
@@ -70,7 +69,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     setIsSigningOut(false);
   };
 
-  // Execute reCAPTCHA
   const debouncedExecuteRecaptcha = useCallback(
     async (action, retries = 3) => {
       if (!recaptchaRef.current) {
@@ -102,7 +100,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     [recaptchaRef]
   );
 
-  // Fetch CSRF Token
   const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
     queryKey: ['csrfToken'],
     queryFn: async () => {
@@ -127,8 +124,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-
-  // Create charge mutation
   const createChargeMutation = useMutation({
     mutationFn: async () => {
       if (!session?.user?.id) throw new Error('Not authenticated');
@@ -177,7 +172,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Fetch User Data
   const { data: userData, isLoading: userLoading, error: userError } = useQuery({
     queryKey: ['userData', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -244,10 +238,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Force refetch if profilePicture is undefined but twitterHandle exists
   useEffect(() => {
-    if (userData?.twitterHandle && !userData?.profilePicture && status === 'authenticated') {
-      logger.warn('Profile picture is undefined with Twitter handle, triggering refetch');
+    if (userData?.twitterHandle && !userData?.profilePicture.includes('pbs.twimg.com') && status === 'authenticated') {
+      logger.warn('Twitter handle present but profile picture is not from Twitter, triggering refetch');
       const cacheKey = `userData-${session.user.id}`;
       clearCache(cacheKey).then(() => {
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
@@ -359,7 +352,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Connect Twitter
   const connectTwitterMutation = useMutation({
     mutationFn: async () => {
       window.location.href = '/api/twitter/connect';
@@ -370,7 +362,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Disconnect Twitter
   const disconnectTwitterMutation = useMutation({
     mutationFn: async () => {
       const token = await debouncedExecuteRecaptcha('disconnect_twitter');
@@ -410,7 +401,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Connect Wallet
   const connectWalletMutation = useMutation({
     mutationFn: async () => {
       if (!window.ethereum) throw new Error('Please install MetaMask.');
@@ -441,7 +431,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
   });
 
-  // Disconnect Wallet
   const disconnectWalletMutation = useMutation({
     mutationFn: async () => {
       const token = await debouncedExecuteRecaptcha('disconnect-wallet');
@@ -515,7 +504,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }, [userData]);
 
-  // Pagination
   const getPaginatedData = useCallback((data, tab) => {
     const startIndex = (currentPage[tab] - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
@@ -528,31 +516,31 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     setCurrentPage((prev) => ({ ...prev, [tab]: page }));
   }, []);
 
-  // Get Profile Picture Src
   const getProfilePictureSrc = useCallback((profilePicture, twitterHandle, googleName) => {
     const isValidUrl = (url) => {
       try {
-        const parsedUrl = new URL(url);
-        const allowedHosts = ['pbs.twimg.com', 'lh3.googleusercontent.com', 'example.com'];
-        return allowedHosts.includes(parsedUrl.hostname);
+        new URL(url);
+        return true;
       } catch (err) {
         logger.warn(`Invalid URL: ${url}`, err);
         return false;
       }
     };
 
-    if (twitterHandle && profilePicture && typeof profilePicture === 'string' && profilePicture.includes('twimg.com') && isValidUrl(profilePicture)) {
+    // Prioritize Twitter profile picture if twitterHandle exists and profilePicture is valid
+    if (twitterHandle && profilePicture && typeof profilePicture === 'string' && isValidUrl(profilePicture)) {
       return profilePicture;
     }
 
-    if (googleName && profilePicture && typeof profilePicture === 'string' && profilePicture.includes('googleusercontent.com') && isValidUrl(profilePicture)) {
+    // Fallback to Google profile picture if valid
+    if (googleName && profilePicture && typeof profilePicture === 'string' && isValidUrl(profilePicture)) {
       return profilePicture;
     }
 
+    // Default fallback
     return '/default-avatar.webp';
   }, []);
 
-  // Render User Row for Leaderboard
   const renderUserRow = useCallback(
     (user, index, isCurrentUser = false) => {
       const rank = isCurrentUser ? rankings.findIndex((u) => u.id === user.id) + 1 || 'N/A' : index + 1;
@@ -1168,41 +1156,39 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           <span className="text-white/60">Twitter:</span>
                           {userData.twitterHandle ? (
                             <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-2">
-                                <a
-                                  href={`https://x.com/${userData.twitterHandle}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-neon-blue"
-                                >
-                                  @{userData.twitterHandle}
-                                </a>
-                                <motion.button
-                                  onClick={() => disconnectTwitterMutation.mutate()}
-                                  disabled={disconnectTwitterMutation.isLoading}
-                                  className={`p-1 rounded-full ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/20'}`}
-                                  whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
-                                  whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
-                                  title="Disconnect Twitter"
-                                >
-                                  {disconnectTwitterMutation.isLoading ? (
-                                    <span className="text-[8px] text-white">...</span>
-                                  ) : (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="w-4 h-4"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="#F87171"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    >
-                                      <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                    </svg>
-                                  )}
-                                </motion.button>
-                              </div>
+                              <a
+                                href={`https://x.com/${userData.twitterHandle}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-neon-blue"
+                              >
+                                @{userData.twitterHandle}
+                              </a>
+                              <motion.button
+                                onClick={() => disconnectTwitterMutation.mutate()}
+                                disabled={disconnectTwitterMutation.isLoading}
+                                className={`p-1 rounded-full ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/20'}`}
+                                whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
+                                whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
+                                title="Disconnect Twitter"
+                              >
+                                {disconnectTwitterMutation.isLoading ? (
+                                  <span className="text-[8px] text-white">...</span>
+                                ) : (
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="w-4 h-4"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="#F87171"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  >
+                                    <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                  </svg>
+                                )}
+                              </motion.button>
                             </div>
                           ) : (
                             <span className="text-white">Not connected</span>
@@ -1333,7 +1319,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             font-size: 6px;
           }
           .h-[52px] {
-            height: 48px; 
+            height: 48px;
           }
           .min-h-[100px] {
             min-height: 80px;

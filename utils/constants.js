@@ -487,3 +487,16 @@ export const CHAIN_ID_TO_NAME = {
   'solana': 'solana',
   'eclipse': 'eclipse',
 };
+
+export const BLOCKED_TOKEN_ADDRESSES = [
+  "0x7d25d9f10cd224ecce0bc824a2ec800db81c01d7",
+  "0x2bb84fd8f7ed0ffae3da36ad60d4d7840bdeeada",
+  "0x7391425ca7cee3ee03e09794b819291a572af83e",
+  "0xcf01a5c02c9b9dd5bf73a5a56bcdbc9dca483d43",
+  "0x8e18141efd10c3df7a33b4d53f608e10dc4d4fe3",
+  "0x128f3e482f5bd5f08fe1b216e60ec0a6013deab9",
+  "0x5f4bde007dc06b867f86ebfe4802e34a1ffeed63",
+  "0x05d68f36dc47048a2725db632f6d442a95c230c4",
+  "0x57d9750893adb0d1ee07bac44c8bb45c45b58f73",
+  "0xb6aaa0efdfac186652e3b31a6f07a9a74d1b5a75",
+];

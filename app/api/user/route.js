@@ -417,7 +417,7 @@ export async function GET(request) {
           id: user.id,
           email: user.email || '',
           googleId: user.google_id || null,
-          profilePicture: user.twitter_handles?.profile_picture || user.profile_picture || '',
+          profilePicture: user.twitter_handles?.[0]?.profile_picture || user.profile_picture || '',
           googleName: user.google_name || '',
           emailVerified: user.email_verified || false,
           points: Number(user.points || 0),

@@ -8,6 +8,7 @@ import { ethers } from 'ethers';
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import Bottleneck from 'bottleneck';
+import { BLOCKED_TOKEN_ADDRESSES } from '../../../utils/constants';
 
 let redisClient;
 async function getRedisClient() {
@@ -186,34 +187,28 @@ const bodySchema = z.object({
   fetchLayer3: z.boolean().optional().default(false),
 });
 
-// Hàm kiểm tra token symbol hợp lệ
 function isValidTokenSymbol(symbol) {
   if (!symbol || typeof symbol !== 'string') return false;
 
-  // Loại bỏ khoảng trắng và chuyển về chữ thường
   const cleanedSymbol = symbol.trim().toLowerCase();
 
-  // Kiểm tra độ dài (ví dụ: 2-20 ký tự)
   if (cleanedSymbol.length < 2 || cleanedSymbol.length > 20) {
     logger.warn(`Invalid token symbol length: ${symbol}`);
     return false;
   }
 
-  // Kiểm tra ký tự hợp lệ (chỉ cho phép chữ cái, số, dấu gạch ngang, dấu gạch dưới)
   const validSymbolPattern = /^[a-z0-9\-_]+$/;
   if (!validSymbolPattern.test(cleanedSymbol)) {
     logger.warn(`Invalid token symbol characters: ${symbol}`);
     return false;
   }
 
-  // Kiểm tra xem có chứa URL hay không
   const urlPattern = /(https?:\/\/|www\.|\.com|\.org|\.net|\.io)/i;
   if (urlPattern.test(cleanedSymbol)) {
     logger.warn(`Token symbol contains URL: ${symbol}`);
     return false;
   }
 
-  // Kiểm tra các từ khóa nghi ngờ
   const suspiciousKeywords = ['claim', 'free', 'airdrop', 'promo', 'reward', 'bonus'];
   if (suspiciousKeywords.some(keyword => cleanedSymbol.includes(keyword))) {
     logger.warn(`Token symbol contains suspicious keyword: ${symbol}`);
@@ -665,6 +660,10 @@ export async function POST(request) {
 
     const tokenPromises = tokenTransactions.map(async (tx) => {
       if (!isAddress(tx.contractAddress)) return null;
+      if (BLOCKED_TOKEN_ADDRESSES.includes(tx.contractAddress.toLowerCase())) {
+        logger.warn(`Filtered out blocked token contract: ${tx.contractAddress}`);
+        return null;
+      }
       if (!isValidTokenSymbol(tx.tokenSymbol)) {
         logger.warn(`Filtered out invalid token symbol: ${tx.tokenSymbol} for contract ${tx.contractAddress}`);
         return null;

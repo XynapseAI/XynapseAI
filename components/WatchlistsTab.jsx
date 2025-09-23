@@ -35,34 +35,6 @@ const NATIVE_TOKEN_INFO = {
   eclipse: { name: 'Eclipse', symbol: 'ETH', logo: '/eclipse-logo.webp' },
 };
 
-const SkeletonLoader = ({ isMobile }) => {
-  const skeletonRows = Array(5).fill(null);
-  return (
-    <div className="w-full p-2 sm:p-3">
-      <table className="w-full text-[9px] sm:text-[9px]">
-        <tbody>
-          {skeletonRows.map((_, index) => (
-            <tr key={index} className="border-t border-white/10">
-              <td className="px-2 sm:px-3 py-2 text-center">
-                <div className="flex flex-col items-center gap-1">
-                  <div className="w-5 sm:w-6 h-5 sm:h-6 bg-white/10 rounded-full animate-pulse"></div>
-                  <div className="w-10 sm:w-12 h-2 bg-white/10 rounded animate-pulse"></div>
-                </div>
-              </td>
-              <td className="px-2 sm:px-3 py-2 text-center">
-                <div className="w-16 sm:w-20 h-3 bg-white/10 rounded animate-pulse mx-auto"></div>
-              </td>
-              <td className="px-2 sm:px-3 py-2 text-center">
-                <div className="w-20 sm:w-24 h-3 bg-white/10 rounded animate-pulse mx-auto"></div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
 const Tooltip = ({ children, text }) => {
   const [isVisible, setIsVisible] = useState(false);
   return (
@@ -123,11 +95,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const [chains, setChains] = useState([]);
   const [newWalletName, setNewWalletName] = useState('');
   const [forceFetch, setForceFetch] = useState(false);
-  const itemsPerPage = 50;
-  const [currentPage, setCurrentPage] = useState({
-    PORTFOLIO: 1,
-    ACTIVITY: 1,
-  });
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
   const EVM_LOGOS = ['ethereum', 'base', 'bnb'];
@@ -150,9 +117,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   }, [balances, activeChain]);
 
   // Calculate total value USD
-  const totalValueUSD = useMemo(() => {
-    return filteredBalances.reduce((sum, balance) => sum + (Number(balance.value_usd) || 0), 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  const totalValue = useMemo(() => {
+    return filteredBalances.reduce((sum, balance) => sum + (Number(balance.value_usd) || 0), 0);
   }, [filteredBalances]);
+
+  const totalValueUSD = useMemo(() => {
+    return totalValue.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  }, [totalValue]);
 
   // Debounced state update for transactions
   const debouncedSetTransactions = useCallback(
@@ -218,7 +189,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   const handleTabClick = useCallback((tab) => {
     logger.log('Tab clicked:', { tab });
     setActiveTab(tab);
-    setCurrentPage((prev) => ({ ...prev, [tab]: 1 }));
   }, []);
 
   useEffect(() => {
@@ -259,7 +229,6 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         setTransactions([]);
         setTokenInfo({});
         setActiveChain(null);
-        setCurrentPage({ PORTFOLIO: 1, ACTIVITY: 1 });
         lastSelectedWalletRef.current = wallet.address;
         setIsInitialLoad(false);
       }
@@ -1008,21 +977,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     return chainType === 'EVM' ? EVM_LOGOS : SVM_LOGOS;
   };
 
-  const getPaginatedData = (data, tab) => {
-    const startIndex = (currentPage[tab] - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return data.slice(startIndex, endIndex);
-  };
-
-  const getTotalPages = (data) => {
-    return Math.ceil(data.length / itemsPerPage);
-  };
-
-  const handlePageChange = (tab, page) => {
-    setCurrentPage((prev) => ({ ...prev, [tab]: page }));
-  };
-
-  const renderTokenRow = (token) => {
+  const renderTokenRow = (index, token) => {
     const tokenInfoData = tokenInfo[token.address] || [];
     const tokenDetails = tokenInfoData.find((t) => t.chain === token.chain) || {};
     let logoUrl = '/icons/default.webp';
@@ -1048,58 +1003,71 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       return num.toLocaleString('en-US', { maximumFractionDigits: 4 });
     };
 
+    const value = Number(token.value_usd) || 0;
+    const percentage = totalValue > 0 ? (value / totalValue) * 100 : 0;
+
     return (
-      <motion.tr
-        key={`${token.chain}-${token.address}`}
-        className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
+      <motion.div
+        key={`${token.chain}-${token.address}-${index}`}
+        className="flex hover:bg-neon-blue/10 transition-all duration-300 py-2 border-t border-white/10"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
-        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
-          <div className="flex items-center justify-center gap-2 relative">
-            <div className="relative flex-shrink-0">
-              <img
-                src={logoUrl}
-                alt={`${tokenSymbol} logo`}
-                width={isMobile ? 14 : 16}
-                height={isMobile ? 14 : 16}
-                className="rounded-full"
-                onError={(e) => (e.target.src = '/icons/default.webp')}
-                loading="lazy"
-              />
-              <img
-                src={getPlatformImage(token.chain)}
-                alt={`${token.chain} logo`}
-                width={isMobile ? 8 : 10}
-                height={isMobile ? 8 : 10}
-                className="rounded-full absolute top-0 right-0"
-                style={{ transform: 'translate(25%, -25%)' }}
-                onError={(e) => (e.target.src = token.chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
-                loading="lazy"
-              />
-            </div>
-            <div className="flex flex-col items-center">
-              <span>{tokenSymbol}</span>
-              {token.price_usd != null && (
-                <span className="text-[7px] sm:text-[9px] text-white/60">{formatPrice(token.price_usd)}</span>
-              )}
-            </div>
+        <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center gap-2">
+          <div className="relative flex-shrink-0">
+            <img
+              src={logoUrl}
+              alt={`${tokenSymbol} logo`}
+              width={isMobile ? 14 : 16}
+              height={isMobile ? 14 : 16}
+              className="rounded-full"
+              onError={(e) => (e.target.src = '/icons/default.webp')}
+              loading="lazy"
+            />
+            <img
+              src={getPlatformImage(token.chain)}
+              alt={`${token.chain} logo`}
+              width={isMobile ? 8 : 10}
+              height={isMobile ? 8 : 10}
+              className="rounded-full absolute top-0 right-0"
+              style={{ transform: 'translate(25%, -25%)' }}
+              onError={(e) => (e.target.src = token.chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
+              loading="lazy"
+            />
           </div>
-        </td>
-        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
-          {formatBalance(token.amount)}
-        </td>
-        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center">
-          {token.value_usd != null
-            ? `$${token.value_usd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-            : 'N/A'}
-        </td>
-      </motion.tr>
+          <div className="flex flex-col items-center">
+            <span>{tokenSymbol}</span>
+            {token.price_usd != null && (
+              <span className="text-[7px] sm:text-[9px] text-gray-500">{formatPrice(token.price_usd)}</span>
+            )}
+          </div>
+        </div>
+        <div className="w-[45%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center justify-center">
+          <div className="flex flex-col items-center">
+            <span className="font-semibold">{formatBalance(token.amount)}</span>
+            <span className="text-[7px] sm:text-[9px] text-gray-500">
+              ${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div>
+        <div className="w-[30%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex flex-col items-center justify-center gap-1">
+          <span className="font-semibold">{percentage.toFixed(2)}%</span>
+          <div className="w-full bg-white/10 rounded-full h-1.5">
+            <motion.div
+              className="bg-gradient-to-r from-neon-blue to-emerald-400 h-1.5 rounded-full"
+              style={{ width: `${Math.min(percentage, 100)}%` }}
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(percentage, 100)}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+        </div>
+      </motion.div>
     );
   };
 
-  const renderTransactionRow = (tx, index) => {
+  const renderTransactionRow = (index, tx) => {
     const transactionKey = tx.hash || `tx-${index}`;
     const { txUrl, addressUrl } = getExplorerUrls(tx.chain, transactionKey, tx.from || tx.address);
     const isSVM = SUPPORTED_SVM_CHAINS.includes(tx.chain);
@@ -1135,6 +1103,8 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     } else if (tx.type === 'other' && !isSVM) {
       typeDisplay = 'Other';
       displayValue = tx.value || 'N/A';
+    } else if (isSVM) {
+      displayValue = tx.value ? `${Number(tx.value).toLocaleString("en-US", { maximumFractionDigits: 1 })} ${tokenSymbol}` : 'N/A';
     }
 
     // Truncate hash for SVM
@@ -1143,135 +1113,142 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       : tx.hash;
 
     return (
-      <motion.tr
+      <motion.div
         key={`${tx.chain}-${transactionKey}-${index}`}
-        className="border-t border-white/10 hover:bg-neon-blue/10 transition-all duration-300"
+        className="flex hover:bg-neon-blue/10 transition-all duration-300 py-2 border-t border-white/10"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
-        <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[10%] sm:w-[10%] overflow-hidden text-ellipsis">
-          <div className="flex flex-col items-center justify-center gap-1 relative">
-            <div className="relative flex-shrink-0">
-              <img
-                src={tokenLogo}
-                alt={`${tokenSymbol} logo`}
-                width={isMobile ? 14 : 16}
-                height={isMobile ? 14 : 16}
-                className="rounded-full mx-auto"
-                onError={(e) => (e.target.src = '/icons/default.webp')}
-                loading="lazy"
-              />
-              <img
-                src={getPlatformImage(tx.chain)}
-                alt={`${tx.chain} logo`}
-                width={isMobile ? 8 : 10}
-                height={isMobile ? 8 : 10}
-                className="rounded-full absolute top-0 right-0"
-                style={{ transform: 'translate(25%, -25%)' }}
-                onError={(e) => (e.target.src = tx.chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
-                loading="lazy"
-              />
-            </div>
-            <span className="text-[8px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
+        <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex flex-col items-center gap-1 relative overflow-hidden text-ellipsis">
+          <div className="relative flex-shrink-0">
+            <img
+              src={tokenLogo}
+              alt={`${tokenSymbol} logo`}
+              width={isMobile ? 14 : 16}
+              height={isMobile ? 14 : 16}
+              className="rounded-full mx-auto"
+              onError={(e) => (e.target.src = '/icons/default.webp')}
+              loading="lazy"
+            />
+            <img
+              src={getPlatformImage(tx.chain)}
+              alt={`${tx.chain} logo`}
+              width={isMobile ? 8 : 10}
+              height={isMobile ? 8 : 10}
+              className="rounded-full absolute top-0 right-0"
+              style={{ transform: 'translate(25%, -25%)' }}
+              onError={(e) => (e.target.src = tx.chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
+              loading="lazy"
+            />
           </div>
-        </td>
-        {isSVM ? (
+          <span className="text-[8px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
+        </div>
+        {!isSVM ? (
           <>
-            <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[45%] sm:w-[50%] overflow-hidden text-ellipsis">
+            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex flex-col items-center gap-1 overflow-hidden text-ellipsis">
+              <span
+                className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === 'receive'
+                    ? 'bg-neon-green/20 text-neon-green'
+                    : tx.type === 'send'
+                      ? 'bg-neon-blue/20 text-neon-blue'
+                      : tx.type === 'swap'
+                        ? 'bg-purple-400/20 text-purple-400'
+                        : 'bg-white/20 text-white/60'
+                  }`}
+              >
+                {typeDisplay}
+              </span>
               <div className="flex items-center justify-center gap-2">
-                {/* Placeholder for Solscan logo */}
+                {addressImage && (
+                  <img
+                    src={addressImage}
+                    alt={`${displayAddress} logo`}
+                    width={isMobile ? 12 : 14}
+                    height={isMobile ? 12 : 14}
+                    className="rounded-full"
+                    onError={(e) => (e.target.src = '/icons/default.webp')}
+                    loading="lazy"
+                  />
+                )}
+                <a
+                  href={addressUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-neon-blue hover:text-neon-blue/80 truncate"
+                  title={addressToShow}
+                >
+                  {displayAddress}
+                </a>
+              </div>
+            </div>
+            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center justify-center overflow-hidden text-ellipsis">
+              <div className="flex flex-col items-center">
+                <span className="font-semibold">{displayValue}</span>
+                {tx.value_usd != null && (
+                  <span className="text-[7px] sm:text-[9px] text-white/60">
+                    ${Number(tx.value_usd).toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex flex-col items-center gap-0.5 overflow-hidden text-ellipsis">
+              <a href={txUrl} target="_blank" rel="noopener noreferrer">
                 <img
-                  src="/logos/solscan.webp" // Update this path when the actual logo is added
-                  alt="Solscan Explorer"
+                  src="/logos/etherscan-logo.webp"
+                  alt="Explorer"
                   width={isMobile ? 12 : 14}
                   height={isMobile ? 12 : 14}
                   className="rounded-full"
                   onError={(e) => (e.target.src = '/fallback-image.webp')}
                   loading="lazy"
                 />
-                <a
-                  href={txUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-neon-blue hover:text-neon-blue/80 truncate"
-                  title={tx.hash}
-                >
-                  {truncatedHash}
-                </a>
-              </div>
-            </td>
-            <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[45%] sm:w-[40%] overflow-hidden text-ellipsis">
-              <span className="text-[8px] sm:text-[9px] text-white/60">
+              </a>
+              <span className="text-[6px] sm:text-[7px] text-white/60">
                 {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
               </span>
-            </td>
+            </div>
           </>
         ) : (
           <>
-            <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[35%] sm:w-[30%] overflow-hidden text-ellipsis">
-              <div className="flex flex-col items-center gap-1">
-                <span
-                  className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${
-                    tx.type === 'receive'
-                      ? 'bg-neon-green/20 text-neon-green'
-                      : tx.type === 'send'
-                      ? 'bg-neon-blue/20 text-neon-blue'
-                      : tx.type === 'swap'
-                      ? 'bg-purple-400/20 text-purple-400'
-                      : 'bg-white/20 text-white/60'
-                  }`}
-                >
-                  {typeDisplay}
-                </span>
-                <div className="flex items-center justify-center gap-2">
-                  {addressImage && (
-                    <img
-                      src={addressImage}
-                      alt={`${displayAddress} logo`}
-                      width={isMobile ? 12 : 14}
-                      height={isMobile ? 12 : 14}
-                      className="rounded-full"
-                      onError={(e) => (e.target.src = '/icons/default.webp')}
-                      loading="lazy"
-                    />
-                  )}
-                  <a
-                    href={addressUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-neon-blue hover:text-neon-blue/80 truncate"
-                    title={addressToShow}
-                  >
-                    {displayAddress}
-                  </a>
-                </div>
+            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center justify-center overflow-hidden text-ellipsis">
+              <div className="flex flex-col items-center">
+                <span className="font-semibold">{displayValue}</span>
+                {tx.value_usd != null && (
+                  <span className="text-[7px] sm:text-[9px] text-gray-500">
+                    ${Number(tx.value_usd).toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                  </span>
+                )}
               </div>
-            </td>
-            <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[38%] sm:w-[40%] overflow-hidden text-ellipsis">
-              {displayValue}
-            </td>
-            <td className="px-2 sm:px-3 py-2 text-white/80 text-[9px] sm:text-[10px] text-center w-[15%] sm:w-[20%] overflow-hidden text-ellipsis">
-              <div className="flex flex-col items-center gap-0.5">
-                <a href={txUrl} target="_blank" rel="noopener noreferrer">
-                  <img
-                    src="/logos/etherscan-logo.webp"
-                    alt="Explorer"
-                    width={isMobile ? 12 : 14}
-                    height={isMobile ? 12 : 14}
-                    className="rounded-full"
-                    onError={(e) => (e.target.src = '/fallback-image.webp')}
-                    loading="lazy"
-                  />
-                </a>
-                <span className="text-[6px] sm:text-[7px] text-white/60">
-                  {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
-                </span>
-              </div>
-            </td>
+            </div>
+            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center justify-center gap-2 overflow-hidden text-ellipsis">
+              <img
+                src="/logos/solscan.webp"
+                alt="Solscan Explorer"
+                width={isMobile ? 12 : 14}
+                height={isMobile ? 12 : 14}
+                className="rounded-full"
+                onError={(e) => (e.target.src = '/fallback-image.webp')}
+                loading="lazy"
+              />
+              <a
+                href={txUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-neon-blue hover:text-neon-blue/80 truncate"
+                title={tx.hash}
+              >
+                {truncatedHash}
+              </a>
+            </div>
+            <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex items-center justify-center overflow-hidden text-ellipsis">
+              <span className="text-[8px] sm:text-[9px] text-white/60">
+                {tx.block_time ? formatDistanceToNow(new Date(tx.block_time), { addSuffix: true }) : 'N/A'}
+              </span>
+            </div>
           </>
         )}
-      </motion.tr>
+      </motion.div>
     );
   };
 
@@ -1376,61 +1353,63 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 {watchlists.length === 0 ? (
                   <p className="text-[9px] sm:text-[10px] text-white/60 text-center">No wallets added</p>
                 ) : (
-                  watchlists.map((wallet) => (
-                    <motion.div
-                      key={wallet.address}
-                      onClick={() => {
-                        setIsUserInitiatedChange(true);
-                        setSelectedWallet(wallet);
-                        setActiveChainType(wallet?.chainType || 'EVM');
-                        setBalances([]);
-                        setTransactions([]);
-                        setTokenInfo({});
-                        setActiveChain(null);
-                        setCurrentPage({ PORTFOLIO: 1, ACTIVITY: 1 });
-                        lastSelectedWalletRef.current = wallet.address;
-                        updateUrl(wallet.address);
-                        setShowWatchlistSidebar(false);
-                      }}
-                      className={`flex items-center justify-between p-2 mb-2 cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                        ? 'border-white/80 bg-white/10'
-                        : 'border-transparent bg-white/5 hover:bg-neon-blue/10'
-                        }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.image && (
-                          <img
-                            src={nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address].image}
-                            alt={`${nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'} logo`}
-                            width={isMobile ? 14 : 16}
-                            height={isMobile ? 14 : 16}
-                            className="rounded-full"
-                            onError={(e) => (e.target.src = '/icons/default.webp')}
-                            loading="lazy"
-                          />
-                        )}
-                        <div className="flex flex-col">
-                          <span className="text-[9px] sm:text-[10px] text-white font-bold">
-                            {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'}
-                          </span>
-                          <span className="text-[8px] sm:text-[9px] text-white/60 truncate max-w-[120px] sm:max-w-[150px]">
-                            {wallet.address}
-                          </span>
-                        </div>
-                      </div>
-                      <motion.button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveWallet(wallet.address);
+                  watchlists.map((wallet) => {
+                    const { text: truncatedWalletAddress } = truncateAddress(wallet.address, nameTags);
+                    return (
+                      <motion.div
+                        key={wallet.address}
+                        onClick={() => {
+                          setIsUserInitiatedChange(true);
+                          setSelectedWallet(wallet);
+                          setActiveChainType(wallet?.chainType || 'EVM');
+                          setBalances([]);
+                          setTransactions([]);
+                          setTokenInfo({});
+                          setActiveChain(null);
+                          lastSelectedWalletRef.current = wallet.address;
+                          updateUrl(wallet.address);
+                          setShowWatchlistSidebar(false);
                         }}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="text-[8px] sm:text-[9px] text-red-400/80 hover:text-red-400"
+                        className={`flex items-center justify-between p-2 mb-2 cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
+                          ? 'border-white/80 bg-white/10'
+                          : 'border-transparent bg-white/5 hover:bg-neon-blue/10'
+                          }`}
                       >
-                        ✕
-                      </motion.button>
-                    </motion.div>
-                  ))
+                        <div className="flex items-center gap-2">
+                          {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.image && (
+                            <img
+                              src={nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address].image}
+                              alt={`${nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'} logo`}
+                              width={isMobile ? 14 : 16}
+                              height={isMobile ? 14 : 16}
+                              className="rounded-full"
+                              onError={(e) => (e.target.src = '/icons/default.webp')}
+                              loading="lazy"
+                            />
+                          )}
+                          <div className="flex flex-col">
+                            <span className="text-[9px] sm:text-[10px] text-white font-bold">
+                              {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'}
+                            </span>
+                            <span className="text-[8px] sm:text-[9px] text-white/60 truncate max-w-[120px] sm:max-w-[150px]">
+                              {truncatedWalletAddress}
+                            </span>
+                          </div>
+                        </div>
+                        <motion.button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveWallet(wallet.address);
+                          }}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="text-[8px] sm:text-[9px] text-red-400/80 hover:text-red-400"
+                        >
+                          ✕
+                        </motion.button>
+                      </motion.div>
+                    );
+                  })
                 )}
               </div>
             </motion.div>
@@ -1466,60 +1445,62 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         {watchlists.length === 0 ? (
           <p className="text-[9px] sm:text-[10px] text-white/60 text-center">No wallets added</p>
         ) : (
-          watchlists.map((wallet) => (
-            <motion.div
-              key={wallet.address}
-              onClick={() => {
-                setIsUserInitiatedChange(true);
-                setSelectedWallet(wallet);
-                setActiveChainType(wallet?.chainType || 'EVM');
-                setBalances([]);
-                setTransactions([]);
-                setTokenInfo({});
-                setActiveChain(null);
-                setCurrentPage({ PORTFOLIO: 1, ACTIVITY: 1 });
-                lastSelectedWalletRef.current = wallet.address;
-                updateUrl(wallet.address);
-              }}
-              className={`flex items-center justify-between p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
-                ? 'border-neon-blue bg-white/10'
-                : 'border-transparent bg-white/5 hover:bg-neon-blue/10'
-                }`}
-            >
-              <div className="flex items-center gap-2">
-                {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.image && (
-                  <img
-                    src={nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address].image}
-                    alt={`${nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'} logo`}
-                    width={isMobile ? 14 : 16}
-                    height={isMobile ? 14 : 16}
-                    className="rounded-full"
-                    onError={(e) => (e.target.src = '/icons/default.webp')}
-                    loading="lazy"
-                  />
-                )}
-                <div className="flex flex-col">
-                  <span className="text-[9px] sm:text-[10px] text-white font-bold">
-                    {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'}
-                  </span>
-                  <span className="text-[8px] sm:text-[9px] text-white/60 truncate max-w-[120px] sm:max-w-[150px]">
-                    {wallet.address}
-                  </span>
-                </div>
-              </div>
-              <motion.button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRemoveWallet(wallet.address);
+          watchlists.map((wallet) => {
+            const { text: truncatedWalletAddress } = truncateAddress(wallet.address, nameTags);
+            return (
+              <motion.div
+                key={wallet.address}
+                onClick={() => {
+                  setIsUserInitiatedChange(true);
+                  setSelectedWallet(wallet);
+                  setActiveChainType(wallet?.chainType || 'EVM');
+                  setBalances([]);
+                  setTransactions([]);
+                  setTokenInfo({});
+                  setActiveChain(null);
+                  lastSelectedWalletRef.current = wallet.address;
+                  updateUrl(wallet.address);
                 }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="text-[8px] sm:text-[9px] text-red-400/80 hover:text-red-400"
+                className={`flex items-center justify-between p-2 mb-2 rounded-lg cursor-pointer transition-all duration-300 border-l-4 ${selectedWallet?.address === wallet.address
+                  ? 'border-neon-blue bg-white/10'
+                  : 'border-transparent bg-white/5 hover:bg-neon-blue/10'
+                  }`}
               >
-                ✕
-              </motion.button>
-            </motion.div>
-          ))
+                <div className="flex items-center gap-2">
+                  {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.image && (
+                    <img
+                      src={nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address].image}
+                      alt={`${nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'} logo`}
+                      width={isMobile ? 14 : 16}
+                      height={isMobile ? 14 : 16}
+                      className="rounded-full"
+                      onError={(e) => (e.target.src = '/icons/default.webp')}
+                      loading="lazy"
+                    />
+                  )}
+                  <div className="flex flex-col">
+                    <span className="text-[9px] sm:text-[10px] text-white font-bold">
+                      {nameTags[wallet.chainType === 'EVM' ? wallet.address.toLowerCase() : wallet.address]?.nameTag || wallet.name || 'Unnamed Wallet'}
+                    </span>
+                    <span className="text-[8px] sm:text-[9px] text-white/60 truncate max-w-[120px] sm:max-w-[150px]">
+                      {truncatedWalletAddress}
+                    </span>
+                  </div>
+                </div>
+                <motion.button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveWallet(wallet.address);
+                  }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="text-[8px] sm:text-[9px] text-red-400/80 hover:text-red-400"
+                >
+                  ✕
+                </motion.button>
+              </motion.div>
+            );
+          })
         )}
       </div>
 
@@ -1546,34 +1527,55 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.nameTag || selectedWallet.name || 'Unnamed Wallet'}
                     </span>
                     <div className="relative flex items-center group">
-                      <span className="text-[9px] sm:text-[10px] text-white/60 break-all">
-                        {selectedWallet.address}
-                      </span>
-                      <motion.button
-                        onClick={() => copyAddress(selectedWallet.address, toast)}
-                        className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                        whileHover={{ scale: 1.1, y: -2 }}
-                        whileTap={{ scale: 0.9 }}
-                        title="Copy Address"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="w-3 sm:w-3 h-3 sm:h-3"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="#f6ededff"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      </motion.button>
+                      {(() => {
+                        const { text: displayAddress } = truncateAddress(selectedWallet.address, nameTags);
+                        return (
+                          <>
+                            <span className="text-[9px] sm:text-[10px] text-white/60">{displayAddress}</span>
+                            <motion.button
+                              onClick={() => copyAddress(selectedWallet.address, toast)}
+                              className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                              whileHover={{ scale: 1.1, y: -2 }}
+                              whileTap={{ scale: 0.9 }}
+                              title="Copy Address"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-3 sm:w-3 h-3 sm:h-3"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="#f6ededff"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            </motion.button>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
-                <div className="text-xs sm:text-sm text-white/80 font-bold">
-                  Total Value: ${totalValueUSD}
+                <div className="flex items-center gap-2 p-3 bg-black/50 rounded-xl border border-white/10">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4 text-emerald-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span className="text-sm font-bold text-white">
+                    Total Value: ${totalValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                  </span>
                 </div>
               </div>
               <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-1 no-scrollbar virtuoso-container">
@@ -1589,14 +1591,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   <Tooltip key={chain} text={chain.charAt(0).toUpperCase() + chain.slice(1)}>
                     <motion.button
                       onClick={() => setActiveChain(chain)}
-                      className={`flex items-center justify-center rounded-full flex-shrink-0 z-10 min-w-[22px] sm:min-w-[22px] m-1 ${activeChain === chain ? 'border-neon-blue bg-neon-blue/20' : 'border-white/10 bg-white/5'}`}
+                      className={`flex items-center justify-center rounded-lg flex-shrink-0 z-10 min-w-[22px] sm:min-w-[22px] m-1 ${activeChain === chain ? 'border-neon-blue bg-neon-blue/20' : 'border-white/10 bg-white/5'}`}
                     >
                       <img
                         src={getPlatformImage(chain)}
                         alt={chain}
                         width={isMobile ? 18 : 20}
                         height={isMobile ? 18 : 20}
-                        className="rounded-full object-contain block flex-shrink-0"
+                        className="rounded-lg object-contain block flex-shrink-0"
                         onError={(e) => (e.target.src = chain === 'eclipse' ? '/eclipse-logo.webp' : '/fallback-image.webp')}
                         loading="lazy"
                       />
@@ -1621,7 +1623,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 ))}
               </div>
 
-              <div className="flex-1 overflow-y-auto no-scrollbar border border-white/10 bg-white/5 rounded-b-xl relative">
+              <div className="flex-1 border border-white/10 bg-white/5 rounded-b-xl relative">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeTab}
@@ -1632,132 +1634,100 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     className="h-full relative"
                   >
                     {activeTab === 'PORTFOLIO' && (
-                      <div className="relative h-full">
-                        <LoadingOverlay
-                          className="h-full z-50"
-                          isLoading={loadingStates.balances || loadingStates.tokenInfo}
-                          isMobile={isMobile}
-                        />
+                      <div className="h-full p-2 sm:p-3 flex flex-col relative">
+                        <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.balances || loadingStates.tokenInfo} isMobile={isMobile} />
                         {error ? (
-                          <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 h-full flex items-center justify-center">
-                            Error: {error}
-                          </p>
+                          <div className="flex-1 flex items-center justify-center">
+                            <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3">
+                              Error: {error}
+                            </p>
+                          </div>
                         ) : filteredBalances.length > 0 ? (
-                          <Virtuoso
-                            style={{ height: '100%' }}
-                            className="no-scrollbar virtuoso-container"
-                            data={getPaginatedData(filteredBalances, 'PORTFOLIO')}
-                            itemContent={(index, token) => (
-                              <table className="w-full text-[9px] sm:text-[10px]">
-                                <tbody>{renderTokenRow(token)}</tbody>
-                              </table>
-                            )}
-                            components={{
-                              Footer: () => (
-                                <div className="p-2 sm:p-3">
-                                  {getTotalPages(filteredBalances) > 1 && (
-                                    <div className="flex justify-center items-center gap-2">
-                                      <motion.button
-                                        onClick={() => handlePageChange('PORTFOLIO', currentPage.PORTFOLIO - 1)}
-                                        disabled={currentPage.PORTFOLIO === 1}
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] text-white border border-white/10 rounded-xl ${currentPage.PORTFOLIO === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                                          }`}
-                                      >
-                                        Previous
-                                      </motion.button>
-                                      <span className="text-[9px] sm:text-[10px] text-white/80">
-                                        Page {currentPage.PORTFOLIO} of {getTotalPages(filteredBalances)}
-                                      </span>
-                                      <motion.button
-                                        onClick={() => handlePageChange('PORTFOLIO', currentPage.PORTFOLIO + 1)}
-                                        disabled={currentPage.PORTFOLIO >= getTotalPages(filteredBalances)}
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] text-white border border-white/10 rounded-xl ${currentPage.PORTFOLIO >= getTotalPages(filteredBalances)
-                                          ? 'opacity-50 cursor-not-allowed'
-                                          : 'hover:bg-neon-blue/20'
-                                          }`}
-                                      >
-                                        Next
-                                      </motion.button>
-                                    </div>
-                                  )}
-                                </div>
-                              ),
-                            }}
-                          />
+                          <div className="space-y-2 flex-1 flex flex-col">
+                            <div className="flex-1 bg-black/80 rounded-xl border border-white/10 overflow-hidden">
+                              <div className="flex bg-black/10 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
+                                <div className="w-[25%] px-2 text-left">Token</div>
+                                <div className="w-[45%] px-2 text-center">Balance</div>
+                                <div className="w-[30%] px-2 text-center">Percentage</div>
+                              </div>
+                              <div className="overflow-y-auto custom-scrollbar" style={{ height: 'calc(100% - 2.5rem)' }}>
+                                <Virtuoso
+                                  className="custom-scrollbar"
+                                  style={{ height: '100%' }}
+                                  data={filteredBalances}
+                                  itemContent={renderTokenRow}
+                                  overscan={400}
+                                  components={{
+                                    EmptyPlaceholder: () => null,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         ) : (
-                          <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3 h-full flex items-center justify-center">
-                            {loadingStates.balances || loadingStates.tokenInfo
-                              ? 'Loading balances...'
-                              : 'No balances found for this wallet.'}
-                          </p>
+                          <div className="flex-1 flex items-center justify-center">
+                            <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3">
+                              {loadingStates.balances || loadingStates.tokenInfo
+                                ? 'Loading balances...'
+                                : 'No balances found for this wallet.'}
+                            </p>
+                          </div>
                         )}
                       </div>
                     )}
                     {activeTab === 'ACTIVITY' && (
-                      <div className="relative h-full">
-                        <LoadingOverlay
-                          className="h-full z-50"
-                          isLoading={loadingStates.transactions}
-                          isMobile={isMobile}
-                        />
+                      <div className="h-full p-2 sm:p-3 flex flex-col relative">
+                        <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.transactions} isMobile={isMobile} />
                         {transactionsError ? (
-                          <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 h-full flex items-center justify-center">
-                            Error: {transactionsError.message || 'Failed to load transactions'}
-                          </p>
+                          <div className="flex-1 flex items-center justify-center">
+                            <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3">
+                              Error: {transactionsError.message || 'Failed to load transactions'}
+                            </p>
+                          </div>
                         ) : filteredTransactions.length > 0 ? (
-                          <Virtuoso
-                            style={{ height: '100%' }}
-                            className="no-scrollbar virtuoso-container"
-                            data={getPaginatedData(filteredTransactions, 'ACTIVITY')}
-                            itemContent={(index, tx) => (
-                              <table className="w-full text-[9px] sm:text-[10px]">
-                                <tbody>{renderTransactionRow(tx, index)}</tbody>
-                              </table>
-                            )}
-                            components={{
-                              Footer: () => (
-                                <div className="p-2 sm:p-3">
-                                  {getTotalPages(filteredTransactions) > 1 && (
-                                    <div className="flex justify-center items-center gap-2">
-                                      <motion.button
-                                        onClick={() => handlePageChange('ACTIVITY', currentPage.ACTIVITY - 1)}
-                                        disabled={currentPage.ACTIVITY === 1}
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] text-white border border-white/10 rounded-xl ${currentPage.ACTIVITY === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'
-                                          }`}
-                                      >
-                                        Previous
-                                      </motion.button>
-                                      <span className="text-[9px] sm:text-[10px] text-white/80">
-                                        Page {currentPage.ACTIVITY} of {getTotalPages(filteredTransactions)}
-                                      </span>
-                                      <motion.button
-                                        onClick={() => handlePageChange('ACTIVITY', currentPage.ACTIVITY + 1)}
-                                        disabled={currentPage.ACTIVITY >= getTotalPages(filteredTransactions)}
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        className={`px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] text-white border border-white/10 rounded-xl ${currentPage.ACTIVITY >= getTotalPages(filteredTransactions)
-                                          ? 'opacity-50 cursor-not-allowed'
-                                          : 'hover:bg-neon-blue/20'
-                                          }`}
-                                      >
-                                        Next
-                                      </motion.button>
-                                    </div>
+                          (() => {
+                            const sampleTx = filteredTransactions[0];
+                            const isSVM = SUPPORTED_SVM_CHAINS.includes(sampleTx.chain);
+                            return (
+                              <div className="flex-1 bg-black/80 rounded-xl border border-white/10 overflow-hidden">
+                                <div className="flex bg-black/10 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
+                                  {!isSVM ? (
+                                    <>
+                                      <div className="w-[25%] px-2 text-left">Token</div>
+                                      <div className="w-[25%] px-2 text-center">Address</div>
+                                      <div className="w-[25%] px-2 text-center">Balance</div>
+                                      <div className="w-[25%] px-2 text-center">Tx / Time</div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="w-[25%] px-2 text-left">Token</div>
+                                      <div className="w-[25%] px-2 text-center">Balance</div>
+                                      <div className="w-[25%] px-2 text-center">Tx</div>
+                                      <div className="w-[25%] px-2 text-center">Time</div>
+                                    </>
                                   )}
                                 </div>
-                              ),
-                            }}
-                          />
+                                <div className="overflow-y-auto custom-scrollbar" style={{ height: 'calc(100% - 2.5rem)' }}>
+                                  <Virtuoso
+                                    className="custom-scrollbar"
+                                    style={{ height: '100%' }}
+                                    data={filteredTransactions}
+                                    itemContent={renderTransactionRow}
+                                    overscan={400}
+                                    components={{
+                                      EmptyPlaceholder: () => null,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()
                         ) : (
-                          <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3 h-full flex items-center justify-center">
-                            {loadingStates.transactions ? 'Loading transactions...' : 'No transactions found for this wallet.'}
-                          </p>
+                          <div className="flex-1 flex items-center justify-center">
+                            <p className="text-[9px] sm:text-[10px] text-white/60 text-center p-2 sm:p-3">
+                              {loadingStates.transactions ? 'Loading transactions...' : 'No transactions found for this wallet.'}
+                            </p>
+                          </div>
                         )}
                       </div>
                     )}
