@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState , useMemo} from "react"
 import { motion, useInView, useScroll, useTransform } from "framer-motion"
 import { Canvas, useFrame } from "@react-three/fiber"
-import { OrbitControls, Sphere, Float, Environment, Stars, PointsMaterial } from "@react-three/drei"
+import { OrbitControls, Sphere, Float, Environment, Stars } from "@react-three/drei"
 import { ArrowUpRight } from "lucide-react"
 import Lenis from "@studio-freight/lenis"
 import { gsap } from "gsap"
@@ -306,7 +306,6 @@ function SimulatedTreemap() {
 function UniverseBackground() {
   const groupRef = useRef(null)
   const starsRef = useRef(null)
-  const galaxyRef = useRef(null)
 
   useFrame((state) => {
     if (groupRef.current) {
