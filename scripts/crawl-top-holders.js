@@ -368,20 +368,24 @@ async function saveHoldersToDatabase(holders, chainName, chainLabel) {
       const batch = holders.slice(i, i + BATCH_SIZE);
       await withRetry(async () => {
         await prisma.$transaction(
-          batch.map((holder) =>
-            prisma.top_holders.upsert({
+          batch.map((holder) => {
+            const updateData = {
+              balance: holder.balance,
+              image: holder.image,
+              updated_at: new Date(),
+            };
+            // Chỉ cập nhật name_tag nếu nó không null từ nguồn
+            if (holder.name_tag !== null) {
+              updateData.name_tag = holder.name_tag;
+            }
+            return prisma.top_holders.upsert({
               where: {
                 chain_address: {
                   chain: chainLabel,
                   address: holder.address,
                 },
               },
-              update: {
-                balance: holder.balance,
-                name_tag: holder.name_tag,
-                image: holder.image,
-                updated_at: new Date(),
-              },
+              update: updateData,
               create: {
                 chain: chainLabel,
                 address: holder.address,
@@ -391,8 +395,8 @@ async function saveHoldersToDatabase(holders, chainName, chainLabel) {
                 created_at: new Date(),
                 updated_at: new Date(),
               },
-            })
-          ),
+            });
+          }),
           { timeout: 10000 }
         );
       }, 3, 2000);

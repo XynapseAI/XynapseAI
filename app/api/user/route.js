@@ -515,7 +515,7 @@ export async function POST(request) {
     if (process.env.NODE_ENV !== 'development') {
       try {
         const { score } = await verifyRecaptcha(recaptchaToken, 'post_user', ip);
-        if (score < 0.7) {
+        if (score < 0.1) {
           newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
           await trackViolation(ip, 'reCAPTCHA score too low');
           return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });

@@ -1,14 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url'; // Thêm dòng này
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 📁 Thư mục chứa các file JSON
 const jsonFolder = path.join(__dirname, '../public/nametags');
 
-// 🧠 Mapping từ keyword -> ảnh
 const keywordToImage = {
   binance: 'binance.webp',
   coinbase: 'coinbase.webp',
@@ -104,6 +102,14 @@ const keywordToImage = {
   '1inch': '1inch.webp',
   lido: 'lido.webp',
   gemini: 'gemini.webp',
+  avalanche: 'avalanche.webp',
+  wormhole: 'wormhole.webp',
+  htx: 'htx.webp',
+  eigen: 'eigenlayer.webp',
+  blast: 'blast.webp',
+  immutable: 'immutable.webp',
+  kelpdao: 'kelpdao.webp',
+  ens: 'ens.webp',
 };
 
 const getImageFromNameTag = (nameTag = '') => {
@@ -116,7 +122,6 @@ const getImageFromNameTag = (nameTag = '') => {
   return '/icons/default.webp';
 };
 
-// 📂 Duyệt toàn bộ các file JSON
 fs.readdirSync(jsonFolder).forEach((file) => {
   if (file.endsWith('.json')) {
     const filePath = path.join(jsonFolder, file);

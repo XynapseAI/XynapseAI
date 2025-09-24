@@ -321,60 +321,58 @@ export default function UniversalSearch({
                   <X size={config.icon} />
                 </motion.button>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 mobile-scroll">
-                <div className="relative min-h-[100px]">
-                  <LoadingOverlay isLoading={isLoading} isMobile={window.innerWidth <= 640} className="z-[60]" />
-                  {searchResults.length > 0 ? (
-                    searchResults.map((result) => (
-                      <motion.button
-                        key={result.id}
-                        onClick={() => handleResultSelect(result)}
-                        className={`flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white transition-all duration-300 border-b border-white/5 last:border-b-0 ${config.modalResult}`}
-                        whileHover={{ x: 4 }}
-                        role="option"
-                        aria-selected={false}
-                      >
-                        <div className="flex items-center mr-2">
-                          {result.image ? (
-                            <img
-                              src={result.image || "/placeholder.svg"}
-                              alt={`${result.name} logo`}
-                              className={`rounded-full mr-2 ${config.image}`}
-                              onError={(e) => {
-                                e.target.style.display = "none";
-                                e.target.nextSibling.style.display = "flex";
-                              }}
-                            />
-                          ) : null}
-                          <div
-                            className="flex items-center justify-center mr-2"
-                            style={{ display: result.image ? "none" : "flex" }}
-                          >
-                            {getResultIcon(result.type)}
-                          </div>
+              <div className="flex-1 overflow-y-auto p-4 mobile-scroll relative">
+                <LoadingOverlay isLoading={isLoading} isMobile={window.innerWidth <= 640} className="absolute inset-0 z-[60]" />
+                {searchResults.length > 0 ? (
+                  searchResults.map((result) => (
+                    <motion.button
+                      key={result.id}
+                      onClick={() => handleResultSelect(result)}
+                      className={`flex items-center w-full text-left px-3 py-2 hover:bg-white/10 text-white transition-all duration-300 border-b border-white/5 last:border-b-0 ${config.modalResult}`}
+                      whileHover={{ x: 4 }}
+                      role="option"
+                      aria-selected={false}
+                    >
+                      <div className="flex items-center mr-2">
+                        {result.image ? (
+                          <img
+                            src={result.image || "/placeholder.svg"}
+                            alt={`${result.name} logo`}
+                            className={`rounded-full mr-2 ${config.image}`}
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                              e.target.nextSibling.style.display = "flex";
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className="flex items-center justify-center mr-2"
+                          style={{ display: result.image ? "none" : "flex" }}
+                        >
+                          {getResultIcon(result.type)}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium truncate">{result.name}</span>
-                            <span className="text-10px sm:text-[11px] text-white/50 bg-white/10 px-1 py-0.5 rounded">
-                              {getTypeLabel(result.type)}
-                            </span>
-                          </div>
-                          {result.address && (
-                            <div className="text-xs text-white/40 font-mono truncate mt-0.5">{result.address}</div>
-                          )}
-                          {result.holder_addresses && result.holder_addresses.length > 0 && (
-                            <div className="text-xs text-white/40 truncate mt-0.5">
-                              {result.holder_addresses.length} wallets
-                            </div>
-                          )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">{result.name}</span>
+                          <span className="text-10px sm:text-[11px] text-white/50 bg-white/10 px-1 py-0.5 rounded">
+                            {getTypeLabel(result.type)}
+                          </span>
                         </div>
-                      </motion.button>
-                    ))
-                  ) : !isLoading ? (
-                    <p className="text-[10px] text-white/60 text-center mt-4">No results found.</p>
-                  ) : null}
-                </div>
+                        {result.address && (
+                          <div className="text-xs text-white/40 font-mono truncate mt-0.5">{result.address}</div>
+                        )}
+                        {result.holder_addresses && result.holder_addresses.length > 0 && (
+                          <div className="text-xs text-white/40 truncate mt-0.5">
+                            {result.holder_addresses.length} wallets
+                          </div>
+                        )}
+                      </div>
+                    </motion.button>
+                  ))
+                ) : !isLoading ? (
+                  <p className="text-[10px] text-white/60 text-center mt-4">No results found.</p>
+                ) : null}
               </div>
             </motion.div>
           </motion.div>

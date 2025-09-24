@@ -11,7 +11,7 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className={`fixed inset-0 flex items-center justify-center bg-black/80 z-[1000] backdrop-blur-sm ${className}`}
+        className={`fixed inset-0 flex items-center justify-center bg-black/80 rounded-xl z-[1000] backdrop-blur-sm ${className}`}
         style={{ WebkitBackdropFilter: 'blur(4px)' }}
         aria-label="Loading animation"
       >
