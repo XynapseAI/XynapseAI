@@ -248,27 +248,23 @@ async function hashApiKey(apiKey) {
   };
 }
 
-// CẢI THIỆN CSP: Loại bỏ 'unsafe-eval', thêm các directive chặt chẽ hơn để chống XSS tốt hơn.
-// Nếu app có inline script, thêm nonce (ví dụ: generate random nonce và set trong header).
-// Nếu cần eval() cho thư viện cụ thể, có thể thêm 'sha256-<hash>' thay vì unsafe-eval.
 function securityHeaders(csrfToken = null) {
-  // Tạo nonce nếu cần (cho inline script an toàn hơn unsafe-eval)
   const nonce = crypto.randomBytes(16).toString('base64');
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'nonce-" + nonce + "'",  // Thay 'unsafe-eval' bằng nonce cho inline script nếu cần
+    "script-src 'self' 'nonce-" + nonce + "'", 
     "style-src 'self'",
-    "img-src 'self' data: https:",  // Cho phép hình ảnh từ self, data URI, HTTPS
-    "connect-src 'self'",  // Hạn chế API calls
+    "img-src 'self' data: https:", 
+    "connect-src 'self'", 
     "object-src 'none'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
-    "form-action 'self'"  // Thêm để hạn chế form submit
+    "form-action 'self'"
   ].join('; ');
 
   const headers = {
     'Content-Security-Policy': csp,
-    'Content-Security-Policy-Nonce': nonce,  // Nếu dùng nonce
+    'Content-Security-Policy-Nonce': nonce,
     'X-Frame-Options': 'DENY',
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
