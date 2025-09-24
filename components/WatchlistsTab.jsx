@@ -1329,9 +1329,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               <LoadingOverlay isLoading={loadingStates.loading} isMobile={isMobile} />
               <div className="p-2">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
-                    Watchlist
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
+                      Watchlist
+                    </h3>
+                  </div>
                   <motion.button
                     onClick={() => setShowAddModal(true)}
                     whileHover={{ scale: 1.05 }}
@@ -1421,9 +1426,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       <div className="hidden sm:block w-[20%] h-[94%] border border-white/10 rounded-xl p-3 sm:p-4 mt-3 overflow-y-auto custom-scrollbar bg-white/5 relative">
         <LoadingOverlay isLoading={loadingStates.loading} isMobile={isMobile} />
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
-            Watchlist
-          </h3>
+          <div className="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
+              Watchlist
+            </h3>
+          </div>
           <motion.button
             onClick={() => setShowAddModal(true)}
             whileHover={{ scale: 1.05 }}
@@ -1508,7 +1518,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       <div className="w-full sm:w-[80%] p-2 sm:p-3 flex flex-col">
         {selectedWallet ? (
           <>
-            <div className="h-[20%] border border-white/10 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex flex-col justify-between rounded-xl relative">
+            <div className="h-[20%] border border-white/10 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex flex-col justify-between rounded-xl relative shadow-lg shadow-neon-blue/20">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.image && (
@@ -1558,7 +1568,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 p-3 bg-black/50 rounded-xl border border-white/10">
+                <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-black/70 to-black/50 rounded-xl border border-white/10 shadow-md shadow-neon-blue/10">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-4 w-4 text-emerald-400"
@@ -1573,9 +1583,12 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  <span className="text-sm font-bold text-white">
-                    Total Value: ${totalValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs sm:text-sm font-bold text-white">Total Value:</span>
+                    <span className="text-xs sm:text-sm font-bold bg-gradient-to-r from-neon-blue to-emerald-400 bg-clip-text text-transparent">
+                      ${totalValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-1 no-scrollbar virtuoso-container">
@@ -1610,20 +1623,30 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
             {/* Tabs: Portfolio & Activity (80% height) */}
             <div className="h-[84%] flex flex-col">
-              <div className="flex w-full border border-white/10 mt-3 bg-white/5 rounded-t-xl">
+              <div className="flex w-full border border-white/10 mt-3 bg-white/5 rounded-t-xl shadow-md shadow-neon-blue/10">
                 {['PORTFOLIO', 'ACTIVITY'].map((tab) => (
                   <motion.button
                     key={tab}
                     onClick={() => handleTabClick(tab)}
-                    className={`flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white/80'
-                      } last:border-r-0`}
+                    className={`flex items-center justify-center gap-1 flex-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-medium ${activeTab === tab ? 'border-b-2 border-white text-white' : 'text-white/80'
+                      } last:border-r-0 relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-gradient-to-r after:from-neon-blue after:to-emerald-400 after:opacity-0 after:group-hover:opacity-100`}
                   >
-                    {tab}
+                    {tab === 'PORTFOLIO' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                    )}
+                    {tab === 'ACTIVITY' && (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    <span>{tab}</span>
                   </motion.button>
                 ))}
               </div>
 
-              <div className="flex-1 border border-white/10 bg-white/5 rounded-b-xl relative">
+              <div className="flex-1 border border-white/10 bg-white/5 rounded-b-xl relative shadow-lg shadow-neon-blue/20">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeTab}
@@ -1638,17 +1661,32 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.balances || loadingStates.tokenInfo} isMobile={isMobile} />
                         {error ? (
                           <div className="flex-1 flex items-center justify-center">
-                            <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3">
+                            <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 rounded-lg">
                               Error: {error}
                             </p>
                           </div>
                         ) : filteredBalances.length > 0 ? (
                           <div className="space-y-2 flex-1 flex flex-col">
-                            <div className="flex-1 bg-black/80 rounded-xl border border-white/10 overflow-hidden">
-                              <div className="flex bg-black/10 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
-                                <div className="w-[25%] px-2 text-left">Token</div>
-                                <div className="w-[45%] px-2 text-center">Balance</div>
-                                <div className="w-[30%] px-2 text-center">Percentage</div>
+                            <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-xl border border-white/10 overflow-hidden shadow-inner">
+                              <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
+                                <div className="w-[25%] px-2 flex items-center gap-1 text-left">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Token
+                                </div>
+                                <div className="w-[45%] px-2 flex items-center justify-center gap-1 text-center">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Balance
+                                </div>
+                                <div className="w-[30%] px-2 flex items-center justify-center gap-1 text-center">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                  </svg>
+                                  Percentage
+                                </div>
                               </div>
                               <div className="overflow-y-auto custom-scrollbar" style={{ height: 'calc(100% - 2.5rem)' }}>
                                 <Virtuoso
@@ -1680,7 +1718,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                         <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.transactions} isMobile={isMobile} />
                         {transactionsError ? (
                           <div className="flex-1 flex items-center justify-center">
-                            <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3">
+                            <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 rounded-lg">
                               Error: {transactionsError.message || 'Failed to load transactions'}
                             </p>
                           </div>
@@ -1689,21 +1727,61 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                             const sampleTx = filteredTransactions[0];
                             const isSVM = SUPPORTED_SVM_CHAINS.includes(sampleTx.chain);
                             return (
-                              <div className="flex-1 bg-black/80 rounded-xl border border-white/10 overflow-hidden">
-                                <div className="flex bg-black/10 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
+                              <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-xl border border-white/10 overflow-hidden shadow-inner">
+                                <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
                                   {!isSVM ? (
                                     <>
-                                      <div className="w-[25%] px-2 text-left">Token</div>
-                                      <div className="w-[25%] px-2 text-center">Address</div>
-                                      <div className="w-[25%] px-2 text-center">Balance</div>
-                                      <div className="w-[25%] px-2 text-center">Tx / Time</div>
+                                      <div className="w-[25%] px-2 flex items-center gap-1 text-left">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Token
+                                      </div>
+                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                        Address
+                                      </div>
+                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Balance
+                                      </div>
+                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Tx / Time
+                                      </div>
                                     </>
                                   ) : (
                                     <>
-                                      <div className="w-[25%] px-2 text-left">Token</div>
-                                      <div className="w-[25%] px-2 text-center">Balance</div>
-                                      <div className="w-[25%] px-2 text-center">Tx</div>
-                                      <div className="w-[25%] px-2 text-center">Time</div>
+                                      <div className="w-[25%] px-2 flex items-center gap-1 text-left">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Token
+                                      </div>
+                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Balance
+                                      </div>
+                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Tx
+                                      </div>
+                                      <div className="w-[25%] px-2 flex items-center gap-1 text-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Time
+                                      </div>
                                     </>
                                   )}
                                 </div>
@@ -1737,7 +1815,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             </div>
           </>
         ) : (
-          <div className="h-full flex items-center justify-center border border-white/10 bg-white/5 rounded-xl">
+          <div className="h-full flex items-center justify-center border border-white/10 bg-white/5 rounded-xl shadow-lg shadow-neon-blue/20">
             <p className="text-[9px] sm:text-[10px] text-white/60 text-center">
               {watchlists.length === 0 ? 'Add a wallet to your watchlist to get started.' : 'Select a wallet from the watchlist.'}
             </p>
@@ -1761,10 +1839,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="w-[90%] sm:w-[400px] bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 sm:p-4"
+              className="w-[90%] sm:w-[400px] bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 sm:p-4 shadow-2xl shadow-neon-blue/30"
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider mb-3">
+              <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
                 Add Wallet to Watchlist
               </h3>
               <div className="mb-3">
@@ -1773,7 +1854,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   type="text"
                   value={newWalletName}
                   onChange={(e) => setNewWalletName(e.target.value)}
-                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-white bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-neon-blue"
+                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-white bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-neon-blue shadow-md"
                   placeholder="Enter wallet name"
                 />
               </div>
@@ -1783,7 +1864,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   type="text"
                   value={newAddress}
                   onChange={(e) => setNewAddress(e.target.value.trim())}
-                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-white bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-neon-blue"
+                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-white bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-neon-blue shadow-md"
                   placeholder="Enter wallet address"
                 />
               </div>
@@ -1792,7 +1873,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 <select
                   value={newChainType}
                   onChange={(e) => setNewChainType(e.target.value)}
-                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-white bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-neon-blue"
+                  className="w-full mt-1 p-2 text-[9px] sm:text-[10px] text-white bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-neon-blue shadow-md"
                 >
                   <option value="EVM">EVM</option>
                   <option value="SVM">SVM</option>
@@ -1811,7 +1892,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] text-white/80 border border-white/10 rounded-lg hover:bg-white/10"
+                  className="px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] text-white/80 border border-white/10 rounded-lg hover:bg-white/10 shadow-md"
                 >
                   Cancel
                 </motion.button>
@@ -1819,7 +1900,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   onClick={handleAddWallet}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] text-white bg-neon-blue/20 border border-neon-blue rounded-lg hover:bg-neon-blue/30"
+                  className="px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] text-white bg-gradient-to-r from-neon-blue/20 to-emerald-400/20 border border-neon-blue rounded-lg hover:from-neon-blue/30 hover:to-emerald-400/30 shadow-md shadow-neon-blue/20"
                 >
                   Add Wallet
                 </motion.button>

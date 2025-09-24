@@ -312,16 +312,36 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
       if (!result.data) {
         throw new Error(`No data found for exchange: ${mappedId}`);
       }
-      setExchangeData(result.data);
-      setCachedData(cacheKey, result.data);
-      logger.log("Fetched and cached exchange data:", { mappedId, data: result.data });
+
+      // Validate and process trust_score
+      const trustScore = result.data.trust_score !== undefined && result.data.trust_score !== null
+        ? Number(result.data.trust_score).toFixed(1) // Ensure trust score is a number with 1 decimal
+        : "N/A";
+
+      const exchangeData = {
+        ...result.data,
+        name: result.data.name || originalId.charAt(0).toUpperCase() + originalId.slice(1),
+        image: result.data.image || `/icons/${mappedId.toLowerCase()}.webp` || '/fallback-image.webp',
+        country: result.data.country || "N/A",
+        year_established: result.data.year_established || "N/A",
+        trust_score: trustScore,
+        trade_volume_24h_btc: Number(result.data.trade_volume_24h_btc) || 0,
+        centralized: result.data.centralized !== undefined ? result.data.centralized : true,
+        twitter_handle: result.data.twitter_handle || null,
+        url: result.data.url || null,
+      };
+
+      setExchangeData(exchangeData);
+      setCachedData(cacheKey, exchangeData);
+      logger.log("Fetched and cached exchange data:", { mappedId, trustScore: exchangeData.trust_score, data: exchangeData });
     } catch (err) {
+      const errorMessage = err.message || "Unknown error fetching exchange data";
       const fallback = {
         name: originalId.charAt(0).toUpperCase() + originalId.slice(1),
-        image: `/icons/${originalId.toLowerCase()}.webp`,
+        image: `/icons/${mappedId.toLowerCase()}.webp` || '/fallback-image.webp',
         country: "N/A",
         year_established: "N/A",
-        trust_score: "N/A",
+        trust_score: "N/A", // Fallback only if API fails completely
         trade_volume_24h_btc: 0,
         centralized: true,
         twitter_handle: null,
@@ -329,7 +349,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
       };
       setExchangeData(fallback);
       setCachedData(cacheKey, fallback);
-      const errorMessage = err.message || "Unknown error fetching exchange data";
       logger.error("Error fetching exchange data:", { originalId, mappedId, error: errorMessage, stack: err.stack });
       setError(errorMessage);
     } finally {
@@ -1767,7 +1786,28 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                     initial={{ scale: 0.9 }}
                     animate={{ scale: 1 }}
                   >
-                    Total Value: {formatPrice(totalPortfolioValue, currency, 2)}
+                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-black/70 to-black/50 rounded-xl border border-white/10 shadow-md shadow-neon-blue/10">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4 text-emerald-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs sm:text-sm font-bold text-white">Total Value:</span>
+                        <span className="text-xs sm:text-sm font-bold bg-gradient-to-r from-neon-blue to-emerald-400 bg-clip-text text-transparent">
+                          {formatPrice(totalPortfolioValue, currency, 2)}
+                        </span>
+                      </div>
+                    </div>
                   </motion.h4>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

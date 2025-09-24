@@ -14,7 +14,7 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
         className={`absolute inset-0 flex items-center justify-center bg-black/80 rounded-xl z-50 ${!isMobile ? "backdrop-blur-sm" : "backdrop-blur-sm"} ${className}`}
         aria-label="Loading animation"
       >
-        <div className={`relative rounded-xl ${isMobile ? "w-10 h-10" : "w-12 h-12"}`}>
+        <div className={`relative ${isMobile ? "w-10 h-10" : "w-12 h-12"}`}>
           <video
             autoPlay
             loop

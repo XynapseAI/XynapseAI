@@ -124,10 +124,10 @@
     "Balance": 329444.01763295,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Prime: Deposit Funder 1",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -184,10 +184,10 @@
     "Balance": 292784.4587924,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Kraken Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/kraken.webp"
       }
     }
   },
@@ -220,10 +220,10 @@
     "Balance": 261713.80172385,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Gemini Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/gemini.webp"
       }
     }
   },
@@ -364,10 +364,10 @@
     "Balance": 192893.93039418,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Revolut Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/revolut.webp"
       }
     }
   },
@@ -376,10 +376,10 @@
     "Balance": 192279.58821613,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Optimism ETHLockbox",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/optimism.webp"
       }
     }
   },
@@ -388,10 +388,10 @@
     "Balance": 188289.96486153,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Deribit Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/deribit.webp"
       }
     }
   },
@@ -448,10 +448,10 @@
     "Balance": 162248.74488644,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Paxos Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/paxos.webp"
       }
     }
   },
@@ -496,10 +496,10 @@
     "Balance": 138344.99004886,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Bitmine",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitmine.webp"
       }
     }
   },
@@ -544,10 +544,10 @@
     "Balance": 122690.91512109,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Bitmine",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitmine.webp"
       }
     }
   },
@@ -592,10 +592,10 @@
     "Balance": 113028.97448286,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Bitmine",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitmine.webp"
       }
     }
   },
@@ -604,10 +604,10 @@
     "Balance": 112972.07024768,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Bitmine",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitmine.webp"
       }
     }
   },
@@ -616,10 +616,10 @@
     "Balance": 108532.91745793,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -628,10 +628,10 @@
     "Balance": 108532.91737914,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -640,10 +640,10 @@
     "Balance": 108205.26718468,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -652,10 +652,10 @@
     "Balance": 108205.26706225,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -664,10 +664,10 @@
     "Balance": 108054.42518318,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -688,10 +688,10 @@
     "Balance": 107686.26664062,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -724,10 +724,10 @@
     "Balance": 103274.15725613,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Bitmine",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/bitmine.webp"
       }
     }
   },
@@ -844,10 +844,10 @@
     "Balance": 98770.46544473,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -856,10 +856,10 @@
     "Balance": 98770.46441553,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -868,10 +868,10 @@
     "Balance": 98770.46437563,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -880,10 +880,10 @@
     "Balance": 98770.46386562,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -928,10 +928,10 @@
     "Balance": 94923.81177178,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -976,10 +976,10 @@
     "Balance": 90645.2381247,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1000,10 +1000,10 @@
     "Balance": 90000.14565987,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Upbit Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/upbit.webp"
       }
     }
   },
@@ -1012,10 +1012,10 @@
     "Balance": 90000.14546339,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Upbit Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/upbit.webp"
       }
     }
   },
@@ -1024,10 +1024,10 @@
     "Balance": 90000.14533929,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Upbit Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/upbit.webp"
       }
     }
   },
@@ -1036,10 +1036,10 @@
     "Balance": 90000.14530517,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Upbit Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/upbit.webp"
       }
     }
   },
@@ -1048,10 +1048,10 @@
     "Balance": 90000.14527681,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Upbit Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/upbit.webp"
       }
     }
   },
@@ -1060,10 +1060,10 @@
     "Balance": 90000.14513116,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Upbit Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/upbit.webp"
       }
     }
   },
@@ -1072,10 +1072,10 @@
     "Balance": 90000.13569539,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Upbit Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/upbit.webp"
       }
     }
   },
@@ -1084,10 +1084,10 @@
     "Balance": 89854.99815639,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1132,10 +1132,10 @@
     "Balance": 85968.12156533,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1144,10 +1144,10 @@
     "Balance": 85968.12135791,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1180,10 +1180,10 @@
     "Balance": 84642.40758084,
     "Labels": {
       "ethereum": {
-        "Name Tag": null,
+        "Name Tag": "Coinbase Cold Wallet",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/coinbase.webp"
       }
     }
   },
