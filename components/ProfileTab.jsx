@@ -1109,7 +1109,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         <div className="flex items-center gap-1">
                           {userData.tier === 'Basic' ? (
                             <>
-                              <motion.button
+                              {/* <motion.button
                                 onClick={() => createChargeMutation.mutate()}
                                 disabled={createChargeMutation.isLoading}
                                 className={`ml-1 px-2.5 py-1 rounded-lg text-[7px] sm:text-[8px] font-medium text-white border border-neon-blue/50 bg-neon-blue/20 hover:bg-neon-blue/40 transition-all duration-300 ${createChargeMutation.isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -1117,7 +1117,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 whileTap={{ scale: createChargeMutation.isLoading ? 1 : 0.97 }}
                               >
                                 {createChargeMutation.isLoading ? 'Processing...' : 'Upgrade Plan'}
-                              </motion.button>
+                              </motion.button> */}
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 className="w-3 h-3 text-silver"
