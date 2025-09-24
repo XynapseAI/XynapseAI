@@ -319,17 +319,15 @@ export async function GET(request) {
     const searchSql = `
   WITH normalized_clusters AS (
     SELECT 
-      COALESCE(
-        CASE 
-          WHEN wh.cluster_name IS NOT NULL THEN SPLIT_PART(LOWER(wh.cluster_name), ':', 1)
-          ELSE SPLIT_PART(LOWER(wh.exchange_name), ':', 1)
-        END
+      normalize_cluster_name(
+        COALESCE(wh.cluster_name, wh.exchange_name)
       ) AS normalized_cluster_name,
       wh.image,
-      wh.holder_address
+      wh.holder_address,
+      LOWER(COALESCE(wh.cluster_name, wh.exchange_name)) AS original_lower
     FROM wallet_holders wh
-    WHERE LOWER(wh.exchange_name) LIKE $1 
-       OR LOWER(wh.cluster_name) LIKE $1
+    WHERE LOWER(COALESCE(wh.exchange_name, wh.cluster_name)) LIKE $1 
+       OR normalize_cluster_name(COALESCE(wh.cluster_name, wh.exchange_name)) LIKE $1
   ),
   selected_image AS (
     SELECT 

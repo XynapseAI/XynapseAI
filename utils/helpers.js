@@ -12,7 +12,7 @@ export const LoadingOverlay = ({ isLoading, isMobile, className = "" }) => (
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
         className={`fixed inset-0 flex items-center justify-center bg-black/80 z-[1000] backdrop-blur-sm ${className}`}
-        style={{ WebkitBackdropFilter: 'blur(4px)' }} // Fallback cho Safari
+        style={{ WebkitBackdropFilter: 'blur(4px)' }}
         aria-label="Loading animation"
       >
         <div className={`relative rounded-xl ${isMobile ? "w-12 h-12" : "w-16 h-16"}`}>

@@ -300,25 +300,29 @@ export async function GET(request) {
 
       // Query for non-Bitcoin, non-Dogecoin, non-Litecoin tokens
       const portfolioQuery = `
-        WITH wallet_tokens AS (
-          SELECT 
-            COALESCE(wh.cluster_name, REGEXP_REPLACE(LOWER(wh.exchange_name), '\s*\d+$', '')) AS cluster_name,
-            wh.chain,
-            wh.holder_address,
-            t.token->>'token_address' AS token_address,
-            COALESCE(tk.symbol, t.token->>'symbol') AS symbol,
-            COALESCE(tk.image, t.token->>'logo') AS logo,
-            (t.token->>'balance')::NUMERIC AS balance,
-            (t.token->>'balance_usd')::NUMERIC AS balance_usd
-          FROM wallet_holders wh
-          CROSS JOIN jsonb_array_elements(wh.metadata) AS t(token)
-          LEFT JOIN tokens tk ON (t.token->>'token_address') = tk.coingecko_id
-          WHERE COALESCE(LOWER(wh.cluster_name), REGEXP_REPLACE(LOWER(wh.exchange_name), '\s*\d+$', '')) LIKE LOWER($1)
-            AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
-            AND (tk.image IS NOT NULL OR t.token->>'logo' IS NOT NULL)
-            AND (tk.image != '' OR t.token->>'logo' != '')
-            AND (tk.image != '/fallback-image.webp' OR t.token->>'logo' != '/fallback-image.webp')
-        ),
+  WITH wallet_tokens AS (
+    SELECT 
+      normalize_cluster_name(
+        COALESCE(wh.cluster_name, wh.exchange_name)
+      ) AS cluster_name,
+      wh.chain,
+      wh.holder_address,
+      t.token->>'token_address' AS token_address,
+      COALESCE(tk.symbol, t.token->>'symbol') AS symbol,
+      COALESCE(tk.image, t.token->>'logo') AS logo,
+      (t.token->>'balance')::NUMERIC AS balance,
+      (t.token->>'balance_usd')::NUMERIC AS balance_usd
+    FROM wallet_holders wh
+    CROSS JOIN jsonb_array_elements(wh.metadata) AS t(token)
+    LEFT JOIN tokens tk ON (t.token->>'token_address') = tk.coingecko_id
+    WHERE normalize_cluster_name(
+      COALESCE(wh.cluster_name, wh.exchange_name)
+    ) LIKE LOWER($1)
+      AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
+      AND (tk.image IS NOT NULL OR t.token->>'logo' IS NOT NULL)
+      AND (tk.image != '' OR t.token->>'logo' != '')
+      AND (tk.image != '/fallback-image.webp' OR t.token->>'logo' != '/fallback-image.webp')
+  ),
         wallet_agg AS (
           SELECT 
             token_address,
@@ -408,20 +412,24 @@ export async function GET(request) {
 
       // Query for non-Bitcoin, non-Dogecoin, non-Litecoin wallets
       const walletQuery = `
-        SELECT 
-          COALESCE(wh.cluster_name, REGEXP_REPLACE(LOWER(wh.exchange_name), '\s*\d+$', '')) AS cluster_name,
-          wh.chain,
-          wh.holder_address,
-          wh.total_value_usd,
-          wh.token_count,
-          wh.name_tag,
-          wh.image
-        FROM wallet_holders wh
-        WHERE COALESCE(LOWER(wh.cluster_name), REGEXP_REPLACE(LOWER(wh.exchange_name), '\s*\d+$', '')) LIKE LOWER($1)
-          AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
-        ORDER BY wh.total_value_usd DESC NULLS LAST
-        LIMIT 100
-      `;
+  SELECT 
+    normalize_cluster_name(
+      COALESCE(wh.cluster_name, wh.exchange_name)
+    ) AS cluster_name,
+    wh.chain,
+    wh.holder_address,
+    wh.total_value_usd,
+    wh.token_count,
+    wh.name_tag,
+    wh.image
+  FROM wallet_holders wh
+  WHERE normalize_cluster_name(
+    COALESCE(wh.cluster_name, wh.exchange_name)
+  ) LIKE LOWER($1)
+    AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
+  ORDER BY wh.total_value_usd DESC NULLS LAST
+  LIMIT 100
+`;
       const walletResult = await withRetry(async () => await query(walletQuery, [`%${mappedExchange}%`]));
       logger.info('Wallet result from wallet_holders:', { rows: walletResult.rows });
 
