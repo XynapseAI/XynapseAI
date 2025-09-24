@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState , useMemo} from "react"
 import { motion, useInView, useScroll, useTransform } from "framer-motion"
 import { Canvas, useFrame } from "@react-three/fiber"
-import { OrbitControls, Sphere, Float, Environment, Stars, Torus } from "@react-three/drei"
+import { OrbitControls, Sphere, Float, Environment, Stars, PointsMaterial } from "@react-three/drei"
 import { ArrowUpRight } from "lucide-react"
 import Lenis from "@studio-freight/lenis"
 import { gsap } from "gsap"
@@ -13,6 +13,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import "../styles/pages.css"
+import * as THREE from "three"
 
 gsap.registerPlugin(ScrollTrigger, MotionPathPlugin)
 
@@ -305,11 +306,13 @@ function SimulatedTreemap() {
 function UniverseBackground() {
   const groupRef = useRef(null)
   const starsRef = useRef(null)
+  const galaxyRef = useRef(null)
 
   useFrame((state) => {
     if (groupRef.current) {
       const time = state.clock.getElapsedTime()
-      groupRef.current.rotation.z = time * 0.01
+      groupRef.current.rotation.z = time * 0.005 // Slower rotation for realism
+      groupRef.current.rotation.y = time * 0.002
     }
   })
 
@@ -317,8 +320,8 @@ function UniverseBackground() {
     const handleScroll = () => {
       if (groupRef.current) {
         const scrollY = window.scrollY
-        groupRef.current.rotation.x = scrollY * 0.0001
-        groupRef.current.rotation.y = scrollY * 0.00005
+        groupRef.current.rotation.x = scrollY * 0.00005 // Subtle parallax
+        groupRef.current.rotation.y = scrollY * 0.00002
       }
     }
 
@@ -326,64 +329,111 @@ function UniverseBackground() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
+  // Procedural galaxy generation (Milky Way simulation)
+  const Galaxy = () => {
+    const pointsRef = useRef()
+    const count = 5000 // Moderate for web performance
+    const positions = useMemo(() => new Float32Array(count * 3), [])
+    const colors = useMemo(() => new Float32Array(count * 3), [])
+
+    useEffect(() => {
+      for (let i = 0; i < count; i++) {
+        const i3 = i * 3
+        const radius = (Math.random() * 40) + 5 // Central bulge denser
+        const arms = 4 // Number of spiral arms
+        const spin = radius * 0.1 // Spiral tightness
+        const branchAngle = ((i % arms) / arms) * Math.PI * 2
+        const theta = branchAngle + spin + Math.random() * 0.5 // Spiral with variation
+
+        // Random offsets for organic, 3D disk shape (flattened on Y)
+        const randomX = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 2
+        const randomY = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 0.5 // Flatter disk
+        const randomZ = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 2
+
+        positions[i3] = (Math.cos(theta) * radius) + randomX
+        positions[i3 + 1] = randomY
+        positions[i3 + 2] = (Math.sin(theta) * radius) + randomZ
+
+        // Colors: Mostly white, some blue tint for realism
+        const r = Math.random() * 0.2 + 0.8
+        const g = Math.random() * 0.2 + 0.8
+        const b = Math.random() * 0.4 + 0.6 // Subtle blue
+        colors[i3] = r
+        colors[i3 + 1] = g
+        colors[i3 + 2] = b
+      }
+
+      pointsRef.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+      pointsRef.current.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+    }, [])
+
+    return (
+      <points ref={pointsRef} position={[0, 0, -30]} rotation={[Math.PI / 6, 0, 0]}> {/* Tilted for perspective */}
+        <bufferGeometry />
+        <pointsMaterial
+          size={0.08}
+          sizeAttenuation
+          vertexColors
+          transparent
+          opacity={0.8}
+          blending={THREE.AdditiveBlending} // Glow effect
+          depthWrite={false}
+        />
+      </points>
+    )
+  }
+
   return (
     <group ref={groupRef}>
-      <Stars radius={100} depth={50} count={500} factor={4} saturation={0} fade speed={0.3} />
+      {/* Background distant stars */}
+      <Stars radius={200} depth={100} count={2000} factor={6} saturation={0} fade speed={0.2} />
+
+      {/* Very few moving small white stars */}
       <group ref={starsRef}>
-        {Array.from({ length: 30 }).map((_, i) => (
-          <Float key={i} speed={0.3 + Math.random() * 0.2} rotationIntensity={0.05}>
+        {Array.from({ length: 5 }).map((_, i) => ( // Reduced to very few
+          <Float key={i} speed={0.2 + Math.random() * 0.1} rotationIntensity={0.03}>
             <Sphere
-              args={[0.03 + Math.random() * 0.02, 8, 8]}
-              position={[(Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60, (Math.random() - 0.5) * 60]}
+              args={[0.02 + Math.random() * 0.01, 8, 8]}
+              position={[(Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100]}
             >
               <meshStandardMaterial
-                color={Math.random() > 0.7 ? "#FFD700" : "#FFFFFF"}
-                emissive={Math.random() > 0.7 ? "#FFD700" : "#FFFFFF"}
-                emissiveIntensity={0.4 + Math.random() * 0.3}
+                color="#FFFFFF"
+                emissive="#FFFFFF"
+                emissiveIntensity={0.5 + Math.random() * 0.3}
                 transparent
-                opacity={0.7}
+                opacity={0.8}
               />
             </Sphere>
           </Float>
         ))}
       </group>
-      {Array.from({ length: 8 }).map((_, i) => (
-        <Float key={`spiral-${i}`} speed={0.2 + i * 0.1} rotationIntensity={0.05}>
-          <Torus
-            args={[5 + i * 1.5, 0.03, 16, 100]}
-            position={[0, 0, -20]}
-            rotation={[Math.PI / 2, 0, i * 0.4]}
-          >
-            <meshStandardMaterial
-              color="#00BFFF"
-              emissive="#00BFFF"
-              emissiveIntensity={0.5 - i * 0.05}
-              transparent
-              opacity={0.6 - i * 0.05}
-            />
-          </Torus>
-        </Float>
-      ))}
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Float key={`nebula-${i}`} speed={0.2} rotationIntensity={0.05}>
+
+      {/* Main galaxy simulation */}
+      <Galaxy />
+
+      {/* Glowing nebulae regions in black space */}
+      {Array.from({ length: 4 }).map((_, i) => ( // Reduced for subtlety
+        <Float key={`nebula-${i}`} speed={0.15} rotationIntensity={0.03}>
           <Sphere
-            args={[6 + Math.random() * 4, 16, 16]}
-            position={[(Math.random() - 0.5) * 80, (Math.random() - 0.5) * 80, (Math.random() - 0.5) * 80]}
+            args={[8 + Math.random() * 6, 16, 16]}
+            position={[(Math.random() - 0.5) * 100, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 100]} // Flatter
           >
             <meshStandardMaterial
-              color={Math.random() > 0.5 ? "#4B0082" : "#8A2BE2"}
+              color={Math.random() > 0.5 ? "#4B0082" : "#8A2BE2"} // Purple/indigo for nebulae
               transparent
-              opacity={0.15}
+              opacity={0.12 + Math.random() * 0.08}
               emissive={Math.random() > 0.5 ? "#4B0082" : "#8A2BE2"}
-              emissiveIntensity={0.12}
+              emissiveIntensity={0.15 + Math.random() * 0.1}
+              blending={THREE.AdditiveBlending}
             />
           </Sphere>
         </Float>
       ))}
+
       <Environment preset="night" />
-      <ambientLight intensity={0.25} color="#000033" />
-      <pointLight position={[10, 10, 10]} intensity={0.6} color="#FFD700" />
-      <pointLight position={[-10, -10, -10]} intensity={0.4} color="#00BFFF" />
+      <ambientLight intensity={0.2} color="#000033" />
+      <pointLight position={[0, 0, 10]} intensity={0.5} color="#FFFFFF" /> {/* Central galaxy light */}
+      <pointLight position={[-20, 0, -20]} intensity={0.3} color="#00BFFF" /> {/* Blue tint */}
     </group>
   )
 }
