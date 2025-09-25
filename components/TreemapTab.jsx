@@ -446,10 +446,10 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
   }
 
   const { data: cluster } = entity;
-  const totalValue = cluster.totalValue || 0;
+  const totalValue = useMemo(() => cluster.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue || 0), 0), [cluster]);
   const riskScore = cluster.riskScore || 0;
   const txCount = cluster.transactions.length;
-  const avgTxValue = useMemo(() => txCount > 0 ? totalValue / txCount : 0, [txCount, totalValue]);
+  const avgTxValue = useMemo(() => txCount > 0 ? totalValue / txCount : 0, [cluster, totalValue]);
   const velocity = cluster.velocity || 0;
   const uniqueTokens = cluster.uniqueTokens || 0;
   const topTokensVolume = useMemo(() => {
@@ -1167,37 +1167,19 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       } else {
         // Fallback to root-only data
         const rootTxs = [
-          ...((filterType === 'all' || filterType === 'incoming') ? fullIncomingData : []).map(tx => ({
+          ...fullIncomingData.map(tx => ({
             ...tx,
             type: 'incoming',
             source: tx.address.toLowerCase(),
             target: rootId,
-            value: Number(tx.value || 0),
-            block_time: typeof tx.block_time === 'number' ? tx.block_time * 1000 : new Date(tx.block_time).getTime(),
           })),
-          ...((filterType === 'all' || filterType === 'outgoing') ? fullOutgoingData : []).map(tx => ({
+          ...fullOutgoingData.map(tx => ({
             ...tx,
             type: 'outgoing',
             source: rootId,
             target: tx.address.toLowerCase(),
-            value: Number(tx.value || 0),
-            block_time: typeof tx.block_time === 'number' ? tx.block_time * 1000 : new Date(tx.block_time).getTime(),
           })),
         ];
-        const totalValue = rootTxs.reduce((sum, tx) => sum + tx.value, 0);
-        let velocity = 0;
-        if (rootTxs.length > 0) {
-          const times = rootTxs.map(tx => tx.block_time).filter(t => !isNaN(t));
-          if (times.length > 1) {
-            const minTime = Math.min(...times);
-            const maxTime = Math.max(...times);
-            const days = (maxTime - minTime) / (1000 * 60 * 60 * 24);
-            velocity = rootTxs.length / Math.max(days, 1);
-          } else {
-            velocity = rootTxs.length;
-          }
-        }
-        const uniqueTokens = new Set(rootTxs.map(tx => tx.tokenSymbol).filter(Boolean)).size;
         const connectedWallets = [...new Set(rootTxs.map(tx => tx.source === rootId ? tx.target : tx.source).filter(Boolean))];
         clusterData = {
           clusterId: 'root',
@@ -1206,9 +1188,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           wallets: connectedWallets.map(id => ({ id })),
           transactions: rootTxs,
           riskScore: 0,
-          totalValue,
-          velocity,
-          uniqueTokens,
         };
       }
       setSelectedEntity({ type: 'cluster', data: clusterData });

@@ -20,6 +20,7 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
   const nodeMap = new Map();
   const edgeMap = new Map();
   const adjacencyList = new Map();
+  const communitySizes = new Map();
 
   // Initialize adjacency list with blockchain heuristics (e.g., shared inputs)
   const clusterableNodes = nodes.filter(
@@ -32,7 +33,6 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
 
   // Build adjacency + heuristics: merge nodes with common neighbors (simplified multi-input)
   const commonNeighbors = new Map();
-  const communitySizes = new Map();
   edges.forEach((edge) => {
     const source = edge.source.toLowerCase();
     const target = edge.target.toLowerCase();
@@ -49,7 +49,6 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
   });
 
   let communities = new Map();
-
   // Enhanced ML clustering
   if (options.useML && clusterableNodes.length > 1) {
     try {
@@ -206,7 +205,6 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
             sums.dispose();
             validCounts.dispose();
           }
-
           // Simple modularity approx to choose best k
           const modularity = calculateModularity(assignments, adjacencyList, nodeIds);
           if (modularity > bestModularity) {
@@ -343,28 +341,9 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
     const uniqueTxs = [...new Set(group.transactions.map(JSON.stringify))].map(JSON.parse);
 
     // New metrics
-    const totalValue = uniqueTxs.reduce((sum, tx) => sum + (tx.value || 0), 0);
-    let velocity = 0;
-    if (uniqueTxs.length > 0) {
-      const times = uniqueTxs.map(tx => {
-        if (tx.block_time instanceof Date) {
-          return tx.block_time.getTime();
-        } else if (typeof tx.block_time === 'number') {
-          return tx.block_time * 1000; // assume seconds to ms
-        } else {
-          return NaN;
-        }
-      }).filter(t => !isNaN(t));
-      if (times.length > 1) {
-        const minTime = Math.min(...times);
-        const maxTime = Math.max(...times);
-        const days = (maxTime - minTime) / (1000 * 60 * 60 * 24);
-        velocity = uniqueTxs.length / Math.max(days, 1);
-      } else {
-        velocity = uniqueTxs.length;
-      }
-    }
-    const uniqueTokens = new Set(uniqueTxs.map(tx => tx.tokenSymbol).filter(Boolean)).size;
+    const totalValue = group.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue), 0);
+    const velocity = uniqueTxs.length / (Math.max((Date.now() - new Date(uniqueTxs[0]?.block_time).getTime()) / (1000 * 60 * 60 * 24), 1));
+    const uniqueTokens = new Set(uniqueTxs.map(tx => tx.tokenSymbol)).size;
 
     logger.log(`Enhanced Cluster ${commId}:`, {
       nametag: clusterNametag,
@@ -382,7 +361,6 @@ export async function detectClusters(nodes, edges, options = { useML: true, useD
       wallets: group.wallets,
       transactions: uniqueTxs,
       riskScore: clusterRisk,
-      totalValue,
       velocity,
       uniqueTokens,
     });
