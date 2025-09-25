@@ -1149,12 +1149,12 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             <div className="w-[25%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] flex flex-col items-center gap-1 overflow-hidden text-ellipsis">
               <span
                 className={`inline-flex px-1 sm:px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-medium ${tx.type === 'receive'
-                    ? 'bg-neon-green/20 text-neon-green'
-                    : tx.type === 'send'
-                      ? 'bg-neon-blue/20 text-neon-blue'
-                      : tx.type === 'swap'
-                        ? 'bg-purple-400/20 text-purple-400'
-                        : 'bg-white/20 text-white/60'
+                  ? 'bg-neon-green/20 text-neon-green'
+                  : tx.type === 'send'
+                    ? 'bg-neon-blue/20 text-neon-blue'
+                    : tx.type === 'swap'
+                      ? 'bg-purple-400/20 text-purple-400'
+                      : 'bg-white/20 text-white/60'
                   }`}
               >
                 {typeDisplay}
@@ -1568,24 +1568,26 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-black/70 to-black/50 rounded-xl border border-white/10 shadow-md shadow-neon-blue/10">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 text-emerald-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs sm:text-sm font-bold text-white">Total Value:</span>
-                    <span className="text-xs sm:text-sm font-bold bg-gradient-to-r from-neon-blue to-emerald-400 bg-clip-text text-transparent">
+                <div className="flex items-center gap-1 p-1 sm:p-3 bg-gradient-to-r from-black/70 to-black/50 rounded-xl border border-white/10 shadow-md shadow-neon-blue/10">
+                  <div className="flex items-center gap-1 flex-wrap min-w-0">
+                    <span className="flex items-center font-bold text-white text-[11px] sm:text-xs whitespace-nowrap">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4 text-emerald-400 flex-shrink-0 m-1"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      Total Value:
+                    </span>
+                    <span className="font-bold ml-1 bg-gradient-to-r from-neon-blue to-emerald-400 bg-clip-text text-transparent text-xs sm:text-sm truncate">
                       ${totalValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}
                     </span>
                   </div>
