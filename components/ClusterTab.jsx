@@ -1786,7 +1786,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                     initial={{ scale: 0.9 }}
                     animate={{ scale: 1 }}
                   >
-                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-black/70 to-black/50 rounded-xl border border-white/10 shadow-md shadow-neon-blue/10">
+                    <div className="flex items-center gap-2 p-3 bg-gradient-to-r from-black/70 to-black/50 rounded-xl border border-white/10 shadow-md shadow-neon-blue/10 max-w-full">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         className="h-4 w-4 text-emerald-400 flex-shrink-0"
@@ -1801,11 +1801,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                           d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                      <div className={`flex gap-1 ${isMobile ? 'flex-col items-center w-full' : 'items-center'}`}>
-                        <span className={`font-bold text-white truncate ${isMobile ? 'text-xs text-center' : 'text-xs sm:text-sm'}`}>
-                          Total Value:
-                        </span>
-                        <span className={`font-bold bg-gradient-to-r from-neon-blue to-emerald-400 bg-clip-text text-transparent truncate ${isMobile ? 'text-sm' : 'text-xs sm:text-sm'}`}>
+                      <div className="flex items-center gap-1 flex-wrap min-w-0">
+                        <span className="font-bold text-white text-xs sm:text-sm whitespace-nowrap">Total Value:</span>
+                        <span className="font-bold bg-gradient-to-r from-neon-blue to-emerald-400 bg-clip-text text-transparent text-xs sm:text-sm truncate">
                           {formatPrice(totalPortfolioValue, currency, 2)}
                         </span>
                       </div>

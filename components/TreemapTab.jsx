@@ -346,13 +346,13 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
   );
 };
 
-const TrendChart = memo(({ transactions }) => {
+const TrendChart = memo(({ transactions, velocity }) => {
   const getTimeInterval = useCallback((timestamps) => {
     const minTime = Math.min(...timestamps);
     const maxTime = Math.max(...timestamps);
     const range = maxTime - minTime;
-    if (range > 30 * 24 * 3600 * 1000) return 'monthly'; // > 30 days
-    if (range > 7 * 24 * 3600 * 1000) return 'weekly'; // > 7 days
+    if (range > 30 * 24 * 3600 * 1000) return 'monthly';
+    if (range > 7 * 24 * 3600 * 1000) return 'weekly';
     return 'daily';
   }, []);
 
@@ -402,7 +402,7 @@ const TrendChart = memo(({ transactions }) => {
       transition={{ duration: 0.3 }}
       className="w-full h-48 bg-black/50 rounded-xl p-1"
     >
-      <h5 className="text-white text-[8px] mb-1">Transaction Trends</h5>
+      <h5 className="text-white text-[8px] mb-1">Trends (Velocity: {velocity.toFixed(1)}/day)</h5>
       <Suspense fallback={<div>Loading chart...</div>}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -446,12 +446,12 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
   }
 
   const { data: cluster } = entity;
-  const totalValue = useMemo(() => cluster.wallets.reduce((sum, w) => sum + parseFloat(w.totalValue || 0), 0), [cluster]);
+  const totalValue = cluster.totalValue || 0;
   const riskScore = cluster.riskScore || 0;
-  const avgTxValue = useMemo(() => {
-    const txCount = cluster.transactions.length;
-    return txCount > 0 ? totalValue / txCount : 0;
-  }, [cluster, totalValue]);
+  const txCount = cluster.transactions.length;
+  const avgTxValue = useMemo(() => txCount > 0 ? totalValue / txCount : 0, [txCount, totalValue]);
+  const velocity = cluster.velocity || 0;
+  const uniqueTokens = cluster.uniqueTokens || 0;
   const topTokensVolume = useMemo(() => {
     const volumes = cluster.transactions.reduce((acc, tx) => {
       const key = tx.contractAddress?.toLowerCase() || (tx.tokenSymbol?.toLowerCase() || 'unknown');
@@ -462,6 +462,20 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5);
   }, [cluster.transactions]);
+
+  // New: Outstanding activities - high value or anomalous tx
+  const outstandingTxs = useMemo(() => {
+    if (txCount === 0) return [];
+    const values = cluster.transactions.map(tx => Number(tx.value));
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
+    const std = Math.sqrt(variance);
+    const threshold = mean + 2 * std;
+    return cluster.transactions
+      .filter(tx => Number(tx.value) > threshold || Number(tx.value) > totalValue * 0.1) // Top 10% or anomalous
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 3);
+  }, [cluster.transactions, totalValue]);
 
   return (
     <motion.div
@@ -491,16 +505,16 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
           <p className="text-white font-bold text-[12px]">${formatLargeNumber(totalValue)}</p>
         </div>
         <div className="bg-white/10 p-2 rounded-lg">
-          <p className="text-white/60 text-[8px]">Connected Wallets</p>
+          <p className="text-white/60 text-[8px]">Wallets</p>
           <p className="text-white font-bold text-[12px]">{cluster.wallets.length}</p>
         </div>
         <div className="bg-white/10 p-2 rounded-lg">
-          <p className="text-white/60 text-[8px]">Transactions</p>
-          <p className="text-white font-bold text-[12px]">{cluster.transactions.length}</p>
+          <p className="text-white/60 text-[8px]">Tx Velocity</p>
+          <p className="text-white font-bold text-[12px]">{velocity.toFixed(1)}/day</p>
         </div>
         <div className="bg-white/10 p-2 rounded-lg">
-          <p className="text-white/60 text-[8px]">Avg. Tx Value</p>
-          <p className="text-white font-bold text-[12px]">${formatLargeNumber(avgTxValue)}</p>
+          <p className="text-white/60 text-[8px]">Unique Tokens</p>
+          <p className="text-white font-bold text-[12px]">{uniqueTokens}</p>
         </div>
       </div>
       <div className="bg-white/10 p-2 rounded-lg mb-2">
@@ -530,12 +544,26 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
           })}
         </div>
       </div>
+      {/* New: Outstanding Activities */}
+      {outstandingTxs.length > 0 && (
+        <div className="bg-orange-500/20 p-2 rounded-lg mb-2 border border-orange-500/30">
+          <p className="text-[9px] font-bold text-orange-300 mb-1">Outstanding Activities</p>
+          <div className="space-y-1 text-[8px]">
+            {outstandingTxs.map((tx, idx) => (
+              <div key={idx} className="flex justify-between">
+                <span className="text-white/80 truncate">{tx.tokenSymbol || 'Unknown'} Tx</span>
+                <span className="font-bold text-orange-400">${formatLargeNumber(tx.value)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className={`p-2 rounded-lg mb-2 ${riskScore > 0.5 ? 'bg-red-500/20 border-red-500/30' : 'bg-green-500/20 border-green-500/30'}`}>
         <p className="text-[9px] font-bold">Risk Score: <span className={`${riskScore > 0.5 ? 'text-red-400' : 'text-green-400'}`}>{(riskScore * 100).toFixed(1)}%</span></p>
         {riskScore > 0.7 && <span className="text-red-400 text-[8px] inline-block ml-1">⚠️ High Risk</span>}
       </div>
       <Suspense fallback={<div>Loading chart...</div>}>
-        <TrendChart transactions={cluster.transactions} />
+        <TrendChart transactions={cluster.transactions} velocity={velocity} />
       </Suspense>
     </motion.div>
   );
@@ -1139,19 +1167,37 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       } else {
         // Fallback to root-only data
         const rootTxs = [
-          ...fullIncomingData.map(tx => ({
+          ...((filterType === 'all' || filterType === 'incoming') ? fullIncomingData : []).map(tx => ({
             ...tx,
             type: 'incoming',
             source: tx.address.toLowerCase(),
             target: rootId,
+            value: Number(tx.value || 0),
+            block_time: typeof tx.block_time === 'number' ? tx.block_time * 1000 : new Date(tx.block_time).getTime(),
           })),
-          ...fullOutgoingData.map(tx => ({
+          ...((filterType === 'all' || filterType === 'outgoing') ? fullOutgoingData : []).map(tx => ({
             ...tx,
             type: 'outgoing',
             source: rootId,
             target: tx.address.toLowerCase(),
+            value: Number(tx.value || 0),
+            block_time: typeof tx.block_time === 'number' ? tx.block_time * 1000 : new Date(tx.block_time).getTime(),
           })),
         ];
+        const totalValue = rootTxs.reduce((sum, tx) => sum + tx.value, 0);
+        let velocity = 0;
+        if (rootTxs.length > 0) {
+          const times = rootTxs.map(tx => tx.block_time).filter(t => !isNaN(t));
+          if (times.length > 1) {
+            const minTime = Math.min(...times);
+            const maxTime = Math.max(...times);
+            const days = (maxTime - minTime) / (1000 * 60 * 60 * 24);
+            velocity = rootTxs.length / Math.max(days, 1);
+          } else {
+            velocity = rootTxs.length;
+          }
+        }
+        const uniqueTokens = new Set(rootTxs.map(tx => tx.tokenSymbol).filter(Boolean)).size;
         const connectedWallets = [...new Set(rootTxs.map(tx => tx.source === rootId ? tx.target : tx.source).filter(Boolean))];
         clusterData = {
           clusterId: 'root',
@@ -1160,6 +1206,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           wallets: connectedWallets.map(id => ({ id })),
           transactions: rootTxs,
           riskScore: 0,
+          totalValue,
+          velocity,
+          uniqueTokens,
         };
       }
       setSelectedEntity({ type: 'cluster', data: clusterData });

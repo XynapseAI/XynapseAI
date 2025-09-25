@@ -302,8 +302,9 @@ export async function GET(request) {
       const portfolioQuery = `
   WITH wallet_tokens AS (
     SELECT 
-      normalize_cluster_name(
-        COALESCE(wh.cluster_name, wh.exchange_name)
+      COALESCE(
+        wh.normalized_cluster_name, 
+        normalize_cluster_name(COALESCE(wh.cluster_name, wh.exchange_name))
       ) AS cluster_name,
       wh.chain,
       wh.holder_address,
@@ -315,51 +316,52 @@ export async function GET(request) {
     FROM wallet_holders wh
     CROSS JOIN jsonb_array_elements(wh.metadata) AS t(token)
     LEFT JOIN tokens tk ON (t.token->>'token_address') = tk.coingecko_id
-    WHERE normalize_cluster_name(
-      COALESCE(wh.cluster_name, wh.exchange_name)
+    WHERE COALESCE(
+      wh.normalized_cluster_name, 
+      normalize_cluster_name(COALESCE(wh.cluster_name, wh.exchange_name))
     ) LIKE LOWER($1)
       AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
       AND (tk.image IS NOT NULL OR t.token->>'logo' IS NOT NULL)
       AND (tk.image != '' OR t.token->>'logo' != '')
       AND (tk.image != '/fallback-image.webp' OR t.token->>'logo' != '/fallback-image.webp')
   ),
-        wallet_agg AS (
-          SELECT 
-            token_address,
-            chain,
-            symbol,
-            logo,
-            SUM(balance) AS chain_balance,
-            SUM(balance_usd) AS chain_balance_usd,
-            json_agg(
-              json_build_object(
-                'holder_address', holder_address,
-                'balance', balance,
-                'value', balance_usd
-              )
-            ) AS wallets
-          FROM wallet_tokens
-          GROUP BY token_address, chain, symbol, logo
+  wallet_agg AS (
+    SELECT 
+      token_address,
+      chain,
+      symbol,
+      logo,
+      SUM(balance) AS chain_balance,
+      SUM(balance_usd) AS chain_balance_usd,
+      json_agg(
+        json_build_object(
+          'holder_address', holder_address,
+          'balance', balance,
+          'value', balance_usd
         )
-        SELECT 
-          token_address,
-          symbol,
-          logo,
-          json_agg(
-            json_build_object(
-              'chain', chain,
-              'balance', chain_balance,
-              'balance_usd', chain_balance_usd,
-              'wallets', wallets
-            )
-          ) AS chain_details,
-          SUM(chain_balance) AS total_balance,
-          SUM(chain_balance_usd) AS total_balance_usd
-        FROM wallet_agg
-        GROUP BY token_address, symbol, logo
-        ORDER BY total_balance_usd DESC NULLS LAST
-        LIMIT 200
-      `;
+      ) AS wallets
+    FROM wallet_tokens
+    GROUP BY token_address, chain, symbol, logo
+  )
+  SELECT 
+    token_address,
+    symbol,
+    logo,
+    json_agg(
+      json_build_object(
+        'chain', chain,
+        'balance', chain_balance,
+        'balance_usd', chain_balance_usd,
+        'wallets', wallets
+      )
+    ) AS chain_details,
+    SUM(chain_balance) AS total_balance,
+    SUM(chain_balance_usd) AS total_balance_usd
+  FROM wallet_agg
+  GROUP BY token_address, symbol, logo
+  ORDER BY total_balance_usd DESC NULLS LAST
+  LIMIT 200
+`;
       const portfolioResult = await withRetry(async () => await query(portfolioQuery, [`%${mappedExchange}%`]));
       logger.info('Portfolio result from wallet_holders:', { rows: portfolioResult.rows });
 
@@ -413,8 +415,9 @@ export async function GET(request) {
       // Query for non-Bitcoin, non-Dogecoin, non-Litecoin wallets
       const walletQuery = `
   SELECT 
-    normalize_cluster_name(
-      COALESCE(wh.cluster_name, wh.exchange_name)
+    COALESCE(
+      wh.normalized_cluster_name, 
+      normalize_cluster_name(COALESCE(wh.cluster_name, wh.exchange_name))
     ) AS cluster_name,
     wh.chain,
     wh.holder_address,
@@ -423,8 +426,9 @@ export async function GET(request) {
     wh.name_tag,
     wh.image
   FROM wallet_holders wh
-  WHERE normalize_cluster_name(
-    COALESCE(wh.cluster_name, wh.exchange_name)
+  WHERE COALESCE(
+    wh.normalized_cluster_name, 
+    normalize_cluster_name(COALESCE(wh.cluster_name, wh.exchange_name))
   ) LIKE LOWER($1)
     AND LOWER(wh.chain) NOT IN ('bitcoin', 'dogecoin', 'litecoin')
   ORDER BY wh.total_value_usd DESC NULLS LAST

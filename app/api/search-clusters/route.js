@@ -296,6 +296,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const searchQuery = searchParams.get('query');
 
+    // Kiểm tra và làm sạch searchQuery
     if (!searchQuery || searchQuery.trim().length < 2) {
       await trackViolation(ip, 'Invalid query', 'warn');
       return NextResponse.json(
@@ -304,60 +305,76 @@ export async function GET(request) {
       );
     }
 
+    // Làm sạch searchQuery: chỉ giữ chữ, số, dấu cách, dấu chấm
+    const cleanedQuery = searchQuery.trim().replace(/[^a-zA-Z0-9\s.]/g, '');
+    if (!cleanedQuery) {
+      await trackViolation(ip, 'Invalid characters in query', 'warn');
+      return NextResponse.json(
+        { success: false, error: 'Query contains invalid characters' },
+        { status: 400, headers }
+      );
+    }
+
     redisClient = await getRedisClient();
-    const cacheKey = `clusters_search_${searchQuery.trim().toLowerCase()}`;
+    const cacheKey = `clusters_search_${cleanedQuery.toLowerCase()}`;
     const cacheTTL = 5 * 60;
 
     const cachedData = await redisClient.get(cacheKey);
     if (cachedData) {
-      logger.info('Cluster search cache hit', { query: searchQuery, cacheKey });
+      logger.info('Cluster search cache hit', { query: cleanedQuery, cacheKey });
       return NextResponse.json(JSON.parse(cachedData), { headers });
     }
 
-    const searchTerm = `%${searchQuery.trim().toLowerCase()}%`;
+    const searchTerm = `%${cleanedQuery.toLowerCase()}%`;
+    logger.info('Executing search query', { searchTerm, cleanedQuery });
 
     const searchSql = `
-  WITH normalized_clusters AS (
-    SELECT 
-      normalize_cluster_name(
-        COALESCE(wh.cluster_name, wh.exchange_name)
-      ) AS normalized_cluster_name,
-      wh.image,
-      wh.holder_address,
-      LOWER(COALESCE(wh.cluster_name, wh.exchange_name)) AS original_lower
-    FROM wallet_holders wh
-    WHERE LOWER(COALESCE(wh.exchange_name, wh.cluster_name)) LIKE $1 
-       OR normalize_cluster_name(COALESCE(wh.cluster_name, wh.exchange_name)) LIKE $1
-  ),
-  selected_image AS (
-    SELECT 
-      normalized_cluster_name,
-      COALESCE(
-        (SELECT image 
-         FROM normalized_clusters nc2 
-         WHERE nc2.normalized_cluster_name = nc1.normalized_cluster_name
-         AND nc2.image IS NOT NULL 
-         AND nc2.image != '' 
-         AND nc2.image != '/fallback-image.webp'
-         LIMIT 1
-        ),
-        MAX(image)
-      ) AS image
-    FROM normalized_clusters nc1
-    GROUP BY normalized_cluster_name
-  )
-  SELECT 
-    nc.normalized_cluster_name,
-    si.image,
-    json_agg(DISTINCT nc.holder_address) AS holder_addresses
-  FROM normalized_clusters nc
-  JOIN selected_image si ON nc.normalized_cluster_name = si.normalized_cluster_name
-  GROUP BY nc.normalized_cluster_name, si.image
-  ORDER BY nc.normalized_cluster_name ASC
-  LIMIT 20
-`;
+      WITH normalized_clusters AS (
+        SELECT 
+          COALESCE(
+            wh.normalized_cluster_name, 
+            normalize_cluster_name(COALESCE(wh.cluster_name, wh.exchange_name))
+          ) AS normalized_cluster_name,
+          wh.image,
+          wh.holder_address,
+          LOWER(COALESCE(wh.cluster_name, wh.exchange_name)) AS original_lower
+        FROM wallet_holders wh
+        WHERE LOWER(COALESCE(wh.exchange_name, wh.cluster_name)) LIKE $1 
+           OR COALESCE(
+                wh.normalized_cluster_name, 
+                normalize_cluster_name(COALESCE(wh.cluster_name, wh.exchange_name))
+              ) LIKE $1
+      ),
+      selected_image AS (
+        SELECT 
+          normalized_cluster_name,
+          COALESCE(
+            (SELECT image 
+             FROM normalized_clusters nc2 
+             WHERE nc2.normalized_cluster_name = nc1.normalized_cluster_name
+             AND nc2.image IS NOT NULL 
+             AND nc2.image != '' 
+             AND nc2.image != '/fallback-image.webp'
+             LIMIT 1
+            ),
+            MAX(image)
+          ) AS image
+        FROM normalized_clusters nc1
+        GROUP BY normalized_cluster_name
+      )
+      SELECT 
+        nc.normalized_cluster_name,
+        si.image,
+        json_agg(DISTINCT nc.holder_address) AS holder_addresses
+      FROM normalized_clusters nc
+      JOIN selected_image si ON nc.normalized_cluster_name = si.normalized_cluster_name
+      GROUP BY nc.normalized_cluster_name, si.image
+      ORDER BY nc.normalized_cluster_name ASC
+      LIMIT 20
+    `;
 
     const results = await withRetry(() => query(searchSql, [searchTerm]));
+    logger.info('Query executed successfully', { rowCount: results.rows.length, searchTerm, sampleClusters: results.rows.slice(0, 3).map(r => r.normalized_cluster_name) });
 
     const responseData = {
       success: true,
@@ -370,13 +387,13 @@ export async function GET(request) {
     };
 
     await redisClient.setEx(cacheKey, cacheTTL, JSON.stringify(serializeBigInt(responseData)));
-    logger.info('Cluster search completed', { query: searchQuery, resultCount: results.rows.length, cacheKey });
+    logger.info('Cluster search completed', { query: cleanedQuery, resultCount: results.rows.length, cacheKey });
 
     return NextResponse.json(responseData, { headers });
   } catch (error) {
-    const isSystemError = error.message.includes('Redis') || error.message.includes('Database') || error.message === 'Internal server error';
+    const isSystemError = error.message.includes('Redis') || error.message.includes('Database') || error.message.includes('chưa') || error.message === 'Internal server error';
     await trackViolation(ip, `Error in cluster search: ${error.message}`, isSystemError ? 'warn' : 'severe');
-    logger.error(`Error in cluster search:`, { error: error.message, stack: error.stack });
+    logger.error(`Error in cluster search:`, { error: error.message, stack: error.stack, searchQuery: searchQuery || 'unknown' });
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500, headers }
