@@ -137,7 +137,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
     const fromNtag = nametags[tx.source?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
     const toNtag = nametags[tx.target?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
     const displayValue = formatLargeNumber(Number(tx.value) || 0, 1);
-    const { txUrl } = getExplorerUrls(selectedChain, tx.txHash, '');
+    const { txUrl } = getExplorerUrls(selectedChain, tx.hash, '');
 
     let formattedTime = 'N/A';
     if (tx.block_time) {
@@ -145,12 +145,12 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
       if (isValidDate(date)) {
         formattedTime = formatDistanceToNow(date, { addSuffix: true });
       } else {
-        logger.warn(`Invalid block_time for tx ${tx.txHash}: ${tx.block_time}`);
+        logger.warn(`Invalid block_time for tx ${tx.hash}: ${tx.block_time}`);
       }
     }
 
     return (
-      <tr key={`${tx.txHash}-${index}`} className="grid grid-cols-[2fr_1fr_1fr] gap-2 border-t border-white/10 hover:bg-white/5 transition-all duration-300">
+      <tr key={`${tx.hash}-${index}`} className="grid grid-cols-[2fr_1fr_1fr] gap-2 border-t border-white/10 hover:bg-white/5 transition-all duration-300">
         <td className="px-2 py-1 text-white/80 text-[8px] sm:text-[10px] text-left overflow-hidden border-r border-white/5 align-middle">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-1 group relative">
@@ -538,7 +538,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
                   />
                   <span className="text-white/70 capitalize truncate">{token}</span>
                 </div>
-                <span className="font-mono text-white/90 min-w-0">${formatLargeNumber(vol, 2)}</span>
+                <span className="font-mono text-white/90 min-w-0">{formatLargeNumber(vol, 2)}</span>
               </div>
             );
           })}
@@ -1166,28 +1166,86 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         clusterData = rootCluster;
       } else {
         // Fallback to root-only data
-        const rootTxs = [
-          ...fullIncomingData.map(tx => ({
+        let filteredRootTxs = [];
+        if (filterType === 'all' || filterType === 'incoming') {
+          filteredRootTxs.push(...fullIncomingData.map(tx => ({
             ...tx,
             type: 'incoming',
             source: tx.address.toLowerCase(),
             target: rootId,
-          })),
-          ...fullOutgoingData.map(tx => ({
+          })));
+        }
+        if (filterType === 'all' || filterType === 'outgoing') {
+          filteredRootTxs.push(...fullOutgoingData.map(tx => ({
             ...tx,
             type: 'outgoing',
             source: rootId,
             target: tx.address.toLowerCase(),
-          })),
-        ];
-        const connectedWallets = [...new Set(rootTxs.map(tx => tx.source === rootId ? tx.target : tx.source).filter(Boolean))];
+          })));
+        }
+
+        let filteredLayer3ForCluster = [];
+        if (fullLayer3Data.length > 0) {
+          const layer3Filter = fullLayer3Data.filter(tx => tx.nametag && tx.nametag !== 'Unknown');
+          const layer3ToInclude = filterType === 'all' ? layer3Filter : layer3Filter.filter(tx => tx.type === filterType);
+          filteredLayer3ForCluster = layer3ToInclude.map(tx => ({
+            ...tx,
+            source: tx.type === 'incoming' ? tx.address.toLowerCase() : tx.layer2Address.toLowerCase(),
+            target: tx.type === 'incoming' ? tx.layer2Address.toLowerCase() : tx.address.toLowerCase(),
+          }));
+        }
+
+        const allTxs = [...filteredRootTxs, ...filteredLayer3ForCluster];
+        const connectedWallets = [...new Set(allTxs.map(tx => [tx.source, tx.target].filter(id => id !== rootId)).flat().filter(Boolean))];
+
+        // Dedup transactions for calculations
+        const uniqueTxs = [...new Set(allTxs.map(JSON.stringify))].map(JSON.parse);
+
+        // Calculate velocity
+        const getTime = (bt) => {
+          if (typeof bt === 'number') return bt * 1000;
+          if (typeof bt === 'string' || bt instanceof Date) return new Date(bt).getTime();
+          return null;
+        };
+        const times = uniqueTxs.map(tx => getTime(tx.block_time)).filter(t => t !== null).sort((a, b) => a - b);
+        let velocity = 0;
+        if (times.length > 1) {
+          const timeSpanDays = (times[times.length - 1] - times[0]) / (1000 * 60 * 60 * 24);
+          velocity = uniqueTxs.length / Math.max(timeSpanDays, 1);
+        } else if (times.length === 1) {
+          velocity = 1; // Single tx, velocity 1/day
+        }
+
+        // Calculate uniqueTokens
+        const tokenKeys = uniqueTxs.map(tx => tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase() || 'unknown');
+        const uniqueTokens = new Set(tokenKeys).size;
+
+        // Prepare wallets with data
+        const connectedWalletsWithData = connectedWallets.map(cid => {
+          const node = nodes.find(n => n.data.id.toLowerCase() === cid);
+          if (node) {
+            const w = { ...node.data };
+            w.totalValue = parseFloat(w.totalValue || 0);
+            return w;
+          }
+          return { id: cid, totalValue: 0 };
+        });
+
+        const rootWalletNode = nodes.find(n => n.data.id.toLowerCase() === rootId);
+        const rootWalletData = rootWalletNode ? { ...rootWalletNode.data } : { id: rootId, totalValue: 0 };
+        rootWalletData.totalValue = parseFloat(rootWalletData.totalValue || 0);
+
+        const allWallets = [rootWalletData, ...connectedWalletsWithData];
+
         clusterData = {
           clusterId: 'root',
           nametag: walletInfo.nametag || truncateAddress(rootId),
           image: walletInfo.image,
-          wallets: connectedWallets.map(id => ({ id })),
-          transactions: rootTxs,
+          wallets: allWallets,
+          transactions: allTxs,
           riskScore: 0,
+          velocity,
+          uniqueTokens,
         };
       }
       setSelectedEntity({ type: 'cluster', data: clusterData });
