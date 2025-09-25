@@ -8,7 +8,6 @@ import '../styles/MarketTab.css';
 import { toast } from 'react-toastify';
 import { logger } from '../utils/clientLogger';
 import { Virtuoso } from 'react-virtuoso';
-import { bsc } from 'viem/chains';
 
 // Hardcoded fallback logos for common chains
 const FALLBACK_CHAIN_LOGOS = {
@@ -81,7 +80,7 @@ const WalletBalances = ({
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => document.addEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
   useEffect(() => {
@@ -454,14 +453,14 @@ const WalletBalances = ({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-              </motion.button>
-            )}
-          </div>
-        </motion.div>
-      );
-    };
+                />
+              </svg>
+            </motion.button>
+          )}
+        </div>
+      </motion.div>
+    );
+  };
 
   const overlayContent = (
     <motion.div
@@ -477,59 +476,90 @@ const WalletBalances = ({
       >
         <div className="sticky top-0 z-20 p-3 bg-black/80 backdrop-blur-sm border-b border-white/10">
           <div className="flex justify-between items-center mb-3">
-            <div className="flex items-center gap-2 group relative">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 text-white/60"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                />
-              </svg>
-              <img
-                src={nameTags[walletAddress.toLowerCase()]?.image || '/fallback-image.webp'}
-                alt={`${displayWalletAddress} logo`}
-                className="w-6 h-6 rounded-xl"
-                onError={(e) => {
-                  logger.error('Wallet name tag image failed to load:', {
-                    address: walletAddress,
-                    src: nameTags[walletAddress.toLowerCase()]?.image,
-                  });
-                  e.target.src = '/fallback-image.webp';
-                }}
-              />
-              <span className="text-sm font-bold text-white tracking-tight">{nameTags[walletAddress.toLowerCase()]?.name || displayWalletAddress}</span>
-              <motion.button
-                onClick={() => {
-                  navigator.clipboard.writeText(walletAddress);
-                  toast.success('Address copied!', { autoClose: 2000 });
-                }}
-                className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
-                title="Copy address"
-                whileHover={{ scale: 1.1, y: -2 }}
-                whileTap={{ scale: 0.9 }}
-              >
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-2 group relative">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="w-4 h-4"
+                  className="h-5 w-5 text-white/60"
                   fill="none"
                   viewBox="0 0 24 24"
-                  stroke="#F87171"
+                  stroke="currentColor"
                   strokeWidth={2}
                 >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
                   />
                 </svg>
-              </motion.button>
+                <img
+                  src={nameTags[walletAddress.toLowerCase()]?.image || '/fallback-image.webp'}
+                  alt={`${displayWalletAddress} logo`}
+                  className="w-6 h-6 rounded-xl"
+                  onError={(e) => {
+                    logger.error('Wallet name tag image failed to load:', {
+                      address: walletAddress,
+                      src: nameTags[walletAddress.toLowerCase()]?.image,
+                    });
+                    e.target.src = '/fallback-image.webp';
+                  }}
+                />
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-white tracking-tight">{nameTags[walletAddress.toLowerCase()]?.name || displayWalletAddress}</span>
+                  <div className="relative flex items-center group">
+                    <span className="text-[9px] sm:text-[10px] text-white/60">{displayWalletAddress}</span>
+                    <motion.button
+                      onClick={() => {
+                        navigator.clipboard.writeText(walletAddress);
+                        toast.success('Address copied!', { autoClose: 2000 });
+                      }}
+                      className="ml-2 p-1 bg-white/10 rounded-xl hover:bg-red-500/20 transition-all duration-300 flex-shrink-0 opacity-0 group-hover:opacity-100"
+                      title="Copy address"
+                      whileHover={{ scale: 1.1, y: -2 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="#F87171"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 p-1 sm:p-2 mr-2 bg-gradient-to-r from-black/70 to-black/50 rounded-xl border border-white/10 shadow-md shadow-neon-blue/10">
+                <div className="flex items-center gap-1 flex-wrap min-w-0">
+                  <span className="flex items-center font-bold text-white text-[11px] sm:text-xs whitespace-nowrap">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 text-emerald-400 flex-shrink-0 m-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Total Value:
+                  </span>
+                  <span className="font-bold ml-1 bg-gradient-to-r from-neon-blue to-emerald-400 bg-clip-text text-transparent text-xs sm:text-sm truncate">
+                    ${formatNumber(totalValue)}
+                  </span>
+                </div>
+              </div>
             </div>
             <motion.button
               onClick={onClose}
@@ -572,25 +602,6 @@ const WalletBalances = ({
                   </p>
                 ) : sortedBalances.length > 0 ? (
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 mb-4 p-3 bg-black/50 rounded-xl border border-white/10 sticky top-0 z-10">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4 text-emerald-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span className="text-sm font-bold text-white">
-                        Total Value: ${formatNumber(totalValue)}
-                      </span>
-                    </div>
                     <div className="bg-black/80 rounded-xl border border-white/10 overflow-hidden">
                       <div className="flex bg-black/10 border-b border-white/10 px-2 py-2 text-[8px] sm:text-[10px] font-semibold text-white">
                         <div className="w-[30%] px-2 text-left">Token</div>

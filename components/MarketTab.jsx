@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { useSession } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceDot } from "recharts"
@@ -32,16 +33,22 @@ import remarkGfm from 'remark-gfm';
 import ReactMarkdown from "react-markdown";
 import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
 
-const LazyImage = ({ src, alt, className, ...props }) => {
+const LazyImage = ({ src, alt, className, width, height, ...props }) => {
+  const [imgSrc, setImgSrc] = useState(src || '/fallback-image.webp');
+
+  useEffect(() => {
+    setImgSrc(src || '/fallback-image.webp');
+  }, [src]);
+
   return (
-    <img
-      src={src || '/fallback-image.webp'}
-      alt={alt || `Cryptocurrency image for ${src?.split('/')?.pop()?.split('.')[0] || 'unknown'}`}
+    <Image
+      src={imgSrc}
+      alt={alt || `Cryptocurrency image for ${imgSrc?.split('/')?.pop()?.split('.')[0] || 'unknown'}`}
       className={className}
+      width={width}
+      height={height}
       loading="lazy"
-      onError={(e) => {
-        e.target.src = '/fallback-image.webp';
-      }}
+      unoptimized={imgSrc.startsWith('http')}
       {...props}
     />
   );
@@ -294,6 +301,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
             src={token.large || "/placeholder.svg"}
             alt={`${token.symbol} logo`}
             className="w-8 h-8"
+            width={32}
+            height={32}
           />
           <div>
             <div className="font-bold text-sm text-white">{token.symbol.toUpperCase()}</div>
@@ -421,11 +430,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         <div className="flex flex-col sm:flex-row justify-between gap-6">
           <div className="flex-1 min-w-0">
             <h5 className="text-lg font-bold text-white mb-4 flex items-center justify-center gap-3">
-              <img
-                src={token1.image_url || "/placeholder.svg"}
+              <LazyImage
+                src={token1.image_url}
                 alt={`${token1.symbol} logo`}
                 className="w-8 h-8 rounded-full"
-                onError={(e) => (e.target.src = "/fallback-image.webp")}
+                width={32}
+                height={32}
               />
               {token1.symbol}
             </h5>
@@ -469,11 +479,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           </div>
           <div className="flex-1 min-w-0">
             <h5 className="text-lg font-bold text-white mb-4 flex items-center justify-center gap-3">
-              <img
-                src={token2.image_url || "/placeholder.svg"}
+              <LazyImage
+                src={token2.image_url}
                 alt={`${token2.symbol} logo`}
                 className="w-8 h-8 rounded-full ring-2 ring-white/20"
-                onError={(e) => (e.target.src = "/fallback-image.webp")}
+                width={32}
+                height={32}
               />
               {token2.symbol}
             </h5>
@@ -846,6 +857,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                         src={token.thumb || token.image?.thumb || "/fallback-image.webp"}
                         alt={`${token.symbol} logo`}
                         className="w-3 sm:w-4 h-3 sm:h-4 rounded-lg"
+                        width={16}
+                        height={16}
                       />
                       <span className="text-white text-[8px] sm:text-[10px] font-medium">{token.symbol.toUpperCase()}</span>
                       <span
@@ -1617,6 +1630,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               src={image}
                                               alt={`${displayText} logo`}
                                               className="w-5 h-5 sm:w-6 sm:h-6 rounded-md"
+                                              width={24}
+                                              height={24}
                                             />
                                           )}
                                           {isBitcoin && isValidAddress ? (
@@ -1679,7 +1694,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             )}
                           </>
                         ) : (
-                          <LoginPrompt />
+                            <LoginPrompt/>
                         )}
                       </div>
                     )}
@@ -1716,6 +1731,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         src={ticker.market.logo}
                                         alt={`${ticker.market.name} logo`}
                                         className="w-5 h-5 rounded-md"
+                                        width={20}
+                                        height={20}
                                       />
                                     )}
                                     <a
@@ -1800,7 +1817,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       {/* Tx/Time */}
                                       <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
                                         <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
-                                          <LazyImage src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" />
+                                          <LazyImage src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" width={12} height={12} />
                                         </a>
                                         <span className="text-[7px] sm:text-[9px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
                                         {txHash && (
@@ -1823,7 +1840,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                                       {/* From Address */}
                                       <div className="flex-[2] flex items-center justify-center gap-2 group relative">
-                                        {fromAddressInfo.image && <LazyImage src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" />}
+                                        {fromAddressInfo.image && <LazyImage src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />}
                                         <a
                                           href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(selectedChain, txHash, item.tx_from_address?.address).addressUrl}
                                           target="_blank"
@@ -1854,7 +1871,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                                       {/* To Address */}
                                       <div className="flex-[2] flex items-center justify-center gap-2 group relative">
-                                        {toAddressInfo.image && <LazyImage src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" />}
+                                        {toAddressInfo.image && <LazyImage src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />}
                                         <a
                                           href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(selectedChain, txHash, item.to_token_address?.address).addressUrl}
                                           target="_blank"
@@ -1889,7 +1906,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           {isBitcoin ? (
                                             <>
                                               {(item.value_btc || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                              <LazyImage src="/logos/bitcoin.webp" alt="BTC" className="w-3 h-3 rounded" />
+                                              <LazyImage src="/logos/bitcoin.webp" alt="BTC" className="w-3 h-3 rounded" width={12} height={12} />
                                               <span>BTC</span>
                                             </>
                                           ) : (
@@ -1939,9 +1956,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null;
                                               return token1 && token2 ? (
                                                 <div className="flex items-center gap-1">
-                                                  <LazyImage src={token1.image_url || "/placeholder.svg"} alt={`${token1.symbol} logo`} className="w-3 h-3 rounded-md" />
+                                                  <LazyImage src={token1.image_url || "/placeholder.svg"} alt={`${token1.symbol} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />
                                                   <span className="text-white/40">/</span>
-                                                  <LazyImage src={token2.image_url || "/placeholder.svg"} alt={`${token2.symbol} logo`} className="w-3 h-3 rounded-md" />
+                                                  <LazyImage src={token2.image_url || "/placeholder.svg"} alt={`${token2.symbol} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />
                                                 </div>
                                               ) : (
                                                 <span className="text-white/60 text-[9px] sm:text-[11px]">N/A</span>
