@@ -1,3 +1,4 @@
+// app/api/get-transactions/route.js
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
@@ -263,6 +264,28 @@ async function getCurrentPrice(cgId) {
   return 0;
 }
 
+async function getTokenCurrentPrice(platform, contractAddress) {
+  const redisClient = await getRedisClient();
+  const cacheKey = `token_price_${platform}_${contractAddress.toLowerCase()}`;
+  let cached = await redisClient.get(cacheKey);
+  if (cached) return parseFloat(cached);
+
+  try {
+    const response = await fetchWithRateLimit(
+      `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${contractAddress}&vs_currencies=usd`,
+      { headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY } }
+    );
+    const price = response.data[contractAddress.toLowerCase()]?.usd;
+    if (price) {
+      await redisClient.setEx(cacheKey, 300, price.toString());
+      return price;
+    }
+  } catch (e) {
+    logger.error(`Error fetching token price for ${contractAddress} on ${platform}:`, e);
+  }
+  return 0;
+}
+
 async function getNametagsBatch(addresses, chain) {
   const uniqueAddresses = [...new Set(addresses.map((addr) => addr.toLowerCase()).filter(isAddress))];
   const nametags = {};
@@ -290,7 +313,7 @@ async function getNametagsBatch(addresses, chain) {
     const result = await query(
       `SELECT address, nametag, image, description, subcategory 
        FROM nametags 
-       WHERE address = ANY($1) /*+ PARALLEL(4) */`,
+       WHERE address = ANY($1) /*+ PARALLEL(4) */`, // Enable parallel query if supported
       [addressesToQuery]
     );
 
@@ -469,14 +492,11 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   logger.info(`Fetching Layer 3 transactions for ${validLayer2Addresses.length} valid Layer 2 addresses`);
 
   const layer3Limit = 50;
-  const batchSize = 10;
+  const batchSize = 10; // Process addresses in batches
   const batches = [];
   for (let i = 0; i < validLayer2Addresses.length; i += batchSize) {
     batches.push(validLayer2Addresses.slice(i, i + batchSize));
   }
-
-  const allTempTxs = [];
-  const uniqueContracts = new Set();
 
   const batchPromises = batches.map(async (batch) => {
     const fetchPromises = batch.map(async (address) => {
@@ -494,11 +514,13 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         let txData = response.data.result || response.data.transactions || [];
         if (!Array.isArray(txData)) txData = [];
 
-        const tempTxs = txData.map((tx) => {
+        const txPromises = txData.map(async (tx) => {
           let value = '0';
           let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
           let contractAddress = null;
+          let tokenImage = '/icons/default.webp';
           let blockTime;
+          let usdValue = 0;
 
           if (chain === 'solana') {
             value = (tx.lamports / 1e9).toString();
@@ -513,7 +535,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
             if (tx.tokenSymbol && isValidTokenSymbol(tx.tokenSymbol)) {
               tokenSymbol = tx.tokenSymbol;
               contractAddress = tx.contractAddress;
-              uniqueContracts.add(contractAddress.toLowerCase());
+              tokenImage = await getTokenImage(contractAddress, chain);
             } else if (tx.tokenSymbol) {
               logger.warn(`Filtered out invalid token symbol: ${tx.tokenSymbol} for contract ${tx.contractAddress}`);
               return null;
@@ -526,21 +548,32 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
             return null;
           }
 
+          // Calculate USD value
+          if (contractAddress) {
+            usdValue = Number(value) * await getTokenCurrentPrice(chainIdToName[chain], contractAddress);
+          } else {
+            const cgId = SUPPORTED_CHAINS[chain].coingeckoId;
+            const price = await getCurrentPrice(cgId);
+            usdValue = Number(value) * price;
+          }
+
           return {
-            ...tx,
+            address: tx.from === address.toLowerCase() ? tx.to : tx.from,
+            hash: tx.hash || tx.transactionHash,
             value,
-            usdValue: '0',
+            usdValue: usdValue.toFixed(6),
             tokenSymbol,
             contractAddress,
-            tokenImage: '/icons/default.webp',
+            tokenImage,
             block_time: blockTime,
             type: tx.from === address.toLowerCase() ? 'outgoing' : 'incoming',
             layer2Address: address,
           };
-        }).filter(Boolean);
+        });
 
-        allTempTxs.push(...tempTxs);
-        return tempTxs;
+        return (await Promise.allSettled(txPromises))
+          .filter((result) => result.status === 'fulfilled' && result.value)
+          .map((result) => result.value);
       } catch (error) {
         logger.error(`Failed to fetch Layer 3 transactions for ${address}:`, error.message);
         return [];
@@ -552,38 +585,10 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
     );
   });
 
-  await Promise.allSettled(batchPromises);
-
-  const nativePrice = await getCurrentPrice(chainConfig.coingeckoId);
-  let tokenPrices = {};
-  const platform = chainIdToName[chain];
-  if (uniqueContracts.size > 0) {
-    const redisClient = await getRedisClient();
-    const response = await fetchWithRateLimit(
-      `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${Array.from(uniqueContracts).join(',')}&vs_currencies=usd`,
-      { headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY } }
-    );
-    tokenPrices = response.data;
-
-    for (const [addr, data] of Object.entries(tokenPrices)) {
-      await redisClient.setEx(`token_price_${platform}_${addr.toLowerCase()}`, 300, data.usd.toString());
-    }
-  }
-
-  const processedTxs = allTempTxs
-    .map((tx) => {
-      if (tx.contractAddress) {
-        const price = tokenPrices[tx.contractAddress.toLowerCase()]?.usd || 0;
-        tx.usdValue = (Number(tx.value) * price).toFixed(6);
-        tx.tokenImage = getTokenImage(tx.contractAddress, chain);
-      } else {
-        tx.usdValue = (Number(tx.value) * nativePrice).toFixed(6);
-      }
-      return tx;
-    })
-    .filter((tx) => Number(tx.usdValue) > 0);
-
-  transactions.push(...processedTxs);
+  const results = await Promise.allSettled(batchPromises);
+  transactions.push(...results.flatMap((result) => 
+    result.status === 'fulfilled' ? result.value : []
+  ));
 
   const layer3Addresses = [...new Set(transactions.map((tx) => tx.address.toLowerCase()))];
   const layer3Nametags = await getNametagsBatch(layer3Addresses, chain);
@@ -672,14 +677,14 @@ export async function POST(request) {
     const incoming = [];
     const outgoing = [];
     const addresses = new Set();
-    const uniqueContracts = new Set();
 
-    const nativeTxs = transactions.map((tx) => {
+    const nativeTxPromises = transactions.map(async (tx) => {
       let value = '0';
       let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
       let contractAddress = null;
       let tokenImage = '/icons/default.webp';
       let blockTime;
+      let usdValue = 0;
 
       if (chain === 'solana') {
         value = (tx.lamports / 1e9).toString();
@@ -699,87 +704,88 @@ export async function POST(request) {
         return null;
       }
 
+      // Calculate USD value for native
+      const cgId = SUPPORTED_CHAINS[chain].coingeckoId;
+      const price = await getCurrentPrice(cgId);
+      usdValue = Number(value) * price;
+
       return {
         address: tx.from === wallet_address.toLowerCase() ? tx.to : tx.from,
         hash: tx.hash || tx.transactionHash,
         value,
-        usdValue: '0',
+        usdValue: usdValue.toFixed(6),
         tokenSymbol,
         contractAddress,
         tokenImage,
         block_time: blockTime,
         type: tx.from === wallet_address.toLowerCase() ? 'outgoing' : 'incoming',
       };
-    }).filter(Boolean);
+    });
 
-    const tokenTxs = tokenTransactions
-      .filter(tx => isAddress(tx.contractAddress) && !BLOCKED_TOKEN_ADDRESSES.includes(tx.contractAddress.toLowerCase()) && isValidTokenSymbol(tx.tokenSymbol))
-      .map((tx) => {
-        const contractAddress = tx.contractAddress;
-        uniqueContracts.add(contractAddress.toLowerCase());
-
-        let value = (parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18))).toString();
-        let tokenSymbol = tx.tokenSymbol || 'Unknown';
-        let tokenImage = '/icons/default.webp';
-        let blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
-
-        if (!blockTime) {
-          logger.warn(`Missing or invalid block_time for token tx ${tx.hash} from address ${wallet_address}`);
-          return null;
+    const nativeTxResults = await Promise.allSettled(nativeTxPromises);
+    nativeTxResults.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value) {
+        const tx = result.value;
+        if (tx.type === 'outgoing') {
+          outgoing.push(tx);
+          addresses.add(tx.address.toLowerCase());
+        } else {
+          incoming.push(tx);
+          addresses.add(tx.address.toLowerCase());
         }
-
-        return {
-          address: tx.from === wallet_address.toLowerCase() ? tx.to : tx.from,
-          hash: tx.hash,
-          value,
-          usdValue: '0',
-          tokenSymbol,
-          contractAddress,
-          tokenImage,
-          block_time: blockTime,
-          type: tx.from === wallet_address.toLowerCase() ? 'outgoing' : 'incoming',
-        };
-      }).filter(Boolean);
-
-    const cgId = SUPPORTED_CHAINS[chain].coingeckoId;
-    const nativePrice = await getCurrentPrice(cgId);
-
-    let tokenPrices = {};
-    const platform = chainIdToName[chain];
-    if (uniqueContracts.size > 0) {
-      const redisClient = await getRedisClient();
-      const response = await fetchWithRateLimit(
-        `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${Array.from(uniqueContracts).join(',')}&vs_currencies=usd`,
-        { headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY } }
-      );
-      tokenPrices = response.data;
-
-      for (const [addr, data] of Object.entries(tokenPrices)) {
-        await redisClient.setEx(`token_price_${platform}_${addr.toLowerCase()}`, 300, data.usd.toString());
-      }
-    }
-
-    nativeTxs.forEach((tx) => {
-      tx.usdValue = (Number(tx.value) * nativePrice).toFixed(6);
-      if (tx.type === 'outgoing') {
-        outgoing.push(tx);
-        addresses.add(tx.address.toLowerCase());
-      } else {
-        incoming.push(tx);
-        addresses.add(tx.address.toLowerCase());
       }
     });
 
-    tokenTxs.forEach(async (tx) => {
-      const price = tokenPrices[tx.contractAddress.toLowerCase()]?.usd || 0;
-      tx.usdValue = (Number(tx.value) * price).toFixed(6);
-      tx.tokenImage = await getTokenImage(tx.contractAddress, chain);
-      if (tx.type === 'outgoing') {
-        outgoing.push(tx);
-        addresses.add(tx.address.toLowerCase());
-      } else {
-        incoming.push(tx);
-        addresses.add(tx.address.toLowerCase());
+    const tokenPromises = tokenTransactions.map(async (tx) => {
+      if (!isAddress(tx.contractAddress)) return null;
+      if (BLOCKED_TOKEN_ADDRESSES.includes(tx.contractAddress.toLowerCase())) {
+        logger.warn(`Filtered out blocked token contract: ${tx.contractAddress}`);
+        return null;
+      }
+      if (!isValidTokenSymbol(tx.tokenSymbol)) {
+        logger.warn(`Filtered out invalid token symbol: ${tx.tokenSymbol} for contract ${tx.contractAddress}`);
+        return null;
+      }
+      let value = (parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18))).toString();
+      let tokenSymbol = tx.tokenSymbol || 'Unknown';
+      let contractAddress = tx.contractAddress;
+      let tokenImage = await getTokenImage(contractAddress, chain);
+      let blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
+      let usdValue = 0;
+
+      if (!blockTime) {
+        logger.warn(`Missing or invalid block_time for token tx ${tx.hash} from address ${wallet_address}`);
+        return null;
+      }
+
+      // Calculate USD value for token
+      const price = await getTokenCurrentPrice(chainIdToName[chain], contractAddress);
+      usdValue = Number(value) * price;
+
+      return {
+        address: tx.from === wallet_address.toLowerCase() ? tx.to : tx.from,
+        hash: tx.hash,
+        value,
+        usdValue: usdValue.toFixed(6),
+        tokenSymbol,
+        contractAddress,
+        tokenImage,
+        block_time: blockTime,
+        type: tx.from === wallet_address.toLowerCase() ? 'outgoing' : 'incoming',
+      };
+    });
+
+    const tokenResults = await Promise.allSettled(tokenPromises);
+    tokenResults.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value) {
+        const tx = result.value;
+        if (tx.type === 'outgoing') {
+          outgoing.push(tx);
+          addresses.add(tx.address.toLowerCase());
+        } else {
+          incoming.push(tx);
+          addresses.add(tx.address.toLowerCase());
+        }
       }
     });
 
@@ -828,7 +834,7 @@ export async function POST(request) {
     const calculateServerRisk = (txs) => {
       return txs.map(tx => ({
         ...tx,
-        riskScore: Math.random() > 0.8 ? 0.9 : 0.3
+        riskScore: Math.random() > 0.8 ? 0.9 : 0.3 // Placeholder; integrate ML later
       }));
     };
 
