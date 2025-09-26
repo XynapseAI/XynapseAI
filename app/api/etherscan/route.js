@@ -6,6 +6,20 @@ import { logger } from '../../../utils/serverLogger';
 import Bottleneck from 'bottleneck';
 import { isAddress } from 'ethers';
 import { auth } from '@/lib/auth';
+import { createClient } from 'redis';
+
+let redisClient;
+async function getRedisClient() {
+  if (!redisClient) {
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) throw new Error('REDIS_URL environment variable is required.');
+    redisClient = createClient({ url: redisUrl });
+    redisClient.on('error', (err) => logger.error('Redis Client Error', { error: err.message }));
+    await redisClient.connect();
+    logger.info('Redis connected');
+  }
+  return redisClient;
+}
 
 const limiterBottleneck = new Bottleneck({
   maxConcurrent: 10,
@@ -14,7 +28,7 @@ const limiterBottleneck = new Bottleneck({
 
 const fetchWithRateLimit = limiterBottleneck.wrap(async (url, config) => {
   try {
-    return await axios.get(url, config);
+    return await axios.get(url, { ...config, timeout: 15000 });
   } catch (error) {
     if (error.response?.status === 429 || error.code === 'ECONNABORTED') {
       throw error;
@@ -63,17 +77,21 @@ function isAllowedOrigin(origin, referer) {
 }
 
 const bodySchema = z.object({
-  action: z.enum(['wallet-balances', 'transactions', 'token-supply', 'token-info'], { message: 'Invalid action' }),
-  chain: z.string().nonempty('Chain is required'),
-  address: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Wallet address must be a valid EVM address' }),
-  tokenAddress: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Token address must be a valid EVM address' }),
-}).refine(
-  (data) => (['wallet-balances', 'transactions'].includes(data.action) ? !!data.address : true),
-  { message: 'Wallet address is required for wallet-balances and transactions', path: ['address'] }
-).refine(
-  (data) => (['token-supply', 'token-info'].includes(data.action) ? !!data.tokenAddress : true),
-  { message: 'Token address is required for token-supply and token-info', path: ['tokenAddress'] }
-);
+  actions: z.array(
+    z.object({
+      action: z.enum(['wallet-balances', 'transactions', 'token-supply', 'token-info'], { message: 'Invalid action' }),
+      chain: z.string().nonempty('Chain is required'),
+      address: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Wallet address must be a valid EVM address' }),
+      tokenAddress: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Token address must be a valid EVM address' }),
+    })
+  ).min(1, 'At least one action is required').refine(
+    (actions) => actions.every((data) => 
+      (['wallet-balances', 'transactions'].includes(data.action) ? !!data.address : true) &&
+      (['token-supply', 'token-info'].includes(data.action) ? !!data.tokenAddress : true)
+    ),
+    { message: 'Address or tokenAddress required for specific actions' }
+  ),
+});
 
 const ETHERSCAN_API_URLS = {
   ethereum: 'https://api.etherscan.io/api',
@@ -125,16 +143,11 @@ export const POST = handlerWrapper(async (request) => {
     return NextResponse.json({ detail: 'Validation failed', errors: err.errors }, { status: 400 });
   }
 
-  const { chain, action, address, tokenAddress } = parsedBody;
-  const etherscanBaseUrl = ETHERSCAN_API_URLS[chain?.toLowerCase()];
-  if (!etherscanBaseUrl) {
-    logger.warn(`Unsupported chain for Etherscan: ${chain}`, { ip });
-    return NextResponse.json({ detail: `Unsupported chain for Etherscan: ${chain}` }, { status: 400 });
-  }
-
+  const { actions } = parsedBody;
+  const redisClient = await getRedisClient();
   const internalToken = request.headers.get('x-internal-token');
   if (!internalToken || internalToken !== process.env.INTERNAL_API_TOKEN) {
-    const session = await auth(); 
+    const session = await auth();
     if (!session || !session.user?.id) {
       logger.error(`Authentication error: No session or UID`, { ip });
       return NextResponse.json({ detail: 'Unauthorized: Please log in.' }, { status: 401 });
@@ -150,97 +163,136 @@ export const POST = handlerWrapper(async (request) => {
     new ReadableStream({
       async start(controller) {
         try {
-          let apiUrl = '';
-          let data = [];
-
-          if (action === 'transactions' && address) {
-            apiUrl = `${etherscanBaseUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
-            logger.info(`Calling Etherscan API for transactions: ${apiUrl}`, { ip });
-            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
-
-            if (response.data.status === '1' && Array.isArray(response.data.result)) {
-              data = response.data.result.map((tx) => ({
-                chain,
-                hash: tx.hash,
-                from: tx.from,
-                to: tx.to,
-                value: '0x' + (parseInt(tx.value) || 0).toString(16),
-                block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
-                gasUsed: tx.gasUsed,
-                gasPrice: tx.gasPrice,
-                input: tx.input,
-                isError: tx.isError === '1',
-              }));
-            } else {
-              logger.warn(`Etherscan API returned status ${response.data.status} for transactions: ${response.data.message}`, { ip, address });
+          const actionPromises = actions.map(async ({ action, chain, address, tokenAddress }) => {
+            const etherscanBaseUrl = ETHERSCAN_API_URLS[chain?.toLowerCase()];
+            if (!etherscanBaseUrl) {
+              logger.warn(`Unsupported chain for Etherscan: ${chain}`, { ip });
+              return { action, success: false, detail: `Unsupported chain for Etherscan: ${chain}` };
             }
-            logger.info(`Transactions response for address ${address}: ${data.length} transactions`, { ip });
-            controller.enqueue(JSON.stringify({ success: true, data }));
-            controller.close();
-          } else if (action === 'wallet-balances' && address) {
-            apiUrl = `${etherscanBaseUrl}?module=account&action=balance&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
-            logger.info(`Calling Etherscan API for balance: ${apiUrl}`, { ip });
-            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
 
-            if (response.data.status === '1' && typeof response.data.result === 'string') {
-              const ethBalanceWei = parseInt(response.data.result);
-              data = [
-                {
-                  chain,
-                  chain_id: null,
-                  address,
-                  symbol: chain === 'ethereum' ? 'ETH' : chain === 'bnb' ? 'BNB' : 'Native',
-                  decimals: 18,
-                  amount: ethBalanceWei / Math.pow(10, 18),
-                  price_usd: 0,
-                  value_usd: 0,
-                  logo: null,
-                },
-              ];
-            } else {
-              logger.warn(`Etherscan API returned status ${response.data.status} for balance: ${response.data.message}`, { ip, address });
+            const cacheKey = `etherscan_${action}_${chain}_${address || tokenAddress}_${Date.now() - (Date.now() % 3600000)}`; // Cache per hour
+            const cached = await redisClient.get(cacheKey);
+            if (cached) {
+              logger.info(`Cache hit for ${cacheKey}`);
+              return { action, success: true, data: JSON.parse(cached) };
             }
-            logger.info(`Wallet balances response for address ${address}: ${data.length} tokens`, { ip });
-            controller.enqueue(JSON.stringify({ success: true, data }));
-            controller.close();
-          } else if (action === 'token-supply' && tokenAddress) {
-            apiUrl = `${etherscanBaseUrl}?module=stats&action=tokensupply&contractaddress=${tokenAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`;
-            logger.info(`Calling Etherscan API for token supply: ${apiUrl}`, { ip });
-            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
 
-            if (response.data.status === '1' && typeof response.data.result === 'string') {
-              const supply = response.data.result;
-              controller.enqueue(JSON.stringify({ success: true, data: { tokenAddress, totalSupply: supply } }));
-              controller.close();
-            } else {
-              logger.warn(`Etherscan API returned status ${response.data.status} for token supply: ${response.data.message}`, { ip, tokenAddress });
-              controller.enqueue(JSON.stringify({ success: false, detail: 'Token supply not found or invalid token address.' }));
-              controller.close();
+            try {
+              let apiUrl = '';
+              let data = [];
+
+              if (action === 'transactions' && address) {
+                apiUrl = `${etherscanBaseUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${process.env.ETHERSCAN_API_KEY}`;
+                logger.info(`Calling Etherscan API for transactions: ${apiUrl}`, { ip });
+                const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+
+                if (response.data.status === '1' && Array.isArray(response.data.result)) {
+                  data = response.data.result.map((tx) => ({
+                    chain,
+                    hash: tx.hash,
+                    from: tx.from,
+                    to: tx.to,
+                    value: '0x' + (parseInt(tx.value) || 0).toString(16),
+                    block_time: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+                    gasUsed: tx.gasUsed,
+                    gasPrice: tx.gasPrice,
+                    input: tx.input,
+                    isError: tx.isError === '1',
+                  }));
+                  await redisClient.setEx(cacheKey, 3600, JSON.stringify(data));
+                  logger.info(`Transactions response for address ${address}: ${data.length} transactions`, { ip });
+                  return { action, success: true, data };
+                }
+                logger.warn(`Etherscan API returned status ${response.data.status} for transactions: ${response.data.message}`, { ip, address });
+                return { action, success: false, detail: `Etherscan API error: ${response.data.message}` };
+              } else if (action === 'wallet-balances' && address) {
+                apiUrl = `${etherscanBaseUrl}?module=account&action=balance&address=${address}&tag=latest&apikey=${process.env.ETHERSCAN_API_KEY}`;
+                logger.info(`Calling Etherscan API for balance: ${apiUrl}`, { ip });
+                const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+
+                if (response.data.status === '1' && typeof response.data.result === 'string') {
+                  const ethBalanceWei = parseInt(response.data.result);
+                  data = [
+                    {
+                      chain,
+                      chain_id: null,
+                      address,
+                      symbol: chain === 'ethereum' ? 'ETH' : chain === 'bnb' ? 'BNB' : 'Native',
+                      decimals: 18,
+                      amount: ethBalanceWei / Math.pow(10, 18),
+                      price_usd: 0,
+                      value_usd: 0,
+                      logo: null,
+                    },
+                  ];
+                  await redisClient.setEx(cacheKey, 3600, JSON.stringify(data));
+                  logger.info(`Wallet balances response for address ${address}: ${data.length} tokens`, { ip });
+                  return { action, success: true, data };
+                }
+                logger.warn(`Etherscan API returned status ${response.data.status} for balance: ${response.data.message}`, { ip, address });
+                return { action, success: false, detail: `Etherscan API error: ${response.data.message}` };
+              } else if (action === 'token-supply' && tokenAddress) {
+                apiUrl = `${etherscanBaseUrl}?module=stats&action=tokensupply&contractaddress=${tokenAddress}&apikey=${process.env.ETHERSCAN_API_KEY}`;
+                logger.info(`Calling Etherscan API for token supply: ${apiUrl}`, { ip });
+                const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+
+                if (response.data.status === '1' && typeof response.data.result === 'string') {
+                  const supply = response.data.result;
+                  const data = { tokenAddress, totalSupply: supply };
+                  await redisClient.setEx(cacheKey, 3600, JSON.stringify(data));
+                  return { action, success: true, data };
+                }
+                logger.warn(`Etherscan API returned status ${response.data.status} for token supply: ${response.data.message}`, { ip, tokenAddress });
+                return { action, success: false, detail: 'Token supply not found or invalid token address.' };
+              } else if (action === 'token-info' && tokenAddress) {
+                logger.warn(`'token-info' action not fully supported by Etherscan directly. Requires contract interaction for full details.`, { ip, tokenAddress });
+                const data = { tokenAddress, name: 'Unknown', symbol: 'Unknown', decimals: 0, note: 'Requires contract interaction for full details' };
+                await redisClient.setEx(cacheKey, 3600, JSON.stringify(data));
+                return { action, success: true, data };
+              } else {
+                logger.warn(`Invalid parameters for action: ${action}`, { ip });
+                return { action, success: false, detail: `Invalid parameters for action: ${action}` };
+              }
+            } catch (error) {
+              logger.error(`Etherscan API error for action ${action}: ${error.message}`, {
+                status: error.response?.status,
+                data: error.response?.data,
+                stack: error.stack,
+                ip,
+              });
+              const status = error.response?.status || 500;
+              const detail =
+                status === 429
+                  ? 'Etherscan API rate limit exceeded, please try again later.'
+                  : status === 404
+                  ? 'Requested data not found.'
+                  : `Etherscan API error: ${error.message}`;
+              return { action, success: false, detail };
             }
-          } else if (action === 'token-info' && tokenAddress) {
-            logger.warn(`'token-info' action not fully supported by Etherscan directly. Requires contract interaction for full details.`, { ip, tokenAddress });
-            controller.enqueue(JSON.stringify({ success: true, data: { tokenAddress, name: 'Unknown', symbol: 'Unknown', decimals: 0, note: 'Requires contract interaction for full details' } }));
-            controller.close();
-          } else {
-            logger.warn(`Invalid parameters for action: ${action}`, { ip });
-            controller.enqueue(JSON.stringify({ detail: `Invalid parameters for action: ${action}` }));
-            controller.close();
-          }
-        } catch (error) {
-          logger.error(`Etherscan API error for action ${action}: ${error.message}`, {
-            status: error.response?.status,
-            data: error.response?.data,
-            stack: error.stack,
-            ip,
           });
-          const status = error.response?.status || 500;
-          const detail =
-            status === 429
-              ? 'Etherscan API rate limit exceeded, please try again later.'
-              : status === 404
-              ? 'Requested data not found.'
-              : `Etherscan API error: ${error.message}`;
-          controller.enqueue(JSON.stringify({ detail }));
+
+          const results = await Promise.allSettled(actionPromises);
+          const responseData = results.map((result) => {
+            if (result.status === 'fulfilled') {
+              return result.value;
+            }
+            return { action: 'unknown', success: false, detail: 'Internal error processing action' };
+          });
+
+          const successfulResults = responseData.filter((res) => res.success);
+          const failedResults = responseData.filter((res) => !res.success);
+
+          if (successfulResults.length === 0) {
+            controller.enqueue(JSON.stringify({ success: false, errors: failedResults }));
+            controller.close();
+            return;
+          }
+
+          controller.enqueue(JSON.stringify({ success: true, results: successfulResults, errors: failedResults }));
+          controller.close();
+        } catch (error) {
+          logger.error(`Unexpected error: ${error.message}`, { ip, stack: error.stack });
+          controller.enqueue(JSON.stringify({ success: false, detail: 'Unexpected server error' }));
           controller.close();
         }
       },

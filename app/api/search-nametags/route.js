@@ -55,7 +55,7 @@ async function checkRateLimit(ip, endpoint) {
   try {
     client = await getRedisClient();
     const windowSeconds = 15 * 60;
-    const maxRequests = process.env.NODE_ENV === 'development' ? 1000 : 400;
+    const maxRequests = process.env.NODE_ENV === 'development' ? 500 : 300;
     const key = `rate_limit:${endpoint}:${ip}`;
     const count = Number(await client.incr(key));
     if (count === 1) await client.expire(key, windowSeconds);
