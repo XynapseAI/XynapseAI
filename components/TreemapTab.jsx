@@ -380,7 +380,7 @@ const TrendChart = memo(({ transactions, velocity }) => {
       if (!aggregated[key]) {
         aggregated[key] = { value: 0, count: 0 };
       }
-      aggregated[key].value += Number(tx.usdValue || tx.value || 0);
+      aggregated[key].value += Number(tx.value) || 0;
       aggregated[key].count += 1;
     });
 
@@ -455,7 +455,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
   const topTokensVolume = useMemo(() => {
     const volumes = cluster.transactions.reduce((acc, tx) => {
       const key = tx.contractAddress?.toLowerCase() || (tx.tokenSymbol?.toLowerCase() || 'unknown');
-      acc[key] = (acc[key] || 0) + Number(tx.usdValue || tx.value || 0);
+      acc[key] = (acc[key] || 0) + Number(tx.value || 0);
       return acc;
     }, {});
     return Object.entries(volumes)
@@ -466,14 +466,14 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
   // New: Outstanding activities - high value or anomalous tx
   const outstandingTxs = useMemo(() => {
     if (txCount === 0) return [];
-    const values = cluster.transactions.map(tx => Number(tx.usdValue || tx.value || 0));
+    const values = cluster.transactions.map(tx => Number(tx.value));
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
     const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
     const std = Math.sqrt(variance);
     const threshold = mean + 2 * std;
     return cluster.transactions
-      .filter(tx => (Number(tx.usdValue || tx.value || 0) > threshold) || (Number(tx.usdValue || tx.value || 0) > totalValue * 0.1)) // Top 10% or anomalous
-      .sort((a, b) => (Number(b.usdValue || b.value || 0)) - (Number(a.usdValue || a.value || 0)))
+      .filter(tx => Number(tx.value) > threshold || Number(tx.value) > totalValue * 0.1) // Top 10% or anomalous
+      .sort((a, b) => b.value - a.value)
       .slice(0, 3);
   }, [cluster.transactions, totalValue]);
 
@@ -538,7 +538,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
                   />
                   <span className="text-white/70 capitalize truncate">{token}</span>
                 </div>
-                <span className="font-mono text-white/90 min-w-0">${formatLargeNumber(vol, 2)}</span>
+                <span className="font-mono text-white/90 min-w-0">{formatLargeNumber(vol, 2)}</span>
               </div>
             );
           })}
@@ -552,7 +552,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
             {outstandingTxs.map((tx, idx) => (
               <div key={idx} className="flex justify-between">
                 <span className="text-white/80 truncate">{tx.tokenSymbol || 'Unknown'} Tx</span>
-                <span className="font-bold text-orange-400">${formatLargeNumber(Number(tx.usdValue || tx.value || 0))}</span>
+                <span className="font-bold text-orange-400">${formatLargeNumber(tx.value)}</span>
               </div>
             ))}
           </div>
@@ -822,7 +822,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         };
       }
       const wallet = walletMap.get(address);
-      wallet.totalValue += Number(tx.usdValue || tx.value || 0);
+      wallet.totalValue += Number(tx.value);
       wallet.txCount += 1;
       wallet.latestBlockTime = wallet.latestBlockTime
         ? new Date(tx.block_time) > new Date(wallet.latestBlockTime) ? tx.block_time : wallet.latestBlockTime
@@ -869,7 +869,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             source: tx.address.toLowerCase(),
             target: rootAddress.toLowerCase(),
             value: Number(tx.value).toFixed(6),
-            usdValue: Number(tx.usdValue || 0).toFixed(6),
             type: 'incoming',
             txHash: tx.hash,
             block_time: tx.block_time,
@@ -889,7 +888,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             source: rootAddress.toLowerCase(),
             target: tx.address.toLowerCase(),
             value: Number(tx.value).toFixed(6),
-            usdValue: Number(tx.usdValue || 0).toFixed(6),
             type: 'outgoing',
             txHash: tx.hash,
             block_time: tx.block_time,
@@ -912,7 +910,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             source: tx.type === 'incoming' ? layer3Address : layer2Address,
             target: tx.type === 'incoming' ? layer2Address : layer3Address,
             value: Number(tx.value).toFixed(6),
-            usdValue: Number(tx.usdValue || 0).toFixed(6),
             type: tx.type,
             txHash: tx.hash,
             block_time: tx.block_time,
@@ -1368,7 +1365,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[10px] sm:text-[11px] py-1 px-2 rounded">
               ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
               ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
-              <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)}$</div>
+              <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)} ${data.tokenSymbol}</div>
               <div>Risk: ${(risk * 100).toFixed(0)}%</div>
             </div>
           `;

@@ -493,7 +493,7 @@ export default function Dashboard() {
                     />
                     <button
                       type="submit"
-                      className={`w-full px-4 py-3 border-2 border-white/10 bg-white/5 text-white rounded-full text-sm font-medium uppercase transition-all duration-300`}
+                      className={`w-full px-4 py-3 border-2 border-white/10 bg-white/5 text-white rounded-xl text-sm font-medium uppercase transition-all duration-300`}
                     >
                       <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
                     </button>
@@ -504,7 +504,7 @@ export default function Dashboard() {
                   {providers?.google && (
                     <button
                       onClick={handleGoogleSignIn}
-                      className={`w-full px-4 py-3 bg-black/10 border border-white/20 rounded-full text-white text-sm font-medium uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:bg-gray-700/50`}
+                      className={`w-full px-4 py-3 bg-black/10 border border-white/20 rounded-xl text-white text-sm font-medium uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:bg-gray-700/50`}
                     >
                       <Image
                         src="/logos/google.webp"
