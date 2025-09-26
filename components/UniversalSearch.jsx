@@ -1,7 +1,8 @@
+// components/UniversalSearch.jsx
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, Wallet, Building2, Hash, X } from "lucide-react";
 import useSWR from "swr";
 import { LoadingOverlay } from "../utils/helpers";
@@ -13,10 +14,12 @@ export default function UniversalSearch({
   size = "default", // "small", "default", "large"
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState(""); // State mới cho query đã debounce
   const [searchResults, setSearchResults] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const searchRef = useRef(null);
+  const debounceTimer = useRef(null); // Timer cho debouncing
 
   // Size configurations
   const sizeConfig = {
@@ -48,6 +51,25 @@ export default function UniversalSearch({
 
   const config = sizeConfig[size];
 
+  // Debouncing logic
+  const debounce = useCallback((value) => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedQuery(value);
+    }, 300); // 300ms debounce
+  }, []);
+
+  // Update debouncedQuery when searchQuery changes
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      debounce(searchQuery.trim());
+    } else {
+      setDebouncedQuery("");
+    }
+  }, [searchQuery, debounce]);
+
   // SWR fetcher
   const fetcher = async (url) => {
     const response = await fetch(url, {
@@ -60,19 +82,19 @@ export default function UniversalSearch({
 
   // SWR for nametags, exchanges, and clusters
   const { data: nametagData, error: nametagError, isLoading: isLoadingNametags } = useSWR(
-    searchQuery.trim() ? `/api/search-nametags?query=${encodeURIComponent(searchQuery)}` : null,
+    debouncedQuery ? `/api/search-nametags?query=${encodeURIComponent(debouncedQuery)}` : null,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 },
   );
 
   const { data: exchangeData, error: exchangeError, isLoading: isLoadingExchanges } = useSWR(
-    searchQuery.trim() ? `/api/coingecko?action=exchange-search&query=${encodeURIComponent(searchQuery)}` : null,
+    debouncedQuery ? `/api/coingecko?action=exchange-search&query=${encodeURIComponent(debouncedQuery)}` : null,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 },
   );
 
   const { data: clusterData, error: clusterError, isLoading: isLoadingClusters } = useSWR(
-    searchQuery.trim() ? `/api/search-clusters?query=${encodeURIComponent(searchQuery)}` : null,
+    debouncedQuery ? `/api/search-clusters?query=${encodeURIComponent(debouncedQuery)}` : null,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 30000, refreshInterval: 300000 },
   );
@@ -179,7 +201,7 @@ export default function UniversalSearch({
           name: capitalize(cluster.cluster_name),
           image: cluster.image,
           exchangeId: cluster.cluster_name,
-          holder_addresses: cluster.holder_addresses || [], // Thêm danh sách ví
+          holder_addresses: cluster.holder_addresses || [],
         })),
       );
     }
@@ -222,7 +244,7 @@ export default function UniversalSearch({
     if (clusterError) {
       console.error("Error searching clusters:", { query: searchQuery, error: clusterError.message });
     }
-  }, [searchQuery, nametagData, exchangeData, clusterData, isLoadingNametags, isLoadingExchanges, isLoadingClusters, nametagError, exchangeError, clusterError, isModalOpen]);
+  }, [searchQuery, debouncedQuery, nametagData, exchangeData, clusterData, isLoadingNametags, isLoadingExchanges, isLoadingClusters, nametagError, exchangeError, clusterError, isModalOpen]);
 
   // Handle result selection
   const handleResultSelect = (result) => {
@@ -230,6 +252,7 @@ export default function UniversalSearch({
       onSelect(result);
     }
     setSearchQuery("");
+    setDebouncedQuery("");
     setSearchResults([]);
     setIsModalOpen(false);
   };
@@ -311,6 +334,7 @@ export default function UniversalSearch({
                   onClick={() => {
                     setIsModalOpen(false);
                     setSearchQuery("");
+                    setDebouncedQuery("");
                     setSearchResults([]);
                   }}
                   className="text-white/70 hover:bg-white/10 p-2 rounded-full transition-all duration-300"
