@@ -498,6 +498,13 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
     batches.push(validLayer2Addresses.slice(i, i + batchSize));
   }
 
+  // Pre-fetch native price for layer3
+  let nativePrice = 0;
+  const cgId = SUPPORTED_CHAINS[chain].coingeckoId;
+  nativePrice = await getCurrentPrice(cgId);
+
+  // Collect all raw tx data first for potential batching (though layer3 uses txlist, mainly native)
+  const allRawTxs = [];
   const batchPromises = batches.map(async (batch) => {
     const fetchPromises = batch.map(async (address) => {
       try {
@@ -513,82 +520,73 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         const response = await fetchWithRateLimit(apiUrl, { timeout: 20000 });
         let txData = response.data.result || response.data.transactions || [];
         if (!Array.isArray(txData)) txData = [];
-
-        const txPromises = txData.map(async (tx) => {
-          let value = '0';
-          let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
-          let contractAddress = null;
-          let tokenImage = '/icons/default.webp';
-          let blockTime;
-          let usdValue = 0;
-
-          if (chain === 'solana') {
-            value = (tx.lamports / 1e9).toString();
-            tokenSymbol = 'SOL';
-            blockTime = tx.blockTime ? new Date(tx.blockTime * 1000).toISOString() : null;
-          } else if (chain === 'tron') {
-            value = (tx.amount / 1e6).toString();
-            tokenSymbol = 'TRX';
-            blockTime = tx.timestamp ? new Date(tx.timestamp).toISOString() : null;
-          } else {
-            value = (parseInt(tx.value) / 1e18).toString();
-            if (tx.tokenSymbol && isValidTokenSymbol(tx.tokenSymbol)) {
-              tokenSymbol = tx.tokenSymbol;
-              contractAddress = tx.contractAddress;
-              tokenImage = await getTokenImage(contractAddress, chain);
-            } else if (tx.tokenSymbol) {
-              logger.warn(`Filtered out invalid token symbol: ${tx.tokenSymbol} for contract ${tx.contractAddress}`);
-              return null;
-            }
-            blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
-          }
-
-          if (!blockTime) {
-            logger.warn(`Missing or invalid block_time for tx ${tx.hash || tx.transactionHash} from address ${address}`);
-            return null;
-          }
-
-          // Calculate USD value
-          if (contractAddress) {
-            usdValue = Number(value) * await getTokenCurrentPrice(chainIdToName[chain], contractAddress);
-          } else {
-            const cgId = SUPPORTED_CHAINS[chain].coingeckoId;
-            const price = await getCurrentPrice(cgId);
-            usdValue = Number(value) * price;
-          }
-
-          return {
-            address: tx.from === address.toLowerCase() ? tx.to : tx.from,
-            hash: tx.hash || tx.transactionHash,
-            value,
-            usdValue: usdValue.toFixed(6),
-            tokenSymbol,
-            contractAddress,
-            tokenImage,
-            block_time: blockTime,
-            type: tx.from === address.toLowerCase() ? 'outgoing' : 'incoming',
-            layer2Address: address,
-          };
-        });
-
-        return (await Promise.allSettled(txPromises))
-          .filter((result) => result.status === 'fulfilled' && result.value)
-          .map((result) => result.value);
+        return txData.map(tx => ({ ...tx, fromAddress: address }));
       } catch (error) {
         logger.error(`Failed to fetch Layer 3 transactions for ${address}:`, error.message);
         return [];
       }
     });
 
-    return (await Promise.allSettled(fetchPromises)).flatMap((result) => 
-      result.status === 'fulfilled' ? result.value : []
+    const results = await Promise.allSettled(fetchPromises);
+    return results.flatMap((result) => 
+      result.status === 'fulfilled' ? result.value.flat() : []
     );
   });
 
-  const results = await Promise.allSettled(batchPromises);
-  transactions.push(...results.flatMap((result) => 
-    result.status === 'fulfilled' ? result.value : []
-  ));
+  const allBatchResults = await Promise.all(batchPromises);
+  allRawTxs.push(...allBatchResults.flat());
+
+  // Now process all raw txs in parallel
+  const txPromises = allRawTxs.map(async (tx) => {
+    let value = '0';
+    let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
+    let contractAddress = null;
+    let tokenImage = '/icons/default.webp';
+    let blockTime;
+    let usdValue = 0;
+
+    if (chain === 'solana') {
+      value = (tx.lamports / 1e9).toString();
+      tokenSymbol = 'SOL';
+      blockTime = tx.blockTime ? new Date(tx.blockTime * 1000).toISOString() : null;
+    } else if (chain === 'tron') {
+      value = (tx.amount / 1e6).toString();
+      tokenSymbol = 'TRX';
+      blockTime = tx.timestamp ? new Date(tx.timestamp).toISOString() : null;
+    } else {
+      value = (parseInt(tx.value) / 1e18).toString();
+      // Note: txlist doesn't include token transfers; for tokens, would need separate tokentx fetch
+      // Assuming native for layer3 as per original code
+      blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
+    }
+
+    if (!blockTime) {
+      logger.warn(`Missing or invalid block_time for tx ${tx.hash || tx.transactionHash} from address ${tx.fromAddress}`);
+      return null;
+    }
+
+    // Use pre-fetched native price
+    usdValue = Number(value) * nativePrice;
+
+    return {
+      address: tx.from === tx.fromAddress.toLowerCase() ? tx.to : tx.from,
+      hash: tx.hash || tx.transactionHash,
+      value,
+      usdValue: usdValue.toFixed(6),
+      tokenSymbol,
+      contractAddress,
+      tokenImage,
+      block_time: blockTime,
+      type: tx.from === tx.fromAddress.toLowerCase() ? 'outgoing' : 'incoming',
+      layer2Address: tx.fromAddress,
+    };
+  });
+
+  const txResults = await Promise.allSettled(txPromises);
+  transactions.push(...txResults
+    .filter((result) => result.status === 'fulfilled' && result.value)
+    .map((result) => result.value)
+  );
 
   const layer3Addresses = [...new Set(transactions.map((tx) => tx.address.toLowerCase()))];
   const layer3Nametags = await getNametagsBatch(layer3Addresses, chain);
@@ -674,6 +672,39 @@ export async function POST(request) {
     if (!Array.isArray(transactions)) transactions = [];
     if (!Array.isArray(tokenTransactions)) tokenTransactions = [];
 
+    // Pre-fetch native price once
+    let nativePrice = 0;
+    const cgId = SUPPORTED_CHAINS[chain].coingeckoId;
+    nativePrice = await getCurrentPrice(cgId);
+
+    // Batch fetch token prices if EVM chain
+    let tokenPrices = {};
+    if (chain !== 'solana' && chain !== 'tron') {
+      const uniqueContracts = [...new Set(tokenTransactions
+        .map(tx => tx.contractAddress)
+        .filter(isAddress)
+      )];
+      if (uniqueContracts.length > 0) {
+        const platform = chainIdToName[chain];
+        const contractList = uniqueContracts.join(',');
+        try {
+          const response = await fetchWithRateLimit(
+            `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${contractList}&vs_currencies=usd`,
+            { headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY } }
+          );
+          tokenPrices = response.data || {};
+          // Update caches for each
+          uniqueContracts.forEach(addr => {
+            const price = tokenPrices[addr.toLowerCase()]?.usd || 0;
+            redisClient.setEx(`token_price_${platform}_${addr.toLowerCase()}`, 300, price.toString());
+          });
+          logger.info(`Batch fetched prices for ${uniqueContracts.length} tokens`);
+        } catch (e) {
+          logger.error('Batch token price fetch failed, falling back to individual:', e.message);
+        }
+      }
+    }
+
     const incoming = [];
     const outgoing = [];
     const addresses = new Set();
@@ -704,10 +735,8 @@ export async function POST(request) {
         return null;
       }
 
-      // Calculate USD value for native
-      const cgId = SUPPORTED_CHAINS[chain].coingeckoId;
-      const price = await getCurrentPrice(cgId);
-      usdValue = Number(value) * price;
+      // Use pre-fetched native price
+      usdValue = Number(value) * nativePrice;
 
       return {
         address: tx.from === wallet_address.toLowerCase() ? tx.to : tx.from,
@@ -758,8 +787,8 @@ export async function POST(request) {
         return null;
       }
 
-      // Calculate USD value for token
-      const price = await getTokenCurrentPrice(chainIdToName[chain], contractAddress);
+      // Use batched token price or fallback
+      const price = tokenPrices[contractAddress.toLowerCase()]?.usd || await getTokenCurrentPrice(chainIdToName[chain], contractAddress);
       usdValue = Number(value) * price;
 
       return {
