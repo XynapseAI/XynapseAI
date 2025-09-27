@@ -175,8 +175,9 @@ export async function GET(request) {
 
   if (process.env.NODE_ENV !== 'development') {
     try {
-      const recaptchaToken = request.headers.get('x-recaptcha-token');
+      const recaptchaToken = request.headers.get('x-recaptcha-token') || request.headers.get('X-Recaptcha-Token');
       if (!recaptchaToken) {
+        logger.warn('Missing reCAPTCHA token', { ip });
         return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400, headers: corsHeaders });
       }
       await verifyRecaptchaWithRetry(recaptchaToken, 'get_leaderboard', ip);
@@ -220,7 +221,7 @@ export async function GET(request) {
 
     const data = { success: true, rankings: formattedRankings };
 
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(data)); // Cache 5 phút
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(data));
     logger.info('Fetched and cached leaderboard successfully', { ip });
     return NextResponse.json(data, { headers: corsHeaders });
   } catch (error) {
