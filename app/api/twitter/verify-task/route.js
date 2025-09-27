@@ -325,6 +325,7 @@ export async function POST(request) {
     return NextResponse.json({ detail: 'Access denied: Invalid user ID' }, { status: 403, headers: corsHeaders });
   }
 
+  // Enforce reCAPTCHA for critical mutation
   if (process.env.NODE_ENV !== 'development') {
     try {
       logger.info('Attempting reCAPTCHA verification', { token: recaptchaToken.substring(0, 8) + '...', action: 'verify_task', ip });
@@ -350,7 +351,7 @@ export async function POST(request) {
     } else if (taskId === 'follow') {
       task = {
         id: 'follow',
-        description: 'Follow @XynapseAI on Twitter',
+        description: 'Follow @XynapseAI on X (Twitter)',
         is_daily: false,
         max_completions: 1,
         task_type: 'follow',
@@ -378,8 +379,8 @@ export async function POST(request) {
     const twitterHandle = await withRetry(async () => await prisma.twitter_handles.findUnique({ where: { user_id: userId } }));
     if (!twitterHandle && task.task_type !== 'daily_checkin') {
       await trackViolation(ip, 'Twitter account not connected');
-      logger.warn(`Twitter account not connected for user ${userId}`, { ip });
-      return NextResponse.json({ detail: 'Twitter account not connected' }, { status: 400, headers: corsHeaders });
+      logger.warn(`X (Twitter) account not connected for user ${userId}`, { ip });
+      return NextResponse.json({ detail: 'X (Twitter) account not connected' }, { status: 400, headers: corsHeaders });
     }
 
     const today = new Date();

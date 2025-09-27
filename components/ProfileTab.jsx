@@ -8,7 +8,7 @@ import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Trophy, Award, Flame, User, Crown, Calendar, Info } from 'lucide-react'; // Assume lucide-react installed
+import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
 import { ethers } from 'ethers';
 import { ToastContainer, toast } from 'react-toastify';
@@ -62,24 +62,28 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData }) 
             <div key={index} className="flex flex-col items-center gap-1">
               <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold transition-all duration-300 ${
                 checked 
-                  ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25' 
+                  ? 'bg-green-500 text-black shadow-lg shadow-gray-300/25'  
                   : 'bg-white/10 text-white/50 border border-white/20'
               }`}>
-                {days[dayIndex]}
+                {checked ? (
+                  <Check className="w-3 h-3 text-black" /> 
+                ) : (
+                  days[dayIndex]
+                )}
               </div>
-              {index === 0 && (
+              {index === 0 && !checked && (
                 <motion.button
                   onClick={onCheckin}
-                  disabled={isLoading || checked}
+                  disabled={isLoading}
                   className={`mt-1 px-2 py-1 rounded-full text-[8px] font-semibold transition-all duration-300 ${
-                    isLoading || checked 
+                    isLoading 
                       ? 'bg-gray-600 text-white/50 cursor-not-allowed' 
                       : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
                   }`}
-                  whileHover={{ scale: checked ? 1 : 1.05 }}
-                  whileTap={{ scale: checked ? 1 : 0.95 }}
+                  whileHover={{ scale: isLoading ? 1 : 1.05 }}
+                  whileTap={{ scale: isLoading ? 1 : 0.95 }}
                 >
-                  {isLoading ? <Spinner className="h-3 w-3" /> : checked ? 'Checked!' : 'Check-in'}
+                  {isLoading ? <Spinner className="h-3 w-3" /> : 'Check-in'}
                 </motion.button>
               )}
             </div>
@@ -151,7 +155,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     const followUrl = `https://x.com/intent/follow?screen_name=XynapseAI`;
     window.open(followUrl, '_blank');
     setFollowedTasks(prev => new Set([...prev, taskId]));
-    toast.info('Redirecting to Twitter... Follow and return to verify!', { position: 'top-center' });
+    toast.info('Redirecting to X (Twitter). Please follow @XynapseAI and return to verify your action.', { 
+      position: 'top-center',
+      autoClose: 6000 
+    });
   };
 
   const debouncedExecuteRecaptcha = useCallback(
@@ -202,7 +209,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       if (process.env.NODE_ENV !== 'production') {
         logger.error('Error fetching CSRF token:', err);
       }
-      toast.error('Failed to fetch CSRF token. Please try again.', {
+      toast.error('Unable to initialize session security. Please refresh the page and try again.', {
         position: 'top-center',
         autoClose: 5000,
       });
@@ -239,21 +246,21 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         response: err.response?.data,
         status: err.response?.status,
       });
-      let errorMessage = 'Failed to initiate payment';
+      let errorMessage = 'Unable to process payment initiation. Please try again shortly.';
       if (err.message.includes('CSRF token not available')) {
-        errorMessage = 'CSRF token not available. Please refresh the page.';
+        errorMessage = 'Session security issue detected. Please refresh the page.';
       } else if (err.response?.status === 500) {
-        errorMessage = 'Server error. Please check logs or try again later.';
+        errorMessage = 'Temporary server issue. Our team has been notified—please try again in a moment.';
       } else if (err.response?.status === 403) {
-        errorMessage = 'Invalid CSRF or authentication. Please refresh.';
+        errorMessage = 'Security verification failed. Please refresh and try again.';
       } else if (err.response?.status === 401) {
-        errorMessage = 'Session expired. Please log in again.';
+        errorMessage = 'Your session has expired. Please log in again to continue.';
       } else if (err.response?.status === 429) {
-        errorMessage = 'Too many requests. Please wait a minute and try again.';
+        errorMessage = 'Request limit reached. Please wait 1 minute before retrying.';
       } else {
-        errorMessage = err.response?.data?.detail || err.message || 'Failed to initiate payment';
+        errorMessage = err.response?.data?.detail || err.message || 'Payment initiation failed unexpectedly.';
       }
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
 
@@ -270,12 +277,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         return cached;
       }
 
-      const token = await debouncedExecuteRecaptcha('get_user');
+      // Removed reCAPTCHA for faster initial load - only for mutations
       try {
         const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
           headers: {
             'x-csrf-token': csrfToken,
-            'X-Recaptcha-Token': token,
           },
           withCredentials: true,
         });
@@ -301,28 +307,28 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       }
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
-    staleTime: 0,
+    staleTime: 5 * 60 * 1000, // Increased stale time for better caching
     retry: 3,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30000),
     onError: async (err) => {
       if (process.env.NODE_ENV !== 'production') {
         logger.error('Error fetching user data:', err.response?.data || err.message);
       }
-      let errorMessage = 'Failed to fetch user data';
+      let errorMessage = 'Unable to load your profile data. Please try refreshing the page.';
       if (err.response?.status === 429) {
-        errorMessage = 'Too many requests. Please wait and try again.';
+        errorMessage = 'Request limit reached. Please wait a moment and refresh.';
       } else if (err.response?.status === 403) {
-        errorMessage = 'Authentication failed. Please try logging in again.';
+        errorMessage = 'Authentication issue detected. Please log in again.';
         await signOut({ redirect: false });
         window.location.href = '/auth/signin';
       } else if (err.response?.status === 404) {
-        errorMessage = 'User not found. Please log in again.';
+        errorMessage = 'Profile not found. Please log in again to sync your data.';
         await signOut({ redirect: false });
         window.location.href = '/auth/signin';
       } else {
-        errorMessage = err.response?.data?.detail || err.message || 'Failed to fetch user data';
+        errorMessage = err.response?.data?.detail || err.message || 'Profile load failed unexpectedly.';
       }
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
 
@@ -337,7 +343,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     }
   }, [userData, session, csrfToken, queryClient]);
 
-  // Fetch Tasks
+  // Fetch Tasks - No reCAPTCHA for faster load
   const { data: tasks, isLoading: tasksLoading, error: tasksError } = useQuery({
     queryKey: ['tasks', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -359,6 +365,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     staleTime: 10 * 60 * 1000,
   });
 
+  // Fetch Task Progress - Removed reCAPTCHA for faster load
   const { data: taskProgress, isLoading: taskProgressLoading, error: taskProgressError } = useQuery({
     queryKey: ['taskProgress', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -366,11 +373,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       const cached = await getCachedData(cacheKey);
       if (cached) return cached;
 
-      const token = await debouncedExecuteRecaptcha('task_progress');
       const response = await axios.get(`/api/task-progress?uid=${session.user.id}`, {
         headers: {
           'x-csrf-token': csrfToken,
-          'X-Recaptcha-Token': token,
         },
         withCredentials: true,
       });
@@ -382,7 +387,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch Leaderboard
+  // Fetch Leaderboard - Removed reCAPTCHA for faster load, increased stale time
   const { data: rankings, isLoading: leaderboardLoading, error: leaderboardError } = useQuery({
     queryKey: ['leaderboard', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -391,11 +396,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       if (cached) {
         return cached;
       }
-      const token = await debouncedExecuteRecaptcha('get_leaderboard');
       const response = await axios.get('/api/leaderboard', {
         headers: {
           'x-csrf-token': csrfToken,
-          'X-Recaptcha-Token': token,
           'Authorization': `Bearer ${session?.accessToken}`,
         },
         withCredentials: true,
@@ -413,7 +416,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     retryDelay: 2000,
     onError: (err) => {
       logger.error('Leaderboard error:', err);
-      toast.error(`Failed to fetch leaderboard: ${err.message}`, { position: 'top-center', autoClose: 5000 });
+      toast.error('Unable to load leaderboard at this time. Please check your connection and try again.', { 
+        position: 'top-center', 
+        autoClose: 5000 
+      });
     },
   });
 
@@ -423,7 +429,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     onError: (err) => {
       logger.error('Connect Twitter error:', err);
-      toast.error(`Unable to connect Twitter: ${err.message}`, { position: 'top-center', autoClose: 5000 });
+      toast.error('Unable to initiate Twitter connection. Please try again or check your network.', { 
+        position: 'top-center', 
+        autoClose: 5000 
+      });
     },
   });
 
@@ -445,7 +454,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       await clearAllCaches(session.user.id);
     },
     onSuccess: async () => {
-      toast.success('Twitter disconnected successfully.', { position: 'top-center', autoClose: 5000 });
+      toast.success('Twitter account disconnected successfully. Your profile has been updated.', { 
+        position: 'top-center', 
+        autoClose: 5000 
+      });
       await Promise.all([
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
         queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
@@ -458,10 +470,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     onError: (err) => {
       logger.error('Disconnect Twitter mutation error:', err);
       const errorMessage = err.response?.status === 429
-        ? 'Too many requests. Please try again later.'
+        ? 'Request limit reached. Please wait a moment and try again.'
         : err.response?.status === 403
-          ? 'Authentication failed. Please try again.'
-          : err.response?.data?.detail || 'Unable to disconnect Twitter';
+          ? 'Security verification failed. Please refresh the page.'
+          : err.response?.data?.detail || 'Unable to disconnect Twitter at this time.';
       toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
     },
   });
@@ -488,11 +500,17 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return walletAddress;
     },
     onSuccess: (walletAddress) => {
-      toast.success('Wallet connected successfully.', { position: 'top-center', autoClose: 5000 });
+      toast.success(`Wallet ${walletAddress.slice(0, 6)}... connected successfully.`, { 
+        position: 'top-center', 
+        autoClose: 5000 
+      });
       queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      toast.error(`Unable to connect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
+      toast.error(`Wallet connection failed: ${err.message}. Please ensure MetaMask is installed and try again.`, { 
+        position: 'top-center', 
+        autoClose: 5000 
+      });
     },
   });
 
@@ -514,7 +532,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      toast.error(`Unable to connect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
+      toast.error(`Unable to disconnect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
     },
   });
 
@@ -543,7 +561,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return response.data;
     },
     onSuccess: async (data, task) => {
-      toast.success(`Task ${task.description} verified! +${data.pointsEarned} points`, { position: 'top-center', autoClose: 5000 });
+      toast.success(`${task.description} verified successfully! You've earned ${data.pointsEarned} points.`, { 
+        position: 'top-center', 
+        autoClose: 5000 
+      });
       
       // Clear IndexedDB cache
       const userCacheKey = `userData-${session.user.id}`;
@@ -565,20 +586,20 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     onError: (err) => {
       let errorMessage = err.response?.status === 429
-        ? 'API rate limit exceeded. Please try again later.'
+        ? 'Request limit reached. Please wait a moment and try again.'
         : err.response?.status === 403
-          ? 'Authentication failed. Please try again.'
+          ? 'Security verification failed. Please try again.'
           : err.message.includes('reCAPTCHA')
-            ? 'reCAPTCHA verification failed. Please try again.'
+            ? 'Verification challenge failed. Please complete the security check and retry.'
             : err.message.includes('Twitter account not connected')
-              ? 'Please connect your Twitter account to perform this task.'
-              : err.response?.data?.detail || `Verification failed: ${err.message}`;
+              ? 'Please connect your X (Twitter) account first to complete this action.'
+              : err.response?.data?.detail || `Verification unsuccessful: ${err.message}`;
       if (err.response?.status === 429) {
-        errorMessage = 'Twitter rate limit exceeded. Please wait a moment and try again.';
+        errorMessage = 'X (Twitter) rate limit exceeded. Please wait 1-2 minutes and try again.';
       } else if (err.response?.status === 403 && err.response?.data?.detail?.includes('Twitter authentication')) {
-        errorMessage = 'Twitter authentication issue. Please reconnect your Twitter account.';
+        errorMessage = 'X (Twitter) authentication issue. Please reconnect your account.';
       }
-      toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
 
@@ -718,7 +739,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 animate={{ opacity: 1, y: 0 }}
               >
                 <p className="text-[9px] sm:text-[11px] text-white/80 mb-2">
-                  Connect your Twitter account to perform tasks.
+                  Connect your X (Twitter) account to unlock tasks and rewards.
                 </p>
                 <motion.button
                   onClick={() => connectTwitterMutation.mutate()}
@@ -726,7 +747,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" /> Connect Twitter
+                  <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" /> Connect X (Twitter)
                 </motion.button>
               </motion.div>
             )}
@@ -740,115 +761,120 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {getPaginatedData(tasks, 'tasks').map((task, index) => (
-                    <motion.tr
-                      key={task.id}
-                      className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.02 }}
-                    >
-                      <td className="px-3 py-2 text-white truncate">
-                        {task.task_type === 'follow' ? (
-                          <span className="flex items-center gap-1">
-                            <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 text-blue-400" />
-                            Follow{' '}
-                            <a
-                              href={`https://x.com/intent/follow?screen_name=XynapseAI`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-neon-blue underline hover:text-blue-300"
-                            >
-                              @XynapseAI
-                            </a>{' '}
-                            on Twitter
-                            {task.is_daily
-                              ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
-                              : ''}
-                          </span>
-                        ) : task.task_type === 'daily_checkin' ? (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3 text-green-400" />
-                            Daily Check-in
-                            {task.is_daily
-                              ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
-                              : ''}
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1">
-                            {task.description}{' '}
-                            {task.is_daily
-                              ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
-                              : ''}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-neon-green font-semibold">+{task.points}</td>
-                      <td className="px-3 py-2 text-white">
-                        <div className="flex gap-2">
-                          {task.task_type === 'follow' && !followedTasks.has(task.id) ? (
-                            <motion.button
-                              onClick={() => handleFollow(task.id)}
-                              className="px-2 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-[10px] sm:text-xs font-medium hover:from-blue-700 hover:to-purple-700 shadow-lg transition-all duration-300 flex items-center gap-1"
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                            >
-                              <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />
-                              Follow
-                            </motion.button>
+                  {getPaginatedData(tasks, 'tasks').map((task, index) => {
+                    const isCompleted = (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
+                                       (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions);
+                    return (
+                      <motion.tr
+                        key={task.id}
+                        className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.02 }}
+                      >
+                        <td className="px-3 py-2 text-white truncate">
+                          {task.task_type === 'follow' ? (
+                            <span className="flex items-center gap-1">
+                              <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 text-blue-400" />
+                              Follow{' '}
+                              <a
+                                href={`https://x.com/intent/follow?screen_name=XynapseAI`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-neon-blue underline hover:text-blue-300"
+                              >
+                                @XynapseAI
+                              </a>{' '}
+                              on X (Twitter)
+                              {task.is_daily
+                                ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+                                : ''}
+                            </span>
+                          ) : task.task_type === 'daily_checkin' ? (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3 text-green-400" />
+                              Daily Check-in
+                              {task.is_daily
+                                ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+                                : ''}
+                            </span>
                           ) : (
-                            <motion.button
-                              onClick={() => verifyTaskMutation.mutate(task)}
-                              disabled={
-                                verifyTaskMutation.isLoading ||
-                                (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                                (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                                (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                              }
-                              className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all duration-300 flex items-center gap-1 shadow-lg ${
-                                verifyTaskMutation.isLoading ||
-                                (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                                (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                                (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                                  ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
-                                  : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
-                              }`}
-                              whileHover={{
-                                scale:
-                                  verifyTaskMutation.isLoading ||
-                                    (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                                    (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                                    (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                                    ? 1
-                                    : 1.05,
-                              }}
-                              whileTap={{
-                                scale:
-                                  verifyTaskMutation.isLoading ||
-                                    (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                                    (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                                    (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions)
-                                    ? 1
-                                    : 0.95,
-                              }}
-                            >
-                              {verifyTaskMutation.isLoading ? (
-                                <>
-                                  <Spinner className="h-3 w-3" />
-                                  Verifying...
-                                </>
-                              ) : (
-                                <>
-                                  <Trophy className="w-3 h-3" />
-                                  Verify
-                                </>
-                              )}
-                            </motion.button>
+                            <span className="flex items-center gap-1">
+                              {task.description}{' '}
+                              {task.is_daily
+                                ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
+                                : ''}
+                            </span>
                           )}
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
+                        </td>
+                        <td className="px-3 py-2 text-neon-green font-semibold">+{task.points}</td>
+                        <td className="px-3 py-2 text-white">
+                          <div className="flex gap-2">
+                            {task.task_type === 'follow' && !followedTasks.has(task.id) ? (
+                              <motion.button
+                                onClick={() => handleFollow(task.id)}
+                                className="px-2 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-[10px] sm:text-xs font-medium hover:from-blue-700 hover:to-purple-700 shadow-lg transition-all duration-300 flex items-center gap-1"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                              >
+                                <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />
+                                Follow
+                              </motion.button>
+                            ) : (
+                              <motion.button
+                                onClick={() => verifyTaskMutation.mutate(task)}
+                                disabled={
+                                  verifyTaskMutation.isLoading ||
+                                  (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                                  isCompleted  // Enhanced: disable if completed
+                                }
+                                className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all duration-300 flex items-center gap-1 shadow-lg ${
+                                  verifyTaskMutation.isLoading ||
+                                  (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                                  isCompleted  // Enhanced: disable if completed
+                                    ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
+                                    : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                                }`}
+                                whileHover={{
+                                  scale:
+                                    verifyTaskMutation.isLoading ||
+                                      (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                                      isCompleted  // Enhanced: disable if completed
+                                      ? 1
+                                      : 1.05,
+                                }}
+                                whileTap={{
+                                  scale:
+                                    verifyTaskMutation.isLoading ||
+                                      (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                                      isCompleted  // Enhanced: disable if completed
+                                      ? 1
+                                      : 0.95,
+                                }}
+                              >
+                                {verifyTaskMutation.isLoading ? (
+                                  <>
+                                    <Spinner className="h-3 w-3" />
+                                    Verifying...
+                                  </>
+                                ) : isCompleted ? (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    Completed
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trophy className="w-3 h-3" />
+                                    Verify
+                                  </>
+                                )}
+                              </motion.button>
+                            )}
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -982,11 +1008,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         })
         .then(() => {
           window.history.replaceState({}, document.title, window.location.pathname);
-          toast.success('Twitter connected successfully!', { position: 'top-center', autoClose: 5000 });
+          toast.success('X (Twitter) connected successfully! Your profile is now updated.', { 
+            position: 'top-center', 
+            autoClose: 5000 
+          });
         })
         .catch((err) => {
           logger.error('Error handling Twitter connection callback:', err);
-          toast.error('Failed to refresh data after Twitter connection.', {
+          toast.error('Data refresh failed after X (Twitter) connection. Please refresh the page.', {
             position: 'top-center',
             autoClose: 5000,
           });
@@ -997,11 +1026,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const handleManualCacheClear = async () => {
     try {
       await clearAllCaches(session.user.id);
-      toast.success('Cache cleared successfully.', { position: 'top-center', autoClose: 5000 });
+      toast.success('Local cache cleared successfully. Reloading profile...', { position: 'top-center', autoClose: 3000 });
       window.location.reload();
     } catch (err) {
       logger.error('Error clearing cache:', err);
-      toast.error('Failed to clear cache.', { position: 'top-center', autoClose: 5000 });
+      toast.error('Failed to clear cache. Please refresh the page manually.', { position: 'top-center', autoClose: 5000 });
     }
   };
 
@@ -1155,7 +1184,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-1">
                           <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 text-blue-400" />
-                          <span className="text-white/70">Twitter:</span>
+                          <span className="text-white/70">X (Twitter):</span>
                           {userData.twitterHandle ? (
                             <div className="flex items-center gap-2">
                               <a
@@ -1173,7 +1202,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 className={`p-1.5 rounded-full bg-red-500/20 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/40'}`}
                                 whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
                                 whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
-                                title="Disconnect Twitter"
+                                title="Disconnect X (Twitter)"
                               >
                                 {disconnectTwitterMutation.isLoading ? (
                                   <span className="text-[8px] text-white">...</span>
@@ -1213,7 +1242,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                       >
-                        <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" /> Connect Twitter
+                        <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" /> Connect X (Twitter)
                       </motion.button>
                     )}
                   </div>

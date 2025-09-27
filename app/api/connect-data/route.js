@@ -438,13 +438,9 @@ export async function GET(request) {
       return NextResponse.json({ detail: 'Access denied: Invalid UID' }, { status: 403, headers: securityHeaders(newCsrfToken) });
     }
 
+    // Made reCAPTCHA optional for faster reads - only enforce low threshold if token provided
     const recaptchaToken = request.headers.get('x-recaptcha-token');
-    if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      await trackViolation(ip, 'Missing reCAPTCHA token');
-      return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400, headers: securityHeaders(newCsrfToken) });
-    }
-    if (process.env.NODE_ENV !== 'development') {
+    if (recaptchaToken && process.env.NODE_ENV !== 'development') {
       try {
         const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
         if (score < 0.1) {

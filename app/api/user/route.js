@@ -1,4 +1,5 @@
 // app\api\user\route.js
+// app\api\user\route.js
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';
@@ -329,6 +330,8 @@ async function computeStreak(userId) {
 async function getLast7Days(userId) {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
+  const todayEnd = new Date(today);
+  todayEnd.setUTCHours(23, 59, 59, 999);
   const sevenDaysAgo = new Date(today);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -336,7 +339,7 @@ async function getLast7Days(userId) {
     where: {
       user_id: userId,
       task_id: 'daily_checkin',
-      completed_at: { gte: sevenDaysAgo, lte: today },
+      completed_at: { gte: sevenDaysAgo, lte: todayEnd },
     },
   });
 
@@ -418,12 +421,9 @@ export async function GET(request) {
       return NextResponse.json({ detail: 'Access denied: Invalid UID' }, { status: 403, headers: securityHeaders(newCsrfToken) });
     }
 
+    // Made reCAPTCHA optional for faster profile loads - only check if token provided, with low threshold
     const recaptchaToken = request.headers.get('x-recaptcha-token');
-    if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
-      newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
-      return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400, headers: securityHeaders(newCsrfToken) });
-    }
-    if (process.env.NODE_ENV !== 'development') {
+    if (recaptchaToken && process.env.NODE_ENV !== 'development') {
       try {
         const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
         if (score < 0.5) {
@@ -574,6 +574,7 @@ export async function POST(request) {
       return NextResponse.json({ detail: 'Invalid CSRF token. Please try again.' }, { status: 403, headers: securityHeaders(newCsrfToken) });
     }
 
+    // Enforce reCAPTCHA for mutations (POST)
     const recaptchaToken = request.headers.get('x-recaptcha-token');
     if (!recaptchaToken && process.env.NODE_ENV !== 'development') {
       newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
