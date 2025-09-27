@@ -1327,13 +1327,13 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               onClick={(e) => e.stopPropagation()}
             >
               <LoadingOverlay isLoading={loadingStates.loading} isMobile={isMobile} />
-              <div className="p-2">
-                <div className="flex items-center justify-between mb-3">
+              <div className="p-2 ">
+                <div className="flex items-center justify-between mb-3 bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
                   <div className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
+                    <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider">
                       Watchlist
                     </h3>
                   </div>
@@ -1423,14 +1423,14 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       </AnimatePresence>
 
       {/* Left Sidebar: Watchlist (Desktop) */}
-      <div className="hidden sm:block w-[20%] h-[94%] border border-white/10 rounded-xl p-3 sm:p-4 mt-3 overflow-y-auto custom-scrollbar bg-white/5 relative">
+      <div className="hidden sm:block w-[20%] h-[96%] border border-white/10 rounded-xl p-3 sm:p-4 mt-3 overflow-y-auto custom-scrollbar bg-white/5 relative">
         <LoadingOverlay isLoading={loadingStates.loading} isMobile={isMobile} />
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
           <div className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
-            <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
+            <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider">
               Watchlist
             </h3>
           </div>
@@ -1518,7 +1518,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       <div className="w-full sm:w-[80%] p-2 sm:p-3 flex flex-col">
         {selectedWallet ? (
           <>
-            <div className="h-[20%] border border-white/10 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex flex-col justify-between rounded-xl relative shadow-lg shadow-neon-blue/20">
+            <div className="h-[20%] border border-white/10 bg-white/5 backdrop-blur-md p-3 sm:p-4 flex flex-col justify-between rounded-xl relative">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   {nameTags[selectedWallet.chainType === 'EVM' ? selectedWallet.address.toLowerCase() : selectedWallet.address]?.image && (
@@ -1625,7 +1625,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
             {/* Tabs: Portfolio & Activity (80% height) */}
             <div className="h-[84%] flex flex-col">
-              <div className="flex w-full border border-white/10 mt-3 bg-white/5 rounded-t-xl shadow-md shadow-neon-blue/10">
+              <div className="flex w-full border border-white/10 mt-3 bg-white/5 rounded-t-xl">
                 {['PORTFOLIO', 'ACTIVITY'].map((tab) => (
                   <motion.button
                     key={tab}
@@ -1648,7 +1648,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 ))}
               </div>
 
-              <div className="flex-1 border border-white/10 bg-white/5 rounded-b-xl relative shadow-lg shadow-neon-blue/20">
+              <div className="flex-1 border border-white/10 bg-white/5 rounded-b-xl relative">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeTab}
@@ -1659,7 +1659,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     className="h-full relative"
                   >
                     {activeTab === 'PORTFOLIO' && (
-                      <div className="h-full p-2 sm:p-3 flex flex-col relative">
+                      <div className="h-full flex flex-col relative">
                         <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.balances || loadingStates.tokenInfo} isMobile={isMobile} />
                         {error ? (
                           <div className="flex-1 flex items-center justify-center">
@@ -1669,7 +1669,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                           </div>
                         ) : filteredBalances.length > 0 ? (
                           <div className="space-y-2 flex-1 flex flex-col">
-                            <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-xl border border-white/10 overflow-hidden shadow-inner">
+                            <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-b-xl border border-white/10 overflow-hidden shadow-inner">
                               <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
                                 <div className="w-[25%] px-2 flex items-center gap-1 text-left">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1716,7 +1716,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                       </div>
                     )}
                     {activeTab === 'ACTIVITY' && (
-                      <div className="h-full p-2 sm:p-3 flex flex-col relative">
+                      <div className="h-full flex flex-col relative">
                         <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.transactions} isMobile={isMobile} />
                         {transactionsError ? (
                           <div className="flex-1 flex items-center justify-center">
@@ -1729,7 +1729,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                             const sampleTx = filteredTransactions[0];
                             const isSVM = SUPPORTED_SVM_CHAINS.includes(sampleTx.chain);
                             return (
-                              <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-xl border border-white/10 overflow-hidden shadow-inner">
+                              <div className="flex-1 bg-gradient-to-b from-black/80 to-black/90 rounded-b-xl border border-white/10 overflow-hidden shadow-inner">
                                 <div className="flex bg-gradient-to-r from-black/20 to-black/30 border-b border-white/10 px-2 py-2 text-[9px] sm:text-[10px] font-semibold text-white sticky top-0 z-10">
                                   {!isSVM ? (
                                     <>

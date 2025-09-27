@@ -280,7 +280,7 @@ export async function GET(request) {
 
     const data = { success: true, rankings: formattedRankings };
 
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(data)); // Cache 5 phút
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(data)); 
     logger.info('Fetched and cached leaderboard successfully', { ip });
     return NextResponse.json(data, { headers: corsHeaders });
   } catch (error) {

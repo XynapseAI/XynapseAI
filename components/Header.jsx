@@ -2,7 +2,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Power, Search } from 'lucide-react';
+import { Power, Search, BarChart3, Network, Activity, List, User } from 'lucide-react';
 import { useCurrency } from './CurrencyContext';
 import { logger } from '../utils/clientLogger';
 import '../styles/globals.css';
@@ -30,11 +30,11 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   }
 
   const tabs = [
-    { id: 'market', label: 'Market' },
-    { id: 'cluster', label: 'Cluster' },
-    { id: 'treemap', label: 'Graph' },
-    { id: 'watchlists', label: 'Watchlists' },
-    { id: 'profile', label: 'Profile' },
+    { id: 'market', label: 'Market', icon: BarChart3 },
+    { id: 'cluster', label: 'Cluster', icon: Network },
+    { id: 'treemap', label: 'Graph', icon: Activity },
+    { id: 'watchlists', label: 'Watchlists', icon: List },
+    { id: 'profile', label: 'Profile', icon: User },
   ];
 
   useEffect(() => {
@@ -92,12 +92,12 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
     } else {
       query = `tab=${tabId}`;
     }
-    const path = tabId === 'cluster' ? `/cluster?clusterId=${clusterId || 'binance'}` : `/dashboard?${query}`;
+    const path = `/dashboard?${query}`;
     router.push(path, { scroll: false });
     setIsMenuOpen(false);
   };
 
-  const handleMouseEnter = (e) => {
+  const handleMouseEnter = (e, tabLabel) => {
     const container = e.currentTarget.querySelector('.matrix-text');
     if (container) {
       container.classList.add('active');
@@ -180,106 +180,129 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   return (
-    <header className="h-[4vh] sm:h-[5vh] bg-white/5 backdrop-blur-xs border-b border-white/10 rounded-b-xl flex justify-between items-center sticky top-0 z-20 font-saira">
-      <div className="block sm:hidden">
-        <button
+    <header className="h-[5vh] sm:h-[6vh] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xl border border-white/10 rounded-b-xl flex justify-between items-center sticky top-0 z-50 font-saira shadow-2xl">
+      <div className="block sm:hidden px-4">
+        <motion.button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="w-5 h-5 flex flex-col justify-center items-center ml-4"
+          className="w-6 h-6 flex flex-col justify-center items-center relative"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           aria-label="Toggle menu"
         >
           <motion.span
-            className="w-5 h-0.5 bg-white mb-1"
+            className="w-6 h-0.5 bg-white/80 rounded-full mb-1 origin-center"
             variants={lineVariants}
             animate={isMenuOpen ? 'openTop' : 'closed'}
+            transition={{ duration: 0.2 }}
           />
           <motion.span
-            className="w-5 h-0.5 bg-white mb-1"
+            className="w-6 h-0.5 bg-white/80 rounded-full mb-1 origin-center"
             variants={lineVariants}
             animate={isMenuOpen ? 'hidden' : 'closed'}
+            transition={{ duration: 0.2 }}
           />
           <motion.span
-            className="w-5 h-0.5 bg-white"
+            className="w-6 h-0.5 bg-white/80 rounded-full origin-center"
             variants={lineVariants}
             animate={isMenuOpen ? 'openBottom' : 'closed'}
+            transition={{ duration: 0.2 }}
           />
-        </button>
+        </motion.button>
       </div>
 
-      <div className="hidden sm:flex justify-center items-end flex-grow h-full">
-        {tabs.map((tab, index) => (
-          <div key={tab.id} className="flex items-end">
-            <motion.button
-              onClick={() => handleTabClick(tab.id)}
-              onMouseEnter={handleMouseEnter}
-              className={`group w-[100px] px-2 sm:px-3 py-1 text-[9px] sm:text-[10px] font-medium uppercase no-hover-effect ${activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'}`}
-            >
-              <span className="matrix-text">{renderMatrixText(tab.label)}</span>
-            </motion.button>
-          </div>
-        ))}
+      <div className="hidden sm:flex justify-center items-end flex-grow h-full px-4">
+        <AnimatePresence mode="wait">
+          <motion.nav
+            className="flex items-center space-x-1"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+          >
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <motion.button
+                  key={tab.id}
+                  onClick={() => handleTabClick(tab.id)}
+                  onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
+                  className={`group relative flex items-center gap-1 px-3 py-2 text-[10px] font-semibold uppercase rounded-lg transition-all duration-300 ease-out border border-transparent ${
+                    isActive
+                      ? 'text-neon-blue'
+                      : 'text-white/70 hover:text-white'
+                  }`}
+                >
+                  <Icon className={`w-3 h-3 flex-shrink-0 ${isActive ? 'text-white/80' : 'text-white/70 group-hover:text-white'}`} />
+                  <span className={`matrix-text relative overflow-hidden ${isActive ? 'text-white/80' : ''}`}>
+                    {renderMatrixText(tab.label)}
+                  </span>
+                  {isActive && (
+                    <motion.div
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white to-emerald-400 rounded-full"
+                      layoutId="activeTabIndicator"
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                    />
+                  )}
+                </motion.button>
+              );
+            })}
+          </motion.nav>
+        </AnimatePresence>
       </div>
-
-      {/* <div className="flex items-center gap-2 sm:gap-3 p-2 mr-2">
-        <select
-          id="currency-select"
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value)}
-          className="hidden sm:block text-white px-1.5 py-1 text-[8px] sm:text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/10 transition-all duration-300 no-hover-effect custom-scrollbar hide-scrollbar"
-        >
-          {availableCurrencies.map((curr) => (
-            <option key={curr} value={curr} className="bg-black text-[9px]">
-              {curr.toUpperCase()}
-            </option>
-          ))}
-        </select>
-      </div> */}
 
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
             ref={menuRef}
-            className="fixed top-0 left-0 w-full max-w-[70%] sm:max-w-xs h-[100vh] bg-black/90 backdrop-blur-3xl z-30 flex flex-col p-3 sm:hidden rounded-r-xl border-r border-white/10 shadow-neon-sm z-50"
+            className="fixed top-0 left-0 w-full max-w-[80vw] h-[100vh] bg-gradient-to-br from-black/90 to-gray-900/90 backdrop-blur-xl z-50 flex flex-col p-4 sm:hidden rounded-r-xl border-r border-white/10 shadow-2xl shadow-neon-blue/20 overflow-y-auto hide-scrollbar"
             initial="closed"
             animate="open"
             exit="closed"
             variants={menuVariants}
           >
-            <div className="flex justify-between items-center mb-3">
+            <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
               <img
                 src="/logos/logo-landscape.webp"
                 alt="Menu"
-                className="h-14 w-auto"
+                className="h-12 w-auto"
               />
-              {/* <div className="flex items-center gap-2">
-                <select
-                  id="mobile-currency-select"
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="text-white px-2 py-1 text-[9px] border border-white/10 bg-white/5 rounded-xl focus:outline-none focus:ring-2 focus:ring-neon-blue/50 backdrop-blur-md transition-all duration-300 no-hover-effect custom-scrollbar hide-scrollbar"
-                >
-                  {availableCurrencies.map((curr) => (
-                    <option key={curr} value={curr} className="bg-black text-[9px]">
-                      {curr.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-              </div> */}
+              <motion.button
+                onClick={() => setIsMenuOpen(false)}
+                className="p-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                <Power className="w-4 h-4 text-white/70" />
+              </motion.button>
             </div>
-            <nav className="flex flex-col space-y-2 flex-grow overflow-y-auto custom-scrollbar">
-              {tabs.map((tab, index) => (
-                <div key={tab.id} className="w-full">
+            <nav className="flex flex-col space-y-2 flex-grow">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
                   <motion.button
+                    key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
-                    onMouseEnter={handleMouseEnter}
-                    className={`w-full text-left px-2 py-1 m-2 text-xs font-medium transition-all duration-300 uppercase no-hover-effect ${activeTab === tab.id ? 'text-white border-b-2 border-white' : 'text-white/80 hover:text-white'}`}
+                    onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
+                    className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent ${
+                      isActive
+                        ? 'text-neon-blue'
+                        : 'text-white/70 hover:text-white hover:bg-white/5 hover:border-white/5'
+                    }`}
                   >
-                    <span className="matrix-text">{renderMatrixText(tab.label)}</span>
+                    <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-neon-blue' : 'text-white/70'}`} />
+                    <span className={`matrix-text flex-1 ${isActive ? 'text-neon-blue' : ''}`}>{renderMatrixText(tab.label)}</span>
+                    {isActive && (
+                      <motion.div
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-neon-blue to-purple-500 rounded-full"
+                        layoutId="activeTabIndicator"
+                        transition={{ duration: 0.3, ease: 'easeOut' }}
+                      />
+                    )}
                   </motion.button>
-                  {index < tabs.length - 1 && (
-                    <span className="w-full h-px bg-white/20 my-2"></span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </nav>
           </motion.div>
         )}
@@ -288,7 +311,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
       <AnimatePresence>
         {isMenuOpen && (
           <motion.div
-            className="fixed inset-0 z-20 sm:hidden"
+            className="fixed inset-0 z-40 sm:hidden bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -299,64 +322,44 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
       </AnimatePresence>
 
       <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
+        .hide-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
-          border-radius: 2px;
+        .matrix-text {
+          position: relative;
+          overflow: hidden;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.4);
-        }
-        .shadow-neon-sm {
-          box-shadow: 0 0 8px rgba(0, 191, 255, 0.3), 0 0 16px rgba(0, 191, 255, 0.15);
+        .matrix-text.active span {
+          color: #00bfff !important;
         }
         .animate-matrix-flip {
-          animation: matrix-flip 0.4s ease-in-out;
+          animation: matrix-flip 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
         .animate-flicker {
           animation: flicker 0.4s ease-in-out;
         }
         .animate-shuffle-position {
-          animation: shuffle-position 0.4s ease-in-out;
+          animation: shuffle-position 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
         @keyframes matrix-flip {
-          0% {
-            transform: rotateY(0deg);
-          }
-          50% {
-            transform: rotateY(180deg);
-          }
-          100% {
-            transform: rotateY(360deg);
-          }
+          0% { transform: rotateY(0deg) translateX(0); opacity: 1; }
+          50% { transform: rotateY(180deg) translateX(var(--shuffle-offset-1, 0)); opacity: 0.7; }
+          75% { transform: rotateY(270deg) translateX(var(--shuffle-offset-2, 0)); opacity: 0.4; }
+          100% { transform: rotateY(360deg) translateX(var(--shuffle-offset-3, 0)); opacity: 1; }
         }
         @keyframes flicker {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.6;
-          }
+          0%, 100% { opacity: 1; filter: brightness(1); }
+          50% { opacity: 0.6; filter: brightness(1.2); }
         }
         @keyframes shuffle-position {
-          0% {
-            transform: translateX(0);
-          }
-          50% {
-            transform: translateX(var(--shuffle-offset-1, 0));
-          }
-          75% {
-            transform: translateX(var(--shuffle-offset-2, 0));
-          }
-          100% {
-            transform: translateX(var(--shuffle-offset-3, 0));
-          }
+          0% { transform: translateX(0); }
+          33% { transform: translateX(var(--shuffle-offset-1, 0)); }
+          66% { transform: translateX(var(--shuffle-offset-2, 0)); }
+          100% { transform: translateX(var(--shuffle-offset-3, 0)); }
         }
         .animation-delay-1 { animation-delay: 0.05s; }
         .animation-delay-2 { animation-delay: 0.1s; }
@@ -373,7 +376,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         .animation-delay-13 { animation-delay: 0.65s; }
         @media (max-width: 640px) {
           .matrix-text span {
-            font-size: 8px;
+            font-size: 9px;
           }
           .animation-delay-1 { animation-delay: 0.04s; }
           .animation-delay-2 { animation-delay: 0.08s; }
@@ -388,6 +391,11 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           .animation-delay-11 { animation-delay: 0.44s; }
           .animation-delay-12 { animation-delay: 0.48s; }
           .animation-delay-13 { animation-delay: 0.52s; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .animate-matrix-flip, .animate-flicker, .animate-shuffle-position {
+            animation: none;
+          }
         }
       `}</style>
     </header>

@@ -40,11 +40,11 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData }) 
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-1">
           <Calendar className="w-3 h-3 text-blue-400" />
-          <h3 className="text-white font-bold text-xs">Daily Check-in Streak</h3>
+          <h3 className="text-white font-bold text-[11px]">Daily Check-in Streak</h3>
         </div>
         <div className="relative">
           <Info 
-            className="w-3 h-3 text-gray-400 cursor-help" 
+            className="w-4 h-4 text-gray-400 cursor-help" 
             onMouseEnter={() => setTooltipVisible(true)}
             onMouseLeave={() => setTooltipVisible(false)}
           />
@@ -813,7 +813,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                             {task.task_type === 'follow' && !followedTasks.has(task.id) ? (
                               <motion.button
                                 onClick={() => handleFollow(task.id)}
-                                className="px-2 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-[10px] sm:text-xs font-medium hover:from-blue-700 hover:to-purple-700 shadow-lg transition-all duration-300 flex items-center gap-1"
+                                className="px-2 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-[9px] sm:text-[11px] font-medium hover:from-blue-700 hover:to-purple-700 shadow-lg transition-all duration-300 flex items-center gap-1"
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                               >
@@ -828,7 +828,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                   (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
                                   isCompleted  // Enhanced: disable if completed
                                 }
-                                className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all duration-300 flex items-center gap-1 shadow-lg ${
+                                className={`px-2 py-1 rounded-lg text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center gap-1 shadow-lg ${
                                   verifyTaskMutation.isLoading ||
                                   (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
                                   isCompleted  // Enhanced: disable if completed
@@ -1069,14 +1069,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           borderRadius: '16px',
         }}
       />
-      <div className="flex flex-col flex-1 gap-3 sm:gap-4">
+      <div className="flex flex-col flex-1 gap-1">
         <motion.div
-          className="min-h-[25vh] border border-white/10 rounded-xl flex flex-col relative bg-gradient-to-br from-black/50 to-gray-900/50 shadow-2xl"
+          className="min-h-[25vh] flex flex-col relative"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="p-3 rounded-xl">
+          <div className="p-2 sm:p-0 rounded-xl">
             <LoadingOverlay isLoading={userLoading} isMobile={isMobile} />
             {userError && (
               <motion.div
@@ -1093,7 +1093,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   <motion.button
                     onClick={onSignOut}
                     disabled={isSigningOut}
-                    className={`p-2 rounded-full bg-white/10 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/30'}`}
+                    className={`p-1 rounded-lg bg-white/10 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/30'}`}
                     whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
                     whileTap={{ scale: isSigningOut ? 1 : 0.9 }}
                     aria-label="Sign out"
@@ -1129,7 +1129,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-[9px] sm:text-[11px]">
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20 shadow-lg">
+                  <div className="rounded-xl p-3 border border-white/20 shadow-lg">
                     <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
                       <User className="w-3 h-3" />
                       Account Info
@@ -1142,7 +1142,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                             <>
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="w-3 h-3 text-gray-400"
+                                className="w-3 h-3 text-white/80"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -1153,7 +1153,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                                 <circle cx="12" cy="7" r="4" />
                               </svg>
-                              <span className="text-gray-300">{userData.tier}</span>
+                              <span className="text-white/80">{userData.tier}</span>
                             </>
                           ) : (
                             <>
@@ -1175,16 +1175,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       </div>
                     </div>
                   </div>
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20 shadow-lg relative">
+                  <div className="rounded-xl p-3 border border-white/20 shadow-lg relative">
                     <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                      <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />
+                      <img src="/logos/icon3.webp" alt="Social Logo" className="w-3 h-3" />
                       Social
                     </h5>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-1">
                           <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 text-blue-400" />
-                          <span className="text-white/70">X (Twitter):</span>
+                          <span className="text-white/70">(Twitter):</span>
                           {userData.twitterHandle ? (
                             <div className="flex items-center gap-2">
                               <a
@@ -1199,7 +1199,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                               <motion.button
                                 onClick={() => disconnectTwitterMutation.mutate()}
                                 disabled={disconnectTwitterMutation.isLoading}
-                                className={`p-1.5 rounded-full bg-red-500/20 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/40'}`}
+                                className={`p-1 rounded-sm bg-red-500/20 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/40'}`}
                                 whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
                                 whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
                                 title="Disconnect X (Twitter)"
@@ -1246,7 +1246,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       </motion.button>
                     )}
                   </div>
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20 shadow-lg">
+                  <div className="rounded-xl p-3 border border-white/20 shadow-lg">
                     <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
                       <Crown className="w-3 h-3 text-yellow-400" />
                       Points

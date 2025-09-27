@@ -177,12 +177,8 @@ export default function Dashboard() {
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
-    const clusterId = searchParams.get('clusterId'); // Đổi exchangeId thành clusterId
     if (tab && ['market', 'ai', 'profile', 'treemap', 'watchlists', 'cluster'].includes(tab)) {
       setActiveTab(tab);
-    }
-    if (clusterId && tab === 'cluster') {
-      router.push(`/cluster?clusterId=${clusterId}`, { scroll: false });
     }
   }, [searchParams, router]);
 
