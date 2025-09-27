@@ -1,10 +1,9 @@
+// app\api\tasks\route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '@/utils/serverLogger';
 import { createClient } from 'redis';
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
 const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
 redisClient.on('error', (err) => logger.error('Redis Client Error:', err));
 if (!redisClient.isOpen) await redisClient.connect();
@@ -95,17 +94,27 @@ export async function GET(request) {
       });
     }
 
-    const tasks = await prisma.tasks.findMany({
-      select: {
-        id: true,
-        description: true,
-        points: true,
+    // Hardcoded 2 simple tasks for production stability
+    const tasks = [
+      {
+        id: 'daily_checkin',
+        description: 'Daily Check-in',
+        points: 10,
         is_daily: true,
-        max_completions: true,
-        task_type: true,
-        target_id: true,
+        max_completions: 1,
+        task_type: 'daily_checkin',
+        target_id: null,
       },
-    });
+      {
+        id: 'follow',
+        description: 'Follow @XynapseAI on Twitter',
+        points: 20,
+        is_daily: false,
+        max_completions: 1,
+        task_type: 'follow',
+        target_id: '1927681051373305858',
+      },
+    ];
 
     const data = { success: true, tasks };
     await redisClient.setEx(cacheKey, 600, JSON.stringify(data));
@@ -122,7 +131,5 @@ export async function GET(request) {
   } catch (error) {
     logger.error('Error fetching tasks', { message: error.message, stack: error.stack, ip });
     return NextResponse.json({ detail: `Error fetching tasks: ${error.message}` }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }

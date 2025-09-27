@@ -1,3 +1,4 @@
+// app\api\point-history\route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '@/utils/serverLogger';

@@ -1,12 +1,4 @@
 // app/api/task-progress/route.js
-
-// -----------------------------
-// 🔒 TẠM THỜI VÔ HIỆU HÓA ENDPOINT
-// Endpoint này chưa sử dụng nên toàn bộ logic bên dưới
-// đã được comment lại. Khi cần bật lại, chỉ cần bỏ comment.
-// -----------------------------
-
-/*
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '@/utils/serverLogger';
@@ -160,33 +152,33 @@ export async function GET(request) {
     await prisma.$disconnect();
   }
 }
-*/
+
 
 // -----------------------------
 // 🚧 Stub endpoint cho production
 // -----------------------------
 
-import { NextResponse } from 'next/server';
+// import { NextResponse } from 'next/server';
 
-function notAvailable() {
-  return NextResponse.json(
-    { detail: 'Endpoint not available' },
-    { status: 404 }
-  );
-}
+// function notAvailable() {
+//   return NextResponse.json(
+//     { detail: 'Endpoint not available' },
+//     { status: 404 }
+//   );
+// }
 
-export async function GET() {
-  return notAvailable();
-}
-export async function POST() {
-  return notAvailable();
-}
-export async function PUT() {
-  return notAvailable();
-}
-export async function PATCH() {
-  return notAvailable();
-}
-export async function DELETE() {
-  return notAvailable();
-}
+// export async function GET() {
+//   return notAvailable();
+// }
+// export async function POST() {
+//   return notAvailable();
+// }
+// export async function PUT() {
+//   return notAvailable();
+// }
+// export async function PATCH() {
+//   return notAvailable();
+// }
+// export async function DELETE() {
+//   return notAvailable();
+// }

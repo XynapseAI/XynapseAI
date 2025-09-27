@@ -1,3 +1,4 @@
+// app\api\user\route.js
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';
@@ -252,10 +253,10 @@ function securityHeaders(csrfToken = null) {
   const nonce = crypto.randomBytes(16).toString('base64');
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'nonce-" + nonce + "'", 
+    "script-src 'self' 'nonce-" + nonce + "'",
     "style-src 'self'",
-    "img-src 'self' data: https:", 
-    "connect-src 'self'", 
+    "img-src 'self' data: https:",
+    "connect-src 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
@@ -295,6 +296,65 @@ const postSchema = z.object({
   googleName: z.string().max(255).optional(),
   emailVerified: z.boolean().optional(),
 });
+
+async function computeStreak(userId) {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const completions = await prisma.task_completions.findMany({
+    where: {
+      user_id: userId,
+      task_id: 'daily_checkin',
+      completed_at: { gte: thirtyDaysAgo },
+    },
+    orderBy: { completed_at: 'desc' },
+  });
+
+  let streak = 0;
+  let expectedDate = new Date();
+  expectedDate.setUTCHours(23, 59, 59, 999);
+
+  for (const comp of completions) {
+    const compDate = new Date(comp.completed_at);
+    compDate.setUTCHours(23, 59, 59, 999);
+    if (compDate.getTime() === expectedDate.getTime()) {
+      streak++;
+      expectedDate.setDate(expectedDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+async function getLast7Days(userId) {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const completions = await prisma.task_completions.findMany({
+    where: {
+      user_id: userId,
+      task_id: 'daily_checkin',
+      completed_at: { gte: sevenDaysAgo, lte: today },
+    },
+  });
+
+  const checked = new Set();
+  completions.forEach(comp => {
+    const dateStr = new Date(comp.completed_at).toISOString().split('T')[0];
+    checked.add(dateStr);
+  });
+
+  const last7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    last7.push(checked.has(dateStr));
+  }
+  return last7.reverse(); // Oldest to newest
+}
 
 export async function GET(request) {
   const ip = getClientIp(request);
@@ -410,6 +470,7 @@ export async function GET(request) {
             wallet_address: true,
             last_connected: true,
             twitter_handle: true,
+            days_active: true,
             twitter_handles: {
               select: {
                 profile_picture: true,
@@ -423,6 +484,10 @@ export async function GET(request) {
         newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
         return NextResponse.json({ detail: 'User not found' }, { status: 404, headers: securityHeaders(newCsrfToken) });
       }
+
+      // Compute streak and last7Days
+      const streak = await computeStreak(uid);
+      const last7Days = await getLast7Days(uid);
 
       const data = {
         success: true,
@@ -444,6 +509,9 @@ export async function GET(request) {
           walletAddress: user.wallet_address || null,
           lastConnected: user.last_connected ? new Date(user.last_connected).toISOString() : null,
           twitterHandle: user.twitter_handle || null,
+          daysActive: Number(user.days_active || 0),
+          streak,
+          last7Days,
         },
       };
 
@@ -575,6 +643,7 @@ export async function POST(request) {
         is_plus: false,
         is_premium: false,
         twitter_handle: null,
+        days_active: 0,
       };
 
       const plainApiKey = crypto.randomBytes(32).toString('hex');

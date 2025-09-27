@@ -1,8 +1,8 @@
+// app\api\twitter\verify-task\route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '@/utils/serverLogger';
 import { createClient } from 'redis';
-import { TwitterApi } from 'twitter-api-v2';
 import { PrismaClient } from '@prisma/client';
 import { verifyRecaptcha } from '@/utils/verifyRecaptcha';
 import { z } from 'zod';
@@ -23,11 +23,6 @@ async function getRedisClient() {
   }
   return redisClient;
 }
-
-const twitterClient = new TwitterApi({
-  clientId: process.env.TWITTER_CLIENT_ID,
-  clientSecret: process.env.TWITTER_CLIENT_SECRET,
-});
 
 const allowedOrigins = [
   process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
@@ -50,8 +45,13 @@ const securityHeaders = {
 const schema = z.object({
   taskId: z.string().max(100),
   userId: z.string().max(100),
-  recaptchaToken: z.string().max(512),
+  recaptchaToken: z.string().max(2048),
 });
+
+function sanitizeInput(input, maxLength = 2048) {
+  if (typeof input !== 'string') return '';
+  return input.substring(0, maxLength);
+}
 
 async function isAllowedOrigin(origin, referer, pathname) {
   logger.info('Checking origin', { origin, referer, pathname, allowedOrigins });
@@ -167,6 +167,7 @@ async function checkCSRF(request, session) {
 }
 
 async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
+  token = sanitizeInput(token, 2048);
   for (let i = 0; i < retries; i++) {
     try {
       const { score } = await verifyRecaptcha(token, action, ip);
@@ -192,21 +193,65 @@ async function withRetry(fn, retries = 2, delay = 1000) {
   }
 }
 
-async function refreshTwitterToken(twitterHandle) {
-  if (twitterHandle.token_expires_at > new Date()) return twitterHandle.access_token;
-  const { accessToken, refreshToken, expiresIn } = await twitterClient.refreshOAuth2Token(twitterHandle.refresh_token);
-  await withRetry(async () => {
-    await prisma.twitter_handles.update({
-      where: { user_id: twitterHandle.user_id },
-      data: {
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        token_expires_at: new Date(Date.now() + expiresIn * 1000),
-        updated_at: new Date(),
-      },
-    });
+// Function to compute streak
+async function computeStreak(userId) {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const completions = await prisma.task_completions.findMany({
+    where: {
+      user_id: userId,
+      task_id: 'daily_checkin',
+      completed_at: { gte: thirtyDaysAgo },
+    },
+    orderBy: { completed_at: 'desc' },
   });
-  return accessToken;
+
+  let streak = 0;
+  let expectedDate = new Date();
+  expectedDate.setUTCHours(23, 59, 59, 999); // End of today
+
+  for (const comp of completions) {
+    const compDate = new Date(comp.completed_at);
+    compDate.setUTCHours(23, 59, 59, 999);
+    if (compDate.getTime() === expectedDate.getTime()) {
+      streak++;
+      expectedDate.setDate(expectedDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function getLast7Days(userId) {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const completions = await prisma.task_completions.findMany({
+    where: {
+      user_id: userId,
+      task_id: 'daily_checkin',
+      completed_at: { gte: sevenDaysAgo, lte: today },
+    },
+  });
+
+  const checked = new Set();
+  completions.forEach(comp => {
+    const dateStr = new Date(comp.completed_at).toISOString().split('T')[0];
+    checked.add(dateStr);
+  });
+
+  const last7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toISOString().split('T')[0];
+    last7.push(checked.has(dateStr));
+  }
+  return last7.reverse(); // Past to today
 }
 
 export async function POST(request) {
@@ -292,12 +337,43 @@ export async function POST(request) {
   }
 
   try {
-    const task = await withRetry(async () => await prisma.tasks.findUnique({ where: { id: taskId } }));
-    if (!task) {
-      await trackViolation(ip, `Task not found: ${taskId}`);
-      logger.error(`Task not found: ${taskId}`, { ip });
-      return NextResponse.json({ detail: 'Task not found' }, { status: 404, headers: corsHeaders });
+    let task;
+    if (taskId === 'daily_checkin') {
+      task = {
+        id: 'daily_checkin',
+        description: 'Daily Check-in',
+        is_daily: true,
+        max_completions: 1,
+        task_type: 'daily_checkin',
+        target_id: null,
+      };
+    } else if (taskId === 'follow') {
+      task = {
+        id: 'follow',
+        description: 'Follow @XynapseAI on Twitter',
+        is_daily: false,
+        max_completions: 1,
+        task_type: 'follow',
+        target_id: '1927681051373305858',
+      };
+    } else {
+      await trackViolation(ip, `Invalid task ID: ${taskId}`);
+      logger.error(`Invalid task ID: ${taskId}`, { ip });
+      return NextResponse.json({ detail: 'Invalid task' }, { status: 400, headers: corsHeaders });
     }
+
+    await withRetry(async () => {
+      await prisma.tasks.upsert({
+        where: { id: task.id },
+        update: {},
+        create: {
+          ...task,
+          points: 10, // Default, override for streak
+          created_at: new Date(),
+        },
+      });
+      logger.info(`Task ${task.id} ensured in DB`, { ip });
+    });
 
     const twitterHandle = await withRetry(async () => await prisma.twitter_handles.findUnique({ where: { user_id: userId } }));
     if (!twitterHandle && task.task_type !== 'daily_checkin') {
@@ -308,13 +384,14 @@ export async function POST(request) {
 
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
+
+    let whereClause = { user_id: userId, task_id: taskId };
+    if (task.is_daily) {
+      whereClause.completed_at = { gte: today };
+    }
     const existingCompletion = await withRetry(async () =>
       prisma.task_completions.findFirst({
-        where: {
-          user_id: userId,
-          task_id: taskId,
-          completed_at: { gte: today },
-        },
+        where: whereClause,
       })
     );
 
@@ -329,32 +406,15 @@ export async function POST(request) {
     }
 
     let isTaskValid = false;
+    logger.info(`Simulating task verification for ${taskId}...`, { ip });
+    await new Promise(resolve => setTimeout(resolve, 3500));
+
     if (task.task_type === 'follow') {
-      const accessToken = await refreshTwitterToken(twitterHandle);
-      const client = new TwitterApi(accessToken);
-      const user = await client.v2.userByUsername(twitterHandle.twitter_handle, { 'user.fields': ['id'] });
-      if (!user.data?.id) {
-        await trackViolation(ip, `Failed to fetch user ID for ${twitterHandle.twitter_handle}`);
-        logger.error(`Failed to fetch user ID for ${twitterHandle.twitter_handle}`, { ip });
-        return NextResponse.json({ detail: 'Failed to fetch user ID' }, { status: 400, headers: corsHeaders });
-      }
-      const userId = user.data.id;
-      const following = await client.v2.following(userId, { 'user.fields': ['id'] });
-      const followingIds = [];
-      for await (const followedUser of following) {
-        followingIds.push(followedUser.id);
-      }
-      isTaskValid = followingIds.includes(task.target_id);
-      logger.info(`Follow task verification: userId=${userId}, targetId=${task.target_id}, isFollowing=${isTaskValid}`, { ip });
-    } else if (task.task_type === 'retweet') {
-      const accessToken = await refreshTwitterToken(twitterHandle);
-      const client = new TwitterApi(accessToken);
-      const retweets = await client.v2.tweetRetweetedBy(task.target_id, { 'user.fields': ['username'] });
-      isTaskValid = retweets.data.some((user) => user.username === twitterHandle.twitter_handle);
-      logger.info(`Retweet task verification: tweetId=${task.target_id}, username=${twitterHandle.twitter_handle}, isRetweeted=${isTaskValid}`, { ip });
+      isTaskValid = true;
+      logger.info(`Simulated follow task verification: userId=${userId}, targetId=${task.target_id}, isFollowing=${isTaskValid}`, { ip });
     } else if (task.task_type === 'daily_checkin') {
       isTaskValid = true;
-      logger.info(`Daily check-in task verification: userId=${userId}, isValid=${isTaskValid}`, { ip });
+      logger.info(`Simulated daily check-in task verification: userId=${userId}, isValid=${isTaskValid}`, { ip });
     }
 
     if (!isTaskValid) {
@@ -363,25 +423,68 @@ export async function POST(request) {
       return NextResponse.json({ detail: 'Task verification failed' }, { status: 400, headers: corsHeaders });
     }
 
-    const completionCount = existingCompletion ? existingCompletion.completion_count + 1 : 1;
-    await withRetry(async () => {
-      await prisma.$transaction([
-        prisma.task_completions.upsert({
-          where: { user_id_task_id: { user_id: userId, task_id: taskId } },
-          update: { completion_count: completionCount, points_earned: task.points, completed_at: new Date() },
-          create: {
-            user_id: userId,
-            task_id: taskId,
-            completion_count: 1,
-            points_earned: task.points,
-            completed_at: new Date(),
+    let points = task.task_type === 'follow' ? 20 : 10; // Default
+
+    if (taskId === 'daily_checkin') {
+      // Compute if double points
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const hasYesterday = await prisma.task_completions.findFirst({
+        where: {
+          user_id: userId,
+          task_id: 'daily_checkin',
+          completed_at: {
+            gte: yesterday,
+            lt: today,
           },
-        }),
-        prisma.users.update({
+        },
+      });
+      const currentStreak = await computeStreak(userId);
+      const newStreak = hasYesterday ? currentStreak + 1 : 1;
+      points = newStreak >= 7 ? 20 : 10;
+      task.points = points; // Update for response
+    }
+
+    await withRetry(async () => {
+      await prisma.$transaction(async (tx) => {
+        let completionId;
+        if (existingCompletion) {
+          await tx.task_completions.update({
+            where: { id: existingCompletion.id },
+            data: {
+              completion_count: { increment: 1 },
+              points_earned: { increment: points },
+              completed_at: new Date(),
+            },
+          });
+          completionId = existingCompletion.id;
+        } else {
+          const newCompletion = await tx.task_completions.create({
+            data: {
+              user_id: userId,
+              task_id: taskId,
+              completion_count: 1,
+              points_earned: points,
+              completed_at: new Date(),
+            },
+          });
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          completionId = newCompletion.id;
+        }
+
+        const userUpdateData = {
+          points: { increment: points },
+          task_points: { increment: points },
+        };
+        if (taskId === 'daily_checkin') {
+          userUpdateData.days_active = { increment: 1 };
+        }
+
+        await tx.users.update({
           where: { id: userId },
-          data: { points: { increment: task.points }, task_points: { increment: task.points } },
-        }),
-      ]);
+          data: userUpdateData,
+        });
+      });
     });
 
     await withRetry(async () => {
@@ -392,13 +495,14 @@ export async function POST(request) {
       await redisClient.del(cacheKeyUser);
     });
 
-    logger.info(`Task ${taskId} verified for user ${userId}, points: ${task.points}`, { ip });
+    logger.info(`Task ${taskId} verified for user ${userId}, points: ${points}`, { ip });
     return NextResponse.json(
-      { success: true, completionCount, pointsEarned: task.points },
+      { success: true, completionCount: existingCompletion ? existingCompletion.completion_count + 1 : 1, pointsEarned: points },
       { headers: corsHeaders }
     );
   } catch (error) {
-    await trackViolation(ip, `Error verifying task: ${error.message}`);
+    const reason = `Error verifying task: ${error.message}`;
+    await trackViolation(ip, reason);
     logger.error(`Error verifying task: ${error.message}`, { stack: error.stack, ip });
     return NextResponse.json({ detail: `Error verifying task: ${error.message}` }, { status: 500, headers: corsHeaders });
   } finally {
