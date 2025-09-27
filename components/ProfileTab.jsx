@@ -6,7 +6,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
-import { getCsrfToken } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check } from 'lucide-react';
@@ -44,8 +43,8 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData }) 
           <h3 className="text-white font-bold text-xs">Daily Check-in Streak</h3>
         </div>
         <div className="relative">
-          <Info
-            className="w-3 h-3 text-gray-400 cursor-help"
+          <Info 
+            className="w-3 h-3 text-gray-400 cursor-help" 
             onMouseEnter={() => setTooltipVisible(true)}
             onMouseLeave={() => setTooltipVisible(false)}
           />
@@ -61,12 +60,13 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData }) 
           const dayIndex = (todayIndex - index + 7) % 7;
           return (
             <div key={index} className="flex flex-col items-center gap-1">
-              <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold transition-all duration-300 ${checked
-                  ? 'bg-green-500 text-black shadow-lg shadow-gray-300/25'
+              <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold transition-all duration-300 ${
+                checked 
+                  ? 'bg-green-500 text-black shadow-lg shadow-gray-300/25'  
                   : 'bg-white/10 text-white/50 border border-white/20'
-                }`}>
+              }`}>
                 {checked ? (
-                  <Check className="w-3 h-3 text-black" />
+                  <Check className="w-3 h-3 text-black" /> 
                 ) : (
                   days[dayIndex]
                 )}
@@ -75,10 +75,11 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData }) 
                 <motion.button
                   onClick={onCheckin}
                   disabled={isLoading}
-                  className={`mt-1 px-2 py-1 rounded-full text-[8px] font-semibold transition-all duration-300 ${isLoading
-                      ? 'bg-gray-600 text-white/50 cursor-not-allowed'
+                  className={`mt-1 px-2 py-1 rounded-full text-[8px] font-semibold transition-all duration-300 ${
+                    isLoading 
+                      ? 'bg-gray-600 text-white/50 cursor-not-allowed' 
                       : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
-                    }`}
+                  }`}
                   whileHover={{ scale: isLoading ? 1 : 1.05 }}
                   whileTap={{ scale: isLoading ? 1 : 0.95 }}
                 >
@@ -154,9 +155,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     const followUrl = `https://x.com/intent/follow?screen_name=XynapseAI`;
     window.open(followUrl, '_blank');
     setFollowedTasks(prev => new Set([...prev, taskId]));
-    toast.info('Redirecting to X (Twitter). Please follow @XynapseAI and return to verify your action.', {
+    toast.info('Redirecting to X (Twitter). Please follow @XynapseAI and return to verify your action.', { 
       position: 'top-center',
-      autoClose: 6000
+      autoClose: 6000 
     });
   };
 
@@ -194,15 +195,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
     queryKey: ['csrfToken'],
     queryFn: async () => {
-      if (typeof window === 'undefined') return null;
-      const token = await getCsrfToken();
-      if (!token) throw new Error('Empty CSRF token received');
-      return token;
+      const response = await axios.get('/api/csrf-token', { withCredentials: true });
+      if (!response.data.csrfToken) throw new Error('Empty CSRF token received');
+      return response.data.csrfToken;
     },
     retry: 3,
     retryDelay: 2000,
     enabled: status === 'authenticated',
-    // Xóa onSuccess localStorage, không cần nữa
+    onSuccess: (csrf) => {
+      localStorage.setItem('csrf_token', csrf);
+    },
     onError: (err) => {
       if (process.env.NODE_ENV !== 'production') {
         logger.error('Error fetching CSRF token:', err);
@@ -394,16 +396,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       if (cached) {
         return cached;
       }
-      // Thêm reCAPTCHA chỉ ở production
-      let recaptchaToken = null;
-      if (process.env.NODE_ENV !== 'development') {
-        recaptchaToken = await debouncedExecuteRecaptcha('get_leaderboard');
-      }
       const response = await axios.get('/api/leaderboard', {
         headers: {
           'x-csrf-token': csrfToken,
-          ...(recaptchaToken && { 'x-recaptcha-token': recaptchaToken }),  // Thêm header reCAPTCHA
-          // Xóa 'Authorization' nếu không cần, vì withCredentials gửi cookie/JWT
+          'Authorization': `Bearer ${session?.accessToken}`,
         },
         withCredentials: true,
       }).catch(err => {
@@ -416,19 +412,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     enabled: status === 'authenticated' && !!session?.user?.id && !!csrfToken,
     staleTime: 30 * 60 * 1000,
-    retry: 0,  // Tránh retry tự động gây rate limit
+    retry: 1,
     retryDelay: 2000,
     onError: (err) => {
       logger.error('Leaderboard error:', err);
-      let errorMsg = 'Unable to load leaderboard at this time. Please check your connection and try again.';
-      if (err.response?.status === 429) {
-        errorMsg = 'Rate limit reached. Please wait 1-2 minutes and refresh.';
-      } else if (err.response?.status === 403) {
-        errorMsg = 'Security check failed. Please refresh the page.';
-      }
-      toast.error(errorMsg, {
-        position: 'top-center',
-        autoClose: 5000
+      toast.error('Unable to load leaderboard at this time. Please check your connection and try again.', { 
+        position: 'top-center', 
+        autoClose: 5000 
       });
     },
   });
@@ -439,9 +429,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     onError: (err) => {
       logger.error('Connect Twitter error:', err);
-      toast.error('Unable to initiate Twitter connection. Please try again or check your network.', {
-        position: 'top-center',
-        autoClose: 5000
+      toast.error('Unable to initiate Twitter connection. Please try again or check your network.', { 
+        position: 'top-center', 
+        autoClose: 5000 
       });
     },
   });
@@ -464,9 +454,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       await clearAllCaches(session.user.id);
     },
     onSuccess: async () => {
-      toast.success('Twitter account disconnected successfully. Your profile has been updated.', {
-        position: 'top-center',
-        autoClose: 5000
+      toast.success('Twitter account disconnected successfully. Your profile has been updated.', { 
+        position: 'top-center', 
+        autoClose: 5000 
       });
       await Promise.all([
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
@@ -510,16 +500,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return walletAddress;
     },
     onSuccess: (walletAddress) => {
-      toast.success(`Wallet ${walletAddress.slice(0, 6)}... connected successfully.`, {
-        position: 'top-center',
-        autoClose: 5000
+      toast.success(`Wallet ${walletAddress.slice(0, 6)}... connected successfully.`, { 
+        position: 'top-center', 
+        autoClose: 5000 
       });
       queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      toast.error(`Wallet connection failed: ${err.message}. Please ensure MetaMask is installed and try again.`, {
-        position: 'top-center',
-        autoClose: 5000
+      toast.error(`Wallet connection failed: ${err.message}. Please ensure MetaMask is installed and try again.`, { 
+        position: 'top-center', 
+        autoClose: 5000 
       });
     },
   });
@@ -571,11 +561,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return response.data;
     },
     onSuccess: async (data, task) => {
-      toast.success(`${task.description} verified successfully! You've earned ${data.pointsEarned} points.`, {
-        position: 'top-center',
-        autoClose: 5000
+      toast.success(`${task.description} verified successfully! You've earned ${data.pointsEarned} points.`, { 
+        position: 'top-center', 
+        autoClose: 5000 
       });
-
+      
       // Clear IndexedDB cache
       const userCacheKey = `userData-${session.user.id}`;
       const progressCacheKey = `taskProgress-${session.user.id}`;
@@ -583,7 +573,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         clearCache(userCacheKey),
         clearCache(progressCacheKey),
       ]);
-
+      
       // Invalidate và refetch
       await Promise.all([
         queryClient.invalidateQueries(['taskProgress', session?.user?.id, csrfToken]),
@@ -773,7 +763,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 <tbody>
                   {getPaginatedData(tasks, 'tasks').map((task, index) => {
                     const isCompleted = (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                      (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions);
+                                       (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions);
                     return (
                       <motion.tr
                         key={task.id}
@@ -838,12 +828,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                   (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
                                   isCompleted  // Enhanced: disable if completed
                                 }
-                                className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all duration-300 flex items-center gap-1 shadow-lg ${verifyTaskMutation.isLoading ||
-                                    (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                                    isCompleted  // Enhanced: disable if completed
+                                className={`px-2 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all duration-300 flex items-center gap-1 shadow-lg ${
+                                  verifyTaskMutation.isLoading ||
+                                  (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
+                                  isCompleted  // Enhanced: disable if completed
                                     ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
                                     : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
-                                  }`}
+                                }`}
                                 whileHover={{
                                   scale:
                                     verifyTaskMutation.isLoading ||
@@ -1017,9 +1008,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         })
         .then(() => {
           window.history.replaceState({}, document.title, window.location.pathname);
-          toast.success('X (Twitter) connected successfully! Your profile is now updated.', {
-            position: 'top-center',
-            autoClose: 5000
+          toast.success('X (Twitter) connected successfully! Your profile is now updated.', { 
+            position: 'top-center', 
+            autoClose: 5000 
           });
         })
         .catch((err) => {
@@ -1298,10 +1289,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               <motion.button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 text-xs font-bold text-white uppercase tracking-wider py-1.5 relative transition-all duration-300 flex items-center justify-center gap-1 ${activeTab === tab
-                  ? 'border-b-2 border-white/60 text-white shadow-lg'
+                className={`flex-1 text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${activeTab === tab 
+                  ? 'border-b-2 border-white/60 text-white shadow-lg' 
                   : 'text-white/70 hover:text-neon-blue hover:bg-white/5'
-                  }`}
+                }`}
               >
                 {tab === 'tasks' && <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

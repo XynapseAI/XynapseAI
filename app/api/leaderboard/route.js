@@ -5,6 +5,7 @@ import { logger } from '@/utils/serverLogger';
 import { createClient } from 'redis';
 import { PrismaClient } from '@prisma/client';
 import { verifyRecaptcha } from '@/utils/verifyRecaptcha';
+import cookie from 'cookie';  // Thêm import này
 
 const prisma = new PrismaClient();
 let redisClient;
@@ -98,6 +99,7 @@ async function isAllowedOrigin(origin, referer, pathname) {
   }
 }
 
+// Di chuyển checkRateLimit sau CSRF để fail không count
 async function checkRateLimit(ip) {
   const redisClient = await getRedisClient();
   const key = `rate_limit:leaderboard:${ip}`;
@@ -110,11 +112,63 @@ async function checkRateLimit(ip) {
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
 }
 
-async function checkCSRF(request, session) {
-  const csrfToken = request.headers.get('x-csrf-token');
-  if (process.env.NODE_ENV === 'development') return true;
-  if (!csrfToken || !session?.csrfToken || csrfToken !== session.csrfToken) return false;
-  return true;
+// Thêm functions cho double-submit CSRF (copy từ /api/user)
+function parseCookies(request) {
+  const raw = request.headers.get('cookie') || '';
+  try {
+    return cookie.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+async function checkDoubleSubmitCSRF(request, ip, userId) {
+  const headerToken = request.headers.get('x-csrf-token') || '';
+  const cookies = parseCookies(request);
+  const cookieToken = cookies['csrf_token'] || '';
+
+  if (process.env.NODE_ENV !== 'production') {
+    logger.info('Checking CSRF tokens', {
+      headerToken: headerToken ? 'provided' : 'missing',
+      cookieToken: cookieToken ? 'provided' : 'missing',
+    });
+  }
+
+  if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('Development CSRF bypass used');
+    }
+    return true;
+  }
+
+  if (!headerToken || !cookieToken) {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF tokens missing', {
+        headerProvided: !!headerToken,
+        cookieProvided: !!cookieToken,
+      });
+    }
+    return false;
+  }
+
+  const client = await getRedisClient();
+  const storedToken = await client.get(`csrf:${userId}`);
+  if (!storedToken) {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF token not found in Redis', { key: `csrf:${userId}` });
+    }
+    return false;
+  }
+
+  const valid = headerToken === cookieToken && cookieToken === storedToken;
+  if (!valid && process.env.NODE_ENV !== 'production') {
+    logger.warn('CSRF token mismatch', {
+      headerToken: headerToken.slice(0, 6) + '••••',
+      cookieToken: cookieToken.slice(0, 6) + '••••',
+      storedToken: storedToken.slice(0, 6) + '••••',
+    });
+  }
+  return valid;
 }
 
 async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
@@ -155,6 +209,19 @@ export async function GET(request) {
     ...securityHeaders,
   };
 
+  const session = await auth();
+  if (!session || !session.user?.id) {
+    logger.warn('Session not authenticated', { ip });
+    return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers: corsHeaders });
+  }
+
+  // Check CSRF trước rate limit
+  if (!(await checkDoubleSubmitCSRF(request, ip, session.user.id))) {
+    logger.warn('Invalid CSRF token', { ip });
+    return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers: corsHeaders });
+  }
+
+  // Bây giờ mới check rate limit (chỉ count valid request)
   try {
     await checkRateLimit(ip);
   } catch (err) {
@@ -162,29 +229,21 @@ export async function GET(request) {
     return NextResponse.json({ detail: err.message }, { status: 429, headers: corsHeaders });
   }
 
-  const session = await auth();
-  if (!session || !session.user?.id) {
-    logger.warn('Session not authenticated', { ip });
-    return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers: corsHeaders });
-  }
-
-  if (!(await checkCSRF(request, session))) {
-    logger.warn('Invalid CSRF token', { ip });
-    return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers: corsHeaders });
-  }
-
+  // reCAPTCHA optional (chỉ check nếu gửi token)
   if (process.env.NODE_ENV !== 'development') {
-    try {
-      const recaptchaToken = request.headers.get('x-recaptcha-token') || request.headers.get('X-Recaptcha-Token');
-      if (!recaptchaToken) {
-        logger.warn('Missing reCAPTCHA token', { ip });
-        return NextResponse.json({ detail: 'Missing reCAPTCHA token' }, { status: 400, headers: corsHeaders });
+    const recaptchaToken = request.headers.get('x-recaptcha-token');
+    if (recaptchaToken) {
+      try {
+        const { score } = await verifyRecaptchaWithRetry(recaptchaToken, 'get_leaderboard', ip);
+        if (score < 0.5) {  // Threshold thấp cho read
+          return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: corsHeaders });
+        }
+      } catch (error) {
+        logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip });
+        return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: corsHeaders });
       }
-      await verifyRecaptchaWithRetry(recaptchaToken, 'get_leaderboard', ip);
-    } catch (error) {
-      logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip });
-      return NextResponse.json({ detail: `reCAPTCHA verification failed: ${error.message}` }, { status: 403, headers: corsHeaders });
     }
+    // Không gửi token → allow (như comment: Removed reCAPTCHA for faster load)
   }
 
   try {
@@ -221,7 +280,7 @@ export async function GET(request) {
 
     const data = { success: true, rankings: formattedRankings };
 
-    await redisClient.setEx(cacheKey, 300, JSON.stringify(data));
+    await redisClient.setEx(cacheKey, 300, JSON.stringify(data)); // Cache 5 phút
     logger.info('Fetched and cached leaderboard successfully', { ip });
     return NextResponse.json(data, { headers: corsHeaders });
   } catch (error) {
