@@ -97,7 +97,7 @@ async function checkCSRF(request, session) {
   return true;
 }
 
-async function isAllowedOrigin(origin, referer, pathname, ip) {
+async function isAllowedOrigin(origin, referer) {
   const configured = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
     'https://xynapseai.net',
@@ -274,7 +274,7 @@ export async function GET(request) {
 
     try {
       await checkRateLimit(ip, userId);
-    } catch (err) {
+    } catch {
       return NextResponse.json({ detail: 'Too many requests' }, { status: 429, headers });
     }
 
@@ -434,7 +434,7 @@ export async function POST(request) {
 
     try {
       await checkRateLimit(ip, userId);
-    } catch (err) {
+    } catch {
       return NextResponse.json({ detail: 'Too many requests' }, { status: 429, headers });
     }
 
