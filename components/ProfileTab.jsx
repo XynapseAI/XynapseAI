@@ -1,4 +1,4 @@
-// components\ProfileTab.jsx
+// components/ProfileTab.jsx
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -642,62 +642,57 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return profilePicture;
     }
 
-    return '/default-avatar.webp';
+    return '/fallback-image.webp';
   }, []);
 
   const renderUserRow = useCallback(
     (user, index, isCurrentUser = false) => {
       const rank = isCurrentUser ? rankings.findIndex((u) => u.id === user.id) + 1 || 'N/A' : index + 1;
       const getRankIcon = (r) => {
-        if (r === 1) return <Trophy className="w-3 h-3 text-yellow-500" />;
-        if (r === 2) return <Award className="w-3 h-3 text-gray-400" />;
-        if (r === 3) return <Flame className="w-3 h-3 text-orange-500" />;
+        if (r === 1) return <Trophy className="w-3.5 h-3.5 sm:w-3 sm:h-3 text-yellow-500" />;
+        if (r === 2) return <Flame className="w-3.5 h-3.5 sm:w-3 sm:h-3 text-orange-400" />;
+        if (r === 3) return <Award className="w-3.5 h-3.5 sm:w-3 sm:h-3 text-gray-500" />;
         return null;
       };
       const rankIcon = getRankIcon(rank);
-      const rankStyles = {
-        1: 'bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 border-yellow-500/50 text-yellow-400',
-        2: 'bg-gradient-to-r from-gray-400/20 to-gray-500/20 border-gray-400/50 text-gray-300',
-        3: 'bg-gradient-to-r from-orange-500/20 to-red-500/20 border-orange-500/50 text-orange-400',
-      };
 
       return (
         <motion.tr
           key={user.id}
-          className={`border-t border-white/10 hover:bg-white/5 transition-all duration-300 ${rankStyles[rank] || ''}`}
+          className={`border-t border-white/10 hover:bg-white/5 transition-all duration-300`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: index * 0.02 }}
         >
-          <td className="px-3 py-2 text-white text-[9px] sm:text-[11px] truncate flex items-center gap-1">
+          <td className="px-3 py-3 text-white text-[11px] sm:text-[11px] truncate align-middle flex items-center gap-1">
             {rankIcon}
             {rank}
           </td>
-          <td className="px-3 py-2 text-white text-[9px] sm:text-[11px] truncate">
+          <td className="px-3 py-3 text-white text-[9px] sm:text-[11px] truncate align-middle">
             <div className="flex items-center">
               <Image
                 src={getProfilePictureSrc(user.profilePicture, user.twitterHandle, user.googleName)}
                 alt={user.googleName || user.twitterHandle || 'User Avatar'}
                 width={isMobile ? 14 : 16}
                 height={isMobile ? 14 : 16}
-                className="rounded-full border border-white/10 mr-2 object-cover"
+                className="rounded-sm border border-white/10 mr-2 object-cover"
               />
-              <div className="flex items-center gap-1 truncate">
+              <div className="flex items-center gap-1 truncate ml-1">
                 <span>{user.googleName || user.twitterHandle || 'Anonymous'}</span>
                 {user.twitterHandle && (
                   <a href={`https://x.com/${user.twitterHandle}`} target="_blank" rel="noopener noreferrer">
-                    <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 text-blue-400 hover:text-blue-300" />
+                    <img src="/logos/x.webp" alt="X Logo" className="ml-1 w-2 h-2 sm:w-3 sm:h-3 text-blue-400 hover:text-blue-300" />
                   </a>
                 )}
                 {isCurrentUser && (
-                  <span className="ml-2 text-[8px] sm:text-[9px] font-medium text-neon-blue px-2 py-0.5 rounded-full border border-neon-blue/50 bg-white/5">
+                  <span className="ml-2 text-[7px] sm:text-[8px] font-medium text-neon-blue px-2 py-0.4 sm:0.5 rounded-full border border-neon-blue/50 bg-white/5">
                     You
                   </span>
                 )}
               </div>
             </div>
           </td>
-          <td className="px-3 py-2 text-neon-blue text-[9px] sm:text-[11px] text-right truncate">{user.points || 0}</td>
+          <td className="px-3 py-3 text-neon-blue text-[7px] sm:text-[8px] text-right truncate align-middle">{user.points || 0}</td>
         </motion.tr>
       );
     },
@@ -707,11 +702,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render Tasks Section
   const renderTasksSection = useCallback(
     () => (
-      <div className="relative bg-gradient-to-br from-black/80 to-gray-900/80 rounded-xl overflow-y-auto min-h-[calc(40vh)] sm:min-h-[calc(25vh)] max-h-[calc(40vh)] sm:max-h-[calc(40vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
+      <div className="relative bg-gradient-to-br from-black/80 to-gray-900/80 rounded-b-xl overflow-y-auto min-h-[calc(40vh)] sm:min-h-[calc(40vh)] max-h-[calc(40vh)] sm:max-h-[calc(40vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
         <LoadingOverlay
           isLoading={tasksLoading || taskProgressLoading || verifyTaskMutation.isLoading}
           isMobile={isMobile}
-          className="h-full"
+          className="h-full z-60"
         />
         {tasksError && (
           <motion.div
@@ -749,8 +744,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               </motion.div>
             )}
             <div className="overflow-x-auto">
-              <table className="w-full text-[9px] sm:text-[11px] bg-black/50 rounded-xl table-fixed">
-                <thead className="border-b border-white/10 bg-gradient-to-r from-black/70 to-gray-800/70">
+              <table className="w-full text-[9px] sm:text-[11px] bg-black/50 rounded-b-xl table-fixed">
+                <thead className="bg-black/50">
                   <tr>
                     <th className={`${isMobile ? 'w-[50%]' : 'w-[60%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Task</th>
                     <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Points</th>
@@ -910,11 +905,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render Leaderboard Section
   const renderLeaderboardSection = useCallback(
     () => (
-      <div className="relative bg-gradient-to-br from-black/5 to-gray-900/5 rounded-xl overflow-y-auto min-h-[calc(40vh)] sm:min-h-[calc(25vh)] max-h-[calc(40vh)] sm:max-h-[calc(40vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
+      <div className="relative bg-gradient-to-br from-black/5 to-gray-900/5 rounded-b-xl overflow-y-auto min-h-[calc(40vh)] sm:min-h-[calc(40vh)] max-h-[calc(40vh)] sm:max-h-[calc(40vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
         <LoadingOverlay
           isLoading={leaderboardLoading}
           isMobile={isMobile}
-          className="h-full z-50"
+          className="h-full"
         />
         {leaderboardError && (
           <motion.div
@@ -939,12 +934,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         {!leaderboardLoading && rankings?.length > 0 && (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-[9px] sm:text-[11px] bg-black/10 rounded-xl table-fixed">
-                <thead className="border-b border-white/10 bg-gradient-to-r from-black/20 to-gray-800/20">
+              <table className="w-full text-[9px] sm:text-[11px] bg-black/10 rounded-b-xl table-fixed">
+                <thead className="bg-black/50">
                   <tr>
-                    <th className={`${isMobile ? 'w-[20%]' : 'w-[15%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Rank</th>
-                    <th className={`${isMobile ? 'w-[60%]' : 'w-[65%]'} px-3 py-2 text-white text-left font-semibold truncate`}>User</th>
-                    <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-right font-semibold truncate`}>Points</th>
+                    <th className={`${isMobile ? 'w-[20%]' : 'w-[15%]'} px-3 py-3 text-white text-left font-semibold truncate align-middle`}>Rank</th>
+                    <th className={`${isMobile ? 'w-[60%]' : 'w-[65%]'} px-3 py-3 text-white text-left font-semibold truncate align-middle`}>User</th>
+                    <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-3 text-white text-right font-semibold truncate align-middle`}>Points</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1174,7 +1169,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   </div>
                   <div className="rounded-xl p-3 border border-white/20 shadow-lg relative">
                     <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                      <img src="/logos/icon3.webp" alt="Social Logo" className="w-4 h-4" />
+                      <img src="/logos/icon3.webp" alt="Social Logo" className="w-5 h-5" />
                       Social
                     </h5>
                     <div className="space-y-2">
@@ -1281,21 +1276,21 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <div className="border-b border-white/10 bg-black/20 flex h-[48px]">
+          <div className="border-b border-white/10 bg-black/20 flex h-[32px] sm:h-[40px]">
             {['tasks', 'leaderboard'].map((tab) => (
               <motion.button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${activeTab === tab 
+                className={`flex-1 text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${activeTab === tab 
                   ? 'border-b-2 border-white/60 text-white shadow-lg' 
                   : 'text-white/70 hover:text-neon-blue hover:bg-white/5'
                 }`}
               >
-                {tab === 'tasks' && <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {tab === 'tasks' && <svg className="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12H12V2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>}
-                {tab === 'leaderboard' && <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                {tab === 'leaderboard' && <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>}
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
