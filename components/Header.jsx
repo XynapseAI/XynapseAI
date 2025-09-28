@@ -32,7 +32,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   const tabs = [
     { id: 'market', label: 'Market', icon: BarChart3 },
     { id: 'cluster', label: 'Cluster', icon: Network },
-    { id: 'treemap', label: 'Graph', icon: Activity },
+    { id: 'graph', label: 'Graph', icon: Activity },
     { id: 'watchlists', label: 'Watchlists', icon: List },
     { id: 'profile', label: 'Profile', icon: User },
   ];
@@ -74,7 +74,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   const handleExchangeSelect = (exchange) => {
-    router.push(`/cluster?clusterId=${exchange.id}`, { scroll: false });
+    router.push(`/dashboard?tab=cluster&clusterId=${exchange.id}`, { scroll: false });
     setSearchQuery('');
     setSearchResults([]);
     setIsSearchDropdownOpen(false);
@@ -83,7 +83,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
 
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
-    const clusterId = new URLSearchParams(window.location.search).get('clusterId'); 
+    const clusterId = new URLSearchParams(window.location.search).get('clusterId');
     let query = '';
     if (tabId === 'watchlists' && selectedAddress) {
       query = `tab=${tabId}&address=${encodeURIComponent(selectedAddress)}`;
@@ -227,11 +227,10 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                   key={tab.id}
                   onClick={() => handleTabClick(tab.id)}
                   onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
-                  className={`group relative flex items-center gap-1 px-3 py-2 text-[10px] font-semibold uppercase rounded-lg transition-all duration-300 ease-out border border-transparent ${
-                    isActive
+                  className={`group relative flex items-center gap-1 px-3 py-2 text-[10px] font-semibold uppercase rounded-lg transition-all duration-300 ease-out border border-transparent ${isActive
                       ? 'text-neon-blue'
                       : 'text-white/70 hover:text-white'
-                  }`}
+                    }`}
                 >
                   <Icon className={`w-3 h-3 flex-shrink-0 ${isActive ? 'text-white/80' : 'text-white/70 group-hover:text-white'}`} />
                   <span className={`matrix-text relative overflow-hidden ${isActive ? 'text-white/80' : ''}`}>
@@ -285,11 +284,10 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
                     onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
-                    className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent ${
-                      isActive
+                    className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent ${isActive
                         ? 'text-neon-blue'
                         : 'text-white/70 hover:text-white hover:bg-white/5 hover:border-white/5'
-                    }`}
+                      }`}
                   >
                     <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-neon-blue' : 'text-white/70'}`} />
                     <span className={`matrix-text flex-1 ${isActive ? 'text-neon-blue' : ''}`}>{renderMatrixText(tab.label)}</span>

@@ -9,7 +9,10 @@ import { useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 export default function ClusterPage({ initialClusterId }) {
-  const [activeTab, setActiveTab] = useState("portfolio");
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('subtab') || "portfolio";  // Preserve subtab từ URL
+  });
   const searchParams = useSearchParams();
   const recaptchaRef = useRef(null);
   const finalClusterId = searchParams.get('clusterId') || initialClusterId;

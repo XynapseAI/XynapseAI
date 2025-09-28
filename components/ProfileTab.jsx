@@ -202,9 +202,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     retry: 3,
     retryDelay: 2000,
     enabled: status === 'authenticated',
-    onSuccess: (csrf) => {
-      localStorage.setItem('csrf_token', csrf);
-    },
     onError: (err) => {
       if (process.env.NODE_ENV !== 'production') {
         logger.error('Error fetching CSRF token:', err);
@@ -1177,7 +1174,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   </div>
                   <div className="rounded-xl p-3 border border-white/20 shadow-lg relative">
                     <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                      <img src="/logos/icon3.webp" alt="Social Logo" className="w-3 h-3" />
+                      <img src="/logos/icon3.webp" alt="Social Logo" className="w-4 h-4" />
                       Social
                     </h5>
                     <div className="space-y-2">

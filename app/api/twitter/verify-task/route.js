@@ -6,6 +6,8 @@ import { createClient } from 'redis';
 import { PrismaClient } from '@prisma/client';
 import { verifyRecaptcha } from '@/utils/verifyRecaptcha';
 import { z } from 'zod';
+import cookie from 'cookie';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 let redisClient;
@@ -51,6 +53,70 @@ const schema = z.object({
 function sanitizeInput(input, maxLength = 2048) {
   if (typeof input !== 'string') return '';
   return input.substring(0, maxLength);
+}
+
+function parseCookies(request) {
+  const raw = request.headers.get('cookie') || '';
+  try {
+    return cookie.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function mask(value, keep = 6) {
+  if (!value) return '';
+  return value.length <= keep ? '••••' : value.slice(0, keep) + '••••';
+}
+
+async function checkDoubleSubmitCSRF(request, ip, userId) {
+  const headerToken = request.headers.get('x-csrf-token') || '';
+  const cookies = parseCookies(request);
+  const cookieToken = cookies['csrf_token'] || '';
+
+  if (process.env.NODE_ENV !== 'production') {
+    logger.info('Checking CSRF tokens', {
+      headerToken: headerToken ? 'provided' : 'missing',
+      cookieToken: cookieToken ? 'provided' : 'missing',
+    });
+  }
+
+  if (process.env.NODE_ENV === 'development' && headerToken === 'dev-csrf' && cookieToken === 'dev-csrf') {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info('Development CSRF bypass used');
+    }
+    return true;
+  }
+
+  if (!headerToken || !cookieToken) {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF tokens missing', {
+        headerProvided: !!headerToken,
+        cookieProvided: !!cookieToken,
+      });
+    }
+    return false;
+  }
+
+  const client = await getRedisClient();
+  const storedToken = await client.get(`csrf:${userId || ip}`);
+  if (!storedToken) {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('CSRF token not found in Redis', { key: `csrf:${userId || ip}` });
+    }
+    return false;
+  }
+
+  const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
+    crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken));
+  if (!valid && process.env.NODE_ENV !== 'production') {
+    logger.warn('CSRF token mismatch', {
+      headerToken: mask(headerToken),
+      cookieToken: mask(cookieToken),
+      storedToken: mask(storedToken),
+    });
+  }
+  return valid;
 }
 
 async function isAllowedOrigin(origin, referer, pathname) {
@@ -157,13 +223,6 @@ async function checkRateLimit(ip) {
     throw new Error('Too many requests, please try again later.');
   }
   await redisClient.multi().incr(key).expire(key, windowMs / 1000).exec();
-}
-
-async function checkCSRF(request, session) {
-  const csrfToken = request.headers.get('x-csrf-token');
-  if (process.env.NODE_ENV === 'development') return true;
-  if (!csrfToken || !session?.csrfToken || csrfToken !== session.csrfToken) return false;
-  return true;
 }
 
 async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
@@ -294,7 +353,8 @@ export async function POST(request) {
     return NextResponse.json({ detail: 'Not authenticated' }, { status: 401, headers: corsHeaders });
   }
 
-  if (!(await checkCSRF(request, session))) {
+  const csrfOk = await checkDoubleSubmitCSRF(request, ip, session.user.id);
+  if (!csrfOk) {
     await trackViolation(ip, 'Invalid CSRF token');
     logger.warn('Invalid CSRF token', { ip });
     return NextResponse.json({ detail: 'Invalid CSRF check.' }, { status: 403, headers: corsHeaders });

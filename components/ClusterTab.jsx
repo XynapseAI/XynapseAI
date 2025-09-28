@@ -139,7 +139,7 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
   return null;
 };
 
-const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab }) => {
+const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, setActiveTab: propSetActiveTab }) => {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -173,6 +173,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
   const [selectedChain, setSelectedChain] = useState("all");
   const [toggledToken, setToggledToken] = useState(null);
   const portfolioRef = useRef(null);
+  const [localActiveTab, setLocalActiveTab] = useState("portfolio");
+  const currentActiveTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
+  const currentSetActiveTab = propSetActiveTab !== undefined ? propSetActiveTab : setLocalActiveTab;
 
   // Handle click outside to close toggle
   useEffect(() => {
@@ -1547,7 +1550,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
           className="flex border-t border-white/10 hover:bg-gradient-to-r hover:from-white/5 hover:to-neon-blue/5 transition-all duration-300 py-2"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          whileHover={{ scale: 1.05 }}
+          whileHover={{ scale: 1 }}
           transition={{ duration: 0.3, delay: index * 0.02 }}
         >
           <div className="w-[12%] sm:w-[15%] px-2 sm:px-3 text-white/80 text-[9px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
@@ -1946,8 +1949,12 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
           >
             <div className="p-0 border-b border-white/10 bg-black/10 flex gap-4 items-end h-[52px]">
               <motion.button
-                onClick={() => setActiveTab("portfolio")}
-                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${activeTab === "portfolio" ? "border-b-2 border-white/60" : "text-white/80 hover:text-neon-blue"}`}
+                onClick={() => {
+                  currentSetActiveTab("portfolio");
+                  // Update URL preserve subtab
+                  router.push(`${window.location.pathname}?tab=cluster&subtab=portfolio&clusterId=${encodeURIComponent(clusterIdFromQuery)}`, { scroll: false });
+                }}
+                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${currentActiveTab === "portfolio" ? "border-b-2 border-white/60" : "text-white/80 hover:text-neon-blue"}`}  // Sử dụng currentActiveTab
               >
                 <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -1956,8 +1963,12 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                 Portfolio
               </motion.button>
               <motion.button
-                onClick={() => setActiveTab("wallets")}
-                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${activeTab === "wallets" ? "border-b-2 border-white/60" : "text-white/80 hover:text-neon-blue"}`}
+                onClick={() => {
+                  currentSetActiveTab("wallets");
+                  // Update URL
+                  router.push(`${window.location.pathname}?tab=cluster&subtab=wallets&clusterId=${encodeURIComponent(clusterIdFromQuery)}`, { scroll: false });
+                }}
+                className={`text-xs font-bold text-white uppercase tracking-wider px-4 py-2 no-hover-effect flex items-center ${currentActiveTab === "wallets" ? "border-b-2 border-white/60" : "text-white/80 hover:text-neon-blue"}`}  // Sử dụng currentActiveTab
               >
                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -1965,7 +1976,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab, setActiveTab })
                 Wallets
               </motion.button>
             </div>
-            {activeTab === "portfolio" ? renderPortfolioContent() : renderWalletsContent()}
+            {currentActiveTab === "portfolio" ? renderPortfolioContent() : renderWalletsContent()}
           </motion.div>
 
           <motion.div

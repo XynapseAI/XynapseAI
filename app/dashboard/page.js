@@ -177,7 +177,7 @@ export default function Dashboard() {
   useEffect(() => {
     setIsMounted(true);
     const tab = searchParams.get('tab');
-    if (tab && ['market', 'ai', 'profile', 'treemap', 'watchlists', 'cluster'].includes(tab)) {
+    if (tab && ['market', 'ai', 'profile', 'graph', 'watchlists', 'cluster'].includes(tab)) {  // Đổi treemap -> graph
       setActiveTab(tab);
     }
   }, [searchParams, router]);
@@ -537,10 +537,10 @@ export default function Dashboard() {
                 {activeTab === 'cluster' && (
                   <ClusterTab
                     recaptchaRef={recaptchaRef}
-                    initialExchangeId={searchParams.get('clusterId') || 'binance'} // Đổi exchangeId thành clusterId
+                    initialClusterId={searchParams.get('clusterId') || 'binance'}  // Sửa từ initialExchangeId
                   />
                 )}
-                {activeTab === 'treemap' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
+                {activeTab === 'graph' && <TreemapTab onTokenSelect={handleNavigateToToken} />}
                 {activeTab === 'ai' && <AITab recaptchaRef={recaptchaRef} />}
                 {activeTab === 'profile' && (
                   <ProfileTab

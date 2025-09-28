@@ -1900,11 +1900,11 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 </motion.button>
                 <motion.button
                   onClick={handleAddWallet}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1 }}
+                  whileTap={{ scale: 1 }}
                   className="px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] text-white bg-gradient-to-r from-neon-blue/20 to-emerald-400/20 border border-neon-blue rounded-lg hover:from-neon-blue/30 hover:to-emerald-400/30 shadow-md shadow-neon-blue/20"
                 >
-                  Add Wallet
+                  Add
                 </motion.button>
               </div>
             </motion.div>
