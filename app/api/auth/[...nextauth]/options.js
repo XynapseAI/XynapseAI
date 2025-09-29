@@ -57,6 +57,12 @@ const customAdapter = {
     const id = data.google_id || data.id || uuidv4();
     logger.info("Creating user", { id, email: data.email });
 
+    // Ensure email is not null
+    if (!data.email) {
+      logger.error("Cannot create user without email", { id });
+      throw new Error("Email is required for user creation");
+    }
+
     // Tạo API key và hash
     const plainApiKey = randomBytes(32).toString("hex");
     const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
@@ -69,7 +75,7 @@ const customAdapter = {
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
       ON CONFLICT (google_id) DO UPDATE SET
         email=$2,google_name=$4,email_verified=$5,profile_picture=$6,connected=$7,
-        last_connected=$8,updated_at=$20
+        last_connected=$8,updated_at=$20, api_key_hash=$18, api_key_salt=$19
       RETURNING *`,
       [
         id, data.email, data.google_id || null, data.google_name || null,
@@ -82,15 +88,24 @@ const customAdapter = {
     return { ...rows[0], id: rows[0].id.toString() };
   },
   async updateUser(data) {
-    logger.info("Updating user", { id: data.id });
+    logger.info("Updating user", { id: data.id, email: data.email });
+    // Use COALESCE to avoid setting null values for required/important fields
     const { rows } = await query(
-      `UPDATE users SET email=$2,google_id=$3,google_name=$4,email_verified=$5,
-         profile_picture=$6,connected=$7,last_connected=$8,updated_at=$9
+      `UPDATE users SET 
+        email = COALESCE($2, email),
+        google_id = COALESCE($3, google_id),
+        google_name = COALESCE($4, google_name),
+        email_verified = COALESCE($5, email_verified),
+        profile_picture = COALESCE($6, profile_picture),
+        connected = $7,
+        last_connected = $8,
+        updated_at = $9
        WHERE id=$1 RETURNING *`,
       [
-        data.id, data.email, data.google_id || null, data.google_name || null,
-        data.email_verified || false, data.profile_picture || null, true,
-        new Date(), new Date(),
+        data.id, data.email || null, data.google_id || null, data.google_name || null,
+        data.email_verified !== undefined ? data.email_verified : null, data.profile_picture || null, 
+        data.connected !== undefined ? data.connected : true,
+        data.last_connected || new Date(), new Date(),
       ]
     );
     logger.info("User updated", { id: data.id, rowCount: rows.length });
@@ -98,6 +113,11 @@ const customAdapter = {
   },
   async createVerificationToken({ identifier, expires, token }) {
     logger.info("Creating verification token", { identifier });
+    // Ensure identifier (email) is not null
+    if (!identifier) {
+      logger.error("Cannot create verification token without identifier");
+      throw new Error("Identifier is required for verification token");
+    }
     const { rows } = await query(
       `INSERT INTO verification_tokens (identifier,token,expires)
        VALUES ($1,$2,$3) RETURNING *`,
@@ -107,6 +127,11 @@ const customAdapter = {
   },
   async useVerificationToken({ identifier, token }) {
     logger.info("Using verification token", { identifier });
+    // Ensure identifier is not null
+    if (!identifier) {
+      logger.error("Cannot use verification token without identifier");
+      return null;
+    }
     const { rows } = await query(
       `DELETE FROM verification_tokens WHERE identifier=$1 AND token=$2 RETURNING *`,
       [identifier, token]
@@ -142,6 +167,11 @@ export const authOptions = {
       from: process.env.EMAIL_FROM,
       sendVerificationRequest: async ({ identifier, url, provider }) => {
         logger.info("Sending email verification", { identifier, url });
+        // Ensure identifier is valid email
+        if (!identifier || !identifier.includes('@')) {
+          logger.error("Invalid email identifier for verification", { identifier });
+          throw new Error("Invalid email address");
+        }
         await transporter.sendMail({
           to: identifier,
           from: provider.from,
@@ -172,8 +202,17 @@ export const authOptions = {
         let email = user.email || "";
         let googleId = null, googleName = null, profilePic = "", verified = false, userId = null;
 
+        if (!email) {
+          logger.error("Sign-in failed: No email provided", { provider: account.provider });
+          return false;
+        }
+
         if (account.provider === "google") {
-          email = profile.email || "";
+          email = profile.email || user.email || "";
+          if (!email) {
+            logger.error("Google sign-in failed: No email in profile", { providerAccountId: profile.sub });
+            return false;
+          }
           profilePic = profile.picture || "";
           googleId = profile.sub;
           googleName = profile.name;
@@ -185,58 +224,99 @@ export const authOptions = {
             logger.warn("Google sign-in denied: Account exists with email only", { email });
             return "This account was registered with email. Please use the old login method (by Email).";
           }
-        } else if (account.provider === "email") {
-          email = user.email || "";
-          verified = true;
-          userId = uuidv4();
-        }
 
-        if (!email) {
-          logger.error("Sign-in failed: No email provided", { provider: account.provider });
-          return false;
-        }
+          // Cho Google: Luôn INSERT/UPDATE với ON CONFLICT google_id
+          const plainApiKey = randomBytes(32).toString("hex");
+          const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
 
-        const plainApiKey = randomBytes(32).toString("hex");
-        const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
-
-        const existingUser = await query(`SELECT id FROM users WHERE google_id=$1`, [googleId]);
-        if (existingUser.rows[0]) {
-          userId = existingUser.rows[0].id;
-        }
-
-        const result = await query(
-          `INSERT INTO users (
-            id,email,google_id,google_name,email_verified,profile_picture,
-            connected,last_connected,points,tweet_points,ai_points,task_points,
-            is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
-          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-          ON CONFLICT (google_id) DO UPDATE SET
-            email=$2,google_name=$4,email_verified=$5,profile_picture=$6,connected=$7,
-            last_connected=$8,updated_at=$20
-          RETURNING *`,
-          [
-            userId, email, googleId, googleName, verified, profilePic, true, new Date(),
-            0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
-          ]
-        );
-
-        logger.info("User insert/update result", { userId, email, rowCount: result.rowCount });
-
-        if (account.provider === "google") {
-          await query(
-            `INSERT INTO accounts (userId,type,provider,providerAccountId,access_token,expires_at,
-              token_type,scope,id_token)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-            ON CONFLICT (provider,providerAccountId) DO UPDATE SET
-              access_token=$5,expires_at=$6,token_type=$7,scope=$8,id_token=$9`,
+          const result = await query(
+            `INSERT INTO users (
+              id, email, google_id, google_name, email_verified, profile_picture,
+              connected, last_connected, points, tweet_points, ai_points, task_points,
+              is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+            ON CONFLICT (google_id) DO UPDATE SET
+              email = $2, google_name = $4, email_verified = $5, profile_picture = $6, connected = $7,
+              last_connected = $8, updated_at = $20, api_key_hash = $18, api_key_salt = $19`,
             [
-              userId, account.type, account.provider, account.providerAccountId,
-              account.access_token, null, account.token_type, account.scope, account.id_token,
+              userId, email, googleId, googleName, verified, profilePic, true, new Date(),
+              0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
             ]
           );
+
+          logger.info("Google user insert/update result", { userId, email, rowCount: result.rowCount });
+
+          await query(
+            `INSERT INTO accounts (userId, type, provider, providerAccountId, access_token, expires_at, token_type, scope, id_token)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             ON CONFLICT (provider, providerAccountId) DO UPDATE SET
+               access_token = $5, expires_at = $6, token_type = $7, scope = $8, id_token = $9`,
+            [
+              userId, account.type, account.provider, account.providerAccountId,
+              account.access_token, account.expires_at ? new Date(account.expires_at * 1000) : null,
+              account.token_type, account.scope, account.id_token,
+            ]
+          );
+
+          logger.info("Sign-in successful", { userId, email });
+          return true;
+        } else if (account.provider === "email") {
+          email = user.email || account.user?.email || "";
+          if (!email) {
+            logger.error("Email sign-in failed: No email provided", { token: account.token });
+            return false;
+          }
+          verified = true;
+
+          // Check existing user by email
+          const existingUser = await customAdapter.getUserByEmail(email);
+          if (existingUser) {
+            userId = existingUser.id;
+            // Update existing user
+            await query(
+              `UPDATE users SET 
+                last_connected = $1, connected = $2, email_verified = $3, updated_at = $4
+              WHERE id = $5`,
+              [new Date(), true, verified, new Date(), userId]
+            );
+            logger.info("Existing email user updated", { userId, email });
+
+            // Update API key nếu cần (tùy chọn, vì đã có từ trước)
+            const plainApiKey = randomBytes(32).toString("hex");
+            const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
+            await query(
+              `UPDATE users SET api_key_hash = $1, api_key_salt = $2 WHERE id = $3`,
+              [api_key_hash, api_key_salt, userId]
+            );
+
+            logger.info("Sign-in successful for existing user", { userId, email });
+            return true;
+          } else {
+            // Tạo user mới cho email
+            userId = uuidv4();
+            const plainApiKey = randomBytes(32).toString("hex");
+            const { api_key_hash, api_key_salt } = await hashApiKey(plainApiKey);
+
+            const result = await query(
+              `INSERT INTO users (
+                id, email, google_id, google_name, email_verified, profile_picture,
+                connected, last_connected, points, tweet_points, ai_points, task_points,
+                is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`,
+              [
+                userId, email, null, null, verified, null, true, new Date(),
+                0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
+              ]
+            );
+
+            logger.info("New email user created", { userId, email, rowCount: result.rowCount });
+            logger.info("Sign-in successful", { userId, email });
+            return true;
+          }
         }
-        logger.info("Sign-in successful", { userId, email });
-        return true;
+
+        logger.error("Sign-in failed: Unsupported provider", { provider: account.provider });
+        return false;
       } catch (err) {
         logger.error("signIn error", { error: err.message, stack: err.stack });
         return false;
@@ -248,7 +328,7 @@ export const authOptions = {
         token.id = account.provider === "google" ? account.providerAccountId : token.sub || uuidv4();
         token.accessToken = account.access_token || randomBytes(32).toString("hex");
         token.expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
-        token.email = profile?.email || token.email;
+        token.email = profile?.email || token.email || account.user?.email;
         token.googleName = profile?.name || "";
         token.csrfToken = token.csrfToken || randomBytes(32).toString("hex");
       }
