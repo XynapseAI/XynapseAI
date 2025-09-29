@@ -253,7 +253,7 @@ export const authOptions = {
                access_token = $5, expires_at = $6, token_type = $7, scope = $8, id_token = $9`,
             [
               userId, account.type, account.provider, account.providerAccountId,
-              account.access_token, account.expires_at ? new Date(account.expires_at * 1000) : null,
+              account.access_token, account.expires_at ? account.expires_at : null,
               account.token_type, account.scope, account.id_token,
             ]
           );

@@ -29,11 +29,20 @@ const Spinner = ({ className = "h-4 w-4", color = "text-blue-400" }) => (
   </svg>
 );
 
-// Daily Check-in Bar Component
-const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData }) => {
+// Daily Check-in Bar Component - Updated to disable if not twitterConnected
+const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, twitterConnected }) => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const todayIndex = new Date().getDay();
   const [tooltipVisible, setTooltipVisible] = useState(false);
+  const isTodayChecked = last7Days[last7Days.length - 1]; // Today is last element
+
+  const handleCheckinClick = () => {
+    if (!twitterConnected) {
+      toast.info('Please connect your X (Twitter) account first to unlock check-in.', { position: 'top-center', autoClose: 4000 });
+      return;
+    }
+    onCheckin();
+  };
 
   return (
     <div className="w-full bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-white/10 rounded-xl p-2 mb-2">
@@ -71,27 +80,29 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData }) 
                   days[dayIndex]
                 )}
               </div>
-              {index === 0 && !checked && (
+              {index === 0 && !checked && !isTodayChecked && (
                 <motion.button
-                  onClick={onCheckin}
-                  disabled={isLoading}
+                  onClick={handleCheckinClick}
+                  disabled={isLoading || !twitterConnected}
                   className={`mt-1 px-2 py-1 rounded-full text-[8px] font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${
-                    isLoading 
+                    isLoading || !twitterConnected
                       ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/70 cursor-not-allowed relative overflow-hidden' 
                       : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
                   }`}
-                  whileHover={{ scale: isLoading ? 1 : 1.05 }}
-                  whileTap={{ scale: isLoading ? 1 : 0.95 }}
+                  whileHover={{ scale: (isLoading || !twitterConnected) ? 1 : 1.05 }}
+                  whileTap={{ scale: (isLoading || !twitterConnected) ? 1 : 0.95 }}
                 >
                   {isLoading ? (
                     <>
                       <Spinner className="h-3 w-3" color="text-white/70" />
                       <span className="animate-pulse"></span>
                     </>
+                  ) : !twitterConnected ? (
+                    'Connect Twitter'
                   ) : (
                     'Check-in'
                   )}
-                  {isLoading && (
+                  {(isLoading || !twitterConnected) && (
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
                   )}
                 </motion.button>
@@ -394,7 +405,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Fetch Leaderboard - Removed reCAPTCHA for faster load, increased stale time
+  // Fetch Leaderboard - Removed Authorization header to fix 403 for Email login, increased stale time
   const { data: rankings, isLoading: leaderboardLoading, error: leaderboardError } = useQuery({
     queryKey: ['leaderboard', session?.user?.id, csrfToken],
     queryFn: async () => {
@@ -406,7 +417,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       const response = await axios.get('/api/leaderboard', {
         headers: {
           'x-csrf-token': csrfToken,
-          'Authorization': `Bearer ${session?.accessToken}`,
+          // Removed 'Authorization' header to fix 403 error for Email login
         },
         withCredentials: true,
       }).catch(err => {
@@ -731,7 +742,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     [isMobile, rankings, getProfilePictureSrc]
   );
 
-  // Render Tasks Section
+  // Render Tasks Section - Removed small connect prompt (now handled in tab content)
   const renderTasksSection = useCallback(
     () => (
       <div className="relative bg-gradient-to-br from-black/80 to-gray-900/80 rounded-b-xl overflow-y-auto min-h-[calc(40vh)] sm:min-h-[calc(40vh)] max-h-[calc(40vh)] sm:max-h-[calc(40vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
@@ -756,25 +767,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         )}
         {tasks?.length > 0 && (
           <>
-            {!userData?.twitterHandle && (
-              <motion.div
-                className="mb-2 p-2 text-center bg-white/5 rounded-xl"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <p className="text-[9px] sm:text-[11px] text-white/80 mb-2">
-                  Connect your X (Twitter) account to unlock tasks and rewards.
-                </p>
-                <motion.button
-                  onClick={() => connectTwitterMutation.mutate()}
-                  className="px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" /> Connect X (Twitter)
-                </motion.button>
-              </motion.div>
-            )}
             <div className="overflow-x-auto">
               <table className="w-full text-[9px] sm:text-[11px] bg-black/50 rounded-b-xl table-fixed">
                 <thead className="bg-black/50">
@@ -849,29 +841,29 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 onClick={() => verifyTaskMutation.mutate(task)}
                                 disabled={
                                   verifyTaskMutation.isLoading ||
-                                  (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                                  isCompleted  // Enhanced: disable if completed
+                                  !userData?.twitterHandle ||  // Updated: Disable ALL tasks if no Twitter (removed !== 'daily_checkin')
+                                  isCompleted
                                 }
                                 className={`px-2 py-1 rounded-lg text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg relative overflow-hidden ${
                                   verifyTaskMutation.isLoading ||
-                                  (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                                  isCompleted  // Enhanced: disable if completed
+                                  !userData?.twitterHandle ||
+                                  isCompleted
                                     ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
                                     : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
                                 }`}
                                 whileHover={{
                                   scale:
                                     verifyTaskMutation.isLoading ||
-                                      (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                                      isCompleted  // Enhanced: disable if completed
+                                      !userData?.twitterHandle ||
+                                      isCompleted
                                       ? 1
                                       : 1.05,
                                 }}
                                 whileTap={{
                                   scale:
                                     verifyTaskMutation.isLoading ||
-                                      (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
-                                      isCompleted  // Enhanced: disable if completed
+                                      !userData?.twitterHandle ||
+                                      isCompleted
                                       ? 1
                                       : 0.95,
                                 }}
@@ -885,6 +877,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                   <>
                                     <Check className="w-3 h-3" />
                                     Completed
+                                  </>
+                                ) : !userData?.twitterHandle ? (
+                                  <>
+                                    <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />
+                                    Connect Twitter
                                   </>
                                 ) : (
                                   <>
@@ -934,7 +931,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         )}
       </div>
     ),
-    [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, connectTwitterMutation, followedTasks]
+    [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, followedTasks]
   );
 
   // Render Leaderboard Section
@@ -1293,7 +1290,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           </div>
         </motion.div>
 
-        {/* Daily Check-in Bar */}
+        {/* Daily Check-in Bar - Pass twitterConnected prop */}
         {userData && (
           <DailyCheckinBar
             last7Days={userData.last7Days}
@@ -1301,6 +1298,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             onCheckin={handleDailyCheckin}
             isLoading={verifyTaskMutation.isLoading}
             userData={userData}
+            twitterConnected={!!userData.twitterHandle}
           />
         )}
 
@@ -1332,10 +1330,37 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               </motion.button>
             ))}
           </div>
-          <AnimatePresence mode="wait">
-            {activeTab === 'tasks' && renderTasksSection()}
-            {activeTab === 'leaderboard' && renderLeaderboardSection()}
-          </AnimatePresence>
+          {/* Updated: Overlay connect Twitter covering tab content if not connected */}
+          {!userData?.twitterHandle ? (
+            <motion.div
+              className="flex-1 flex items-center justify-center p-6 bg-gradient-to-br from-black/80 to-gray-900/80 rounded-b-xl border-t border-white/10"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <div className="text-center max-w-md">
+                <img src="/logos/x.webp" alt="X Logo" className="w-12 h-12 mx-auto mb-4 text-blue-400" />
+                <h3 className="text-white font-bold text-xs sm:text-sm mb-2">Connect X (Twitter)</h3>
+                <p className="text-[11px] sm:text-base text-white/80 mb-6">
+                  Connect your X (Twitter) account to unlock tasks, check-ins, and rewards.
+                </p>
+                <motion.button
+                  onClick={() => connectTwitterMutation.mutate()}
+                  className="px-6 py-3 rounded-xl text-xs font-semibold text-neon-blue border border-neon-blue/50 bg-white/10 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg flex items-center justify-center gap-2 mx-auto"
+                  whileHover={{ scale: 1 }}
+                  whileTap={{ scale: 1 }}
+                >
+                  <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />
+                  Connect X (Twitter)
+                </motion.button>
+              </div>
+            </motion.div>
+          ) : (
+            <AnimatePresence mode="wait">
+              {activeTab === 'tasks' && renderTasksSection()}
+              {activeTab === 'leaderboard' && renderLeaderboardSection()}
+            </AnimatePresence>
+          )}
         </motion.div>
       </div>
       <style jsx>{`
