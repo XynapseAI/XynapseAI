@@ -1335,14 +1335,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               exit={{ opacity: 0, y: -10 }}
             >
               <div className="text-center max-w-md">
-                <h3 className="text-white font-bold text-xs sm:text-sm mb-2">Connect</h3>
-                <img src="/logos/x.webp" alt="X Logo" className="w-12 h-12 mx-auto mb-4 text-blue-400" />
                 <p className="text-[11px] sm:text-base text-white/80 mb-6">
-                  Connect your X account to unlock tasks, check-ins, and rewards.
+                  Connect your X (Twitter) account to unlock tasks, check-ins, and rewards.
                 </p>
                 <motion.button
                   onClick={() => connectTwitterMutation.mutate()}
-                  className="px-6 py-3 rounded-xl text-xs font-semibold text-neon-blue border border-neon-blue/50 bg-white/10 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg flex items-center justify-center gap-2 mx-auto"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-neon-blue border border-neon-blue/50 bg-white/10 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg flex items-center justify-center gap-2 mx-auto"
                   whileHover={{ scale: 1 }}
                   whileTap={{ scale: 1 }}
                 >

@@ -74,8 +74,9 @@ const customAdapter = {
         is_creator,is_ai_rank,tier,is_plus,is_premium,api_key_hash,api_key_salt,created_at
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
       ON CONFLICT (google_id) DO UPDATE SET
-        email=$2,google_name=$4,email_verified=$5,profile_picture=$6,connected=$7,
-        last_connected=$8,updated_at=$20, api_key_hash=$18, api_key_salt=$19
+        email=EXCLUDED.email,google_name=EXCLUDED.google_name,email_verified=EXCLUDED.email_verified,
+        profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture),connected=EXCLUDED.connected,
+        last_connected=EXCLUDED.last_connected,updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt
       RETURNING *`,
       [
         id, data.email, data.google_id || null, data.google_name || null,
@@ -236,8 +237,9 @@ export const authOptions = {
               is_creator, is_ai_rank, tier, is_plus, is_premium, api_key_hash, api_key_salt, created_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
             ON CONFLICT (google_id) DO UPDATE SET
-              email = $2, google_name = $4, email_verified = $5, profile_picture = $6, connected = $7,
-              last_connected = $8, updated_at = $20, api_key_hash = $18, api_key_salt = $19`,
+              email=EXCLUDED.email, google_name=EXCLUDED.google_name, email_verified=EXCLUDED.email_verified, 
+              profile_picture=COALESCE(users.profile_picture, EXCLUDED.profile_picture), connected=EXCLUDED.connected,
+              last_connected=EXCLUDED.last_connected, updated_at=CURRENT_TIMESTAMP, api_key_hash=EXCLUDED.api_key_hash, api_key_salt=EXCLUDED.api_key_salt`,
             [
               userId, email, googleId, googleName, verified, profilePic, true, new Date(),
               0, 0, 0, 0, false, false, "Basic", false, false, api_key_hash, api_key_salt, new Date(),
