@@ -286,6 +286,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
     >
       <h4 className="text-white text-[10px] sm:text-[12px] font-bold uppercase tracking-wider mb-2">Transactions</h4>
       <TableVirtuoso
+        key={`${filterType}-${rootAddress}`} // Added for re-render stability
         data={filteredTransactions}
         fixedHeaderContent={fixedHeaderContent}
         itemContent={Row}
@@ -486,6 +487,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
       style={{ overflowY: 'auto' }}
     >
       <h4 className="text-white text-[11px] font-bold mb-2 bg-gradient-to-r from-neon-blue/30 to-transparent rounded p-1 flex items-center gap-2">
+        HotSpot:
         {isValidNametagImage(cluster.image) && (
           <img
             src={cluster.image}
@@ -497,7 +499,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
             loading="lazy"
           />
         )}
-        HotSpot: {cluster.nametag || 'Unknown'}
+        {cluster.nametag || 'Unknown'}
       </h4>
       <div className="grid grid-cols-2 gap-2 mb-2 text-[9px]">
         <div className="bg-white/10 p-2 rounded-lg">
@@ -610,9 +612,167 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
+  // Memoized aggregateWallets (using useCallback for function stability)
+  const aggregateWalletsMemo = useCallback((incomingData, outgoingData, layer3Data, rootAddress, page, filterType) => {
+    if (!incomingData?.length && !outgoingData?.length && !layer3Data?.length) {
+      return { nodes: [], edges: [], nametags: {} }; // Early return for optimization
+    }
+    // ... (rest of original aggregateWallets logic here, unchanged except early filterType check in filteredIncoming/Outgoing)
+    const walletMap = new Map();
+    const nametagsLocal = {};
+    const edgesLocal = [];
+
+    walletMap.set(rootAddress.toLowerCase(), {
+      address: rootAddress.toLowerCase(),
+      nametag: walletInfo.nametag || 'Unknown',
+      image: walletInfo.image || '/icons/default.webp',
+      chainLogo: walletInfo.chainLogo || '/icons/default.webp',
+      tokenSymbol: 'Unknown',
+      totalValue: 0,
+      txCount: 0,
+      latestBlockTime: null,
+      type: 'root',
+      layer: 1,
+    });
+    nametagsLocal[rootAddress.toLowerCase()] = {
+      name: walletInfo.nametag || 'Unknown',
+      image: walletInfo.image || '/icons/default.webp',
+    };
+
+    const addWallet = (address, tx, type, layer) => {
+      if (filterType === 'incoming' && type !== 'incoming') return;
+      if (filterType === 'outgoing' && type !== 'outgoing') return;
+      if (layer === 3 && (!tx.nametag || tx.nametag === 'Unknown')) return;
+
+      if (!walletMap.has(address)) {
+        walletMap.set(address, {
+          address: address.toLowerCase(),
+          nametag: tx.nametag || 'Unknown',
+          image: tx.image || '/icons/default.webp',
+          chainLogo: tx.chainLogo || '/icons/default.webp',
+          tokenSymbol: tx.tokenSymbol || 'Unknown',
+          totalValue: 0,
+          txCount: 0,
+          latestBlockTime: null,
+          type,
+          layer,
+        });
+        nametagsLocal[address.toLowerCase()] = {
+          name: tx.nametag || 'Unknown',
+          image: tx.image || '/icons/default.webp',
+        };
+      }
+      const wallet = walletMap.get(address);
+      wallet.totalValue += Number(tx.usdValue || tx.value || 0);
+      wallet.txCount += 1;
+      wallet.latestBlockTime = wallet.latestBlockTime
+        ? new Date(tx.block_time) > new Date(wallet.latestBlockTime) ? tx.block_time : wallet.latestBlockTime
+        : tx.block_time;
+    };
+
+    // Early filterType application
+    const filteredIncoming = (filterType === 'all' || filterType === 'incoming')
+      ? incomingData.filter((tx) => tx.address.toLowerCase() !== rootAddress.toLowerCase() && tx.type === 'incoming')
+      : [];
+    const filteredOutgoing = (filterType === 'all' || filterType === 'outgoing')
+      ? outgoingData.filter((tx) => tx.address.toLowerCase() !== rootAddress.toLowerCase() && tx.type === 'outgoing')
+      : [];
+
+    filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming', 2));
+    filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing', 2));
+
+    const filteredLayer3 = layer3Data.filter((tx) => tx.nametag && tx.nametag !== 'Unknown');
+    filteredLayer3.forEach((tx) => {
+      const address = tx.type === 'incoming' ? tx.address : tx.address;
+      addWallet(address, tx, tx.type, 3);
+    });
+
+    const nodesLocal = Array.from(walletMap.values()).map((wallet) => ({
+      data: {
+        id: wallet.address,
+        label: wallet.nametag,
+        image: wallet.image,
+        chainLogo: wallet.chainLogo,
+        tokenSymbol: wallet.tokenSymbol,
+        totalValue: wallet.totalValue.toFixed(6),
+        txCount: wallet.txCount,
+        latestBlockTime: wallet.latestBlockTime,
+        type: wallet.type,
+        layer: wallet.layer,
+        isRoot: wallet.address === rootAddress.toLowerCase(),
+      },
+    }));
+
+    filteredIncoming.forEach((tx, index) => {
+      if (walletMap.has(tx.address.toLowerCase()) && walletMap.has(rootAddress.toLowerCase())) {
+        edgesLocal.push({
+          data: {
+            id: `in-edge-${page}-${index}-${tx.hash}`,
+            source: tx.address.toLowerCase(),
+            target: rootAddress.toLowerCase(),
+            value: Number(tx.value).toFixed(6),
+            usdValue: Number(tx.usdValue || 0).toFixed(6),
+            type: 'incoming',
+            txHash: tx.hash,
+            block_time: tx.block_time,
+            tokenSymbol: tx.tokenSymbol,
+            contractAddress: tx.contractAddress,
+            tokenImage: tx.tokenImage,
+            layer: 2,
+          },
+        });
+      }
+    });
+    filteredOutgoing.forEach((tx, index) => {
+      if (walletMap.has(rootAddress.toLowerCase()) && walletMap.has(tx.address.toLowerCase())) {
+        edgesLocal.push({
+          data: {
+            id: `out-edge-${page}-${index}-${tx.hash}`,
+            source: rootAddress.toLowerCase(),
+            target: tx.address.toLowerCase(),
+            value: Number(tx.value).toFixed(6),
+            usdValue: Number(tx.usdValue || 0).toFixed(6),
+            type: 'outgoing',
+            txHash: tx.hash,
+            block_time: tx.block_time,
+            tokenSymbol: tx.tokenSymbol,
+            contractAddress: tx.contractAddress,
+            tokenImage: tx.tokenImage,
+            layer: 2,
+          },
+        });
+      }
+    });
+
+    filteredLayer3.forEach((tx, index) => {
+      const layer2Address = tx.layer2Address.toLowerCase();
+      const layer3Address = tx.address.toLowerCase();
+      if (walletMap.has(layer2Address) && walletMap.has(layer3Address)) {
+        edgesLocal.push({
+          data: {
+            id: `layer3-edge-${page}-${index}-${tx.hash}`,
+            source: tx.type === 'incoming' ? layer3Address : layer2Address,
+            target: tx.type === 'incoming' ? layer2Address : layer3Address,
+            value: Number(tx.value).toFixed(6),
+            usdValue: Number(tx.usdValue || 0).toFixed(6),
+            type: tx.type,
+            txHash: tx.hash,
+            block_time: tx.block_time,
+            tokenSymbol: tx.tokenSymbol,
+            contractAddress: tx.contractAddress,
+            tokenImage: tx.tokenImage,
+            layer: 3,
+          },
+        });
+      }
+    });
+
+    return { nodes: nodesLocal, edges: edgesLocal, nametags: nametagsLocal };
+  }, [walletInfo]);
+
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
-      const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(
+      const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWalletsMemo(
         fullIncomingData,
         fullOutgoingData,
         fullLayer3Data,
@@ -628,8 +788,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
       setTimeout(() => initializeCytoscape(), 100);
     }
-  }, [filterType, fullIncomingData, fullOutgoingData, fullLayer3Data, walletAddress, page]);
+  }, [filterType, fullIncomingData, fullOutgoingData, fullLayer3Data, walletAddress, page, aggregateWalletsMemo]);
 
+  // Updated fetchTokenImages with batching
   useEffect(() => {
     const fetchTokenImages = async () => {
       const uniqueTokens = [
@@ -659,106 +820,111 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
       const tokensToFetch = uniqueTokens.filter((token) => !tokenInfo[token]);
 
-      await Promise.all(
-        tokensToFetch.map(async (token) => {
-          if (!token) {
-            logger.warn(`Skipping invalid token: ${token}`);
-            return;
-          }
-
-          try {
-            const cacheResponse = await fetch(`${apiBaseUrl}/api/cache?key=token_image_${token}`, {
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-            });
-            const cacheResult = await cacheResponse.json();
-            if (cacheResponse.ok && cacheResult.success && cacheResult.data?.image) {
-              const symbol = cacheResult.data?.symbol || (isAddress(token) ? undefined : token.toUpperCase());
-              logger.log(`Cache hit for ${token}:`, cacheResult.data.image);
-              tokenInfo[token] = { image: cacheResult.data.image, symbol };
+      // Batch: Group into chunks of 10 to avoid rate limit
+      const chunkSize = 10;
+      for (let i = 0; i < tokensToFetch.length; i += chunkSize) {
+        const chunk = tokensToFetch.slice(i, i + chunkSize);
+        await Promise.allSettled(
+          chunk.map(async (token) => {
+            if (!token) {
+              logger.warn(`Skipping invalid token: ${token}`);
               return;
             }
 
-            const isContractAddress = isAddress(token);
-            const queryParam = isContractAddress ? `contractAddress=${token}` : `symbol=${token}`;
-            logger.log(`Querying database for token ${token} with ${queryParam}&chain=${selectedChain}`);
-
-            const dbResponse = await fetch(`${apiBaseUrl}/api/tokens?${queryParam}&chain=${selectedChain}`, {
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-            });
-            const dbResult = await dbResponse.json();
-
-            if (dbResponse.ok && dbResult.success && dbResult.data?.image) {
-              logger.log(`Database hit for ${token}:`, dbResult.data.image);
-              const symbol = dbResult.data.symbol?.toUpperCase() || token.toUpperCase();
-              tokenInfo[token] = { image: dbResult.data.image, symbol };
-              await fetch(`${apiBaseUrl}/api/cache`, {
-                method: 'POST',
+            try {
+              const cacheResponse = await fetch(`${apiBaseUrl}/api/cache?key=token_image_${token}`, {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({
-                  key: `token_image_${token}`,
-                  action: 'set',
-                  data: { image: dbResult.data.image, symbol: dbResult.data.symbol },
-                  ttl: 4 * 3600 * 1000,
-                }),
               });
-              return;
-            }
-
-            logger.log(`Falling back to CoinGecko for ${token}`);
-            const cgResponse = await fetch(
-              `${apiBaseUrl}/api/coingecko?action=token-details&${queryParam}&chain=${selectedChain}`,
-              {
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
+              const cacheResult = await cacheResponse.json();
+              if (cacheResponse.ok && cacheResult.success && cacheResult.data?.image) {
+                const symbol = cacheResult.data?.symbol || (isAddress(token) ? undefined : token.toUpperCase());
+                logger.log(`Cache hit for ${token}:`, cacheResult.data.image);
+                tokenInfo[token] = { image: cacheResult.data.image, symbol };
+                return;
               }
-            );
-            const cgResult = await cgResponse.json();
 
-            if (cgResponse.ok && cgResult.success && cgResult.data?.image?.thumb) {
-              logger.log(`CoinGecko hit for ${token}:`, cgResult.data.image.thumb);
-              const symbol = cgResult.data.symbol?.toUpperCase() || token.toUpperCase();
-              tokenInfo[token] = { image: cgResult.data.image.thumb, symbol };
-              await fetch(`${apiBaseUrl}/api/cache`, {
-                method: 'POST',
+              const isContractAddress = isAddress(token);
+              const queryParam = isContractAddress ? `contractAddress=${token}` : `symbol=${token}`;
+              logger.log(`Querying database for token ${token} with ${queryParam}&chain=${selectedChain}`);
+
+              const dbResponse = await fetch(`${apiBaseUrl}/api/tokens?${queryParam}&chain=${selectedChain}`, {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({
-                  key: `token_image_${token}`,
-                  action: 'set',
-                  data: { image: cgResult.data.image.thumb, symbol: cgResult.data.symbol },
-                  ttl: 4 * 3600 * 1000,
-                }),
               });
-              if (isContractAddress) {
-                await fetch(`${apiBaseUrl}/api/tokens`, {
+              const dbResult = await dbResponse.json();
+
+              if (dbResponse.ok && dbResult.success && dbResult.data?.image) {
+                logger.log(`Database hit for ${token}:`, dbResult.data.image);
+                const symbol = dbResult.data.symbol?.toUpperCase() || token.toUpperCase();
+                tokenInfo[token] = { image: dbResult.data.image, symbol };
+                await fetch(`${apiBaseUrl}/api/cache`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   credentials: 'include',
                   body: JSON.stringify({
-                    action: 'update',
-                    coingecko_id: cgResult.data.id || token,
-                    symbol: cgResult.data.symbol || token,
-                    name: cgResult.data.name || token,
-                    image: cgResult.data.image.thumb,
-                    chain: selectedChain,
-                    contractAddress: token,
+                    key: `token_image_${token}`,
+                    action: 'set',
+                    data: { image: dbResult.data.image, symbol: dbResult.data.symbol },
+                    ttl: 4 * 3600 * 1000,
                   }),
                 });
+                return;
               }
-              return;
-            } else {
-              logger.warn(`No valid image for ${token} from CoinGecko`);
+
+              logger.log(`Falling back to CoinGecko for ${token}`);
+              const cgResponse = await fetch(
+                `${apiBaseUrl}/api/coingecko?action=token-details&${queryParam}&chain=${selectedChain}`,
+                {
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                }
+              );
+              const cgResult = await cgResponse.json();
+
+              if (cgResponse.ok && cgResult.success && cgResult.data?.image?.thumb) {
+                logger.log(`CoinGecko hit for ${token}:`, cgResult.data.image.thumb);
+                const symbol = cgResult.data.symbol?.toUpperCase() || token.toUpperCase();
+                tokenInfo[token] = { image: cgResult.data.image.thumb, symbol };
+                await fetch(`${apiBaseUrl}/api/cache`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({
+                    key: `token_image_${token}`,
+                    action: 'set',
+                    data: { image: cgResult.data.image.thumb, symbol: cgResult.data.symbol },
+                    ttl: 4 * 3600 * 1000,
+                  }),
+                });
+                if (isContractAddress) {
+                  await fetch(`${apiBaseUrl}/api/tokens`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                      action: 'update',
+                      coingecko_id: cgResult.data.id || token,
+                      symbol: cgResult.data.symbol || token,
+                      name: cgResult.data.name || token,
+                      image: cgResult.data.image.thumb,
+                      chain: selectedChain,
+                      contractAddress: token,
+                    }),
+                  });
+                }
+                return;
+              } else {
+                logger.warn(`No valid image for ${token} from CoinGecko`);
+                tokenInfo[token] = { image: '/icons/default.webp', symbol: token.toUpperCase() };
+              }
+            } catch (err) {
+              logger.error(`Error fetching token image for ${token}:`, err.message);
               tokenInfo[token] = { image: '/icons/default.webp', symbol: token.toUpperCase() };
             }
-          } catch (err) {
-            logger.error(`Error fetching token image for ${token}:`, err.message);
-            tokenInfo[token] = { image: '/icons/default.webp', symbol: token.toUpperCase() };
-          }
-        })
-      );
+          })
+        );
+      }
       logger.log('Token info fetched:', tokenInfo);
       setTokenImages(tokenInfo);
     };
@@ -776,158 +942,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     router.replace(`/dashboard?${newParams.toString()}`, { scroll: false });
   };
 
-  const aggregateWallets = (incomingData, outgoingData, layer3Data, rootAddress, page, filterType) => {
-    const walletMap = new Map();
-    const nametags = {};
-    const edges = [];
-
-    walletMap.set(rootAddress.toLowerCase(), {
-      address: rootAddress.toLowerCase(),
-      nametag: walletInfo.nametag || 'Unknown',
-      image: walletInfo.image || '/icons/default.webp',
-      chainLogo: walletInfo.chainLogo || '/icons/default.webp',
-      tokenSymbol: 'Unknown',
-      totalValue: 0,
-      txCount: 0,
-      latestBlockTime: null,
-      type: 'root',
-      layer: 1,
-    });
-    nametags[rootAddress.toLowerCase()] = {
-      name: walletInfo.nametag || 'Unknown',
-      image: walletInfo.image || '/icons/default.webp',
-    };
-
-    const addWallet = (address, tx, type, layer) => {
-      if (filterType === 'incoming' && type !== 'incoming') return;
-      if (filterType === 'outgoing' && type !== 'outgoing') return;
-      if (layer === 3 && (!tx.nametag || tx.nametag === 'Unknown')) return;
-
-      if (!walletMap.has(address)) {
-        walletMap.set(address, {
-          address: address.toLowerCase(),
-          nametag: tx.nametag || 'Unknown',
-          image: tx.image || '/icons/default.webp',
-          chainLogo: tx.chainLogo || '/icons/default.webp',
-          tokenSymbol: tx.tokenSymbol || 'Unknown',
-          totalValue: 0,
-          txCount: 0,
-          latestBlockTime: null,
-          type,
-          layer,
-        });
-        nametags[address.toLowerCase()] = {
-          name: tx.nametag || 'Unknown',
-          image: tx.image || '/icons/default.webp',
-        };
-      }
-      const wallet = walletMap.get(address);
-      wallet.totalValue += Number(tx.usdValue || tx.value || 0);
-      wallet.txCount += 1;
-      wallet.latestBlockTime = wallet.latestBlockTime
-        ? new Date(tx.block_time) > new Date(wallet.latestBlockTime) ? tx.block_time : wallet.latestBlockTime
-        : tx.block_time;
-    };
-
-    const filteredIncoming = filterType === 'all' || filterType === 'incoming'
-      ? incomingData.filter((tx) => tx.address.toLowerCase() !== rootAddress.toLowerCase() && tx.type === 'incoming')
-      : [];
-    const filteredOutgoing = filterType === 'all' || filterType === 'outgoing'
-      ? outgoingData.filter((tx) => tx.address.toLowerCase() !== rootAddress.toLowerCase() && tx.type === 'outgoing')
-      : [];
-
-    filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming', 2));
-    filteredOutgoing.forEach((tx) => addWallet(tx.address, tx, 'outgoing', 2));
-
-    const filteredLayer3 = layer3Data.filter((tx) => tx.nametag && tx.nametag !== 'Unknown');
-    filteredLayer3.forEach((tx) => {
-      const address = tx.type === 'incoming' ? tx.address : tx.address;
-      addWallet(address, tx, tx.type, 3);
-    });
-
-    const nodes = Array.from(walletMap.values()).map((wallet) => ({
-      data: {
-        id: wallet.address,
-        label: wallet.nametag,
-        image: wallet.image,
-        chainLogo: wallet.chainLogo,
-        tokenSymbol: wallet.tokenSymbol,
-        totalValue: wallet.totalValue.toFixed(6),
-        txCount: wallet.txCount,
-        latestBlockTime: wallet.latestBlockTime,
-        type: wallet.type,
-        layer: wallet.layer,
-        isRoot: wallet.address === rootAddress.toLowerCase(),
-      },
-    }));
-
-    filteredIncoming.forEach((tx, index) => {
-      if (walletMap.has(tx.address.toLowerCase()) && walletMap.has(rootAddress.toLowerCase())) {
-        edges.push({
-          data: {
-            id: `in-edge-${page}-${index}-${tx.hash}`,
-            source: tx.address.toLowerCase(),
-            target: rootAddress.toLowerCase(),
-            value: Number(tx.value).toFixed(6),
-            usdValue: Number(tx.usdValue || 0).toFixed(6),
-            type: 'incoming',
-            txHash: tx.hash,
-            block_time: tx.block_time,
-            tokenSymbol: tx.tokenSymbol,
-            contractAddress: tx.contractAddress,
-            tokenImage: tx.tokenImage,
-            layer: 2,
-          },
-        });
-      }
-    });
-    filteredOutgoing.forEach((tx, index) => {
-      if (walletMap.has(rootAddress.toLowerCase()) && walletMap.has(tx.address.toLowerCase())) {
-        edges.push({
-          data: {
-            id: `out-edge-${page}-${index}-${tx.hash}`,
-            source: rootAddress.toLowerCase(),
-            target: tx.address.toLowerCase(),
-            value: Number(tx.value).toFixed(6),
-            usdValue: Number(tx.usdValue || 0).toFixed(6),
-            type: 'outgoing',
-            txHash: tx.hash,
-            block_time: tx.block_time,
-            tokenSymbol: tx.tokenSymbol,
-            contractAddress: tx.contractAddress,
-            tokenImage: tx.tokenImage,
-            layer: 2,
-          },
-        });
-      }
-    });
-
-    filteredLayer3.forEach((tx, index) => {
-      const layer2Address = tx.layer2Address.toLowerCase();
-      const layer3Address = tx.address.toLowerCase();
-      if (walletMap.has(layer2Address) && walletMap.has(layer3Address)) {
-        edges.push({
-          data: {
-            id: `layer3-edge-${page}-${index}-${tx.hash}`,
-            source: tx.type === 'incoming' ? layer3Address : layer2Address,
-            target: tx.type === 'incoming' ? layer2Address : layer3Address,
-            value: Number(tx.value).toFixed(6),
-            usdValue: Number(tx.usdValue || 0).toFixed(6),
-            type: tx.type,
-            txHash: tx.hash,
-            block_time: tx.block_time,
-            tokenSymbol: tx.tokenSymbol,
-            contractAddress: tx.contractAddress,
-            tokenImage: tx.tokenImage,
-            layer: 3,
-          },
-        });
-      }
-    });
-
-    return { nodes, edges, nametags };
-  };
-
+  // Updated fetchTransactions with detailed try-catch
   const fetchTransactions = useCallback(async (address, page = 1) => {
     if (!isAddress(address) && !['solana', 'tron'].includes(selectedChain)) {
       logger.error('Invalid wallet address.');
@@ -969,7 +984,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setWalletAddress(address);
       updateUrl(selectedChain, address);
       logger.log('Cached walletInfo.image:', cached.wallet?.image);
-      const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(
+      const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWalletsMemo(
         cached.incoming || [],
         cached.outgoing || [],
         cached.layer3 || [],
@@ -1039,7 +1054,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setFullIncomingData(data.incoming);
       setFullOutgoingData(data.outgoing);
       setFullLayer3Data(data.layer3);
-      const { nodes, edges, nametags: newNametags } = aggregateWallets(
+      const { nodes, edges: newEdges, nametags: newNametags } = aggregateWalletsMemo(
         data.incoming,
         data.outgoing,
         data.layer3,
@@ -1052,20 +1067,21 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         outgoing: data.outgoing,
         layer3: data.layer3,
         nodes,
-        edges,
+        edges: newEdges,
         wallet: data.wallet,
         nametags: newNametags
       }, CACHE_TTL);
       setNodes((prev) => page === 1 ? nodes : [...prev, ...nodes]);
-      setEdges((prev) => page === 1 ? edges : [...prev, ...edges]);
+      setEdges((prev) => page === 1 ? newEdges : [...prev, ...newEdges]);
       setNametags((prev) => ({ ...prev, ...newNametags }));
       setWalletInfo(data.wallet);
       setWalletAddress(address);
       updateUrl(selectedChain, address);
     } catch (err) {
       logger.error(`Error: ${err.message}`);
+      const errorMsg = err.message.includes('401') ? 'Auth failed - Check API key' : err.message;
       if (nodes.length === 0 && edges.length === 0) {
-        toast.error(`Failed to fetch transactions: ${err.message}`, {
+        toast.error(`Failed to fetch transactions: ${errorMsg}`, {
           position: 'top-center',
           autoClose: 5000,
           hideProgressBar: false,
@@ -1086,7 +1102,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setLoading(false);
       setLoadingMessage('');
     }
-  }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo]);
+  }, [selectedChain, selectedLimit, session, apiBaseUrl, filterType, walletInfo, aggregateWalletsMemo]);
 
   const filterTransactions = useCallback((transactions, filterType, rootId, walletId = null) => {
     if (!transactions || !Array.isArray(transactions)) {
@@ -1131,6 +1147,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     return uniqueTxs;
   }, []);
 
+  // Updated initializeCytoscape with consolidated clustering (deps include fullData)
   const initializeCytoscape = useCallback(async () => {
     if (!containerRef.current || !nodes.length || !walletInfo.address) {
       logger.warn('Cannot initialize Cytoscape: missing container, nodes, or walletInfo.address');
@@ -1149,6 +1166,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       const rootId = walletInfo.address.toLowerCase();
       let elements = [...nodes, ...edges];
 
+      // Consolidated clustering call
       const detectedClusters = await detectClusters(
         nodes.map((node) => ({ ...node.data, timestamp: Date.now() })),
         edges.map((edge) => edge.data),
@@ -1472,7 +1490,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         },
       });
     }
-  }, [nodes, edges, walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData, filterTransactions]);
+  }, [nodes, edges, walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData, fullLayer3Data, detectClusters]); // Added fullData deps
 
   useEffect(() => {
     initializeCytoscape().catch(console.error);
@@ -1492,6 +1510,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     }
   };
 
+  // Updated mobile resize with debounce
+  useEffect(() => {
+    const throttledCheck = throttle(() => setIsMobile(window.innerWidth <= 640), 200);
+    throttledCheck();
+    window.addEventListener('resize', throttledCheck);
+    return () => {
+      window.removeEventListener('resize', throttledCheck);
+      throttledCheck.cancel(); // Cleanup throttle
+    };
+  }, []);
+
   useEffect(() => {
     const chainFromUrl = searchParams.get('chain') || initialChain;
     const addressFromUrl = searchParams.get('address') || initialAddress;
@@ -1504,7 +1533,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       setWalletAddress(addressFromUrl);
       fetchTransactions(addressFromUrl, 1);
     }
-  }, [searchParams, initialChain, initialAddress]);
+  }, [searchParams, initialChain, initialAddress, fetchTransactions]);
 
   useEffect(() => {
     const fetchCoingeckoChains = async () => {
@@ -1517,13 +1546,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     };
     fetchCoingeckoChains();
   }, [apiBaseUrl]);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth <= 640);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   useEffect(() => {
     if (session?.user) {
@@ -1544,19 +1566,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const runClustering = async () => {
-      const detectedClusters = await detectClusters(
-        nodes.map((node) => ({ ...node.data, timestamp: Date.now() })),
-        edges.map((edge) => edge.data),
-        { useDBSCAN: true, useGNN: true }
-      );
-      setClusters(detectedClusters);
-    };
-    if (nodes.length > 0 && edges.length > 0) {
-      runClustering().catch(console.error);
-    }
-  }, [nodes, edges]);
+  // Removed duplicate runClustering useEffect (now in initializeCytoscape)
 
   const handleLoadMore = useCallback(() => {
     setPage((prev) => {

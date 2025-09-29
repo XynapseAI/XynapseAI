@@ -145,8 +145,22 @@ export const authOptions = {
         await transporter.sendMail({
           to: identifier,
           from: provider.from,
-          subject: "Sign in to Dashboard",
-          html: `<p><a href="${url}">Sign in</a></p>`,
+          subject: "Welcome to XynapseAI! Confirm Login",
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h1 style="color: #4285f4; text-align: center;">Welcome to XynapseAI !</h1>
+              <p>Hello,</p>
+              <p>You have requested to log in to your Xynapse account using this email address.</p>
+              <p>To complete your login, click the button below:</p>
+              <div style="text-align: center; margin: 20px 0;">
+                <a href="${url}" style="background: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Login now</a>
+              </p>
+              <p>If you do not require this login, please ignore this email.</p>
+              <p style="font-size: 12px; color: #666;">This link will expire after 24 hours.</p>
+              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+              <p style="font-size: 12px; color: #666; text-align: center;">Thank you!</p>
+            </div>
+          `,
         });
       },
     }),
@@ -165,6 +179,12 @@ export const authOptions = {
           googleName = profile.name;
           verified = profile.email_verified || false;
           userId = googleId;
+
+          const existingUser = await customAdapter.getUserByEmail(email);
+          if (existingUser && !existingUser.google_id) {
+            logger.warn("Google sign-in denied: Account exists with email only", { email });
+            return "This account was registered with email. Please use the old login method (by Email).";
+          }
         } else if (account.provider === "email") {
           email = user.email || "";
           verified = true;

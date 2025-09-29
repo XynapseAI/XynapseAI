@@ -33,8 +33,11 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
   const recaptchaRef = useRef(null);
 
   const fetchUserData = useCallback(async () => {
-    if (!session?.user?.id || !csrfToken) {
+    // Enhanced check to prevent fetch when unauthenticated
+    if (!session || !session?.user?.id || !csrfToken) {
       setLoading(false);
+      setUserData(null);
+      setError(null);
       return;
     }
 
@@ -371,6 +374,11 @@ export default function Dashboard() {
       if (result?.error) {
         if (result.error.includes('Rate limit exceeded')) {
           toast.error('Too many sign-in attempts. Please try again later.', { position: 'top-center' });
+          return;
+        }
+        // Custom error handling for email-registered account
+        if (result.error.includes('This account is registered with email')) {
+          toast.error(result.error, { position: 'top-center' });
           return;
         }
         throw new Error(result.error);

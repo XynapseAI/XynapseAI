@@ -21,9 +21,9 @@ import { logger } from '../utils/clientLogger';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
 
-// Simple spinner component - Increased size for visibility
-const Spinner = () => (
-  <svg className="animate-spin h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+// Enhanced Spinner component - Accepts className and color props for flexibility
+const Spinner = ({ className = "h-4 w-4", color = "text-blue-400" }) => (
+  <svg className={`animate-spin ${className} ${color}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
   </svg>
@@ -75,15 +75,25 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData }) 
                 <motion.button
                   onClick={onCheckin}
                   disabled={isLoading}
-                  className={`mt-1 px-2 py-1 rounded-full text-[8px] font-semibold transition-all duration-300 ${
+                  className={`mt-1 px-2 py-1 rounded-full text-[8px] font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${
                     isLoading 
-                      ? 'bg-gray-600 text-white/50 cursor-not-allowed' 
+                      ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/70 cursor-not-allowed relative overflow-hidden' 
                       : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
                   }`}
                   whileHover={{ scale: isLoading ? 1 : 1.05 }}
                   whileTap={{ scale: isLoading ? 1 : 0.95 }}
                 >
-                  {isLoading ? <Spinner className="h-3 w-3" /> : 'Check-in'}
+                  {isLoading ? (
+                    <>
+                      <Spinner className="h-3 w-3" color="text-white/70" />
+                      <span className="animate-pulse"></span>
+                    </>
+                  ) : (
+                    'Check-in'
+                  )}
+                  {isLoading && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
+                  )}
                 </motion.button>
               )}
             </div>
@@ -249,7 +259,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       } else if (err.response?.status === 500) {
         errorMessage = 'Temporary server issue. Our team has been notified—please try again in a moment.';
       } else if (err.response?.status === 403) {
-        errorMessage = 'Security verification failed. Please refresh and try again.';
+        errorMessage = 'Security verification failed. Please try the action again. If it persists, refresh the page.';
       } else if (err.response?.status === 401) {
         errorMessage = 'Your session has expired. Please log in again to continue.';
       } else if (err.response?.status === 429) {
@@ -466,11 +476,18 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     onError: (err) => {
       logger.error('Disconnect Twitter mutation error:', err);
-      const errorMessage = err.response?.status === 429
-        ? 'Request limit reached. Please wait a moment and try again.'
-        : err.response?.status === 403
-          ? 'Security verification failed. Please refresh the page.'
-          : err.response?.data?.detail || 'Unable to disconnect Twitter at this time.';
+      let errorMessage = err.response?.data?.detail || 'Unable to disconnect Twitter at this time.';
+      if (err.response?.status === 429) {
+        errorMessage = 'Request limit reached. Please wait a moment and try again.';
+      } else if (err.response?.status === 403) {
+        if (err.response?.data?.detail === 'Invalid CSRF check.') {
+          errorMessage = 'Session security issue detected. Please refresh the page.';
+        } else if (err.response?.data?.detail?.includes('reCAPTCHA')) {
+          errorMessage = 'Security verification failed. Please complete the challenge and try again.';
+        } else {
+          errorMessage = 'Security verification failed. Please try the action again. If it persists, refresh the page.';
+        }
+      }
       toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
     },
   });
@@ -581,21 +598,36 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
       ]);
     },
-    onError: (err) => {
-      let errorMessage = err.response?.status === 429
-        ? 'Request limit reached. Please wait a moment and try again.'
-        : err.response?.status === 403
-          ? 'Security verification failed. Please try again.'
-          : err.message.includes('reCAPTCHA')
-            ? 'Verification challenge failed. Please complete the security check and retry.'
-            : err.message.includes('Twitter account not connected')
-              ? 'Please connect your X (Twitter) account first to complete this action.'
-              : err.response?.data?.detail || `Verification unsuccessful: ${err.message}`;
+    onError: (err, variables) => {
+      const task = variables?.task || { task_type: 'unknown' };
+      let errorMessage = `Verification unsuccessful for ${task.description || 'this task'}. Please try again.`;
+      
+      const detail = err.response?.data?.detail;
+      
       if (err.response?.status === 429) {
         errorMessage = 'X (Twitter) rate limit exceeded. Please wait 1-2 minutes and try again.';
-      } else if (err.response?.status === 403 && err.response?.data?.detail?.includes('Twitter authentication')) {
-        errorMessage = 'X (Twitter) authentication issue. Please reconnect your account.';
+      } else if (err.response?.status === 403) {
+        if (detail === 'Invalid CSRF check.') {
+          errorMessage = 'Session security issue detected. Please refresh the page and try again.';
+        } else if (detail?.includes('reCAPTCHA')) {
+          errorMessage = 'Security verification failed. Please complete the challenge and try again.';
+        } else {
+          errorMessage = 'Security verification failed. Please try the action again. If it persists, refresh the page.';
+        }
+      } else if (detail === 'Task already completed today') {
+        errorMessage = `You've already completed today's ${task.task_type === 'daily_checkin' ? 'check-in' : 'task'}! Come back tomorrow.`;
+      } else if (detail === 'Maximum completions reached') {
+        errorMessage = `You've already completed this ${task.task_type === 'follow' ? 'follow' : 'task'}! Thanks for your support—explore other tasks for more rewards.`;
+      } else if (detail === 'X (Twitter) account not connected') {
+        errorMessage = 'Please connect your X (Twitter) account first to verify this task. Head to your profile to get started!';
+      } else if (err.message.includes('reCAPTCHA')) {
+        errorMessage = 'Verification challenge failed. Please complete the security check and retry.';
+      } else if (detail?.includes('Twitter authentication')) {
+        errorMessage = 'X (Twitter) authentication issue. Please reconnect your account in profile settings.';
+      } else {
+        errorMessage = detail || err.message || errorMessage;
       }
+      
       toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
@@ -820,7 +852,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                   (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
                                   isCompleted  // Enhanced: disable if completed
                                 }
-                                className={`px-2 py-1 rounded-lg text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center gap-1 shadow-lg ${
+                                className={`px-2 py-1 rounded-lg text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg relative overflow-hidden ${
                                   verifyTaskMutation.isLoading ||
                                   (!userData?.twitterHandle && task.task_type !== 'daily_checkin') ||
                                   isCompleted  // Enhanced: disable if completed
@@ -846,8 +878,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                               >
                                 {verifyTaskMutation.isLoading ? (
                                   <>
-                                    <Spinner className="h-3 w-3" />
-                                    Verifying...
+                                    <Spinner className="h-3 w-3" color="text-white/70" />
+                                    <span className="animate-pulse"></span>
                                   </>
                                 ) : isCompleted ? (
                                   <>
@@ -859,6 +891,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                     <Trophy className="w-3 h-3" />
                                     Verify
                                   </>
+                                )}
+                                {verifyTaskMutation.isLoading && (
+                                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
                                 )}
                               </motion.button>
                             )}
@@ -1317,6 +1352,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        .animate-shimmer {
+          background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+          animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
         @media (max-width: 640px) {
           .text-base { font-size: 0.875rem; }
