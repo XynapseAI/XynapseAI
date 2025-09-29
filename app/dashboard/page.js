@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback , useMemo  } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { signIn, signOut, useSession, getProviders } from 'next-auth/react';
@@ -14,13 +14,15 @@ import ReCAPTCHA from 'react-google-recaptcha';
 import { toast, ToastContainer } from 'react-toastify';
 import MatrixHoverEffect from '../../components/MatrixHoverEffect';
 import { motion } from 'framer-motion';
-import styles from './page.module.css';
 import Image from 'next/image';
 import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import { LoadingOverlay } from '@/utils/helpers';
 import { CurrencyProvider } from '../../components/CurrencyContext';
 import crypto from 'crypto';
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Stars, Sphere, Float, Environment } from "@react-three/drei";
+import * as THREE from "three";
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -138,6 +140,110 @@ const useUserData = (session, csrfToken, setIsAnalyzing) => {
   return { userData, loading, error, handleAnalyzeTweets, recaptchaRef };
 };
 
+function UniverseBackground() {
+  const groupRef = useRef(null);
+
+  useFrame((state) => {
+    if (groupRef.current) {
+      const time = state.clock.getElapsedTime();
+      groupRef.current.rotation.z = time * 0.003; // Reduced speed for lighter performance
+      groupRef.current.rotation.y = time * 0.001;
+    }
+  });
+
+  // Simplified Galaxy with fewer points
+  const Galaxy = () => {
+    const pointsRef = useRef();
+    const count = 2000; // Reduced count for performance
+    const positions = useMemo(() => new Float32Array(count * 3), []);
+    const colors = useMemo(() => new Float32Array(count * 3), []);
+
+    useEffect(() => {
+      for (let i = 0; i < count; i++) {
+        const i3 = i * 3;
+        const radius = (Math.random() * 30) + 3; // Smaller radius
+        const arms = 3; // Fewer arms
+        const spin = radius * 0.15;
+        const branchAngle = ((i % arms) / arms) * Math.PI * 2;
+        const theta = branchAngle + spin + Math.random() * 0.3;
+
+        const randomX = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 1.5;
+        const randomY = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 0.3; // Flatter
+        const randomZ = (Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1)) * 1.5;
+
+        positions[i3] = (Math.cos(theta) * radius) + randomX;
+        positions[i3 + 1] = randomY;
+        positions[i3 + 2] = (Math.sin(theta) * radius) + randomZ;
+
+        const r = Math.random() * 0.3 + 0.7;
+        const g = Math.random() * 0.3 + 0.7;
+        const b = Math.random() * 0.5 + 0.5; // Subtle blue
+        colors[i3] = r;
+        colors[i3 + 1] = g;
+        colors[i3 + 2] = b;
+      }
+
+      pointsRef.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      pointsRef.current.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    }, []);
+
+    return (
+      <points ref={pointsRef} position={[0, 0, -20]} rotation={[Math.PI / 6, 0, 0]}>
+        <bufferGeometry />
+        <pointsMaterial
+          size={0.05} // Smaller size
+          sizeAttenuation
+          vertexColors
+          transparent
+          opacity={0.6}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </points>
+    );
+  };
+
+  return (
+    <group ref={groupRef}>
+      <Stars radius={150} depth={60} count={1000} factor={4} saturation={0} fade speed={0.1} /> {/* Reduced count and speed */}
+      
+      {/* Minimal moving stars */}
+      <group>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Float key={i} speed={0.1} rotationIntensity={0.02}>
+            <Sphere args={[0.01 + Math.random() * 0.005, 6, 6]} position={[(Math.random() - 0.5) * 80, (Math.random() - 0.5) * 80, (Math.random() - 0.5) * 80]}>
+              <meshStandardMaterial color="#FFFFFF" emissive="#FFFFFF" emissiveIntensity={0.3} transparent opacity={0.7} />
+            </Sphere>
+          </Float>
+        ))}
+      </group>
+
+      <Galaxy />
+
+      {/* Subtle nebulae */}
+      {Array.from({ length: 2 }).map((_, i) => (
+        <Float key={`nebula-${i}`} speed={0.1} rotationIntensity={0.02}>
+          <Sphere args={[5 + Math.random() * 4, 12, 12]} position={[(Math.random() - 0.5) * 80, (Math.random() - 0.5) * 15, (Math.random() - 0.5) * 80]}>
+            <meshStandardMaterial
+              color={Math.random() > 0.5 ? "#4B0082" : "#8A2BE2"}
+              transparent
+              opacity={0.08 + Math.random() * 0.06}
+              emissive={Math.random() > 0.5 ? "#4B0082" : "#8A2BE2"}
+              emissiveIntensity={0.1 + Math.random() * 0.08}
+              blending={THREE.AdditiveBlending}
+            />
+          </Sphere>
+        </Float>
+      ))}
+
+      <Environment preset="night" />
+      <ambientLight intensity={0.15} color="#000022" />
+      <pointLight position={[0, 0, 8]} intensity={0.3} color="#FFFFFF" />
+      <pointLight position={[-15, 0, -15]} intensity={0.2} color="#00BFFF" />
+    </group>
+  );
+}
+
 export default function Dashboard() {
   const { data: session, status, update } = useSession();
   const { isConnected, address } = useAccount();
@@ -152,7 +258,6 @@ export default function Dashboard() {
   const [providers, setProviders] = useState(null);
   const [email, setEmail] = useState('');
   const [csrfToken, setCsrfToken] = useState(null);
-  const starsBackgroundRef = useRef(null);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
 
@@ -431,36 +536,25 @@ export default function Dashboard() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, ease: 'easeOut' }}
-                className={`w-full h-full flex items-center justify-center bg-black/5 text-white font-saira relative ${styles.container}`}
+                className="w-full h-full flex items-center justify-center text-white font-saira relative"
               >
-                <motion.div
-                  ref={starsBackgroundRef}
-                  className={`absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-800 ${styles['stars-background']}`}
-                  animate={{
-                    background: [
-                      'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(17, 24, 39, 0.9))',
-                      'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(180, 180, 180, 0.1))',
-                      'linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(0, 0, 0, 1), rgba(17, 24, 39, 0.9))',
-                    ],
-                  }}
-                  transition={{ duration: 15, repeat: Infinity, repeatType: 'reverse' }}
-                >
-                  <div className={styles['stars-layer-1']} />
-                  <div className={styles['stars-layer-2']} />
-                  <div className={styles['stars-layer-3']} />
-                </motion.div>
+                <div className="fixed inset-0 z-0">
+                  <Canvas camera={{ position: [0, 0, 5], fov: 75 }} dpr={[1, 1.5]} performance={{ min: 0.3 }}>
+                    <UniverseBackground />
+                  </Canvas>
+                </div>
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: 0.2 }}
-                  className={`absolute top-2 left-2 ${styles['logo-container']}`}
+                  className="absolute top-4 left-4 z-10"
                 >
                   <Image
                     src="/logos/logo-landscape.webp"
                     alt="Xynapse Logo"
                     width={120}
                     height={56}
-                    className="h-10 sm:h-12 w-auto object-contain"
+                    className="h-16 sm:h-18 w-auto object-contain"
                     priority
                   />
                 </motion.div>
@@ -468,13 +562,13 @@ export default function Dashboard() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: 'easeOut' }}
-                  className={`relative z-10 bg-white/5 backdrop-blur-sm p-6 md:p-10 rounded-2xl border border-white/10 max-w-md w-full mx-4 flex flex-col items-center`}
+                  className="relative z-20 bg-black/60 backdrop-blur-xs p-8 md:p-12 border border-white/15 rounded-lg max-w-md w-full mx-4 flex flex-col items-center shadow-2xl shadow-black/50"
                 >
                   <motion.h1
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
-                    className="text-2xl md:text-3xl font-bold text-white uppercase mb-2 text-center"
+                    className="text-2xl md:text-3xl font-bold text-white uppercase mb-4 text-center tracking-wide"
                   >
                     Sign In
                   </motion.h1>
@@ -482,40 +576,41 @@ export default function Dashboard() {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.3 }}
-                    className="text-xs md:text-xs text-gray-400 mb-8 text-center"
+                    className="text-xs md:text-sm text-gray-500 mb-8 text-center leading-relaxed"
                   >
-                    Sign in with Google or Email to access your dashboard.
+                    Access your dashboard with secure authentication.
                   </motion.p>
-                  <form onSubmit={handleEmailSignIn} className="w-full space-y-4">
+                  <form onSubmit={handleEmailSignIn} className="w-full space-y-6">
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter your email"
-                      className={`w-full px-4 py-3 bg-black/50 border border-white/10 rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-neon-blue ${styles['input-glow']}`}
+                      className="w-full px-5 py-3 bg-black/60 border border-white/15 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300"
                       required
                     />
                     <button
                       type="submit"
-                      className={`w-full px-4 py-3 border-2 border-white/10 bg-white/5 text-white rounded-xl text-sm font-medium uppercase transition-all duration-300`}
+                      className="w-full px-5 py-3 border-2 border-white/15 bg-white/10 text-white rounded-lg text-sm font-semibold uppercase transition-all duration-300 hover:border-white/30 hover:bg-white/20 flex items-center justify-center"
                     >
                       <MatrixHoverEffect text="Sign in with Email" hoverColor="#FFFFFF" />
                     </button>
                   </form>
-                  <div className="flex items-center justify-center my-4 w-full">
-                    <span className="text-gray-500 text-xs uppercase">OR</span>
+                  <div className="flex items-center justify-center my-6 w-full">
+                    <span className="text-gray-500 text-xs uppercase px-4">OR</span>
+                    <div className="flex-1 h-px bg-white/10"></div>
                   </div>
                   {providers?.google && (
                     <button
                       onClick={handleGoogleSignIn}
-                      className={`w-full px-4 py-3 bg-black/10 border border-white/20 rounded-xl text-white text-sm font-medium uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:bg-gray-700/50`}
+                      className="w-full px-5 py-3 bg-black/20 border border-white/25 rounded-lg text-white text-sm font-semibold uppercase flex items-center justify-center gap-3 transition-all duration-300 hover:bg-gray-800/30 hover:border-white/40"
                     >
                       <Image
                         src="/logos/google.webp"
                         alt="Google Logo"
                         width={20}
                         height={20}
-                        className="w-5 h-5 object-contain mr-2"
+                        className="w-5 h-5 object-contain"
                       />
                       <MatrixHoverEffect text="Sign in with Google" />
                     </button>
@@ -525,11 +620,26 @@ export default function Dashboard() {
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: 0.4 }}
-                      className={`mt-6 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center ${styles['shadow-glow-neon-red']}`}
+                      className="mt-6 text-red-300 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center"
                     >
                       Error: {error}
                     </motion.div>
                   )}
+                  <motion.p
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.5 }}
+                    className="mt-6 text-xs text-gray-500 text-center leading-relaxed"
+                  >
+                    By clicking continue, you agree to our{' '}
+                    <a href="https://example.com/terms" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">
+                      Terms of Service
+                    </a>{' '}
+                    and{' '}
+                    <a href="https://example.com/privacy" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">
+                      Privacy Policy
+                    </a>.
+                  </motion.p>
                 </motion.div>
               </motion.div>
             ) : (

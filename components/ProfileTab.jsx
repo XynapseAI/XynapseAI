@@ -176,7 +176,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     const followUrl = `https://x.com/intent/follow?screen_name=XynapseAI`;
     window.open(followUrl, '_blank');
     setFollowedTasks(prev => new Set([...prev, taskId]));
-    toast.info('Redirecting to X (Twitter). Please follow @XynapseAI and return to verify your action.', { 
+    toast.info('Redirecting to X. Please follow @XynapseAI and return to verify your action.', { 
       position: 'top-center',
       autoClose: 6000 
     });
@@ -666,7 +666,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     setCurrentPage((prev) => ({ ...prev, [tab]: page }));
   }, []);
 
-  const getProfilePictureSrc = useCallback((profilePicture, twitterHandle, googleName) => {
+  const getProfilePictureSrc = useCallback((profilePicture) => {
     const isValidUrl = (url) => {
       try {
         new URL(url);
@@ -677,11 +677,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       }
     };
 
-    if (twitterHandle && profilePicture && typeof profilePicture === 'string' && isValidUrl(profilePicture)) {
-      return profilePicture;
-    }
-
-    if (googleName && profilePicture && typeof profilePicture === 'string' && isValidUrl(profilePicture)) {
+    if (profilePicture && typeof profilePicture === 'string' && isValidUrl(profilePicture)) {
       return profilePicture;
     }
 
@@ -714,7 +710,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <td className="px-3 py-3 text-white text-[9px] sm:text-[11px] truncate align-middle">
             <div className="flex items-center">
               <Image
-                src={getProfilePictureSrc(user.profilePicture, user.twitterHandle, user.googleName)}
+                src={getProfilePictureSrc(user.profilePicture)}
                 alt={user.googleName || user.twitterHandle || 'User Avatar'}
                 width={isMobile ? 14 : 16}
                 height={isMobile ? 14 : 16}
@@ -801,7 +797,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                               >
                                 @XynapseAI
                               </a>{' '}
-                              on X (Twitter)
+                              on X
                               {task.is_daily
                                 ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
                                 : ''}
@@ -1142,7 +1138,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 </div>
                 <div className="flex items-center gap-2 mb-3">
                   <Image
-                    src={getProfilePictureSrc(userData.profilePicture, userData.twitterHandle, userData.googleName)}
+                    src={getProfilePictureSrc(userData.profilePicture)}
                     alt={userData.googleName || userData.twitterHandle || 'User Avatar'}
                     width={40}
                     height={40}
@@ -1207,6 +1203,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-1">
+                          <img src="/logos/google.webp" alt="Google Logo" className="w-3 h-3" />
+                          <span className="text-white/70">Google:</span>
+                          <span className="text-neon-blue truncate max-w-32">{userData.email}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-1">
                           <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 text-blue-400" />
                           <span className="text-white/70">(Twitter):</span>
                           {userData.twitterHandle ? (
@@ -1226,7 +1229,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 className={`p-1 rounded-sm bg-red-500/20 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/40'}`}
                                 whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
                                 whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
-                                title="Disconnect X (Twitter)"
+                                title="Disconnect X"
                               >
                                 {disconnectTwitterMutation.isLoading ? (
                                   <span className="text-[8px] text-white">...</span>
@@ -1251,13 +1254,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           )}
                         </div>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-1">
-                          <img src="/logos/google.webp" alt="Google Logo" className="w-3 h-3" />
-                          <span className="text-white/70">Google:</span>
-                          <span className="text-neon-blue truncate max-w-32">{userData.email}</span>
-                        </div>
-                      </div>
                     </div>
                     {!userData.twitterHandle && (
                       <motion.button
@@ -1266,7 +1262,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                       >
-                        <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" /> Connect X (Twitter)
+                         Connect <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" />
                       </motion.button>
                     )}
                   </div>
@@ -1339,10 +1335,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               exit={{ opacity: 0, y: -10 }}
             >
               <div className="text-center max-w-md">
+                <h3 className="text-white font-bold text-xs sm:text-sm mb-2">Connect</h3>
                 <img src="/logos/x.webp" alt="X Logo" className="w-12 h-12 mx-auto mb-4 text-blue-400" />
-                <h3 className="text-white font-bold text-xs sm:text-sm mb-2">Connect X (Twitter)</h3>
                 <p className="text-[11px] sm:text-base text-white/80 mb-6">
-                  Connect your X (Twitter) account to unlock tasks, check-ins, and rewards.
+                  Connect your X account to unlock tasks, check-ins, and rewards.
                 </p>
                 <motion.button
                   onClick={() => connectTwitterMutation.mutate()}
@@ -1350,8 +1346,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   whileHover={{ scale: 1 }}
                   whileTap={{ scale: 1 }}
                 >
+                  Connect
                   <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />
-                  Connect X (Twitter)
                 </motion.button>
               </div>
             </motion.div>
