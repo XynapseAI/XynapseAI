@@ -115,7 +115,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [priceHistoryCache, setPriceHistoryCache] = useState({});
   const [timeRange, setTimeRange] = useState('1');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [analysisLinks, setAnalysisLinks] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -2247,14 +2249,24 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     [selectedToken, priceHistory, analysis, currency, session, status, executeRecaptcha, toast, prediction]
   );
 
-  const debouncedSearch = useCallback(
-    debounce((query) => {
-      if (!query) {
-        setSearchResults([]);
-      }
-    }, 300),
-    []
-  );
+  // Debounced search query for API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 200); // Reduced debounce time for faster response
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Set searching state on query change
+  useEffect(() => {
+    if (searchQuery) {
+      setIsSearching(true);
+    } else {
+      setIsSearching(false);
+      setSearchResults([]);
+    }
+  }, [searchQuery]);
 
   const { data: trendingData, error: trendingSWRError } = useSWR(
     ['/api/coingecko', { action: 'trending', vs_currency: currency }],
@@ -2291,8 +2303,8 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     }
   );
 
-  const { data: searchData, error: searchError } = useSWR(
-    searchQuery ? ['/api/coingecko', { action: 'search', query: searchQuery }] : null,
+  const { data: searchData, error: searchError, isLoading: searchIsLoading } = useSWR(
+    debouncedSearchQuery ? ['/api/coingecko', { action: 'search', query: debouncedSearchQuery }] : null,
     ([url, params]) => fetcher(url, params),
     {
       revalidateOnFocus: false,
@@ -2306,6 +2318,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
           market_cap_rank: coin.market_cap_rank,
         }));
         setSearchResults(results.slice(0, 10));
+        setIsSearching(false);
       },
       onError: (err) => {
         setError(
@@ -2314,17 +2327,21 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
             : err.response?.data?.detail || 'Failed to search coins.'
         );
         setSearchResults([]);
+        setIsSearching(false);
       },
     }
   );
 
+  // Update searching state based on SWR loading
+  useEffect(() => {
+    if (!searchIsLoading && !searchError) {
+      setIsSearching(false);
+    }
+  }, [searchIsLoading, searchError]);
+
   useEffect(() => {
     warmUpCache();
   }, [warmUpCache]);
-
-  useEffect(() => {
-    debouncedSearch(searchQuery);
-  }, [searchQuery, debouncedSearch]);
 
   const { data: marketData, error: marketError } = useSWR(
     ['/api/coingecko', { start: 1, limit: tokensPerPage, vs_currencies: availableCurrencies.join(',') }],
@@ -2430,11 +2447,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
       };
     }
   }, [selectedToken, timeRange, currency, fetchPriceHistory, setError]);
-
-  useEffect(() => {
-    debouncedSearch(searchQuery);
-    return () => debouncedSearch.cancel();
-  }, [searchQuery, debouncedSearch]);
 
   useEffect(() => {
     if (!selectedToken?.id || document.visibilityState !== 'visible') return;
@@ -2790,6 +2802,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     timeRange,
     searchQuery,
     searchResults,
+    isSearching,
     isDropdownOpen,
     analysisLinks,
     isAnalyzing,

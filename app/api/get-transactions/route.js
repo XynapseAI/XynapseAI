@@ -49,7 +49,7 @@ async function checkIPBan(ip) {
 async function trackViolation(ip) {
   const redisClient = await getRedisClient();
   const key = `violations:${ip}`;
-  const maxViolations = 100;
+  const maxViolations = 50;
   const windowMs = 30 * 60 * 1000;
   const pipeline = redisClient.multi();
   pipeline.incr(key);

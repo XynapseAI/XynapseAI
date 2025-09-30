@@ -1,4 +1,5 @@
 // app/api/watchlists/route.js
+// app/api/watchlists/route.js
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
@@ -319,6 +320,28 @@ export async function POST(request) {
         logger.warn(`Wallet ${normalizedAddress} already in watchlist for user ${session.user.id}`);
         return NextResponse.json(
           { success: false, detail: 'Wallet already in watchlist' },
+          { status: 400, headers }
+        );
+      }
+
+      // Check watchlist limit based on user tier
+      const countResult = await query(
+        `SELECT COUNT(*) as count FROM watchlists WHERE user_id = $1`,
+        [session.user.id]
+      );
+      const currentCount = parseInt(countResult.rows[0].count);
+
+      const tierResult = await query(
+        `SELECT tier, is_premium FROM users WHERE id = $1`,
+        [session.user.id]
+      );
+      const userTier = tierResult.rows[0]?.tier || (tierResult.rows[0]?.is_premium ? 'Premium' : 'Basic');
+
+      const maxLimit = userTier === 'Premium' ? 20 : 5;
+      if (currentCount >= maxLimit) {
+        logger.warn(`Watchlist limit exceeded for user ${session.user.id}: ${currentCount}/${maxLimit}`);
+        return NextResponse.json(
+          { success: false, detail: `Watchlist limit exceeded. ${userTier === 'Premium' ? 'Max 20 wallets reached.' : 'Basic users limited to 5 wallets. Upgrade to Premium for 20!'}` },
           { status: 400, headers }
         );
       }

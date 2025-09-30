@@ -1,3 +1,4 @@
+// components/WatchlistsTab.jsx
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -47,9 +48,11 @@ const Tooltip = ({ children, text }) => {
     >
       {children}
       <div
-        className={`absolute ${isVisible ? 'block' : 'hidden'} bg-white/5 backdrop-blur-md border border-white/10 text-white/80 text-[9px] sm:text-[10px] py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg shadow-neon-sm z-20 -top-8 sm:-top-10 left-1/2 -translate-x-1/2 whitespace-nowrap font-saira transition-all duration-300`}
+        className={`absolute ${isVisible ? 'block' : 'hidden'} bg-white/5 backdrop-blur-md border border-white/10 text-white/80 text-[9px] sm:text-[10px] py-1 sm:py-1.5 px-2 sm:px-3 rounded-lg shadow-neon-sm z-20 top-8 sm:top-10 left-1/2 -translate-x-1/2 max-w-[200px] text-center leading-relaxed`}
       >
-        {text}
+        {text.split(' - ').map((line, index) => (
+          <div key={index}>{line}</div>
+        ))}
       </div>
     </div>
   );
@@ -673,6 +676,30 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     setLoadingStates((prev) => ({ ...prev, tokenInfo: tokenInfoValidating }));
   }, [tokenInfoData, tokenInfoError, tokenInfoValidating]);
 
+  const { data: userTier, isLoading: userTierLoading } = useQuery({
+    queryKey: ['userTier', session?.user?.id],
+    queryFn: async () => {
+      const response = await axios.get(`/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+        withCredentials: true,
+      });
+      if (!response.data.success) throw new Error(response.data.detail || 'Unable to fetch user tier');
+      return {
+        isPremium: response.data.user.isPremium || false,
+        tier: response.data.user.isPremium ? 'Premium' : response.data.user.tier || 'Basic',
+      };
+    },
+    enabled: status === 'authenticated' && !!session?.user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const maxWalletsLimit = useMemo(() => {
+    return userTier?.isPremium ? 20 : 5;
+  }, [userTier]);
+
+  const isAtLimit = useMemo(() => {
+    return watchlists.length >= maxWalletsLimit;
+  }, [watchlists.length, maxWalletsLimit]);
+
   const fetchNameTagsForAddresses = useCallback(
     async (addresses) => {
       if (!addresses || addresses.length === 0) {
@@ -853,6 +880,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
   }, [session, isValidSolanaAddress, initialAddress, updateUrl, forceFetch, isInitialLoad, searchParams]);
 
   const handleAddWallet = async () => {
+    if (isAtLimit) {
+      toast.error(
+        userTier?.isPremium
+          ? 'You have reached the maximum of 20 wallets in your watchlist.'
+          : 'Basic users are limited to 5 wallets. Upgrade to Premium for up to 20 wallets!',
+        { position: 'top-center', autoClose: 5000 }
+      );
+      return;
+    }
+
     if (!newAddress) {
       setError('Please enter a wallet address.');
       toast.error('Please enter a wallet address.', { position: 'top-center', autoClose: 5000 });
@@ -913,6 +950,16 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
     } catch (err) {
       const errorMessage = err.response?.data?.detail || `Failed to add wallet: ${err.message}`;
       setError(errorMessage);
+      if (errorMessage.includes('watchlist limit')) {
+        toast.error(
+          userTier?.isPremium
+            ? 'You have reached the maximum of 20 wallets in your watchlist.'
+            : 'Basic users are limited to 5 wallets. Upgrade to Premium for up to 20 wallets!',
+          { position: 'top-center', autoClose: 5000 }
+        );
+      } else {
+        toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
+      }
     } finally {
       setLoadingStates((prev) => ({ ...prev, loading: false }));
     }
@@ -1323,7 +1370,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             onClick={() => setShowWatchlistSidebar(false)}
           >
             <motion.div
-              className="w-2/3 h-full bg-black/70 backdrop-blur-sm border-r border-white/10 overflow-y-auto custom-scrollbar shadow-neon-sm relative"
+              className="w-2/3 h-full bg-black/70 backdrop-blur-sm border-r border-white/10 overflow-y-auto custom-scrollbar shadow-neon-sm relative pt-12"
               onClick={(e) => e.stopPropagation()}
             >
               <LoadingOverlay isLoading={loadingStates.loading} isMobile={isMobile} />
@@ -1333,30 +1380,42 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider">
-                      Watchlist
-                    </h3>
+                    <div className="flex items-center gap-1">
+                      <h3 className="text-[10px] sm:text-[12px] font-bold uppercase tracking-wider">
+                        Watchlist ({watchlists.length}/{maxWalletsLimit})
+                      </h3>
+                      <Tooltip text="Upgrade to Premium to add up to 20 wallets (currently limited to 5).">
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 ${userTier?.isPremium ? 'text-yellow-400' : 'text-white/80'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </Tooltip>
+                    </div>
                   </div>
-                  <motion.button
-                    onClick={() => setShowAddModal(true)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="p-1 hover:bg-neon-blue/20 transition-all duration-300"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-5 h-5 rounded-xl text-white"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
+                  <Tooltip text={isAtLimit ? (userTier?.isPremium ? 'Max 20 wallets reached' : 'Basic: Max 5 wallets. Upgrade for 20!') : 'Add Wallet'}>
+                    <motion.button
+                      onClick={() => !isAtLimit && setShowAddModal(true)}
+                      disabled={isAtLimit || userTierLoading}
+                      whileHover={!isAtLimit ? { scale: 1.05 } : {}}
+                      whileTap={!isAtLimit ? { scale: 0.95 } : {}}
+                      className={`p-1 rounded-xl transition-all duration-300 ${isAtLimit ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </motion.button>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-5 h-5 text-white"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </motion.button>
+                  </Tooltip>
                 </div>
                 {watchlists.length === 0 ? (
-                  <p className="text-[9px] sm:text-[10px] text-white/60 text-center">No wallets added</p>
+                  <p className="text-[9px] sm:text-[10px] text-white/60 text-center">
+                    {isAtLimit ? 'Watchlist full. Upgrade to add more!' : 'No wallets added'}
+                  </p>
                 ) : (
                   watchlists.map((wallet) => {
                     const { text: truncatedWalletAddress } = truncateAddress(wallet.address, nameTags);
@@ -1430,30 +1489,42 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
-            <h3 className="text-[10px] sm:text-[12px] font-bold text-white uppercase tracking-wider">
-              Watchlist
-            </h3>
+            <div className="flex items-center gap-2 mt-2">
+              <h3 className={`text-[10px] sm:text-[12px] font-bold uppercase tracking-wider ${userTier?.isPremium ? 'text-yellow-400' : 'text-white'}`}>
+                Watchlist ({watchlists.length}/{maxWalletsLimit})
+              </h3>
+              <Tooltip text="Upgrade to Premium to add up to 20 wallets (currently limited to 5).">
+                <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 ${userTier?.isPremium ? 'text-yellow-400' : 'text-white/80'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </Tooltip>
+            </div>
           </div>
-          <motion.button
-            onClick={() => setShowAddModal(true)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="p-1 hover:bg-neon-blue/20 transition-all duration-300"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5 text-white"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+          <Tooltip text={isAtLimit ? (userTier?.isPremium ? 'Max 20 wallets reached' : 'Basic: Max 5 wallets. Upgrade for 20!') : 'Add Wallet'}>
+            <motion.button
+              onClick={() => !isAtLimit && setShowAddModal(true)}
+              disabled={isAtLimit || userTierLoading}
+              whileHover={!isAtLimit ? { scale: 1.05 } : {}}
+              whileTap={!isAtLimit ? { scale: 0.95 } : {}}
+              className={`p-1 rounded-xl transition-all duration-300 ${isAtLimit ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-          </motion.button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-5 h-5 text-white"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </motion.button>
+          </Tooltip>
         </div>
         {watchlists.length === 0 ? (
-          <p className="text-[9px] sm:text-[10px] text-white/60 text-center">No wallets added</p>
+          <p className="text-[9px] sm:text-[10px] text-white/60 text-center">
+            {isAtLimit ? 'Watchlist full. Upgrade to add more!' : 'No wallets added'}
+          </p>
         ) : (
           watchlists.map((wallet) => {
             const { text: truncatedWalletAddress } = truncateAddress(wallet.address, nameTags);
@@ -1819,7 +1890,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
         ) : (
           <div className="h-full flex items-center justify-center border border-white/10 bg-white/5 rounded-xl shadow-lg shadow-neon-blue/20">
             <p className="text-[9px] sm:text-[10px] text-white/60 text-center">
-              {watchlists.length === 0 ? 'Add a wallet to your watchlist to get started.' : 'Select a wallet from the watchlist.'}
+              {watchlists.length === 0 ? (isAtLimit ? 'Watchlist full. Upgrade to add more!' : 'Add a wallet to your watchlist to get started.') : 'Select a wallet from the watchlist.'}
             </p>
           </div>
         )}
@@ -1898,14 +1969,17 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                 >
                   Cancel
                 </motion.button>
-                <motion.button
-                  onClick={handleAddWallet}
-                  whileHover={{ scale: 1 }}
-                  whileTap={{ scale: 1 }}
-                  className="px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] text-white bg-gradient-to-r from-neon-blue/20 to-emerald-400/20 border border-neon-blue rounded-lg hover:from-neon-blue/30 hover:to-emerald-400/30 shadow-md shadow-neon-blue/20"
-                >
-                  Add
-                </motion.button>
+                <Tooltip text={isAtLimit ? (userTier?.isPremium ? 'Max 20 wallets reached' : 'Basic: Max 5 wallets. Upgrade for 20!') : 'Add Wallet'}>
+                  <motion.button
+                    onClick={handleAddWallet}
+                    disabled={isAtLimit || userTierLoading}
+                    whileHover={!isAtLimit ? { scale: 1 } : {}}
+                    whileTap={!isAtLimit ? { scale: 1 } : {}}
+                    className={`px-3 sm:px-4 py-1 sm:py-1.5 text-[9px] sm:text-[10px] text-white border rounded-lg shadow-md ${isAtLimit ? 'opacity-50 cursor-not-allowed border-gray-500 bg-gray-500/20' : 'bg-gradient-to-r from-neon-blue/20 to-emerald-400/20 border-neon-blue hover:from-neon-blue/30 hover:to-emerald-400/30 shadow-neon-blue/20'}`}
+                  >
+                    Add
+                  </motion.button>
+                </Tooltip>
               </div>
             </motion.div>
           </motion.div>

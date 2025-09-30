@@ -1,3 +1,4 @@
+// app/api/leaderboard/route.js
 // app\api\leaderboard\route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
@@ -6,6 +7,7 @@ import { createClient } from 'redis';
 import { PrismaClient } from '@prisma/client';
 import { verifyRecaptcha } from '@/utils/verifyRecaptcha';
 import cookie from 'cookie';  // Thêm import này
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 let redisClient;
@@ -160,7 +162,8 @@ async function checkDoubleSubmitCSRF(request, ip, userId) {
     return false;
   }
 
-  const valid = headerToken === cookieToken && cookieToken === storedToken;
+  const valid = crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken)) &&
+                crypto.timingSafeEqual(Buffer.from(cookieToken), Buffer.from(storedToken));
   if (!valid && process.env.NODE_ENV !== 'production') {
     logger.warn('CSRF token mismatch', {
       headerToken: headerToken.slice(0, 6) + '••••',

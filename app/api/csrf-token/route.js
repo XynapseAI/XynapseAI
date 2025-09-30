@@ -1,3 +1,4 @@
+// app/api/csrf-token/route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { logger } from '../../../utils/serverLogger';
@@ -6,12 +7,20 @@ import { randomBytes } from 'crypto';
 import cookie from 'cookie';
 
 // Initialize Redis client
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-});
-redisClient.on('error', (err) => logger.error('Redis Client Error', err));
-if (!redisClient.isOpen) {
-  await redisClient.connect();
+let redisClient;
+async function initRedis() {
+  if (!redisClient) {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+    });
+    redisClient.on('error', (err) => logger.error('Redis Client Error', err));
+    await redisClient.connect();
+    logger.info('Redis connected for CSRF');
+  }
+  if (!redisClient.isOpen) {
+    await redisClient.connect();
+  }
+  return redisClient;
 }
 
 // List of allowed origins
@@ -63,6 +72,7 @@ function isAllowedOrigin(origin, referer) {
 }
 
 async function checkRateLimit(ip) {
+  await initRedis();
   const key = `rate_limit:csrf:${ip}`;
   const requests = await redisClient.get(key) || 0;
   const windowMs = 60 * 1000;
@@ -77,6 +87,7 @@ async function checkRateLimit(ip) {
 }
 
 export async function GET(request) {
+  await initRedis();
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
@@ -107,6 +118,10 @@ export async function GET(request) {
     // Save CSRF token to session
     session.csrfToken = csrfToken;
 
+    // Store CSRF token in Redis for validation (keyed by userId)
+    const key = `csrf:${session.user.id}`;
+    await redisClient.setEx(key, 15 * 60, csrfToken);
+
     const headers = new Headers({
       'Content-Type': 'application/json',
       'Content-Security-Policy': "default-src 'self'",
@@ -134,13 +149,13 @@ export async function GET(request) {
 
 // Close Redis connection on termination
 process.on('SIGTERM', async () => {
-  if (redisClient.isOpen) {
+  if (redisClient?.isOpen) {
     await redisClient.quit();
     logger.info('Redis connection closed on SIGTERM');
   }
 });
 process.on('SIGINT', async () => {
-  if (redisClient.isOpen) {
+  if (redisClient?.isOpen) {
     await redisClient.quit();
     logger.info('Redis connection closed on SIGINT');
   }

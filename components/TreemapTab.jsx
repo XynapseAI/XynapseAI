@@ -610,6 +610,29 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
+  // Fetch user data to get accurate isPremium status
+  const fetchUserData = useCallback(async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      const response = await axios.get(`${apiBaseUrl}/api/user?uid=${encodeURIComponent(session.user.id)}`, {
+        headers: { 'Content-Type': 'application/json' },
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        const user = response.data.user;
+        setIsPremium(user.isPremium || false);
+      }
+    } catch (err) {
+      logger.error('Error fetching user data for premium status:', err);
+    }
+  }, [session, apiBaseUrl]);
+
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData]);
+
   useEffect(() => {
     if (fullIncomingData.length > 0 || fullOutgoingData.length > 0 || fullLayer3Data.length > 0) {
       const { nodes: newNodes, edges: newEdges, nametags: newNametags } = aggregateWallets(
@@ -1526,12 +1549,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   }, []);
 
   useEffect(() => {
-    if (session?.user) {
-      setIsPremium(session.user.isPremium || false);
-    }
-  }, [session]);
-
-  useEffect(() => {
     const handleClickOutside = (event) => {
       if (chainDropdownRef.current && !chainDropdownRef.current.contains(event.target)) {
         setIsChainDropdownOpen(false);
@@ -1632,7 +1649,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+                  d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
                 />
               </svg>
               Network Graph
