@@ -29,6 +29,15 @@ const Spinner = ({ className = "h-4 w-4", color = "text-blue-400" }) => (
   </svg>
 );
 
+// Blinking Dots component for loading states
+const BlinkingDots = () => (
+  <div className="flex items-center gap-0.5">
+    <span className="w-1 h-1 bg-white/70 rounded-full animate-bounce"></span>
+    <span className="w-1 h-1 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></span>
+    <span className="w-1 h-1 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+  </div>
+);
+
 // Daily Check-in Bar Component - Updated to disable if not twitterConnected
 const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, twitterConnected }) => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -93,10 +102,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
                   whileTap={{ scale: (isLoading || !twitterConnected) ? 1 : 0.95 }}
                 >
                   {isLoading ? (
-                    <>
-                      <Spinner className="h-3 w-3" color="text-white/70" />
-                      <span className="animate-pulse"></span>
-                    </>
+                    <BlinkingDots />
                   ) : !twitterConnected ? (
                     'Connect Twitter'
                   ) : (
@@ -865,10 +871,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 }}
                               >
                                 {verifyTaskMutation.isLoading ? (
-                                  <>
-                                    <Spinner className="h-3 w-3" color="text-white/70" />
-                                    <span className="animate-pulse"></span>
-                                  </>
+                                  <BlinkingDots />
                                 ) : isCompleted ? (
                                   <>
                                     <Check className="w-3 h-3" />
@@ -1298,33 +1301,43 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           />
         )}
 
-        {/* Tab Navigation - Enhanced */}
+        {/* Tab Navigation - Enhanced with moving indicator */}
         <motion.div
-          className="border border-white/10 rounded-xl bg-gradient-to-r from-black/30 to-gray-900/30 flex flex-col shadow-xl"
+          className="border border-white/10 rounded-xl bg-gradient-to-r from-black/30 to-gray-900/30 flex flex-col shadow-xl relative"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <div className="border-b border-white/10 bg-black/20 flex h-[32px] sm:h-[40px]">
-            {['tasks', 'leaderboard'].map((tab) => (
-              <motion.button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${activeTab === tab 
-                  ? 'border-b-2 border-white/60 text-white shadow-lg' 
-                  : 'text-white/70 hover:text-neon-blue hover:bg-white/5'
-                }`}
-              >
-                {tab === 'tasks' && <svg className="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12H12V2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>}
-                {tab === 'leaderboard' && <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                </svg>}
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </motion.button>
-            ))}
+          <div className="border-b border-white/10 bg-black/20 flex h-[32px] sm:h-[40px] overflow-hidden">
+            {['tasks', 'leaderboard'].map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <motion.button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${isActive 
+                    ? 'text-white shadow-lg' 
+                    : 'text-white/70 hover:text-neon-blue hover:bg-white/5'
+                  }`}
+                >
+                  {tab === 'tasks' && <svg className="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12H12V2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>}
+                  {tab === 'leaderboard' && <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>}
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  {isActive && (
+                    <motion.div
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white to-emerald-400 rounded-full"
+                      layoutId="profileTabIndicator"
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                    />
+                  )}
+                </motion.button>
+              );
+            })}
           </div>
           {/* Updated: Overlay connect Twitter covering tab content if not connected */}
           {!userData?.twitterHandle ? (

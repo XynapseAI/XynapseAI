@@ -164,14 +164,14 @@ async function isAllowedOrigin(origin, referer, ip) {
 }
 
 const SUPPORTED_CHAINS = {
-  '1': { name: 'ethereum', explorer: 'Etherscan', apiUrl: 'https://api.etherscan.io/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'ethereum' },
-  '56': { name: 'bsc', explorer: 'BscScan', apiUrl: 'https://api.bscscan.com/api', apiKey: process.env.BSCSCAN_API_KEY, coingeckoId: 'binance-smart-chain' },
-  '10': { name: 'optimism', explorer: 'Optimistic Etherscan', apiUrl: 'https://api-optimistic.etherscan.io/api', apiKey: process.env.OPTIMISM_API_KEY, coingeckoId: 'optimism' },
+  '1': { name: 'ethereum', explorer: 'Etherscan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'ethereum' },
+  '56': { name: 'bsc', explorer: 'BscScan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'binance-smart-chain' },
+  '10': { name: 'optimism', explorer: 'Optimistic Etherscan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'optimism' },
   '130': { name: 'unichain', explorer: 'Unichain Explorer', apiUrl: '', apiKey: '', coingeckoId: '' },
-  '137': { name: 'polygon', explorer: 'Polygonscan', apiUrl: 'https://api.polygonscan.com/api', apiKey: process.env.POLYGONSCAN_API_KEY, coingeckoId: 'polygon-pos' },
+  '137': { name: 'polygon', explorer: 'Polygonscan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'polygon-pos' },
   '5000': { name: 'mantle', explorer: 'Mantle Explorer', apiUrl: 'https://explorer.mantle.xyz/api', apiKey: '', coingeckoId: 'mantle' },
-  '42161': { name: 'arbitrum', explorer: 'Arbiscan', apiUrl: 'https://api.arbiscan.io/api', apiKey: process.env.ARBISCAN_API_KEY, coingeckoId: 'arbitrum-one' },
-  '43114': { name: 'avalanche', explorer: 'SnowTrace', apiUrl: 'https://api.snowtrace.io/api', apiKey: process.env.SNOWTRACE_API_KEY, coingeckoId: 'avalanche' },
+  '42161': { name: 'arbitrum', explorer: 'Arbiscan', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'arbitrum-one' },
+  '43114': { name: 'avalanche', explorer: 'SnowTrace', apiUrl: 'https://api.etherscan.io/v2/api', apiKey: process.env.ETHERSCAN_API_KEY, coingeckoId: 'avalanche' },
   '59144': { name: 'linea', explorer: 'Linea Explorer', apiUrl: '', apiKey: '', coingeckoId: 'linea' },
   '534352': { name: 'scroll', explorer: 'Scroll Explorer', apiUrl: '', apiKey: '', coingeckoId: 'scroll' },
   '7777777': { name: 'zora', explorer: 'Zora Explorer', apiUrl: '', apiKey: '', coingeckoId: 'zora' },
@@ -514,7 +514,7 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         } else if (chain === 'tron') {
           apiUrl = `${chainConfig.apiUrl}/transaction?address=${address}&limit=${layer3Limit}&start=${(page - 1) * layer3Limit}`;
         } else {
-          apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${layer3Limit}&sort=desc&apikey=${chainConfig.apiKey}`;
+          apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${layer3Limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
         }
 
         const response = await fetchWithRateLimit(apiUrl, { timeout: 20000 });
@@ -652,9 +652,9 @@ export async function POST(request) {
       apiUrl = `${chainConfig.apiUrl}/transaction?address=${wallet_address}&limit=${limit}&start=${(page - 1) * limit}`;
       fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 20000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
     } else {
-      apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&apikey=${chainConfig.apiKey}`;
+      apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
       fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 20000 }).then((res) => ({ type: 'native', data: res.data.result || [] })));
-      const tokenApiUrl = `${chainConfig.apiUrl}?module=account&action=tokentx&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&apikey=${chainConfig.apiKey}`;
+      const tokenApiUrl = `${chainConfig.apiUrl}?module=account&action=tokentx&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
       fetchPromises.push(fetchWithRateLimit(tokenApiUrl, { timeout: 20000 }).then((res) => ({ type: 'token', data: res.data.result || [] })));
     }
 
