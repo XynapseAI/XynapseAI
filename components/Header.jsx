@@ -254,7 +254,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         {isMenuOpen && (
           <motion.div
             ref={menuRef}
-            className="fixed top-0 left-0 w-full max-w-[80vw] h-[100vh] bg-gradient-to-br from-black/90 to-gray-900/90 backdrop-blur-xl z-50 flex flex-col p-4 sm:hidden rounded-r-xl border-r border-white/10 shadow-2xl shadow-neon-blue/20 overflow-y-auto hide-scrollbar"
+            className="fixed top-0 left-0 w-full max-w-[60vw] h-[100vh] bg-black/95 backdrop-blur-xs z-50 flex flex-col p-4 sm:hidden rounded-r-xl border-r border-white/10 shadow-2xl shadow-neon-blue/20 overflow-y-auto hide-scrollbar"
             initial="closed"
             animate="open"
             exit="closed"
@@ -289,11 +289,11 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                         : 'text-white/70 hover:text-white hover:bg-white/5 hover:border-white/5'
                       }`}
                   >
-                    <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-neon-blue' : 'text-white/70'}`} />
-                    <span className={`matrix-text flex-1 ${isActive ? 'text-neon-blue' : ''}`}>{renderMatrixText(tab.label)}</span>
+                    <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white/70' : 'text-white/70'}`} />
+                    <span className={`matrix-text flex-1 ${isActive ? 'text-white/70' : ''}`}>{renderMatrixText(tab.label)}</span>
                     {isActive && (
                       <motion.div
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-neon-blue to-purple-500 rounded-full"
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white to-emerald-400 rounded-full"
                         layoutId="activeTabIndicator"
                         transition={{ duration: 0.3, ease: 'easeOut' }}
                       />

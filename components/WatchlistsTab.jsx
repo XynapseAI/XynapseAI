@@ -1342,7 +1342,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       {/* Toggle Button for Mobile */}
       {!showWatchlistSidebar && (
         <motion.button
-          className="sm:hidden fixed top-8 left-0 p-2 bg-white/5 border border-white/20 rounded-r-lg text-white hover:bg-neon-blue/20 transition-all duration-300 overflow-hidden"
+          className="sm:hidden fixed top-10 left-0 p-2 bg-white/5 border border-white/20 rounded-r-lg text-white hover:bg-neon-blue/20 transition-all duration-300 overflow-hidden"
           style={{ width: '25px', height: '40px', marginLeft: '-7px' }}
           onClick={() => setShowWatchlistSidebar(true)}
         >
@@ -1366,7 +1366,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="fixed inset-0 sm:hidden bg-black/10 backdrop-blur-sm z-40"
+            className="fixed inset-0 sm:hidden bg-black/10 backdrop-blur-sm z-30"
             onClick={() => setShowWatchlistSidebar(false)}
           >
             <motion.div
@@ -1731,7 +1731,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                   >
                     {activeTab === 'PORTFOLIO' && (
                       <div className="h-full flex flex-col relative">
-                        <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.balances || loadingStates.tokenInfo} isMobile={isMobile} />
+                        <LoadingOverlay className="absolute inset-0 z-20" isLoading={loadingStates.balances || loadingStates.tokenInfo} isMobile={isMobile} />
                         {error ? (
                           <div className="flex-1 flex items-center justify-center">
                             <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 rounded-lg">
@@ -1788,7 +1788,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
                     )}
                     {activeTab === 'ACTIVITY' && (
                       <div className="h-full flex flex-col relative">
-                        <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.transactions} isMobile={isMobile} />
+                        <LoadingOverlay className="absolute inset-0 z-20" isLoading={loadingStates.transactions} isMobile={isMobile} />
                         {transactionsError ? (
                           <div className="flex-1 flex items-center justify-center">
                             <p className="text-[9px] sm:text-[10px] text-red-400 text-center bg-red-400/10 p-2 sm:p-3 rounded-lg">

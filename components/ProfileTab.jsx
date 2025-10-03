@@ -782,7 +782,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render Tasks Section - Removed small connect prompt (now handled in tab content)
   const renderTasksSection = useCallback(
     () => (
-      <div className="relative bg-gradient-to-br from-black/80 to-gray-900/80 rounded-b-xl overflow-y-auto min-h-[calc(40vh)] sm:min-h-[calc(40vh)] max-h-[calc(40vh)] sm:max-h-[calc(40vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
+      <div className="relative bg-gradient-to-br from-black/80 to-gray-900/80 rounded-b-xl overflow-y-auto min-h-[calc(45vh)] sm:min-h-[calc(45vh)] max-h-[calc(50vh)] sm:max-h-[calc(45vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
         <LoadingOverlay
           isLoading={tasksLoading || taskProgressLoading}
           isMobile={isMobile}
@@ -980,7 +980,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render Leaderboard Section
   const renderLeaderboardSection = useCallback(
     () => (
-      <div className="relative bg-gradient-to-br from-black/5 to-gray-900/5 rounded-b-xl overflow-y-auto min-h-[calc(40vh)] sm:min-h-[calc(40vh)] max-h-[calc(40vh)] sm:max-h-[calc(40vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
+      <div className="relative bg-gradient-to-br from-black/5 to-gray-900/5 rounded-b-xl overflow-y-auto min-h-[calc(45vh)] sm:min-h-[calc(45vh)] max-h-[calc(50vh)] sm:max-h-[calc(45vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
         <LoadingOverlay
           isLoading={leaderboardLoading}
           isMobile={isMobile}
@@ -1125,7 +1125,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-6rem)] overflow-y-auto hide-scrollbar relative"
+      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar relative"
     >
       <ActionLoadingOverlay isLoading={overallLoading} />
       <ToastContainer
@@ -1280,7 +1280,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                               <motion.button
                                 onClick={() => disconnectTwitterMutation.mutate()}
                                 disabled={disconnectTwitterMutation.isLoading}
-                                className={`p-1 rounded-sm bg-red-500/20 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/40'}`}
+                                className={`p-1 rounded-lg bg-white/10 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/40'}`}
                                 whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
                                 whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
                                 title="Disconnect X"
