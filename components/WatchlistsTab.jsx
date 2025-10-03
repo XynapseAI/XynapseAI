@@ -1373,7 +1373,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
               className="w-2/3 h-full bg-black/70 backdrop-blur-sm border-r border-white/10 overflow-y-auto custom-scrollbar shadow-neon-sm relative pt-12"
               onClick={(e) => e.stopPropagation()}
             >
-              <LoadingOverlay isLoading={loadingStates.loading} isMobile={isMobile} />
+              <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.loading} isMobile={isMobile} />
               <div className="p-2 ">
                 <div className="flex items-center justify-between mb-3 bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
                   <div className="flex items-center gap-2">
@@ -1483,7 +1483,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
 
       {/* Left Sidebar: Watchlist (Desktop) */}
       <div className="hidden sm:block w-[20%] h-[96%] border border-white/10 rounded-xl p-3 sm:p-4 mt-3 overflow-y-auto custom-scrollbar bg-white/5 relative">
-        <LoadingOverlay isLoading={loadingStates.loading} isMobile={isMobile} />
+        <LoadingOverlay className="absolute inset-0 z-50" isLoading={loadingStates.loading} isMobile={isMobile} />
         <div className="flex items-center justify-between mb-3 bg-gradient-to-r from-white/20 to-transparent p-1 rounded">
           <div className="flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

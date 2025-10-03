@@ -14,6 +14,8 @@ import Link from "next/link"
 import Image from "next/image"
 import "../styles/pages.css"
 import * as THREE from "three"
+import { TermsOfServiceContent } from '../components/TermsOfService';
+import { PrivacyPolicyContent } from '../components/PrivacyPolicy';
 
 gsap.registerPlugin(ScrollTrigger, MotionPathPlugin)
 
@@ -621,7 +623,27 @@ export default function Home() {
   const [isProductOpen, setIsProductOpen] = useState(false)
   const [isResourcesOpen, setIsResourcesOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false) // Added mobile menu state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalContent, setModalContent] = useState(null);
   const [currentLogoIndex, setCurrentLogoIndex] = useState(0)
+
+  const openModal = (content) => {
+    setModalContent(content);
+    setIsModalOpen(true);
+    document.body.style.overflow = 'hidden';
+    if (lenis) {
+      lenis.stop();
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setModalContent(null);
+    document.body.style.overflow = 'auto';
+    if (lenis) {
+      lenis.start();
+    }
+  };
 
   useEffect(() => {
     const lenisInstance = new Lenis({
@@ -1476,12 +1498,53 @@ export default function Home() {
                 />
               </span>
             </div>
+            <div className="flex gap-6 text-xs text-gray-500">
+              <button onClick={() => openModal('terms')} className="hover:text-white transition-colors">
+                Terms
+              </button>
+              <button onClick={() => openModal('privacy')} className="hover:text-white transition-colors">
+                Privacy
+              </button>
+            </div>
           </div>
           <p className="text-center text-xs text-gray-500 mt-8">
             Copyright © 2025 Xynapse Analytics. All rights reserved.
           </p>
         </div>
       </footer>
+      {/* Modal for Terms and Privacy */}
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
+          onClick={closeModal}
+        >
+          <div
+            className="bg-gray-900/50 backdrop-blur-lg border border-white/20 rounded-2xl w-full max-w-7xl h-[90vh] relative flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 backdrop-blur-lg border-b border-white/20 p-6 flex justify-between items-center">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white uppercase">
+                {modalContent === 'privacy'
+                  ? 'Xynapse Privacy Policy'
+                  : 'Xynapse Terms of Service'}
+                <span className="block text-sm sm:text-base text-gray-300 mt-1">
+                  Effective Date: June 21, 2025
+                </span>
+              </h1>
+              <button
+                onClick={closeModal}
+                aria-label="Close modal"
+                className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
+              >
+                ✕
+              </button>
+            </div>
+            <div data-lenis-prevent className="text-xs sm:text-sm flex-1 overflow-y-auto custom-scrollbar p-6 prose prose-invert max-w-none">
+              {modalContent === 'privacy' ? <PrivacyPolicyContent /> : <TermsOfServiceContent />}
+            </div>
+          </div>
+        </div>
+      )}
       <style jsx>{`
         @keyframes marquee-right-to-left {
           0% { transform: translateX(0); }
@@ -1532,6 +1595,19 @@ export default function Home() {
         .hamburger-icon.open::after {
           transform: rotate(-45deg);
           top: 0;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #1a1a1a;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #555;
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #666;
         }
       `}</style>
     </div>

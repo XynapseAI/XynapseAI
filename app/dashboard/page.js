@@ -23,6 +23,8 @@ import crypto from 'crypto';
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, Sphere, Float, Environment } from "@react-three/drei";
 import * as THREE from "three";
+import { TermsOfServiceContent } from '../../components/TermsOfService';
+import { PrivacyPolicyContent } from '../../components/PrivacyPolicy';
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -258,8 +260,22 @@ export default function Dashboard() {
   const [providers, setProviders] = useState(null);
   const [email, setEmail] = useState('');
   const [csrfToken, setCsrfToken] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalContent, setModalContent] = useState(null);
   const recaptchaRef = useRef(null);
   const { userData, loading, error } = useUserData(session, csrfToken, setIsAnalyzing);
+
+  const openModal = (content) => {
+    setModalContent(content);
+    setIsModalOpen(true);
+    document.body.style.overflow = 'hidden';
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setModalContent(null);
+    document.body.style.overflow = 'auto';
+  };
 
   const fetchProvidersWithRetry = useCallback(async (retries = 3, delay = 1000) => {
     for (let i = 0; i < retries; i++) {
@@ -632,13 +648,13 @@ export default function Dashboard() {
                     className="mt-6 text-xs text-gray-500 text-center leading-relaxed"
                   >
                     By clicking continue, you agree to our{' '}
-                    <a href="https://example.com/terms" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">
+                    <button onClick={() => openModal('terms')} className="text-white hover:underline">
                       Terms of Service
-                    </a>{' '}
+                    </button>{' '}
                     and{' '}
-                    <a href="https://example.com/privacy" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">
+                    <button onClick={() => openModal('privacy')} className="text-white hover:underline">
                       Privacy Policy
-                    </a>.
+                    </button>.
                   </motion.p>
                 </motion.div>
               </motion.div>
@@ -704,6 +720,39 @@ export default function Dashboard() {
           of Google.
         </p>
         <ToastContainer position="top-center" autoClose={3000} hideProgressBar closeOnClick pauseOnHover />
+        {/* Modal for Terms and Privacy */}
+        {isModalOpen && (
+          <div
+            className="fixed inset-0 bg-black/75 flex items-center justify-center z-50"
+            onClick={closeModal}
+          >
+            <div
+              className="bg-gray-900/50 backdrop-blur-lg border border-white/20 rounded-2xl w-full max-w-7xl h-[90vh] relative flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 backdrop-blur-lg border-b border-white/20 p-6 flex justify-between items-center">
+                <h1 className="text-2xl sm:text-3xl font-bold text-white uppercase">
+                  {modalContent === 'privacy'
+                    ? 'Xynapse Privacy Policy'
+                    : 'Xynapse Terms of Service'}
+                  <span className="block text-sm sm:text-base text-gray-300 mt-1">
+                    Effective Date: June 21, 2025
+                  </span>
+                </h1>
+                <button
+                  onClick={closeModal}
+                  aria-label="Close modal"
+                  className="text-white text-xl font-bold hover:text-neon-blue transition-all duration-300"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="text-xs sm:text-sm flex-1 overflow-y-auto custom-scrollbar p-6 prose prose-invert max-w-none">
+                {modalContent === 'privacy' ? <PrivacyPolicyContent /> : <TermsOfServiceContent />}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </CurrencyProvider>
   );
