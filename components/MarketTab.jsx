@@ -1499,7 +1499,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     TOP HOLDERS
                     {activeMarketTab === "holders" && (
                       <motion.div
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-white"
+                        className="absolute bottom-0 left-0 right-0"
                         layoutId="activeTab"
                         transition={{ duration: 0.3, ease: "easeInOut" }}
                       />
@@ -1522,7 +1522,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     CEX MARKETS
                     {activeMarketTab === "cex" && (
                       <motion.div
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-white"
+                        className="absolute bottom-0 left-0 right-0"
                         layoutId="activeTab"
                         transition={{ duration: 0.3, ease: "easeInOut" }}
                       />
@@ -1542,7 +1542,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     ON-CHAIN
                     {activeMarketTab === "dex" && (
                       <motion.div
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-white"
+                        className="absolute bottom-0 left-0 right-0"
                         layoutId="activeTab"
                         transition={{ duration: 0.3, ease: "easeInOut" }}
                       />

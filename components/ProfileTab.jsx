@@ -38,6 +38,26 @@ const BlinkingDots = () => (
   </div>
 );
 
+// Action Loading Overlay for central screen loading during check-in and verify
+const ActionLoadingOverlay = ({ isLoading }) => (
+  <AnimatePresence>
+    {isLoading && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+      >
+        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 flex flex-col items-center gap-3 max-w-sm mx-4">
+          <Spinner className="h-8 w-8" color="text-blue-400" />
+          <span className="text-white text-sm font-medium text-center">Verifying your action...</span>
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+)
+
 // Daily Check-in Bar Component - Updated to disable if not twitterConnected
 const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, twitterConnected }) => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -155,6 +175,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const [currentPage, setCurrentPage] = useState({ tasks: 1, leaderboard: 1 });
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [followedTasks, setFollowedTasks] = useState(new Set()); // Track followed tasks
+  const [immediateLoading, setImmediateLoading] = useState(false);
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -651,8 +672,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
   // Handle Daily Check-in
   const handleDailyCheckin = () => {
+    setImmediateLoading(true);
     const task = { id: 'daily_checkin', description: 'Daily Check-in', points: 10, task_type: 'daily_checkin' };
-    verifyTaskMutation.mutate(task);
+    verifyTaskMutation.mutate(task, {
+      onSettled: () => {
+        setImmediateLoading(false);
+      },
+    });
   };
 
   // Get Days Active
@@ -744,32 +770,46 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     [isMobile, rankings, getProfilePictureSrc]
   );
 
+  const handleVerifyTask = useCallback((task) => {
+    setImmediateLoading(true);
+    verifyTaskMutation.mutate(task, {
+      onSettled: () => {
+        setImmediateLoading(false);
+      },
+    });
+  }, [verifyTaskMutation]);
+
   // Render Tasks Section - Removed small connect prompt (now handled in tab content)
   const renderTasksSection = useCallback(
     () => (
       <div className="relative bg-gradient-to-br from-black/80 to-gray-900/80 rounded-b-xl overflow-y-auto min-h-[calc(40vh)] sm:min-h-[calc(40vh)] max-h-[calc(40vh)] sm:max-h-[calc(40vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
         <LoadingOverlay
-          isLoading={tasksLoading || taskProgressLoading || verifyTaskMutation.isLoading}
+          isLoading={tasksLoading || taskProgressLoading}
           isMobile={isMobile}
-          className="h-full z-60"
+          className="absolute inset-0 z-10 h-full"
+        />
+        <LoadingOverlay
+          isLoading={immediateLoading || verifyTaskMutation.isLoading}
+          isMobile={isMobile}
+          className="absolute inset-0 z-20 h-full"
         />
         {tasksError && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center"
+            className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center relative z-0"
           >
             Error: {tasksError.message}
           </motion.div>
         )}
         {!tasks?.length && !tasksError && !(tasksLoading || taskProgressLoading) && (
-          <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4 h-full flex items-center justify-center">
+          <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4 h-full flex items-center justify-center relative z-0">
             No tasks available.
           </p>
         )}
         {tasks?.length > 0 && (
           <>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto relative z-0">
               <table className="w-full text-[9px] sm:text-[11px] bg-black/50 rounded-b-xl table-fixed">
                 <thead className="bg-black/50">
                   <tr>
@@ -840,13 +880,15 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                               </motion.button>
                             ) : (
                               <motion.button
-                                onClick={() => verifyTaskMutation.mutate(task)}
+                                onClick={() => handleVerifyTask(task)}
                                 disabled={
+                                  immediateLoading ||
                                   verifyTaskMutation.isLoading ||
-                                  !userData?.twitterHandle ||  // Updated: Disable ALL tasks if no Twitter (removed !== 'daily_checkin')
+                                  !userData?.twitterHandle ||
                                   isCompleted
                                 }
                                 className={`px-2 py-1 rounded-lg text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg relative overflow-hidden ${
+                                  immediateLoading ||
                                   verifyTaskMutation.isLoading ||
                                   !userData?.twitterHandle ||
                                   isCompleted
@@ -855,22 +897,24 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 }`}
                                 whileHover={{
                                   scale:
+                                    immediateLoading ||
                                     verifyTaskMutation.isLoading ||
-                                      !userData?.twitterHandle ||
-                                      isCompleted
+                                    !userData?.twitterHandle ||
+                                    isCompleted
                                       ? 1
                                       : 1.05,
                                 }}
                                 whileTap={{
                                   scale:
+                                    immediateLoading ||
                                     verifyTaskMutation.isLoading ||
-                                      !userData?.twitterHandle ||
-                                      isCompleted
+                                    !userData?.twitterHandle ||
+                                    isCompleted
                                       ? 1
                                       : 0.95,
                                 }}
                               >
-                                {verifyTaskMutation.isLoading ? (
+                                {(immediateLoading || verifyTaskMutation.isLoading) ? (
                                   <BlinkingDots />
                                 ) : isCompleted ? (
                                   <>
@@ -888,7 +932,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                     Verify
                                   </>
                                 )}
-                                {verifyTaskMutation.isLoading && (
+                                {(immediateLoading || verifyTaskMutation.isLoading) && (
                                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer"></div>
                                 )}
                               </motion.button>
@@ -902,7 +946,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               </table>
             </div>
             {tasks?.length > itemsPerPage && (
-              <div className="flex justify-end gap-2 mt-2 p-2 bg-white/5 rounded-xl">
+              <div className="flex justify-end gap-2 mt-2 p-2 bg-white/5 rounded-xl relative z-0">
                 <motion.button
                   onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
                   disabled={currentPage.tasks === 1}
@@ -930,7 +974,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         )}
       </div>
     ),
-    [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, followedTasks]
+    [tasks, tasksLoading, taskProgressLoading, tasksError, taskProgress, verifyTaskMutation, userData, isMobile, currentPage, getPaginatedData, getTotalPages, handlePageChange, followedTasks, immediateLoading, handleVerifyTask]
   );
 
   // Render Leaderboard Section
@@ -940,13 +984,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         <LoadingOverlay
           isLoading={leaderboardLoading}
           isMobile={isMobile}
-          className="h-full"
+          className="absolute inset-0 z-10 h-full"
         />
         {leaderboardError && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 text-[9px] sm:text-[11px] p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center gap-2"
+            className="text-red-400 text-[9px] sm:text-[11px] p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center gap-2 relative z-0"
           >
             Error: {leaderboardError.message}
             <button
@@ -958,13 +1002,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           </motion.div>
         )}
         {!leaderboardLoading && !leaderboardError && rankings?.length === 0 && (
-          <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4 h-full flex items-center justify-center">
+          <p className="text-[9px] sm:text-[11px] text-white/60 text-center p-4 h-full flex items-center justify-center relative z-0">
             No ranking data available.
           </p>
         )}
         {!leaderboardLoading && rankings?.length > 0 && (
           <>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto relative z-0">
               <table className="w-full text-[9px] sm:text-[11px] bg-black/10 rounded-b-xl table-fixed">
                 <thead className="bg-black/50">
                   <tr>
@@ -980,7 +1024,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               </table>
             </div>
             {rankings?.length > itemsPerPage && (
-              <div className="flex justify-end gap-2 mt-2 p-2 bg-white/5 rounded-xl">
+              <div className="flex justify-end gap-2 mt-2 p-2 bg-white/5 rounded-xl relative z-0">
                 <motion.button
                   onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
                   disabled={currentPage.leaderboard === 1}
@@ -1074,13 +1118,16 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     return <LoginPrompt />;
   }
 
+  const overallLoading = immediateLoading || verifyTaskMutation.isLoading;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-6rem)] overflow-y-auto hide-scrollbar"
+      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-6rem)] overflow-y-auto hide-scrollbar relative"
     >
+      <ActionLoadingOverlay isLoading={overallLoading} />
       <ToastContainer
         position="top-center"
         autoClose={5000}
@@ -1099,19 +1146,23 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="p-2 sm:p-0 rounded-xl">
-            <LoadingOverlay isLoading={userLoading} isMobile={isMobile} />
+          <div className="p-2 sm:p-0 rounded-xl relative">
+            <LoadingOverlay 
+              isLoading={userLoading} 
+              isMobile={isMobile} 
+              className="absolute inset-0 z-10" 
+            />
             {userError && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-red-400 text-[8px] sm:text-[10px] p-2 text-center mb-2 bg-red-500/10 rounded-lg border border-red-500/20"
+                className="text-red-400 text-[8px] sm:text-[10px] p-2 text-center mb-2 bg-red-500/10 rounded-lg border border-red-500/20 relative z-0"
               >
                 Error: {userError.message}
               </motion.div>
             )}
             {userData && (
-              <div>
+              <div className="relative z-0">
                 <div className="absolute top-3 right-3">
                   <motion.button
                     onClick={onSignOut}
@@ -1295,7 +1346,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             last7Days={userData.last7Days}
             streak={userData.streak}
             onCheckin={handleDailyCheckin}
-            isLoading={verifyTaskMutation.isLoading}
+            isLoading={overallLoading}
             userData={userData}
             twitterConnected={!!userData.twitterHandle}
           />
