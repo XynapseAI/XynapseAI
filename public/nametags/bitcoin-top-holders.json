@@ -115,7 +115,7 @@
         "Name Tag": "SilkRoad-FBI-Confiscated",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -139,7 +139,7 @@
         "Name Tag": "Mr.100",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -331,7 +331,7 @@
         "Name Tag": "967",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -619,7 +619,7 @@
         "Name Tag": "92995586",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1111,7 +1111,7 @@
         "Name Tag": "82375777",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1303,7 +1303,7 @@
         "Name Tag": "559",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1483,7 +1483,7 @@
         "Name Tag": "45505834",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1639,7 +1639,7 @@
         "Name Tag": "107637282",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -2143,7 +2143,7 @@
         "Name Tag": "98590549",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -2539,7 +2539,7 @@
         "Name Tag": "111539946",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -2575,7 +2575,7 @@
         "Name Tag": "7507428",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -2599,7 +2599,7 @@
         "Name Tag": "108394550",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -2647,7 +2647,7 @@
         "Name Tag": "Grayscale Bitcoin Trust",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/grayscale.webp"
       }
     }
   },
@@ -2659,7 +2659,7 @@
         "Name Tag": "Grayscale Bitcoin Mini Trust",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/grayscale.webp"
       }
     }
   },
@@ -2731,7 +2731,7 @@
         "Name Tag": "Invesco Galaxy Bitcoin ETF",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/galaxy.webp"
+        "image": "/icons/invesco.webp"
       }
     }
   },
@@ -2743,7 +2743,7 @@
         "Name Tag": "WisdomTree Bitcoin Fund",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/mtgox.webp"
+        "image": "/icons/wisdom.webp"
       }
     }
   },

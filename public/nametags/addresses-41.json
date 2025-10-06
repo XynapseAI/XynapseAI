@@ -445,7 +445,7 @@
         "Name Tag": "Wormhole: wROSE Token",
         "Description": "Wormhole is a generic message-passing protocol that connects to multiple chains including Ethereum, Solana, Terra, Binance Smart Chain, Polygon, Avalanche, and Oasis.",
         "Token Name": "Wrapped ROSE (Wormhole) (wROSE)",
-        "image": "/icons/default.webp"
+        "image": "/icons/wormhole.webp"
       }
     }
   },
@@ -1418,7 +1418,7 @@
         "Name Tag": "ImmutableX: Merkle Statement",
         "Description": "Layer 2 refers to several approaches to handle transactions off the main Ethereum chain. These allow for higher scalability of the network and reduced transaction fees. Examples include Optimistic and Zero-Knowledge (ZK) Rollups, Validium, Plasma and State Channels.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/immutable.webp"
       }
     }
   },

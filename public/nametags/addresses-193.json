@@ -872,7 +872,7 @@
         "Name Tag": "Zerion: TokenSets Token Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },
@@ -3671,7 +3671,7 @@
         "Name Tag": "ENS: Stable Price Oracle",
         "Description": "ENS offers a secure & decentralised way to address resources both on and off the blockchain using simple, human-readable names.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

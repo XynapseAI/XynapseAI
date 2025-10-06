@@ -1400,7 +1400,7 @@
       "token-sale": {
         "Name Tag": "Bezop: TokenSale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

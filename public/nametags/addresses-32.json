@@ -725,7 +725,7 @@
       "opensea": {
         "Name Tag": "OpenSea: Conduit",
         "Description": "OpenSea is the largest marketplace for crypto collectibles",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },
@@ -3551,7 +3551,7 @@
       "hop-protocol": {
         "Name Tag": "Hop Protocol: Future Team Tokens",
         "Description": "Hop Protocol is a rollup-to-rollup general token bridge. It allows users to send tokens from one rollup to another almost immediately without having to wait for the rollup’s challenge period.",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   }

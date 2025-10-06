@@ -1099,7 +1099,7 @@
       "token-sale": {
         "Name Tag": "WinTokens: Presale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },
@@ -1209,7 +1209,7 @@
       "compound-governance": {
         "Name Tag": "Compound Voting: ConsenSys",
         "Description": "Top voters in Compound's Governance Leaderboard.",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

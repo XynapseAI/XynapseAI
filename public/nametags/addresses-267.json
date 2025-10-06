@@ -1293,7 +1293,7 @@
         "Name Tag": "World Liberty Fi : Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/wlfi.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1304,7 +1304,7 @@
         "Name Tag": "World Liberty Fi : Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/wlfi.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1315,7 +1315,7 @@
         "Name Tag": "World Liberty Fi : Gnosis Safe Proxy",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/wlfi.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1447,7 +1447,7 @@
         "Name Tag": "Bitmine",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bitmine.webp"
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1458,7 +1458,7 @@
         "Name Tag": "Bitmine",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bitmine.webp"
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1469,11 +1469,10 @@
         "Name Tag": "Bitmine",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bitmine.webp"
+        "image": "/icons/default.webp"
       }
     }
   },
-
   "0x286f3e05f18a515f8f461f2dbeb0f4abe482aea4": {
     "Address": "0x286f3e05f18a515f8f461f2dbeb0f4abe482aea4",
     "Labels": {
@@ -1481,17 +1480,18 @@
         "Name Tag": "Bitmine",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bitmine.webp"
+        "image": "/icons/default.webp"
       }
     }
-  },"0x3df3d9f948a0684e472fb633bb556f98fc5a6e3e": {
+  },
+  "0x3df3d9f948a0684e472fb633bb556f98fc5a6e3e": {
     "Address": "0x3df3d9f948a0684e472fb633bb556f98fc5a6e3e",
     "Labels": {
       "uniswap": {
         "Name Tag": "Bitmine",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bitmine.webp"
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1568,7 +1568,7 @@
         "Name Tag": "Bitmine",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/bitmine.webp"
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1821,7 +1821,7 @@
         "Name Tag": "Kelp DAO",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kelpdao.webp"
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1832,7 +1832,7 @@
         "Name Tag": "HTX Hot Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/houbi.webp"
+        "image": "/icons/htx.webp"
       }
     }
   },
@@ -1843,7 +1843,7 @@
         "Name Tag": "HTX Wallet",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/houbi.webp"
+        "image": "/icons/htx.webp"
       }
     }
   },

@@ -2635,12 +2635,12 @@
       "marketplace": {
         "Name Tag": "OpenSea: Payments",
         "Description": "A marketplace is a place where goods and/or services are bought and sold.",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       },
       "opensea": {
         "Name Tag": "OpenSea: Payments",
         "Description": "OpenSea is the largest marketplace for crypto collectibles",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

@@ -110,6 +110,17 @@ const keywordToImage = {
   immutable: 'immutable.webp',
   kelpdao: 'kelpdao.webp',
   ens: 'ens.webp',
+  ishares : 'blackrock.webp',
+  fidelity : 'fidelity.webp',
+  '21shares' : '21shares.webp',
+  bitwise : 'bitwise.webp',
+  vaneck : 'vaneck.webp',
+  franklin : 'franklin.webp',
+  valkyrie : 'valkyrie.webp',
+  invesco : 'invesco.webp',
+  wisdom : 'wisdom.webp',
+  hashdex : 'hashdex.webp',
+  grayscale : 'grayscale.webp',
 };
 
 const getImageFromNameTag = (nameTag = '') => {

@@ -3784,7 +3784,7 @@
         "Description": "Saddle is an automated market maker (AMM) designed to enable efficient trading between pegged value crypto assets. Saddle is launching with a tokenized bitcoin pool, allowing users to trade between and provide liquidity for tBTC, WBTC, sBTC, and renBTC.",
         "Subcategory": "Main",
         "Token Name": "Saddle tBTC/WBTC/renBTC/sBTC (saddleTWRenSBTC)",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

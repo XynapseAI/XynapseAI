@@ -1741,7 +1741,7 @@
         "Name Tag": "ENS: Reverse Records",
         "Description": "ENS offers a secure & decentralised way to address resources both on and off the blockchain using simple, human-readable names.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },
@@ -3127,7 +3127,7 @@
         "Name Tag": "Authereum: ENS Manager V1.0.0",
         "Description": "Authereum is a wallet provider and dapp login solution that uses contract-based accounts to provide a seamless web2.0 onboarding experience that users are familiar with.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

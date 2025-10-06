@@ -279,7 +279,7 @@
         "Name Tag": "Abracadabra.Money: Team Tokens",
         "Description": "A lending platform that uses interest-bearing tokens (ibTKNs) as collateral to borrow a USD pegged stablecoin (Magic Internet Money - MIM), that can be used as any other traditional stablecoin.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },
@@ -3097,7 +3097,7 @@
       "opensea": {
         "Name Tag": "OpenSea: Wallet",
         "Description": "OpenSea is the largest marketplace for crypto collectibles",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

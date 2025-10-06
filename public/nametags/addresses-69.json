@@ -2497,7 +2497,7 @@
         "Name Tag": "Wormhole: USDCso Token",
         "Description": "Wormhole is a generic message-passing protocol that connects to multiple chains including Ethereum, Solana, Terra, Binance Smart Chain, Polygon, Avalanche, and Oasis.",
         "Token Name": "USD Coin (Wormhole) (USDC)",
-        "image": "/icons/default.webp"
+        "image": "/icons/wormhole.webp"
       }
     }
   },

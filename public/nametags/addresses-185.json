@@ -374,7 +374,7 @@
         "Name Tag": "ENS: Token Streaming Contract",
         "Description": "ENS offers a secure & decentralised way to address resources both on and off the blockchain using simple, human-readable names.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },
@@ -2139,7 +2139,7 @@
       "opportunist": {
         "Name Tag": "OpenSea Opportunistic Buyer",
         "Description": "Bounty Hunter, Arbitrage Hunter, Exploiter",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

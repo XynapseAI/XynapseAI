@@ -2109,7 +2109,7 @@
         "Name Tag": "ENS: Mapper",
         "Description": "ENS offers a secure & decentralised way to address resources both on and off the blockchain using simple, human-readable names.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },
@@ -2470,7 +2470,7 @@
       "opensea": {
         "Name Tag": "OpenSea: Royalties Distributor",
         "Description": "OpenSea is the largest marketplace for crypto collectibles",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

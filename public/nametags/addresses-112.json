@@ -2949,7 +2949,7 @@
       "beacon-depositor": {
         "Name Tag": "Consensus Cell Network: Deployer",
         "Description": "An address that has deposited ETH into the Beacon Chain to become a validator.",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

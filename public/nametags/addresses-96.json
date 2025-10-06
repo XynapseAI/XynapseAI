@@ -1346,7 +1346,7 @@
       "oracle-dao": {
         "Name Tag": "Consensys: Oracle DAO Rewards",
         "Description": "Rocket Pool's Oracle DAO members provide duties to the protocol such as oracle tasks and providing staking liveliness for the protocol.",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },
@@ -1926,7 +1926,7 @@
         "Name Tag": "Alkemi Earn: Ecosystem Tokens Safe",
         "Description": "List of decentralized finance products.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

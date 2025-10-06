@@ -67,7 +67,7 @@
         "Name Tag": "Null: 0x000...dEaD",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -895,7 +895,7 @@
         "Name Tag": "Null: 0x000...000",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },
@@ -1087,7 +1087,7 @@
         "Name Tag": "Fake_Phishing7",
         "Description": null,
         "Subcategory": "Others",
-        "image": null
+        "image": "/icons/default.webp"
       }
     }
   },

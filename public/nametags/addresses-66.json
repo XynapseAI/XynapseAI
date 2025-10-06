@@ -1416,7 +1416,7 @@
       "bridge": {
         "Name Tag": "Wormhole: Portal Token Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.webp"
+        "image": "/icons/wormhole.webp"
       }
     }
   },

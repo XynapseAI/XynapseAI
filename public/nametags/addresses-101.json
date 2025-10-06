@@ -1030,13 +1030,13 @@
         "Name Tag": "ENS: Old Registrar",
         "Description": "ENS offers a secure & decentralised way to address resources both on and off the blockchain using simple, human-readable names.",
         "Subcategory": "Legacy",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       },
       "old-contract": {
         "Name Tag": "ENS: Old Registrar",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },
@@ -1936,7 +1936,7 @@
         "Name Tag": "ENS: Registrar Migration",
         "Description": "ENS offers a secure & decentralised way to address resources both on and off the blockchain using simple, human-readable names.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

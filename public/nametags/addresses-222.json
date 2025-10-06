@@ -1794,7 +1794,7 @@
         "Name Tag": "Authereum: ENS Resolver V1.0.0",
         "Description": "Authereum is a wallet provider and dapp login solution that uses contract-based accounts to provide a seamless web2.0 onboarding experience that users are familiar with.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

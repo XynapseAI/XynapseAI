@@ -2260,7 +2260,7 @@
       "token-sale": {
         "Name Tag": "SatoshiBrewery: Token Sale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/satoshi.webp"
+        "image": "/icons/bitcoin.webp"
       }
     }
   },

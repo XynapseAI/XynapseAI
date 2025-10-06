@@ -1510,7 +1510,7 @@
       "bridge": {
         "Name Tag": "Voltage Finance: ERC-20 Tokens Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

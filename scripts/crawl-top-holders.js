@@ -186,6 +186,7 @@ const keywordToImage = {
   invesco : 'invesco.webp',
   wisdom : 'wisdom.webp',
   hashdex : 'hashdex.webp',
+  grayscale : 'grayscale.webp',
 };
 
 // Utility: Normalize whitespace

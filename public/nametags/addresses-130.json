@@ -2317,7 +2317,7 @@
         "Name Tag": "Wormhole: WMATIC Token",
         "Description": "Wormhole is a generic message-passing protocol that connects to multiple chains including Ethereum, Solana, Terra, Binance Smart Chain, Polygon, Avalanche, and Oasis.",
         "Token Name": "Wrapped Matic (Wormhole) (WMATIC)",
-        "image": "/icons/default.webp"
+        "image": "/icons/wormhole.webp"
       }
     }
   },
@@ -3156,7 +3156,7 @@
         "Name Tag": "Wormhole: USDCbs Token",
         "Description": "Wormhole is a generic message-passing protocol that connects to multiple chains including Ethereum, Solana, Terra, Binance Smart Chain, Polygon, Avalanche, and Oasis.",
         "Token Name": "USD Coin (Wormhole) (USDC)",
-        "image": "/icons/default.webp"
+        "image": "/icons/wormhole.webp"
       }
     }
   },

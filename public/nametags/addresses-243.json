@@ -1054,7 +1054,7 @@
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
         "Token Name": "Zenswap Network Token (ZNT)",
-        "image": "/icons/default.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },

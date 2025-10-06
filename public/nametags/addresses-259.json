@@ -3465,7 +3465,7 @@
       "bridge": {
         "Name Tag": "Wormhole: Solana Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.webp"
+        "image": "/icons/wormhole.webp"
       }
     }
   },
