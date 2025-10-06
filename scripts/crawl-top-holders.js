@@ -3,6 +3,11 @@ import axios from "axios";
 import { load } from "cheerio";
 import cron from "node-cron";
 import { PrismaClient } from "@prisma/client";
+import fs from "fs/promises";
+import path from "path";
+import { fi } from "zod/v4/locales";
+import { gray } from "d3";
+import { bit } from "drizzle-orm/pg-core";
 
 // --- Khởi tạo Prisma Client ---
 const prisma = new PrismaClient({
@@ -51,7 +56,22 @@ const TARGETS = [
     ],
     chainLabel: "dogecoin",
   },
+  {
+    name: "Bitcoin ETFs",
+    type: "bitbo",
+    url: "https://bitbo.io/treasuries/us-etfs",
+    chainLabel: "bitcoin",
+  },
 ];
+
+// Map chainLabel to JSON file(s)
+const chainToFiles = {
+  ethereum: ['eth-top-holders.json'],
+  'binance-smart-chain': ['bnb-top-holders.json'],
+  bitcoin: ['bitcoin-top-holders.json', 'btc-top-holders.json'],
+  litecoin: ['litecoin-top-holders.json'],
+  dogecoin: ['dogecoin-top-holders.json'],
+};
 
 // Keyword to image mapping
 const keywordToImage = {
@@ -148,6 +168,24 @@ const keywordToImage = {
   '1inch': '1inch.webp',
   lido: 'lido.webp',
   gemini: 'gemini.webp',
+  avalanche: 'avalanche.webp',
+  wormhole: 'wormhole.webp',
+  htx: 'htx.webp',
+  eigen: 'eigenlayer.webp',
+  blast: 'blast.webp',
+  immutable: 'immutable.webp',
+  kelpdao: 'kelpdao.webp',
+  ens: 'ens.webp',
+  ishares : 'blackrock.webp',
+  fidelity : 'fidelity.webp',
+  '21shares' : '21shares.webp',
+  bitwise : 'bitwise.webp',
+  vaneck : 'vaneck.webp',
+  franklin : 'franklin.webp',
+  valkyrie : 'valkyrie.webp',
+  invesco : 'invesco.webp',
+  wisdom : 'wisdom.webp',
+  hashdex : 'hashdex.webp',
 };
 
 // Utility: Normalize whitespace
@@ -181,6 +219,58 @@ async function withRetry(fn, retries = 3, delayMs = 2000) {
       }
       console.warn(`Attempt ${attempt} failed, retrying in ${delayMs}ms...`, error.message);
       await delay(delayMs);
+    }
+  }
+}
+
+// Hàm lưu dữ liệu vào JSON files
+async function saveHoldersToJson(holders, chainLabel) {
+  const files = chainToFiles[chainLabel] || [];
+  if (files.length === 0) {
+    console.warn(`No JSON file configured for chain: ${chainLabel}`);
+    return;
+  }
+
+  // Sort holders by balance descending
+  holders.sort((a, b) => b.balance - a.balance);
+
+  for (const fileName of files) {
+    try {
+      const jsonPath = path.join(process.cwd(), 'public', 'nametags', fileName);
+      let existingData = {};
+      try {
+        const existingContent = await fs.readFile(jsonPath, 'utf8');
+        existingData = JSON.parse(existingContent);
+      } catch (readErr) {
+        if (readErr.code !== 'ENOENT') {
+          console.warn(`Error reading existing JSON file ${jsonPath}:`, readErr.message);
+        }
+        // If file doesn't exist, start with empty object
+        existingData = {};
+      }
+
+      // Update or add holders
+      holders.forEach((holder) => {
+        const addr = holder.address.toLowerCase();
+        existingData[addr] = {
+          Address: addr,
+          Balance: holder.balance,
+          Labels: {
+            [chainLabel]: {
+              'Name Tag': holder.name_tag || null,
+              Description: null,
+              Subcategory: 'Others',
+              image: holder.image || null,
+            },
+          },
+        };
+      });
+
+      // Write back to file
+      await fs.writeFile(jsonPath, JSON.stringify(existingData, null, 2), 'utf8');
+      console.log(`[${new Date().toISOString()}] ✅ Saved ${holders.length} holders to JSON: ${fileName}`);
+    } catch (writeErr) {
+      console.error(`Error saving to JSON file ${fileName}:`, writeErr.message);
     }
   }
 }
@@ -239,9 +329,10 @@ async function crawlEtherscanTopHolders(url, chainName, chainLabel) {
       return;
     }
 
-    // Lưu vào database
+    // Lưu vào database và JSON
     await saveHoldersToDatabase(holders, chainName, chainLabel);
-    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database`);
+    await saveHoldersToJson(holders, chainLabel);
+    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database and JSON`);
   } catch (err) {
     console.error(`❌ [${chainName}] Critical error during crawl:`, err.message || err);
   }
@@ -352,9 +443,77 @@ async function crawlBitinfochartsTopHolders(urls, chainName, chainLabel) {
       return;
     }
 
-    // Lưu vào database
+    // Lưu vào database và JSON
     await saveHoldersToDatabase(holders, chainName, chainLabel);
-    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database`);
+    await saveHoldersToJson(holders, chainLabel);
+    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database and JSON`);
+  } catch (err) {
+    console.error(`❌ [${chainName}] Critical error during crawl:`, err.message || err);
+  }
+}
+
+// Crawl function for Bitbo pages (US ETFs for Bitcoin)
+async function crawlBitboTopHolders(url, chainName, chainLabel) {
+  console.log(`🚀 Starting data crawl for ${chainName} (Bitbo)...`);
+  try {
+    const { data } = await axios.get(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      timeout: 20000,
+    });
+
+    const $ = load(data);
+    const holders = [];
+
+    $("table.treasuries-table tbody tr").each((_, el) => {
+      try {
+        const tds = $(el).find("td");
+        if (tds.length < 5) return;
+
+        const entityAnchor = $(tds[0]).find("a").first();
+        if (!entityAnchor.length) return; // Skip total row or rows without entity link
+
+        const nameTag = cleanText(entityAnchor.text());
+        if (!nameTag || nameTag.length === 0) {
+          return;
+        }
+
+        const href = entityAnchor.attr("href");
+        if (!href) return;
+        const addressMatch = href.match(/\/treasuries\/([^\?\/]+)/);
+        if (!addressMatch || !addressMatch[1]) return;
+        const address = addressMatch[1].toLowerCase();
+
+        const balanceRaw = $(tds[4]).text().trim();
+        const balanceNumeric = balanceRaw.replace(/,/g, "").match(/[\d.]+/);
+        const balance = balanceNumeric ? parseFloat(balanceNumeric[0]) : null;
+
+        if (address && balance !== null) {
+          holders.push({
+            chain: chainLabel,
+            address,
+            balance,
+            name_tag: nameTag,
+            image: getImageForNameTag(nameTag),
+          });
+        }
+      } catch (rowErr) {
+        console.warn(`[${chainName}] Error processing a row:`, rowErr?.message || rowErr);
+      }
+    });
+
+    if (holders.length === 0) {
+      console.warn(`⚠️ [${chainName}] No data retrieved. Page structure may have changed or request was blocked.`);
+      return;
+    }
+
+    // Lưu vào database và JSON
+    await saveHoldersToDatabase(holders, chainName, chainLabel);
+    await saveHoldersToJson(holders, chainLabel);
+    console.log(`[${new Date().toISOString()}] ✅ [${chainName}] Saved ${holders.length} addresses to database and JSON`);
   } catch (err) {
     console.error(`❌ [${chainName}] Critical error during crawl:`, err.message || err);
   }
@@ -427,6 +586,8 @@ async function runAllCrawlers() {
       await crawlEtherscanTopHolders(target.url, target.name, target.chainLabel);
     } else if (target.type === "bitinfocharts") {
       await crawlBitinfochartsTopHolders(target.urls, target.name, target.chainLabel);
+    } else if (target.type === "bitbo") {
+      await crawlBitboTopHolders(target.url, target.name, target.chainLabel);
     }
   }
   console.log(`[${new Date().toISOString()}] Crawl cycle completed.`);
