@@ -548,7 +548,7 @@ class TokenHoldersCron {
 
             const name = this.mapNameTagToName(nameTag);
             const rawBalance = Number.parseFloat(company.total_holdings) || 0;
-            const balance = decimals > 6 ? rawBalance / Math.pow(10, decimals - 6) : rawBalance;
+            const balance = rawBalance; // Không điều chỉnh decimal cho non-EVM
 
             logger.info(`Treasury balance details for ${company.address || company.name}`, {
               nameTag,
@@ -573,6 +573,18 @@ class TokenHoldersCron {
         if (holders.length === 0) {
           logger.info(`No holders with name tags for ${token.coingecko_id}`);
           return;
+        }
+
+        // Set holdersWithNameTags cho non-EVM treasury
+        for (const holder of holders) {
+          const holderKey = `${token.coingecko_id}:${holder.holder_address.toLowerCase()}`;
+          this.holdersWithNameTags.set(holderKey, {
+            holder_address: holder.holder_address,
+            exchange_name: holder.name,
+            chain: token.coingecko_id,
+            name_tag: holder.name_tag,
+            image: holder.image,
+          });
         }
 
         await this.storeHolders(token, token.coingecko_id, null, holders);
@@ -689,6 +701,18 @@ class TokenHoldersCron {
           };
         })
         .filter((holder) => holder !== null && holder.name_tag !== null);
+
+      // Set holdersWithNameTags cho non-EVM và EVM JSON/DB
+      for (const holder of processedHolders) {
+        const holderKey = `${chain}:${holder.holder_address.toLowerCase()}`;
+        this.holdersWithNameTags.set(holderKey, {
+          holder_address: holder.holder_address,
+          exchange_name: holder.name,
+          chain,
+          name_tag: holder.name_tag,
+          image: holder.image,
+        });
+      }
 
       logger.info(`Fetched ${processedHolders.length} holders with name tags for ${token.symbol} on ${chain}`);
       return processedHolders;

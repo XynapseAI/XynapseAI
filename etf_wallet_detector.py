@@ -9,51 +9,64 @@ from collections import defaultdict
 from rich.console import Console
 from rich.table import Table
 import random
-from typing import Set, Dict, List, Any, Tuple
+from typing import Set, Dict, List, Any, Tuple, Optional
 
-# --- ĐỊNH NGHĨA CẤU HÌNH ---
+# --- Cấu Hình Ứng Dụng ---
+
 class Config:
+    """Cấu hình toàn cục cho script theo dõi ETF."""
+    # API Endpoints
     MEMPOOL_BASE = 'https://mempool.space/api'
     BITBO_URL = 'https://bitbo.io/treasuries/etf-flows/'
-    # Tăng tolerance cho Aggregate Matching
-    MATCH_TOLERANCE_PCT = 0.005 # 0.5% tolerance cho khớp tổng
-    SINGLE_TX_TOLERANCE_PCT = 0.001 # 0.1% tolerance cho khớp 1-1
-    SPLIT_TX_MIN_OUTPUTS = 5
-    
-    # 1. SEED WALLETS FOR COINBASE CUSTODY CLUSTERING (CHỈ DÙNG 1 VÍ THEO YÊU CẦU)
-    COINBASE_SEED_BTC = ['3MqUP6G1daVS5YTD8fz3QgwjZortWwxXFd'] # Hot Wallet
+
+    # Heuristic & Matching Parameters
+    MATCH_TOLERANCE_PCT = 0.005  # 0.5% tolerance for Aggregate Match
+    SINGLE_TX_TOLERANCE_PCT = 0.001 # 0.1% tolerance for Single Match
+    SPLIT_TX_MIN_OUTPUTS = 5 
+
+    # Seed Addresses (Coinbase Custody)
+    COINBASE_SEED_BTC = ['3MqUP6G1daVS5YTD8fz3QgwjZortWwxXFd'] 
+    COINBASE_LEGACY_SEEDS = ['3J7cUjBZxvGRCwFBz3q23zAsnhFfZrDSSU'] 
+    # EVM seeds are for reference, not used in this BTC-only script
     COINBASE_SEED_EVM = [
         '0xDfD76BbFEB9Eb8322F3696d3567e03f894C40d6c', 
         '0x1E7016f7C23859d097668C27B72C170eD7129A10', 
         '0xceB69F6342eCE283b2F5c9088Ff249B5d0Ae66ea', 
         '0xCD531Ae9EFCCE479654c4926dec5F6209531Ca7b'
     ]
-    COINBASE_LEGACY_SEEDS = [
-        '3J7cUjBZxvGRCwFBz3q23zAsnhFfZrDSSU' # Gas/Deposit
-    ] 
 
+    # ETF Configuration
     ETF_TICKERS = ['IBIT', 'FBTC', 'BITB', 'ARKB', 'EZBC']
     ETF_NAMES = {
         'IBIT': 'BlackRock IBIT', 'FBTC': 'Fidelity FBTC', 'BITB': 'Bitwise BITB', 
         'ARKB': 'ARK 21Shares ARKB', 'EZBC': 'Franklin Templeton EZBC'
     }
+
+    # Data Files
     COINBASE_CLUSTER_FILE = 'coinbase_cluster.json' 
     ETF_CLUSTERS_FILE = 'etf_wallet_clusters.json' 
     MATCH_HISTORY_FILE = 'etf_match_history.json'
     BALANCES_FILE = 'etf_balances.json' 
+
+    # Operational Limits & Thresholds
     CLUSTER_BUILD_MAX_ADDRESSES = 1000 
-    CLUSTER_BUILD_TX_DEPTH = 200  # Giảm để tối ưu tốc độ
-    REQUEST_DELAY = 0.3
-    DAYS_TO_SCAN = 30 
-    MIN_BTC_THRESHOLD = 50 
-    TXS_LIMIT_PER_ADDR = 100  # Tăng nhẹ để tìm nhiều outflow hơn
+    CLUSTER_BUILD_TX_DEPTH = 200  
+    REQUEST_DELAY = 1.0  # Tăng delay lên 1 giây để tránh rate limit
+    DAYS_TO_SCAN = 45 # Tăng thời gian quét lên 45 ngày
+    MIN_BTC_THRESHOLD = 50 # BTC tối thiểu để xét là giao dịch lớn/ví cold
+    TXS_LIMIT_PER_ADDR = 100
     MIN_TRANSFER_AMOUNT = 0.01 
-    MAX_TXS_FOR_BALANCE = 2000  # Giảm từ 10000 để tối ưu tốc độ
+    MAX_TXS_FOR_BALANCE = 2000 
+    
+    # IBIT Specific Heuristic
+    IBIT_TARGET_BALANCE = 300.0 # IBIT vault standard size
+    IBIT_BALANCE_TOLERANCE = 0.1 # 10% tolerance (270 BTC - 330 BTC)
 
-    # Thêm config cho IBIT specific: target balance ~300 BTC với tolerance
-    IBIT_TARGET_BALANCE = 300.0
-    IBIT_BALANCE_TOLERANCE = 0.1  # 10% tolerance, i.e., 270-330 BTC
+    # Retry Configuration
+    MAX_RETRIES = 5  # Số lần retry tối đa khi gặp lỗi 429
+    RETRY_BACKOFF_FACTOR = 2  # Nhân tố backoff (tăng thời gian sleep theo cấp số nhân)
 
+# Known Wallets (Initial Seeds for Vaults/Hotwallets)
 KNOWN_ETF_WALLETS: Dict[str, List[Dict[str, str]]] = {
     'BlackRock IBIT': [
         {'address': '3MqUP6G1daVS5YTD8fz3QgwjZortWwxXFd', 'nametag': 'IBIT Hotwallet Primary (Coinbase Recipient)', 'type': 'Hot'},
@@ -71,80 +84,114 @@ KNOWN_ETF_WALLETS: Dict[str, List[Dict[str, str]]] = {
     'Franklin Templeton EZBC': []
 }
 
+# --- Cấu hình Logging & Console ---
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 console = Console()
 
+# --- Chức Năng Tiện Ích ---
+
 def load_json_file(filename: str, default_value: Any) -> Any:
-    """Loads JSON file, handles errors."""
+    """Tải file JSON, xử lý lỗi."""
     try:
-        with open(filename, 'r') as f: return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError): return default_value
+        with open(filename, 'r') as f: 
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError): 
+        return default_value
 
 def save_json_file(data: Any, filename: str):
-    """Saves data to JSON file, handling nametagging for Coinbase cluster."""
+    """Lưu dữ liệu vào file JSON, thêm nametag cho Coinbase cluster."""
     with open(filename, 'w') as f: 
         if filename == Config.COINBASE_CLUSTER_FILE and isinstance(data, set):
+            # Chuyển set địa chỉ thành list object để lưu nametag
             data_to_save = []
             for addr in data:
-                nametag = "Coinbase Prime Custody Hotwallet" if addr in Config.COINBASE_SEED_BTC else "Coinbase Custody Cluster Wallet"
+                # Phân loại ví Hotwallet (Seed) và ví Custody Cluster
+                nametag = "Coinbase Prime Custody Hotwallet Seed" if addr in Config.COINBASE_SEED_BTC else "Coinbase Custody Cluster Wallet"
                 data_to_save.append({'address': addr, 'nametag': nametag})
             json.dump(data_to_save, f, indent=4, default=str)
         else:
             json.dump(data, f, indent=4, default=str)
 
-def fetch_data(url: str, is_json: bool = True):
-    """Fetches data from a URL with delay."""
-    try:
-        time.sleep(Config.REQUEST_DELAY)
-        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-        response.raise_for_status()
-        return response.json() if is_json else response.text
-    except requests.RequestException as e:
-        return None
+def fetch_data(url: str, is_json: bool = True) -> Optional[Any]:
+    """Lấy dữ liệu từ một URL với độ trễ (delay) và retry mechanism cho lỗi 429."""
+    retries = 0
+    while retries < Config.MAX_RETRIES:
+        try:
+            time.sleep(Config.REQUEST_DELAY)
+            response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0 (Custom BTC Tracker)'}, timeout=10)
+            if response.status_code == 429:
+                # Rate limit: sleep lâu hơn và retry
+                sleep_time = Config.REQUEST_DELAY * (Config.RETRY_BACKOFF_FACTOR ** retries)
+                logger.warning(f"Rate limit hit (429) for {url}. Retrying after {sleep_time:.2f} seconds... (Retry {retries + 1}/{Config.MAX_RETRIES})")
+                time.sleep(sleep_time)
+                retries += 1
+                continue
+            response.raise_for_status()
+            return response.json() if is_json else response.text
+        except requests.RequestException as e:
+            logger.error(f"Request failed for {url}: {e}")
+            if '429' in str(e):
+                sleep_time = Config.REQUEST_DELAY * (Config.RETRY_BACKOFF_FACTOR ** retries)
+                time.sleep(sleep_time)
+                retries += 1
+            else:
+                return None
+        except Exception as e:
+            logger.error(f"An unexpected error occurred: {e}")
+            return None
+    logger.error(f"Max retries exceeded for {url}. Giving up.")
+    return None
 
-def get_full_tx(txid: str) -> Dict[str, Any] | None:
+def get_full_tx(txid: str) -> Optional[Dict[str, Any]]:
+    """Lấy chi tiết giao dịch."""
     return fetch_data(f"{Config.MEMPOOL_BASE}/tx/{txid}")
 
 def get_address_txs_paginated(address: str, limit: int = 50) -> List[Dict[str, Any]]:
-    """Fetches paginated transactions for an address."""
+    """Lấy danh sách giao dịch phân trang cho một địa chỉ."""
     all_txs = []
     last_txid = None
     url_base = f"{Config.MEMPOOL_BASE}/address/{address}/txs/chain"
     
     while len(all_txs) < limit:
         url = url_base
-        if last_txid: url += f"/{last_txid}"
+        if last_txid: 
+            url += f"/{last_txid}"
         
         txs_batch = fetch_data(url)
         if txs_batch is None: 
             break
-        if not isinstance(txs_batch, list) or not txs_batch: break
+        if not isinstance(txs_batch, list) or not txs_batch: 
+            break
         
         all_txs.extend(txs_batch)
-        if len(txs_batch) < 25: break
+        if len(txs_batch) < 25: break # Kết thúc nếu ít hơn 25 TX trong batch (batch cuối)
         last_txid = txs_batch[-1]['txid']
         
     return all_txs[:limit]
 
 def sats_to_btc(sats: int) -> float:
+    """Chuyển đổi Satoshi sang BTC."""
     return sats / 100_000_000
 
 def get_address_balance(address: str) -> float:
-    """Fetches the current BTC balance of an address."""
+    """Lấy số dư BTC hiện tại của một địa chỉ."""
     try:
         data = fetch_data(f"{Config.MEMPOOL_BASE}/address/{address}")
         if not data: return 0.0
+        # Balance = tổng nhận (funded) - tổng chi (spent)
         balance = data['chain_stats']['funded_txo_sum'] - data['chain_stats']['spent_txo_sum']
         return sats_to_btc(balance)
     except Exception:
         return 0.0
 
 def is_cold_wallet(address: str) -> bool:
-    """Check if an address is a potential cold wallet (high balance, low tx count)."""
+    """Kiểm tra ví có phải là ví lạnh tiềm năng (số dư lớn, ít giao dịch) không."""
     try:
         data = fetch_data(f"{Config.MEMPOOL_BASE}/address/{address}")
         if not data: return False
+        # Tiêu chí: Số dư > 50 BTC VÀ Số lượng giao dịch < 10
         balance = get_address_balance(address)
         tx_count = data['chain_stats']['tx_count']
         return balance > Config.MIN_BTC_THRESHOLD and tx_count < 10 
@@ -152,38 +199,52 @@ def is_cold_wallet(address: str) -> bool:
         return False
 
 def is_ibit_vault_candidate(address: str, target: float = Config.IBIT_TARGET_BALANCE, tol: float = Config.IBIT_BALANCE_TOLERANCE) -> bool:
-    """Check if address is a potential IBIT vault based on balance ~300 BTC."""
+    """Kiểm tra nếu địa chỉ là vault IBIT tiềm năng (balance ~300 BTC)."""
     balance = get_address_balance(address)
     lower = target * (1 - tol)
     upper = target * (1 + tol)
     return lower <= balance <= upper
 
+# --- Lớp Chính EtfDetector ---
+
 class EtfDetector:
     def __init__(self):
+        """Khởi tạo: Tải cluster Coinbase, cluster ETF và lịch sử khớp."""
+        # Tải/Khởi tạo Coinbase Cluster
         loaded_cb_cluster = load_json_file(Config.COINBASE_CLUSTER_FILE, [{'address': a, 'nametag': 'Seed'} for a in Config.COINBASE_SEED_BTC])
         self.coinbase_cluster: Set[str] = set(entry['address'] for entry in loaded_cb_cluster if isinstance(entry, dict) and 'address' in entry)
         self.coinbase_cluster.update(Config.COINBASE_SEED_BTC)
+        
+        # Tải/Khởi tạo ETF Cluster (bao gồm các ví đã biết)
         loaded_etf_clusters = load_json_file(Config.ETF_CLUSTERS_FILE, {})
         self.etf_clusters: Dict[str, List[Dict[str, str]]] = defaultdict(list, loaded_etf_clusters)
+        
+        # Thêm các ví Known Hot/Vault vào Cluster nếu chưa có
         for name, wallets in KNOWN_ETF_WALLETS.items():
             for wallet in wallets:
-                if wallet.get('type') == 'Hot':
+                if wallet.get('type') in ['Hot', 'Vault']:
                     if not any(w.get('address') == wallet['address'] for w in self.etf_clusters.get(name, [])):
-                        self.etf_clusters.setdefault(name, []).append({'address': wallet['address'], 'nametag': wallet['nametag'], 'type': 'Hot'})
+                        self.etf_clusters.setdefault(name, []).append({
+                            'address': wallet['address'], 
+                            'nametag': wallet['nametag'], 
+                            'type': wallet['type']
+                        })
         
         self.match_history: Dict[str, List[Dict[str, Any]]] = load_json_file(Config.MATCH_HISTORY_FILE, {})
         self.balances: Dict[str, Any] = load_json_file(Config.BALANCES_FILE, {})
 
     def get_high_activity_addresses(self, cluster: Set[str], num: int = 50) -> List[str]:
-        """Select high-activity addresses from cluster to use as 'hot' sources for outflows."""
+        """Chọn các địa chỉ có hoạt động cao nhất trong cluster để quét giao dịch OUTFLOW."""
         logger.info(f"🔥 Selecting top {num} high-activity addresses from cluster (sampling {min(100, len(cluster))} for efficiency)...")
-        sample_addrs = random.sample(list(cluster), min(100, len(cluster)))  # Sample to limit API calls
+        # Lấy mẫu để tránh quá nhiều API call
+        sample_addrs = random.sample(list(cluster), min(100, len(cluster)))
         activities = []
         for addr in sample_addrs:
             data = fetch_data(f"{Config.MEMPOOL_BASE}/address/{addr}")
-            if data:
+            if data and data.get('chain_stats'):
                 tx_count = data['chain_stats']['tx_count']
                 activities.append((addr, tx_count))
+        
         activities.sort(key=lambda x: x[1], reverse=True)
         high_activity = [a[0] for a in activities[:num]]
         logger.info(f"Selected {len(high_activity)} high-activity addresses.")
@@ -191,7 +252,7 @@ class EtfDetector:
 
     def build_coinbase_cluster(self):
         """
-        Clustering BTC: Sử dụng UTXO-linking/Change-address (Heuristics) 
+        Clustering BTC: Áp dụng heuristic UTXO-linking và Change-address 
         để mở rộng cụm ví Coinbase Custody.
         """
         logger.info("🔥 Starting advanced Coinbase BTC cluster building (UTXO/Change-address heuristic)...")
@@ -199,6 +260,7 @@ class EtfDetector:
         processed = set()
         initial_size = len(self.coinbase_cluster)
         
+        # Thêm ví Legacy Seed vào danh sách xử lý
         for addr in Config.COINBASE_LEGACY_SEEDS:
             if addr not in self.coinbase_cluster:
                 self.coinbase_cluster.add(addr)
@@ -212,44 +274,52 @@ class EtfDetector:
             processed.add(address)
             
             try:
+                # Lấy các giao dịch gần nhất
                 txs = get_address_txs_paginated(address, limit=Config.CLUSTER_BUILD_TX_DEPTH)
                 if not txs: continue
                 
                 for tx_summary in txs:
-                    if tx_summary.get('txid') in self.match_history.get('processed_txs_cb', []): continue
+                    # Bỏ qua các TX đã xử lý để tránh lặp
+                    # if tx_summary.get('txid') in self.match_history.get('processed_txs_cb', []): continue
 
                     tx_detail = get_full_tx(tx_summary['txid'])
                     if not tx_detail: continue
                     
-                    # 1. UTXO-linking Heuristic
                     vin_addresses = {vin['prevout']['scriptpubkey_address'] for vin in tx_detail.get('vin', []) if vin.get('prevout')}
-                    if len(vin_addresses) > 1 and address in vin_addresses:
-                        for addr in vin_addresses:
-                            if addr not in self.coinbase_cluster:
-                                self.coinbase_cluster.add(addr); to_process.append(addr)
                     
-                    # 2. Change Address Heuristic
+                    # 1. UTXO-linking Heuristic: Nếu nhiều input từ nhiều địa chỉ khác nhau cùng chi tiêu trong 1 TX, các địa chỉ đó thuộc cùng 1 thực thể.
+                    if len(vin_addresses) > 1 and address in vin_addresses:
+                        new_addrs = vin_addresses - self.coinbase_cluster
+                        for addr in new_addrs:
+                            self.coinbase_cluster.add(addr)
+                            to_process.append(addr)
+                            console.print(f"[bold yellow]  -> UTXO-Link Found: {addr}[/]")
+                    
+                    # 2. Change Address Heuristic: Trong TX 2-output, 1 output là đích đến, output còn lại (thường có cùng định dạng với input) là ví change (cùng cluster).
                     if address in vin_addresses and len(tx_detail.get('vout', [])) == 2:
                         output_addresses = {vout['scriptpubkey_address'] for vout in tx_detail['vout'] if 'scriptpubkey_address' in vout}
-                        potential_change_addrs = output_addresses - vin_addresses
+                        potential_change_addrs = output_addresses - vin_addresses # Địa chỉ output không phải input
                         
                         if len(potential_change_addrs) == 1:
                             change_addr = potential_change_addrs.pop()
-                            if change_addr not in self.coinbase_cluster:
-                                self.coinbase_cluster.add(change_addr); to_process.append(change_addr)
+                            if change_addr not in self.coinbase_cluster and change_addr != address: # Đảm bảo không phải địa chỉ đang xử lý (re-use)
+                                self.coinbase_cluster.add(change_addr)
+                                to_process.append(change_addr)
+                                console.print(f"[bold yellow]  -> Change-Addr Found: {change_addr}[/]")
                     
-                    self.match_history.setdefault('processed_txs_cb', []).append(tx_summary['txid'])
+                    # Tạm thời bỏ qua việc lưu 'processed_txs_cb' để đơn giản hóa quá trình cluster
+                    # self.match_history.setdefault('processed_txs_cb', []).append(tx_summary['txid'])
             
             except Exception as e:
                 logger.error(f"Error processing address {address}: {e}")
                 continue
 
         save_json_file(self.coinbase_cluster, Config.COINBASE_CLUSTER_FILE)
-        save_json_file(self.match_history, Config.MATCH_HISTORY_FILE)
+        # save_json_file(self.match_history, Config.MATCH_HISTORY_FILE) # Không cần lưu Match History ở bước này
         logger.info(f"✅ Coinbase BTC cluster building complete. Total addresses: {len(self.coinbase_cluster)} (Found {len(self.coinbase_cluster) - initial_size} new)")
 
-    def fetch_etf_flows(self):
-        """Tải dữ liệu dòng tiền ETF từ Bitbo.io."""
+    def fetch_etf_flows(self) -> pd.DataFrame:
+        """Tải dữ liệu dòng tiền ETF (USD) từ Bitbo.io."""
         logger.info("📡 Fetching ETF flow data from Bitbo.io...")
         try:
             headers = {
@@ -260,59 +330,75 @@ class EtfDetector:
             html = response.text
             if not html: return pd.DataFrame()
             
+            # Đọc bảng HTML. Bitbo thường có 1 bảng chính.
             dfs = pd.read_html(io.StringIO(html))
             if not dfs: return pd.DataFrame()
             
             df = dfs[0].copy()
             
-            col_indices = [0, 1, 2, 5, 6, 8]
+            # Chọn và đổi tên cột cần thiết (cần kiểm tra thường xuyên vì cấu trúc website có thể thay đổi)
+            col_indices = [0, 1, 2, 5, 6, 8] # Cột Date và 5 cột ETF flows (IBIT, FBTC, ARKB, BITB, EZBC)
             df = df.iloc[:, col_indices]
             df.columns = ['Date', 'IBIT_USD_M', 'FBTC_USD_M', 'ARKB_USD_M', 'BITB_USD_M', 'EZBC_USD_M']
             
+            # Loại bỏ các hàng tóm tắt
             summary_rows = ['Total', 'Average', 'Maximum', 'Minimum']
             df = df[~df['Date'].astype(str).isin(summary_rows)]
             
+            # Chuyển đổi cột Date và loại bỏ hàng lỗi
             df['Date'] = pd.to_datetime(df['Date'], format='%b %d, %Y', errors='coerce')
             df.dropna(subset=['Date'], inplace=True)
             
+            # Xử lý cột USD (chuyển đổi từ triệu USD sang USD)
             usd_m_cols = ['IBIT_USD_M', 'FBTC_USD_M', 'ARKB_USD_M', 'BITB_USD_M', 'EZBC_USD_M']
             for col in usd_m_cols:
                 df[col] = df[col].astype(str).str.replace(',', '').astype(float).fillna(0)
                 usd_col = col.replace('_M', '')
+                # Flow (USD) = Flow (triệu USD) * 1,000,000. Dòng chảy âm (Outflow) cũng được tính.
                 df[usd_col] = df[col] * 1_000_000
             
-            df = df[['Date', 'IBIT_USD', 'FBTC_USD', 'ARKB_USD', 'BITB_USD', 'EZBC_USD']].set_index('Date')
+            # Chỉ giữ lại dòng chảy dương (Inflow)
+            df.loc[df['IBIT_USD'] < 0, 'IBIT_USD'] = 0
+            df.loc[df['FBTC_USD'] < 0, 'FBTC_USD'] = 0
+            df.loc[df['ARKB_USD'] < 0, 'ARKB_USD'] = 0
+            df.loc[df['BITB_USD'] < 0, 'BITB_USD'] = 0
+            df.loc[df['EZBC_USD'] < 0, 'EZBC_USD'] = 0
+
+            # Lọc cột và sắp xếp theo ngày
+            df = df[['Date'] + [f'{t}_USD' for t in Config.ETF_TICKERS]].set_index('Date')
             df = df.sort_index()
             
+            # Lọc theo phạm vi ngày cấu hình
             end_date = datetime.now().date()
             start_date = end_date - timedelta(days=Config.DAYS_TO_SCAN)
             df = df[(df.index.date >= start_date) & (df.index.date <= end_date)]
             
-            logger.info(f"✅ Fetched ETF flows for {len(df)} days.")
+            logger.info(f"✅ Fetched ETF flows (INFLOW only) for {len(df)} days.")
             return df
 
         except Exception as e:
             logger.error(f"Error fetching/parsing ETF flows: {e}")
             return pd.DataFrame()
 
-    def fetch_large_custody_txs(self):
-        """Tìm kiếm các giao dịch lớn đi ra từ ví Coinbase Custody (cluster), ưu tiên high-activity addrs."""
+    def fetch_large_custody_txs(self) -> List[Dict[str, Any]]:
+        """Tìm kiếm các giao dịch lớn (>= MIN_BTC_THRESHOLD) đi ra từ ví Coinbase Custody (cluster)."""
         logger.info("🔍 Searching for large outgoing TXs from high-activity Coinbase Custody addresses...")
         custody_txs = []
-        
-        # Sử dụng high-activity addresses thay vì random sample
         addresses_to_scan = self.get_high_activity_addresses(self.coinbase_cluster, 50)
         
         for address in addresses_to_scan:
+            # Lấy các giao dịch gần đây của ví
             txs = get_address_txs_paginated(address, limit=Config.TXS_LIMIT_PER_ADDR)
             
             for tx_summary in txs:
                 if tx_summary.get('status', {}).get('confirmed') != True: continue
+                # Bỏ qua TX đã xử lý (đã có trong danh sách custody_txs)
                 if tx_summary['txid'] in [t['txid'] for t in custody_txs]: continue 
                 
                 tx_detail = get_full_tx(tx_summary['txid'])
                 if not tx_detail: continue
                 
+                # Kiểm tra nếu bất kỳ input nào đến từ cluster Coinbase
                 is_input_from_cluster = any(
                     vin and vin.get('prevout') and vin['prevout'].get('scriptpubkey_address') in self.coinbase_cluster 
                     for vin in tx_detail.get('vin', [])
@@ -320,11 +406,14 @@ class EtfDetector:
                 
                 if is_input_from_cluster:
                     outflow_btc = 0
+                    # Tính tổng lượng BTC gửi ra ngoài cluster (Outflow BTC)
                     for vout in tx_detail.get('vout', []):
                         out_address = vout.get('scriptpubkey_address')
+                        # Nếu địa chỉ output KHÔNG thuộc cluster Coinbase
                         if out_address and out_address not in self.coinbase_cluster:
                             outflow_btc += sats_to_btc(vout.get('value', 0))
                     
+                    # Nếu Outflow BTC đủ lớn
                     if outflow_btc >= Config.MIN_BTC_THRESHOLD:
                         tx_detail['status'] = tx_summary.get('status', {})
                         tx_detail['outflow_btc'] = outflow_btc 
@@ -335,8 +424,10 @@ class EtfDetector:
         return custody_txs
         
     def get_btc_price(self, date: datetime.date) -> float:
-        """Fetches BTC price for a specific date (simplified for the script)."""
+        """Lấy giá BTC cho một ngày cụ thể (ưu tiên Coingecko, fallback Mempool/Default)."""
+        # Thử Coingecko
         try:
+            time.sleep(Config.REQUEST_DELAY)
             resp = requests.get(f'https://api.coingecko.com/api/v3/coins/bitcoin/history?date={date.strftime("%d-%m-%Y")}')
             resp.raise_for_status()
             data = resp.json()
@@ -344,51 +435,63 @@ class EtfDetector:
                 return data['market_data']['current_price']['usd']
         except:
             pass
+        # Thử Mempool API (lấy giá hiện tại nếu không lấy được giá lịch sử)
         try:
+            time.sleep(Config.REQUEST_DELAY)
             resp = requests.get(f'{Config.MEMPOOL_BASE}/v1/prices')
-            return resp.json().get('USD', 60000)
+            return resp.json().get('USD', 60000) # Fallback 2: 60000 USD
         except:
-            return 60000 
+            return 60000 # Fallback 3: Default
 
-    def find_aggregate_match(self, target_btc: float, available_txs: List[Dict[str, Any]], used_txids: Set[str]) -> Tuple[List[Dict[str, Any]], str] | Tuple[None, None]:
+    def find_aggregate_match(self, target_btc: float, available_txs: List[Dict[str, Any]], used_txids: Set[str]) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
         """
-        Tìm kiếm một tập hợp các giao dịch (TXs) có tổng outflow khớp với target_btc.
-        Sử dụng thuật toán "Gần đúng Khớp Tổng" đơn giản.
+        Tìm kiếm tập hợp các giao dịch (TXs) có tổng outflow khớp với target_btc (Inflow ETF).
+        Áp dụng thuật toán "Gần đúng Khớp Tổng" đơn giản.
         """
         candidate_txs = [tx for tx in available_txs if tx['txid'] not in used_txids]
-        candidate_txs.sort(key=lambda x: x['outflow_btc'], reverse=True) # Ưu tiên TX lớn
+        candidate_txs.sort(key=lambda x: x['outflow_btc'], reverse=True) # Ưu tiên TX lớn để tối ưu heuristic
+        
+        # 1. Single TX Match (ít sai số hơn)
         for tx in candidate_txs:
             tx_net = tx['outflow_btc']
             if abs(tx_net - target_btc) / target_btc < Config.SINGLE_TX_TOLERANCE_PCT:
                 return [tx], 'Single Match'
+                
+        # 2. Aggregate Match (sử dụng nhiều TX) - Thuật toán "Greedy" đơn giản
         best_match_txs = []
         best_match_sum = 0
         current_sum = 0
         current_group = []
         
         for tx in candidate_txs:
+            # Chỉ thêm TX nếu tổng không vượt quá target quá nhiều
             if current_sum + tx['outflow_btc'] <= target_btc * (1 + Config.MATCH_TOLERANCE_PCT):
                 current_sum += tx['outflow_btc']
                 current_group.append(tx)
+            
+            # Nếu tổng đạt gần target
             if abs(current_sum - target_btc) / target_btc < Config.MATCH_TOLERANCE_PCT:
                 return current_group, 'Aggregate Match'
-            if abs(current_sum - target_btc) < abs(best_match_sum - target_btc) or not best_match_txs:
+            
+            # Cập nhật kết quả gần nhất (phòng trường hợp không đạt ngưỡng)
+            if not best_match_txs or abs(current_sum - target_btc) < abs(best_match_sum - target_btc):
                 best_match_sum = current_sum
                 best_match_txs = list(current_group)
-        if best_match_txs and abs(best_match_sum - target_btc) / target_btc < Config.MATCH_TOLERANCE_PCT:
-             if len(best_match_txs) > 1:
-                 return best_match_txs, 'Aggregate Match'
-             return None, None
-        
+
+        # Kiểm tra lại kết quả tốt nhất nếu không tìm thấy match hoàn hảo trong vòng lặp
+        if best_match_txs and len(best_match_txs) > 1 and abs(best_match_sum - target_btc) / target_btc < Config.MATCH_TOLERANCE_PCT:
+            return best_match_txs, 'Aggregate Match'
+            
         return None, None
 
     def analyze_and_match_txs(self, etf_flows_df: pd.DataFrame, custody_txs: List[Dict[str, Any]]):
         """
-        Phân tích và khớp giao dịch: Áp dụng Aggregate Matching.
+        Phân tích và khớp giao dịch: Áp dụng Aggregate Matching giữa Outflow Coinbase Custody và Inflow ETF (BTC).
         """
         logger.info("Analyzing transactions with Enhanced Aggregate Matching Algorithm...")
         potential_matches = []
         
+        # Nhóm TX theo ngày để khớp với Flow ETF
         txs_by_date = defaultdict(list)
         for tx in custody_txs:
             tx_date = tx['time'].strftime('%Y-%m-%d')
@@ -396,18 +499,23 @@ class EtfDetector:
 
         for date_str, txs_on_date in txs_by_date.items():
             date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-            if date_obj not in etf_flows_df.index.date: continue
-
-            daily_flows = etf_flows_df.loc[etf_flows_df.index.date == date_obj].iloc[0]
-            sorted_flows = []
             
-            price = self.get_btc_price(date_obj) 
+            # Tìm Flow USD cho ngày này
+            daily_flows_candidates = etf_flows_df.loc[etf_flows_df.index.date == date_obj]
+            if daily_flows_candidates.empty: continue
+            daily_flows = daily_flows_candidates.iloc[0]
+
+            sorted_flows = []
+            price = self.get_btc_price(date_obj) # Lấy giá BTC cho ngày đó
+            
+            # Chuyển đổi Inflow USD sang BTC
             for ticker in Config.ETF_TICKERS:
                 inflow_usd = daily_flows.get(f'{ticker}_USD', 0)
                 if inflow_usd > 0 and price > 0:
                     inflow_btc = inflow_usd / price
                     sorted_flows.append({'ticker': ticker, 'inflow_btc': inflow_btc})
             
+            # Ưu tiên khớp các Flow lớn hơn trước (Greedy approach)
             sorted_flows.sort(key=lambda x: x['inflow_btc'], reverse=True)
             daily_used_txids = set()
 
@@ -415,6 +523,12 @@ class EtfDetector:
                 ticker = flow['ticker']
                 etf_name = Config.ETF_NAMES[ticker]
                 inflow_btc_expected = flow['inflow_btc']
+                
+                # Bỏ qua nếu đã có match Single/Aggregate cho ETF này hôm nay
+                if any(m['ticker'] == ticker for m in potential_matches if m['date'] == date_str):
+                    continue
+
+                # Tìm kiếm Aggregate Match
                 tx_group, match_type = self.find_aggregate_match(
                     inflow_btc_expected, 
                     txs_on_date, 
@@ -424,27 +538,38 @@ class EtfDetector:
                 if tx_group:
                     group_outflow_btc = sum(tx['outflow_btc'] for tx in tx_group)
                     
+                    logger.info(f"🎉 Found {match_type} for {etf_name} ({inflow_btc_expected:.2f} BTC) with {len(tx_group)} TXs (Sum: {group_outflow_btc:.2f} BTC)")
+
                     for tx in tx_group:
-                        daily_used_txids.add(tx['txid'])
+                        daily_used_txids.add(tx['txid']) # Đánh dấu TX đã sử dụng
+                        
+                        # Phân tích địa chỉ nhận (Recipient Address)
                         for vout in tx['vout']:
                             addr = vout.get('scriptpubkey_address')
                             output_btc = sats_to_btc(vout.get('value', 0))
 
                             if addr and addr not in self.coinbase_cluster and output_btc >= Config.MIN_TRANSFER_AMOUNT:
                                 is_main_recipient = False
+                                
+                                # Xác định Main Recipient:
                                 if match_type == 'Single Match':
+                                    # Main recipient là địa chỉ nhận phần lớn số BTC của TX đơn
                                     is_main_recipient = abs(output_btc - inflow_btc_expected) / inflow_btc_expected < Config.SINGLE_TX_TOLERANCE_PCT * 2 
                                 elif match_type == 'Aggregate Match':
+                                    # Main recipient là địa chỉ nhận số BTC lớn (ví dụ > 50% MIN_BTC_THRESHOLD)
                                     is_main_recipient = output_btc >= Config.MIN_BTC_THRESHOLD * 0.5 
                                     
                                 if is_main_recipient:
+                                    # Kiểm tra Change Address Heuristic: Địa chỉ output cũng là input
                                     is_change = addr in {vin.get('prevout', {}).get('scriptpubkey_address') for vin in tx.get('vin', []) if vin.get('prevout')}
                                     if is_change: continue
+                                    
+                                    # Phân loại ví Hot/Vault
                                     wallet_type = 'Hot'
                                     if is_cold_wallet(addr):
                                         wallet_type = 'Vault Candidate' 
 
-                                    nametag = f"{etf_name} Prime Hotwallet (Group Match)" if wallet_type == 'Hot' else f"{etf_name} Vault Candidate (Group Match)" 
+                                    nametag = f"{etf_name} Prime Hotwallet ({match_type})" if wallet_type == 'Hot' else f"{etf_name} Vault Candidate ({match_type})" 
                                     
                                     match_data = {
                                         'ticker': ticker, 'date': date_str, 'txid': tx['txid'], 
@@ -453,22 +578,27 @@ class EtfDetector:
                                         'is_custody_interaction': True
                                     }
                                     potential_matches.append(match_data)
+                                    
+                                    # Nếu là Single Match, không cần xét các output khác của TX đó (vì 1 Flow = 1 TX lớn)
                                     if match_type == 'Single Match':
                                         break 
+
+                    # Nếu là Single Match, chuyển sang Flow tiếp theo (vì 1 Flow đã tiêu hết 1 TX)
                     if match_type == 'Single Match':
                         break
+                    # Nếu là Aggregate Match, chuyển sang Flow tiếp theo (vì 1 Flow đã tiêu hết 1 nhóm TX)
                     if match_type == 'Aggregate Match':
-                        logger.info(f"🎉 Found Aggregate Match for {etf_name} ({inflow_btc_expected:.2f} BTC) with {len(tx_group)} TXs (Sum: {group_outflow_btc:.2f} BTC)")
                         break 
         
         self.update_clusters_with_matches(potential_matches)
 
     def update_clusters_with_matches(self, matches: List[Dict[str, Any]]):
-        """Cập nhật cluster ví ETF (ví trung gian/hotwallet)."""
+        """Cập nhật cluster ví ETF (ví trung gian/hotwallet) và lịch sử khớp."""
         if not matches:
             logger.info("No new potential matches found.")
             return
-        table = Table(title="✨ Potential New ETF Wallet Matches (Hotwallets) ✨")
+            
+        table = Table(title="✨ Potential New ETF Wallet Matches (Hotwallets/Vaults) ✨")
         table.add_column("Date", style="cyan"); table.add_column("Ticker", style="magenta"); 
         table.add_column("Type", style="green"); table.add_column("BTC Amount", justify="right", style="yellow"); 
         table.add_column("Wallet Address", style="blue"); table.add_column("Nametag", style="bold white"); table.add_column("TXID", style="dim")
@@ -477,19 +607,26 @@ class EtfDetector:
         for match in matches:
             wallet = match['wallet']; etf_name = Config.ETF_NAMES[match['ticker']]
             nametag = match.get('nametag', f"{etf_name} Hotwallet") 
+            
+            # Lưu lịch sử khớp
             if wallet not in self.match_history: self.match_history[wallet] = []
             
-            if not any(h['txid'] == match['txid'] and h['wallet'] == wallet for h in self.match_history[wallet]):
+            # Kiểm tra tránh trùng lặp lịch sử
+            if not any(h['txid'] == match['txid'] for h in self.match_history[wallet]):
                 match['nametag'] = nametag 
                 self.match_history[wallet].append(match)
+                
+                # Hiển thị kết quả mới
                 table.add_row(
                     match['date'], match['ticker'], match['type'], 
-                    f"{match['btc_amount']:.2f}", wallet, nametag, 
+                    f"{match['btc_amount']:,.2f}", wallet, nametag, 
                     f"[link=https://mempool.space/tx/{match['txid']}]{match['txid'][:10]}...[/link]"
                 )
                 
+                # Logic xác nhận ví: Cần ít nhất 2 lần khớp từ Custody Outflow (tương tác trực tiếp)
                 is_confirmed = len(self.match_history[wallet]) >= 2 and match.get('is_custody_interaction', False)
                 
+                # Cập nhật ETF Cluster nếu đã xác nhận
                 if is_confirmed and not any(w.get('address') == wallet for w in self.etf_clusters.get(etf_name, [])):
                     wallet_type = 'Hot' if 'Hotwallet' in nametag else 'Vault'
                     self.etf_clusters.setdefault(etf_name, []).append({'address': wallet, 'nametag': nametag, 'type': wallet_type})
@@ -506,11 +643,14 @@ class EtfDetector:
             self.display_confirmed_wallets()
 
     def display_confirmed_wallets(self):
-        """Hiển thị các ví ETF (ví trung gian/hotwallet) đã xác nhận."""
-        logger.info("Displaying all confirmed main ETF wallets (Hotwallets)...")
+        """Hiển thị các ví ETF (Hotwallet/Vault) đã xác nhận."""
+        logger.info("Displaying all confirmed main ETF wallets (Hot/Vault)...")
         hot_wallets_count = sum(len([w for w in wallets if w.get('type') == 'Hot']) for wallets in self.etf_clusters.values())
-        table = Table(title=f"✅ Confirmed Main ETF Wallets (Hot) (Total: {hot_wallets_count})")
+        vault_wallets_count = sum(len([w for w in wallets if w.get('type') == 'Vault']) for wallets in self.etf_clusters.values())
+
+        table = Table(title=f"✅ Confirmed ETF Wallets (Hot: {hot_wallets_count}, Vault: {vault_wallets_count})")
         table.add_column("ETF Name", style="bold green")
+        table.add_column("Type", style="cyan")
         table.add_column("Wallet Address", style="blue")
         table.add_column("Nametag", style="bold white")
         table.add_column("Match Count", justify="right", style="yellow")
@@ -518,90 +658,108 @@ class EtfDetector:
         for name, wallets in self.etf_clusters.items():
             if not wallets: continue
             for wallet_entry in wallets:
-                if wallet_entry.get('type') == 'Hot': 
-                    wallet = wallet_entry['address']
-                    nametag = wallet_entry.get('nametag', f"{name} Hotwallet")
-                    match_count = len(self.match_history.get(wallet, []))
-                    table.add_row(name, wallet, nametag, str(match_count))
+                wallet = wallet_entry['address']
+                nametag = wallet_entry.get('nametag', f"{name} Wallet")
+                wallet_type = wallet_entry.get('type', 'Unknown')
+                match_count = len(self.match_history.get(wallet, []))
+                
+                table.add_row(name, wallet_type, wallet, nametag, str(match_count))
         
         if table.row_count > 0:
             console.print(table)
 
     def get_recipient_wallets(self, main_wallet: str, etf_name: str) -> Set[str]:
         """
-        Nâng cấp: Find unique **recipient wallets** (ví thứ 3/vault) 
-        từ các giao dịch **outgoing** của main ETF wallet (ví trung gian). 
-        Thêm filter cho IBIT: chỉ giữ recipients có balance ~300 BTC.
+        Tìm kiếm các ví nhận (ví thứ 3/vault) từ các giao dịch outgoing của main ETF wallet (ví trung gian). 
+        Áp dụng thêm filter cho IBIT (balance ~300 BTC).
         """
-        logger.info(f"🔍 Scanning recipients (vaults) for main wallet: {main_wallet} (Limit: {Config.MAX_TXS_FOR_BALANCE} TXs)")
+        logger.info(f"🔍 Scanning recipients (vaults) for main wallet: {main_wallet}...")
         recipients = set()
         
+        # Lấy tối đa 2000 TX
         all_txs_summary = get_address_txs_paginated(main_wallet, limit=Config.MAX_TXS_FOR_BALANCE)
+        
+        # Danh sách các Hotwallet của chính ETF này (để loại bỏ ví change/ví nội bộ)
         etf_hotwallets = {w['address'] for w in self.etf_clusters.get(etf_name, []) if w.get('type') == 'Hot'}
         
         for tx_summary in all_txs_summary:
             try:
                 tx_detail = get_full_tx(tx_summary['txid'])
                 if not tx_detail: continue
+                
+                # Kiểm tra giao dịch đi ra (main_wallet là input)
                 vin_addresses = {vin['prevout']['scriptpubkey_address'] for vin in tx_detail.get('vin', []) if vin.get('prevout')}
                 is_outgoing_tx = main_wallet in vin_addresses
                 
                 if is_outgoing_tx:
                     vout_list = tx_detail.get('vout', [])
-                    outputs = []
                     for vout in vout_list:
                         addr = vout.get('scriptpubkey_address')
                         amount_btc = sats_to_btc(vout.get('value', 0))
+                        
                         if addr and amount_btc > 0:
-                            outputs.append((addr, amount_btc))
-
-                    for addr, amount_btc in outputs:
-                        if addr in etf_hotwallets:
-                             continue
-                        if amount_btc < Config.MIN_TRANSFER_AMOUNT: 
-                             continue
-                        if amount_btc >= Config.MIN_BTC_THRESHOLD or is_cold_wallet(addr):
-                            # Thêm filter IBIT-specific nếu là BlackRock IBIT
-                            if etf_name == 'BlackRock IBIT' and not is_ibit_vault_candidate(addr):
-                                continue
-                            recipients.add(addr)
+                            # 1. Bỏ qua nếu là Hotwallet nội bộ của ETF này
+                            if addr in etf_hotwallets: continue
+                            # 2. Bỏ qua giao dịch nhỏ
+                            if amount_btc < Config.MIN_TRANSFER_AMOUNT: continue
                                 
+                            # 3. Chỉ xét recipient là ví lớn (> MIN_BTC_THRESHOLD) hoặc ví Cold/Vault
+                            if amount_btc >= Config.MIN_BTC_THRESHOLD or is_cold_wallet(addr):
+                                # 4. Filter đặc biệt cho IBIT (vaults ~300 BTC)
+                                if etf_name == 'BlackRock IBIT' and not is_ibit_vault_candidate(addr):
+                                    continue
+                                # 5. Loại bỏ địa chỉ Change (ví output là ví input)
+                                is_change = addr in vin_addresses
+                                if is_change: continue
+                                
+                                recipients.add(addr)
+                                    
             except Exception as e:
                 logger.warning(f"Error processing TX {tx_summary['txid']} for recipients: {e}")
                 continue
+                
+        # Loại bỏ các ví Hotwallet của ETF khác (chắc chắn không phải vault của ETF này)
         all_other_hotwallets = {w['address'] for name, wallets in self.etf_clusters.items() if name != etf_name for w in wallets if w.get('type') == 'Hot'}
         recipients = recipients - all_other_hotwallets
         
-        logger.info(f"Found {len(recipients)} unique recipient wallets/vaults for {main_wallet} (filtered for IBIT ~300 BTC)")
+        logger.info(f"Found {len(recipients)} unique recipient wallets/vaults for {main_wallet} (after filtering).")
         return recipients
 
     def calculate_total_balances(self):
         """
-        Tính tổng balance của các ví recipient (ví thứ 3/vault)
-        bao gồm cả các ví Vault đã biết từ đầu.
+        Tính tổng balance của các ví recipient/vault (đã biết và được phát hiện).
         """
         logger.info("💰 Calculating total balances from recipient wallets (vaults/known)...")
         self.balances = {}
         
         for name in Config.ETF_NAMES.values():
             all_recipient_wallets_entries = {}
+            
+            # 1. Thêm các ví Vault đã biết (KNOWN_ETF_WALLETS)
             for known_wallet in KNOWN_ETF_WALLETS.get(name, []):
                 if known_wallet.get('type') == 'Vault':
                     all_recipient_wallets_entries[known_wallet['address']] = known_wallet['nametag']
+            
+            # 2. Thêm các ví Vault/Recipient được phát hiện (qua Hotwallet Outflow)
             main_wallets = self.etf_clusters.get(name, [])
             for wallet_entry in main_wallets:
                 if wallet_entry.get('type') == 'Hot':
                     main_wallet_addr = wallet_entry['address']
+                    # Lấy các ví nhận (vaults) từ Hotwallet này
                     recipients = self.get_recipient_wallets(main_wallet_addr, name) 
                     
                     for addr in recipients:
+                        # Kiểm tra xem địa chỉ này có phải là Hotwallet của ETF này không
                         is_hot_wallet = any(w['address'] == addr and w.get('type') == 'Hot' for w in self.etf_clusters.get(name, []))
                         
+                        # Chỉ thêm nếu không phải hotwallet và chưa có trong danh sách
                         if not is_hot_wallet and addr not in all_recipient_wallets_entries:
                             all_recipient_wallets_entries[addr] = f"{name} Vault Candidate (Discovered via {main_wallet_addr[:10]}...)"
+            
             total_btc = 0.0
             wallet_details = []
             
+            # 3. Tính balance cho tất cả các ví Vault đã thu thập
             for addr, nametag in all_recipient_wallets_entries.items():
                 balance = get_address_balance(addr)
                 if balance > 0:
@@ -636,6 +794,7 @@ class EtfDetector:
         table.add_column("Last Updated", style="dim")
         
         total_grand = 0.0
+        # Sắp xếp theo tổng BTC giảm dần
         sorted_balances = sorted(self.balances.items(), key=lambda item: item[1]['total_btc'], reverse=True)
         
         for name, data in sorted_balances:
@@ -646,44 +805,36 @@ class EtfDetector:
                 str(data['wallet_count']),
                 datetime.fromisoformat(data['last_updated']).strftime('%Y-%m-%d %H:%M')
             )
-        
-        table.add_section()
-        table.add_row(
-            "[bold white]GRAND TOTAL[/bold white]",
-            f"[bold green]{total_grand:,.2f}[/bold green]",
-            "",
-            ""
-        )
+            
         console.print(table)
-        
-    def run(self):
-        """Chạy toàn bộ quy trình phát hiện và phân tích."""
-        console.print("\n" + "="*80)
-        console.print("[bold yellow]🚀 STARTING OPTIMIZED ETF BTC HOLDINGS TRACKER[/bold yellow]")
+        console.print(f"[bold white]GRAND TOTAL: {total_grand:,.2f} BTC[/bold white]")
         console.print("="*80)
 
-        # BƯỚC 1: Xây dựng cluster Coinbase Custody (giữ nguyên logic)
+    def run(self):
+        """Chạy toàn bộ quy trình phát hiện và theo dõi ETF."""
+        console.print("\n[bold green]=== 🚀 ETF BITCOIN FLOW DETECTOR STARTING 🚀 ===[/bold green]")
+        
+        # 1. Mở rộng Cluster Coinbase (Ví Custody)
         self.build_coinbase_cluster()
         
-        # BƯỚC 2: Tải dữ liệu flow và khớp nối để tìm ví Hot
+        # 2. Tải Dữ liệu Dòng Tiền ETF (USD -> BTC)
         etf_flows_df = self.fetch_etf_flows()
+        if etf_flows_df.empty:
+            logger.warning("Could not fetch ETF flow data. Exiting matching phase.")
+            self.calculate_total_balances()
+            return
+
+        # 3. Tìm các Giao Dịch Lớn từ Custody
         custody_txs = self.fetch_large_custody_txs()
         
-        if not etf_flows_df.empty and custody_txs:
-            self.analyze_and_match_txs(etf_flows_df, custody_txs)
-        else:
-            logger.warning("⚠️ Could not fetch flows or large TXs. Skipping matching step.")
+        # 4. Phân Tích & Khớp Giao Dịch (Aggregate Matching)
+        self.analyze_and_match_txs(etf_flows_df, custody_txs)
         
-        self.display_confirmed_wallets()
-        
-        # BƯỚC 3: Từ ví Hot, khám phá ví Vault và tính tổng số dư (với filter IBIT ~300 BTC)
+        # 5. Tính Toán Tổng Balance (Vault/Recipient Wallets)
         self.calculate_total_balances()
         
-        console.print("\n" + "="*80)
-        console.print("[bold green]✅ OPTIMIZED TRACKING COMPLETE[/bold green]")
-        console.print("="*80)
+        console.print("[bold green]=== ✅ ETF BITCOIN FLOW DETECTOR COMPLETE ===[/bold green]")
 
-# --- Điểm Bắt Đầu Chạy Script ---
-if __name__ == "__main__":
+if __name__ == '__main__':
     detector = EtfDetector()
     detector.run()
