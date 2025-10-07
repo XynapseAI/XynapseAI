@@ -535,6 +535,7 @@ export async function GET(request) {
           ...cd,
           balance_usd: cd.balance_usd !== null && cd.balance_usd !== undefined ? cd.balance_usd : (cd.balance * price) || 0
         }));
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const totalBalanceUsd = processedChainDetails.reduce((sum, cd) => sum + (Number(cd.balance_usd) || 0), 0);
         return {
           ...row,
