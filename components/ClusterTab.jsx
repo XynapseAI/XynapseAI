@@ -155,6 +155,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   const clusterIdFromQuery = searchParams.get("clusterId") || initialClusterId || "binance";
   const { currency } = useCurrency();
   const [exchangeData, setExchangeData] = useState(null);
+  const [clusterImage, setClusterImage] = useState(null);
   const [volumeHistory, setVolumeHistory] = useState([]);
   const [portfolioData, setPortfolioData] = useState([]);
   const [walletData, setWalletData] = useState([]);
@@ -181,7 +182,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   const [isLoadingPrices, setIsLoadingPrices] = useState(false);
   const [selectedChain, setSelectedChain] = useState("all");
   const [toggledToken, setToggledToken] = useState(null);
-  const [clusterImage, setClusterImage] = useState(null);
   const portfolioRef = useRef(null);
   const [localActiveTab, setLocalActiveTab] = useState("portfolio");
   const currentActiveTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
@@ -204,41 +204,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-
-  // Fetch cluster image from search-clusters API to get the best image across tables
-  useEffect(() => {
-    const fetchClusterImage = async () => {
-      if (!clusterIdFromQuery) return;
-      try {
-        const response = await fetch(`/api/search-clusters?query=${encodeURIComponent(clusterIdFromQuery)}`, {
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-        });
-        const result = await response.json();
-        if (result.success && result.data && result.data.length > 0) {
-          setClusterImage(result.data[0].image || `/icons/${clusterIdFromQuery.toLowerCase()}.webp` || '/fallback-image.webp');
-          logger.info(`Fetched cluster image for ${clusterIdFromQuery}:`, { image: result.data[0].image });
-        } else {
-          setClusterImage(`/icons/${clusterIdFromQuery.toLowerCase()}.webp` || '/fallback-image.webp');
-        }
-      } catch (err) {
-        logger.error(`Error fetching cluster image for ${clusterIdFromQuery}:`, { error: err.message });
-        setClusterImage(`/icons/${clusterIdFromQuery.toLowerCase()}.webp` || '/fallback-image.webp');
-      }
-    };
-    fetchClusterImage();
-  }, [clusterIdFromQuery]);
-
-  // Update exchangeData image with clusterImage if it's a fallback
-  useEffect(() => {
-    if (clusterImage && exchangeData) {
-      const isFallbackImage = !exchangeData.image || exchangeData.image === '/fallback-image.webp' || exchangeData.image === `/icons/${clusterIdFromQuery.toLowerCase()}.webp`;
-      if (isFallbackImage) {
-        setExchangeData(prev => ({ ...prev, image: clusterImage }));
-        logger.info(`Updated exchangeData image with clusterImage for ${clusterIdFromQuery}`);
-      }
-    }
-  }, [clusterImage, exchangeData, clusterIdFromQuery]);
 
   // Fetch chain logos with local cache
   useEffect(() => {
@@ -337,6 +302,44 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     }
   }, [clusterIdFromQuery, currency, btcPrice, dogePrice, ltcPrice]);
 
+  // Fetch cluster image from DB using search-clusters API
+  const fetchClusterImage = async (clusterId) => {
+    const normalizedClusterId = clusterId.toLowerCase().replace(/[^\w\s]/g, ' ').trim();
+    const words = normalizedClusterId.split(/\s+/).filter(Boolean);
+    const shortQuery = words.length > 1 ? words[words.length - 1] : clusterId.toLowerCase();
+    const cacheKey = `cluster:image:${clusterId.toLowerCase()}`;
+    const cachedImage = getCachedData(cacheKey, 3600 * 1000); // 1 hour cache
+    if (cachedImage) {
+      setClusterImage(cachedImage);
+      logger.info(`Cache hit for cluster image: ${clusterId}`);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/search-clusters?query=${encodeURIComponent(shortQuery)}`, {
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      const result = await response.json();
+      if (response.ok && result.success && result.data && result.data.length > 0) {
+        const image = result.data[0].image || `/icons/${shortQuery}.webp`;
+        setClusterImage(image);
+        setCachedData(cacheKey, image);
+        logger.info(`Fetched and cached cluster image from DB: ${clusterId}`, { image, shortQuery });
+      } else {
+        const fallback = `/icons/${shortQuery}.webp`;
+        setClusterImage(fallback);
+        setCachedData(cacheKey, fallback);
+        logger.warn(`No cluster image found in DB for: ${clusterId}, using fallback`, { shortQuery });
+      }
+    } catch (err) {
+      logger.error(`Error fetching cluster image for ${clusterId}:`, { error: err.message, stack: err.stack });
+      const fallback = `/icons/${shortQuery}.webp`;
+      setClusterImage(fallback);
+      setCachedData(cacheKey, fallback);
+    }
+  };
+
   // Fetch exchange data with local cache
   const fetchExchangeData = async (originalId, mappedId) => {
     const cacheKey = `coingecko:exchange-details:${mappedId}:${currency}`;
@@ -369,7 +372,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const exchangeData = {
         ...result.data,
         name: result.data.name || originalId.charAt(0).toUpperCase() + originalId.slice(1),
-        image: result.data.image || `/icons/${mappedId.toLowerCase()}.webp` || '/fallback-image.webp',
+        image: result.data.image, // Set from CoinGecko if available, otherwise null to fallback to clusterImage
         country: result.data.country || "N/A",
         year_established: result.data.year_established || "N/A",
         trust_score: trustScore,
@@ -386,7 +389,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const errorMessage = err.message || "Unknown error fetching exchange data";
       const fallback = {
         name: originalId.charAt(0).toUpperCase() + originalId.slice(1),
-        image: `/icons/${mappedId.toLowerCase()}.webp` || '/fallback-image.webp',
+        image: null, // Use null to fallback to clusterImage
         country: "N/A",
         year_established: "N/A",
         trust_score: "N/A", // Fallback only if API fails completely
@@ -1097,6 +1100,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     const mappedId = mapExchangeId(clusterIdFromQuery);
     fetchExchangeData(clusterIdFromQuery, mappedId);
     fetchPortfolioAndWallets(clusterIdFromQuery);
+    fetchClusterImage(clusterIdFromQuery);
   }, [clusterIdFromQuery, currency]);
 
   useEffect(() => {
@@ -1191,7 +1195,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
 
       const chainLower = wallet.chain?.toLowerCase();
       let logo = wallet.image ||
-        clusterImage ||
         (chainLower === "bitcoin" ? BITCOIN_LOGO :
           chainLower === "dogecoin" ? DOGECOIN_LOGO :
             chainLower === "litecoin" ? LITECOIN_LOGO :
@@ -1225,7 +1228,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     const deduplicated = Array.from(walletMap.values());
     logger.log("Deduplicated wallet data:", { deduplicated });
     return deduplicated;
-  }, [memoizedWalletData, clusterImage]);
+  }, [memoizedWalletData]);
 
   const groupedPortfolio = useMemo(() => {
     logger.log("Processing portfolio data for chain details:", { portfolioData: memoizedPortfolioData });
@@ -1843,7 +1846,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <div className="flex items-center gap-2">
                     <motion.img
-                      src={exchangeData.image || "/fallback-image.webp"}
+                      src={exchangeData.image || clusterImage || `/icons/${mapExchangeId(clusterIdFromQuery).toLowerCase()}.webp` || '/fallback-image.webp'}
                       alt={`${exchangeData.name} logo`}
                       className="w-8 sm:w-10 h-8 sm:h-10 rounded-xl shadow-lg"
                       onError={(e) => (e.target.src = "/fallback-image.webp")}
