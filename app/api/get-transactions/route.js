@@ -555,8 +555,8 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
       blockTime = tx.timestamp ? new Date(tx.timestamp).toISOString() : null;
     } else {
       value = (parseInt(tx.value) / 1e18).toString();
-      // Note: txlist doesn't include token transfers; for tokens, would need separate tokentx fetch
-      // Assuming native for layer3 as per original code
+      // FIXED2: Skip if value == 0 for layer3 native (avoid bogus rows)
+      if (parseFloat(value) === 0) return null;
       blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
     }
 
@@ -645,6 +645,7 @@ export async function POST(request) {
 
     const fetchPromises = [];
     let apiUrl;
+    let internalData = []; // FIXED: Khởi tạo cho internal txs
     if (chain === 'solana') {
       apiUrl = `${chainConfig.apiUrl}/account/transactions?account=${wallet_address}&limit=${limit}&offset=${(page - 1) * limit}`;
       fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 20000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
@@ -652,10 +653,16 @@ export async function POST(request) {
       apiUrl = `${chainConfig.apiUrl}/transaction?address=${wallet_address}&limit=${limit}&start=${(page - 1) * limit}`;
       fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 20000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
     } else {
+      // FIXED: Fetch thêm txlistinternal cho EVM chains để capture internal ETH transfers (e.g., từ swap)
       apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
       fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 20000 }).then((res) => ({ type: 'native', data: res.data.result || [] })));
+      
       const tokenApiUrl = `${chainConfig.apiUrl}?module=account&action=tokentx&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
       fetchPromises.push(fetchWithRateLimit(tokenApiUrl, { timeout: 20000 }).then((res) => ({ type: 'token', data: res.data.result || [] })));
+      
+      // FIXED: Fetch internal txs parallel
+      const internalApiUrl = `${chainConfig.apiUrl}?module=account&action=txlistinternal&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
+      fetchPromises.push(fetchWithRateLimit(internalApiUrl, { timeout: 20000 }).then((res) => ({ type: 'internal', data: res.data.result || [] })));
     }
 
     const responses = await Promise.allSettled(fetchPromises);
@@ -666,6 +673,7 @@ export async function POST(request) {
       if (result.status === 'fulfilled') {
         if (result.value.type === 'native') transactions = result.value.data;
         if (result.value.type === 'token') tokenTransactions = result.value.data;
+        if (result.value.type === 'internal') internalData = result.value.data; // FIXED: Lưu internal data
       }
     });
 
@@ -709,6 +717,7 @@ export async function POST(request) {
     const outgoing = [];
     const addresses = new Set();
 
+    // FIXED: Process native txlist (top-level ETH)
     const nativeTxPromises = transactions.map(async (tx) => {
       let value = '0';
       let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
@@ -726,12 +735,17 @@ export async function POST(request) {
         tokenSymbol = 'TRX';
         blockTime = tx.timestamp ? new Date(tx.timestamp).toISOString() : null;
       } else {
-        value = (parseInt(tx.value) / 1e18).toString();
+        value = ethers.formatEther(tx.value); // FIXED: Dùng ethers.formatEther cho chính xác
         blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
       }
 
       if (!blockTime) {
         logger.warn(`Missing or invalid block_time for tx ${tx.hash || tx.transactionHash} from address ${wallet_address}`);
+        return null;
+      }
+
+      // FIXED2: Skip native tx if value == 0 (avoid bogus "ETH 0" rows for contract calls/swaps)
+      if (parseFloat(value) === 0) {
         return null;
       }
 
@@ -765,6 +779,63 @@ export async function POST(request) {
       }
     });
 
+    // FIXED: Process internal txs cho EVM (capture internal ETH từ swap, etc.)
+    if (chain !== 'solana' && chain !== 'tron' && internalData.length > 0) {
+      const internalNativeTxPromises = internalData.map(async (itx) => {
+        if (itx.type !== 'call' || BigInt(itx.value) === 0n) return null; // Filter chỉ call với value > 0
+
+        let value = ethers.formatEther(itx.value); // FIXED: Format ETH chính xác
+        let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
+        let contractAddress = null;
+        let tokenImage = '/icons/default.webp';
+        let blockTime = itx.timeStamp ? new Date(parseInt(itx.timeStamp) * 1000).toISOString() : null;
+        let usdValue = 0;
+
+        if (!blockTime) {
+          logger.warn(`Missing or invalid block_time for internal tx ${itx.hash} from address ${wallet_address}`);
+          return null;
+        }
+
+        // FIXED2: Already skipped if value == 0 above
+
+        // Use pre-fetched native price
+        usdValue = Number(value) * nativePrice;
+
+        const from = itx.from.toLowerCase();
+        const to = itx.to.toLowerCase();
+        const isOutgoing = from === wallet_address.toLowerCase();
+        const address = isOutgoing ? to : from;
+        const type = isOutgoing ? 'outgoing' : 'incoming';
+
+        return {
+          address,
+          hash: itx.hash, // Top-level tx hash
+          value,
+          usdValue: usdValue.toFixed(6),
+          tokenSymbol,
+          contractAddress,
+          tokenImage,
+          block_time: blockTime,
+          type,
+        };
+      });
+
+      const internalTxResults = await Promise.allSettled(internalNativeTxPromises);
+      internalTxResults.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value) {
+          const tx = result.value;
+          if (tx.type === 'outgoing') {
+            outgoing.push(tx);
+            addresses.add(tx.address.toLowerCase());
+          } else {
+            incoming.push(tx);
+            addresses.add(tx.address.toLowerCase());
+          }
+        }
+      });
+      logger.info(`Processed ${internalTxResults.filter(r => r.status === 'fulfilled' && r.value).length} internal ETH transfers`);
+    }
+
     const tokenPromises = tokenTransactions.map(async (tx) => {
       if (!isAddress(tx.contractAddress)) return null;
       if (BLOCKED_TOKEN_ADDRESSES.includes(tx.contractAddress.toLowerCase())) {
@@ -784,6 +855,11 @@ export async function POST(request) {
 
       if (!blockTime) {
         logger.warn(`Missing or invalid block_time for token tx ${tx.hash} from address ${wallet_address}`);
+        return null;
+      }
+
+      // FIXED2: Skip token tx if value == 0 (rare, but avoid zero token rows)
+      if (parseFloat(value) === 0) {
         return null;
       }
 

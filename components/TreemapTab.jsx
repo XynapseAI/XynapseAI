@@ -486,6 +486,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
       style={{ overflowY: 'auto' }}
     >
       <h4 className="text-white text-[11px] font-bold mb-2 bg-gradient-to-r from-neon-blue/30 to-transparent rounded p-1 flex items-center gap-2">
+        HotSpot:
         {isValidNametagImage(cluster.image) && (
           <img
             src={cluster.image}
@@ -497,7 +498,7 @@ const ClusterDashboard = memo(({ entity, isMobile, tokenImages }) => {
             loading="lazy"
           />
         )}
-        HotSpot: {cluster.nametag || 'Unknown'}
+        {cluster.nametag || 'Unknown'}
       </h4>
       <div className="grid grid-cols-2 gap-2 mb-2 text-[9px]">
         <div className="bg-white/10 p-2 rounded-lg">
