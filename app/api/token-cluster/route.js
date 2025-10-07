@@ -220,6 +220,33 @@ function mapExchangeName(exchangeId) {
   return EXCHANGE_MAPPING[exchangeId.toLowerCase()] || exchangeId.toLowerCase();
 }
 
+const fetchPrices = async (currency) => {
+  try {
+    const response = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,dogecoin,litecoin&vs_currencies=${currency}`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Your-App-Name/1.0'
+        },
+      }
+    );
+    const result = await response.json();
+    if (response.ok) {
+      return {
+        bitcoin: result.bitcoin?.[currency] || 0,
+        dogecoin: result.dogecoin?.[currency] || 0,
+        litecoin: result.litecoin?.[currency] || 0,
+      };
+    } else {
+      throw new Error('Failed to fetch coin prices');
+    }
+  } catch (err) {
+    logger.error(`Error fetching coin prices in API:`, { error: err.message });
+    return { bitcoin: 0, dogecoin: 0, litecoin: 0 };
+  }
+};
+
 export async function OPTIONS(request) {
   const origin = request.headers.get('origin');
   const pathname = new URL(request.url).pathname;
@@ -301,6 +328,9 @@ export async function GET(request) {
 
       const searchPattern = `%${mappedExchange}%`;
 
+      // Fetch prices for calculation
+      const prices = await fetchPrices(currency);
+
       // Query for non-Bitcoin, non-Dogecoin, non-Litecoin tokens
       const portfolioQuery = `
  WITH wallet_tokens AS (
@@ -366,7 +396,7 @@ export async function GET(request) {
  LIMIT 200
 `;
 
-      // Query for Bitcoin, Dogecoin, Litecoin
+      // Query for Bitcoin, Dogecoin, Litecoin - include balance for calculation
       const specialCoinsPortfolioQuery = `
         SELECT 
           th.coingecko_id AS token_address,
@@ -433,13 +463,14 @@ export async function GET(request) {
  LIMIT 100
 `;
 
-      // Query for Bitcoin, Dogecoin, Litecoin wallets
+      // Query for Bitcoin, Dogecoin, Litecoin wallets - include balance for calculation
       const specialCoinsWalletQuery = `
         SELECT 
           source AS cluster_name,
           chain,
           holder_address,
-          balance_usd AS total_value_usd,
+          balance,
+          balance_usd,
           1 AS token_count,
           name_tag,
           image
@@ -452,7 +483,7 @@ export async function GET(request) {
             WHEN token_address = 'dogecoin' THEN 2
             WHEN token_address = 'litecoin' THEN 3
             ELSE 4
-          END, total_value_usd DESC NULLS LAST
+          END, balance_usd DESC NULLS LAST
         LIMIT 100
       `;
 
@@ -496,11 +527,36 @@ export async function GET(request) {
         );
       }
 
+      // Post-process special coins to calculate USD if missing
+      const processedSpecialPortfolio = specialCoinsPortfolioResult.rows.map(row => {
+        const coinId = row.token_address;
+        const price = prices[coinId];
+        const processedChainDetails = (row.chain_details || []).map(cd => ({
+          ...cd,
+          balance_usd: cd.balance_usd !== null && cd.balance_usd !== undefined ? cd.balance_usd : (cd.balance * price) || 0
+        }));
+        const totalBalanceUsd = processedChainDetails.reduce((sum, cd) => sum + (Number(cd.balance_usd) || 0), 0);
+        return {
+          ...row,
+          chain_details: processedChainDetails,
+          total_balance_usd: row.total_balance_usd !== null && row.total_balance_usd !== undefined ? row.total_balance_usd : (row.total_balance * price) || 0,
+        };
+      });
+
+      const processedSpecialWallets = specialCoinsWalletResult.rows.map(row => {
+        const price = prices[row.chain];
+        const totalValueUsd = row.balance_usd !== null && row.balance_usd !== undefined ? row.balance_usd : (row.balance * price) || 0;
+        return {
+          ...row,
+          total_value_usd: totalValueUsd,
+        };
+      });
+
       // Response data without prices
       const responseData = {
         success: true,
         portfolio: [
-          ...specialCoinsPortfolioResult.rows.map((row) => ({
+          ...processedSpecialPortfolio.map((row) => ({
             token_address: row.token_address || 'unknown',
             symbol: row.symbol || (row.token_address === 'bitcoin' ? 'BTC' : row.token_address === 'dogecoin' ? 'DOGE' : row.token_address === 'litecoin' ? 'LTC' : row.token_address),
             logo: row.logo || (row.token_address === 'bitcoin' ? '/logos/bitcoin.webp' : row.token_address === 'dogecoin' ? '/logos/dogecoin.webp' : row.token_address === 'litecoin' ? '/logos/litecoin.webp' : '/fallback-image.webp'),
@@ -519,10 +575,10 @@ export async function GET(request) {
         ],
         wallets: isAuthenticated
           ? [
-              ...specialCoinsWalletResult.rows.map((row) => ({
+              ...processedSpecialWallets.map((row) => ({
                 cluster_name: capitalize(row.cluster_name),
                 chain: row.chain,
-                holder_address: row.holder_address,
+                holder_address: row.holder_address || row.name_tag, // Fallback to nametag
                 total_value_usd: Number(row.total_value_usd) || 0,
                 token_count: row.token_count || 0,
                 name_tag: row.name_tag || 'N/A',
@@ -531,7 +587,7 @@ export async function GET(request) {
               ...walletResult.rows.map((row) => ({
                 cluster_name: capitalize(row.cluster_name),
                 chain: row.chain,
-                holder_address: row.holder_address,
+                holder_address: row.holder_address || row.name_tag, // Fallback to nametag
                 total_value_usd: Number(row.total_value_usd) || 0,
                 token_count: row.token_count || 0,
                 name_tag: row.name_tag || 'N/A',
@@ -548,8 +604,8 @@ export async function GET(request) {
 
       logger.info(`Fetched portfolio and wallet data for exchange: ${exchange} (mapped to: ${mappedExchange})`, {
         ip,
-        portfolioCount: portfolioResult.rows.length + specialCoinsPortfolioResult.rows.length,
-        walletCount: isAuthenticated ? walletResult.rows.length + specialCoinsWalletResult.rows.length : 0,
+        portfolioCount: portfolioResult.rows.length + processedSpecialPortfolio.length,
+        walletCount: isAuthenticated ? walletResult.rows.length + processedSpecialWallets.length : 0,
         auth: isAuthenticated,
         currency,
       });

@@ -182,7 +182,7 @@ async function importNametagsForFile(filePath) {
  * Main function to run the import
  */
 async function main() {
-  const filePath = path.join(__dirname, '../public/nametags/addresses-267.json');
+  const filePath = path.join(__dirname, '../public/nametags/coinbase-cluster.json');
   console.log(`Starting import from file: ${filePath}`);
   await importNametagsForFile(filePath);
   console.log('Nametag import process completed successfully.');

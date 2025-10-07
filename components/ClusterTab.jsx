@@ -1,3 +1,4 @@
+// components\ClusterTab.jsx
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
@@ -27,6 +28,14 @@ const DOGECOIN_LOGO = "/logos/dogecoin.webp";
 const LITECOIN_LOGO = "/logos/litecoin.webp";
 const NAMETAG_LOGOS = {
   "binance cold wallet": "/logos/binance-cold-wallet.webp",
+  "kraken-wallet": "/icons/kraken.webp",
+  "blackrock-ibit": "/icons/blackrock.webp",
+  "fidelity-fbtc": "/icons/fidelity.webp",
+  "grayscale": "/icons/grayscale.webp", // Assuming, adjust if needed
+  "grayscale-mini": "/icons/grayscale.webp",
+  "21shares-arkb": "/icons/21shares.webp",
+  "bitwise-bitb": "/icons/bitwise.webp",
+  "vaneck-hodl": "/icons/vaneck.webp", // Assuming, adjust if needed
   // Thêm các nametag khác nếu cần
 };
 const EXCHANGE_MAPPING = {
@@ -172,6 +181,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   const [isLoadingPrices, setIsLoadingPrices] = useState(false);
   const [selectedChain, setSelectedChain] = useState("all");
   const [toggledToken, setToggledToken] = useState(null);
+  const [clusterImage, setClusterImage] = useState(null);
   const portfolioRef = useRef(null);
   const [localActiveTab, setLocalActiveTab] = useState("portfolio");
   const currentActiveTab = propActiveTab !== undefined ? propActiveTab : localActiveTab;
@@ -194,6 +204,41 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  // Fetch cluster image from search-clusters API to get the best image across tables
+  useEffect(() => {
+    const fetchClusterImage = async () => {
+      if (!clusterIdFromQuery) return;
+      try {
+        const response = await fetch(`/api/search-clusters?query=${encodeURIComponent(clusterIdFromQuery)}`, {
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+        const result = await response.json();
+        if (result.success && result.data && result.data.length > 0) {
+          setClusterImage(result.data[0].image || `/icons/${clusterIdFromQuery.toLowerCase()}.webp` || '/fallback-image.webp');
+          logger.info(`Fetched cluster image for ${clusterIdFromQuery}:`, { image: result.data[0].image });
+        } else {
+          setClusterImage(`/icons/${clusterIdFromQuery.toLowerCase()}.webp` || '/fallback-image.webp');
+        }
+      } catch (err) {
+        logger.error(`Error fetching cluster image for ${clusterIdFromQuery}:`, { error: err.message });
+        setClusterImage(`/icons/${clusterIdFromQuery.toLowerCase()}.webp` || '/fallback-image.webp');
+      }
+    };
+    fetchClusterImage();
+  }, [clusterIdFromQuery]);
+
+  // Update exchangeData image with clusterImage if it's a fallback
+  useEffect(() => {
+    if (clusterImage && exchangeData) {
+      const isFallbackImage = !exchangeData.image || exchangeData.image === '/fallback-image.webp' || exchangeData.image === `/icons/${clusterIdFromQuery.toLowerCase()}.webp`;
+      if (isFallbackImage) {
+        setExchangeData(prev => ({ ...prev, image: clusterImage }));
+        logger.info(`Updated exchangeData image with clusterImage for ${clusterIdFromQuery}`);
+      }
+    }
+  }, [clusterImage, exchangeData, clusterIdFromQuery]);
 
   // Fetch chain logos with local cache
   useEffect(() => {
@@ -558,7 +603,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         const toAddresses = tx.outputs.map((output) => output.address.toLowerCase());
         const clusterWallets = uniqueWalletData
           .filter((w) => w.chain?.toLowerCase() === "bitcoin")
-          .map((w) => w.holder_address.toLowerCase());
+          .map((w) => (w.holder_address || w.name_tag || '').toLowerCase());
         return (
           fromAddresses.some((addr) => clusterWallets.includes(addr)) ||
           toAddresses.some((addr) => clusterWallets.includes(addr))
@@ -1110,7 +1155,21 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     }
   };
 
-  const handleWalletClick = (address) => {
+  const handleWalletClick = (walletObj) => {
+    const address = walletObj.holder_address || walletObj.name_tag;
+    if (!address) {
+      toast.info("No on-chain address available for this entity", { position: "top-center", autoClose: 3000 });
+      return;
+    }
+    // Check if it's a valid address format
+    const isValidAddress = /^0x[a-fA-F0-9]{40}$/.test(address) ||
+      /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-zA-Z0-9]{39,59}$/.test(address) ||
+      /^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{32,33}$/.test(address) ||
+      /^L[a-km-zA-HJ-NP-Z1-9]{26,34}$|^ltc1[a-zA-Z0-9]{39,59}$/.test(address);
+    if (!isValidAddress) {
+      toast.info("No on-chain data available for this nametag", { position: "top-center", autoClose: 3000 });
+      return;
+    }
     setSelectedWallet(address);
   };
 
@@ -1127,18 +1186,27 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     const walletMap = new Map();
 
     memoizedWalletData.forEach((wallet, index) => {
-      const addr = wallet.holder_address?.toLowerCase();
+      const addr = (wallet.holder_address || wallet.name_tag)?.toLowerCase();
       if (!addr) return;
 
       const chainLower = wallet.chain?.toLowerCase();
-      const logo = chainLower === "bitcoin" ? BITCOIN_LOGO :
-        chainLower === "dogecoin" ? DOGECOIN_LOGO :
-          chainLower === "litecoin" ? LITECOIN_LOGO :
-            wallet.image || "/fallback-image.webp";
+      let logo = wallet.image ||
+        clusterImage ||
+        (chainLower === "bitcoin" ? BITCOIN_LOGO :
+          chainLower === "dogecoin" ? DOGECOIN_LOGO :
+            chainLower === "litecoin" ? LITECOIN_LOGO :
+              "/fallback-image.webp");
+
+      // Check for nametag-specific logos
+      const entityIdLower = (wallet.holder_address || wallet.name_tag)?.toLowerCase();
+      if (NAMETAG_LOGOS[entityIdLower]) {
+        logo = NAMETAG_LOGOS[entityIdLower];
+      }
 
       if (!walletMap.has(addr)) {
         walletMap.set(addr, {
-          holder_address: wallet.holder_address,
+          holder_address: wallet.holder_address || wallet.name_tag, // Use nametag if no address
+          display_name: wallet.name_tag || wallet.holder_address || "N/A",
           cluster_name: wallet.cluster_name,
           name_tag: wallet.name_tag || "N/A",
           image: logo,
@@ -1157,7 +1225,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     const deduplicated = Array.from(walletMap.values());
     logger.log("Deduplicated wallet data:", { deduplicated });
     return deduplicated;
-  }, [memoizedWalletData]);
+  }, [memoizedWalletData, clusterImage]);
 
   const groupedPortfolio = useMemo(() => {
     logger.log("Processing portfolio data for chain details:", { portfolioData: memoizedPortfolioData });
@@ -1213,10 +1281,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   }, [memoizedPortfolioData, memoizedWalletData, chainLogos]);
 
   const truncateAddressWithHover = (address, nameTag, source) => {
-    if (!address || address === 'None' || typeof address !== 'string') {
+    if (!address || address === 'None' || typeof address !== 'string' || address === 'N/A') {
       return (
         <div className="flex items-center gap-2 group relative">
-          <span className="truncate">N/A</span>
+          <span className="truncate">{nameTag || 'N/A'}</span>
         </div>
       );
     }
@@ -1236,7 +1304,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       // Use existing truncateAddress for EVM and other addresses
       const { text, shortAddress: computedShortAddress } = truncateAddress(address, { [normalizedAddress]: { name: nameTag } }, source);
       shortAddress = computedShortAddress;
-      if (nameTag && nameTag !== 'N/A') {
+      if (nameTag && nameTag !== 'N/A' && nameTag !== address) {
         return (
           <div className="flex items-center gap-2 group relative">
             <span className="truncate">{nameTag}</span>
@@ -1431,7 +1499,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                     animate={{ opacity: 1, y: 0 }}
                     whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.05)", scale: 1.01 }}
                     transition={{ duration: 0.3, delay: index * 0.02 }}
-                    onClick={() => handleWalletClick(wallet.holder_address)}
+                    onClick={() => handleWalletClick(wallet)}
                   >
                     <td className="px-3 py-2.5 text-white truncate">
                       <div className="flex items-center gap-2">
@@ -1441,7 +1509,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                           className="w-4 h-4 inline mr-2 rounded-full shadow-lg"
                           onError={(e) => (e.target.src = "/fallback-image.webp")}
                         />
-                        {truncateAddressWithHover(wallet.holder_address, wallet.name_tag)}
+                        {truncateAddressWithHover(wallet.holder_address, wallet.display_name, chainLower === 'bitcoin' ? 'Blockchair' : undefined)}
                       </div>
                     </td>
                     {/* <td className="px-3 py-2.5 text-white truncate">
@@ -1483,14 +1551,14 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const chainName = typeof tx.chain === 'string' ? tx.chain.toLowerCase() : (tx.chain_id || 'unknown').toString().toLowerCase();
       const isBitcoin = chainName === 'bitcoin';
 
-      const fromWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.from?.toLowerCase()) || {};
-      const toWallet = uniqueWalletData.find((w) => w.holder_address?.toLowerCase() === tx.to?.toLowerCase()) || {};
+      const fromWallet = uniqueWalletData.find((w) => (w.holder_address || w.name_tag)?.toLowerCase() === tx.from?.toLowerCase()) || {};
+      const toWallet = uniqueWalletData.find((w) => (w.holder_address || w.name_tag)?.toLowerCase() === tx.to?.toLowerCase()) || {};
       const fromNtag = {
-        name: fromWallet.name_tag || 'N/A',
+        name: fromWallet.name_tag || fromWallet.display_name || 'N/A',
         image: fromWallet.image || (isBitcoin ? BITCOIN_LOGO : '/fallback-image.webp'),
       };
       const toNtag = {
-        name: toWallet.name_tag || 'N/A',
+        name: toWallet.name_tag || toWallet.display_name || 'N/A',
         image: toWallet.image || (isBitcoin ? BITCOIN_LOGO : '/fallback-image.webp'),
       };
       const chain = isBitcoin ? 'bitcoin' : chainName !== 'unknown' ? chainName : 'ethereum';
@@ -1503,7 +1571,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       let tokenLogo = isBitcoin ? BITCOIN_LOGO : tx.token_metadata?.logo || '/fallback-image.webp';
 
       // Determine direction color: green for incoming (to cluster), red for outgoing (from cluster)
-      const isOutgoing = fromWallet.holder_address;
+      const isOutgoing = fromWallet.holder_address || fromWallet.name_tag;
       const directionColor = isOutgoing ? 'text-red-400' : 'text-green-400';
       const arrowIcon = isOutgoing ? (
         <svg className="h-3 sm:h-4 w-3 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1592,7 +1660,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                     loading="lazy"
                   />
                   <span
-                    onClick={() => handleWalletClick(tx.from)}
+                    onClick={() => handleWalletClick(fromWallet)}
                     className="text-white hover:text-white/80 cursor-pointer no-hover-effect truncate"
                   >
                     {truncateAddressWithHover(tx.from, fromNtag.name, isBitcoin ? 'Blockchair' : undefined)}
@@ -1607,7 +1675,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                     loading="lazy"
                   />
                   <span
-                    onClick={() => handleWalletClick(tx.to)}
+                    onClick={() => handleWalletClick(toWallet)}
                     className="text-white hover:text-white/80 cursor-pointer no-hover-effect truncate"
                   >
                     {truncateAddressWithHover(tx.to, toNtag.name, isBitcoin ? 'Blockchair' : undefined)}
@@ -2015,7 +2083,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           setTransactionsError={setWalletTransactionsError}
           setWalletAddress={setSelectedWallet}
           nameTags={uniqueWalletData.reduce((acc, w) => {
-            const normalizedAddress = w.holder_address?.toLowerCase();
+            const normalizedAddress = (w.holder_address || w.name_tag)?.toLowerCase();
             const chainLower = w.chain?.toLowerCase();
             const nameTagLower = w.name_tag?.toLowerCase();
             let image;
@@ -2035,7 +2103,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             return {
               ...acc,
               [normalizedAddress]: {
-                name: w.name_tag || "N/A",
+                name: w.name_tag || w.display_name || "N/A",
                 image,
               },
             };

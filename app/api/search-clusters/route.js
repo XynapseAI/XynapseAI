@@ -1,3 +1,4 @@
+// app\api\search-clusters\route.js
 import { NextResponse } from 'next/server';
 import { query } from '../../../utils/postgres';
 import { logger } from '../../../utils/serverLogger';
@@ -328,6 +329,7 @@ export async function GET(request) {
     const searchTerm = `%${cleanedQuery.toLowerCase()}%`;
     logger.info('Executing search query', { searchTerm, cleanedQuery });
 
+    // Modified query to include nametags without holder_address from token_holders
     const searchSql = `
       WITH normalized_clusters AS (
         SELECT 
@@ -337,13 +339,24 @@ export async function GET(request) {
           ) AS normalized_cluster_name,
           wh.image,
           wh.holder_address,
-          LOWER(COALESCE(wh.cluster_name, wh.exchange_name)) AS original_lower
+          LOWER(COALESCE(wh.cluster_name, wh.exchange_name)) AS original_lower,
+          'wallet_holder' AS source_type
         FROM wallet_holders wh
         WHERE LOWER(COALESCE(wh.exchange_name, wh.cluster_name)) LIKE $1 
            OR COALESCE(
                 wh.normalized_cluster_name, 
                 normalize_cluster_name(COALESCE(wh.cluster_name, wh.exchange_name))
               ) LIKE $1
+        UNION
+        SELECT 
+          th.name AS normalized_cluster_name,
+          th.image,
+          th.holder_address,
+          LOWER(th.name) AS original_lower,
+          'token_holder' AS source_type
+        FROM token_holders th
+        WHERE LOWER(th.name) LIKE $1
+          AND (th.holder_address IS NOT NULL OR th.name_tag IS NOT NULL)
       ),
       selected_image AS (
         SELECT 
@@ -365,7 +378,7 @@ export async function GET(request) {
       SELECT 
         nc.normalized_cluster_name,
         si.image,
-        json_agg(DISTINCT nc.holder_address) AS holder_addresses
+        json_agg(DISTINCT COALESCE(nc.holder_address, nc.normalized_cluster_name)) AS holder_addresses
       FROM normalized_clusters nc
       JOIN selected_image si ON nc.normalized_cluster_name = si.normalized_cluster_name
       GROUP BY nc.normalized_cluster_name, si.image

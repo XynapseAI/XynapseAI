@@ -10,6 +10,186 @@ from rich.console import Console
 from rich.table import Table
 import random
 from typing import Set, Dict, List, Any, Tuple, Optional
+import os
+from dotenv import load_dotenv
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+load_dotenv()
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+def get_db_connection():
+    """Get a database connection."""
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL is not set in .env")
+    return psycopg2.connect(DATABASE_URL)
+
+def db_load_coinbase_cluster() -> Set[str]:
+    """Load coinbase cluster addresses from DB."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT address FROM coinbase_cluster")
+        rows = cur.fetchall()
+        conn.close()
+        return set(row['address'] for row in rows)
+    except Exception as e:
+        logging.error(f"Error loading coinbase_cluster: {e}")
+        return set()
+
+def db_save_coinbase_cluster(cluster: Set[str]):
+    """Save coinbase cluster to DB (replace all)."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM coinbase_cluster")
+        seeds = set(Config.COINBASE_SEED_BTC)
+        for addr in cluster:
+            nametag = "Coinbase Prime Custody Hotwallet Seed" if addr in seeds else "Coinbase Custody Cluster Wallet"
+            cur.execute(
+                "INSERT INTO coinbase_cluster (address, nametag) VALUES (%s, %s)",
+                (addr, nametag)
+            )
+        conn.commit()
+        conn.close()
+        logging.info(f"Saved {len(cluster)} addresses to coinbase_cluster table.")
+    except Exception as e:
+        logging.error(f"Error saving coinbase_cluster: {e}")
+        conn.rollback()
+        raise
+
+def db_load_etf_clusters() -> Dict[str, List[Dict[str, str]]]:
+    """Load ETF clusters from DB."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT etf_name, address, nametag, type FROM etf_clusters")
+        rows = cur.fetchall()
+        conn.close()
+        clusters = defaultdict(list)
+        for row in rows:
+            clusters[row['etf_name']].append({
+                'address': row['address'],
+                'nametag': row['nametag'],
+                'type': row['type']
+            })
+        return dict(clusters)
+    except Exception as e:
+        logging.error(f"Error loading etf_clusters: {e}")
+        return {}
+
+def db_save_etf_clusters(clusters: Dict[str, List[Dict[str, str]]]):
+    """Save ETF clusters to DB (replace all)."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM etf_clusters")
+        for etf_name, wallets in clusters.items():
+            for wallet in wallets:
+                cur.execute(
+                    "INSERT INTO etf_clusters (etf_name, address, nametag, type) VALUES (%s, %s, %s, %s)",
+                    (etf_name, wallet['address'], wallet['nametag'], wallet['type'])
+                )
+        conn.commit()
+        conn.close()
+        logging.info(f"Saved ETF clusters to DB.")
+    except Exception as e:
+        logging.error(f"Error saving etf_clusters: {e}")
+        conn.rollback()
+        raise
+
+def db_load_match_history() -> Dict[str, List[Dict[str, Any]]]:
+    """Load match history from DB."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("""
+            SELECT wallet, ticker, date, txid, btc_amount, type, nametag, group_outflow_btc, is_custody_interaction, created_at
+            FROM match_history
+            ORDER BY wallet, created_at
+        """)
+        rows = cur.fetchall()
+        conn.close()
+        history = defaultdict(list)
+        for row in rows:
+            match = dict(row)
+            match['date'] = row['date']
+            history[row['wallet']].append(match)
+        return dict(history)
+    except Exception as e:
+        logging.error(f"Error loading match_history: {e}")
+        return {}
+
+def db_save_match_history(history: Dict[str, List[Dict[str, Any]]]):
+    """Save match history to DB (insert if not exists on txid)."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        for wallet, matches in history.items():
+            for match in matches:
+                cur.execute("""
+                    INSERT INTO match_history (wallet, ticker, date, txid, btc_amount, type, nametag, group_outflow_btc, is_custody_interaction)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (txid) DO NOTHING
+                """, (
+                    wallet, match['ticker'], match['date'], match['txid'],
+                    match.get('btc_amount'), match['type'], match['nametag'],
+                    match.get('group_outflow_btc'), match.get('is_custody_interaction')
+                ))
+        conn.commit()
+        conn.close()
+        logging.info(f"Saved match history to DB.")
+    except Exception as e:
+        logging.error(f"Error saving match_history: {e}")
+        conn.rollback()
+        raise
+
+def db_load_etf_balances() -> Dict[str, Any]:
+    """Load ETF balances from DB."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT etf_name, total_btc, wallet_count, last_updated, details FROM etf_balances")
+        rows = cur.fetchall()
+        conn.close()
+        balances = {}
+        for row in rows:
+            balances[row['etf_name']] = {
+                'total_btc': row['total_btc'],
+                'wallet_count': row['wallet_count'],
+                'last_updated': row['last_updated'].isoformat() if row['last_updated'] else None,
+                'details': row['details']
+            }
+        return balances
+    except Exception as e:
+        logging.error(f"Error loading etf_balances: {e}")
+        return {}
+
+def db_save_etf_balances(balances: Dict[str, Any]):
+    """Save ETF balances to DB (upsert on etf_name)."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        for etf_name, data in balances.items():
+            cur.execute("""
+                INSERT INTO etf_balances (etf_name, total_btc, wallet_count, last_updated, details)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (etf_name) DO UPDATE SET
+                    total_btc = EXCLUDED.total_btc,
+                    wallet_count = EXCLUDED.wallet_count,
+                    last_updated = EXCLUDED.last_updated,
+                    details = EXCLUDED.details
+            """, (
+                etf_name, data['total_btc'], data['wallet_count'],
+                data['last_updated'], data['details']
+            ))
+        conn.commit()
+        conn.close()
+        logging.info(f"Saved ETF balances to DB.")
+    except Exception as e:
+        logging.error(f"Error saving etf_balances: {e}")
+        conn.rollback()
+        raise
 
 # --- Cấu Hình Ứng Dụng ---
 
@@ -41,12 +221,6 @@ class Config:
         'IBIT': 'BlackRock IBIT', 'FBTC': 'Fidelity FBTC', 'BITB': 'Bitwise BITB', 
         'ARKB': 'ARK 21Shares ARKB', 'EZBC': 'Franklin Templeton EZBC'
     }
-
-    # Data Files
-    COINBASE_CLUSTER_FILE = 'coinbase_cluster.json' 
-    ETF_CLUSTERS_FILE = 'etf_wallet_clusters.json' 
-    MATCH_HISTORY_FILE = 'etf_match_history.json'
-    BALANCES_FILE = 'etf_balances.json' 
 
     # Operational Limits & Thresholds
     CLUSTER_BUILD_MAX_ADDRESSES = 1000 
@@ -89,30 +263,6 @@ KNOWN_ETF_WALLETS: Dict[str, List[Dict[str, str]]] = {
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 console = Console()
-
-# --- Chức Năng Tiện Ích ---
-
-def load_json_file(filename: str, default_value: Any) -> Any:
-    """Tải file JSON, xử lý lỗi."""
-    try:
-        with open(filename, 'r') as f: 
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError): 
-        return default_value
-
-def save_json_file(data: Any, filename: str):
-    """Lưu dữ liệu vào file JSON, thêm nametag cho Coinbase cluster."""
-    with open(filename, 'w') as f: 
-        if filename == Config.COINBASE_CLUSTER_FILE and isinstance(data, set):
-            # Chuyển set địa chỉ thành list object để lưu nametag
-            data_to_save = []
-            for addr in data:
-                # Phân loại ví Hotwallet (Seed) và ví Custody Cluster
-                nametag = "Coinbase Prime Custody Hotwallet Seed" if addr in Config.COINBASE_SEED_BTC else "Coinbase Custody Cluster Wallet"
-                data_to_save.append({'address': addr, 'nametag': nametag})
-            json.dump(data_to_save, f, indent=4, default=str)
-        else:
-            json.dump(data, f, indent=4, default=str)
 
 def fetch_data(url: str, is_json: bool = True) -> Optional[Any]:
     """Lấy dữ liệu từ một URL với độ trễ (delay) và retry mechanism cho lỗi 429."""
@@ -211,13 +361,11 @@ class EtfDetector:
     def __init__(self):
         """Khởi tạo: Tải cluster Coinbase, cluster ETF và lịch sử khớp."""
         # Tải/Khởi tạo Coinbase Cluster
-        loaded_cb_cluster = load_json_file(Config.COINBASE_CLUSTER_FILE, [{'address': a, 'nametag': 'Seed'} for a in Config.COINBASE_SEED_BTC])
-        self.coinbase_cluster: Set[str] = set(entry['address'] for entry in loaded_cb_cluster if isinstance(entry, dict) and 'address' in entry)
+        self.coinbase_cluster: Set[str] = db_load_coinbase_cluster()
         self.coinbase_cluster.update(Config.COINBASE_SEED_BTC)
         
         # Tải/Khởi tạo ETF Cluster (bao gồm các ví đã biết)
-        loaded_etf_clusters = load_json_file(Config.ETF_CLUSTERS_FILE, {})
-        self.etf_clusters: Dict[str, List[Dict[str, str]]] = defaultdict(list, loaded_etf_clusters)
+        self.etf_clusters: Dict[str, List[Dict[str, str]]] = db_load_etf_clusters()
         
         # Thêm các ví Known Hot/Vault vào Cluster nếu chưa có
         for name, wallets in KNOWN_ETF_WALLETS.items():
@@ -230,8 +378,8 @@ class EtfDetector:
                             'type': wallet['type']
                         })
         
-        self.match_history: Dict[str, List[Dict[str, Any]]] = load_json_file(Config.MATCH_HISTORY_FILE, {})
-        self.balances: Dict[str, Any] = load_json_file(Config.BALANCES_FILE, {})
+        self.match_history: Dict[str, List[Dict[str, Any]]] = db_load_match_history()
+        self.balances: Dict[str, Any] = db_load_etf_balances()
 
     def get_high_activity_addresses(self, cluster: Set[str], num: int = 50) -> List[str]:
         """Chọn các địa chỉ có hoạt động cao nhất trong cluster để quét giao dịch OUTFLOW."""
@@ -314,8 +462,7 @@ class EtfDetector:
                 logger.error(f"Error processing address {address}: {e}")
                 continue
 
-        save_json_file(self.coinbase_cluster, Config.COINBASE_CLUSTER_FILE)
-        # save_json_file(self.match_history, Config.MATCH_HISTORY_FILE) # Không cần lưu Match History ở bước này
+        db_save_coinbase_cluster(self.coinbase_cluster)
         logger.info(f"✅ Coinbase BTC cluster building complete. Total addresses: {len(self.coinbase_cluster)} (Found {len(self.coinbase_cluster) - initial_size} new)")
 
     def fetch_etf_flows(self) -> pd.DataFrame:
@@ -636,8 +783,8 @@ class EtfDetector:
         if table.row_count > 0:
             console.print(table)
         
-        save_json_file(self.etf_clusters, Config.ETF_CLUSTERS_FILE)
-        save_json_file(self.match_history, Config.MATCH_HISTORY_FILE)
+        db_save_etf_clusters(self.etf_clusters)
+        db_save_match_history(self.match_history)
         
         if new_confirmations:
             self.display_confirmed_wallets()
@@ -721,8 +868,6 @@ class EtfDetector:
         # Loại bỏ các ví Hotwallet của ETF khác (chắc chắn không phải vault của ETF này)
         all_other_hotwallets = {w['address'] for name, wallets in self.etf_clusters.items() if name != etf_name for w in wallets if w.get('type') == 'Hot'}
         recipients = recipients - all_other_hotwallets
-        
-        logger.info(f"Found {len(recipients)} unique recipient wallets/vaults for {main_wallet} (after filtering).")
         return recipients
 
     def calculate_total_balances(self):
@@ -778,7 +923,7 @@ class EtfDetector:
             }
             logger.info(f"Summary for {name}: {total_btc:,.2f} BTC in {len(wallet_details)} wallets.")
             
-        save_json_file(self.balances, Config.BALANCES_FILE)
+        db_save_etf_balances(self.balances)
         self.display_balances_summary()
 
     def display_balances_summary(self):
