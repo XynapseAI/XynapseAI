@@ -126,7 +126,7 @@
         "Name Tag": "Bancor: Converter 589",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -557,7 +557,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor WXT Pool Token (bnWXT)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor WXT Pool Token (bnWXT)",
@@ -631,7 +631,7 @@
         "Name Tag": "Bancor: Converter 48",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -966,7 +966,7 @@
         "Name Tag": "Bancor: Converter #172",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1126,7 +1126,7 @@
         "Name Tag": "Compound: Deployer 4",
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -1331,7 +1331,7 @@
         "Name Tag": "Bancor: Converter 307",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1408,12 +1408,12 @@
       "decentraland": {
         "Name Tag": "Decentraland: Wallet",
         "Description": "Decentraland. A virtual world owned by its users. Build, explore, and earn money from your creations.",
-        "image": "/icons/default.webp"
+        "image": "/icons/decentraland.webp"
       },
       "ico-wallets": {
         "Name Tag": "Decentraland: Wallet",
         "Description": "Wallets where Token Sale proceeds are/were being stored.",
-        "image": "/icons/default.webp"
+        "image": "/icons/decentraland.webp"
       }
     }
   },
@@ -1591,7 +1591,7 @@
         "Name Tag": "Bancor: Converter 699",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1897,7 +1897,7 @@
         "Name Tag": "Decentraland: DCLHLWN2020 Token",
         "Description": "Decentraland. A virtual world owned by its users. Build, explore, and earn money from your creations.",
         "Token Name": "dcl://halloween_2020 (DCLHLWN2020)",
-        "image": "/icons/default.webp"
+        "image": "/icons/decentraland.webp"
       }
     }
   },
@@ -1977,7 +1977,7 @@
         "Name Tag": "Bancor: Converter 668",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2191,7 +2191,7 @@
         "Name Tag": "Bancor: Converter #75",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3242,7 +3242,7 @@
         "Name Tag": "Bancor: Converter 432",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3481,7 +3481,7 @@
         "Name Tag": "Bancor: Converter 175",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

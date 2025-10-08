@@ -239,7 +239,7 @@
         "Name Tag": "Uniswap V2: KRAKEN 🐙️",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -612,7 +612,7 @@
         "Name Tag": "Bancor: Converter 470",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2007,7 +2007,7 @@
         "Name Tag": "Bancor: Converter 194",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2361,7 +2361,7 @@
         "Name Tag": "Bancor: Converter 261",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2495,7 +2495,7 @@
         "Name Tag": "Bancor: Converter #95",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2674,7 +2674,7 @@
       "across-protocol": {
         "Name Tag": "Across Protocol: LP Token Factory V2",
         "Description": "Across Protocol is a bridging method that combines an optimistic oracle, bonded relayers and single-sided liquidity pools to provide decentralized instant transactions from rollup chains to Ethereum mainnet.",
-        "image": "/icons/default.webp"
+        "image": "/icons/across.webp"
       }
     }
   },
@@ -3477,7 +3477,7 @@
         "Name Tag": "Bancor: Converter 362",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

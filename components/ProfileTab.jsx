@@ -63,7 +63,13 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const todayIndex = new Date().getDay();
   const [tooltipVisible, setTooltipVisible] = useState(false);
-  const isTodayChecked = last7Days[last7Days.length - 1]; // Today is last element
+  
+  // Sửa: Không reverse ở backend nữa, last7Days = [oldest (7 days ago) ... today (index 6)]
+  // Đảo ngược ở frontend để left: past, right: today cho UX tốt
+  const displayLast7Days = [...last7Days].reverse(); // Bây giờ index 0 = today (left? Wait no: reverse lại để index 0=oldest left, index6=today right
+  // Wait: last7Days gốc [oldest...today], reverse() -> [today...oldest], nhưng để left past: không reverse, index0=oldest left.
+  // Để fix: giữ last7Days [oldest...today], index0 left=oldest, index6 right=today
+  const isTodayChecked = last7Days[last7Days.length - 1]; // index 6 = today
 
   const handleCheckinClick = () => {
     if (!twitterConnected) {
@@ -71,6 +77,12 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
       return;
     }
     onCheckin();
+  };
+
+  // Sửa dayIndex cho left=oldest (index=0: 6 days back), right=today (index=6: 0 back)
+  const getDayIndex = (index) => {
+    const daysBack = 6 - index; // index 0: daysBack=6, index6: daysBack=0
+    return (todayIndex - daysBack + 7) % 7;
   };
 
   return (
@@ -88,14 +100,14 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
           />
           {tooltipVisible && (
             <div className="absolute top-full right-0 mt-1 p-2 bg-black/90 border border-white/20 rounded-lg text-[10px] sm:text-[11px] text-white/90 z-50 w-48">
-              Maintain a 7-day streak to earn double points (20 pts/day) and unlock exclusive rewards! Breaking the streak resets to normal (10 pts).
+              Maintain a 7-day streak to earn double points (20 pts/day) và unlock exclusive rewards! Breaking the streak resets to normal (10 pts).
             </div>
           )}
         </div>
       </div>
       <div className="flex justify-around items-center">
         {last7Days.map((checked, index) => {
-          const dayIndex = (todayIndex - index + 7) % 7;
+          const dayIndex = getDayIndex(index);
           return (
             <div key={index} className="flex flex-col items-center gap-1">
               <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold transition-all duration-300 ${
@@ -109,7 +121,8 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
                   days[dayIndex]
                 )}
               </div>
-              {index === 0 && !checked && !isTodayChecked && (
+              {/* Sửa: Button chỉ ở index cuối (today, index=6), nếu !checked */}
+              {index === last7Days.length - 1 && !checked && (
                 <motion.button
                   onClick={handleCheckinClick}
                   disabled={isLoading || !twitterConnected}
@@ -1146,197 +1159,199 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="p-2 sm:p-0 rounded-xl relative">
-            <LoadingOverlay 
-              isLoading={userLoading} 
-              isMobile={isMobile} 
-              className="absolute inset-0 z-10" 
-            />
-            {userError && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-red-400 text-[8px] sm:text-[10px] p-2 text-center mb-2 bg-red-500/10 rounded-lg border border-red-500/20 relative z-0"
-              >
-                Error: {userError.message}
-              </motion.div>
-            )}
-            {userData && (
-              <div className="relative z-0">
-                <div className="absolute top-3 right-3">
-                  <motion.button
-                    onClick={onSignOut}
-                    disabled={isSigningOut}
-                    className={`p-1 rounded-lg bg-white/10 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/30'}`}
-                    whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
-                    whileTap={{ scale: isSigningOut ? 1 : 0.9 }}
-                    aria-label="Sign out"
-                  >
-                    {isSigningOut ? (
-                      <span className="text-[8px] sm:text-[10px] text-white">Signing out...</span>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="w-4 h-4 text-red-400"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                    )}
-                  </motion.button>
-                </div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Image
-                    src={getProfilePictureSrc(userData.profilePicture)}
-                    alt={userData.googleName || userData.twitterHandle || 'User Avatar'}
-                    width={40}
-                    height={40}
-                    className="rounded-xl border-2 border-white/20 shadow-lg"
-                  />
-                  <h4 className="text-base sm:text-xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                    {userData.googleName || userData.email}
-                  </h4>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-[9px] sm:text-[11px]">
-                  <div className="rounded-xl p-3 border border-white/20 shadow-lg">
-                    <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                      <User className="w-3 h-3" />
-                      Account Info
-                    </h5>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-white/70">Tier:</span>
-                        <div className="flex items-center gap-1">
-                          {userData.tier === 'Basic' ? (
-                            <>
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="w-3 h-3 text-white/80"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                <circle cx="12" cy="7" r="4" />
-                              </svg>
-                              <span className="text-white/80">{userData.tier}</span>
-                            </>
-                          ) : (
-                            <>
-                              <Crown className="w-3 h-3 text-yellow-400" />
-                              <span className="text-yellow-300">{userData.tier}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-white/70">Days Active:</span>
-                        <span className="text-white font-semibold flex items-center gap-1">
-                          {getDaysActive()}
-                          {userData.streak >= 7 && (
-                            <Flame className="w-3 h-3 text-orange-500 animate-pulse" />
-                          )}
-                          {userData.streak >= 7 && <span className="text-orange-400 text-xs">({userData.streak} streak)</span>}
-                        </span>
-                      </div>
-                    </div>
+          <div className="p-2 sm:p-0 rounded-xl relative flex-1 flex flex-col justify-center"> 
+            <div className="relative flex-1 flex items-center justify-center min-h-[25vh]">
+              <LoadingOverlay 
+                isLoading={userLoading} 
+                isMobile={isMobile} 
+                className="absolute inset-0 z-10 flex items-center justify-center bg-black/50"
+              />
+              {userError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-red-400 text-[8px] sm:text-[10px] p-2 text-center mb-2 bg-red-500/10 rounded-lg border border-red-500/20 relative z-0 w-full"
+                >
+                  Error: {userError.message}
+                </motion.div>
+              )}
+              {userData && (
+                <div className="relative z-0 w-full">
+                  <div className="absolute top-3 right-3">
+                    <motion.button
+                      onClick={onSignOut}
+                      disabled={isSigningOut}
+                      className={`p-1 rounded-lg bg-white/10 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/30'}`}
+                      whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
+                      whileTap={{ scale: isSigningOut ? 1 : 0.9 }}
+                      aria-label="Sign out"
+                    >
+                      {isSigningOut ? (
+                        <span className="text-[8px] sm:text-[10px] text-white">Signing out...</span>
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="w-4 h-4 text-red-400"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                      )}
+                    </motion.button>
                   </div>
-                  <div className="rounded-xl p-3 border border-white/20 shadow-lg relative">
-                    <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                      <img src="/logos/icon3.webp" alt="Social Logo" className="w-5 h-5" />
-                      Social
-                    </h5>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-1">
-                          <img src="/logos/google.webp" alt="Google Logo" className="w-3 h-3" />
-                          <span className="text-white/70">Google:</span>
-                          <span className="text-neon-blue truncate max-w-32">{userData.email}</span>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Image
+                      src={getProfilePictureSrc(userData.profilePicture)}
+                      alt={userData.googleName || userData.twitterHandle || 'User Avatar'}
+                      width={40}
+                      height={40}
+                      className="rounded-xl border-2 border-white/20 shadow-lg"
+                    />
+                    <h4 className="text-base sm:text-xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                      {userData.googleName || userData.email}
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-[9px] sm:text-[11px]">
+                    <div className="rounded-xl p-3 border border-white/20 shadow-lg">
+                      <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
+                        <User className="w-3 h-3" />
+                        Account Info
+                      </h5>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-white/70">Tier:</span>
+                          <div className="flex items-center gap-1">
+                            {userData.tier === 'Basic' ? (
+                              <>
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="w-3 h-3 text-white/80"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                  <circle cx="12" cy="7" r="4" />
+                                </svg>
+                                <span className="text-white/80">{userData.tier}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Crown className="w-3 h-3 text-yellow-400" />
+                                <span className="text-yellow-300">{userData.tier}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-1">
-                          <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 text-blue-400" />
-                          <span className="text-white/70">(Twitter):</span>
-                          {userData.twitterHandle ? (
-                            <div className="flex items-center gap-2">
-                              <a
-                                href={`https://x.com/${userData.twitterHandle}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-neon-blue hover:text-blue-300 flex items-center gap-1"
-                              >
-                                @{userData.twitterHandle}
-                                <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />
-                              </a>
-                              <motion.button
-                                onClick={() => disconnectTwitterMutation.mutate()}
-                                disabled={disconnectTwitterMutation.isLoading}
-                                className={`p-1 rounded-lg bg-white/10 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/40'}`}
-                                whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
-                                whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
-                                title="Disconnect X"
-                              >
-                                {disconnectTwitterMutation.isLoading ? (
-                                  <span className="text-[8px] text-white">...</span>
-                                ) : (
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="w-3 h-3 text-red-400"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  >
-                                    <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                  </svg>
-                                )}
-                              </motion.button>
-                            </div>
-                          ) : (
-                            <span className="text-white/50">Not connected</span>
-                          )}
+                        <div className="flex justify-between items-center">
+                          <span className="text-white/70">Days Active:</span>
+                          <span className="text-white font-semibold flex items-center gap-1">
+                            {getDaysActive()}
+                            {userData.streak >= 7 && (
+                              <Flame className="w-3 h-3 text-orange-500 animate-pulse" />
+                            )}
+                            {userData.streak >= 7 && <span className="text-orange-400 text-xs">({userData.streak} streak)</span>}
+                          </span>
                         </div>
                       </div>
                     </div>
-                    {!userData.twitterHandle && (
-                      <motion.button
-                        onClick={() => connectTwitterMutation.mutate()}
-                        className="absolute bottom-2 right-2 px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                         Connect <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" />
-                      </motion.button>
-                    )}
-                  </div>
-                  <div className="rounded-xl p-3 border border-white/20 shadow-lg">
-                    <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                      <Crown className="w-3 h-3 text-yellow-400" />
-                      Points
-                    </h5>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-white/70">Total Points:</span>
-                        <span className="text-neon-blue text-base font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-                          {userData?.points || 0}
-                        </span>
+                    <div className="rounded-xl p-3 border border-white/20 shadow-lg relative">
+                      <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
+                        <img src="/logos/icon3.webp" alt="Social Logo" className="w-5 h-5" />
+                        Social
+                      </h5>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-1">
+                            <img src="/logos/google.webp" alt="Google Logo" className="w-3 h-3" />
+                            <span className="text-white/70">Google:</span>
+                            <span className="text-neon-blue truncate max-w-32">{userData.email}</span>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-1">
+                            <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 text-blue-400" />
+                            <span className="text-white/70">(Twitter):</span>
+                            {userData.twitterHandle ? (
+                              <div className="flex items-center gap-2">
+                                <a
+                                  href={`https://x.com/${userData.twitterHandle}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-neon-blue hover:text-blue-300 flex items-center gap-1"
+                                >
+                                  @{userData.twitterHandle}
+                                  <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />
+                                </a>
+                                <motion.button
+                                  onClick={() => disconnectTwitterMutation.mutate()}
+                                  disabled={disconnectTwitterMutation.isLoading}
+                                  className={`p-1 rounded-lg bg-white/10 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/40'}`}
+                                  whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
+                                  whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
+                                  title="Disconnect X"
+                                >
+                                  {disconnectTwitterMutation.isLoading ? (
+                                    <span className="text-[8px] text-white">...</span>
+                                  ) : (
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="w-3 h-3 text-red-400"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    >
+                                      <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    </svg>
+                                  )}
+                                </motion.button>
+                              </div>
+                            ) : (
+                              <span className="text-white/50">Not connected</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {!userData.twitterHandle && (
+                        <motion.button
+                          onClick={() => connectTwitterMutation.mutate()}
+                          className="absolute bottom-2 right-2 px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                           Connect <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" />
+                        </motion.button>
+                      )}
+                    </div>
+                    <div className="rounded-xl p-3 border border-white/20 shadow-lg">
+                      <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
+                        <Crown className="w-3 h-3 text-yellow-400" />
+                        Points
+                      </h5>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-white/70">Total Points:</span>
+                          <span className="text-neon-blue text-base font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+                            {userData?.points || 0}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </motion.div>
 
@@ -1390,23 +1405,23 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               );
             })}
           </div>
-          {/* Updated: Overlay connect Twitter covering tab content if not connected */}
+          {/* Sửa: Connect prompt - thêm min-h để cân đối với tab content, border shadow */}
           {!userData?.twitterHandle ? (
             <motion.div
-              className="flex-1 flex items-center justify-center p-6 bg-gradient-to-br from-black/80 to-gray-900/80 rounded-b-xl border-t border-white/10"
+              className="flex-1 flex items-center justify-center p-6 min-h-[calc(45vh-4rem)] bg-gradient-to-br from-black/80 to-gray-900/80 rounded-b-xl border-t border-white/10 shadow-2xl" // Thêm min-h, shadow
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
             >
-              <div className="text-center max-w-md">
-                <p className="text-[11px] sm:text-base text-white/80 mb-6">
+              <div className="text-center max-w-md flex flex-col items-center justify-center gap-4"> {/* Thêm gap và center */}
+                <p className="text-[11px] sm:text-base text-white/80">
                   Connect your X (Twitter) account to unlock tasks, check-ins, and rewards.
                 </p>
                 <motion.button
                   onClick={() => connectTwitterMutation.mutate()}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-neon-blue border border-neon-blue/50 bg-white/10 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg flex items-center justify-center gap-2 mx-auto"
-                  whileHover={{ scale: 1 }}
-                  whileTap={{ scale: 1 }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-neon-blue border border-neon-blue/50 bg-white/10 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg flex items-center justify-center gap-2"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   Connect
                   <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />

@@ -1041,7 +1041,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Multi Send Call Only 1.3.0",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1159,7 +1159,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Default Callback Handler 1.1.0",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -2001,7 +2001,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor MKR Pool Token (bnMKR)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor MKR Pool Token (bnMKR)",
@@ -3789,7 +3789,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor COT Pool Token (bnCOT)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor COT Pool Token (bnCOT)",

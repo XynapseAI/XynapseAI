@@ -179,7 +179,7 @@
         "Name Tag": "Bancor: Converter #68",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -198,7 +198,7 @@
         "Name Tag": "Bancor: Converter 107",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1042,7 +1042,7 @@
         "Name Tag": "Bancor: Converter 729",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1225,7 +1225,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor AAVE Pool Token (bnAAVE)",
-        "image": "/icons/aave.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor AAVE Pool Token (bnAAVE)",
@@ -1872,7 +1872,7 @@
         "Name Tag": "Zapper.Fi: Bancor Add",
         "Description": "Zapper.Fi: Get instant exposure across multiple DeFi protocols based on your investment goals.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3316,7 +3316,7 @@
       "compound-governance": {
         "Name Tag": "Compound Voting: Paradigm",
         "Description": "Top voters in Compound's Governance Leaderboard.",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -3430,7 +3430,7 @@
       "convex-finance": {
         "Name Tag": "Convex Finance: Airdrop Factory",
         "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort.",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },

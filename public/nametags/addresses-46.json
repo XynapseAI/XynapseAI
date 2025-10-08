@@ -5,7 +5,7 @@
       "maker": {
         "Name Tag": "Maker: Core Unit ORA_GAS",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -968,7 +968,7 @@
         "Name Tag": "Bancor: Converter #66",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2030,7 +2030,7 @@
         "Name Tag": "Bancor: Converter 71",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2477,7 +2477,7 @@
         "Name Tag": "Uniswap V2: OKX 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -2870,7 +2870,7 @@
         "Name Tag": "Bancor: Converter 509",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3058,7 +3058,7 @@
         "Name Tag": "Bancor: Converter #70",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3578,7 +3578,7 @@
       "cow-protocol": {
         "Name Tag": "CoW Protocol: GPv2AllowListAuthentication_Proxy",
         "Description": "CoW Protocol finds the lowest price for your trade across all exchanges and aggregators, such as Uniswap and 1inch - and protects you from MEV, unlike the others.",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       }
     }
   },

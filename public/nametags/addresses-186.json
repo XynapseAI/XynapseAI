@@ -40,7 +40,7 @@
         "Name Tag": "Bancor: Converter 411",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1944,7 +1944,7 @@
         "Name Tag": "Bancor: Converter 93",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2809,7 +2809,7 @@
         "Name Tag": "Bancor: Converter #21",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2851,13 +2851,13 @@
         "Name Tag": "Zerion: DeFi SDK v1.0",
         "Description": "List of decentralized finance products.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/zerion.webp"
       },
       "zerion": {
         "Name Tag": "Zerion: DeFi SDK v1.0",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },
@@ -3257,7 +3257,7 @@
       "pooltogether": {
         "Name Tag": "PoolTogether: RNG Chainlink",
         "Description": "PoolTogether is a no loss lottery built on Ethereum. The first pool was launched on June 24th.",
-        "image": "/icons/chainlink.webp"
+        "image": "/icons/eth.webp"
       }
     }
   },
@@ -3343,7 +3343,7 @@
         "Name Tag": "Bancor: Converter 390",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3648,7 +3648,7 @@
         "Name Tag": "Bancor: Converter 566",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

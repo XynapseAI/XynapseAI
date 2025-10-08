@@ -30,7 +30,7 @@
         "Name Tag": "Bancor: Converter 698",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -254,7 +254,7 @@
         "Name Tag": "Bancor: Converter 102",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -776,7 +776,7 @@
         "Name Tag": "Synthetix: Staking Rewards sEUR Curve",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
-        "image": "/icons/curve.webp"
+        "image": "/icons/synthetix.webp"
       }
     }
   },
@@ -812,7 +812,7 @@
         "Name Tag": "Compound: Governor Alpha",
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -1886,7 +1886,7 @@
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
         "Token Name": "Compound Wrapped BTC (cWBTC)",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       },
       "defi": {
         "Token Name": "Compound Wrapped BTC (cWBTC)",
@@ -1910,7 +1910,7 @@
         "Name Tag": "Bancor: Converter 410",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1937,7 +1937,7 @@
         "Name Tag": "Bancor: Converter 35",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3544,7 +3544,7 @@
         "Name Tag": "Bancor: Converter #118",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3641,7 +3641,7 @@
       "across-protocol": {
         "Name Tag": "Across Protocol: Hub Pool V2",
         "Description": "Across Protocol is a bridging method that combines an optimistic oracle, bonded relayers and single-sided liquidity pools to provide decentralized instant transactions from rollup chains to Ethereum mainnet.",
-        "image": "/icons/default.webp"
+        "image": "/icons/across.webp"
       }
     }
   },

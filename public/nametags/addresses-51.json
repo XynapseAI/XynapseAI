@@ -6,7 +6,7 @@
         "Name Tag": "Bancor: Converter 356",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -269,7 +269,7 @@
         "Name Tag": "Bancor: Converter 572",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1762,7 +1762,7 @@
         "Name Tag": "Bancor: Converter 165",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1906,12 +1906,12 @@
       "across-protocol": {
         "Name Tag": "Across Protocol: Bridge Admin",
         "Description": "Across Protocol is a bridging method that combines an optimistic oracle, bonded relayers and single-sided liquidity pools to provide decentralized instant transactions from rollup chains to Ethereum mainnet.",
-        "image": "/icons/default.webp"
+        "image": "/icons/across.webp"
       },
       "bridge": {
         "Name Tag": "Across Protocol: Bridge Admin",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.webp"
+        "image": "/icons/across.webp"
       }
     }
   },
@@ -2545,7 +2545,7 @@
         "Name Tag": "Bancor: Converter #78",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2685,7 +2685,7 @@
         "Name Tag": "Zerion: Aave Debt Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },

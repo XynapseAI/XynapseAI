@@ -493,7 +493,7 @@
       "convex-finance": {
         "Name Tag": "Convex Finance: CRV Depositor",
         "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort.",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },
@@ -1199,7 +1199,7 @@
         "Name Tag": "Bancor: Converter 274",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1292,7 +1292,7 @@
         "Name Tag": "Bancor: Converter 723",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2655,7 +2655,7 @@
         "Name Tag": "Compound: cYFI Token",
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -3008,7 +3008,7 @@
         "Name Tag": "Bancor: Converter 717",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

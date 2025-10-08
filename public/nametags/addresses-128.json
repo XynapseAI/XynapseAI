@@ -650,7 +650,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor VLX Pool Token (bnVLX)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor VLX Pool Token (bnVLX)",
@@ -2053,7 +2053,7 @@
         "Name Tag": "Bancor: Converter 229",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3283,7 +3283,7 @@
         "Name Tag": "Synthetix: AAPL Balancer Staking Rewards",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Others",
-        "image": "/icons/balancer.webp"
+        "image": "/icons/synthetix.webp"
       }
     }
   },
@@ -3521,7 +3521,7 @@
         "Name Tag": "Bancor: Converter 94",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3822,13 +3822,13 @@
       "bitpie": {
         "Name Tag": "Bitpie: Batch Sender",
         "Description": "Bitpie is an industry-leading multi-blockchain (BTC/ETH/EOS/USDT etc.) wallet. They are devoted to providing safe assets management and DApps for users worldwide. With deep understanding of blockchain technology and rich experience of operating Bither Wallet for years, Bitpie enables users to transact and use DApps with great convenience while holding assets totally under their control.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bitpie.webp"
       },
       "old-contract": {
         "Name Tag": "Bitpie: Batch Sender",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bitpie.webp"
       }
     }
   },

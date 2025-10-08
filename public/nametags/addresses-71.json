@@ -296,7 +296,7 @@
         "Name Tag": "Balancer: UNI/COMP/AAVE 33.33/33.33/33.33",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/balancer.webp"
       }
     }
   },
@@ -528,7 +528,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: Transmuter Buffer Implementation",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -1927,7 +1927,7 @@
         "Name Tag": "Balancer: xAAVEb/xSNXa 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/balancer.webp"
       }
     }
   },
@@ -2002,7 +2002,7 @@
         "Name Tag": "Bancor: Converter 177",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3193,7 +3193,7 @@
         "Name Tag": "Balancer: AAVE/ETH 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/balancer.webp"
       }
     }
   },
@@ -3690,7 +3690,7 @@
         "Name Tag": "Bancor: Converter 483",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

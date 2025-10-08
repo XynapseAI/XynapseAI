@@ -136,7 +136,7 @@
         "Name Tag": "Bancor: Converter 488",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -825,7 +825,7 @@
         "Name Tag": "Bancor: Converter #48",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1243,7 +1243,7 @@
         "Name Tag": "Bancor: Converter #160",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1411,7 +1411,7 @@
         "Name Tag": "Uniswap V2: OKXFC 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -1611,7 +1611,7 @@
         "Name Tag": "Uniswap V2: BINANCE4EVA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -2230,7 +2230,7 @@
         "Name Tag": "Bancor: Converter 235",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3662,7 +3662,7 @@
       "wbtc-merchant": {
         "Name Tag": "CoinList: WBTC Merchant Deposit Address",
         "Description": "WBTC is a community-led project and its partners include merchants, custodians, exchanges, and DAO members.",
-        "image": "/icons/default.webp"
+        "image": "/icons/coinlist.webp"
       }
     }
   },

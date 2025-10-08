@@ -1436,7 +1436,7 @@
         "Name Tag": "Bancor: Converter 535",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1456,7 +1456,7 @@
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
         "Token Name": "Compound Augur (cREP)",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       },
       "defi": {
         "Token Name": "Compound Augur (cREP)",
@@ -1874,7 +1874,7 @@
         "Name Tag": "Bancor: Converter 574",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2066,7 +2066,7 @@
         "Name Tag": "Bancor: Converter 722",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2540,7 +2540,7 @@
         "Name Tag": "Bancor: Converter 343",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3272,7 +3272,7 @@
         "Name Tag": "Synthetix: Delegate Approvals",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
-        "image": "/icons/gate.webp"
+        "image": "/icons/synthetix.webp"
       }
     }
   },

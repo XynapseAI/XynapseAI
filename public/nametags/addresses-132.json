@@ -6,7 +6,7 @@
         "Name Tag": "Bancor: Converter #33",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -980,7 +980,7 @@
       "donate": {
         "Name Tag": "MakerBurn: Donation",
         "Description": "The act of giving to help and support someone in need.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -1162,7 +1162,7 @@
         "Name Tag": "Bancor: Converter 41",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3115,7 +3115,7 @@
         "Name Tag": "Bancor: Price Floor",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3317,7 +3317,7 @@
         "Name Tag": "Idle.finance: Convex steCrv AA/BB",
         "Description": "Idle.finance: Earn the yield you deserve without worry about finding the best option, either if you want to optimize returns or risks.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },

@@ -54,7 +54,7 @@
         "Name Tag": "Bancor: Converter 646",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -220,7 +220,7 @@
         "Name Tag": "Uniswap V2: BINANCEC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -1156,7 +1156,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor MPH Pool Token (bnMPH)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor MPH Pool Token (bnMPH)",
@@ -1199,7 +1199,7 @@
         "Name Tag": "Bancor: Converter 515",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1620,7 +1620,7 @@
         "Name Tag": "Bancor: Converter #107",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1802,7 +1802,7 @@
         "Name Tag": "Bancor: Converter 568",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2197,7 +2197,7 @@
       "coinlist": {
         "Name Tag": "CoinList 2",
         "Description": "CoinList is a platform for new crypto offerings.",
-        "image": "/icons/default.webp"
+        "image": "/icons/coinlist.webp"
       }
     }
   },
@@ -2388,7 +2388,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Multi Send 1.1.1",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -2543,7 +2543,7 @@
         "Name Tag": "Bancor: Converter 392",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2983,7 +2983,7 @@
         "Name Tag": "Set: Compound Leverage Module",
         "Description": "Set Protocol helps you easily manage your crypto and enhance your portfolio with automated asset management strategies.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -3266,7 +3266,7 @@
       "fei-protocol": {
         "Name Tag": "Fei Protocol: Deployer",
         "Description": "FEI is a new kind of stablecoin. It is more capital efficient, has a fair distribution, and is fully decentralized. The protocol uses the value it controls to maintain liquid secondary markets.",
-        "image": "/icons/default.webp"
+        "image": "/icons/fei.webp"
       }
     }
   },

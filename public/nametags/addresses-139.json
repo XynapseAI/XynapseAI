@@ -895,7 +895,7 @@
         "Name Tag": "Bancor: Converter 191",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1495,7 +1495,7 @@
         "Name Tag": "Zerion: Synthetix Debt Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/synthetix.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },
@@ -1554,7 +1554,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Create Call 1.1.1",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1582,7 +1582,7 @@
         "Name Tag": "Bancor: Converter 546",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1593,7 +1593,7 @@
         "Name Tag": "Bancor: Liquidity Protection",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1875,7 +1875,7 @@
       "korbit": {
         "Name Tag": "Korbit 3",
         "Description": "Korbit is a centralized cryptocurrency exchange headquartered in Seoul, South Korea.",
-        "image": "/icons/default.webp"
+        "image": "/icons/korbit.webp"
       }
     }
   },
@@ -2132,7 +2132,7 @@
         "Name Tag": "Zerion: ERC20 Token Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },
@@ -2540,7 +2540,7 @@
         "Name Tag": "Bancor: Converter 672",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2683,7 +2683,7 @@
         "Name Tag": "Bancor: Pending Withdrawals V3",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2702,7 +2702,7 @@
         "Name Tag": "Bancor: Converter 471",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2928,7 +2928,7 @@
         "Name Tag": "Idle.finance: Convex ALUSD3Crv AA/BB",
         "Description": "Idle.finance: Earn the yield you deserve without worry about finding the best option, either if you want to optimize returns or risks.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },
@@ -3816,7 +3816,7 @@
         "Name Tag": "Bancor: Converter 594",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

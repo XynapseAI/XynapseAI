@@ -100,7 +100,7 @@
         "Name Tag": "Bancor: Converter 686",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1429,7 +1429,7 @@
         "Name Tag": "Balancer: YFI/WBTC/AAVE/ETH 25/25/25/25",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/balancer.webp"
       }
     }
   },
@@ -2052,7 +2052,7 @@
         "Name Tag": "Bancor: Converter 554",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2262,7 +2262,7 @@
       "bancor-contract-vulnerability": {
         "Name Tag": "Bancor: Vulnerable Contract",
         "Description": "Bancor Contract Vulnerability: A critical bug in three recently deployed versions of the Bancor Network smart contract has led to a loss of user funds.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2553,7 +2553,7 @@
         "Name Tag": "Bancor: Converter 190",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3052,7 +3052,7 @@
       "maker": {
         "Name Tag": "Maker: Contract 8",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -3114,7 +3114,7 @@
         "Name Tag": "Bancor: Bancor Network Info V3",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

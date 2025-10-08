@@ -460,7 +460,7 @@
         "Name Tag": "Synthetix: GOOG Balancer Staking Rewards",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Others",
-        "image": "/icons/balancer.webp"
+        "image": "/icons/synthetix.webp"
       }
     }
   },
@@ -1246,7 +1246,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: alUSD Transmuter Vault Adaptor",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -1879,7 +1879,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
         "Token Name": "Bancor IDLE Pool Token (bnIDLE)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor IDLE Pool Token (bnIDLE)",
@@ -2668,7 +2668,7 @@
         "Name Tag": "Bancor: Converter 452",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

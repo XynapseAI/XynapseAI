@@ -121,15 +121,42 @@ const keywordToImage = {
   wisdom : 'wisdom.webp',
   hashdex : 'hashdex.webp',
   grayscale : 'grayscale.webp',
+  liquity : 'liquity.webp',
+  bittrex : 'bittrex.webp',
+  cow : 'cow.webp',
+  maker : 'makerdao.webp',
+  nexo : 'nexo.webp',
+  alchemix : 'alchemix.webp',
+  shiba : 'shiba.webp',
+  metamask : 'metamask.webp',
+  across : 'across.webp',
+  kyberswap : 'kyber.webp',
+  zerion : 'zerion.webp',
+  decentraland : 'decentraland.webp',
+  opensea : 'opensea.webp',
+  bitdao : 'bybit.webp',
+  convex : 'convex.webp',
+  korbit : 'korbit.webp',
+  fei : 'fei.webp',
+  safe : 'gnosis.webp',
+  compound : 'compound.webp',
+  coinlist : 'coinlist.webp',
+  bitpie : 'bitpie.webp',
+  bancor : 'bancor.webp',
 };
 
 const getImageFromNameTag = (nameTag = '') => {
   const lower = nameTag.toLowerCase();
-  for (const keyword in keywordToImage) {
-    if (lower.includes(keyword)) {
-      return `/icons/${keywordToImage[keyword]}`;
+  const words = lower.split(/\s+/);
+  
+  for (const word of words) {
+    for (const keyword in keywordToImage) {
+      if (word.includes(keyword)) {
+        return `/icons/${keywordToImage[keyword]}`;
+      }
     }
   }
+  
   return '/icons/default.webp';
 };
 

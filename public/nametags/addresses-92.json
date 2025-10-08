@@ -145,7 +145,7 @@
         "Name Tag": "Bancor: Converter #25",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -276,7 +276,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor NEXO Pool Token (bnNEXO)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor NEXO Pool Token (bnNEXO)",
@@ -1459,7 +1459,7 @@
         "Name Tag": "Balancer: BAL/AAVE 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/balancer.webp"
       }
     }
   },
@@ -1700,7 +1700,7 @@
         "Description": "ENS offers a secure & decentralised way to address resources both on and off the blockchain using simple, human-readable names.",
         "Subcategory": "Others",
         "Token Name": "Ethereum Name Service (ENS)",
-        "image": "/icons/coinbase.webp"
+        "image": "/icons/ens.webp"
       }
     }
   },
@@ -2411,7 +2411,7 @@
         "Name Tag": "Zerion: Balancer Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/balancer.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },
@@ -2470,7 +2470,7 @@
         "Name Tag": "Bancor: Converter 394",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3549,7 +3549,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor BOBA Pool Token (bnBOBA)",
-        "image": "/icons/binance.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor BOBA Pool Token (bnBOBA)",
@@ -3730,7 +3730,7 @@
         "Name Tag": "Bancor: Converter #124",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

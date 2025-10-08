@@ -37,7 +37,7 @@
       "korbit": {
         "Name Tag": "Korbit 5",
         "Description": "Korbit is a centralized cryptocurrency exchange headquartered in Seoul, South Korea.",
-        "image": "/icons/default.webp"
+        "image": "/icons/korbit.webp"
       }
     }
   },
@@ -702,7 +702,7 @@
         "Name Tag": "Uniswap V2: Binance 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -824,7 +824,7 @@
         "Name Tag": "Bancor: Converter #38",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1240,7 +1240,7 @@
         "Name Tag": "Bancor: Converter 547",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1717,7 +1717,7 @@
         "Name Tag": "Balancer: DAI/AAVE 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/balancer.webp"
       }
     }
   },
@@ -1971,7 +1971,7 @@
         "Name Tag": "SushiSwap: AAVE",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/aave.webp"
+        "image": "/icons/sushiswap.webp"
       }
     }
   },
@@ -2062,7 +2062,7 @@
         "Name Tag": "Bancor: Bancor V1 Migration V3",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2193,14 +2193,14 @@
         "Name Tag": "Bancor: Old ETH Token",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "old-contract": {
         "Name Tag": "Bancor: Old ETH Token",
         "Description": "Contracts/addresses which are migrating or have migrated to a new contract/address. This includes token swaps as well.",
         "Subcategory": "Others",
         "Token Name": "Ether Token (ETH)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2408,12 +2408,12 @@
       "bridge": {
         "Name Tag": "Multichain: Huobi Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/huobi.webp"
+        "image": "/icons/multichain.webp"
       },
       "multichain": {
         "Name Tag": "Multichain: Huobi Bridge",
         "Description": "Multichain is a trustless protocol to bridge assets between heterogenous Layer-1 and Layer-2 platforms.",
-        "image": "/icons/huobi.webp"
+        "image": "/icons/multichain.webp"
       }
     }
   },
@@ -2766,7 +2766,7 @@
         "Name Tag": "Bancor: Converter 333",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2951,7 +2951,7 @@
         "Name Tag": "Bancor: Converter 182",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3142,7 +3142,7 @@
         "Name Tag": "KyberSwap: Elastic Tick Fees Reader",
         "Description": "KyberSwap is an on-chain liquidity protocol that aggregates liquidity and enables users to source liquidity across different decentralized exchanges to achieve the best rate for any token swap, on any supported network.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/kyber.webp"
       }
     }
   },

@@ -46,7 +46,7 @@
         "Name Tag": "Bancor: Converter 19",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -236,7 +236,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Deployer 2",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -441,7 +441,7 @@
         "Name Tag": "Bancor: Converter 344",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -943,7 +943,7 @@
         "Name Tag": "mStable: FEI Feeder Pool Vault",
         "Description": "mStable unifies stablecoins, lending and swapping into one standard.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/fei.webp"
       }
     }
   },
@@ -1340,7 +1340,7 @@
         "Name Tag": "Compound: Rate Model",
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -1803,7 +1803,7 @@
         "Name Tag": "Bancor: Converter 496",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2269,13 +2269,13 @@
         "Name Tag": "Zerion: DeFi SDK Core v1.0",
         "Description": "List of decentralized finance products.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/zerion.webp"
       },
       "zerion": {
         "Name Tag": "Zerion: DeFi SDK Core v1.0",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },
@@ -3119,7 +3119,7 @@
       "coinlist": {
         "Name Tag": "CoinList 3",
         "Description": "CoinList is a platform for new crypto offerings.",
-        "image": "/icons/default.webp"
+        "image": "/icons/coinlist.webp"
       }
     }
   },
@@ -3425,7 +3425,7 @@
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
         "Token Name": "Synth sAAVE (sAAVE)",
-        "image": "/icons/aave.webp"
+        "image": "/icons/synthetix.webp"
       }
     }
   },

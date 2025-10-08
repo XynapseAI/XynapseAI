@@ -98,7 +98,7 @@
         "Name Tag": "Bancor: Converter 734",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1693,7 +1693,7 @@
         "Name Tag": "Bancor: Converter #164",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1819,7 +1819,7 @@
       "liquity": {
         "Name Tag": "Liquity: Sorted Troves",
         "Description": "Liquity provides interest-free borrowing on Ethereum.",
-        "image": "/icons/default.webp"
+        "image": "/icons/liquity.webp"
       }
     }
   },
@@ -1891,7 +1891,7 @@
       "compound-governance": {
         "Name Tag": "Compound Voting: New Form Capital",
         "Description": "Top voters in Compound's Governance Leaderboard.",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -2444,7 +2444,7 @@
       "cow-protocol": {
         "Name Tag": "CoW Protocol: GPv2Settlement",
         "Description": "CoW Protocol finds the lowest price for your trade across all exchanges and aggregators, such as Uniswap and 1inch - and protects you from MEV, unlike the others.",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       }
     }
   },
@@ -3249,7 +3249,7 @@
         "Name Tag": "Bancor: Converter 563",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

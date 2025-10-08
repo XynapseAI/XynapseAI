@@ -393,7 +393,7 @@
         "Name Tag": "SushiSwap: AAVE-xSUSHI",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/aave.webp"
+        "image": "/icons/sushiswap.webp"
       }
     }
   },
@@ -1198,7 +1198,7 @@
         "Name Tag": "Bancor: Bancor Portal V3",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1829,7 +1829,7 @@
         "Name Tag": "Bancor: Converter #135",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2598,7 +2598,7 @@
         "Name Tag": "Bancor: Converter 272",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2724,7 +2724,7 @@
         "Name Tag": "Maker: MKR Token",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
         "Token Name": "Maker (MKR)",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },

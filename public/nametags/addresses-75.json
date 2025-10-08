@@ -942,7 +942,7 @@
         "Name Tag": "Uniswap V2: Kraken 10",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -2874,7 +2874,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor ALEPH Pool Token (bnALEPH)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor ALEPH Pool Token (bnALEPH)",

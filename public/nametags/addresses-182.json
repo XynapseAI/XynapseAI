@@ -304,7 +304,7 @@
       "convex-finance": {
         "Name Tag": "Convex Finance: Pool Manager",
         "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort.",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },
@@ -374,7 +374,7 @@
         "Name Tag": "Zerion: Compound Debt Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },
@@ -1787,7 +1787,7 @@
         "Name Tag": "Bancor: Converter 532",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1886,7 +1886,7 @@
         "Name Tag": "Uniswap V2: Kraken 4",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -2826,7 +2826,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
         "Token Name": "Bancor KTN Pool Token (bnKTN)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor KTN Pool Token (bnKTN)",

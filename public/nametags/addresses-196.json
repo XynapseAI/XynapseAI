@@ -589,7 +589,7 @@
       "sybil-delegate": {
         "Name Tag": "Compound: Community MultiSig",
         "Description": "Sybil is a governance tool for discovering delegates. Sybil maps on-chain addresses to digital identities to maintain a list of delegates.",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -1334,7 +1334,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: Transmuter Buffer V2 2",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },

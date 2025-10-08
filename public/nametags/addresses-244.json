@@ -931,7 +931,7 @@
         "Name Tag": "Bancor: Converter 325",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1197,7 +1197,7 @@
         "Name Tag": "Robo-Advisor Yield: Compound Opportunity",
         "Description": "RAY connects yield-generating smart contracts with pooled liquidity. It currently supports on-chain lending for the ETH, DAI and USDC tokens on the Compound, dYdX and Dai Savings Rate markets.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -1465,7 +1465,7 @@
         "Name Tag": "Bancor: Converter 453",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1885,7 +1885,7 @@
         "Name Tag": "Bancor: Converter #23",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1904,7 +1904,7 @@
         "Name Tag": "Bancor: Converter 316",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

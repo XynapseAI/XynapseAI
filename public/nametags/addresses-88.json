@@ -1083,7 +1083,7 @@
         "Name Tag": "Bancor: Converter 227",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1324,7 +1324,7 @@
         "Name Tag": "Uniswap V2: BINANCE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -1488,7 +1488,7 @@
       "maker": {
         "Name Tag": "Maker: PIP SAI",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -2189,7 +2189,7 @@
       "maker": {
         "Name Tag": "Maker: MCD Flip SAI",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -3072,7 +3072,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: alETH Vault Adaptor",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -3174,7 +3174,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor MFI Pool Token (bnMFI)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor MFI Pool Token (bnMFI)",
@@ -3259,7 +3259,7 @@
         "Name Tag": "Chainlink: AAVE/USD Price Feed",
         "Description": "Chainlink: Your smart contracts connected to real world data, events and payments.",
         "Subcategory": "Others",
-        "image": "/icons/aave.webp"
+        "image": "/icons/chainlink.webp"
       }
     }
   },
@@ -3331,7 +3331,7 @@
         "Name Tag": "InstaDApp: ConnectCompound 2",
         "Description": "InstaDApp: Trustless smart wallet for DeFi.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },

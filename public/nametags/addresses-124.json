@@ -745,7 +745,7 @@
         "Name Tag": "Bancor: Converter 310",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1107,7 +1107,7 @@
       "lido": {
         "Name Tag": "Lido: Optimism L1 ERC20 Token Bridge",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/optimism.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
@@ -2229,7 +2229,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Proxy Factory 1.1.1",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -2343,7 +2343,7 @@
         "Name Tag": "Bancor: Converter 430",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

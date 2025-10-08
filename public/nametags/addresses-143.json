@@ -22,7 +22,7 @@
         "Name Tag": "Uniswap V2: $Binance 2",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -222,7 +222,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Proxy Factory 0.1.0",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1403,7 +1403,7 @@
       "decentraland": {
         "Name Tag": "Decentraland: DAO Community",
         "Description": "Decentraland. A virtual world owned by its users. Build, explore, and earn money from your creations.",
-        "image": "/icons/default.webp"
+        "image": "/icons/decentraland.webp"
       }
     }
   },
@@ -1648,7 +1648,7 @@
         "Name Tag": "Bancor: Governance",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1985,7 +1985,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Mastercopy 0.1.0",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1996,7 +1996,7 @@
         "Name Tag": "Bancor: Converter 529",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2649,7 +2649,7 @@
       "liquity": {
         "Name Tag": "Liquity: Default Pool",
         "Description": "Liquity provides interest-free borrowing on Ethereum.",
-        "image": "/icons/default.webp"
+        "image": "/icons/liquity.webp"
       }
     }
   },
@@ -2742,7 +2742,7 @@
       "fei-protocol": {
         "Name Tag": "Fei protocol: Bonding Curve Oracle",
         "Description": "FEI is a new kind of stablecoin. It is more capital efficient, has a fair distribution, and is fully decentralized. The protocol uses the value it controls to maintain liquid secondary markets.",
-        "image": "/icons/curve.webp"
+        "image": "/icons/fei.webp"
       }
     }
   },
@@ -2855,7 +2855,7 @@
       "bitpie": {
         "Name Tag": "Bitpie: Bitpie 3",
         "Description": "Bitpie is an industry-leading multi-blockchain (BTC/ETH/EOS/USDT etc.) wallet. They are devoted to providing safe assets management and DApps for users worldwide. With deep understanding of blockchain technology and rich experience of operating Bither Wallet for years, Bitpie enables users to transact and use DApps with great convenience while holding assets totally under their control.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bitpie.webp"
       }
     }
   },
@@ -2950,7 +2950,7 @@
         "Name Tag": "Bancor: Converter 312",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3475,7 +3475,7 @@
         "Name Tag": "Uniswap V2: KRAKEN",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },

@@ -1208,7 +1208,7 @@
         "Name Tag": "Decentraland: DCLPMTTTHSWRLD Token",
         "Description": "Decentraland. A virtual world owned by its users. Build, explore, and earn money from your creations.",
         "Token Name": "dcl://pm_outtathisworld (DCLPMTTTHSWRLD)",
-        "image": "/icons/mtgox.webp"
+        "image": "/icons/decentraland.webp"
       }
     }
   },
@@ -2584,7 +2584,7 @@
       "lido": {
         "Name Tag": "Lido: SushiSwap LP rewards Reward Contract",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/sushiswap.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
@@ -3083,7 +3083,7 @@
         "Name Tag": "Bancor: Converter 476",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

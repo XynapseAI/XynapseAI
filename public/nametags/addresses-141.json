@@ -981,7 +981,7 @@
       "compound-governance": {
         "Name Tag": "Compound Voting: Jacob",
         "Description": "Top voters in Compound's Governance Leaderboard.",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -1192,7 +1192,7 @@
         "Name Tag": "Uniswap V2: BINANCE 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -1959,7 +1959,7 @@
         "Name Tag": "Bancor: Converter #99",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2542,7 +2542,7 @@
       "convex-finance": {
         "Name Tag": "Convex Finance: Stash Factory",
         "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort.",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },
@@ -2962,7 +2962,7 @@
         "Name Tag": "Bancor: Converter 666",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3065,7 +3065,7 @@
         "Name Tag": "Zerion: Compound Token Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },
@@ -3183,7 +3183,7 @@
       "compound-governance": {
         "Name Tag": "Compound Voting: Jayson Hobby",
         "Description": "Top voters in Compound's Governance Leaderboard.",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -3286,7 +3286,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor ALPHA Pool Token (bnALPHA)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor ALPHA Pool Token (bnALPHA)",
@@ -3366,7 +3366,7 @@
       "maker": {
         "Name Tag": "Maker: Core Unit SES_WALLET",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },

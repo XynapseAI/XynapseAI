@@ -955,7 +955,7 @@
         "Name Tag": "opBNB: Optimism Portal Proxy",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/optimism.webp"
+        "image": "/icons/binance.webp"
       }
     }
   },
@@ -1003,7 +1003,7 @@
         "Name Tag": "Tornado.Cash: 100 BNB",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "/icons/tornado.webp"
       }
     }
   },

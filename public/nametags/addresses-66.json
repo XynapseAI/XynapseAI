@@ -311,7 +311,7 @@
       "across-protocol": {
         "Name Tag": "Across Protocol: Polygon Adapter V2",
         "Description": "Across Protocol is a bridging method that combines an optimistic oracle, bonded relayers and single-sided liquidity pools to provide decentralized instant transactions from rollup chains to Ethereum mainnet.",
-        "image": "/icons/polygon.webp"
+        "image": "/icons/across.webp"
       }
     }
   },
@@ -1201,7 +1201,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
         "Token Name": "Bancor EDEN Pool Token (bnEDEN)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor EDEN Pool Token (bnEDEN)",
@@ -3278,7 +3278,7 @@
         "Name Tag": "Uniswap V2: Binance10M",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },

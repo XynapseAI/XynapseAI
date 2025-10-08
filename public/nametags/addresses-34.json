@@ -969,7 +969,7 @@
       "unibright": {
         "Name Tag": "Ambisafe Operations",
         "Description": "Unibright is a team of blockchain specialists, architects, developers and consultants with 20+ years of experience in business processes and integration. They turn ideas into businesses and improve processes with the help of blockchain technology.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1429,7 +1429,7 @@
         "Name Tag": "Uniswap V2: OKX",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -1652,7 +1652,7 @@
         "Name Tag": "Decentraland: DCLSTYSF Token",
         "Description": "Decentraland. A virtual world owned by its users. Build, explore, and earn money from your creations.",
         "Token Name": "dcl://stay_safe (DCLSTYSF)",
-        "image": "/icons/default.webp"
+        "image": "/icons/decentraland.webp"
       }
     }
   },
@@ -2157,7 +2157,7 @@
         "Name Tag": "Bancor: Converter Upgrader",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3261,7 +3261,7 @@
         "Name Tag": "Furucombo: sCompound Handlers",
         "Description": "Furucombo: Save time, save steps, infinite DeFi combinations. Build your own DeFi legos into one transaction without knowing how to code.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -3516,7 +3516,7 @@
         "Name Tag": "Bancor: Converter 735",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

@@ -992,7 +992,7 @@
         "Name Tag": "Shiba Inu: LEASH Token",
         "Description": "Shiba Inu is a decentralized meme token that evolved into a vibrant ecosystem.",
         "Token Name": "DOGE KILLER (LEASH)",
-        "image": "/icons/default.webp"
+        "image": "/icons/shiba.webp"
       }
     }
   },
@@ -1727,7 +1727,7 @@
         "Name Tag": "Bancor: Converter 12",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1810,7 +1810,7 @@
         "Name Tag": "Bancor: Converter 118",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2515,12 +2515,12 @@
       "bridge": {
         "Name Tag": "StarkNet: StarkGate WBTC Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/gate.webp"
+        "image": "/icons/starknet.webp"
       },
       "starknet": {
         "Name Tag": "StarkNet: StarkGate WBTC Bridge",
         "Description": "StarkNet is a permissionless decentralized ZK-Rollup. It operates as an L2 network over Ethereum, enabling any dApp to achieve unlimited scale for its computation – without compromising Ethereum's composability and security.",
-        "image": "/icons/gate.webp"
+        "image": "/icons/starknet.webp"
       }
     }
   },
@@ -3011,7 +3011,7 @@
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
         "Token Name": "Compound USDC (cUSDCv3)",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -3262,7 +3262,7 @@
         "Name Tag": "Bancor: Converter 490",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3357,7 +3357,7 @@
       "korbit": {
         "Name Tag": "Korbit 2",
         "Description": "Korbit is a centralized cryptocurrency exchange headquartered in Seoul, South Korea.",
-        "image": "/icons/default.webp"
+        "image": "/icons/korbit.webp"
       }
     }
   },
@@ -3618,7 +3618,7 @@
         "Name Tag": "Bancor: Converter #8",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3752,7 +3752,7 @@
         "Name Tag": "Uniswap V2: KRAKEN 6",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },

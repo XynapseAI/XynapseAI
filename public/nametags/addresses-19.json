@@ -458,7 +458,7 @@
         "Name Tag": "Balancer: DAI/MKR/ETH/COMP/AAVE 20/20/20/20/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/balancer.webp"
       }
     }
   },
@@ -530,7 +530,7 @@
         "Name Tag": "Bancor: Converter #159",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -593,7 +593,7 @@
         "Name Tag": "Bancor: Converter 140",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -652,7 +652,7 @@
         "Name Tag": "Bancor: Converter 237",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -861,7 +861,7 @@
       "bitdao": {
         "Name Tag": "BitDAO: Private Sale",
         "Description": "BitDAO is a DAO (Decentralized Autonomous Organization) with a vision of open finance and a decentralized tokenized economy.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -1515,7 +1515,7 @@
         "Name Tag": "Bancor: Converter 603",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2228,7 +2228,7 @@
         "Name Tag": "Bancor: Converter 610",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2584,7 +2584,7 @@
       "metamask": {
         "Name Tag": "Metamask: Fees",
         "Description": "MetaMask is a crypto wallet & a gateway to blockchain apps. It provides an essential utility for blockchain newcomers, token traders, crypto gamers, and developers.",
-        "image": "/icons/default.webp"
+        "image": "/icons/metamask.webp"
       }
     }
   },
@@ -3253,13 +3253,13 @@
         "Name Tag": "Bancor: Converter 213",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "streamity": {
         "Name Tag": "Bancor: Converter 213",
         "Description": "Streamity: An ecosystem that combines 8 unique platforms created for the fast development of blockchain technology and the dissemination of the idea of a \"decentralized world\" to the society",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3370,7 +3370,7 @@
       "lido": {
         "Name Tag": "Lido: Balancer LP Rewards Manager V2",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/balancer.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
@@ -3498,7 +3498,7 @@
         "Name Tag": "Bancor: Converter 103",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3623,7 +3623,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Proxy Factory 1.0.0",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -3774,7 +3774,7 @@
         "Name Tag": "Compound: cTUSD Token",
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },

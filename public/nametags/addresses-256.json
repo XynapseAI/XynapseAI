@@ -1729,7 +1729,7 @@
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Main",
         "Token Name": "Compound Sai (cSAI)",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       },
       "defi": {
         "Token Name": "Compound Sai (cSAI)",
@@ -2520,12 +2520,12 @@
       "bridge": {
         "Name Tag": "StarkNet: StarkGate USDC Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/gate.webp"
+        "image": "/icons/starknet.webp"
       },
       "starknet": {
         "Name Tag": "StarkNet: StarkGate USDC Bridge",
         "Description": "StarkNet is a permissionless decentralized ZK-Rollup. It operates as an L2 network over Ethereum, enabling any dApp to achieve unlimited scale for its computation – without compromising Ethereum's composability and security.",
-        "image": "/icons/gate.webp"
+        "image": "/icons/starknet.webp"
       }
     }
   },
@@ -2879,7 +2879,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Create And Add Modules 1.1.1",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -3612,7 +3612,7 @@
       "bitpie": {
         "Name Tag": "Bitpie: Bitpie 1",
         "Description": "Bitpie is an industry-leading multi-blockchain (BTC/ETH/EOS/USDT etc.) wallet. They are devoted to providing safe assets management and DApps for users worldwide. With deep understanding of blockchain technology and rich experience of operating Bither Wallet for years, Bitpie enables users to transact and use DApps with great convenience while holding assets totally under their control.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bitpie.webp"
       }
     }
   },
@@ -3701,7 +3701,7 @@
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
         "Token Name": "Compound USDT (cUSDT)",
-        "image": "/icons/tether.webp"
+        "image": "/icons/compound.webp"
       },
       "defi": {
         "Token Name": "Compound USDT (cUSDT)",

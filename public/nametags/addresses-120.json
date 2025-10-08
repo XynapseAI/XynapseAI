@@ -41,7 +41,7 @@
         "Name Tag": "Bancor: Converter #152",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -566,7 +566,7 @@
       "maker": {
         "Name Tag": "Maker: Medianizer 2",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -609,7 +609,7 @@
         "Name Tag": "SushiSwap: TETHERDOOM-USDC",
         "Description": "SushiSwap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/tether.webp"
+        "image": "/icons/sushiswap.webp"
       }
     }
   },
@@ -681,7 +681,7 @@
         "Name Tag": "Bancor: Converter 63",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2249,7 +2249,7 @@
         "Name Tag": "Bancor: Converter 596",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2303,7 +2303,7 @@
         "Name Tag": "Bancor: Converter 76",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2865,7 +2865,7 @@
         "Name Tag": "Balancer: apeUSD-AAVE-DEC21/USDC 50/50",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/balancer.webp"
       }
     }
   },
@@ -2999,7 +2999,7 @@
         "Name Tag": "Bancor: Converter #117",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3209,7 +3209,7 @@
       "nexo": {
         "Name Tag": "Nexo 4",
         "Description": "Nexo: Let your crypto work for you. The only insured account that lets you borrow instantly in 45+ fiat currencies and earn daily interest on your idle assets.",
-        "image": "/icons/default.webp"
+        "image": "/icons/nexo.webp"
       }
     }
   },
@@ -3461,12 +3461,12 @@
       "across-protocol": {
         "Name Tag": "Across Protocol: WETH Bridge Pool",
         "Description": "Across Protocol is a bridging method that combines an optimistic oracle, bonded relayers and single-sided liquidity pools to provide decentralized instant transactions from rollup chains to Ethereum mainnet.",
-        "image": "/icons/default.webp"
+        "image": "/icons/across.webp"
       },
       "bridge": {
         "Name Tag": "Across Protocol: WETH Bridge Pool",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/default.webp"
+        "image": "/icons/across.webp"
       }
     }
   },

@@ -859,7 +859,7 @@
         "Name Tag": "Bancor: Converter #151",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1244,7 +1244,7 @@
         "Name Tag": "Uniswap V2: OKX 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -1516,7 +1516,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
         "Token Name": "Bancor DYDX Pool Token (bnDYDX)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor DYDX Pool Token (bnDYDX)",
@@ -1741,7 +1741,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor DIP Pool Token (bnDIP)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor DIP Pool Token (bnDIP)",
@@ -1788,12 +1788,12 @@
       "bridge": {
         "Name Tag": "StarkNet: StarkGate USDT Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/gate.webp"
+        "image": "/icons/starknet.webp"
       },
       "starknet": {
         "Name Tag": "StarkNet: StarkGate USDT Bridge",
         "Description": "StarkNet is a permissionless decentralized ZK-Rollup. It operates as an L2 network over Ethereum, enabling any dApp to achieve unlimited scale for its computation – without compromising Ethereum's composability and security.",
-        "image": "/icons/gate.webp"
+        "image": "/icons/starknet.webp"
       }
     }
   },
@@ -2004,7 +2004,7 @@
         "Name Tag": "Balancer: AAVE/UNI 75/25",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/balancer.webp"
       }
     }
   },
@@ -2725,7 +2725,7 @@
         "Name Tag": "InstaDApp: ConnectCompound",
         "Description": "InstaDApp: Trustless smart wallet for DeFi.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -3209,7 +3209,7 @@
         "Name Tag": "Bancor: Converter #176",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3220,7 +3220,7 @@
         "Name Tag": "Bancor: Converter 230",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3909,12 +3909,12 @@
         "Name Tag": "Bancor: Token Sale",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "token-sale": {
         "Name Tag": "Bancor: Token Sale",
         "Description": "The sale of tokens to investors and speculators, in exchange for cryptocurrencies such as Ether.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

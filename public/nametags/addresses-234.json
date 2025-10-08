@@ -152,7 +152,7 @@
       "fei-protocol": {
         "Name Tag": "Fei Protocol: Fei DAO",
         "Description": "FEI is a new kind of stablecoin. It is more capital efficient, has a fair distribution, and is fully decentralized. The protocol uses the value it controls to maintain liquid secondary markets.",
-        "image": "/icons/default.webp"
+        "image": "/icons/fei.webp"
       }
     }
   },
@@ -270,7 +270,7 @@
         "Name Tag": "Uniswap: KRAKEN",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -377,7 +377,7 @@
       "convex-finance": {
         "Name Tag": "Convex Finance: CVX Staking Proxy",
         "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort.",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },
@@ -2114,7 +2114,7 @@
         "Name Tag": "Uniswap V2: KRAKEN 5",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -2177,7 +2177,7 @@
         "Name Tag": "Bancor: Converter #52",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2232,7 +2232,7 @@
         "Name Tag": "Bancor: Converter 167",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2898,7 +2898,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
         "Token Name": "Bancor GTC Pool Token (bnGTC)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor GTC Pool Token (bnGTC)",
@@ -3123,7 +3123,7 @@
         "Name Tag": "Bancor: Converter 183",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3427,7 +3427,7 @@
       "fei-protocol": {
         "Name Tag": "Fei Protocol: Eth Bonding Curve",
         "Description": "FEI is a new kind of stablecoin. It is more capital efficient, has a fair distribution, and is fully decentralized. The protocol uses the value it controls to maintain liquid secondary markets.",
-        "image": "/icons/curve.webp"
+        "image": "/icons/fei.webp"
       }
     }
   },

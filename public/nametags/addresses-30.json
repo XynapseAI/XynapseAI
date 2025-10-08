@@ -615,7 +615,7 @@
         "Name Tag": "Compound: Comet Factor",
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -732,7 +732,7 @@
         "Name Tag": "Synthetix: COIN Balancer Staking Rewards",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Others",
-        "image": "/icons/balancer.webp"
+        "image": "/icons/synthetix.webp"
       }
     }
   },
@@ -956,7 +956,7 @@
         "Name Tag": "Bancor: Converter 111",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2130,7 +2130,7 @@
         "Name Tag": "KyberSwap: KSRouter",
         "Description": "KyberSwap is an on-chain liquidity protocol that aggregates liquidity and enables users to source liquidity across different decentralized exchanges to achieve the best rate for any token swap, on any supported network.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/kyber.webp"
       }
     }
   },
@@ -2411,7 +2411,7 @@
         "Name Tag": "KyberSwap: Router",
         "Description": "KyberSwap is an on-chain liquidity protocol that aggregates liquidity and enables users to source liquidity across different decentralized exchanges to achieve the best rate for any token swap, on any supported network.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/kyber.webp"
       }
     }
   },
@@ -3213,7 +3213,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
         "Token Name": "Bancor INDEX Pool Token (bnINDEX)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor INDEX Pool Token (bnINDEX)",
@@ -3642,7 +3642,7 @@
         "Name Tag": "Bancor: Converter 275",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3909,7 +3909,7 @@
         "Name Tag": "Wormhole: USDTso Token",
         "Description": "Wormhole is a generic message-passing protocol that connects to multiple chains including Ethereum, Solana, Terra, Binance Smart Chain, Polygon, Avalanche, and Oasis.",
         "Token Name": "USDT (Wormhole) (USDT)",
-        "image": "/icons/tether.webp"
+        "image": "/icons/wormhole.webp"
       }
     }
   },

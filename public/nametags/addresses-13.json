@@ -2250,7 +2250,7 @@
         "Name Tag": "Bancor: Converter 349",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2335,7 +2335,7 @@
       "korbit": {
         "Name Tag": "Korbit 1",
         "Description": "Korbit is a centralized cryptocurrency exchange headquartered in Seoul, South Korea.",
-        "image": "/icons/default.webp"
+        "image": "/icons/korbit.webp"
       }
     }
   },
@@ -2682,7 +2682,7 @@
         "Name Tag": "Bancor: Converter 667",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3083,7 +3083,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
         "Token Name": "Bancor GRT Pool Token (bnGRT)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor GRT Pool Token (bnGRT)",
@@ -3190,7 +3190,7 @@
         "Name Tag": "Bancor: Converter #108",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

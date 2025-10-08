@@ -7,7 +7,7 @@
         "Name Tag": "Beacon Deposit Contract",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/eth.webp"
+        "image": "/icons/beacon.webp"
       }
     }
   },
@@ -1171,7 +1171,7 @@
         "Name Tag": "Liquity: Active Pool",
         "Description": null,
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/liquity.webp"
       }
     }
   },

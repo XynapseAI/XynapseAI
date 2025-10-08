@@ -1128,7 +1128,7 @@
       "convex-finance": {
         "Name Tag": "Convex Finance: CVX Rewards",
         "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort.",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },
@@ -1735,7 +1735,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
         "Token Name": "Bancor LQTY Pool Token (bnLQTY)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor LQTY Pool Token (bnLQTY)",
@@ -2584,7 +2584,7 @@
       "compound-governance": {
         "Name Tag": "Compound Voting: DeFi Rate",
         "Description": "Top voters in Compound's Governance Leaderboard.",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -2893,7 +2893,7 @@
         "Name Tag": "Compound: Configurator Implementation",
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -3242,7 +3242,7 @@
         "Name Tag": "Bancor: Converter 181",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3576,7 +3576,7 @@
       "lido": {
         "Name Tag": "Lido: Chainlink stETH-USD Price Feed",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/chainlink.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },

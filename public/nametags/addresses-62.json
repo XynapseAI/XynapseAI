@@ -787,7 +787,7 @@
         "Name Tag": "Bancor: Converter 653",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1155,7 +1155,7 @@
         "Name Tag": "Bancor: Converter 61",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1184,7 +1184,7 @@
       "across-protocol": {
         "Name Tag": "Across Protocol: Across Config Store V2",
         "Description": "Across Protocol is a bridging method that combines an optimistic oracle, bonded relayers and single-sided liquidity pools to provide decentralized instant transactions from rollup chains to Ethereum mainnet.",
-        "image": "/icons/default.webp"
+        "image": "/icons/across.webp"
       }
     }
   },
@@ -1986,7 +1986,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: WETH Gateway V2",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/gate.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -2258,7 +2258,7 @@
         "Name Tag": "Bancor: Converter 32",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3246,12 +3246,12 @@
       "airdrop-distributor": {
         "Name Tag": "Bitpie: Batch Sender v2",
         "Description": "An airdrop / distributor is the distribution of a cryptocurrency token to many different wallet addresses.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bitpie.webp"
       },
       "bitpie": {
         "Name Tag": "Bitpie: Batch Sender v2",
         "Description": "Bitpie is an industry-leading multi-blockchain (BTC/ETH/EOS/USDT etc.) wallet. They are devoted to providing safe assets management and DApps for users worldwide. With deep understanding of blockchain technology and rich experience of operating Bither Wallet for years, Bitpie enables users to transact and use DApps with great convenience while holding assets totally under their control.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bitpie.webp"
       }
     }
   },
@@ -3391,7 +3391,7 @@
         "Name Tag": "Bancor: Converter 313",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3462,7 +3462,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor ACRE Pool Token (bnACRE)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor ACRE Pool Token (bnACRE)",
@@ -3724,7 +3724,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
         "Token Name": "Bancor LYRA Pool Token (bnLYRA)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor LYRA Pool Token (bnLYRA)",

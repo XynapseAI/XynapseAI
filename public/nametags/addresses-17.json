@@ -30,7 +30,7 @@
         "Name Tag": "Bancor: Converter 163",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -190,7 +190,7 @@
         "Name Tag": "Bancor: Converter 523",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -336,7 +336,7 @@
       "blocked": {
         "Name Tag": "DAO Maker: DAO Token",
         "Description": "These addresses have been blocked by a custodial stablecoin provider (such as USDT and USDC).",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       },
       "dao": {
         "Token Name": "DAO Maker (DAO)"
@@ -560,7 +560,7 @@
         "Name Tag": "Decentraland: MANA Token",
         "Description": "Decentraland. A virtual world owned by its users. Build, explore, and earn money from your creations.",
         "Token Name": "Decentraland (MANA)",
-        "image": "/icons/default.webp"
+        "image": "/icons/decentraland.webp"
       },
       "vr": {
         "Token Name": "Decentraland (MANA)"
@@ -2464,7 +2464,7 @@
         "Name Tag": "Bancor: Converter #153",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3538,7 +3538,7 @@
         "Name Tag": "Bancor: Converter 525",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

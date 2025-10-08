@@ -500,7 +500,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: alUSD Alchemist Whitelist V2",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -640,7 +640,7 @@
       "bitdao": {
         "Name Tag": "BitDAO: Treasury",
         "Description": "BitDAO is a DAO (Decentralized Autonomous Organization) with a vision of open finance and a decentralized tokenized economy.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bybit.webp"
       }
     }
   },
@@ -722,7 +722,7 @@
         "Name Tag": "Bancor: Converter 263",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1289,7 +1289,7 @@
         "Name Tag": "Bancor: Converter #55",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2100,7 +2100,7 @@
       "enzyme-finance": {
         "Name Tag": "Enzyme Finance: Curve Liquidity Aave Adapter",
         "Description": "Enzyme is a decentralised on-chain asset management infrastructure. It provides an easy and cost-effective way to build, scale & monetise investment strategies in crypto.",
-        "image": "/icons/aave.webp"
+        "image": "/icons/curve.webp"
       }
     }
   },
@@ -2170,7 +2170,7 @@
         "Name Tag": "Bancor: Converter 693",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2612,7 +2612,7 @@
         "Name Tag": "Bancor: Converter 329",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2993,7 +2993,7 @@
       "maker": {
         "Name Tag": "Maker: MCD Cat",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -3692,7 +3692,7 @@
         "Name Tag": "Bancor: Converter 592",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

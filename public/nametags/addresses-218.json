@@ -14,7 +14,7 @@
         "Name Tag": "Bancor: Converter 402",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -147,7 +147,7 @@
         "Name Tag": "Bancor: Converter 711",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1186,7 +1186,7 @@
       "coinlist": {
         "Name Tag": "CoinList 1",
         "Description": "CoinList is a platform for new crypto offerings.",
-        "image": "/icons/default.webp"
+        "image": "/icons/coinlist.webp"
       }
     }
   },
@@ -1650,7 +1650,7 @@
       "convex-finance": {
         "Name Tag": "Convex Finance: CVX Locker (vICVX)",
         "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort.",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },
@@ -2410,7 +2410,7 @@
         "Name Tag": "Bancor: Converter 386",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3262,7 +3262,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor Liquidity Mining T-Shirt Tok... (BNLM)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor Liquidity Mining T-Shirt Tok... (BNLM)",

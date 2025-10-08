@@ -919,7 +919,7 @@
         "Name Tag": "Bancor: Converter 189",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1177,7 +1177,7 @@
         "Name Tag": "Bancor: Converter 157",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1320,7 +1320,7 @@
         "Name Tag": "Bancor: Converter 569",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1727,7 +1727,7 @@
         "Name Tag": "Bancor: Converter 642",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2017,7 +2017,7 @@
         "Name Tag": "Bancor: Converter #19",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3737,7 +3737,7 @@
       "bittrex": {
         "Name Tag": "Bittrex 3",
         "Description": "Bittrex International is a secure, reliable and advanced digital asset trading platform developed for international customers and built on Bittrex’s cutting-edge technology.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bittrex.webp"
       }
     }
   },

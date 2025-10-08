@@ -1026,7 +1026,7 @@
         "Name Tag": "Bancor: Converter #12",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1037,7 +1037,7 @@
         "Name Tag": "Bancor: Converter 446",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1180,7 +1180,7 @@
         "Name Tag": "Bancor: Converter 132",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1808,7 +1808,7 @@
       "looksrare": {
         "Name Tag": "LooksRare: Treasury Safe Multisig",
         "Description": "LooksRare is an NFT marketplace that actively rewards traders, collectors and creators for participating.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -3031,7 +3031,7 @@
         "Name Tag": "Zerion: Iearn Adapter v2",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },
@@ -3465,7 +3465,7 @@
       "cow-protocol": {
         "Name Tag": "CoW Protocol: GPv2VaultRelayer",
         "Description": "CoW Protocol finds the lowest price for your trade across all exchanges and aggregators, such as Uniswap and 1inch - and protects you from MEV, unlike the others.",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       }
     }
   },
@@ -3532,7 +3532,7 @@
         "Name Tag": "KyberSwap: Fair Launch 2",
         "Description": "KyberSwap is an on-chain liquidity protocol that aggregates liquidity and enables users to source liquidity across different decentralized exchanges to achieve the best rate for any token swap, on any supported network.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/kyber.webp"
       }
     }
   },
@@ -3612,7 +3612,7 @@
         "Name Tag": "Balancer: AAVE/UNI 80/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/balancer.webp"
       }
     }
   },

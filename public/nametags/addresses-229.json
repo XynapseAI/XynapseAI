@@ -740,7 +740,7 @@
         "Name Tag": "Bancor: Converter 606",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1371,7 +1371,7 @@
       "lido": {
         "Name Tag": "Lido: Curve Liquidity Farming Pool Contract",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/curve.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
@@ -1595,7 +1595,7 @@
         "Name Tag": "Synthetix: AMZN Balancer Staking Rewards",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Others",
-        "image": "/icons/balancer.webp"
+        "image": "/icons/synthetix.webp"
       }
     }
   },
@@ -2182,7 +2182,7 @@
         "Name Tag": "Bancor: Converter 99",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3239,7 +3239,7 @@
         "Name Tag": "Bancor: Converter 499",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3664,7 +3664,7 @@
         "Name Tag": "Synthetix: LP Rewards (Curve sUSD)",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
-        "image": "/icons/curve.webp"
+        "image": "/icons/synthetix.webp"
       }
     }
   },

@@ -489,7 +489,7 @@
         "Name Tag": "Bancor: Converter 602",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -767,7 +767,7 @@
         "Name Tag": "Bancor: Converter 718",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -793,7 +793,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Multi Send 1.1.0",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -819,7 +819,7 @@
       "across-protocol": {
         "Name Tag": "Across Protocol: Hub Pool Owner MultiSig",
         "Description": "Across Protocol is a bridging method that combines an optimistic oracle, bonded relayers and single-sided liquidity pools to provide decentralized instant transactions from rollup chains to Ethereum mainnet.",
-        "image": "/icons/default.webp"
+        "image": "/icons/across.webp"
       }
     }
   },
@@ -970,7 +970,7 @@
     "Labels": {
       "keep2r": {
         "Name Tag": "Kp2r Network: Compound Flash Liquidations",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -2787,7 +2787,7 @@
         "Name Tag": "Bancor: Converter #132",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3214,7 +3214,7 @@
         "Name Tag": "Uniswap V2: OKXFC",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },

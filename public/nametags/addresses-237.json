@@ -113,7 +113,7 @@
         "Name Tag": "Bancor: Converter 654",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1275,7 +1275,7 @@
         "Name Tag": "Bancor: Converter 422",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2422,7 +2422,7 @@
         "Name Tag": "Bancor: Converter 710",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2771,13 +2771,13 @@
       "deprecated": {
         "Name Tag": "mStable: OLD FEI Feeder Pool Vault Logic",
         "Description": "A list of tokens, contracts or addresses which have been deprecated by their projects.",
-        "image": "/icons/default.webp"
+        "image": "/icons/fei.webp"
       },
       "mstable": {
         "Name Tag": "mStable: OLD FEI Feeder Pool Vault Logic",
         "Description": "mStable unifies stablecoins, lending and swapping into one standard.",
         "Subcategory": "Legacy",
-        "image": "/icons/default.webp"
+        "image": "/icons/fei.webp"
       }
     }
   },
@@ -2972,7 +2972,7 @@
         "Name Tag": "Bancor: Converter 608",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

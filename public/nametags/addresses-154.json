@@ -526,7 +526,7 @@
       "across-protocol": {
         "Name Tag": "Across Protocol: Arbitrum Adapter V2",
         "Description": "Across Protocol is a bridging method that combines an optimistic oracle, bonded relayers and single-sided liquidity pools to provide decentralized instant transactions from rollup chains to Ethereum mainnet.",
-        "image": "/icons/arbitrum.webp"
+        "image": "/icons/across.webp"
       }
     }
   },
@@ -2847,7 +2847,7 @@
       "shiba-inu": {
         "Name Tag": "Shiba Inu: Migrator",
         "Description": "Shiba Inu is a decentralized meme token that evolved into a vibrant ecosystem.",
-        "image": "/icons/default.webp"
+        "image": "/icons/shiba.webp"
       }
     }
   },

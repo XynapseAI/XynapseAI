@@ -256,6 +256,8 @@ async function withRetry(fn, retries = 2, delay = 1000) {
 async function computeStreak(userId) {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setUTCHours(0, 0, 0, 0); // Bắt đầu ngày
+
   const completions = await prisma.task_completions.findMany({
     where: {
       user_id: userId,
@@ -266,15 +268,16 @@ async function computeStreak(userId) {
   });
 
   let streak = 0;
-  let expectedDate = new Date();
-  expectedDate.setUTCHours(23, 59, 59, 999); // End of today
+  let expectedDate = new Date(); // Today end
+  expectedDate.setUTCHours(23, 59, 59, 999);
 
   for (const comp of completions) {
     const compDate = new Date(comp.completed_at);
-    compDate.setUTCHours(23, 59, 59, 999);
+    compDate.setUTCHours(23, 59, 59, 999); // End of comp day
     if (compDate.getTime() === expectedDate.getTime()) {
       streak++;
       expectedDate.setDate(expectedDate.getDate() - 1);
+      expectedDate.setUTCHours(23, 59, 59, 999);
     } else {
       break;
     }

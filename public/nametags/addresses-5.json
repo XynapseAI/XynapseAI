@@ -737,7 +737,7 @@
       "shiba-inu": {
         "Name Tag": "Shiba Inu: ShibaSwap",
         "Description": "Shiba Inu is a decentralized meme token that evolved into a vibrant ecosystem.",
-        "image": "/icons/default.webp"
+        "image": "/icons/shiba.webp"
       }
     }
   },
@@ -1243,7 +1243,7 @@
         "Name Tag": "Uniswap V2: Kraken 9",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -1453,7 +1453,7 @@
         "Name Tag": "Bancor: Converter 219",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1861,7 +1861,7 @@
         "Name Tag": "Bancor: Converter 726",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

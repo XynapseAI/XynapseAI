@@ -1201,7 +1201,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
         "Token Name": "Bancor LRC Pool Token (bnLRC)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor LRC Pool Token (bnLRC)",
@@ -1306,7 +1306,7 @@
         "Name Tag": "Bancor: Converter #16",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1537,7 +1537,7 @@
         "Name Tag": "Bancor: Converter #7",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2898,12 +2898,12 @@
     "Labels": {
       "loans": {
         "Name Tag": "Nexo 2",
-        "image": "/icons/default.webp"
+        "image": "/icons/nexo.webp"
       },
       "nexo": {
         "Name Tag": "Nexo 2",
         "Description": "Nexo: Let your crypto work for you. The only insured account that lets you borrow instantly in 45+ fiat currencies and earn daily interest on your idle assets.",
-        "image": "/icons/default.webp"
+        "image": "/icons/nexo.webp"
       }
     }
   },

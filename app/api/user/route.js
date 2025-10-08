@@ -356,7 +356,7 @@ async function getLast7Days(userId) {
     const dateStr = date.toISOString().split('T')[0];
     last7.push(checked.has(dateStr));
   }
-  return last7.reverse(); // Oldest to newest
+  return last7;
 }
 
 export async function GET(request) {

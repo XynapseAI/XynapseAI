@@ -414,7 +414,7 @@
         "Name Tag": "Bancor: Converter #183",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -586,7 +586,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: yDAI V2",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -2095,7 +2095,7 @@
         "Name Tag": "Compound: Deployer 1",
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -3021,7 +3021,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: DAI Transmuter V2",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -3263,7 +3263,7 @@
       "liquity": {
         "Name Tag": "Liquity: Deployer",
         "Description": "Liquity provides interest-free borrowing on Ethereum.",
-        "image": "/icons/default.webp"
+        "image": "/icons/liquity.webp"
       }
     }
   },

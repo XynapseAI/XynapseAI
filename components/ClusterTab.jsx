@@ -1283,6 +1283,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     }));
   }, [memoizedPortfolioData, memoizedWalletData, chainLogos]);
 
+  // FIX: Di chuyển logic hiển thị nameTag ra ngoài để áp dụng cho cả Blockchair (Bitcoin)
   const truncateAddressWithHover = (address, nameTag, source) => {
     if (!address || address === 'None' || typeof address !== 'string' || address === 'N/A') {
       return (
@@ -1307,40 +1308,42 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       // Use existing truncateAddress for EVM and other addresses
       const { text, shortAddress: computedShortAddress } = truncateAddress(address, { [normalizedAddress]: { name: nameTag } }, source);
       shortAddress = computedShortAddress;
-      if (nameTag && nameTag !== 'N/A' && nameTag !== address) {
-        return (
-          <div className="flex items-center gap-2 group relative">
-            <span className="truncate">{nameTag}</span>
-            <motion.span
-              onClick={(e) => {
-                e.stopPropagation();
-                navigator.clipboard.writeText(address);
-                toast.success("Address copied!", { autoClose: 2000 });
-              }}
-              className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg cursor-pointer"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              role="button"
-              aria-label="Copy address"
+    }
+
+    // FIX: Di chuyển ra ngoài để áp dụng cho cả Blockchair - hiển thị nameTag nếu có
+    if (nameTag && nameTag !== 'N/A' && nameTag !== address) {
+      return (
+        <div className="flex items-center gap-2 group relative">
+          <span className="truncate">{nameTag}</span>
+          <motion.span
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(address);
+              toast.success("Address copied!", { autoClose: 2000 });
+            }}
+            className="ml-1 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-lg cursor-pointer"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            role="button"
+            aria-label="Copy address"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-            </motion.span>
-          </div>
-        );
-      }
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
+            </svg>
+          </motion.span>
+        </div>
+      );
     }
 
     return (
@@ -1484,15 +1487,10 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                 const percentage = totalValue > 0 ? ((Number(wallet.total_value_usd) || 0) / totalValue) * 100 : 0;
                 const chainLower = wallet.chain?.toLowerCase();
                 const isSpecialCoin = ["bitcoin", "dogecoin", "litecoin"].includes(chainLower);
-                const tokenLogo = isSpecialCoin
-                  ? chainLower === "bitcoin"
-                    ? BITCOIN_LOGO
-                    : chainLower === "dogecoin"
-                      ? DOGECOIN_LOGO
-                      : chainLower === "litecoin"
-                        ? LITECOIN_LOGO
-                        : null
-                  : wallet.image;
+                const clusterLogo = wallet.image; // Cluster/nametag logo
+                const chainLogo = chainLower === "bitcoin" ? BITCOIN_LOGO :
+                                  chainLower === "dogecoin" ? DOGECOIN_LOGO :
+                                  chainLower === "litecoin" ? LITECOIN_LOGO : null;
 
                 return (
                   <motion.tr
@@ -1506,12 +1504,36 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                   >
                     <td className="px-3 py-2.5 text-white truncate">
                       <div className="flex items-center gap-2">
-                        <img
-                          src={wallet.image}
-                          alt={`${wallet.cluster_name} logo`}
-                          className="w-4 h-4 inline mr-2 rounded-full shadow-lg"
-                          onError={(e) => (e.target.src = "/fallback-image.webp")}
-                        />
+                        {/* FIX: Hiển thị hai logo cho BTC/Doge/LTC (cluster bên trái + chain bên phải), một logo cho EVM */}
+                        {(() => {
+                          if (isSpecialCoin && chainLogo) {
+                            return (
+                              <div className="flex items-center gap-1">
+                                <img
+                                  src={clusterLogo}
+                                  alt={`${wallet.cluster_name} logo`}
+                                  className="w-3 h-3 rounded-full shadow-lg"
+                                  onError={(e) => (e.target.src = "/fallback-image.webp")}
+                                />
+                                <img
+                                  src={chainLogo}
+                                  alt={`${chainLower} logo`}
+                                  className="w-3 h-3 rounded-full shadow-lg"
+                                  onError={(e) => (e.target.src = "/fallback-image.webp")}
+                                />
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <img
+                                src={clusterLogo}
+                                alt={`${wallet.cluster_name} logo`}
+                                className="w-4 h-4 rounded-full shadow-lg"
+                                onError={(e) => (e.target.src = "/fallback-image.webp")}
+                              />
+                            );
+                          }
+                        })()}
                         {truncateAddressWithHover(wallet.holder_address, wallet.display_name, chainLower === 'bitcoin' ? 'Blockchair' : undefined)}
                       </div>
                     </td>

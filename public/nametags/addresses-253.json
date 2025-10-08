@@ -146,7 +146,7 @@
         "Name Tag": "Bancor: Deployer 4",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -501,7 +501,7 @@
         "Name Tag": "Bancor: Converter 243",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -511,7 +511,7 @@
       "maker": {
         "Name Tag": "Maker: Contract 5",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -1966,7 +1966,7 @@
         "Name Tag": "Bancor: Converter 443",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2053,7 +2053,7 @@
         "Name Tag": "Idle.finance: Convex pBTCCRV AA/BB",
         "Description": "Idle.finance: Earn the yield you deserve without worry about finding the best option, either if you want to optimize returns or risks.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },
@@ -2080,7 +2080,7 @@
       "metamask": {
         "Name Tag": "MetaMask: DS Proxy",
         "Description": "MetaMask is a crypto wallet & a gateway to blockchain apps. It provides an essential utility for blockchain newcomers, token traders, crypto gamers, and developers.",
-        "image": "/icons/default.webp"
+        "image": "/icons/metamask.webp"
       }
     }
   },
@@ -2451,7 +2451,7 @@
         "Name Tag": "Bancor: Converter #121",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

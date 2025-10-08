@@ -154,7 +154,7 @@
         "Name Tag": "Bancor: Converter 383",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -352,7 +352,7 @@
       "shapeshift": {
         "Name Tag": "ShapeShift: Bittrex Deposit",
         "Description": "ShapeShift is a revolutionary part of the cryptocurrency ecosystem. It is how a digital marketplace should work. The platform gives you the power to quickly swap between assets in a seamless, safe, and secure environment.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bittrex.webp"
       }
     }
   },
@@ -805,7 +805,7 @@
       "bittrex": {
         "Name Tag": "Bittrex 2",
         "Description": "Bittrex International is a secure, reliable and advanced digital asset trading platform developed for international customers and built on Bittrex’s cutting-edge technology.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bittrex.webp"
       }
     }
   },
@@ -925,7 +925,7 @@
         "Name Tag": "Bancor: Converter 705",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1596,7 +1596,7 @@
         "Name Tag": "Bancor: Converter #148",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1768,7 +1768,7 @@
       "convex-finance": {
         "Name Tag": "Convex Finance: Vested Escrow",
         "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort.",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },
@@ -3024,7 +3024,7 @@
         "Name Tag": "Bancor: Converter 703",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

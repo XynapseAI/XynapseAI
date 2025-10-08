@@ -54,7 +54,7 @@
         "Name Tag": "Bancor: Converter 601",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -238,7 +238,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor renBTC Pool Token (bnrenBTC)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor renBTC Pool Token (bnrenBTC)",
@@ -1757,7 +1757,7 @@
       "wbtc-merchant": {
         "Name Tag": "Maker: WBTC Merchant Deposit Address",
         "Description": "WBTC is a community-led project and its partners include merchants, custodians, exchanges, and DAO members.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -2070,12 +2070,12 @@
       "bridge": {
         "Name Tag": "StarkNet: StarkGate DAI Bridge",
         "Description": "A gateway connecting one network to another.",
-        "image": "/icons/gate.webp"
+        "image": "/icons/starknet.webp"
       },
       "starknet": {
         "Name Tag": "StarkNet: StarkGate DAI Bridge",
         "Description": "StarkNet is a permissionless decentralized ZK-Rollup. It operates as an L2 network over Ethereum, enabling any dApp to achieve unlimited scale for its computation – without compromising Ethereum's composability and security.",
-        "image": "/icons/gate.webp"
+        "image": "/icons/starknet.webp"
       }
     }
   },
@@ -2431,22 +2431,22 @@
     "Labels": {
       "loans": {
         "Name Tag": "Nexo: WBTC Merchant Deposit Address ",
-        "image": "/icons/default.webp"
+        "image": "/icons/nexo.webp"
       },
       "maker-vault-owner": {
         "Name Tag": "Nexo: WBTC Merchant Deposit Address ",
         "Description": "A Maker Vault allows a user to deposit cryptocurrency collateral and generate Dai. Vaults are categorized by the type of collateral used to generated Dai. Users create Dai by generating it against their collateral and destroy Dai when repaying their generated Dai balance.",
-        "image": "/icons/default.webp"
+        "image": "/icons/nexo.webp"
       },
       "nexo": {
         "Name Tag": "Nexo: WBTC Merchant Deposit Address ",
         "Description": "Nexo: Let your crypto work for you. The only insured account that lets you borrow instantly in 45+ fiat currencies and earn daily interest on your idle assets.",
-        "image": "/icons/default.webp"
+        "image": "/icons/nexo.webp"
       },
       "wbtc-merchant": {
         "Name Tag": "Nexo: WBTC Merchant Deposit Address ",
         "Description": "WBTC is a community-led project and its partners include merchants, custodians, exchanges, and DAO members.",
-        "image": "/icons/default.webp"
+        "image": "/icons/nexo.webp"
       }
     }
   },
@@ -2482,7 +2482,7 @@
         "Name Tag": "Zerion: Iearn Token Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },
@@ -2856,7 +2856,7 @@
       "maker": {
         "Name Tag": "Maker: MCD Spot",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -3619,7 +3619,7 @@
       "liquity": {
         "Name Tag": "Liquity: Stability Pool",
         "Description": "Liquity provides interest-free borrowing on Ethereum.",
-        "image": "/icons/default.webp"
+        "image": "/icons/liquity.webp"
       }
     }
   },

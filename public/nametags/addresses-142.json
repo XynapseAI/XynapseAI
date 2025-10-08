@@ -1497,12 +1497,12 @@
       "dex": {
         "Name Tag": "Metamask: Swap Router",
         "Description": "A decentralized exchange (also known as a DEX) is an exchange market that does not rely on a 3rd party service to hold the client funds but instead trades occur directly between users (peer to peer) through an automated process.",
-        "image": "/icons/default.webp"
+        "image": "/icons/metamask.webp"
       },
       "metamask": {
         "Name Tag": "Metamask: Swap Router",
         "Description": "MetaMask is a crypto wallet & a gateway to blockchain apps. It provides an essential utility for blockchain newcomers, token traders, crypto gamers, and developers.",
-        "image": "/icons/default.webp"
+        "image": "/icons/metamask.webp"
       }
     }
   },
@@ -2399,7 +2399,7 @@
         "Name Tag": "Bancor: Converter 252",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

@@ -623,12 +623,12 @@
       "beacon-depositor": {
         "Name Tag": "Compound Voting: Kain Synthetix",
         "Description": "An address that has deposited ETH into the Beacon Chain to become a validator.",
-        "image": "/icons/synthetix.webp"
+        "image": "/icons/compound.webp"
       },
       "compound-governance": {
         "Name Tag": "Compound Voting: Kain Synthetix",
         "Description": "Top voters in Compound's Governance Leaderboard.",
-        "image": "/icons/synthetix.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -759,7 +759,7 @@
         "Name Tag": "Bancor: Converter 549",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1048,7 +1048,7 @@
     "Labels": {
       "yield-farming": {
         "Name Tag": "Based.Money: Curve sUSD Pool",
-        "image": "/icons/curve.webp"
+        "image": "/icons/coinbase.webp"
       }
     }
   },
@@ -1526,12 +1526,12 @@
       "decentraland": {
         "Name Tag": "Decentraland: MultiSig 3",
         "Description": "Decentraland. A virtual world owned by its users. Build, explore, and earn money from your creations.",
-        "image": "/icons/default.webp"
+        "image": "/icons/decentraland.webp"
       },
       "ico-wallets": {
         "Name Tag": "Decentraland: MultiSig 3",
         "Description": "Wallets where Token Sale proceeds are/were being stored.",
-        "image": "/icons/default.webp"
+        "image": "/icons/decentraland.webp"
       }
     }
   },
@@ -1862,7 +1862,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor PHTR Pool Token (bnPHTR)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor PHTR Pool Token (bnPHTR)",
@@ -2007,7 +2007,7 @@
         "Name Tag": "Bancor: Converter 502",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2226,7 +2226,7 @@
         "Name Tag": "Bancor: Converter 117",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2663,7 +2663,7 @@
         "Name Tag": "Bancor: Converter 225",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3358,7 +3358,7 @@
         "Name Tag": "KyberSwap: Elastic Liquidity Mining 2",
         "Description": "KyberSwap is an on-chain liquidity protocol that aggregates liquidity and enables users to source liquidity across different decentralized exchanges to achieve the best rate for any token swap, on any supported network.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/kyber.webp"
       }
     }
   },
@@ -3473,7 +3473,7 @@
       "bitdao": {
         "Name Tag": "BitDAO: Deployer",
         "Description": "BitDAO is a DAO (Decentralized Autonomous Organization) with a vision of open finance and a decentralized tokenized economy.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bybit.webp"
       }
     }
   },

@@ -242,7 +242,7 @@
       "maker": {
         "Name Tag": "Maker: Deployer 3",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -580,12 +580,12 @@
     "Labels": {
       "loans": {
         "Name Tag": "Nexo 1",
-        "image": "/icons/default.webp"
+        "image": "/icons/nexo.webp"
       },
       "nexo": {
         "Name Tag": "Nexo 1",
         "Description": "Nexo: Let your crypto work for you. The only insured account that lets you borrow instantly in 45+ fiat currencies and earn daily interest on your idle assets.",
-        "image": "/icons/default.webp"
+        "image": "/icons/nexo.webp"
       }
     }
   },
@@ -912,7 +912,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix: alETH Token",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -2558,7 +2558,7 @@
         "Name Tag": "Bancor: Converter 23",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3113,7 +3113,7 @@
         "Name Tag": "Uniswap V2: Binance2.0",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/binance.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -3903,7 +3903,7 @@
         "Name Tag": "Bancor: Converter 615",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

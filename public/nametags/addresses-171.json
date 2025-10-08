@@ -431,7 +431,7 @@
       "bittrex": {
         "Name Tag": "Bittrex: Controller",
         "Description": "Bittrex International is a secure, reliable and advanced digital asset trading platform developed for international customers and built on Bittrex’s cutting-edge technology.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bittrex.webp"
       }
     }
   },
@@ -550,7 +550,7 @@
       "convex-finance": {
         "Name Tag": "Convex Finance: Multisig",
         "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort.",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },
@@ -749,7 +749,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor MFG Pool Token (bnMFG)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor MFG Pool Token (bnMFG)",
@@ -1035,7 +1035,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: alETH Alchemist Whitelist V2",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -1111,7 +1111,7 @@
         "Name Tag": "Bancor: Converter 285",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3445,7 +3445,7 @@
         "Name Tag": "Balancer: LINK/ETH/AAVE/SNX/YFI 20/20/20/20/20",
         "Description": "Balancer is a non-custodial portfolio manager, liquidity provider, and price sensor.",
         "Subcategory": "Main",
-        "image": "/icons/aave.webp"
+        "image": "/icons/balancer.webp"
       }
     }
   },

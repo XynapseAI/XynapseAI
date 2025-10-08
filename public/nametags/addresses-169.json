@@ -135,7 +135,7 @@
       "cow-protocol": {
         "Name Tag": "CoW Protocol: Treasury",
         "Description": "CoW Protocol finds the lowest price for your trade across all exchanges and aggregators, such as Uniswap and 1inch - and protects you from MEV, unlike the others.",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       }
     }
   },
@@ -971,7 +971,7 @@
         "Name Tag": "Bancor: Converter 633",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1427,7 +1427,7 @@
       "shiba-inu": {
         "Name Tag": "Shiba Inu: Deployer 1",
         "Description": "Shiba Inu is a decentralized meme token that evolved into a vibrant ecosystem.",
-        "image": "/icons/default.webp"
+        "image": "/icons/shiba.webp"
       }
     }
   },
@@ -1566,7 +1566,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: WETH Gateway",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/gate.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -1764,7 +1764,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Multi Send 1.3.0",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -1791,7 +1791,7 @@
         "Name Tag": "Bancor: Converter 203",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2233,7 +2233,7 @@
         "Name Tag": "Bancor: Converter #88",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2332,7 +2332,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: Yearn yvWETH Vault",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -2494,7 +2494,7 @@
         "Name Tag": "Bancor: Converter #196",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2733,12 +2733,12 @@
       "factory-contract": {
         "Name Tag": "Maker: DS Proxy Factory",
         "Description": "Contracts which create multiple contracts.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       },
       "maker": {
         "Name Tag": "Maker: DS Proxy Factory",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },
@@ -2877,7 +2877,7 @@
         "Name Tag": "Bancor: Converter 50",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3072,7 +3072,7 @@
         "Name Tag": "Uniswap V2: Kraken 3",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/kraken.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },

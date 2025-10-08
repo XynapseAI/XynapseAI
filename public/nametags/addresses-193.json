@@ -345,7 +345,7 @@
       "shiba-inu": {
         "Name Tag": "Shiba Inu: Deployer",
         "Description": "Shiba Inu is a decentralized meme token that evolved into a vibrant ecosystem.",
-        "image": "/icons/default.webp"
+        "image": "/icons/shiba.webp"
       }
     }
   },
@@ -544,7 +544,7 @@
         "Name Tag": "Bancor: Converter 13",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -872,7 +872,7 @@
         "Name Tag": "Zerion: TokenSets Token Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/ens.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },
@@ -1533,7 +1533,7 @@
         "Name Tag": "Bancor: Converter 466",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1600,7 +1600,7 @@
         "Name Tag": "Bancor: Converter #181",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1627,7 +1627,7 @@
         "Name Tag": "Bancor: Converter 431",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1911,7 +1911,7 @@
         "Name Tag": "Bancor: Converter 20",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2740,7 +2740,7 @@
         "Name Tag": "Bancor: Converter 244",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2800,7 +2800,7 @@
         "Name Tag": "Zerion: DSR Adapter",
         "Description": "Zerion: A simple interface to access decentralized finance to invest, earn interest and borrow crypto assets.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/zerion.webp"
       }
     }
   },

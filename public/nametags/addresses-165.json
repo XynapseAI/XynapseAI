@@ -1115,13 +1115,13 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: Dev Multisig",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       },
       "multisig": {
         "Name Tag": "Alchemix Finance: Dev Multisig",
         "Description": "A contract that requires one or more signers to execute a transaction.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -2246,7 +2246,7 @@
         "Name Tag": "Compound: Oracle 2",
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -2313,7 +2313,7 @@
       "cow-protocol": {
         "Name Tag": "CoW Protocol: GPv2AllowListAuthentication",
         "Description": "CoW Protocol finds the lowest price for your trade across all exchanges and aggregators, such as Uniswap and 1inch - and protects you from MEV, unlike the others.",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       }
     }
   },
@@ -2718,7 +2718,7 @@
         "Name Tag": "Bancor: Converter 5",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3053,7 +3053,7 @@
         "Name Tag": "Uniswap V2: COINBASED",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -3124,7 +3124,7 @@
         "Name Tag": "Bancor: Converter 277",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3740,7 +3740,7 @@
         "Name Tag": "Bancor: Converter 15",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

@@ -474,7 +474,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor SNX Pool Token (bnSNX)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor SNX Pool Token (bnSNX)",
@@ -961,7 +961,7 @@
       "korbit": {
         "Name Tag": "Korbit 4",
         "Description": "Korbit is a centralized cryptocurrency exchange headquartered in Seoul, South Korea.",
-        "image": "/icons/default.webp"
+        "image": "/icons/korbit.webp"
       }
     }
   },
@@ -1510,25 +1510,25 @@
         "Name Tag": "CoW Protocol: vCOW Token",
         "Description": "CoW Protocol finds the lowest price for your trade across all exchanges and aggregators, such as Uniswap and 1inch - and protects you from MEV, unlike the others.",
         "Token Name": "CoW Protocol Virtual Token (vCOW)",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       },
       "defi": {
         "Name Tag": "CoW Protocol: vCOW Token",
         "Description": "List of decentralized finance products.",
         "Subcategory": "Others",
         "Token Name": "CoW Protocol Virtual Token (vCOW)",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       },
       "dex": {
         "Name Tag": "CoW Protocol: vCOW Token",
         "Description": "A decentralized exchange (also known as a DEX) is an exchange market that does not rely on a 3rd party service to hold the client funds but instead trades occur directly between users (peer to peer) through an automated process.",
         "Token Name": "CoW Protocol Virtual Token (vCOW)",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       },
       "mev-protection": {
         "Name Tag": "CoW Protocol: vCOW Token",
         "Token Name": "CoW Protocol Virtual Token (vCOW)",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       },
       "trading": {
         "Token Name": "CoW Protocol Virtual Token (vCOW)",
@@ -1713,7 +1713,7 @@
       "compound-governance": {
         "Name Tag": "Compound Voting: IDEO CoLab Ventures",
         "Description": "Top voters in Compound's Governance Leaderboard.",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -3075,7 +3075,7 @@
         "Name Tag": "Bancor: Converter #105",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

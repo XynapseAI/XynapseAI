@@ -486,7 +486,7 @@
         "Name Tag": "Uniswap V2: COINBASE",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/coinbase.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -587,7 +587,7 @@
       "reflexer-finance": {
         "Name Tag": "Reflexer: SAFE Manager",
         "Description": "Reflexer is a platform where anyone can use their crypto collateral to issue non-​pegged stable assets, otherwise called stablecoins.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -743,7 +743,7 @@
         "Name Tag": "Bancor: Converter 629",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1565,7 +1565,7 @@
         "Name Tag": "Bancor: Converter 137",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2564,7 +2564,7 @@
       "fund": {
         "Name Tag": "Jump Trading: Binance Deposit",
         "Description": "Related to investment or venture funds.",
-        "image": "/icons/binance.webp"
+        "image": "/icons/jump.webp"
       }
     }
   },
@@ -2601,7 +2601,7 @@
       "liquity": {
         "Name Tag": "Liquity: Bounties",
         "Description": "Liquity provides interest-free borrowing on Ethereum.",
-        "image": "/icons/default.webp"
+        "image": "/icons/liquity.webp"
       }
     }
   },
@@ -2672,7 +2672,7 @@
         "Name Tag": "Bancor: Converter 324",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2913,7 +2913,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor BBS Pool Token (bnBBS)",
-        "image": "/icons/binance.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor BBS Pool Token (bnBBS)",
@@ -3582,7 +3582,7 @@
         "Name Tag": "Bancor: Converter 472",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3593,7 +3593,7 @@
         "Name Tag": "Bancor: Converter 581",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

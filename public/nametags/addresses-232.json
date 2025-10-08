@@ -629,7 +629,7 @@
       "convex-finance": {
         "Name Tag": "Convex Finance: vlCVX Extra Rewards",
         "Description": "Convex Finance allows Curve.fi liquidity providers to earn trading fees and claim boosted CRV without locking CRV. Liquidity providers can receive boosted CRV and liquidity mining rewards with minimal effort.",
-        "image": "/icons/default.webp"
+        "image": "/icons/convex.webp"
       }
     }
   },
@@ -1265,30 +1265,30 @@
         "Name Tag": "CoW Protocol: COW Token",
         "Description": "CoW Protocol finds the lowest price for your trade across all exchanges and aggregators, such as Uniswap and 1inch - and protects you from MEV, unlike the others.",
         "Token Name": "CoW Protocol Token (COW)",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       },
       "defi": {
         "Name Tag": "CoW Protocol: COW Token",
         "Description": "List of decentralized finance products.",
         "Subcategory": "Others",
         "Token Name": "CoW Protocol Token (COW)",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       },
       "dex": {
         "Name Tag": "CoW Protocol: COW Token",
         "Description": "A decentralized exchange (also known as a DEX) is an exchange market that does not rely on a 3rd party service to hold the client funds but instead trades occur directly between users (peer to peer) through an automated process.",
         "Token Name": "CoW Protocol Token (COW)",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       },
       "mev-protection": {
         "Name Tag": "CoW Protocol: COW Token",
         "Token Name": "CoW Protocol Token (COW)",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       },
       "trading": {
         "Name Tag": "CoW Protocol: COW Token",
         "Description": "The act of buying and selling goods and services.",
-        "image": "/icons/default.webp"
+        "image": "/icons/cow.webp"
       }
     }
   },
@@ -1675,7 +1675,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor VITA Pool Token (bnVITA)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor VITA Pool Token (bnVITA)",
@@ -1819,13 +1819,13 @@
       "dex": {
         "Name Tag": "KyberSwap: Aggregation Router 2",
         "Description": "A decentralized exchange (also known as a DEX) is an exchange market that does not rely on a 3rd party service to hold the client funds but instead trades occur directly between users (peer to peer) through an automated process.",
-        "image": "/icons/default.webp"
+        "image": "/icons/kyber.webp"
       },
       "kyberswap": {
         "Name Tag": "KyberSwap: Aggregation Router 2",
         "Description": "KyberSwap is an on-chain liquidity protocol that aggregates liquidity and enables users to source liquidity across different decentralized exchanges to achieve the best rate for any token swap, on any supported network.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/kyber.webp"
       }
     }
   },
@@ -2468,7 +2468,7 @@
         "Name Tag": "Bancor: Converter 552",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -2719,7 +2719,7 @@
       "reflexer-finance": {
         "Name Tag": "Reflexer Finance: Get Safes",
         "Description": "Reflexer is a platform where anyone can use their crypto collateral to issue non-​pegged stable assets, otherwise called stablecoins.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -3206,7 +3206,7 @@
         "Name Tag": "Bancor: Converter 484",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3256,7 +3256,7 @@
         "Name Tag": "Bancor: Converter 224",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3372,7 +3372,7 @@
         "Name Tag": "Bancor: Converter 357",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3501,7 +3501,7 @@
         "Name Tag": "Bancor: Converter #9",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

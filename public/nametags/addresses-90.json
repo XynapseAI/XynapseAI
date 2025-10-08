@@ -312,7 +312,7 @@
       "lido": {
         "Name Tag": "Lido: Composite Post Rebase Report Receiver",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/coinbase.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
@@ -555,7 +555,7 @@
         "Name Tag": "Bancor: Converter 179",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -799,7 +799,7 @@
       "lido": {
         "Name Tag": "Lido: Balancer LP Rewards V2",
         "Description": "Lido is a liquid staking solution for ETH 2.0 backed by industry-leading staking providers. Lido lets users stake their ETH - without locking assets or maintaining infrastructure - whilst participating in on-chain activities.",
-        "image": "/icons/balancer.webp"
+        "image": "/icons/lido.webp"
       }
     }
   },
@@ -924,7 +924,7 @@
         "Name Tag": "Bancor: Converter 374",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1327,12 +1327,12 @@
       "decentraland": {
         "Name Tag": "Decentraland: MultiSig 1",
         "Description": "Decentraland. A virtual world owned by its users. Build, explore, and earn money from your creations.",
-        "image": "/icons/default.webp"
+        "image": "/icons/decentraland.webp"
       },
       "ico-wallets": {
         "Name Tag": "Decentraland: MultiSig 1",
         "Description": "Wallets where Token Sale proceeds are/were being stored.",
-        "image": "/icons/default.webp"
+        "image": "/icons/decentraland.webp"
       }
     }
   },
@@ -2439,7 +2439,7 @@
         "Name Tag": "Bancor: Converter 487",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

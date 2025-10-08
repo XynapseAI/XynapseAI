@@ -1607,14 +1607,14 @@
     "Labels": {
       "vaults": {
         "Name Tag": "yearn: yCRV/Compound Vault",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       },
       "yearn-finance": {
         "Name Tag": "yearn: yCRV/Compound Vault",
         "Description": "Yearn.Finance: Yield aggregator for lending platforms that rebalances for highest yield whenever the contract is interacted with.",
         "Subcategory": "Others",
         "Token Name": "yearn Curve.fi cDAI/cUSDC (yvcDAI+cUSDC)",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -1983,7 +1983,7 @@
         "Name Tag": "Bancor: Converter 185",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

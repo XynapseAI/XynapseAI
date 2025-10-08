@@ -85,7 +85,7 @@
       "compound-governance": {
         "Name Tag": "Compound Voting: Robert Leshner",
         "Description": "Top voters in Compound's Governance Leaderboard.",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -1396,7 +1396,7 @@
         "Name Tag": "Bancor: Converter 385",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1485,7 +1485,7 @@
         "Name Tag": "Bancor: Converter 72",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1659,7 +1659,7 @@
         "Description": "1inch Network is a DEX aggregator solution that searches deals across multiple liquidity sources, offering users better rates than individual exchanges.",
         "Subcategory": "Others",
         "Token Name": "Delegated st1INCH (dst1INCH)",
-        "image": "/icons/gate.webp"
+        "image": "/icons/1inch.webp"
       },
       "defi": {
         "Token Name": "Delegated st1INCH (dst1INCH)",
@@ -2759,7 +2759,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: Transmuter Implementation V2",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/default.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
@@ -3074,7 +3074,7 @@
       "maker": {
         "Name Tag": "Maker: MCD Join SAI",
         "Description": "Maker is a decentralized autonomous organization on the Ethereum blockchain seeking to minimize the price volatility of its own stable token — the Dai — against the U.S. Dollar.",
-        "image": "/icons/default.webp"
+        "image": "/icons/makerdao.webp"
       }
     }
   },

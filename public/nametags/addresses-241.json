@@ -313,7 +313,7 @@
       "decentraland": {
         "Name Tag": "Decentraland: Deployer 2",
         "Description": "Decentraland. A virtual world owned by its users. Build, explore, and earn money from your creations.",
-        "image": "/icons/default.webp"
+        "image": "/icons/decentraland.webp"
       }
     }
   },
@@ -396,7 +396,7 @@
       "safe-formerly-gnosis-safe": {
         "Name Tag": "Safe: Create And Add Modules 0.1.0",
         "Description": "Safe is a smart contract wallet that requires a minimum number of people to approve a transaction before it can occur.",
-        "image": "/icons/default.webp"
+        "image": "/icons/gnosis.webp"
       }
     }
   },
@@ -804,7 +804,7 @@
         "Name Tag": "Compound: Oracle v2",
         "Description": "Compound is an open-source protocol for algorithmic, efficient Money Markets on the Ethereum blockchain.",
         "Subcategory": "Others",
-        "image": "/icons/default.webp"
+        "image": "/icons/compound.webp"
       }
     }
   },
@@ -1313,7 +1313,7 @@
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Others",
         "Token Name": "Bancor THALES Pool Token (bnTHALES)",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       },
       "defi": {
         "Token Name": "Bancor THALES Pool Token (bnTHALES)",
@@ -1808,7 +1808,7 @@
         "Name Tag": "Decentraland: DCLDCMT Token",
         "Description": "Decentraland. A virtual world owned by its users. Build, explore, and earn money from your creations.",
         "Token Name": "dcl://dc_meta (DCLDCMT)",
-        "image": "/icons/mtgox.webp"
+        "image": "/icons/decentraland.webp"
       }
     }
   },
@@ -3406,7 +3406,7 @@
         "Name Tag": "Bancor: Converter 579",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },

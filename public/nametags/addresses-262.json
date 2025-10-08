@@ -959,7 +959,7 @@
         "Name Tag": "Uniswap V2: OKXZILLA",
         "Description": "Uniswap is a protocol for automated token exchange on Ethereum.",
         "Subcategory": "Others",
-        "image": "/icons/okx.webp"
+        "image": "/icons/uniswap.webp"
       }
     }
   },
@@ -1328,7 +1328,7 @@
         "Name Tag": "Bancor: Converter 731",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -1752,7 +1752,7 @@
         "Name Tag": "Synthetix: Staking Rewards (Balancer SNX)",
         "Description": "Synthetix, formerly Havven, is a cryptoasset-backed network that enables the creation of on-chain synthetic assets.",
         "Subcategory": "Main",
-        "image": "/icons/balancer.webp"
+        "image": "/icons/synthetix.webp"
       }
     }
   },
@@ -1827,7 +1827,7 @@
       "bittrex": {
         "Name Tag": "Bittrex",
         "Description": "Bittrex International is a secure, reliable and advanced digital asset trading platform developed for international customers and built on Bittrex’s cutting-edge technology.",
-        "image": "/icons/default.webp"
+        "image": "/icons/bittrex.webp"
       }
     }
   },
@@ -1975,7 +1975,7 @@
         "Name Tag": "Bancor: Converter 46",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3685,7 +3685,7 @@
         "Name Tag": "Bancor: Converter 658",
         "Description": "Bancor is a decentralized liquidity network that allows you to hold any token and convert it to any other token in the network, with no counterparty, at an automatically calculated price, using a simple web wallet.",
         "Subcategory": "Main",
-        "image": "/icons/default.webp"
+        "image": "/icons/bancor.webp"
       }
     }
   },
@@ -3703,7 +3703,7 @@
       "alchemix-finance": {
         "Name Tag": "Alchemix Finance: USDT Transmuter V2",
         "Description": "Alchemix Finance is a future-yield-backed synthetic asset platform and community DAO.",
-        "image": "/icons/tether.webp"
+        "image": "/icons/alchemix.webp"
       }
     }
   },
