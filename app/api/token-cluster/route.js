@@ -417,7 +417,7 @@ export async function GET(request) {
               'balance_usd', th.balance_usd,
               'wallets', json_build_array(
                 json_build_object(
-                  'holder_address', th.holder_address,
+                  'holder_address', LOWER(th.holder_address),
                   'balance', th.balance,
                   'value', th.balance_usd
                 )
@@ -448,7 +448,7 @@ export async function GET(request) {
      normalize_cluster_name(COALESCE(wh.cluster_name, wh.exchange_name))
    ) AS cluster_name,
    wh.chain,
-   wh.holder_address,
+   LOWER(wh.holder_address) AS holder_address,
    wh.total_value_usd,
    wh.token_count,
    wh.name_tag,
@@ -468,7 +468,7 @@ export async function GET(request) {
         SELECT 
           source AS cluster_name,
           chain,
-          holder_address,
+          LOWER(holder_address) AS holder_address,
           balance,
           balance_usd,
           1 AS token_count,
@@ -527,26 +527,34 @@ export async function GET(request) {
         );
       }
 
-      // Post-process special coins to calculate USD if missing
+      // Post-process special coins to calculate USD if missing or zero
       const processedSpecialPortfolio = specialCoinsPortfolioResult.rows.map(row => {
         const coinId = row.token_address;
         const price = prices[coinId];
-        const processedChainDetails = (row.chain_details || []).map(cd => ({
-          ...cd,
-          balance_usd: cd.balance_usd !== null && cd.balance_usd !== undefined ? cd.balance_usd : (cd.balance * price) || 0
-        }));
+        const processedChainDetails = (row.chain_details || []).map(cd => {
+          const currentUsd = Number(cd.balance_usd || 0);
+          const calculatedUsd = Number(cd.balance || 0) * price;
+          return {
+            ...cd,
+            balance_usd: (currentUsd <= 0 && calculatedUsd > 0) ? calculatedUsd : currentUsd
+          };
+        });
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const totalBalanceUsd = processedChainDetails.reduce((sum, cd) => sum + (Number(cd.balance_usd) || 0), 0);
+        const currentTotalUsd = Number(row.total_balance_usd || 0);
+        const calculatedTotalUsd = Number(row.total_balance || 0) * price;
         return {
           ...row,
           chain_details: processedChainDetails,
-          total_balance_usd: row.total_balance_usd !== null && row.total_balance_usd !== undefined ? row.total_balance_usd : (row.total_balance * price) || 0,
+          total_balance_usd: (currentTotalUsd <= 0 && calculatedTotalUsd > 0) ? calculatedTotalUsd : currentTotalUsd,
         };
       });
 
       const processedSpecialWallets = specialCoinsWalletResult.rows.map(row => {
         const price = prices[row.chain];
-        const totalValueUsd = row.balance_usd !== null && row.balance_usd !== undefined ? row.balance_usd : (row.balance * price) || 0;
+        const currentUsd = Number(row.balance_usd || 0);
+        const calculatedUsd = Number(row.balance || 0) * price;
+        const totalValueUsd = (currentUsd <= 0 && calculatedUsd > 0) ? calculatedUsd : currentUsd;
         return {
           ...row,
           total_value_usd: totalValueUsd,

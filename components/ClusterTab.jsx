@@ -42,7 +42,6 @@ const EXCHANGE_MAPPING = {
   okx: "okex",
   bybit: "bybit_spot",
   binance: "binance",
-  coinbase: "coinbase-exchange",
   kraken: "kraken",
   huobi: "huobi-global",
   kucoin: "kucoin",
@@ -602,11 +601,19 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       }
 
       const filteredTxs = result.data.filter((tx) => {
+        // Normalize Bitcoin addresses for matching (lowercase for legacy and bech32)
         const fromAddresses = tx.inputs.map((input) => input.address.toLowerCase());
         const toAddresses = tx.outputs.map((output) => output.address.toLowerCase());
         const clusterWallets = uniqueWalletData
           .filter((w) => w.chain?.toLowerCase() === "bitcoin")
-          .map((w) => (w.holder_address || w.name_tag || '').toLowerCase());
+          .map((w) => {
+            let addr = (w.holder_address || w.name_tag || '').toLowerCase();
+            // For legacy Bitcoin addresses starting with '1' or '3', ensure full lowercase normalization
+            if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(addr)) {
+              addr = addr.toLowerCase(); // Already done, but reinforce
+            }
+            return addr;
+          });
         return (
           fromAddresses.some((addr) => clusterWallets.includes(addr)) ||
           toAddresses.some((addr) => clusterWallets.includes(addr))
@@ -1504,7 +1511,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                   >
                     <td className="px-3 py-2.5 text-white truncate">
                       <div className="flex items-center gap-2">
-                        {/* FIX: Hiển thị hai logo cho BTC/Doge/LTC (cluster bên trái + chain bên phải), một logo cho EVM */}
+                        {/* FIX: Hiển thị hai logo cho BTC/Doge/LTC (cluster bên trái + chain bên phải), một logo cho EVM. Tăng kích thước logo trên mobile để tránh bóp méo */}
                         {(() => {
                           if (isSpecialCoin && chainLogo) {
                             return (
@@ -1512,13 +1519,13 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                                 <img
                                   src={clusterLogo}
                                   alt={`${wallet.cluster_name} logo`}
-                                  className="w-3 h-3 rounded-full shadow-lg"
+                                  className={`w-${isMobile ? '4' : '4'} h-${isMobile ? '4' : '4'} rounded-full shadow-lg object-cover`}
                                   onError={(e) => (e.target.src = "/fallback-image.webp")}
                                 />
                                 <img
                                   src={chainLogo}
                                   alt={`${chainLower} logo`}
-                                  className="w-3 h-3 rounded-full shadow-lg"
+                                  className={`w-${isMobile ? '4' : '4'} h-${isMobile ? '4' : '4'} rounded-full shadow-lg object-cover`}
                                   onError={(e) => (e.target.src = "/fallback-image.webp")}
                                 />
                               </div>
@@ -1528,7 +1535,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                               <img
                                 src={clusterLogo}
                                 alt={`${wallet.cluster_name} logo`}
-                                className="w-4 h-4 rounded-full shadow-lg"
+                                className={`w-${isMobile ? '4' : '4'} h-${isMobile ? '4' : '4'} rounded-full shadow-lg object-cover`}
                                 onError={(e) => (e.target.src = "/fallback-image.webp")}
                               />
                             );
