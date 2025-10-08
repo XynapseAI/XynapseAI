@@ -205,7 +205,6 @@ const EXCHANGE_MAPPING = {
   bybit_spot: 'bybit',
   mxc: 'mexc',
   binance: 'binance',
-  'coinbase-exchange': 'coinbase',
   kraken: 'kraken',
   'huobi-global': 'huobi',
   kucoin: 'kucoin',

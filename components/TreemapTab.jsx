@@ -51,11 +51,18 @@ const isValidNametagImage = (image) => {
 };
 
 const SUPPORTED_CHAINS = [
-  '1', '56', '10', '130', '137', '5000', '42161', '43114', '59144', '534352', '7777777', 'solana', 'tron',
+  '1', '56', '10', '130', '137', '5000', '42161', '43114', '59144', '534352', '7777777', 'solana', 'tron', 'bitcoin',
 ];
 
 const isValidDate = (date) => {
   return date instanceof Date && !isNaN(date);
+};
+
+const getExplorerLogo = (selectedChain) => {
+  if (selectedChain === 'bitcoin') {
+    return '/logos/mempool-logo.webp';
+  }
+  return '/logos/etherscan-logo.webp';
 };
 
 const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nametags, filterType, rootAddress }) => {
@@ -130,14 +137,22 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
       console.error(`No transaction data at index ${index}`);
       return null;
     }
-    const tokenKey = tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase();
-    const tokenInfoItem = tokenImages[tokenKey];
-    const tokenLogo = tokenInfoItem?.image || '/icons/default.webp';
-    const displaySymbol = tokenInfoItem?.symbol || tx.tokenSymbol || 'N/A';
+    let tokenLogo = '/icons/default.webp';
+    let displaySymbol = tx.tokenSymbol || 'N/A';
+    if (selectedChain === 'bitcoin' && displaySymbol.toLowerCase() === 'btc') {
+      tokenLogo = '/logos/bitcoin.webp';
+      displaySymbol = 'BTC';
+    } else {
+      const tokenKey = tx.contractAddress?.toLowerCase() || tx.tokenSymbol?.toLowerCase();
+      const tokenInfoItem = tokenImages[tokenKey];
+      tokenLogo = tokenInfoItem?.image || '/icons/default.webp';
+      displaySymbol = tokenInfoItem?.symbol || tx.tokenSymbol || 'N/A';
+    }
     const fromNtag = nametags[tx.source?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
     const toNtag = nametags[tx.target?.toLowerCase()] || { name: 'Unknown', image: '/icons/default.webp' };
     const displayValue = formatLargeNumber(Number(tx.value) || 0, 1);
     const { txUrl } = getExplorerUrls(selectedChain, tx.hash, '');
+    const explorerLogo = getExplorerLogo(selectedChain);
 
     let formattedTime = 'N/A';
     if (tx.block_time) {
@@ -256,7 +271,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
           <div className="flex flex-col items-center justify-center gap-1">
             <a href={txUrl} target="_blank" rel="noopener noreferrer">
               <img
-                src="/logos/etherscan-logo.webp"
+                src={explorerLogo}
                 alt="Explorer"
                 width={isMobile ? 10 : 12}
                 height={isMobile ? 10 : 12}
@@ -673,6 +688,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             image: 'https://coin-images.coingecko.com/coins/images/279/large/ethereum.png?1696501628',
             symbol: 'ETH'
           };
+        }
+        if (selectedChain === 'bitcoin' && edge.data.tokenSymbol?.toLowerCase() === 'btc') {
+          tokenInfo[tokenKey] = {
+            image: '/logos/bitcoin.webp',
+            symbol: 'BTC'
+          };
         } else if (edge.data.tokenImage && edge.data.tokenImage !== '/icons/default.webp') {
           tokenInfo[tokenKey] = {
             image: edge.data.tokenImage,
@@ -681,7 +702,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         }
       });
 
-      const tokensToFetch = uniqueTokens.filter((token) => !tokenInfo[token]);
+      const tokensToFetch = uniqueTokens.filter((token) => !tokenInfo[token] && selectedChain !== 'bitcoin');
 
       await Promise.all(
         tokensToFetch.map(async (token) => {
@@ -805,8 +826,9 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     const nametags = {};
     const edges = [];
 
-    walletMap.set(rootAddress.toLowerCase(), {
-      address: rootAddress.toLowerCase(),
+    const rootLower = rootAddress.toLowerCase();
+    walletMap.set(rootLower, {
+      address: rootLower,
       nametag: walletInfo.nametag || 'Unknown',
       image: walletInfo.image || '/icons/default.webp',
       chainLogo: walletInfo.chainLogo || '/icons/default.webp',
@@ -817,7 +839,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       type: 'root',
       layer: 1,
     });
-    nametags[rootAddress.toLowerCase()] = {
+    nametags[rootLower] = {
       name: walletInfo.nametag || 'Unknown',
       image: walletInfo.image || '/icons/default.webp',
     };
@@ -827,9 +849,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       if (filterType === 'outgoing' && type !== 'outgoing') return;
       if (layer === 3 && (!tx.nametag || tx.nametag === 'Unknown')) return;
 
-      if (!walletMap.has(address)) {
-        walletMap.set(address, {
-          address: address.toLowerCase(),
+      const addrLower = address.toLowerCase();
+      if (!walletMap.has(addrLower)) {
+        walletMap.set(addrLower, {
+          address: addrLower,
           nametag: tx.nametag || 'Unknown',
           image: tx.image || '/icons/default.webp',
           chainLogo: tx.chainLogo || '/icons/default.webp',
@@ -840,12 +863,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           type,
           layer,
         });
-        nametags[address.toLowerCase()] = {
+        nametags[addrLower] = {
           name: tx.nametag || 'Unknown',
           image: tx.image || '/icons/default.webp',
         };
       }
-      const wallet = walletMap.get(address);
+      const wallet = walletMap.get(addrLower);
       wallet.totalValue += Number(tx.usdValue || tx.value || 0);
       wallet.txCount += 1;
       wallet.latestBlockTime = wallet.latestBlockTime
@@ -854,10 +877,10 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     };
 
     const filteredIncoming = filterType === 'all' || filterType === 'incoming'
-      ? incomingData.filter((tx) => tx.address.toLowerCase() !== rootAddress.toLowerCase() && tx.type === 'incoming')
+      ? incomingData.filter((tx) => tx.address.toLowerCase() !== rootLower && tx.type === 'incoming')
       : [];
     const filteredOutgoing = filterType === 'all' || filterType === 'outgoing'
-      ? outgoingData.filter((tx) => tx.address.toLowerCase() !== rootAddress.toLowerCase() && tx.type === 'outgoing')
+      ? outgoingData.filter((tx) => tx.address.toLowerCase() !== rootLower && tx.type === 'outgoing')
       : [];
 
     filteredIncoming.forEach((tx) => addWallet(tx.address, tx, 'incoming', 2));
@@ -881,17 +904,17 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         latestBlockTime: wallet.latestBlockTime,
         type: wallet.type,
         layer: wallet.layer,
-        isRoot: wallet.address === rootAddress.toLowerCase(),
+        isRoot: wallet.address === rootLower,
       },
     }));
 
     filteredIncoming.forEach((tx, index) => {
-      if (walletMap.has(tx.address.toLowerCase()) && walletMap.has(rootAddress.toLowerCase())) {
+      if (walletMap.has(tx.address.toLowerCase()) && walletMap.has(rootLower)) {
         edges.push({
           data: {
             id: `in-edge-${page}-${index}-${tx.hash}`,
             source: tx.address.toLowerCase(),
-            target: rootAddress.toLowerCase(),
+            target: rootLower,
             value: Number(tx.value).toFixed(6),
             usdValue: Number(tx.usdValue || 0).toFixed(6),
             type: 'incoming',
@@ -906,11 +929,11 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       }
     });
     filteredOutgoing.forEach((tx, index) => {
-      if (walletMap.has(rootAddress.toLowerCase()) && walletMap.has(tx.address.toLowerCase())) {
+      if (walletMap.has(rootLower) && walletMap.has(tx.address.toLowerCase())) {
         edges.push({
           data: {
             id: `out-edge-${page}-${index}-${tx.hash}`,
-            source: rootAddress.toLowerCase(),
+            source: rootLower,
             target: tx.address.toLowerCase(),
             value: Number(tx.value).toFixed(6),
             usdValue: Number(tx.usdValue || 0).toFixed(6),
@@ -953,7 +976,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   };
 
   const fetchTransactions = useCallback(async (address, page = 1) => {
-    if (!isAddress(address) && !['solana', 'tron'].includes(selectedChain)) {
+    const isBitcoin = selectedChain === 'bitcoin';
+    if (!isAddress(address) && !['solana', 'tron', 'bitcoin'].includes(selectedChain)) {
       logger.error('Invalid wallet address.');
       toast.error('Invalid wallet address.', {
         position: 'top-center',
@@ -980,7 +1004,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
       return;
     }
 
-    const cacheKey = `graph_full_${selectedChain}_${address}_${page}`;
+    const cacheKey = `graph_full_${selectedChain}_${address.toLowerCase()}_${page}`;
     const cached = await getCachedData(cacheKey);
     if (cached) {
       setFullIncomingData(cached.incoming || []);
@@ -1524,7 +1548,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     } else {
       setSelectedChain('1');
     }
-    if (addressFromUrl && (isAddress(addressFromUrl) || ['solana', 'tron'].includes(chainFromUrl))) {
+    if (addressFromUrl && (isAddress(addressFromUrl) || ['solana', 'tron', 'bitcoin'].includes(chainFromUrl))) {
       setWalletAddress(addressFromUrl);
       fetchTransactions(addressFromUrl, 1);
     }
@@ -1585,9 +1609,12 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
   }, [fetchTransactions, walletAddress]);
 
   const handleSearch = useCallback(() => {
+    const isBitcoin = selectedChain === 'bitcoin';
+    const bitcoinRegex = /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{39,59}$/i;
     if (
       (['solana', 'tron'].includes(selectedChain) && walletAddress.match(/^[A-Za-z0-9]{32,44}$/)) ||
-      (!['solana', 'tron'].includes(selectedChain) && isAddress(walletAddress))
+      (isBitcoin && bitcoinRegex.test(walletAddress)) ||
+      (!['solana', 'tron', 'bitcoin'].includes(selectedChain) && isAddress(walletAddress))
     ) {
       setPage(1);
       setFullIncomingData([]);
@@ -1619,7 +1646,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
     });
   }, []);
 
-  const mappedChains = coingeckoChains.length > 0 ? mapCoinGeckoChains(coingeckoChains) : chains;
+  const mappedChains = useMemo(() => {
+    let cgChains = [];
+    if (coingeckoChains.length > 0) {
+      cgChains = mapCoinGeckoChains(coingeckoChains);
+    }
+    // Always include static chains that are not in cgChains
+    const staticOnly = chains.filter(c => !cgChains.some(cg => cg.value === c.value));
+    return [...cgChains, ...staticOnly];
+  }, [coingeckoChains]);
 
   return (
     <motion.div

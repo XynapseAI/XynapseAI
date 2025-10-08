@@ -1602,17 +1602,24 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
         : Number(tx.value || 0).toLocaleString('en-US', { maximumFractionDigits: 1 });
       let tokenLogo = isBitcoin ? BITCOIN_LOGO : tx.token_metadata?.logo || '/fallback-image.webp';
 
-      // Determine direction color: green for incoming (to cluster), red for outgoing (from cluster)
-      const isOutgoing = fromWallet.holder_address || fromWallet.name_tag;
-      const directionColor = isOutgoing ? 'text-red-400' : 'text-green-400';
-      const arrowIcon = isOutgoing ? (
-        <svg className="h-3 sm:h-4 w-3 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+      // Determine transaction type relative to cluster
+      const hasFromCluster = !!fromWallet.holder_address || !!fromWallet.name_tag;
+      const hasToCluster = !!toWallet.holder_address || !!toWallet.name_tag;
+      const isOutgoing = hasFromCluster && !hasToCluster;
+      const isIncoming = hasToCluster && !hasFromCluster;
+      const isInternal = hasFromCluster && hasToCluster;
+      const directionColor = isInternal ? 'text-white' : isOutgoing ? 'text-red-400' : isIncoming ? 'text-green-400' : 'text-gray-400';
+
+      // Vertical down arrow icon (smaller size)
+      const arrowIcon = (
+        <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
-      ) : (
-        <svg className="h-3 sm:h-4 w-3 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-        </svg>
+      );
+
+      // Path simulation: half rectangle as thin vertical line
+      const pathLine = (
+        <div className={`w-0.5 h-6 rounded opacity-60 flex-shrink-0`} style={{ backgroundColor: 'currentColor' }} />
       );
 
       if (!isBitcoin && tx.type === 'swap' && tx.swap_details) {
@@ -1679,10 +1686,15 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               <span className="text-[7px] sm:text-[9px] truncate max-w-[60px] sm:max-w-[80px]">{tokenSymbol}</span>
             </div>
           </div>
-          <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis">
-            <div className="flex items-center justify-center gap-2">
-              {arrowIcon}
-              <div className="flex flex-col gap-1">
+          <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis flex items-center justify-center">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {/* Icon on left: path line + small down arrow, centered vertically */}
+              <div className={`flex flex-col items-center gap-0.5 ${directionColor}`}>
+                {pathLine}
+                <div className="-mt-1">{arrowIcon}</div>
+              </div>
+              {/* Wallets stack on right */}
+              <div className="flex flex-col gap-1 min-w-0 flex-1">
                 <div className="flex items-center gap-2 group relative">
                   <img
                     src={fromNtag.image}
@@ -2087,7 +2099,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           >
             <div className="p-2 border-b border-white/10 bg-black/10 flex items-center h-[52px]">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
               </svg>
               <h4 className="text-xs font-bold text-white uppercase tracking-wider">Large Flow</h4>
             </div>

@@ -1,14 +1,25 @@
-// scripts/import-nametags.js
 import 'dotenv/config';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { query } from '../utils/postgres.js';
 import { logger } from '../utils/serverLogger.js';
-import { isAddress } from 'ethers';
+import { isAddress as isEthAddress } from 'ethers';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/**
+ * Validate Ethereum and Bitcoin addresses
+ */
+function isValidAddress(address) {
+  // Ethereum check
+  if (isEthAddress(address)) return true;
+
+  // Bitcoin legacy (1...), P2SH (3...), or Bech32 (bc1...)
+  const btcRegex = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}$/i;
+  return btcRegex.test(address);
+}
 
 /**
  * Retries an operation with exponential backoff
@@ -46,14 +57,14 @@ async function processJsonData(jsonData) {
   console.log(`Processing JSON data with ${addresses.length} addresses`);
 
   for (const [address, data] of Object.entries(jsonData)) {
-    if (!isAddress(address)) {
+    if (!isValidAddress(address)) {
       logger.warn(`Invalid address in JSON data: ${address}. Skipping.`);
       console.log(`Invalid address: ${address}. Skipping.`);
       totalSkipped++;
       continue;
     }
 
-    const normalizedAddress = address.toLowerCase();
+    const normalizedAddress = address.trim();
     const labels = data.Labels || {};
     const labelType = Object.keys(labels)[0] || 'unknown';
     const labelData = labels[labelType] || {};
@@ -98,10 +109,10 @@ async function processJsonData(jsonData) {
 
       if (result.rows[0].action === 'inserted') {
         totalImported++;
-        console.log(`Imported nametag for ${normalizedAddress}: ${JSON.stringify(nametagData)}`);
+        console.log(`✅ Imported nametag for ${normalizedAddress}`);
       } else {
         totalUpdated++;
-        console.log(`Updated nametag for ${normalizedAddress}: ${JSON.stringify(nametagData)}`);
+        console.log(`🔄 Updated nametag for ${normalizedAddress}`);
       }
     } catch (error) {
       console.error(`Error importing/updating nametag for ${normalizedAddress}: ${error.message}`);
@@ -118,55 +129,31 @@ async function processJsonData(jsonData) {
  */
 async function readJsonFiles(directoryPath) {
   try {
-    logger.info(`Reading JSON files from directory: ${directoryPath}`);
-    console.log(`Reading JSON files from directory: ${directoryPath}`);
-
     const files = await fs.readdir(directoryPath);
     const jsonFiles = files.filter(file => file.endsWith('.json'));
-
     if (jsonFiles.length === 0) {
-      logger.warn(`No JSON files found in ${directoryPath}`);
-      console.log(`No JSON files found in ${directoryPath}`);
+      console.log(`⚠️ No JSON files found in ${directoryPath}`);
       return [];
     }
 
     const jsonDataArray = [];
     for (const file of jsonFiles) {
       const filePath = path.join(directoryPath, file);
-      try {
-        await fs.access(filePath);
-        const content = await fs.readFile(filePath, 'utf-8');
-        const jsonData = JSON.parse(content);
-        logger.info(`Parsed JSON file: ${filePath}, found ${Object.keys(jsonData).length} addresses`);
-        console.log(`Parsed JSON file: ${filePath}, found ${Object.keys(jsonData).length} addresses`);
-        jsonDataArray.push(jsonData);
-      } catch (error) {
-        logger.error(`Error reading JSON file ${filePath}: ${error.message}`, { stack: error.stack });
-        console.error(`Error reading JSON file ${filePath}: ${error.message}`);
-      }
+      const content = await fs.readFile(filePath, 'utf-8');
+      const jsonData = JSON.parse(content);
+      console.log(`📄 Parsed ${file}: ${Object.keys(jsonData).length} addresses`);
+      jsonDataArray.push(jsonData);
     }
 
     return jsonDataArray;
   } catch (error) {
-    logger.error(`Error accessing directory ${directoryPath}: ${error.message}`, { stack: error.stack });
     console.error(`Error accessing directory ${directoryPath}: ${error.message}`);
     return [];
   }
 }
 
 /**
- * Imports all JSON files from directory
- */
-async function importNametags(directoryPath) {
-  console.log('Starting nametag import process...');
-  const jsonDataArray = await readJsonFiles(directoryPath);
-  for (const jsonData of jsonDataArray) {
-    await processJsonData(jsonData);
-  }
-}
-
-/**
- * Import only a specific file
+ * Import from one specific file
  */
 async function importNametagsForFile(filePath) {
   try {
@@ -179,13 +166,13 @@ async function importNametagsForFile(filePath) {
 }
 
 /**
- * Main function to run the import
+ * Main entry
  */
 async function main() {
   const filePath = path.join(__dirname, '../public/nametags/coinbase-cluster.json');
-  console.log(`Starting import from file: ${filePath}`);
+  console.log(`🚀 Starting import from file: ${filePath}`);
   await importNametagsForFile(filePath);
-  console.log('Nametag import process completed successfully.');
+  console.log('✅ Nametag import process completed successfully.');
 }
 
 main();

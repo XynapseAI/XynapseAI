@@ -67,6 +67,7 @@ export const chains = [
   { value: '534352', label: 'Scroll', image: '/icons/scroll.webp', testnet: false },
   { value: '7777777', label: 'Zora', image: '/icons/zora.webp', testnet: false },
   { value: '1380012617', label: 'Rari', image: '/icons/rari.webp', testnet: false },
+  { value: 'bitcoin', label: 'Bitcoin', image: '/icons/bitcoin.webp', testnet: false },
   { value: 'solana', label: 'Solana', image: '/icons/solana.webp', testnet: false },
   { value: 'tron', label: 'TRON', image: '/icons/tron.webp', testnet: false },
   { value: 'eclipse', label: 'Eclipse', image: '/icons/eclipse.webp', testnet: false }
@@ -82,6 +83,7 @@ export const mapCoinGeckoChains = (coingeckoChains) => {
     'berachain': '80094',
     'blast': '81457',
     'binance-smart-chain': '56',
+    'bitcoin': 'bitcoin',
     'celo': '42220',
     'cyber': '7560',
     'eclipse': 'eclipse',
@@ -111,8 +113,6 @@ export const mapCoinGeckoChains = (coingeckoChains) => {
     'world': '480',
     'zksync': '324',
     'zora': '7777777',
-    'solana': 'solana',
-    'eclipse': 'eclipse',
   };
 
   return coingeckoChains
@@ -205,6 +205,7 @@ export const getExplorerUrls = (chainId, txHash, address) => {
     '59144': 'https://lineascan.build',
     '534352': 'https://scrollscan.com',
     '81457': 'https://blastscan.io',
+    'bitcoin': 'https://mempool.space',
     'solana': 'https://solscan.io',
     'tron': 'https://tronscan.org',
   };
