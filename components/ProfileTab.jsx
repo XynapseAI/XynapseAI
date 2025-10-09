@@ -90,7 +90,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-1">
           <Calendar className="w-3 h-3 text-blue-400" />
-          <h3 className="text-white font-bold text-[11px]">Daily Check-in Streak</h3>
+          <h3 className="text-white font-bold text-[11px]">Daily Check-in</h3>
         </div>
         <div className="relative">
           <Info

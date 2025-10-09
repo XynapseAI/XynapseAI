@@ -443,7 +443,7 @@ export async function GET(request) {
     if (recaptchaToken && process.env.NODE_ENV !== 'development') {
       try {
         const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-        if (!recaptchaResponse.success || (recaptchaResponse.score !== undefined && recaptchaResponse.score < 0.5)) {
+        if (!recaptchaResponse.success || (recaptchaResponse.score !== undefined && recaptchaResponse.score < 1.0)) {
           newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
           await trackViolation(ip, 'reCAPTCHA score too low');
           return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });
