@@ -247,8 +247,21 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             };
             switch (pendingAction.type) {
               case 'verifyTask':
+                // Fix: Guard taskId as string
+                const taskId = pendingAction.data?.id;
+                if (!taskId || typeof taskId !== 'string') {
+                  toast.error('Invalid task data. Please try the action again.');
+                  setShowV2Modal(false);
+                  setPendingAction(null);
+                  if (widgetId) grecaptcha.reset(widgetId);
+                  return;
+                }
+                // Log for debug (remove in prod)
+                if (process.env.NODE_ENV !== 'production') {
+                  console.log('V2 resubmit body:', { taskId, userId: session?.user?.id, tokenLength: token.length });
+                }
                 axios.post('/api/twitter/verify-task', {
-                  taskId: pendingAction.data.id,
+                  taskId,
                   userId: session?.user?.id,
                   recaptchaToken: token,
                 }, commonConfig)
@@ -305,7 +318,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     toast.error(err.response?.data?.detail || 'Unable to disconnect Twitter at this time.');
                   });
                 break;
-              // Add cases for other actions like 'disconnectWallet', 'createCharge' as needed
               default:
                 toast.error('Unknown action for fallback');
             }
