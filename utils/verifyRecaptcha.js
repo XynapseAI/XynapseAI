@@ -7,15 +7,15 @@ const limiter = new Bottleneck({
   minTime: 200,
 });
 
-const verifyWithRateLimit = limiter.wrap(async (token, action, ip) => {
+const verifyWithRateLimit = limiter.wrap(async (token, secret, ip) => {
   try {
-    if (!process.env.RECAPTCHA_SECRET_KEY) {
-      throw new Error('Missing RECAPTCHA_SECRET_KEY');
+    if (!secret) {
+      throw new Error('Missing reCAPTCHA secret key');
     }
     const response = await axios.post(
       'https://www.google.com/recaptcha/api/siteverify',
       new URLSearchParams({
-        secret: process.env.RECAPTCHA_SECRET_KEY,
+        secret,
         response: token,
         ...(ip && { remoteip: ip }),
       }),
@@ -41,17 +41,21 @@ export async function verifyRecaptcha(token, action, ip) {
     throw new Error('Invalid reCAPTCHA action');
   }
 
+  // Determine secret: Use v2 secret if available, else fallback to v3
+  const isV2Action = action.endsWith('_v2'); // Optional: Frontend can pass 'verify_task_v2' for v2 resubmit
+  const secret = isV2Action || process.env.RECAPTCHA_V2_SECRET_KEY 
+    ? process.env.RECAPTCHA_V2_SECRET_KEY || process.env.RECAPTCHA_SECRET_KEY 
+    : process.env.RECAPTCHA_SECRET_KEY;
+
   try {
-    const { success, score, action: recaptchaAction, 'error-codes': errorCodes, hostname } = await verifyWithRateLimit(
-      token,
-      action,
-      ip
-    );
+    const responseData = await verifyWithRateLimit(token, secret, ip);
+    const { success, score, action: recaptchaAction, 'error-codes': errorCodes, hostname } = responseData;
+    
     logger.info(
-      `reCAPTCHA verification: success=${success}, score=${score}, action=${recaptchaAction}, hostname=${hostname}, error-codes=${
+      `reCAPTCHA verification: success=${success}, score=${score || 'N/A (v2)'}, action=${recaptchaAction}, hostname=${hostname}, error-codes=${
         errorCodes?.join(', ') || 'none'
       }`,
-      { ip }
+      { ip, isV2: !!isV2Action }
     );
 
     if (!success) {
@@ -63,16 +67,23 @@ export async function verifyRecaptcha(token, action, ip) {
       throw new Error(errorMessage);
     }
 
-    const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0.5');
-    if (score < minScore) {
-      throw new Error(`reCAPTCHA score too low: ${score} < ${minScore}`);
+    // For v2: No score, so skip score check if score undefined (v2 response)
+    if (score !== undefined) {
+      // v3: Check score
+      const minScore = parseFloat(process.env.RECAPTCHA_MIN_SCORE || '0.5');
+      if (score < minScore) {
+        throw new Error(`reCAPTCHA score too low: ${score} < ${minScore}`);
+      }
+    } else {
+      // v2: Already success, but optional action check
+      logger.info('reCAPTCHA v2 verified (no score check)', { ip });
     }
 
     if (recaptchaAction && recaptchaAction.toLowerCase() !== action.toLowerCase()) {
       throw new Error(`reCAPTCHA action mismatch: expected ${action}, got ${recaptchaAction}`);
     }
 
-    return { success: true, score };
+    return { success: true, score: score || null }; // Return score as null for v2
   } catch (error) {
     logger.error(`reCAPTCHA verification failed: ${error.message}`, {
       tokenLength: token?.length,
@@ -80,6 +91,7 @@ export async function verifyRecaptcha(token, action, ip) {
       ip,
       error: error.response?.data,
     });
+    // Consistent error for frontend catch: Exact base + appended reason
     throw new Error(`reCAPTCHA verification failed: ${error.message}`);
   }
 }

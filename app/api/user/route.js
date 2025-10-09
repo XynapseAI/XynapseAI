@@ -426,12 +426,13 @@ export async function GET(request) {
     if (recaptchaToken && process.env.NODE_ENV !== 'development') {
       try {
         const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-        if (!recaptchaResponse.success || (recaptchaResponse.score !== undefined && recaptchaResponse.score < 1.0)) {
+        // Dynamic: Check score only if exists (v3), skip for v2
+        if (!recaptchaResponse.success || (recaptchaResponse.score !== null && recaptchaResponse.score < 1.0)) {
           newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
           return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });
         }
         if (process.env.NODE_ENV !== 'production') {
-          logger.info('reCAPTCHA OK', { ip, score });
+          logger.info('reCAPTCHA OK', { ip, score: recaptchaResponse.score });
         }
       } catch {
         newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
@@ -584,13 +585,14 @@ export async function POST(request) {
     if (process.env.NODE_ENV !== 'development') {
       try {
         const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'post_user', ip);
-        if (!recaptchaResponse.success || (recaptchaResponse.score !== undefined && recaptchaResponse.score < 1.0)) {
+        // Dynamic: Check score only if exists (v3), skip for v2
+        if (!recaptchaResponse.success || (recaptchaResponse.score !== null && recaptchaResponse.score < 1.0)) {
           newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
           await trackViolation(ip, 'reCAPTCHA score too low');
           return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });
         }
         if (process.env.NODE_ENV !== 'production') {
-          logger.info('reCAPTCHA OK', { ip, score });
+          logger.info('reCAPTCHA OK', { ip, score: recaptchaResponse.score });
         }
       } catch {
         newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
