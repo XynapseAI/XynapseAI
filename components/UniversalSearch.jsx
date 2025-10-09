@@ -124,7 +124,6 @@ export default function UniversalSearch({
     { id: "bybit_spot", name: "Bybit", type: "organization", image: "/icons/bybit.webp" },
     { id: "uniswap", name: "Uniswap", type: "organization", image: "/icons/uniswap.webp" },
     { id: "mtgox", name: "Mt. Gox", type: "organization", image: "/icons/mtgox.webp" },
-    { id: "coinbase-exchange", name: "Coinbase", type: "organization", image: "/icons/coinbase.webp" },
     { id: "kraken", name: "Kraken", type: "organization", image: "/icons/kraken.webp" },
     { id: "bitfinex", name: "Bitfinex", type: "organization", image: "/icons/bitfinex.webp" },
     { id: "huobi-global", name: "Huobi", type: "organization", image: "/icons/huobi.webp" },

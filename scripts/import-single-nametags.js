@@ -53,25 +53,19 @@ async function processJsonData(jsonData) {
   let totalNoNameTag = 0;
 
   const addresses = Object.keys(jsonData);
-  logger.info(`Processing JSON data with ${addresses.length} addresses`);
-  console.log(`Processing JSON data with ${addresses.length} addresses`);
+  logger.info(`Processing JSON data with ${addresses.length} entries`);
+  console.log(`Processing JSON data with ${addresses.length} entries`);
 
   for (const [address, data] of Object.entries(jsonData)) {
-    if (!isValidAddress(address)) {
-      logger.warn(`Invalid address in JSON data: ${address}. Skipping.`);
-      console.log(`Invalid address: ${address}. Skipping.`);
-      totalSkipped++;
-      continue;
-    }
-
+    // ❌ Bỏ kiểm tra isValidAddress — luôn ghi vào DB
     const normalizedAddress = address.trim();
     const labels = data.Labels || {};
     const labelType = Object.keys(labels)[0] || 'unknown';
     const labelData = labels[labelType] || {};
 
     if (!labelData['Name Tag']) {
-      logger.warn(`No Name Tag for address ${normalizedAddress}. Skipping.`);
-      console.log(`No Name Tag for address ${normalizedAddress}. Skipping.`);
+      logger.warn(`No Name Tag for ${normalizedAddress}. Skipping.`);
+      console.log(`No Name Tag for ${normalizedAddress}. Skipping.`);
       totalNoNameTag++;
       continue;
     }
@@ -83,8 +77,8 @@ async function processJsonData(jsonData) {
       image: labelData.image || '/icons/default.webp',
     };
 
-    logger.info(`Processing address ${normalizedAddress}: ${nametagData.name}`);
-    console.log(`Processing address ${normalizedAddress}: ${nametagData.name}`);
+    logger.info(`Processing ${normalizedAddress}: ${nametagData.name}`);
+    console.log(`Processing ${normalizedAddress}: ${nametagData.name}`);
 
     try {
       const result = await withRetry(() =>
@@ -109,13 +103,13 @@ async function processJsonData(jsonData) {
 
       if (result.rows[0].action === 'inserted') {
         totalImported++;
-        console.log(`✅ Imported nametag for ${normalizedAddress}`);
+        console.log(`✅ Imported ${normalizedAddress}`);
       } else {
         totalUpdated++;
-        console.log(`🔄 Updated nametag for ${normalizedAddress}`);
+        console.log(`🔄 Updated ${normalizedAddress}`);
       }
     } catch (error) {
-      console.error(`Error importing/updating nametag for ${normalizedAddress}: ${error.message}`);
+      console.error(`Error saving ${normalizedAddress}: ${error.message}`);
     }
   }
 
@@ -123,6 +117,7 @@ async function processJsonData(jsonData) {
     `Summary: ${totalImported} imported, ${totalUpdated} updated, ${totalSkipped} skipped (invalid), ${totalNoNameTag} skipped (no Name Tag).`
   );
 }
+
 
 /**
  * Reads all JSON files in the specified directory and returns their content
@@ -169,7 +164,7 @@ async function importNametagsForFile(filePath) {
  * Main entry
  */
 async function main() {
-  const filePath = path.join(__dirname, '../public/nametags/coinbase-cluster.json');
+  const filePath = path.join(__dirname, '../public/nametags/btc-top-holders.json');
   console.log(`🚀 Starting import from file: ${filePath}`);
   await importNametagsForFile(filePath);
   console.log('✅ Nametag import process completed successfully.');

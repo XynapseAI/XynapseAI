@@ -206,8 +206,14 @@ export async function GET(request) {
     const cachedData = await redisClient.get(cacheKey);
 
     if (cachedData) {
-      logger.info(`Cache hit for mempool transactions: ${cacheKey}`);
-      return NextResponse.json(JSON.parse(cachedData), { headers });
+      let parsed = JSON.parse(cachedData);
+      const now = Math.floor(Date.now() / 1000);
+      const MAX_AGE_SECONDS = 2 * 60 * 60; // 2 hours
+      parsed.data = parsed.data
+        .filter((tx) => tx.timestamp >= now - MAX_AGE_SECONDS)
+        .sort((a, b) => b.timestamp - a.timestamp);
+      logger.info(`Cache hit for mempool transactions: ${cacheKey}`, { transactionCount: parsed.data.length });
+      return NextResponse.json(parsed, { headers });
     }
 
     // If no cache, return empty response (WebSocket server should populate Redis)

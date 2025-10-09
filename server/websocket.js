@@ -4,7 +4,7 @@ import { createClient } from 'redis';
 import { logger } from '../utils/serverLogger.js';
 
 const MEMPOOL_WS_URL = 'wss://mempool.space/api/v1/ws';
-const CACHE_TTL = 15 * 60; // 15 minutes
+const CACHE_TTL = 2 * 60 * 60; // 2 hours
 const PING_INTERVAL = 60000; // 60 seconds
 const MAX_RECONNECT_ATTEMPTS = 10;
 const BASE_RECONNECT_DELAY = 5000;
@@ -12,7 +12,10 @@ const MIN_USD_THRESHOLD = 1000000;
 const BTC_PRICE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const BTC_PRICE_RETRY_ATTEMPTS = 3;
 const BTC_PRICE_RETRY_DELAY = 3000;
-const MAX_CACHE_SIZE = 50;
+const MAX_CACHE_SIZE = 200;
+const MAX_AGE_SECONDS = 2 * 60 * 60; // 2 hours
+const MAX_PROCESSED_TX_CACHE_SIZE = 200;
+const MAX_NEW_TX_PER_BATCH = 20;
 
 let redisClient;
 async function getRedisClient() {
@@ -151,7 +154,7 @@ function startWebSocketServer(httpServer) {
         }
 
         const newTxs = parsed['mempool-txids'].added
-          .slice(0, 5)
+          .slice(0, MAX_NEW_TX_PER_BATCH)
           .filter((txid) => !mempoolTxCache.has(txid));
 
         if (newTxs.length === 0) return;
@@ -177,7 +180,7 @@ function startWebSocketServer(httpServer) {
 
             if (totalValueUSD >= MIN_USD_THRESHOLD) {
               mempoolTxCache.add(txid);
-              if (mempoolTxCache.size > MAX_CACHE_SIZE) {
+              if (mempoolTxCache.size > MAX_PROCESSED_TX_CACHE_SIZE) {
                 const iterator = mempoolTxCache.values();
                 mempoolTxCache.delete(iterator.next().value);
               }
@@ -219,7 +222,11 @@ function startWebSocketServer(httpServer) {
             logger.error('Failed to fetch existing transactions from Redis:', { error: redisError.message });
           }
 
-          allTxs = [...transactions, ...allTxs].slice(0, MAX_CACHE_SIZE).sort((a, b) => b.timestamp - a.timestamp);
+          const now = Math.floor(Date.now() / 1000);
+          allTxs = [...transactions, ...allTxs]
+            .filter((tx) => tx.timestamp >= now - MAX_AGE_SECONDS)
+            .sort((a, b) => b.timestamp - a.timestamp)
+            .slice(0, MAX_CACHE_SIZE);
           await storeInRedis(cacheKey, { success: true, data: allTxs });
           logger.info(`Processed and stored ${transactions.length} new transactions`);
         }

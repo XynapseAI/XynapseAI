@@ -159,47 +159,33 @@ class TokenHoldersCron {
   }
 
   async loadNameTags() {
-    logger.info("Loading name tags and images from public/nametags directory...");
+    logger.info("Loading name tags and images from nametags table...");
     this.nameTagData = new Map();
-    const chainMapping = {
-      "binance-smart-chain": "bsc",
-      ethereum: "ethereum",
-    };
 
     try {
-      const nametagsDir = join(__dirname, "..", "public", "nametags");
-      const files = await fs.readdir(nametagsDir);
-      const jsonFiles = files.filter((file) => file.endsWith(".json"));
+      const result = await pool.query(`
+        SELECT LOWER(address) as address_lower, nametag, image
+        FROM nametags
+        WHERE nametag IS NOT NULL AND nametag != ''
+      `);
 
-      for (const file of jsonFiles) {
-        try {
-          const filePath = join(nametagsDir, file);
-          const data = await fs.readFile(filePath, "utf-8");
-          const jsonData = JSON.parse(data);
-
-          for (const [address, info] of Object.entries(jsonData)) {
-            const labels = info.Labels || {};
-            const chainKeys = Object.keys(labels);
-            for (const chainKey of chainKeys) {
-              const mappedChain = chainMapping[chainKey] || chainKey;
-              const nameTag = labels[chainKey]?.["Name Tag"] || null;
-              const image = labels[chainKey]?.["image"] || null;
-              if (nameTag) {
-                const key = address.toLowerCase();
-                const existing = this.nameTagData.get(key) || [];
-                existing.push({ chain: mappedChain, nameTag, image });
-                this.nameTagData.set(key, existing);
-              }
-            }
-          }
-          logger.info(`Loaded name tags from ${file}`, { addressCount: Object.keys(jsonData).length });
-        } catch (error) {
-          logger.error(`Error loading name tags from ${file}`, { message: error.message });
+      for (const row of result.rows) {
+        let key = row.address_lower;
+        if (!key || key === 'null') {
+          // Handle non-address cases like "Strategy", "Blackrock" – use nametag as key
+          key = row.nametag.toLowerCase();
+        }
+        if (key) {
+          this.nameTagData.set(key, {
+            nameTag: row.nametag,
+            image: row.image || null
+          });
         }
       }
-      logger.info("Total addresses with name tags loaded", { count: this.nameTagData.size });
+
+      logger.info("Total addresses with name tags loaded from DB", { count: this.nameTagData.size });
     } catch (error) {
-      logger.error("Error reading nametags directory", { message: error.message });
+      logger.error("Error loading name tags from nametags table", { message: error.message });
     }
   }
 
@@ -284,138 +270,6 @@ class TokenHoldersCron {
       });
       throw error;
     }
-  }
-
-  async fetchTokensFromCoinGecko() {
-    logger.info("Fetching exactly 500 tokens from CoinGecko...");
-    const tokens = [];
-    const totalTokens = 500;
-    const perPageOptions = [250, 250];
-    const pages = perPageOptions.length;
-
-    try {
-      for (let page = 1; page <= pages; page++) {
-        const perPage = perPageOptions[page - 1];
-        logger.info(`Fetching page ${page} of ${pages} with ${perPage} tokens...`);
-        const response = await coingeckoLimiter.schedule(() =>
-          axios.get("https://api.coingecko.com/api/v3/coins/markets", {
-            params: {
-              vs_currency: "usd",
-              order: "market_cap_desc",
-              per_page: perPage,
-              page: page,
-              sparkline: false,
-              price_change_percentage: "24h",
-            },
-            headers: {
-              "x-cg-demo-api-key": process.env.COINGECKO_API_KEY || "",
-            },
-            timeout: 30000,
-          })
-        );
-
-        const pageTokens = response.data;
-        if (!Array.isArray(pageTokens) || pageTokens.length === 0) {
-          logger.warn(`Page ${page} returned invalid or empty data`);
-          continue;
-        }
-
-        // Thêm trường image vào dữ liệu token
-        tokens.push(...pageTokens.map(token => ({
-          ...token,
-          image: token.image || null // Lấy trường image từ API response
-        })));
-        logger.info(`Fetched ${pageTokens.length} tokens from page ${page}`);
-
-        if (tokens.length >= totalTokens) {
-          tokens.length = totalTokens;
-          break;
-        }
-      }
-
-      if (tokens.length === 0) {
-        logger.error("CoinGecko returned no valid token data");
-        throw new Error("No valid token data from CoinGecko");
-      }
-
-      logger.info("Fetched tokens from CoinGecko", { total: tokens.length });
-      await this.storeTokens(tokens);
-      return tokens;
-    } catch (error) {
-      logger.error("Error fetching tokens from CoinGecko", {
-        message: error.message,
-        status: error.response?.status,
-      });
-      throw error;
-    }
-  }
-
-  // Cập nhật hàm storeTokens để lưu trường image
-  async storeTokens(tokens) {
-    logger.info("Storing tokens in database", { count: tokens.length });
-    let storedCount = 0;
-
-    for (const token of tokens) {
-      try {
-        const detailResponse = await coingeckoLimiter.schedule(() =>
-          axios.get(`https://api.coingecko.com/api/v3/coins/${token.id}`, {
-            headers: {
-              "x-cg-demo-api-key": process.env.COINGECKO_API_KEY || "",
-            },
-            timeout: 15000,
-          })
-        );
-
-        const detailData = detailResponse.data;
-        if (!detailData?.id) {
-          logger.warn(`Skipping token ${token.id}: Invalid detail data`);
-          continue;
-        }
-
-        const decimals = detailData.contract_address
-          ? detailData.detail_platforms?.ethereum?.decimal_place || 18
-          : NON_EVM_DECIMALS[token.id] || 18;
-
-        const result = await pool.query(
-          `
-        INSERT INTO tokens (coingecko_id, symbol, name, market_cap_rank, platforms, detail_platforms, decimals, image, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
-        ON CONFLICT (coingecko_id) 
-        DO UPDATE SET 
-          symbol = EXCLUDED.symbol,
-          name = EXCLUDED.name,
-          market_cap_rank = EXCLUDED.market_cap_rank,
-          platforms = EXCLUDED.platforms,
-          detail_platforms = EXCLUDED.detail_platforms,
-          decimals = EXCLUDED.decimals,
-          image = EXCLUDED.image,
-          updated_at = CURRENT_TIMESTAMP
-        RETURNING id
-        `,
-          [
-            token.id,
-            token.symbol,
-            token.name,
-            token.market_cap_rank,
-            JSON.stringify(detailData.platforms || {}),
-            JSON.stringify(detailData.detail_platforms || {}),
-            decimals,
-            token.image || null, // Lưu trường image
-          ]
-        );
-
-        storedCount++;
-        logger.info(`Stored token ${token.id} (${token.symbol})`, { db_id: result.rows[0]?.id });
-      } catch (error) {
-        logger.error(`Error storing token ${token.id}`, {
-          message: error.message,
-          code: error.code,
-        });
-        continue;
-      }
-    }
-
-    logger.info("Stored tokens successfully", { storedCount, total: tokens.length });
   }
 
   async processTokenHolders() {
@@ -539,9 +393,11 @@ class TokenHoldersCron {
         const decimals = NON_EVM_DECIMALS[token.coingecko_id] || 8;
         const holders = response.data.companies
           .map((company, index) => {
-            const tagData = company.address
-              ? this.nameTagData.get(company.address.toLowerCase())?.[0] || {}
-              : {};
+            let tagData = {};
+            const lowerKey = (company.address || company.name || '').toLowerCase();
+            if (lowerKey) {
+              tagData = this.nameTagData.get(lowerKey) || {};
+            }
             const nameTag = tagData.nameTag || company.name || null;
             const image = tagData.image || null;
             if (!nameTag) return null;
@@ -627,8 +483,6 @@ class TokenHoldersCron {
           select: {
             address: true,
             balance: true,
-            name_tag: true,
-            image: true,
           },
         });
 
@@ -636,8 +490,6 @@ class TokenHoldersCron {
           wallet_address: holder.address,
           balance: Number(holder.balance) || 0,
           source: "database",
-          name_tag: holder.name_tag,
-          image: holder.image,
         }));
         holders.push(...topHoldersMapped);
         logger.info(`Loaded ${topHoldersMapped.length} holders from top_holders for ${token.symbol} on ${chain}`);
@@ -654,30 +506,13 @@ class TokenHoldersCron {
 
       const processedHolders = holders
         .map((holder, index) => {
-          const tagDataArray = this.nameTagData.get(holder.wallet_address.toLowerCase()) || [];
-          let nameTag = holder.name_tag || null;
-          let image = holder.image || null;
-          let nameTagSource = holder.source === "database" ? "database" : null;
-
-          if (!nameTag) {
-            for (const tagData of tagDataArray) {
-              if (tagData.nameTag) {
-                if (tagData.chain === chain) {
-                  nameTag = tagData.nameTag;
-                  image = tagData.image || null;
-                  nameTagSource = tagData.chain;
-                  break;
-                } else if (!nameTag) {
-                  nameTag = tagData.nameTag;
-                  image = tagData.image || null;
-                  nameTagSource = tagData.chain;
-                }
-              }
-            }
-          }
+          const lowerKey = holder.wallet_address.toLowerCase();
+          const tagData = this.nameTagData.get(lowerKey) || {};
+          let nameTag = tagData.nameTag || null;
+          let image = tagData.image || null;
 
           logger.info(`NameTag lookup for ${holder.wallet_address} on ${chain}`, {
-            nameTagSource,
+            nameTagSource: "nametags_table",
             nameTag,
           });
 
@@ -776,8 +611,6 @@ class TokenHoldersCron {
           select: {
             address: true,
             balance: true,
-            name_tag: true,
-            image: true,
           },
         });
 
@@ -785,8 +618,6 @@ class TokenHoldersCron {
           wallet_address: holder.address,
           balance: Number(holder.balance) || 0,
           source: "database",
-          name_tag: holder.name_tag,
-          image: holder.image,
         }));
         holders.push(...topHoldersMapped);
         logger.info(`Loaded ${topHoldersMapped.length} holders from top_holders for ${token.symbol} on ${normalizedChain}`);
@@ -908,30 +739,13 @@ class TokenHoldersCron {
 
       const processedHolders = holders
         .map((holder, index) => {
-          const tagDataArray = this.nameTagData.get(holder.wallet_address.toLowerCase()) || [];
-          let nameTag = holder.name_tag || null;
-          let image = holder.image || null;
-          let nameTagSource = holder.source === "database" ? "database" : null;
-
-          if (!nameTag) {
-            for (const tagData of tagDataArray) {
-              if (tagData.nameTag) {
-                if (tagData.chain === chain) {
-                  nameTag = tagData.nameTag;
-                  image = tagData.image || null;
-                  nameTagSource = tagData.chain;
-                  break;
-                } else if (!nameTag) {
-                  nameTag = tagData.nameTag;
-                  image = tagData.image || null;
-                  nameTagSource = tagData.chain;
-                }
-              }
-            }
-          }
+          const lowerKey = holder.wallet_address.toLowerCase();
+          const tagData = this.nameTagData.get(lowerKey) || {};
+          let nameTag = tagData.nameTag || null;
+          let image = tagData.image || null;
 
           logger.info(`NameTag lookup for ${holder.wallet_address} on ${chain}`, {
-            nameTagSource,
+            nameTagSource: "nametags_table",
             nameTag,
           });
 
@@ -1394,8 +1208,7 @@ class TokenHoldersCron {
     try {
       logger.info(`Starting full token holders sync`, { startTime: startTime.toISOString() });
 
-      await this.fetchTokensFromCoinGecko();
-      logger.info("Completed fetchTokensFromCoinGecko");
+      logger.info("Using existing tokens from database (skipping CoinGecko fetch)");
 
       await this.processTokenHolders();
       logger.info("Completed processTokenHolders");

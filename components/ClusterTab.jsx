@@ -1496,8 +1496,8 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                 const isSpecialCoin = ["bitcoin", "dogecoin", "litecoin"].includes(chainLower);
                 const clusterLogo = wallet.image; // Cluster/nametag logo
                 const chainLogo = chainLower === "bitcoin" ? BITCOIN_LOGO :
-                                  chainLower === "dogecoin" ? DOGECOIN_LOGO :
-                                  chainLower === "litecoin" ? LITECOIN_LOGO : null;
+                  chainLower === "dogecoin" ? DOGECOIN_LOGO :
+                    chainLower === "litecoin" ? LITECOIN_LOGO : null;
 
                 return (
                   <motion.tr
@@ -1510,22 +1510,22 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                     onClick={() => handleWalletClick(wallet)}
                   >
                     <td className="px-3 py-2.5 text-white truncate">
-                      <div className="flex items-center gap-2">
-                        {/* FIX: Hiển thị hai logo cho BTC/Doge/LTC (cluster bên trái + chain bên phải), một logo cho EVM. Tăng kích thước logo trên mobile để tránh bóp méo */}
+                      <div className="flex items-center gap-1">
+                        {/* FIX: Hiển thị hai logo cho BTC/Doge/LTC (cluster bên trái + chain bên phải), một logo cho EVM. Sử dụng object-contain để tránh bóp méo, giảm kích thước trên mobile nếu cần */}
                         {(() => {
                           if (isSpecialCoin && chainLogo) {
                             return (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 flex-shrink-0">
                                 <img
                                   src={clusterLogo}
                                   alt={`${wallet.cluster_name} logo`}
-                                  className={`w-${isMobile ? '4' : '4'} h-${isMobile ? '4' : '4'} rounded-full shadow-lg object-cover`}
+                                  className={`w-${isMobile ? '3' : '4'} h-${isMobile ? '3' : '4'} rounded-full shadow-lg object-contain flex-shrink-0`}
                                   onError={(e) => (e.target.src = "/fallback-image.webp")}
                                 />
                                 <img
                                   src={chainLogo}
                                   alt={`${chainLower} logo`}
-                                  className={`w-${isMobile ? '4' : '4'} h-${isMobile ? '4' : '4'} rounded-full shadow-lg object-cover`}
+                                  className={`w-${isMobile ? '3' : '4'} h-${isMobile ? '3' : '4'} rounded-full shadow-lg object-contain flex-shrink-0`}
                                   onError={(e) => (e.target.src = "/fallback-image.webp")}
                                 />
                               </div>
@@ -1535,13 +1535,15 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                               <img
                                 src={clusterLogo}
                                 alt={`${wallet.cluster_name} logo`}
-                                className={`w-${isMobile ? '4' : '4'} h-${isMobile ? '4' : '4'} rounded-full shadow-lg object-cover`}
+                                className={`w-${isMobile ? '3' : '4'} h-${isMobile ? '3' : '4'} rounded-full shadow-lg object-contain flex-shrink-0`}
                                 onError={(e) => (e.target.src = "/fallback-image.webp")}
                               />
                             );
                           }
                         })()}
-                        {truncateAddressWithHover(wallet.holder_address, wallet.display_name, chainLower === 'bitcoin' ? 'Blockchair' : undefined)}
+                        <div className="min-w-0 flex-1">
+                          {truncateAddressWithHover(wallet.holder_address, wallet.display_name, chainLower === 'bitcoin' ? 'Blockchair' : undefined)}
+                        </div>
                       </div>
                     </td>
                     {/* <td className="px-3 py-2.5 text-white truncate">
@@ -1610,16 +1612,16 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
       const isInternal = hasFromCluster && hasToCluster;
       const directionColor = isInternal ? 'text-white' : isOutgoing ? 'text-red-400' : isIncoming ? 'text-green-400' : 'text-gray-400';
 
-      // Vertical down arrow icon (smaller size)
-      const arrowIcon = (
-        <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+      // FIX: Custom flow icon - half cylinder on left (rounded rect), reduced height, arrow at end
+      const pathLine = (
+        <div className={`w-0.5 h-4 rounded opacity-60 flex-shrink-0`} style={{ backgroundColor: 'currentColor' }} />
       );
 
-      // Path simulation: half rectangle as thin vertical line
-      const pathLine = (
-        <div className={`w-0.5 h-6 rounded opacity-60 flex-shrink-0`} style={{ backgroundColor: 'currentColor' }} />
+      // Vertical down arrow icon (smaller size)
+      const arrowIcon = (
+        <svg className="h-2 w-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
       );
 
       if (!isBitcoin && tx.type === 'swap' && tx.swap_details) {
@@ -1687,11 +1689,11 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             </div>
           </div>
           <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis flex items-center justify-center">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              {/* Icon on left: path line + small down arrow, centered vertically */}
+            <div className="flex items-center gap-1 min-w-0 flex-1">
+              {/* FIX: Icon flow với chiều cao giảm, thiết kế half cylinder left + arrow end */}
               <div className={`flex flex-col items-center gap-0.5 ${directionColor}`}>
                 {pathLine}
-                <div className="-mt-1">{arrowIcon}</div>
+                <div className="-mt-0.5">{arrowIcon}</div>
               </div>
               {/* Wallets stack on right */}
               <div className="flex flex-col gap-1 min-w-0 flex-1">
