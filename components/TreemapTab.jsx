@@ -166,7 +166,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
 
     return (
       <tr key={`${tx.hash}-${index}`} className="grid grid-cols-[2fr_1fr_1fr] gap-2 border-t border-white/10 hover:bg-white/5 transition-all duration-300">
-        <td className="px-2 py-1 text-white/80 text-[10px] sm:text-[12px] text-left overflow-hidden border-r border-white/5 align-middle">
+        <td className="px-2 py-1 text-white/80 text-[8px] sm:text-[10px] text-left overflow-hidden border-r border-white/5 align-middle">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-1 group relative">
               <svg
@@ -187,14 +187,14 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
                 <img
                   src={fromNtag.image}
                   alt="From wallet logo"
-                  width={isMobile ? 10 : 12}
-                  height={isMobile ? 10 : 12}
+                  width={isMobile ? 12 : 14}
+                  height={isMobile ? 12 : 14}
                   className="rounded-full flex-shrink-0"
                   onError={(e) => (e.target.style.display = 'none')}
                   loading="lazy"
                 />
               )}
-              <span className="text-[8px] sm:text-[10px] truncate flex-1 min-w-0">
+              <span className="text-[8px] sm:text-[9px] truncate flex-1 min-w-0">
                 {fromNtag.name !== 'Unknown' ? fromNtag.name : truncateAddress(tx.source)}
               </span>
               <motion.button
@@ -205,7 +205,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-3 w-3 text-white/60 hover:text-neon-blue"
+                  className="h-4 w-4 text-white/60 hover:text-neon-blue"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -221,14 +221,14 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
                 <img
                   src={toNtag.image}
                   alt="To wallet logo"
-                  width={isMobile ? 10 : 12}
-                  height={isMobile ? 10 : 12}
+                  width={isMobile ? 12 : 14}
+                  height={isMobile ? 12 : 14}
                   className="rounded-full flex-shrink-0"
                   onError={(e) => (e.target.style.display = 'none')}
                   loading="lazy"
                 />
               )}
-              <span className="text-[8px] sm:text-[10px] truncate flex-1 min-w-0">
+              <span className="text-[8px] sm:text-[9px] truncate flex-1 min-w-0">
                 {toNtag.name !== 'Unknown' ? toNtag.name : truncateAddress(tx.target)}
               </span>
               <motion.button
@@ -239,7 +239,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-3 w-3 text-white/60 hover:text-neon-blue"
+                  className="h-4 w-4 text-white/60 hover:text-neon-blue"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -251,30 +251,30 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
             </div>
           </div>
         </td>
-        <td className="px-2 py-1 text-white/80 text-[10px] sm:text-[12px] text-center overflow-hidden border-r border-white/5 align-middle">
+        <td className="px-2 py-1 text-white/80 text-[9px] sm:text-[11px] text-center overflow-hidden border-r border-white/5 align-middle">
           <div className="flex flex-col items-center justify-center gap-1">
             <img
               src={tokenLogo}
               alt={`${displaySymbol} logo`}
-              width={isMobile ? 12 : 14}
-              height={isMobile ? 12 : 14}
+              width={isMobile ? 14 : 16}
+              height={isMobile ? 14 : 16}
               className="rounded-full flex-shrink-0"
               onError={(e) => (e.target.src = '/icons/default.webp')}
               loading="lazy"
             />
-            <span className="text-[8px] sm:text-[10px] font-semibold text-center truncate w-full">
+            <span className="text-[8px] sm:text-[9px] font-semibold text-center truncate w-full">
               {displayValue} {displaySymbol}
             </span>
           </div>
         </td>
-        <td className="px-2 py-1 text-white/80 text-[10px] sm:text-[12px] text-center overflow-hidden align-middle">
+        <td className="px-2 py-1 text-white/80 text-[9px] sm:text-[11px] text-center overflow-hidden align-middle">
           <div className="flex flex-col items-center justify-center gap-1">
             <a href={txUrl} target="_blank" rel="noopener noreferrer">
               <img
                 src={explorerLogo}
                 alt="Explorer"
-                width={isMobile ? 10 : 12}
-                height={isMobile ? 10 : 12}
+                width={isMobile ? 12 : 14}
+                height={isMobile ? 12 : 14}
                 className="rounded-full mx-auto cursor-pointer flex-shrink-0"
                 onError={(e) => (e.target.src = '/icons/default.webp')}
                 loading="lazy"
@@ -315,7 +315,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
           Table: ({ children, ...props }) => (
             <table
               {...props}
-              className="w-full text-[10px] sm:text-[11px] bg-black/5 rounded-xl border-collapse"
+              className="w-full text-[8px] sm:text-[9px] bg-black/5 rounded-xl border-collapse"
               style={{ ...props.style, tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse' }}
             >
               {children}
@@ -341,7 +341,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
           EmptyPlaceholder: () => (
             <tbody>
               <tr>
-                <td colSpan={3} className="text-center text-white/60 text-[10px] sm:text-[11px] py-4">
+                <td colSpan={3} className="text-center text-white/60 text-[9px] sm:text-[10px] py-4">
                   No transactions available
                 </td>
               </tr>
@@ -1318,16 +1318,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
       const layoutOptions = {
         name: 'cola',
-        nodeSpacing: (node) => (node.data('layer') === 1 ? 100 : node.data('layer') === 2 ? 60 : 40),
-        edgeLength: (edge) => (edge.data('layer') === 2 ? 70 : 50),
+        nodeSpacing: (node) => (node.data('layer') === 1 ? 150 : node.data('layer') === 2 ? 90 : 60),
+        edgeLength: (edge) => (edge.data('layer') === 2 ? 110 : 75),
         fit: true,
         padding: 50,
         animate: false, // Disable built-in animation for custom control
         avoidOverlap: true,
         handleDisconnected: true,
-        maxSimulationTime: 2000, // Reduced for lighter performance
-        compoundSpringLength: () => 50,
-        spacingFactor: 1.2,
+        maxSimulationTime: 3000, // Reduced for lighter performance
+        compoundSpringLength: () => 75,
       };
 
       cyRef.current = cytoscape({
@@ -1561,16 +1560,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         ],
         layout: {
           name: 'cola',
-          nodeSpacing: (node) => (node.data('layer') === 1 ? 100 : node.data('layer') === 2 ? 60 : 40),
-          edgeLength: (edge) => (edge.data('layer') === 2 ? 70 : 50),
+          nodeSpacing: (node) => (node.data('layer') === 1 ? 150 : node.data('layer') === 2 ? 90 : 60),
+          edgeLength: (edge) => (edge.data('layer') === 2 ? 110 : 75),
           fit: true,
           padding: 50,
           animate: true,
           animationDuration: 1000,
           avoidOverlap: true,
           handleDisconnected: true,
-          maxSimulationTime: 2000, // Reduced for lighter performance
-          spacingFactor: 1.2,
+          maxSimulationTime: 3000, // Reduced for lighter performance
         },
       });
 

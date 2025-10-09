@@ -111,8 +111,8 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
           return (
             <div key={index} className="flex flex-col items-center gap-1">
               <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold transition-all duration-300 ${checked
-                ? 'bg-green-500 text-black shadow-lg shadow-gray-300/25'
-                : 'bg-white/10 text-white/50 border border-white/20'
+                  ? 'bg-green-500 text-black shadow-lg shadow-gray-300/25'
+                  : 'bg-white/10 text-white/50 border border-white/20'
                 }`}>
                 {checked ? (
                   <Check className="w-3 h-3 text-black" />
@@ -126,8 +126,8 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
                   onClick={handleCheckinClick}
                   disabled={isLoading || !twitterConnected}
                   className={`mt-1 px-2 py-1 rounded-full text-[8px] font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${isLoading || !twitterConnected
-                    ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/70 cursor-not-allowed relative overflow-hidden'
-                    : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
+                      ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/70 cursor-not-allowed relative overflow-hidden'
+                      : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
                     }`}
                   whileHover={{ scale: (isLoading || !twitterConnected) ? 1 : 1.05 }}
                   whileTap={{ scale: (isLoading || !twitterConnected) ? 1 : 0.95 }}
@@ -247,21 +247,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
             };
             switch (pendingAction.type) {
               case 'verifyTask':
-                // Fix: Guard taskId as string
-                const taskId = pendingAction.data?.id;
-                if (!taskId || typeof taskId !== 'string') {
-                  toast.error('Invalid task data. Please try the action again.');
-                  setShowV2Modal(false);
-                  setPendingAction(null);
-                  if (widgetId) grecaptcha.reset(widgetId);
-                  return;
-                }
-                // Log for debug (remove in prod)
-                if (process.env.NODE_ENV !== 'production') {
-                  console.log('V2 resubmit body:', { taskId, userId: session?.user?.id, tokenLength: token.length });
-                }
                 axios.post('/api/twitter/verify-task', {
-                  taskId,
+                  taskId: pendingAction.data.id,
                   userId: session?.user?.id,
                   recaptchaToken: token,
                 }, commonConfig)
@@ -318,6 +305,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     toast.error(err.response?.data?.detail || 'Unable to disconnect Twitter at this time.');
                   });
                 break;
+              // Add cases for other actions like 'disconnectWallet', 'createCharge' as needed
               default:
                 toast.error('Unknown action for fallback');
             }
@@ -784,7 +772,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     onError: (err, variables) => {
       const task = variables?.task || { task_type: 'unknown' };
       const detail = err.response?.data?.detail;
-      if (err.response?.status === 403 && detail?.includes('reCAPTCHA verification failed')) {
+      if (err.response?.status === 403 && detail === 'reCAPTCHA verification failed') {
         setPendingAction({ type: 'verifyTask', data: task });
         setShowV2Modal(true);
         return;
@@ -1037,11 +1025,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                   isCompleted
                                 }
                                 className={`px-2 py-1 rounded-lg text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg relative overflow-hidden ${immediateLoading ||
-                                  verifyTaskMutation.isLoading ||
-                                  !userData?.twitterHandle ||
-                                  isCompleted
-                                  ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
-                                  : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                                    verifyTaskMutation.isLoading ||
+                                    !userData?.twitterHandle ||
+                                    isCompleted
+                                    ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
+                                    : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
                                   }`}
                                 whileHover={{
                                   scale:
