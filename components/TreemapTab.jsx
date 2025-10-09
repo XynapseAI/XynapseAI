@@ -1318,15 +1318,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
       const layoutOptions = {
         name: 'cola',
-        nodeSpacing: (node) => (node.data('layer') === 1 ? 200 : node.data('layer') === 2 ? 120 : 80),
-        edgeLength: (edge) => (edge.data('layer') === 2 ? 150 : 100),
+        nodeSpacing: (node) => (node.data('layer') === 1 ? 150 : node.data('layer') === 2 ? 90 : 60),
+        edgeLength: (edge) => (edge.data('layer') === 2 ? 110 : 75),
         fit: true,
         padding: 50,
         animate: false, // Disable built-in animation for custom control
         avoidOverlap: true,
         handleDisconnected: true,
         maxSimulationTime: 3000, // Reduced for lighter performance
-        compoundSpringLength: () => 100,
+        compoundSpringLength: () => 75,
       };
 
       cyRef.current = cytoscape({
@@ -1354,8 +1354,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 if (ele.data('layer') === 3) return '#F59E0B';
                 return '#666';
               },
-              'width': (ele) => (ele.data('isRoot') ? 150 : ele.data('layer') === 3 ? 64 : 56),
-              'height': (ele) => (ele.data('isRoot') ? 150 : ele.data('layer') === 3 ? 64 : 56),
+              'width': (ele) => (ele.data('isRoot') ? 450 : ele.data('layer') === 3 ? 192 : 168),
+              'height': (ele) => (ele.data('isRoot') ? 450 : ele.data('layer') === 3 ? 192 : 168),
               'text-valign': 'center',
               'text-halign': 'center',
               'font-size': '12px',
@@ -1363,7 +1363,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               'border-width': 1,
               'border-color': '#fff',
               'border-opacity': 0.5,
-              'opacity': 0, // Initial opacity for animation
             },
           },
           {
@@ -1386,8 +1385,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             selector: 'node[?parent]',
             style: {
               'background-opacity': 0.8,
-              'width': 40,
-              'height': 40,
+              'width': 120,
+              'height': 120,
             },
           },
           {
@@ -1403,22 +1402,42 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         layout: layoutOptions,
       });
 
-      // Set initial small size for pop effect
+      // Set HTML labels early, before animation
+      cyRef.current.nodeHtmlLabel([
+        {
+          query: 'node',
+          halign: 'center',
+          valign: 'bottom',
+          halignBox: 'center',
+          valignBox: 'bottom',
+          tpl: (data) => {
+            const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id.toLowerCase() === data.id.toLowerCase()));
+            const risk = cluster?.riskScore || 0;
+            const clusterLabel = data.isRoot ? walletInfo.nametag || 'Unknown' : cluster ? cluster.nametag : 'Unknown';
+            const image = data.isRoot ? walletInfo.image : data.image;
+            const nametag = data.isRoot ? '' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
+            return `
+            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[14px] sm:text-[16px] py-1 px-2 rounded">
+              ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
+              ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
+              <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)}$</div>
+              <div>Risk: ${(risk * 100).toFixed(0)}%</div>
+            </div>
+          `;
+          },
+        },
+      ]);
+
+      // Set initial opacity for pop effect (sizes are already full)
       cyRef.current.nodes().forEach((node) => {
-        const targetW = node.data('isRoot') ? 150 : node.data('layer') === 3 ? 64 : 56;
-        const targetH = targetW; // Square nodes
-        node.style({
-          'width': 0,
-          'height': 0,
-          'opacity': 0,
-        });
+        node.style('opacity', 0);
       });
 
       // Run layout manually
       const layout = cyRef.current.layout(layoutOptions);
       layout.run();
 
-      // Wait for layout to complete and animate nodes with pop effect (staggered by layer)
+      // Wait for layout to complete and animate opacity with stagger (pop effect via easing)
       layout.promise().then(() => {
         // Center around root
         const root = cyRef.current.getElementById(rootId);
@@ -1437,27 +1456,23 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         // Animate root first (layer 1)
         const rootNodes = cyRef.current.nodes('[layer = 1]');
         rootNodes.forEach((node, i) => {
-          const targetW = node.data('isRoot') ? 150 : 56;
-          const targetH = targetW;
           node.animate({
-            style: { width: targetW, height: targetH, opacity: 1 },
+            style: { opacity: 1 },
             duration: 600,
             delay: i * 100,
-            easing: 'ease-out',
+            easing: 'backOut',
           });
         });
 
-        // Animate layer 2 with stagger and slight bounce simulation via easing
+        // Animate layer 2 with stagger
         setTimeout(() => {
           const layer2Nodes = cyRef.current.nodes('[layer = 2]').sort((a, b) => Math.random() - 0.5); // Random order for organic feel
           layer2Nodes.forEach((node, i) => {
-            const targetW = 56;
-            const targetH = targetW;
             node.animate({
-              style: { width: targetW, height: targetH, opacity: 1 },
+              style: { opacity: 1 },
               duration: 400,
               delay: i * 40,
-              easing: 'ease-out', // Simulates pop with quick ease-out
+              easing: 'backOut', // Pop effect with overshoot
             });
           });
         }, 400);
@@ -1466,42 +1481,15 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         setTimeout(() => {
           const layer3Nodes = cyRef.current.nodes('[layer = 3]').sort((a, b) => Math.random() - 0.5);
           layer3Nodes.forEach((node, i) => {
-            const targetW = 64;
-            const targetH = targetW;
             node.animate({
-              style: { width: targetW, height: targetH, opacity: 1 },
+              style: { opacity: 1 },
               duration: 300,
               delay: i * 30,
-              easing: 'ease-out',
+              easing: 'backOut',
             });
           });
         }, 800);
       });
-
-      cyRef.current.nodeHtmlLabel([
-        {
-          query: 'node',
-          halign: 'center',
-          valign: 'bottom',
-          halignBox: 'center',
-          valignBox: 'bottom',
-          tpl: (data) => {
-            const cluster = detectedClusters.find((c) => c.wallets.some((w) => w.id.toLowerCase() === data.id.toLowerCase()));
-            const risk = cluster?.riskScore || 0;
-            const clusterLabel = data.isRoot ? walletInfo.nametag || 'Unknown' : cluster ? cluster.nametag : 'Unknown';
-            const image = data.isRoot ? walletInfo.image : data.image;
-            const nametag = data.isRoot ? '' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
-            return `
-            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[10px] sm:text-[11px] py-1 px-2 rounded">
-              ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
-              ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
-              <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)}$</div>
-              <div>Risk: ${(risk * 100).toFixed(0)}%</div>
-            </div>
-          `;
-          },
-        },
-      ]);
 
       cyRef.current.nodes().forEach((node) => {
         const wallet = node.data('id').toLowerCase();
@@ -1543,8 +1531,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                 if (ele.data('layer') === 3) return '#F59E0B';
                 return '#666';
               },
-              'width': (ele) => (ele.data('isRoot') ? 150 : ele.data('layer') === 3 ? 64 : 56),
-              'height': (ele) => (ele.data('isRoot') ? 150 : ele.data('layer') === 3 ? 64 : 56),
+              'width': (ele) => (ele.data('isRoot') ? 300 : ele.data('layer') === 3 ? 192 : 168),
+              'height': (ele) => (ele.data('isRoot') ? 300 : ele.data('layer') === 3 ? 192 : 168),
               'text-valign': 'center',
               'text-halign': 'center',
               'font-size': '12px',
@@ -1572,8 +1560,8 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         ],
         layout: {
           name: 'cola',
-          nodeSpacing: (node) => (node.data('layer') === 1 ? 200 : node.data('layer') === 2 ? 120 : 80),
-          edgeLength: (edge) => (edge.data('layer') === 2 ? 150 : 100),
+          nodeSpacing: (node) => (node.data('layer') === 1 ? 150 : node.data('layer') === 2 ? 90 : 60),
+          edgeLength: (edge) => (edge.data('layer') === 2 ? 110 : 75),
           fit: true,
           padding: 50,
           animate: true,
@@ -1583,6 +1571,26 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           maxSimulationTime: 3000, // Reduced for lighter performance
         },
       });
+
+      // Add HTML labels to fallback as well
+      cyRef.current.nodeHtmlLabel([
+        {
+          query: 'node',
+          halign: 'center',
+          valign: 'bottom',
+          halignBox: 'center',
+          valignBox: 'bottom',
+          tpl: (data) => {
+            const nametag = data.isRoot ? walletInfo.nametag || 'Unknown' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
+            return `
+            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[14px] sm:text-[16px] py-1 px-2 rounded">
+              <div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>
+              <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)}$</div>
+            </div>
+          `;
+          },
+        },
+      ]);
     }
   }, [nodes, edges, walletInfo, filterType, walletAddress, fullIncomingData, fullOutgoingData, filterTransactions]);
 
