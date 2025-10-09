@@ -1316,6 +1316,19 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         });
       });
 
+      const layoutOptions = {
+        name: 'cola',
+        nodeSpacing: (node) => (node.data('layer') === 1 ? 200 : node.data('layer') === 2 ? 120 : 80),
+        edgeLength: (edge) => (edge.data('layer') === 2 ? 150 : 100),
+        fit: true,
+        padding: 50,
+        animate: false, // Disable built-in animation for custom control
+        avoidOverlap: true,
+        handleDisconnected: true,
+        maxSimulationTime: 3000, // Reduced for lighter performance
+        compoundSpringLength: () => 100,
+      };
+
       cyRef.current = cytoscape({
         container: containerRef.current,
         elements,
@@ -1350,6 +1363,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
               'border-width': 1,
               'border-color': '#fff',
               'border-opacity': 0.5,
+              'opacity': 0, // Initial opacity for animation
             },
           },
           {
@@ -1365,6 +1379,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
                     ? '#ffffffff'
                     : '#EF4444',
               'curve-style': 'bezier',
+              'opacity': 0.8, // Slightly higher for visibility
             },
           },
           {
@@ -1385,18 +1400,82 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             },
           },
         ],
-        layout: {
-          name: 'cola',
-          nodeSpacing: (node) => (node.data('layer') === 1 ? 200 : node.data('layer') === 2 ? 120 : 80),
-          edgeLength: (edge) => (edge.data('layer') === 2 ? 150 : 100),
-          fit: true,
-          padding: 50,
-          animate: false,
-          avoidOverlap: true,
-          handleDisconnected: true,
-          maxSimulationTime: 4000,
-          compoundSpringLength: () => 100,
-        },
+        layout: layoutOptions,
+      });
+
+      // Set initial small size for pop effect
+      cyRef.current.nodes().forEach((node) => {
+        const targetW = node.data('isRoot') ? 150 : node.data('layer') === 3 ? 64 : 56;
+        const targetH = targetW; // Square nodes
+        node.style({
+          'width': 0,
+          'height': 0,
+          'opacity': 0,
+        });
+      });
+
+      // Run layout manually
+      const layout = cyRef.current.layout(layoutOptions);
+      layout.run();
+
+      // Wait for layout to complete and animate nodes with pop effect (staggered by layer)
+      layout.promise().then(() => {
+        // Center around root
+        const root = cyRef.current.getElementById(rootId);
+        if (root.length) {
+          const rootPos = root.position();
+          cyRef.current.nodes().forEach((node) => {
+            const pos = node.position();
+            node.position({
+              x: pos.x - rootPos.x,
+              y: pos.y - rootPos.y,
+            });
+          });
+          requestAnimationFrame(() => cyRef.current?.fit(50));
+        }
+
+        // Animate root first (layer 1)
+        const rootNodes = cyRef.current.nodes('[layer = 1]');
+        rootNodes.forEach((node, i) => {
+          const targetW = node.data('isRoot') ? 150 : 56;
+          const targetH = targetW;
+          node.animate({
+            style: { width: targetW, height: targetH, opacity: 1 },
+            duration: 600,
+            delay: i * 100,
+            easing: 'ease-out',
+          });
+        });
+
+        // Animate layer 2 with stagger and slight bounce simulation via easing
+        setTimeout(() => {
+          const layer2Nodes = cyRef.current.nodes('[layer = 2]').sort((a, b) => Math.random() - 0.5); // Random order for organic feel
+          layer2Nodes.forEach((node, i) => {
+            const targetW = 56;
+            const targetH = targetW;
+            node.animate({
+              style: { width: targetW, height: targetH, opacity: 1 },
+              duration: 400,
+              delay: i * 40,
+              easing: 'ease-out', // Simulates pop with quick ease-out
+            });
+          });
+        }, 400);
+
+        // Animate layer 3 after layer 2
+        setTimeout(() => {
+          const layer3Nodes = cyRef.current.nodes('[layer = 3]').sort((a, b) => Math.random() - 0.5);
+          layer3Nodes.forEach((node, i) => {
+            const targetW = 64;
+            const targetH = targetW;
+            node.animate({
+              style: { width: targetW, height: targetH, opacity: 1 },
+              duration: 300,
+              delay: i * 30,
+              easing: 'ease-out',
+            });
+          });
+        }, 800);
       });
 
       cyRef.current.nodeHtmlLabel([
@@ -1435,21 +1514,6 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           node.style('border-color', '#FFD700');
           node.style('border-width', 2);
         }
-      });
-
-      cyRef.current.on('layoutstop', () => {
-        const root = cyRef.current.getElementById(rootId);
-        if (root.length) {
-          const rootPos = root.position();
-          cyRef.current.nodes().forEach((node) => {
-            const pos = node.position();
-            node.position({
-              x: pos.x - rootPos.x,
-              y: pos.y - rootPos.y,
-            });
-          });
-        }
-        requestAnimationFrame(() => cyRef.current?.fit());
       });
     } catch (err) {
       logger.error('Error initializing Cytoscape:', err);
@@ -1516,7 +1580,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           animationDuration: 1000,
           avoidOverlap: true,
           handleDisconnected: true,
-          maxSimulationTime: 4000,
+          maxSimulationTime: 3000, // Reduced for lighter performance
         },
       });
     }

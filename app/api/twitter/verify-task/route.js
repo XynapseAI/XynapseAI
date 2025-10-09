@@ -229,9 +229,12 @@ async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
   token = sanitizeInput(token, 2048);
   for (let i = 0; i < retries; i++) {
     try {
-      const { score } = await verifyRecaptcha(token, action, ip);
-      logger.info('reCAPTCHA verification successful', { score, action, ip });
-      return { score };
+      const response = await verifyRecaptcha(token, action, ip);
+      if (!response.success || (response.score !== undefined && response.score < 0.3)) {
+        throw new Error('reCAPTCHA verification failed');
+      }
+      logger.info('reCAPTCHA OK', { ip, score: response.score });
+      return response;
     } catch (error) {
       logger.warn(`reCAPTCHA verification attempt ${i + 1} failed: ${error.message}`, { action, ip });
       if (i === retries - 1) throw error;

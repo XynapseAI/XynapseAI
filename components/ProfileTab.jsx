@@ -2,7 +2,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
@@ -63,7 +63,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const todayIndex = new Date().getDay();
   const [tooltipVisible, setTooltipVisible] = useState(false);
-  
+
   // Sửa: Không reverse ở backend nữa, last7Days = [oldest (7 days ago) ... today (index 6)]
   // Đảo ngược ở frontend để left: past, right: today cho UX tốt
   const displayLast7Days = [...last7Days].reverse(); // Bây giờ index 0 = today (left? Wait no: reverse lại để index 0=oldest left, index6=today right
@@ -93,8 +93,8 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
           <h3 className="text-white font-bold text-[11px]">Daily Check-in Streak</h3>
         </div>
         <div className="relative">
-          <Info 
-            className="w-4 h-4 text-gray-400 cursor-help" 
+          <Info
+            className="w-4 h-4 text-gray-400 cursor-help"
             onMouseEnter={() => setTooltipVisible(true)}
             onMouseLeave={() => setTooltipVisible(false)}
           />
@@ -110,13 +110,12 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
           const dayIndex = getDayIndex(index);
           return (
             <div key={index} className="flex flex-col items-center gap-1">
-              <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold transition-all duration-300 ${
-                checked 
-                  ? 'bg-green-500 text-black shadow-lg shadow-gray-300/25'  
+              <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold transition-all duration-300 ${checked
+                  ? 'bg-green-500 text-black shadow-lg shadow-gray-300/25'
                   : 'bg-white/10 text-white/50 border border-white/20'
-              }`}>
+                }`}>
                 {checked ? (
-                  <Check className="w-3 h-3 text-black" /> 
+                  <Check className="w-3 h-3 text-black" />
                 ) : (
                   days[dayIndex]
                 )}
@@ -126,11 +125,10 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
                 <motion.button
                   onClick={handleCheckinClick}
                   disabled={isLoading || !twitterConnected}
-                  className={`mt-1 px-2 py-1 rounded-full text-[8px] font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${
-                    isLoading || !twitterConnected
-                      ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/70 cursor-not-allowed relative overflow-hidden' 
+                  className={`mt-1 px-2 py-1 rounded-full text-[8px] font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${isLoading || !twitterConnected
+                      ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/70 cursor-not-allowed relative overflow-hidden'
                       : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
-                  }`}
+                    }`}
                   whileHover={{ scale: (isLoading || !twitterConnected) ? 1 : 1.05 }}
                   whileTap={{ scale: (isLoading || !twitterConnected) ? 1 : 0.95 }}
                 >
@@ -189,7 +187,31 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [followedTasks, setFollowedTasks] = useState(new Set()); // Track followed tasks
   const [immediateLoading, setImmediateLoading] = useState(false);
+  const [showV2Modal, setShowV2Modal] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // {type, data}
+  const v2Ref = useRef(null);
   const itemsPerPage = 10;
+
+  const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
+    queryKey: ['csrfToken'],
+    queryFn: async () => {
+      const response = await axios.get('/api/csrf-token', { withCredentials: true });
+      if (!response.data.csrfToken) throw new Error('Empty CSRF token received');
+      return response.data.csrfToken;
+    },
+    retry: 3,
+    retryDelay: 2000,
+    enabled: status === 'authenticated',
+    onError: (err) => {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.error('Error fetching CSRF token:', err);
+      }
+      toast.error('Unable to initialize session security. Please refresh the page and try again.', {
+        position: 'top-center',
+        autoClose: 5000,
+      });
+    },
+  });
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'production') {
@@ -206,6 +228,105 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // reCAPTCHA v2 fallback effect
+  useEffect(() => {
+    let widgetId;
+    if (showV2Modal && v2Ref.current && window?.grecaptcha) {
+      widgetId = grecaptcha.render(v2Ref.current, {
+        sitekey: process.env.NEXT_PUBLIC_RECAPTCHA_V2_SITE_KEY || process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
+        theme: 'dark',
+        callback: (token) => {
+          if (pendingAction) {
+            const commonHeaders = {
+              'x-csrf-token': csrfToken,
+              'Content-Type': 'application/json',
+            };
+            const commonConfig = {
+              headers: commonHeaders,
+              withCredentials: true,
+            };
+            switch (pendingAction.type) {
+              case 'verifyTask':
+                axios.post('/api/twitter/verify-task', {
+                  taskId: pendingAction.data.id,
+                  userId: session?.user?.id,
+                  recaptchaToken: token,
+                }, commonConfig)
+                  .then((response) => {
+                    if (response.data.success) {
+                      toast.success(`${pendingAction.data.description} verified successfully! You've earned ${response.data.pointsEarned} points.`, {
+                        position: 'top-center',
+                        autoClose: 5000,
+                      });
+                      const userCacheKey = `userData-${session?.user?.id}`;
+                      const progressCacheKey = `taskProgress-${session?.user?.id}`;
+                      Promise.all([
+                        clearCache(userCacheKey),
+                        clearCache(progressCacheKey),
+                      ]);
+                      Promise.all([
+                        queryClient.invalidateQueries(['taskProgress', session?.user?.id, csrfToken]),
+                        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
+                      ]);
+                      Promise.all([
+                        queryClient.refetchQueries(['taskProgress', session?.user?.id, csrfToken]),
+                        queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
+                      ]);
+                    } else {
+                      toast.error(response.data.detail || 'Failed to verify task');
+                    }
+                  })
+                  .catch((err) => {
+                    toast.error(err.response?.data?.detail || 'Failed to verify task');
+                  });
+                break;
+              case 'disconnectTwitter':
+                axios.post('/api/twitter/connect', {
+                  action: 'disconnect',
+                  uid: session?.user?.id,
+                  recaptchaToken: token,
+                }, commonConfig)
+                  .then(() => {
+                    toast.success('Twitter account disconnected successfully. Your profile has been updated.', {
+                      position: 'top-center',
+                      autoClose: 5000,
+                    });
+                    clearAllCaches(session?.user?.id);
+                    Promise.all([
+                      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
+                      queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
+                    ]);
+                    Promise.all([
+                      queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
+                      queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
+                    ]);
+                  })
+                  .catch((err) => {
+                    toast.error(err.response?.data?.detail || 'Unable to disconnect Twitter at this time.');
+                  });
+                break;
+              // Add cases for other actions like 'disconnectWallet', 'createCharge' as needed
+              default:
+                toast.error('Unknown action for fallback');
+            }
+          }
+          setShowV2Modal(false);
+          setPendingAction(null);
+          if (widgetId) grecaptcha.reset(widgetId);
+        },
+        'expired-callback': () => {
+          toast.error('reCAPTCHA expired. Please try again.');
+          setShowV2Modal(false);
+          setPendingAction(null);
+          if (widgetId) grecaptcha.reset(widgetId);
+        },
+      });
+    }
+    return () => {
+      if (widgetId) grecaptcha.reset(widgetId);
+    };
+  }, [showV2Modal, pendingAction, csrfToken, session, queryClient]);
+
   const onSignOut = async () => {
     setIsSigningOut(true);
     await handleSignOut();
@@ -216,9 +337,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     const followUrl = `https://x.com/intent/follow?screen_name=XynapseAI`;
     window.open(followUrl, '_blank');
     setFollowedTasks(prev => new Set([...prev, taskId]));
-    toast.info('Redirecting to X. Please follow @XynapseAI and return to verify your action.', { 
+    toast.info('Redirecting to X. Please follow @XynapseAI and return to verify your action.', {
       position: 'top-center',
-      autoClose: 6000 
+      autoClose: 6000
     });
   };
 
@@ -253,27 +374,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     [recaptchaRef]
   );
 
-  const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
-    queryKey: ['csrfToken'],
-    queryFn: async () => {
-      const response = await axios.get('/api/csrf-token', { withCredentials: true });
-      if (!response.data.csrfToken) throw new Error('Empty CSRF token received');
-      return response.data.csrfToken;
-    },
-    retry: 3,
-    retryDelay: 2000,
-    enabled: status === 'authenticated',
-    onError: (err) => {
-      if (process.env.NODE_ENV !== 'production') {
-        logger.error('Error fetching CSRF token:', err);
-      }
-      toast.error('Unable to initialize session security. Please refresh the page and try again.', {
-        position: 'top-center',
-        autoClose: 5000,
-      });
-    },
-  });
-
   const createChargeMutation = useMutation({
     mutationFn: async () => {
       if (!session?.user?.id) throw new Error('Not authenticated');
@@ -304,6 +404,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         response: err.response?.data,
         status: err.response?.status,
       });
+      if (err.response?.status === 403 && err.response?.data?.detail === 'reCAPTCHA verification failed') {
+        setPendingAction({ type: 'createCharge' });
+        setShowV2Modal(true);
+        return;
+      }
       let errorMessage = 'Unable to process payment initiation. Please try again shortly.';
       if (err.message.includes('CSRF token not available')) {
         errorMessage = 'Session security issue detected. Please refresh the page.';
@@ -474,9 +579,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     retryDelay: 2000,
     onError: (err) => {
       logger.error('Leaderboard error:', err);
-      toast.error('Unable to load leaderboard at this time. Please check your connection and try again.', { 
-        position: 'top-center', 
-        autoClose: 5000 
+      toast.error('Unable to load leaderboard at this time. Please check your connection and try again.', {
+        position: 'top-center',
+        autoClose: 5000
       });
     },
   });
@@ -487,9 +592,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     onError: (err) => {
       logger.error('Connect Twitter error:', err);
-      toast.error('Unable to initiate Twitter connection. Please try again or check your network.', { 
-        position: 'top-center', 
-        autoClose: 5000 
+      toast.error('Unable to initiate Twitter connection. Please try again or check your network.', {
+        position: 'top-center',
+        autoClose: 5000
       });
     },
   });
@@ -512,9 +617,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       await clearAllCaches(session.user.id);
     },
     onSuccess: async () => {
-      toast.success('Twitter account disconnected successfully. Your profile has been updated.', { 
-        position: 'top-center', 
-        autoClose: 5000 
+      toast.success('Twitter account disconnected successfully. Your profile has been updated.', {
+        position: 'top-center',
+        autoClose: 5000
       });
       await Promise.all([
         queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
@@ -527,6 +632,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     onError: (err) => {
       logger.error('Disconnect Twitter mutation error:', err);
+      if (err.response?.status === 403 && err.response?.data?.detail === 'reCAPTCHA verification failed') {
+        setPendingAction({ type: 'disconnectTwitter' });
+        setShowV2Modal(true);
+        return;
+      }
       let errorMessage = err.response?.data?.detail || 'Unable to disconnect Twitter at this time.';
       if (err.response?.status === 429) {
         errorMessage = 'Request limit reached. Please wait a moment and try again.';
@@ -565,16 +675,21 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return walletAddress;
     },
     onSuccess: (walletAddress) => {
-      toast.success(`Wallet ${walletAddress.slice(0, 6)}... connected successfully.`, { 
-        position: 'top-center', 
-        autoClose: 5000 
+      toast.success(`Wallet ${walletAddress.slice(0, 6)}... connected successfully.`, {
+        position: 'top-center',
+        autoClose: 5000
       });
       queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      toast.error(`Wallet connection failed: ${err.message}. Please ensure MetaMask is installed and try again.`, { 
-        position: 'top-center', 
-        autoClose: 5000 
+      if (err.response?.status === 403 && err.response?.data?.detail === 'reCAPTCHA verification failed') {
+        setPendingAction({ type: 'connectWallet' });
+        setShowV2Modal(true);
+        return;
+      }
+      toast.error(`Wallet connection failed: ${err.message}. Please ensure MetaMask is installed and try again.`, {
+        position: 'top-center',
+        autoClose: 5000
       });
     },
   });
@@ -597,6 +712,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
+      if (err.response?.status === 403 && err.response?.data?.detail === 'reCAPTCHA verification failed') {
+        setPendingAction({ type: 'disconnectWallet' });
+        setShowV2Modal(true);
+        return;
+      }
       toast.error(`Unable to disconnect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
     },
   });
@@ -626,11 +746,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return response.data;
     },
     onSuccess: async (data, task) => {
-      toast.success(`${task.description} verified successfully! You've earned ${data.pointsEarned} points.`, { 
-        position: 'top-center', 
-        autoClose: 5000 
+      toast.success(`${task.description} verified successfully! You've earned ${data.pointsEarned} points.`, {
+        position: 'top-center',
+        autoClose: 5000
       });
-      
+
       // Clear IndexedDB cache
       const userCacheKey = `userData-${session.user.id}`;
       const progressCacheKey = `taskProgress-${session.user.id}`;
@@ -638,7 +758,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         clearCache(userCacheKey),
         clearCache(progressCacheKey),
       ]);
-      
+
       // Invalidate và refetch
       await Promise.all([
         queryClient.invalidateQueries(['taskProgress', session?.user?.id, csrfToken]),
@@ -651,10 +771,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     },
     onError: (err, variables) => {
       const task = variables?.task || { task_type: 'unknown' };
-      let errorMessage = `Verification unsuccessful for ${task.description || 'this task'}. Please try again.`;
-      
       const detail = err.response?.data?.detail;
-      
+      if (err.response?.status === 403 && detail === 'reCAPTCHA verification failed') {
+        setPendingAction({ type: 'verifyTask', data: task });
+        setShowV2Modal(true);
+        return;
+      }
+      let errorMessage = `Verification unsuccessful for ${task.description || 'this task'}. Please try again.`;
+
       if (err.response?.status === 429) {
         errorMessage = 'X (Twitter) rate limit exceeded. Please wait 1-2 minutes and try again.';
       } else if (err.response?.status === 403) {
@@ -678,7 +802,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       } else {
         errorMessage = detail || err.message || errorMessage;
       }
-      
+
       toast.error(errorMessage, { position: 'top-center', autoClose: 6000 });
     },
   });
@@ -834,7 +958,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 <tbody>
                   {getPaginatedData(tasks, 'tasks').map((task, index) => {
                     const isCompleted = (task.is_daily && (taskProgress?.[task.id]?.completionCount || 0) >= task.max_completions) ||
-                                       (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions);
+                      (!task.is_daily && taskProgress?.[task.id]?.completionCount >= task.max_completions);
                     return (
                       <motion.tr
                         key={task.id}
@@ -900,29 +1024,28 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                   !userData?.twitterHandle ||
                                   isCompleted
                                 }
-                                className={`px-2 py-1 rounded-lg text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg relative overflow-hidden ${
-                                  immediateLoading ||
-                                  verifyTaskMutation.isLoading ||
-                                  !userData?.twitterHandle ||
-                                  isCompleted
-                                    ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
-                                    : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
-                                }`}
-                                whileHover={{
-                                  scale:
-                                    immediateLoading ||
+                                className={`px-2 py-1 rounded-lg text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg relative overflow-hidden ${immediateLoading ||
                                     verifyTaskMutation.isLoading ||
                                     !userData?.twitterHandle ||
                                     isCompleted
+                                    ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
+                                    : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                                  }`}
+                                whileHover={{
+                                  scale:
+                                    immediateLoading ||
+                                      verifyTaskMutation.isLoading ||
+                                      !userData?.twitterHandle ||
+                                      isCompleted
                                       ? 1
                                       : 1.05,
                                 }}
                                 whileTap={{
                                   scale:
                                     immediateLoading ||
-                                    verifyTaskMutation.isLoading ||
-                                    !userData?.twitterHandle ||
-                                    isCompleted
+                                      verifyTaskMutation.isLoading ||
+                                      !userData?.twitterHandle ||
+                                      isCompleted
                                       ? 1
                                       : 0.95,
                                 }}
@@ -1088,9 +1211,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         })
         .then(() => {
           window.history.replaceState({}, document.title, window.location.pathname);
-          toast.success('X (Twitter) connected successfully! Your profile is now updated.', { 
-            position: 'top-center', 
-            autoClose: 5000 
+          toast.success('X (Twitter) connected successfully! Your profile is now updated.', {
+            position: 'top-center',
+            autoClose: 5000
           });
         })
         .catch((err) => {
@@ -1141,6 +1264,38 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar relative"
     >
       <ActionLoadingOverlay isLoading={overallLoading} />
+      <AnimatePresence>
+        {showV2Modal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-gray-900 border border-white/20 rounded-2xl p-6 max-w-md w-full text-center"
+            >
+              <h3 className="text-white font-bold mb-4 text-lg">Verify You're Human</h3>
+              <p className="text-gray-300 mb-4 text-sm">Please complete the security challenge below to continue.</p>
+              <div ref={v2Ref} className="g-recaptcha mb-4"></div>
+              <motion.button
+                onClick={() => {
+                  setShowV2Modal(false);
+                  setPendingAction(null);
+                }}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <ToastContainer
         position="top-center"
         autoClose={5000}
@@ -1159,11 +1314,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="p-2 sm:p-0 rounded-xl relative flex-1 flex flex-col justify-center"> 
+          <div className="p-2 sm:p-0 rounded-xl relative flex-1 flex flex-col justify-center">
             <div className="relative flex-1 flex items-center justify-center min-h-[25vh]">
-              <LoadingOverlay 
-                isLoading={userLoading} 
-                isMobile={isMobile} 
+              <LoadingOverlay
+                isLoading={userLoading}
+                isMobile={isMobile}
                 className="absolute inset-0 z-10 flex items-center justify-center bg-black/50"
               />
               {userError && (
@@ -1330,7 +1485,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                         >
-                           Connect <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" />
+                          Connect <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" />
                         </motion.button>
                       )}
                     </div>
@@ -1381,10 +1536,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 <motion.button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${isActive 
-                    ? 'text-white shadow-lg' 
+                  className={`flex-1 text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${isActive
+                    ? 'text-white shadow-lg'
                     : 'text-white/70 hover:text-neon-blue hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   {tab === 'tasks' && <svg className="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M12 2V12H2C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

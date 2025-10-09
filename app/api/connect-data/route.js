@@ -166,7 +166,7 @@ async function isAllowedOrigin(origin, referer, pathname, ip) {
   try {
     if (!origin && !referer) {
       await trackViolation(ip, 'Missing origin and referer in production');
-      return false; 
+      return false;
     }
 
     if (origin && origin !== 'null') {
@@ -302,10 +302,10 @@ function securityHeaders(csrfToken = null) {
   const nonce = crypto.randomBytes(16).toString('base64');
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'nonce-" + nonce + "'", 
+    "script-src 'self' 'nonce-" + nonce + "'",
     "style-src 'self'",
-    "img-src 'self' data: https:", 
-    "connect-src 'self'", 
+    "img-src 'self' data: https:",
+    "connect-src 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
@@ -442,8 +442,8 @@ export async function GET(request) {
     const recaptchaToken = request.headers.get('x-recaptcha-token');
     if (recaptchaToken && process.env.NODE_ENV !== 'development') {
       try {
-        const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-        if (score < 0.1) {
+        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
+        if (!recaptchaResponse.success || (recaptchaResponse.score !== undefined && recaptchaResponse.score < 0.5)) {
           newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
           await trackViolation(ip, 'reCAPTCHA score too low');
           return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });

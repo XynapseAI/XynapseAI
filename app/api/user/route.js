@@ -425,8 +425,8 @@ export async function GET(request) {
     const recaptchaToken = request.headers.get('x-recaptcha-token');
     if (recaptchaToken && process.env.NODE_ENV !== 'development') {
       try {
-        const { score } = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
-        if (score < 0.5) {
+        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'get_user', ip);
+        if (!recaptchaResponse.success || (recaptchaResponse.score !== undefined && recaptchaResponse.score < 0.5)) {
           newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
           return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });
         }
@@ -583,8 +583,8 @@ export async function POST(request) {
     }
     if (process.env.NODE_ENV !== 'development') {
       try {
-        const { score } = await verifyRecaptcha(recaptchaToken, 'post_user', ip);
-        if (score < 0.1) {
+        const recaptchaResponse = await verifyRecaptcha(recaptchaToken, 'post_user', ip);
+        if (!recaptchaResponse.success || (recaptchaResponse.score !== undefined && recaptchaResponse.score < 0.1)) {
           newCsrfToken = newCsrfToken || await setCSRFToken(ip, userId);
           await trackViolation(ip, 'reCAPTCHA score too low');
           return NextResponse.json({ detail: 'reCAPTCHA verification failed' }, { status: 403, headers: securityHeaders(newCsrfToken) });
