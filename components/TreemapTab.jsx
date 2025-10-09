@@ -166,7 +166,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
 
     return (
       <tr key={`${tx.hash}-${index}`} className="grid grid-cols-[2fr_1fr_1fr] gap-2 border-t border-white/10 hover:bg-white/5 transition-all duration-300">
-        <td className="px-2 py-1 text-white/80 text-[8px] sm:text-[10px] text-left overflow-hidden border-r border-white/5 align-middle">
+        <td className="px-2 py-1 text-white/80 text-[10px] sm:text-[12px] text-left overflow-hidden border-r border-white/5 align-middle">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-1 group relative">
               <svg
@@ -194,7 +194,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
                   loading="lazy"
                 />
               )}
-              <span className="text-[7px] sm:text-[8px] truncate flex-1 min-w-0">
+              <span className="text-[8px] sm:text-[10px] truncate flex-1 min-w-0">
                 {fromNtag.name !== 'Unknown' ? fromNtag.name : truncateAddress(tx.source)}
               </span>
               <motion.button
@@ -228,7 +228,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
                   loading="lazy"
                 />
               )}
-              <span className="text-[7px] sm:text-[8px] truncate flex-1 min-w-0">
+              <span className="text-[8px] sm:text-[10px] truncate flex-1 min-w-0">
                 {toNtag.name !== 'Unknown' ? toNtag.name : truncateAddress(tx.target)}
               </span>
               <motion.button
@@ -251,7 +251,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
             </div>
           </div>
         </td>
-        <td className="px-2 py-1 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden border-r border-white/5 align-middle">
+        <td className="px-2 py-1 text-white/80 text-[10px] sm:text-[12px] text-center overflow-hidden border-r border-white/5 align-middle">
           <div className="flex flex-col items-center justify-center gap-1">
             <img
               src={tokenLogo}
@@ -262,12 +262,12 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
               onError={(e) => (e.target.src = '/icons/default.webp')}
               loading="lazy"
             />
-            <span className="text-[7px] sm:text-[8px] font-semibold text-center truncate w-full">
+            <span className="text-[8px] sm:text-[10px] font-semibold text-center truncate w-full">
               {displayValue} {displaySymbol}
             </span>
           </div>
         </td>
-        <td className="px-2 py-1 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden align-middle">
+        <td className="px-2 py-1 text-white/80 text-[10px] sm:text-[12px] text-center overflow-hidden align-middle">
           <div className="flex flex-col items-center justify-center gap-1">
             <a href={txUrl} target="_blank" rel="noopener noreferrer">
               <img
@@ -280,7 +280,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
                 loading="lazy"
               />
             </a>
-            <span className="text-[6px] sm:text-[7px] text-white/60 text-center truncate w-full">
+            <span className="text-[7px] sm:text-[8px] text-white/60 text-center truncate w-full">
               {formattedTime}
             </span>
           </div>
@@ -315,7 +315,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
           Table: ({ children, ...props }) => (
             <table
               {...props}
-              className="w-full text-[8px] sm:text-[9px] bg-black/5 rounded-xl border-collapse"
+              className="w-full text-[10px] sm:text-[11px] bg-black/5 rounded-xl border-collapse"
               style={{ ...props.style, tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse' }}
             >
               {children}
@@ -341,7 +341,7 @@ const VirtuosoTable = ({ transactions, isMobile, selectedChain, tokenImages, nam
           EmptyPlaceholder: () => (
             <tbody>
               <tr>
-                <td colSpan={3} className="text-center text-white/60 text-[9px] sm:text-[10px] py-4">
+                <td colSpan={3} className="text-center text-white/60 text-[10px] sm:text-[11px] py-4">
                   No transactions available
                 </td>
               </tr>
@@ -1318,15 +1318,16 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
 
       const layoutOptions = {
         name: 'cola',
-        nodeSpacing: (node) => (node.data('layer') === 1 ? 150 : node.data('layer') === 2 ? 90 : 60),
-        edgeLength: (edge) => (edge.data('layer') === 2 ? 110 : 75),
+        nodeSpacing: (node) => (node.data('layer') === 1 ? 100 : node.data('layer') === 2 ? 60 : 40),
+        edgeLength: (edge) => (edge.data('layer') === 2 ? 70 : 50),
         fit: true,
         padding: 50,
         animate: false, // Disable built-in animation for custom control
         avoidOverlap: true,
         handleDisconnected: true,
-        maxSimulationTime: 3000, // Reduced for lighter performance
-        compoundSpringLength: () => 75,
+        maxSimulationTime: 2000, // Reduced for lighter performance
+        compoundSpringLength: () => 50,
+        spacingFactor: 1.2,
       };
 
       cyRef.current = cytoscape({
@@ -1417,7 +1418,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
             const image = data.isRoot ? walletInfo.image : data.image;
             const nametag = data.isRoot ? '' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
             return `
-            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[14px] sm:text-[16px] py-1 px-2 rounded">
+            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[28px] sm:text-[32px] py-1 px-2 rounded">
               ${data.isRoot ? `<div>Cluster: ${clusterLabel}</div>` : `<div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>`}
               ${cluster ? `<div>Cluster: ${cluster.nametag}</div>` : ''}
               <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)}$</div>
@@ -1560,15 +1561,16 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
         ],
         layout: {
           name: 'cola',
-          nodeSpacing: (node) => (node.data('layer') === 1 ? 150 : node.data('layer') === 2 ? 90 : 60),
-          edgeLength: (edge) => (edge.data('layer') === 2 ? 110 : 75),
+          nodeSpacing: (node) => (node.data('layer') === 1 ? 100 : node.data('layer') === 2 ? 60 : 40),
+          edgeLength: (edge) => (edge.data('layer') === 2 ? 70 : 50),
           fit: true,
           padding: 50,
           animate: true,
           animationDuration: 1000,
           avoidOverlap: true,
           handleDisconnected: true,
-          maxSimulationTime: 3000, // Reduced for lighter performance
+          maxSimulationTime: 2000, // Reduced for lighter performance
+          spacingFactor: 1.2,
         },
       });
 
@@ -1583,7 +1585,7 @@ export default function TreemapTab({ initialChain = 'ethereum', initialAddress =
           tpl: (data) => {
             const nametag = data.isRoot ? walletInfo.nametag || 'Unknown' : data.label !== 'Unknown' ? data.label : truncateAddress(data.id);
             return `
-            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[14px] sm:text-[16px] py-1 px-2 rounded">
+            <div class="node-label bg-black/80 border border-white/10 text-white/80 text-[28px] sm:text-[32px] py-1 px-2 rounded">
               <div>${nametag}${data.layer === 3 ? ' (L3)' : ''}</div>
               <div>Tx: ${data.txCount} | Value: ${formatLargeNumber(Number(data.totalValue), 1)}$</div>
             </div>

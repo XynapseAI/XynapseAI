@@ -230,7 +230,7 @@ async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await verifyRecaptcha(token, action, ip);
-      if (!response.success || (response.score !== undefined && response.score < 0.3)) {
+      if (!response.success || (response.score !== undefined && response.score < 1.0)) {
         throw new Error('reCAPTCHA verification failed');
       }
       logger.info('reCAPTCHA OK', { ip, score: response.score });
