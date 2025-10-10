@@ -228,14 +228,14 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // reCAPTCHA v2 fallback effect
+  // reCAPTCHA v2 fallback effect - Updated to handle all pending actions
   useEffect(() => {
     let widgetId;
     if (showV2Modal && v2Ref.current && window?.grecaptcha) {
       widgetId = grecaptcha.render(v2Ref.current, {
         sitekey: process.env.NEXT_PUBLIC_RECAPTCHA_V2_SITE_KEY || process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
         theme: 'dark',
-        callback: (token) => {
+        callback: async (token) => {
           if (pendingAction) {
             const commonHeaders = {
               'x-csrf-token': csrfToken,
@@ -245,48 +245,44 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               headers: commonHeaders,
               withCredentials: true,
             };
-            switch (pendingAction.type) {
-              case 'verifyTask':
-                axios.post('/api/twitter/verify-task', {
-                  taskId: pendingAction.data.id,
-                  userId: session?.user?.id,
-                  recaptchaToken: token,
-                }, commonConfig)
-                  .then((response) => {
-                    if (response.data.success) {
-                      toast.success(`${pendingAction.data.description} verified successfully! You've earned ${response.data.pointsEarned} points.`, {
-                        position: 'top-center',
-                        autoClose: 5000,
-                      });
-                      const userCacheKey = `userData-${session?.user?.id}`;
-                      const progressCacheKey = `taskProgress-${session?.user?.id}`;
-                      Promise.all([
-                        clearCache(userCacheKey),
-                        clearCache(progressCacheKey),
-                      ]);
-                      Promise.all([
-                        queryClient.invalidateQueries(['taskProgress', session?.user?.id, csrfToken]),
-                        queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
-                      ]);
-                      Promise.all([
-                        queryClient.refetchQueries(['taskProgress', session?.user?.id, csrfToken]),
-                        queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
-                      ]);
-                    } else {
-                      toast.error(response.data.detail || 'Failed to verify task');
-                    }
-                  })
-                  .catch((err) => {
-                    toast.error(err.response?.data?.detail || 'Failed to verify task');
-                  });
-                break;
-              case 'disconnectTwitter':
-                axios.post('/api/twitter/connect', {
-                  action: 'disconnect',
-                  uid: session?.user?.id,
-                  recaptchaToken: token,
-                }, commonConfig)
-                  .then(() => {
+            try {
+              switch (pendingAction.type) {
+                case 'verifyTask':
+                  const verifyResponse = await axios.post('/api/twitter/verify-task', {
+                    taskId: pendingAction.data.id,
+                    userId: session?.user?.id,
+                    recaptchaV2Token: token,
+                  }, commonConfig);
+                  if (verifyResponse.data.success) {
+                    toast.success(`${pendingAction.data.description} verified successfully! You've earned ${verifyResponse.data.pointsEarned} points.`, {
+                      position: 'top-center',
+                      autoClose: 5000,
+                    });
+                    const userCacheKey = `userData-${session?.user?.id}`;
+                    const progressCacheKey = `taskProgress-${session?.user?.id}`;
+                    Promise.all([
+                      clearCache(userCacheKey),
+                      clearCache(progressCacheKey),
+                    ]);
+                    Promise.all([
+                      queryClient.invalidateQueries(['taskProgress', session?.user?.id, csrfToken]),
+                      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
+                    ]);
+                    Promise.all([
+                      queryClient.refetchQueries(['taskProgress', session?.user?.id, csrfToken]),
+                      queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
+                    ]);
+                  } else {
+                    toast.error(verifyResponse.data.detail || 'Failed to verify task');
+                  }
+                  break;
+                case 'disconnectTwitter':
+                  const disconnectTwitterResponse = await axios.post('/api/twitter/connect', {
+                    action: 'disconnect',
+                    uid: session?.user?.id,
+                    recaptchaV2Token: token,
+                  }, commonConfig);
+                  if (disconnectTwitterResponse.data.success) {
                     toast.success('Twitter account disconnected successfully. Your profile has been updated.', {
                       position: 'top-center',
                       autoClose: 5000,
@@ -300,14 +296,79 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
                       queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
                     ]);
-                  })
-                  .catch((err) => {
-                    toast.error(err.response?.data?.detail || 'Unable to disconnect Twitter at this time.');
+                  } else {
+                    toast.error(disconnectTwitterResponse.data.detail || 'Unable to disconnect Twitter at this time.');
+                  }
+                  break;
+                case 'disconnectWallet':
+                  const disconnectWalletResponse = await axios.post('/api/verify-wallet', {
+                    action: 'disconnect-wallet',
+                    uid: session?.user?.id,
+                    recaptchaV2Token: token,
+                  }, commonConfig);
+                  if (disconnectWalletResponse.data.success) {
+                    toast.success('Wallet disconnected successfully.', { position: 'top-center', autoClose: 5000 });
+                    queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
+                  } else {
+                    toast.error(disconnectWalletResponse.data.detail || 'Unable to disconnect wallet.');
+                  }
+                  break;
+                case 'createCharge':
+                  const createChargeResponse = await axios.post('/api/coinbase/create-charge', {
+                    userId: session.user.id,
+                    plan: 'premium',
+                  }, {
+                    ...commonConfig,
+                    headers: {
+                      ...commonHeaders,
+                      'X-Recaptcha-V2-Token': token,
+                    },
                   });
-                break;
-              // Add cases for other actions like 'disconnectWallet', 'createCharge' as needed
-              default:
-                toast.error('Unknown action for fallback');
+                  if (createChargeResponse.data.success) {
+                    window.location.href = createChargeResponse.data.hostedUrl;
+                    await queryClient.invalidateQueries(['userData', session?.user?.id]);
+                  } else {
+                    toast.error(createChargeResponse.data.detail || 'Unable to create charge');
+                  }
+                  break;
+                case 'connectWallet':
+                  if (!window.ethereum) {
+                    toast.error('Please install MetaMask to connect your wallet.');
+                    break;
+                  }
+                  try {
+                    const provider = new ethers.BrowserProvider(window.ethereum);
+                    const accounts = await provider.send('eth_requestAccounts', []);
+                    const walletAddress = accounts[0];
+                    const signer = await provider.getSigner();
+                    const message = `Verify wallet for UID: ${session.user.id}`;
+                    const signature = await signer.signMessage(message);
+                    const connectWalletResponse = await axios.post('/api/verify-wallet', {
+                      action: 'verify-wallet',
+                      walletAddress,
+                      signature,
+                      message,
+                      uid: session.user.id,
+                      recaptchaV2Token: token,
+                    }, commonConfig);
+                    if (connectWalletResponse.data.success) {
+                      toast.success(`Wallet ${walletAddress.slice(0, 6)}... connected successfully.`, {
+                        position: 'top-center',
+                        autoClose: 5000
+                      });
+                      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
+                    } else {
+                      toast.error(connectWalletResponse.data.detail || 'Failed to connect wallet');
+                    }
+                  } catch (walletErr) {
+                    toast.error(`Wallet connection failed: ${walletErr.message}`);
+                  }
+                  break;
+                default:
+                  toast.error('Unknown action for fallback');
+              }
+            } catch (err) {
+              toast.error(err.response?.data?.detail || 'Fallback verification failed');
             }
           }
           setShowV2Modal(false);
@@ -1261,7 +1322,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar relative border border-white/10 rounded-2xl shadow-2xl"
+      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-4rem)] overflow-y-auto hide-scrollbar relative border border-white/10 rounded-2xl shadow-2xl"
     >
       <ActionLoadingOverlay isLoading={overallLoading} />
       <AnimatePresence>

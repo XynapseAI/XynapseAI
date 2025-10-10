@@ -7,15 +7,15 @@ const limiter = new Bottleneck({
   minTime: 200,
 });
 
-const verifyWithRateLimit = limiter.wrap(async (token, action, ip) => {
+const verifyWithRateLimit = limiter.wrap(async (token, action, ip, secret) => {
   try {
-    if (!process.env.RECAPTCHA_SECRET_KEY) {
-      throw new Error('Missing RECAPTCHA_SECRET_KEY');
+    if (!secret) {
+      throw new Error('Missing reCAPTCHA secret key');
     }
     const response = await axios.post(
       'https://www.google.com/recaptcha/api/siteverify',
       new URLSearchParams({
-        secret: process.env.RECAPTCHA_SECRET_KEY,
+        secret,
         response: token,
         ...(ip && { remoteip: ip }),
       }),
@@ -42,10 +42,12 @@ export async function verifyRecaptcha(token, action, ip) {
   }
 
   try {
+    const secret = process.env.RECAPTCHA_SECRET_KEY;
     const { success, score, action: recaptchaAction, 'error-codes': errorCodes, hostname } = await verifyWithRateLimit(
       token,
       action,
-      ip
+      ip,
+      secret
     );
     logger.info(
       `reCAPTCHA verification: success=${success}, score=${score}, action=${recaptchaAction}, hostname=${hostname}, error-codes=${
@@ -81,5 +83,39 @@ export async function verifyRecaptcha(token, action, ip) {
       error: error.response?.data,
     });
     throw new Error(`reCAPTCHA verification failed: ${error.message}`);
+  }
+}
+
+export async function verifyRecaptchaV2(token, ip) {
+  if (!token || typeof token !== 'string' || token.length < 10) {
+    throw new Error('Invalid reCAPTCHA v2 token');
+  }
+
+  try {
+    const secret = process.env.RECAPTCHA_V2_SECRET_KEY;
+    const { success, 'error-codes': errorCodes } = await verifyWithRateLimit(
+      token,
+      'v2_fallback',
+      ip,
+      secret
+    );
+    logger.info(
+      `reCAPTCHA v2 verification: success=${success}, error-codes=${errorCodes?.join(', ') || 'none'}`,
+      { ip }
+    );
+
+    if (!success) {
+      const errorMessage = `reCAPTCHA v2 failed: ${errorCodes?.join(', ') || 'Unknown error'}`;
+      throw new Error(errorMessage);
+    }
+
+    return { success: true };
+  } catch (error) {
+    logger.error(`reCAPTCHA v2 verification failed: ${error.message}`, {
+      tokenLength: token?.length,
+      ip,
+      error: error.response?.data,
+    });
+    throw new Error(`reCAPTCHA v2 verification failed: ${error.message}`);
   }
 }

@@ -276,18 +276,14 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           {isMenuOpen && (
             <motion.div
               ref={menuRef}
-              className="fixed top-[5vh] left-1 -translate-x-1/2 w-[80vw] h-[60vh] bg-black/95 backdrop-blur-xs z-[60] flex flex-col p-4 sm:hidden rounded-xl border border-white/10 shadow-2xl shadow-neon-blue/20 overflow-y-auto hide-scrollbar"
+              className="fixed top-[5vh] left-0 -translate-x-1/2 w-[80vw] h-[60vh] bg-black/95 backdrop-blur-xs z-[60] flex flex-col p-4 sm:hidden rounded-xl border border-white/10 shadow-2xl shadow-neon-blue/20 overflow-y-auto hide-scrollbar"
               initial="closed"
               animate="open"
               exit="closed"
               variants={menuVariants}
             >
               <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
-                <img
-                  src="/logos/logo-landscape.webp"
-                  alt="Menu"
-                  className="h-12 w-auto"
-                />
+                <span className="text-white/80 text-lg font-saira font-bold uppercase">Menu</span>
                 <motion.button
                   onClick={() => setIsMenuOpen(false)}
                   className="p-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
@@ -331,7 +327,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div
-              className="fixed inset-0 z-40 sm:hidden bg-black/50 backdrop-blur-sm"
+              className="fixed inset-0 z-40 sm:hidden bg-black/50 rounded-xl"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

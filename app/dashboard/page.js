@@ -570,7 +570,7 @@ export default function Dashboard() {
                     alt="Xynapse Logo"
                     width={120}
                     height={56}
-                    className="h-16 sm:h-18 w-auto object-contain"
+                    className="h-18 sm:h-22 w-auto object-contain"
                     priority
                   />
                 </motion.div>
