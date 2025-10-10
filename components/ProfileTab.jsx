@@ -236,25 +236,66 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         sitekey: process.env.NEXT_PUBLIC_RECAPTCHA_V2_SITE_KEY || process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
         theme: 'dark',
         callback: async (token) => {
-          if (pendingAction) {
-            const commonHeaders = {
-              'x-csrf-token': csrfToken,
-              'Content-Type': 'application/json',
-            };
-            const commonConfig = {
-              headers: commonHeaders,
-              withCredentials: true,
-            };
+          if (!pendingAction || !token) {
+            toast.error('Invalid verification data. Please try again.');
+            setShowV2Modal(false);
+            setPendingAction(null);
+            return;
+          }
+
+          const commonHeaders = {
+            'x-csrf-token': csrfToken,
+            'Content-Type': 'application/json',
+          };
+          const commonConfig = {
+            headers: commonHeaders,
+            withCredentials: true,
+          };
+
+          // Helper to validate and send request
+          const sendValidatedRequest = async (url, body, onSuccess, onErrorMsg) => {
             try {
-              switch (pendingAction.type) {
-                case 'verifyTask':
-                  const verifyResponse = await axios.post('/api/twitter/verify-task', {
+              // Validate required fields
+              if (!body.taskId || typeof body.taskId !== 'string' || body.taskId.length === 0) {
+                throw new Error('Invalid task ID');
+              }
+              if (!body.userId || typeof body.userId !== 'string' || body.userId.length === 0) {
+                throw new Error('Invalid user ID');
+              }
+              if (!token || typeof token !== 'string') {
+                throw new Error('Invalid verification token');
+              }
+
+              const response = await axios.post(url, body, commonConfig);
+              if (response.data.success) {
+                onSuccess(response.data);
+              } else {
+                throw new Error(response.data.detail || 'Request failed');
+              }
+            } catch (err) {
+              toast.error(onErrorMsg || err.message || 'Verification failed unexpectedly');
+              if (process.env.NODE_ENV !== 'production') {
+                logger.error('V2 fallback request error:', { url, body: { ...body, recaptchaV2Token: '[masked]' }, err });
+              }
+            } finally {
+              setShowV2Modal(false);
+              setPendingAction(null);
+              if (widgetId) grecaptcha.reset(widgetId);
+            }
+          };
+
+          try {
+            switch (pendingAction.type) {
+              case 'verifyTask':
+                await sendValidatedRequest(
+                  '/api/twitter/verify-task',
+                  {
                     taskId: pendingAction.data.id,
                     userId: session?.user?.id,
                     recaptchaV2Token: token,
-                  }, commonConfig);
-                  if (verifyResponse.data.success) {
-                    toast.success(`${pendingAction.data.description} verified successfully! You've earned ${verifyResponse.data.pointsEarned} points.`, {
+                  },
+                  (data) => {
+                    toast.success(`${pendingAction.data.description} verified successfully! You've earned ${data.pointsEarned} points.`, {
                       position: 'top-center',
                       autoClose: 5000,
                     });
@@ -272,108 +313,146 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       queryClient.refetchQueries(['taskProgress', session?.user?.id, csrfToken]),
                       queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
                     ]);
-                  } else {
-                    toast.error(verifyResponse.data.detail || 'Failed to verify task');
-                  }
-                  break;
-                case 'disconnectTwitter':
-                  const disconnectTwitterResponse = await axios.post('/api/twitter/connect', {
+                  },
+                  'Task verification failed. Please try the action again.'
+                );
+                break;
+
+              case 'disconnectTwitter':
+                if (!session?.user?.id) {
+                  toast.error('Session expired. Please refresh the page.');
+                  return;
+                }
+                await sendValidatedRequest(
+                  '/api/twitter/connect',
+                  {
                     action: 'disconnect',
-                    uid: session?.user?.id,
+                    uid: session.user.id,
                     recaptchaV2Token: token,
-                  }, commonConfig);
-                  if (disconnectTwitterResponse.data.success) {
+                  },
+                  (data) => {
                     toast.success('Twitter account disconnected successfully. Your profile has been updated.', {
                       position: 'top-center',
                       autoClose: 5000,
                     });
-                    clearAllCaches(session?.user?.id);
+                    clearAllCaches(session.user.id);
                     Promise.all([
-                      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
-                      queryClient.invalidateQueries(['leaderboard', session?.user?.id, csrfToken]),
+                      queryClient.invalidateQueries(['userData', session.user.id, csrfToken]),
+                      queryClient.invalidateQueries(['leaderboard', session.user.id, csrfToken]),
                     ]);
                     Promise.all([
-                      queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
-                      queryClient.refetchQueries(['leaderboard', session?.user?.id, csrfToken]),
+                      queryClient.refetchQueries(['userData', session.user.id, csrfToken]),
+                      queryClient.refetchQueries(['leaderboard', session.user.id, csrfToken]),
                     ]);
-                  } else {
-                    toast.error(disconnectTwitterResponse.data.detail || 'Unable to disconnect Twitter at this time.');
-                  }
-                  break;
-                case 'disconnectWallet':
-                  const disconnectWalletResponse = await axios.post('/api/verify-wallet', {
+                  },
+                  'Unable to disconnect Twitter. Please try again.'
+                );
+                break;
+
+              case 'disconnectWallet':
+                if (!session?.user?.id) {
+                  toast.error('Session expired. Please refresh the page.');
+                  return;
+                }
+                await sendValidatedRequest(
+                  '/api/verify-wallet',
+                  {
                     action: 'disconnect-wallet',
-                    uid: session?.user?.id,
+                    uid: session.user.id,
                     recaptchaV2Token: token,
-                  }, commonConfig);
-                  if (disconnectWalletResponse.data.success) {
+                  },
+                  (data) => {
                     toast.success('Wallet disconnected successfully.', { position: 'top-center', autoClose: 5000 });
-                    queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
+                    queryClient.invalidateQueries(['userData', session.user.id, csrfToken]);
+                  },
+                  'Unable to disconnect wallet. Please try again.'
+                );
+                break;
+
+              case 'createCharge':
+                if (!session?.user?.id) {
+                  toast.error('Session expired. Please refresh the page.');
+                  return;
+                }
+                await axios.post('/api/coinbase/create-charge', {
+                  userId: session.user.id,
+                  plan: 'premium',
+                }, {
+                  ...commonConfig,
+                  headers: {
+                    ...commonHeaders,
+                    'X-Recaptcha-V2-Token': token,
+                  },
+                }).then((response) => {
+                  if (response.data.success) {
+                    window.location.href = response.data.hostedUrl;
+                    queryClient.invalidateQueries(['userData', session.user.id]);
                   } else {
-                    toast.error(disconnectWalletResponse.data.detail || 'Unable to disconnect wallet.');
+                    throw new Error(response.data.detail || 'Unable to create charge');
                   }
-                  break;
-                case 'createCharge':
-                  const createChargeResponse = await axios.post('/api/coinbase/create-charge', {
-                    userId: session.user.id,
-                    plan: 'premium',
-                  }, {
-                    ...commonConfig,
-                    headers: {
-                      ...commonHeaders,
-                      'X-Recaptcha-V2-Token': token,
-                    },
-                  });
-                  if (createChargeResponse.data.success) {
-                    window.location.href = createChargeResponse.data.hostedUrl;
-                    await queryClient.invalidateQueries(['userData', session?.user?.id]);
-                  } else {
-                    toast.error(createChargeResponse.data.detail || 'Unable to create charge');
-                  }
-                  break;
-                case 'connectWallet':
-                  if (!window.ethereum) {
-                    toast.error('Please install MetaMask to connect your wallet.');
-                    break;
-                  }
-                  try {
-                    const provider = new ethers.BrowserProvider(window.ethereum);
-                    const accounts = await provider.send('eth_requestAccounts', []);
-                    const walletAddress = accounts[0];
-                    const signer = await provider.getSigner();
-                    const message = `Verify wallet for UID: ${session.user.id}`;
-                    const signature = await signer.signMessage(message);
-                    const connectWalletResponse = await axios.post('/api/verify-wallet', {
+                }).catch((err) => {
+                  toast.error(err.response?.data?.detail || 'Unable to create charge');
+                }).finally(() => {
+                  setShowV2Modal(false);
+                  setPendingAction(null);
+                  if (widgetId) grecaptcha.reset(widgetId);
+                });
+                break;
+
+              case 'connectWallet':
+                if (!window.ethereum) {
+                  toast.error('Please install MetaMask to connect your wallet.');
+                  setShowV2Modal(false);
+                  setPendingAction(null);
+                  return;
+                }
+                if (!session?.user?.id) {
+                  toast.error('Session expired. Please refresh the page.');
+                  return;
+                }
+                try {
+                  const provider = new ethers.BrowserProvider(window.ethereum);
+                  const accounts = await provider.send('eth_requestAccounts', []);
+                  const walletAddress = accounts[0];
+                  const signer = await provider.getSigner();
+                  const message = `Verify wallet for UID: ${session.user.id}`;
+                  const signature = await signer.signMessage(message);
+                  await sendValidatedRequest(
+                    '/api/verify-wallet',
+                    {
                       action: 'verify-wallet',
                       walletAddress,
                       signature,
                       message,
                       uid: session.user.id,
                       recaptchaV2Token: token,
-                    }, commonConfig);
-                    if (connectWalletResponse.data.success) {
+                    },
+                    (data) => {
                       toast.success(`Wallet ${walletAddress.slice(0, 6)}... connected successfully.`, {
                         position: 'top-center',
                         autoClose: 5000
                       });
-                      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
-                    } else {
-                      toast.error(connectWalletResponse.data.detail || 'Failed to connect wallet');
-                    }
-                  } catch (walletErr) {
-                    toast.error(`Wallet connection failed: ${walletErr.message}`);
-                  }
-                  break;
-                default:
-                  toast.error('Unknown action for fallback');
-              }
-            } catch (err) {
-              toast.error(err.response?.data?.detail || 'Fallback verification failed');
+                      queryClient.invalidateQueries(['userData', session.user.id, csrfToken]);
+                    },
+                    'Failed to connect wallet. Please try again.'
+                  );
+                } catch (walletErr) {
+                  toast.error(`Wallet connection failed: ${walletErr.message}`);
+                  setShowV2Modal(false);
+                  setPendingAction(null);
+                }
+                break;
+
+              default:
+                toast.error('Unknown action for fallback');
             }
+          } catch (err) {
+            toast.error('Fallback verification setup failed');
+          } finally {
+            setShowV2Modal(false);
+            setPendingAction(null);
+            if (widgetId) grecaptcha.reset(widgetId);
           }
-          setShowV2Modal(false);
-          setPendingAction(null);
-          if (widgetId) grecaptcha.reset(widgetId);
         },
         'expired-callback': () => {
           toast.error('reCAPTCHA expired. Please try again.');
