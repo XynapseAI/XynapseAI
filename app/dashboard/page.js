@@ -533,7 +533,7 @@ export default function Dashboard() {
 
   return (
     <CurrencyProvider>
-      <div className="h-screen w-screen bg-black text-white overflow-x-hidden flex flex-col">
+      <div className="h-screen w-screen bg-gradient-to-br from-black to-gray-900 backdrop-blur-xs text-white overflow-x-hidden flex flex-col">
         <Header
           activeTab={activeTab}
           setActiveTab={setActiveTab}

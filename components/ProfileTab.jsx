@@ -86,7 +86,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
   };
 
   return (
-    <div className="w-full bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-white/15 rounded-xl p-3 mb-2 shadow-lg shadow-black/20">
+    <div className="w-full bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/15 rounded-xl p-3 mb-2 shadow-lg shadow-black/20">
       <div className="flex justify-between items-center mb-3">
         <div className="flex items-center gap-1">
           <Calendar className="w-4 h-4 text-blue-400" />
@@ -111,7 +111,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
           return (
             <div key={index} className="flex flex-col items-center gap-1">
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold transition-all duration-300 ${checked
-                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-black shadow-lg shadow-gray-300/25'
+                ? 'bg-gradient-to-r from-white to-gray-500 text-black shadow-lg shadow-gray-300/25'
                 : 'bg-gradient-to-br from-white/10 to-white/5 text-white/50 border border-white/20'
                 }`}>
                 {checked ? (
@@ -127,10 +127,10 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
                   disabled={isLoading || !twitterConnected}
                   className={`mt-1 px-2 py-1 rounded-full text-[9px] font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${isLoading || !twitterConnected
                     ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/70 cursor-not-allowed relative overflow-hidden'
-                    : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
+                    : 'bg-black/80 border border-white text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
                     }`}
-                  whileHover={{ scale: (isLoading || !twitterConnected) ? 1 : 1.05 }}
-                  whileTap={{ scale: (isLoading || !twitterConnected) ? 1 : 0.95 }}
+                  whileHover={{ scale: (isLoading || !twitterConnected) ? 1 : 1 }}
+                  whileTap={{ scale: (isLoading || !twitterConnected) ? 1 : 1 }}
                 >
                   {isLoading ? (
                     <BlinkingDots />
@@ -236,6 +236,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         sitekey: process.env.NEXT_PUBLIC_RECAPTCHA_V2_SITE_KEY || process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
         theme: 'dark',
         callback: async (token) => {
+          if (process.env.NODE_ENV !== 'production') {
+            logger.info('v2 callback token received', { tokenLength: token?.length || 0, pendingActionType: pendingAction?.type });
+          }
           if (!pendingAction || !token) {
             toast.error('Invalid verification data. Please try again.');
             setShowV2Modal(false);
@@ -254,6 +257,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
           // Helper to validate and send request
           const sendValidatedRequest = async (url, body, onSuccess, onErrorMsg) => {
+            const maskedBody = { ...body, recaptchaV2Token: body.recaptchaV2Token ? '[v2-token]' : undefined };
+            if (process.env.NODE_ENV !== 'production') {
+              logger.info('Sending v2 request', { url, maskedBody });
+            }
             try {
               // Validate required fields
               if (!body.taskId || typeof body.taskId !== 'string' || body.taskId.length === 0) {
@@ -486,33 +493,32 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   let isExecuting = false;
   const debouncedExecuteRecaptcha = useCallback(
     async (action, retries = 3) => {
-      if (!recaptchaRef.current) {
-        if (process.env.NODE_ENV !== 'production') {
-          logger.error('reCAPTCHA ref is null');
-        }
-        throw new Error('reCAPTCHA not initialized');
+      if (typeof window === 'undefined' || !window.grecaptcha) {
+        throw new Error('reCAPTCHA v3 not loaded');
       }
+      await new Promise((resolve) => window.grecaptcha.ready(resolve)); // Đảm bảo ready
+
       for (let i = 0; i < retries; i++) {
         try {
-          await recaptchaRef.current.reset();
-          const token = await Promise.race([
-            recaptchaRef.current.executeAsync(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
-          ]);
-          if (!token) throw new Error('Empty reCAPTCHA token');
+          // Execute v3 với action
+          const token = await window.grecaptcha.execute(
+            process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
+            { action }
+          );
+          if (!token) throw new Error('Empty reCAPTCHA v3 token');
           return token;
         } catch (error) {
           if (process.env.NODE_ENV !== 'production') {
-            logger.error(`reCAPTCHA attempt ${i + 1} failed for ${action}: ${error.message}`);
+            logger.error(`reCAPTCHA v3 attempt ${i + 1} failed for ${action}: ${error.message}`);
           }
           if (i === retries - 1) {
-            throw new Error(`reCAPTCHA failed after ${retries} attempts: ${error.message}`);
+            throw new Error(`reCAPTCHA v3 failed after ${retries} attempts: ${error.message}`);
           }
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
     },
-    [recaptchaRef]
+    []
   );
 
   const createChargeMutation = useMutation({
@@ -1088,7 +1094,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <>
             <div className="overflow-x-auto relative z-0">
               <table className="w-full text-[9px] sm:text-[11px] bg-gradient-to-br from-black/70 to-gray-900/70 rounded-b-xl table-fixed">
-                <thead className="bg-gradient-to-r from-black/80 to-gray-900/80">
+                <thead className="bg-black/80">
                   <tr>
                     <th className={`${isMobile ? 'w-[50%]' : 'w-[60%]'} px-3 py-3 text-white text-left font-semibold truncate border-b border-white/15`}>Task</th>
                     <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-3 text-white text-left font-semibold truncate border-b border-white/15`}>Points</th>
@@ -1286,7 +1292,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <>
             <div className="overflow-x-auto relative z-0">
               <table className="w-full text-[9px] sm:text-[11px] bg-gradient-to-br from-black/70 to-gray-900/70 rounded-b-xl table-fixed">
-                <thead className="bg-gradient-to-r from-black/80 to-gray-900/80">
+                <thead className="bg-black/80">
                   <tr>
                     <th className={`${isMobile ? 'w-[20%]' : 'w-[15%]'} px-3 py-3 text-white text-left font-semibold truncate align-middle border-b border-white/15`}>Rank</th>
                     <th className={`${isMobile ? 'w-[60%]' : 'w-[65%]'} px-3 py-3 text-white text-left font-semibold truncate align-middle border-b border-white/15`}>User</th>
@@ -1401,7 +1407,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-4rem)] overflow-y-auto hide-scrollbar relative border border-white/10 rounded-2xl shadow-2xl"
+      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar relative shadow-2xl"
     >
       <ActionLoadingOverlay isLoading={overallLoading} />
       <AnimatePresence>
@@ -1419,7 +1425,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               className="bg-gradient-to-br from-gray-900/95 to-black/95 border border-white/20 rounded-2xl p-6 max-w-md w-full text-center shadow-2xl"
             >
               <h3 className="text-white font-bold mb-4 text-lg">Verify You're Human</h3>
-              <p className="text-gray-300 mb-4 text-sm">Please complete the security challenge below to continue.</p>
+              <p className="text-gray-500 mb-4 text-sm">Please complete the security challenge below to continue.</p>
               <div ref={v2Ref} className="g-recaptcha mb-4"></div>
               <motion.button
                 onClick={() => {
@@ -1454,7 +1460,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="p-2 sm:p-0 rounded-xl relative flex-1 flex flex-col justify-center border border-white/10 shadow-lg">
+          <div className="p-2 sm:p-0 rounded-xl relative flex-1 flex flex-col justify-center">
             <div className="relative flex-1 flex items-center justify-center min-h-[25vh]">
               <LoadingOverlay
                 isLoading={userLoading}
@@ -1619,13 +1625,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     </div>
                     <div className="rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20">
                       <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                        <Coins className="w-4 h-4 text-yellow-400" />
+                        <Coins className="w-4 h-4 text-white" />
                         Points
                       </h5>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
                           <span className="text-white/70">Total Points:</span>
-                          <span className="text-neon-blue text-base font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+                          <span className="text-neon-blue/80 text-base font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
                             {userData?.points || 0}
                           </span>
                         </div>
@@ -1657,7 +1663,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <div className="border-b border-white/15 bg-gradient-to-r from-black/30 to-gray-900/30 flex h-[32px] sm:h-[40px] overflow-hidden">
+          <div className="border-b border-white/15 bg-black/50 rounded-t-xl flex h-[32px] sm:h-[40px] overflow-hidden">
             {['tasks', 'leaderboard'].map((tab) => {
               const isActive = activeTab === tab;
               return (
@@ -1665,7 +1671,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`flex-1 text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${isActive
-                    ? 'text-white shadow-lg bg-gradient-to-r from-white/10 to-white/5'
+                    ? 'text-white shadow-lg'
                     : 'text-white/70 hover:text-neon-blue hover:bg-white/5'
                     }`}
                 >

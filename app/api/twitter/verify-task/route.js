@@ -232,13 +232,13 @@ async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await verifyRecaptcha(token, action, ip);
-      if (!response.success || (response.score !== undefined && response.score < 1.0)) {
+      if (!response.success) {  // Chỉ check success, verifyRecaptcha đã handle score
         throw new Error('reCAPTCHA verification failed');
       }
       logger.info('reCAPTCHA OK', { ip, score: response.score });
       return response;
     } catch (error) {
-      logger.warn(`reCAPTCHA verification attempt ${i + 1} failed: ${error.message}`, { action, ip });
+      logger.warn(`reCAPTCHA verification attempt ${i + 1} failed: ${error.message}`);
       if (i === retries - 1) throw error;
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
@@ -397,13 +397,16 @@ export async function POST(request) {
   if (process.env.NODE_ENV !== 'development') {
     try {
       let recaptchaResponse;
+      logger.info('reCAPTCHA tokens check', { hasV3: !!recaptchaToken, hasV2: !!recaptchaV2Token, ip });
       if (recaptchaV2Token) {
+        logger.info('Using v2 path', { ip });
         const v2Response = await verifyRecaptchaV2(recaptchaV2Token, ip);
         if (!v2Response.success) {
           throw new Error('reCAPTCHA v2 verification failed');
         }
-        recaptchaResponse = { success: true, score: 1.0 }; // Fake score for v2
+        recaptchaResponse = { success: true, score: 1.0 };
       } else if (recaptchaToken) {
+        logger.info('Using v3 path', { ip });
         recaptchaResponse = await verifyRecaptchaWithRetry(recaptchaToken, 'verify_task', ip);
       } else {
         throw new Error('Missing reCAPTCHA token');
