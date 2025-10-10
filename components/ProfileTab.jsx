@@ -8,7 +8,7 @@ import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check } from 'lucide-react';
+import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
 import { ethers } from 'ethers';
 import { ToastContainer, toast } from 'react-toastify';
@@ -49,7 +49,7 @@ const ActionLoadingOverlay = ({ isLoading }) => (
         transition={{ duration: 0.2 }}
         className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
       >
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 flex flex-col items-center gap-3 max-w-sm mx-4">
+        <div className="bg-gradient-to-br from-black/90 to-gray-900/90 backdrop-blur-xl border border-white/20 rounded-xl p-6 flex flex-col items-center gap-3 max-w-sm mx-4">
           <Spinner className="h-8 w-8" color="text-blue-400" />
           <span className="text-white text-sm font-medium text-center">Verifying your action...</span>
         </div>
@@ -86,11 +86,11 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
   };
 
   return (
-    <div className="w-full bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-white/10 rounded-xl p-2 mb-2">
-      <div className="flex justify-between items-center mb-2">
+    <div className="w-full bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-white/15 rounded-xl p-3 mb-2 shadow-lg shadow-black/20">
+      <div className="flex justify-between items-center mb-3">
         <div className="flex items-center gap-1">
-          <Calendar className="w-3 h-3 text-blue-400" />
-          <h3 className="text-white font-bold text-[11px]">Daily Check-in</h3>
+          <Calendar className="w-4 h-4 text-blue-400" />
+          <h3 className="text-white font-bold text-[12px]">Daily Check-in</h3>
         </div>
         <div className="relative">
           <Info
@@ -99,7 +99,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
             onMouseLeave={() => setTooltipVisible(false)}
           />
           {tooltipVisible && (
-            <div className="absolute top-full right-0 mt-1 p-2 bg-black/90 border border-white/20 rounded-lg text-[10px] sm:text-[11px] text-white/90 z-50 w-48">
+            <div className="absolute top-full right-0 mt-1 p-2 bg-gradient-to-br from-black/95 to-gray-900/95 border border-white/20 rounded-lg text-[10px] sm:text-[11px] text-white/90 z-50 w-48 shadow-lg">
               Maintain a 7-day streak to earn double points (20 pts/day) và unlock exclusive rewards! Breaking the streak resets to normal (10 pts).
             </div>
           )}
@@ -110,9 +110,9 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
           const dayIndex = getDayIndex(index);
           return (
             <div key={index} className="flex flex-col items-center gap-1">
-              <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold transition-all duration-300 ${checked
-                  ? 'bg-green-500 text-black shadow-lg shadow-gray-300/25'
-                  : 'bg-white/10 text-white/50 border border-white/20'
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold transition-all duration-300 ${checked
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-black shadow-lg shadow-gray-300/25'
+                  : 'bg-gradient-to-br from-white/10 to-white/5 text-white/50 border border-white/20'
                 }`}>
                 {checked ? (
                   <Check className="w-3 h-3 text-black" />
@@ -125,7 +125,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
                 <motion.button
                   onClick={handleCheckinClick}
                   disabled={isLoading || !twitterConnected}
-                  className={`mt-1 px-2 py-1 rounded-full text-[8px] font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${isLoading || !twitterConnected
+                  className={`mt-1 px-2 py-1 rounded-full text-[9px] font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${isLoading || !twitterConnected
                       ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/70 cursor-not-allowed relative overflow-hidden'
                       : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
                     }`}
@@ -149,9 +149,9 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
         })}
       </div>
       {streak >= 7 && (
-        <div className="flex items-center justify-center mt-2 gap-1">
-          <Flame className="w-3 h-3 text-orange-500 animate-pulse" />
-          <span className="text-orange-400 font-bold text-xs">Streak: {streak} days - Double Points Active!</span>
+        <div className="flex items-center justify-center mt-3 gap-1">
+          <Flame className="w-4 h-4 text-orange-500 animate-pulse" />
+          <span className="text-orange-400 font-bold text-sm">Streak: {streak} days - Double Points Active!</span>
         </div>
       )}
     </div>
@@ -162,7 +162,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
       <motion.div
-        className="bg-black/95 backdrop-blur-xl border border-white/20 p-3 rounded-2xl text-white text-sm font-medium shadow-2xl"
+        className="bg-gradient-to-br from-black/95 to-gray-900/95 backdrop-blur-xl border border-white/20 p-3 rounded-2xl text-white text-sm font-medium shadow-2xl"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.2 }}
@@ -867,7 +867,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       return (
         <motion.tr
           key={user.id}
-          className={`border-t border-white/10 hover:bg-white/5 transition-all duration-300`}
+          className={`border-t border-white/15 hover:bg-gradient-to-r hover:from-white/5 hover:to-gray-800/5 transition-all duration-300`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: index * 0.02 }}
@@ -883,7 +883,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 alt={user.googleName || user.twitterHandle || 'User Avatar'}
                 width={isMobile ? 14 : 16}
                 height={isMobile ? 14 : 16}
-                className="rounded-sm border border-white/10 mr-2 object-cover"
+                className="rounded-sm border border-white/15 mr-2 object-cover shadow-md"
               />
               <div className="flex items-center gap-1 truncate ml-1">
                 <span>{user.googleName || user.twitterHandle || 'Anonymous'}</span>
@@ -893,7 +893,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   </a>
                 )}
                 {isCurrentUser && (
-                  <span className="ml-2 text-[7px] sm:text-[8px] font-medium text-neon-blue px-2 py-0.4 sm:0.5 rounded-full border border-neon-blue/50 bg-white/5">
+                  <span className="ml-2 text-[7px] sm:text-[8px] font-medium text-neon-blue px-2 py-0.4 sm:0.5 rounded-full border border-neon-blue/50 bg-gradient-to-r from-neon-blue/10 to-neon-blue/5">
                     You
                   </span>
                 )}
@@ -919,7 +919,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render Tasks Section - Removed small connect prompt (now handled in tab content)
   const renderTasksSection = useCallback(
     () => (
-      <div className="relative bg-gradient-to-br from-black/80 to-gray-900/80 rounded-b-xl overflow-y-auto min-h-[calc(45vh)] sm:min-h-[calc(45vh)] max-h-[calc(50vh)] sm:max-h-[calc(45vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
+      <div className="relative bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl overflow-y-auto min-h-[calc(45vh)] sm:min-h-[calc(45vh)] max-h-[calc(50vh)] sm:max-h-[calc(45vh-4rem)] hide-scrollbar border border-white/15 shadow-2xl shadow-black/30">
         <LoadingOverlay
           isLoading={tasksLoading || taskProgressLoading}
           isMobile={isMobile}
@@ -934,7 +934,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center relative z-0"
+            className="text-red-400 text-[9px] sm:text-[11px] p-2 bg-gradient-to-br from-red-500/10 to-red-600/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center relative z-0 shadow-lg"
           >
             Error: {tasksError.message}
           </motion.div>
@@ -947,12 +947,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         {tasks?.length > 0 && (
           <>
             <div className="overflow-x-auto relative z-0">
-              <table className="w-full text-[9px] sm:text-[11px] bg-black/50 rounded-b-xl table-fixed">
-                <thead className="bg-black/50">
+              <table className="w-full text-[9px] sm:text-[11px] bg-gradient-to-br from-black/70 to-gray-900/70 rounded-b-xl table-fixed">
+                <thead className="bg-gradient-to-r from-black/80 to-gray-900/80">
                   <tr>
-                    <th className={`${isMobile ? 'w-[50%]' : 'w-[60%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Task</th>
-                    <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Points</th>
-                    <th className={`${isMobile ? 'w-[30%]' : 'w-[20%]'} px-3 py-2 text-white text-left font-semibold truncate`}>Action</th>
+                    <th className={`${isMobile ? 'w-[50%]' : 'w-[60%]'} px-3 py-3 text-white text-left font-semibold truncate border-b border-white/15`}>Task</th>
+                    <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-3 text-white text-left font-semibold truncate border-b border-white/15`}>Points</th>
+                    <th className={`${isMobile ? 'w-[30%]' : 'w-[20%]'} px-3 py-3 text-white text-left font-semibold truncate border-b border-white/15`}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -962,12 +962,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     return (
                       <motion.tr
                         key={task.id}
-                        className="border-t border-white/10 hover:bg-white/10 transition-all duration-300"
+                        className="border-t border-white/15 hover:bg-gradient-to-r hover:from-white/10 hover:to-gray-800/10 transition-all duration-300"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.02 }}
                       >
-                        <td className="px-3 py-2 text-white truncate">
+                        <td className="px-3 py-3 text-white truncate">
                           {task.task_type === 'follow' ? (
                             <span className="flex items-center gap-1">
                               <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 text-blue-400" />
@@ -1002,13 +1002,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-neon-green font-semibold">+{task.points}</td>
-                        <td className="px-3 py-2 text-white">
+                        <td className="px-3 py-3 text-neon-green font-semibold">+{task.points}</td>
+                        <td className="px-3 py-3 text-white">
                           <div className="flex gap-2">
                             {task.task_type === 'follow' && !followedTasks.has(task.id) ? (
                               <motion.button
                                 onClick={() => handleFollow(task.id)}
-                                className="px-2 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-[9px] sm:text-[11px] font-medium hover:from-blue-700 hover:to-purple-700 shadow-lg transition-all duration-300 flex items-center gap-1"
+                                className="px-2 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-[9px] sm:text-[11px] font-medium hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-blue-500/25 transition-all duration-300 flex items-center gap-1"
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                               >
@@ -1028,7 +1028,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                     verifyTaskMutation.isLoading ||
                                     !userData?.twitterHandle ||
                                     isCompleted
-                                    ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
+                                    ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/50 cursor-not-allowed opacity-50'
                                     : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
                                   }`}
                                 whileHover={{
@@ -1082,11 +1082,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               </table>
             </div>
             {tasks?.length > itemsPerPage && (
-              <div className="flex justify-end gap-2 mt-2 p-2 bg-white/5 rounded-xl relative z-0">
+              <div className="flex justify-end gap-2 mt-2 p-2 bg-gradient-to-r from-white/10 to-gray-800/10 rounded-xl relative z-0 shadow-inner">
                 <motion.button
                   onClick={() => handlePageChange('tasks', currentPage.tasks - 1)}
                   disabled={currentPage.tasks === 1}
-                  className={`px-2 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-lg ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+                  className={`px-2 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/15 bg-gradient-to-r from-white/10 to-white/5 rounded-lg ${currentPage.tasks === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
                   whileHover={{ scale: currentPage.tasks === 1 ? 1 : 1.05 }}
                   whileTap={{ scale: currentPage.tasks === 1 ? 1 : 0.95 }}
                 >
@@ -1098,7 +1098,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 <motion.button
                   onClick={() => handlePageChange('tasks', currentPage.tasks + 1)}
                   disabled={currentPage.tasks === getTotalPages(tasks)}
-                  className={`px-2 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-lg ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+                  className={`px-2 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/15 bg-gradient-to-r from-white/10 to-white/5 rounded-lg ${currentPage.tasks === getTotalPages(tasks) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
                   whileHover={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 1.05 }}
                   whileTap={{ scale: currentPage.tasks === getTotalPages(tasks) ? 1 : 0.95 }}
                 >
@@ -1116,7 +1116,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render Leaderboard Section
   const renderLeaderboardSection = useCallback(
     () => (
-      <div className="relative bg-gradient-to-br from-black/5 to-gray-900/5 rounded-b-xl overflow-y-auto min-h-[calc(45vh)] sm:min-h-[calc(45vh)] max-h-[calc(50vh)] sm:max-h-[calc(45vh-4rem)] hide-scrollbar border border-white/10 shadow-2xl">
+      <div className="relative bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl overflow-y-auto min-h-[calc(45vh)] sm:min-h-[calc(45vh)] max-h-[calc(50vh)] sm:max-h-[calc(45vh-4rem)] hide-scrollbar border border-white/15 shadow-2xl shadow-black/30">
         <LoadingOverlay
           isLoading={leaderboardLoading}
           isMobile={isMobile}
@@ -1126,12 +1126,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-red-400 text-[9px] sm:text-[11px] p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center gap-2 relative z-0"
+            className="text-red-400 text-[9px] sm:text-[11px] p-4 bg-gradient-to-br from-red-500/10 to-red-600/10 border border-red-500/20 rounded-lg text-center h-full flex items-center justify-center gap-2 relative z-0 shadow-lg"
           >
             Error: {leaderboardError.message}
             <button
               onClick={() => window.location.reload()}
-              className="px-2 py-1 bg-neon-blue text-black rounded-lg text-[9px] sm:text-[11px] font-medium hover:bg-blue-600 transition-colors"
+              className="px-2 py-1 bg-gradient-to-r from-neon-blue to-blue-600 text-black rounded-lg text-[9px] sm:text-[11px] font-medium hover:from-blue-500 hover:to-blue-700 transition-colors shadow-lg"
             >
               Retry
             </button>
@@ -1145,12 +1145,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         {!leaderboardLoading && rankings?.length > 0 && (
           <>
             <div className="overflow-x-auto relative z-0">
-              <table className="w-full text-[9px] sm:text-[11px] bg-black/10 rounded-b-xl table-fixed">
-                <thead className="bg-black/50">
+              <table className="w-full text-[9px] sm:text-[11px] bg-gradient-to-br from-black/70 to-gray-900/70 rounded-b-xl table-fixed">
+                <thead className="bg-gradient-to-r from-black/80 to-gray-900/80">
                   <tr>
-                    <th className={`${isMobile ? 'w-[20%]' : 'w-[15%]'} px-3 py-3 text-white text-left font-semibold truncate align-middle`}>Rank</th>
-                    <th className={`${isMobile ? 'w-[60%]' : 'w-[65%]'} px-3 py-3 text-white text-left font-semibold truncate align-middle`}>User</th>
-                    <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-3 text-white text-right font-semibold truncate align-middle`}>Points</th>
+                    <th className={`${isMobile ? 'w-[20%]' : 'w-[15%]'} px-3 py-3 text-white text-left font-semibold truncate align-middle border-b border-white/15`}>Rank</th>
+                    <th className={`${isMobile ? 'w-[60%]' : 'w-[65%]'} px-3 py-3 text-white text-left font-semibold truncate align-middle border-b border-white/15`}>User</th>
+                    <th className={`${isMobile ? 'w-[20%]' : 'w-[20%]'} px-3 py-3 text-white text-right font-semibold truncate align-middle border-b border-white/15`}>Points</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1160,11 +1160,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               </table>
             </div>
             {rankings?.length > itemsPerPage && (
-              <div className="flex justify-end gap-2 mt-2 p-2 bg-white/5 rounded-xl relative z-0">
+              <div className="flex justify-end gap-2 mt-2 p-2 bg-gradient-to-r from-white/10 to-gray-800/10 rounded-xl relative z-0 shadow-inner">
                 <motion.button
                   onClick={() => handlePageChange('leaderboard', currentPage.leaderboard - 1)}
                   disabled={currentPage.leaderboard === 1}
-                  className={`px-2 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-lg ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+                  className={`px-2 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/15 bg-gradient-to-r from-white/10 to-white/5 rounded-lg ${currentPage.leaderboard === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
                   whileHover={{ scale: currentPage.leaderboard === 1 ? 1 : 1.05 }}
                   whileTap={{ scale: currentPage.leaderboard === 1 ? 1 : 0.95 }}
                 >
@@ -1176,7 +1176,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 <motion.button
                   onClick={() => handlePageChange('leaderboard', currentPage.leaderboard + 1)}
                   disabled={currentPage.leaderboard === getTotalPages(rankings)}
-                  className={`px-2 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/10 bg-white/5 rounded-lg ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
+                  className={`px-2 py-1 text-[9px] sm:text-[11px] font-medium text-white border border-white/15 bg-gradient-to-r from-white/10 to-white/5 rounded-lg ${currentPage.leaderboard === getTotalPages(rankings) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-neon-blue/20'}`}
                   whileHover={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 1.05 }}
                   whileTap={{ scale: currentPage.leaderboard === getTotalPages(rankings) ? 1 : 0.95 }}
                 >
@@ -1243,7 +1243,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-black/80 rounded-2xl flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar"
+        className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-2 bg-gradient-to-br from-black/90 to-gray-900/90 rounded-2xl flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar border border-white/15 shadow-2xl"
       >
         <LoadingOverlay isLoading={true} isMobile={isMobile} />
       </motion.div>
@@ -1261,7 +1261,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar relative"
+      className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar relative border border-white/10 rounded-2xl shadow-2xl"
     >
       <ActionLoadingOverlay isLoading={overallLoading} />
       <AnimatePresence>
@@ -1276,7 +1276,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-gray-900 border border-white/20 rounded-2xl p-6 max-w-md w-full text-center"
+              className="bg-gradient-to-br from-gray-900/95 to-black/95 border border-white/20 rounded-2xl p-6 max-w-md w-full text-center shadow-2xl"
             >
               <h3 className="text-white font-bold mb-4 text-lg">Verify You're Human</h3>
               <p className="text-gray-300 mb-4 text-sm">Please complete the security challenge below to continue.</p>
@@ -1286,7 +1286,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   setShowV2Modal(false);
                   setPendingAction(null);
                 }}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors"
+                className="px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-500 hover:to-gray-600 transition-colors shadow-lg"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -1307,25 +1307,25 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           borderRadius: '16px',
         }}
       />
-      <div className="flex flex-col flex-1 gap-1">
+      <div className="flex flex-col flex-1 gap-2">
         <motion.div
           className="min-h-[25vh] flex flex-col relative"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="p-2 sm:p-0 rounded-xl relative flex-1 flex flex-col justify-center">
+          <div className="p-2 sm:p-0 rounded-xl relative flex-1 flex flex-col justify-center border border-white/10 shadow-lg">
             <div className="relative flex-1 flex items-center justify-center min-h-[25vh]">
               <LoadingOverlay
                 isLoading={userLoading}
                 isMobile={isMobile}
-                className="absolute inset-0 z-10 flex items-center justify-center bg-black/50"
+                className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 rounded-xl"
               />
               {userError && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-red-400 text-[8px] sm:text-[10px] p-2 text-center mb-2 bg-red-500/10 rounded-lg border border-red-500/20 relative z-0 w-full"
+                  className="text-red-400 text-[8px] sm:text-[10px] p-2 text-center mb-2 bg-gradient-to-br from-red-500/10 to-red-600/10 rounded-lg border border-red-500/20 relative z-0 w-full shadow-lg"
                 >
                   Error: {userError.message}
                 </motion.div>
@@ -1336,7 +1336,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <motion.button
                       onClick={onSignOut}
                       disabled={isSigningOut}
-                      className={`p-1 rounded-lg bg-white/10 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/30'}`}
+                      className={`p-1 rounded-lg bg-gradient-to-r from-white/10 to-white/5 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/30'}`}
                       whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
                       whileTap={{ scale: isSigningOut ? 1 : 0.9 }}
                       aria-label="Sign out"
@@ -1372,9 +1372,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     </h4>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-[9px] sm:text-[11px]">
-                    <div className="rounded-xl p-3 border border-white/20 shadow-lg">
+                    <div className="rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20">
                       <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                        <User className="w-3 h-3" />
+                        <User className="w-4 h-4" />
                         Account Info
                       </h5>
                       <div className="space-y-2">
@@ -1383,19 +1383,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           <div className="flex items-center gap-1">
                             {userData.tier === 'Basic' ? (
                               <>
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="w-3 h-3 text-white/80"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                  <circle cx="12" cy="7" r="4" />
-                                </svg>
+                                <Shield className="w-3 h-3 text-white/80" />
                                 <span className="text-white/80">{userData.tier}</span>
                               </>
                             ) : (
@@ -1418,9 +1406,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         </div>
                       </div>
                     </div>
-                    <div className="rounded-xl p-3 border border-white/20 shadow-lg relative">
+                    <div className="rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 relative">
                       <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                        <img src="/logos/icon3.webp" alt="Social Logo" className="w-5 h-5" />
+                        <Users className="w-4 h-4" />
                         Social
                       </h5>
                       <div className="space-y-2">
@@ -1449,7 +1437,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                 <motion.button
                                   onClick={() => disconnectTwitterMutation.mutate()}
                                   disabled={disconnectTwitterMutation.isLoading}
-                                  className={`p-1 rounded-lg bg-white/10 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/40'}`}
+                                  className={`p-1 rounded-lg bg-gradient-to-r from-white/10 to-white/5 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/40'}`}
                                   whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
                                   whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
                                   title="Disconnect X"
@@ -1481,7 +1469,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       {!userData.twitterHandle && (
                         <motion.button
                           onClick={() => connectTwitterMutation.mutate()}
-                          className="absolute bottom-2 right-2 px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-white/5 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg"
+                          className="absolute bottom-2 right-2 px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-gradient-to-r from-white/10 to-white/5 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg"
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                         >
@@ -1489,9 +1477,9 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         </motion.button>
                       )}
                     </div>
-                    <div className="rounded-xl p-3 border border-white/20 shadow-lg">
+                    <div className="rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20">
                       <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                        <Crown className="w-3 h-3 text-yellow-400" />
+                        <Coins className="w-4 h-4 text-yellow-400" />
                         Points
                       </h5>
                       <div className="space-y-2">
@@ -1524,12 +1512,12 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
 
         {/* Tab Navigation - Enhanced with moving indicator */}
         <motion.div
-          className="border border-white/10 rounded-xl bg-gradient-to-r from-black/30 to-gray-900/30 flex flex-col shadow-xl relative"
+          className="border border-white/15 rounded-xl bg-gradient-to-r from-black/40 to-gray-900/40 flex flex-col shadow-xl relative"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <div className="border-b border-white/10 bg-black/20 flex h-[32px] sm:h-[40px] overflow-hidden">
+          <div className="border-b border-white/15 bg-gradient-to-r from-black/30 to-gray-900/30 flex h-[32px] sm:h-[40px] overflow-hidden">
             {['tasks', 'leaderboard'].map((tab) => {
               const isActive = activeTab === tab;
               return (
@@ -1537,7 +1525,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`flex-1 text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${isActive
-                    ? 'text-white shadow-lg'
+                    ? 'text-white shadow-lg bg-gradient-to-r from-white/10 to-white/5'
                     : 'text-white/70 hover:text-neon-blue hover:bg-white/5'
                     }`}
                 >
@@ -1563,7 +1551,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           {/* Sửa: Connect prompt - thêm min-h để cân đối với tab content, border shadow */}
           {!userData?.twitterHandle ? (
             <motion.div
-              className="flex-1 flex items-center justify-center p-6 min-h-[calc(45vh-4rem)] bg-gradient-to-br from-black/80 to-gray-900/80 rounded-b-xl border-t border-white/10 shadow-2xl" // Thêm min-h, shadow
+              className="flex-1 flex items-center justify-center p-6 min-h-[calc(45vh-4rem)] bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl border-t border-white/15 shadow-2xl shadow-black/30" // Thêm min-h, shadow
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -1574,7 +1562,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                 </p>
                 <motion.button
                   onClick={() => connectTwitterMutation.mutate()}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-neon-blue border border-neon-blue/50 bg-white/10 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg flex items-center justify-center gap-2"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-neon-blue border border-neon-blue/50 bg-gradient-to-r from-white/10 to-white/5 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg flex items-center justify-center gap-2"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >

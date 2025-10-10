@@ -164,8 +164,29 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   const menuVariants = {
-    closed: { x: '-100%', opacity: 0, transition: { duration: 0.3, ease: 'easeInOut' } },
-    open: { x: 0, opacity: 1, transition: { duration: 0.3, ease: 'easeInOut' } },
+    closed: { 
+      y: '-100%', 
+      opacity: 0, 
+      scaleY: 0.8,
+      transition: { 
+        duration: 0.3, 
+        ease: 'easeInOut',
+        scaleY: { duration: 0.2, ease: 'easeOut' }
+      } 
+    },
+    open: { 
+      y: 0, 
+      opacity: 1, 
+      scaleY: 1,
+      transition: { 
+        duration: 0.4, 
+        ease: 'easeOut',
+        type: 'spring',
+        stiffness: 300,
+        damping: 25,
+        scaleY: { duration: 0.3, ease: 'easeOut' }
+      } 
+    },
   };
 
   const renderMatrixText = (text) => {
@@ -180,102 +201,46 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   return (
-    <header className="h-[5vh] sm:h-[6vh] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xl border border-white/10 rounded-b-xl flex justify-between items-center sticky top-0 z-50 font-saira shadow-2xl">
-      <div className="block sm:hidden px-4">
-        <motion.button
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="w-6 h-6 flex flex-col justify-center items-center relative"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          aria-label="Toggle menu"
-        >
-          <motion.span
-            className="w-6 h-0.5 bg-white/80 rounded-full mb-1 origin-center"
-            variants={lineVariants}
-            animate={isMenuOpen ? 'openTop' : 'closed'}
-            transition={{ duration: 0.2 }}
-          />
-          <motion.span
-            className="w-6 h-0.5 bg-white/80 rounded-full mb-1 origin-center"
-            variants={lineVariants}
-            animate={isMenuOpen ? 'hidden' : 'closed'}
-            transition={{ duration: 0.2 }}
-          />
-          <motion.span
-            className="w-6 h-0.5 bg-white/80 rounded-full origin-center"
-            variants={lineVariants}
-            animate={isMenuOpen ? 'openBottom' : 'closed'}
-            transition={{ duration: 0.2 }}
-          />
-        </motion.button>
-      </div>
-
-      <div className="hidden sm:flex justify-center items-end flex-grow h-full px-4">
-        <AnimatePresence mode="wait">
-          <motion.nav
-            className="flex items-center space-x-1"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
+    <header className="sticky top-4 z-50 w-full m-2">
+      <div className="w-[80%] mx-auto h-[4vh] sm:h-[5vh] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm border border-white/20 rounded-xl flex justify-between items-center px-4 font-saira shadow-2xl">
+        <div className="block sm:hidden">
+          <motion.button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="w-6 h-6 flex flex-col justify-center items-center relative"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            aria-label="Toggle menu"
           >
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <motion.button
-                  key={tab.id}
-                  onClick={() => handleTabClick(tab.id)}
-                  onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
-                  className={`group relative flex items-center gap-1 px-3 py-2 text-[10px] font-semibold uppercase rounded-lg transition-all duration-300 ease-out border border-transparent ${isActive
-                      ? 'text-neon-blue'
-                      : 'text-white/70 hover:text-white'
-                    }`}
-                >
-                  <Icon className={`w-3 h-3 flex-shrink-0 ${isActive ? 'text-white/80' : 'text-white/70 group-hover:text-white'}`} />
-                  <span className={`matrix-text relative overflow-hidden ${isActive ? 'text-white/80' : ''}`}>
-                    {renderMatrixText(tab.label)}
-                  </span>
-                  {isActive && (
-                    <motion.div
-                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white to-emerald-400 rounded-full"
-                      layoutId="activeTabIndicator"
-                      transition={{ duration: 0.3, ease: 'easeOut' }}
-                    />
-                  )}
-                </motion.button>
-              );
-            })}
-          </motion.nav>
-        </AnimatePresence>
-      </div>
+            <motion.span
+              className="w-6 h-0.5 bg-white/80 rounded-full mb-1 origin-center"
+              variants={lineVariants}
+              animate={isMenuOpen ? 'openTop' : 'closed'}
+              transition={{ duration: 0.2 }}
+            />
+            <motion.span
+              className="w-6 h-0.5 bg-white/80 rounded-full mb-1 origin-center"
+              variants={lineVariants}
+              animate={isMenuOpen ? 'hidden' : 'closed'}
+              transition={{ duration: 0.2 }}
+            />
+            <motion.span
+              className="w-6 h-0.5 bg-white/80 rounded-full origin-center"
+              variants={lineVariants}
+              animate={isMenuOpen ? 'openBottom' : 'closed'}
+              transition={{ duration: 0.2 }}
+            />
+          </motion.button>
+        </div>
 
-      <AnimatePresence>
-        {isMenuOpen && (
-          <motion.div
-            ref={menuRef}
-            className="fixed top-0 left-0 w-full max-w-[60vw] h-[100vh] bg-black/95 backdrop-blur-xs z-50 flex flex-col p-4 sm:hidden rounded-r-xl border-r border-white/10 shadow-2xl shadow-neon-blue/20 overflow-y-auto hide-scrollbar"
-            initial="closed"
-            animate="open"
-            exit="closed"
-            variants={menuVariants}
-          >
-            <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
-              <img
-                src="/logos/logo-landscape.webp"
-                alt="Menu"
-                className="h-12 w-auto"
-              />
-              <motion.button
-                onClick={() => setIsMenuOpen(false)}
-                className="p-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <Power className="w-4 h-4 text-white/70" />
-              </motion.button>
-            </div>
-            <nav className="flex flex-col space-y-2 flex-grow">
+        <div className="hidden sm:flex justify-center items-end flex-grow h-full px-0">
+          <AnimatePresence mode="wait">
+            <motion.nav
+              className="flex items-center space-x-1"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+            >
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -284,13 +249,15 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                     key={tab.id}
                     onClick={() => handleTabClick(tab.id)}
                     onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
-                    className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent ${isActive
+                    className={`group relative flex items-center gap-1 px-3 py-2 text-[10px] font-semibold uppercase rounded-lg transition-all duration-300 ease-out border border-transparent ${isActive
                         ? 'text-neon-blue'
-                        : 'text-white/70 hover:text-white hover:bg-white/5 hover:border-white/5'
+                        : 'text-white/70 hover:text-white'
                       }`}
                   >
-                    <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white/70' : 'text-white/70'}`} />
-                    <span className={`matrix-text flex-1 ${isActive ? 'text-white/70' : ''}`}>{renderMatrixText(tab.label)}</span>
+                    <Icon className={`w-3 h-3 flex-shrink-0 ${isActive ? 'text-white/80' : 'text-white/70 group-hover:text-white'}`} />
+                    <span className={`matrix-text relative overflow-hidden ${isActive ? 'text-white/80' : ''}`}>
+                      {renderMatrixText(tab.label)}
+                    </span>
                     {isActive && (
                       <motion.div
                         className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white to-emerald-400 rounded-full"
@@ -301,23 +268,79 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
                   </motion.button>
                 );
               })}
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.nav>
+          </AnimatePresence>
+        </div>
 
-      <AnimatePresence>
-        {isMenuOpen && (
-          <motion.div
-            className="fixed inset-0 z-40 sm:hidden bg-black/50 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            onClick={() => setIsMenuOpen(false)}
-          />
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div
+              ref={menuRef}
+              className="fixed top-[5vh] left-1 -translate-x-1/2 w-[80vw] h-[60vh] bg-black/95 backdrop-blur-xs z-[60] flex flex-col p-4 sm:hidden rounded-xl border border-white/10 shadow-2xl shadow-neon-blue/20 overflow-y-auto hide-scrollbar"
+              initial="closed"
+              animate="open"
+              exit="closed"
+              variants={menuVariants}
+            >
+              <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
+                <img
+                  src="/logos/logo-landscape.webp"
+                  alt="Menu"
+                  className="h-12 w-auto"
+                />
+                <motion.button
+                  onClick={() => setIsMenuOpen(false)}
+                  className="p-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <Power className="w-4 h-4 text-white/70" />
+                </motion.button>
+              </div>
+              <nav className="flex flex-col space-y-2 flex-grow">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <motion.button
+                      key={tab.id}
+                      onClick={() => handleTabClick(tab.id)}
+                      onMouseEnter={(e) => handleMouseEnter(e, tab.label)}
+                      className={`relative w-full flex items-center gap-2 px-3 py-3 text-sm font-semibold transition-all duration-300 rounded-lg border border-transparent ${isActive
+                          ? 'text-neon-blue'
+                          : 'text-white/70 hover:text-white hover:bg-white/5 hover:border-white/5'
+                        }`}
+                    >
+                      <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white/70' : 'text-white/70'}`} />
+                      <span className={`matrix-text flex-1 ${isActive ? 'text-white/70' : ''}`}>{renderMatrixText(tab.label)}</span>
+                      {isActive && (
+                        <motion.div
+                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white to-emerald-400 rounded-full"
+                          layoutId="activeTabIndicator"
+                          transition={{ duration: 0.3, ease: 'easeOut' }}
+                        />
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div
+              className="fixed inset-0 z-40 sm:hidden bg-black/50 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              onClick={() => setIsMenuOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+      </div>
 
       <style jsx>{`
         .hide-scrollbar::-webkit-scrollbar {

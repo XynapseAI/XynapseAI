@@ -51,7 +51,7 @@ const isValidNametagImage = (image) => {
 };
 
 const SUPPORTED_CHAINS = [
-  '1', '56', '10', '130', '137', '5000', '42161', '43114', '59144', '534352', '7777777', 'solana', 'tron', 'bitcoin',
+  '1', '56', '10', '130', '137', '5000', '42161', '59144', '534352', 'solana', 'tron', 'bitcoin',
 ];
 
 const isValidDate = (date) => {
