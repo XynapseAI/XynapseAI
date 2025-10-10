@@ -1,11 +1,10 @@
-// app\api\coinbase\create-charge\route.js
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { createClient } from 'redis';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { logger } from '../../../../utils/serverLogger';
-import { verifyRecaptcha, verifyRecaptchaV2 } from '../../../../utils/verifyRecaptcha';
+import { verifyRecaptcha } from '../../../../utils/verifyRecaptcha';
 import { requireAuth } from '../../middleware/auth';
 
 // --- IMPROVEMENT: Singleton pattern for Prisma Client in serverless environments ---
@@ -182,7 +181,7 @@ function securityHeaders(origin) {
     if (origin && allowedOrigins.includes(origin)) {
         headers['Access-Control-Allow-Origin'] = origin;
         headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS';
-        headers['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRF-Token, X-Recaptcha-Token, X-Recaptcha-V2-Token';
+        headers['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRF-Token, X-Recaptcha-Token';
         headers['Access-Control-Allow-Credentials'] = 'true';
     }
     return headers;
@@ -230,28 +229,17 @@ export async function POST(req) {
             return NextResponse.json({ detail: 'Invalid security token. Please refresh the page.' }, { status: 403, headers });
         }
         
-        // Updated reCAPTCHA verification to support v2 fallback
+        const recaptchaToken = req.headers.get('x-recaptcha-token');
         if (process.env.NODE_ENV !== 'development') {
-          const recaptchaToken = req.headers.get('x-recaptcha-token') || req.headers.get('x-recaptcha-v2-token');
-          if (!recaptchaToken) {
-            await trackViolation(ip, 'Missing reCAPTCHA token');
-            return NextResponse.json({ detail: 'reCAPTCHA verification is required.' }, { status: 400, headers });
-          }
-          let recaptchaResponse;
-          if (req.headers.get('x-recaptcha-v2-token')) {
-            recaptchaResponse = await verifyRecaptchaV2(recaptchaToken, ip);
-            if (!recaptchaResponse.success) {
-              await trackViolation(ip, 'reCAPTCHA v2 verification failed');
-              return NextResponse.json({ detail: 'reCAPTCHA verification failed.' }, { status: 403, headers });
+            if (!recaptchaToken) {
+                await trackViolation(ip, 'Missing reCAPTCHA token');
+                return NextResponse.json({ detail: 'reCAPTCHA verification is required.' }, { status: 400, headers });
             }
-          } else {
             const { score } = await verifyRecaptcha(recaptchaToken, 'create_charge', ip);
             if (score < 0.7) { // Stricter score for payment actions
-              await trackViolation(ip, `reCAPTCHA score too low: ${score}`);
-              return NextResponse.json({ detail: 'reCAPTCHA verification failed.' }, { status: 403, headers });
+                await trackViolation(ip, `reCAPTCHA score too low: ${score}`);
+                return NextResponse.json({ detail: 'reCAPTCHA verification failed.' }, { status: 403, headers });
             }
-            recaptchaResponse = { success: true, score };
-          }
         }
         
         const body = await req.json();

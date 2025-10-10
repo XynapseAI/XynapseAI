@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { logger } from '@/utils/serverLogger';
 import { createClient } from 'redis';
 import { PrismaClient } from '@prisma/client';
-import { verifyRecaptcha, verifyRecaptchaV2 } from '@/utils/verifyRecaptcha';
+import { verifyRecaptcha } from '@/utils/verifyRecaptcha';
 import { z } from 'zod';
 import cookie from 'cookie';
 import crypto from 'crypto';
@@ -44,12 +44,10 @@ const securityHeaders = {
   'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
 };
 
-// Cập nhật schema để hỗ trợ cả v3 và v2
 const schema = z.object({
   taskId: z.string().max(100),
   userId: z.string().max(100),
-  recaptchaToken: z.string().max(2048).optional(),
-  recaptchaV2Token: z.string().max(2048).optional(),
+  recaptchaToken: z.string().max(2048),
 });
 
 function sanitizeInput(input, maxLength = 2048) {
@@ -232,13 +230,13 @@ async function verifyRecaptchaWithRetry(token, action, ip, retries = 2) {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await verifyRecaptcha(token, action, ip);
-      if (!response.success) {  // Chỉ check success, verifyRecaptcha đã handle score
+      if (!response.success || (response.score !== undefined && response.score < 0.3)) {
         throw new Error('reCAPTCHA verification failed');
       }
       logger.info('reCAPTCHA OK', { ip, score: response.score });
       return response;
     } catch (error) {
-      logger.warn(`reCAPTCHA verification attempt ${i + 1} failed: ${error.message}`);
+      logger.warn(`reCAPTCHA verification attempt ${i + 1} failed: ${error.message}`, { action, ip });
       if (i === retries - 1) throw error;
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
@@ -386,34 +384,18 @@ export async function POST(request) {
     return NextResponse.json({ detail: 'Invalid input data', errors: err.errors }, { status: 400, headers: corsHeaders });
   }
 
-  const { taskId, userId, recaptchaToken, recaptchaV2Token } = parsedBody;
+  const { taskId, userId, recaptchaToken } = parsedBody;
   if (userId !== session.user.id) {
     await trackViolation(ip, 'Access denied: Invalid user ID');
     logger.warn(`Access denied: userId=${userId}, sessionUserId=${session.user.id}`, { ip });
     return NextResponse.json({ detail: 'Access denied: Invalid user ID' }, { status: 403, headers: corsHeaders });
   }
 
-  // Enforce reCAPTCHA for critical mutation - hỗ trợ cả v3 và v2
+  // Enforce reCAPTCHA for critical mutation
   if (process.env.NODE_ENV !== 'development') {
     try {
-      let recaptchaResponse;
-      logger.info('reCAPTCHA tokens check', { hasV3: !!recaptchaToken, hasV2: !!recaptchaV2Token, ip });
-      if (recaptchaV2Token) {
-        logger.info('Using v2 path', { ip });
-        const v2Response = await verifyRecaptchaV2(recaptchaV2Token, ip);
-        if (!v2Response.success) {
-          throw new Error('reCAPTCHA v2 verification failed');
-        }
-        recaptchaResponse = { success: true, score: 1.0 };
-      } else if (recaptchaToken) {
-        logger.info('Using v3 path', { ip });
-        recaptchaResponse = await verifyRecaptchaWithRetry(recaptchaToken, 'verify_task', ip);
-      } else {
-        throw new Error('Missing reCAPTCHA token');
-      }
-      if (!recaptchaResponse.success || (recaptchaResponse.score !== undefined && recaptchaResponse.score < 0.3)) {
-        throw new Error('reCAPTCHA verification failed');
-      }
+      logger.info('Attempting reCAPTCHA verification', { token: recaptchaToken.substring(0, 8) + '...', action: 'verify_task', ip });
+      await verifyRecaptchaWithRetry(recaptchaToken, 'verify_task', ip);
     } catch (error) {
       await trackViolation(ip, `reCAPTCHA verification failed: ${error.message}`);
       logger.error(`reCAPTCHA verification failed: ${error.message}`, { ip });

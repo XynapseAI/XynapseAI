@@ -8,7 +8,7 @@ import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users } from 'lucide-react';
+import { Trophy, Award, Flame, User, Crown, Calendar, Info, Check, Coins, Shield, Users, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
 import { ethers } from 'ethers';
 import { ToastContainer, toast } from 'react-toastify';
@@ -99,7 +99,7 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
             onMouseLeave={() => setTooltipVisible(false)}
           />
           {tooltipVisible && (
-            <div className="absolute top-full right-0 mt-1 p-2 bg-gradient-to-br from-black/95 to-gray-900/95 border border-white/20 rounded-lg text-[10px] sm:text-[11px] text-white/90 z-50 w-48 shadow-lg">
+            <div className="absolute top-full right-0 mt-1 p-2 bg-gradient-to-br from-black/95 to-gray-900/95 border border-white/20 rounded-lg text-[10px] sm:text-[11px] text-gray-500 z-50 w-48 shadow-lg">
               Maintain a 7-day streak to earn double points (20 pts/day) và unlock exclusive rewards! Breaking the streak resets to normal (10 pts).
             </div>
           )}
@@ -187,9 +187,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [followedTasks, setFollowedTasks] = useState(new Set()); // Track followed tasks
   const [immediateLoading, setImmediateLoading] = useState(false);
-  const [showV2Modal, setShowV2Modal] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null); // {type, data}
-  const v2Ref = useRef(null);
+  const [showEmail, setShowEmail] = useState(false);
   const itemsPerPage = 10;
 
   const { data: csrfToken, isLoading: csrfLoading, error: csrfError } = useQuery({
@@ -228,252 +226,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // reCAPTCHA v2 fallback effect - Updated to handle all pending actions
-  useEffect(() => {
-    let widgetId;
-    if (showV2Modal && v2Ref.current && window?.grecaptcha) {
-      widgetId = grecaptcha.render(v2Ref.current, {
-        sitekey: process.env.NEXT_PUBLIC_RECAPTCHA_V2_SITE_KEY || process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
-        theme: 'dark',
-        callback: async (token) => {
-          if (process.env.NODE_ENV !== 'production') {
-            logger.info('v2 callback token received', { tokenLength: token?.length || 0, pendingActionType: pendingAction?.type });
-          }
-          if (!pendingAction || !token) {
-            toast.error('Invalid verification data. Please try again.');
-            setShowV2Modal(false);
-            setPendingAction(null);
-            return;
-          }
-
-          const commonHeaders = {
-            'x-csrf-token': csrfToken,
-            'Content-Type': 'application/json',
-          };
-          const commonConfig = {
-            headers: commonHeaders,
-            withCredentials: true,
-          };
-
-          // Helper to validate and send request
-          const sendValidatedRequest = async (url, body, onSuccess, onErrorMsg) => {
-            const maskedBody = { ...body, recaptchaV2Token: body.recaptchaV2Token ? '[v2-token]' : undefined };
-            if (process.env.NODE_ENV !== 'production') {
-              logger.info('Sending v2 request', { url, maskedBody });
-            }
-            try {
-              // Validate required fields
-              if (!body.taskId || typeof body.taskId !== 'string' || body.taskId.length === 0) {
-                throw new Error('Invalid task ID');
-              }
-              if (!body.userId || typeof body.userId !== 'string' || body.userId.length === 0) {
-                throw new Error('Invalid user ID');
-              }
-              if (!token || typeof token !== 'string') {
-                throw new Error('Invalid verification token');
-              }
-
-              const response = await axios.post(url, body, commonConfig);
-              if (response.data.success) {
-                onSuccess(response.data);
-              } else {
-                throw new Error(response.data.detail || 'Request failed');
-              }
-            } catch (err) {
-              toast.error(onErrorMsg || err.message || 'Verification failed unexpectedly');
-              if (process.env.NODE_ENV !== 'production') {
-                logger.error('V2 fallback request error:', { url, body: { ...body, recaptchaV2Token: '[masked]' }, err });
-              }
-            } finally {
-              setShowV2Modal(false);
-              setPendingAction(null);
-              if (widgetId) grecaptcha.reset(widgetId);
-            }
-          };
-
-          try {
-            switch (pendingAction.type) {
-              case 'verifyTask':
-                await sendValidatedRequest(
-                  '/api/twitter/verify-task',
-                  {
-                    taskId: pendingAction.data.id,
-                    userId: session?.user?.id,
-                    recaptchaV2Token: token,
-                  },
-                  (data) => {
-                    toast.success(`${pendingAction.data.description} verified successfully! You've earned ${data.pointsEarned} points.`, {
-                      position: 'top-center',
-                      autoClose: 5000,
-                    });
-                    const userCacheKey = `userData-${session?.user?.id}`;
-                    const progressCacheKey = `taskProgress-${session?.user?.id}`;
-                    Promise.all([
-                      clearCache(userCacheKey),
-                      clearCache(progressCacheKey),
-                    ]);
-                    Promise.all([
-                      queryClient.invalidateQueries(['taskProgress', session?.user?.id, csrfToken]),
-                      queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]),
-                    ]);
-                    Promise.all([
-                      queryClient.refetchQueries(['taskProgress', session?.user?.id, csrfToken]),
-                      queryClient.refetchQueries(['userData', session?.user?.id, csrfToken]),
-                    ]);
-                  },
-                  'Task verification failed. Please try the action again.'
-                );
-                break;
-
-              case 'disconnectTwitter':
-                if (!session?.user?.id) {
-                  toast.error('Session expired. Please refresh the page.');
-                  return;
-                }
-                await sendValidatedRequest(
-                  '/api/twitter/connect',
-                  {
-                    action: 'disconnect',
-                    uid: session.user.id,
-                    recaptchaV2Token: token,
-                  },
-                  (data) => {
-                    toast.success('Twitter account disconnected successfully. Your profile has been updated.', {
-                      position: 'top-center',
-                      autoClose: 5000,
-                    });
-                    clearAllCaches(session.user.id);
-                    Promise.all([
-                      queryClient.invalidateQueries(['userData', session.user.id, csrfToken]),
-                      queryClient.invalidateQueries(['leaderboard', session.user.id, csrfToken]),
-                    ]);
-                    Promise.all([
-                      queryClient.refetchQueries(['userData', session.user.id, csrfToken]),
-                      queryClient.refetchQueries(['leaderboard', session.user.id, csrfToken]),
-                    ]);
-                  },
-                  'Unable to disconnect Twitter. Please try again.'
-                );
-                break;
-
-              case 'disconnectWallet':
-                if (!session?.user?.id) {
-                  toast.error('Session expired. Please refresh the page.');
-                  return;
-                }
-                await sendValidatedRequest(
-                  '/api/verify-wallet',
-                  {
-                    action: 'disconnect-wallet',
-                    uid: session.user.id,
-                    recaptchaV2Token: token,
-                  },
-                  (data) => {
-                    toast.success('Wallet disconnected successfully.', { position: 'top-center', autoClose: 5000 });
-                    queryClient.invalidateQueries(['userData', session.user.id, csrfToken]);
-                  },
-                  'Unable to disconnect wallet. Please try again.'
-                );
-                break;
-
-              case 'createCharge':
-                if (!session?.user?.id) {
-                  toast.error('Session expired. Please refresh the page.');
-                  return;
-                }
-                await axios.post('/api/coinbase/create-charge', {
-                  userId: session.user.id,
-                  plan: 'premium',
-                }, {
-                  ...commonConfig,
-                  headers: {
-                    ...commonHeaders,
-                    'X-Recaptcha-V2-Token': token,
-                  },
-                }).then((response) => {
-                  if (response.data.success) {
-                    window.location.href = response.data.hostedUrl;
-                    queryClient.invalidateQueries(['userData', session.user.id]);
-                  } else {
-                    throw new Error(response.data.detail || 'Unable to create charge');
-                  }
-                }).catch((err) => {
-                  toast.error(err.response?.data?.detail || 'Unable to create charge');
-                }).finally(() => {
-                  setShowV2Modal(false);
-                  setPendingAction(null);
-                  if (widgetId) grecaptcha.reset(widgetId);
-                });
-                break;
-
-              case 'connectWallet':
-                if (!window.ethereum) {
-                  toast.error('Please install MetaMask to connect your wallet.');
-                  setShowV2Modal(false);
-                  setPendingAction(null);
-                  return;
-                }
-                if (!session?.user?.id) {
-                  toast.error('Session expired. Please refresh the page.');
-                  return;
-                }
-                try {
-                  const provider = new ethers.BrowserProvider(window.ethereum);
-                  const accounts = await provider.send('eth_requestAccounts', []);
-                  const walletAddress = accounts[0];
-                  const signer = await provider.getSigner();
-                  const message = `Verify wallet for UID: ${session.user.id}`;
-                  const signature = await signer.signMessage(message);
-                  await sendValidatedRequest(
-                    '/api/verify-wallet',
-                    {
-                      action: 'verify-wallet',
-                      walletAddress,
-                      signature,
-                      message,
-                      uid: session.user.id,
-                      recaptchaV2Token: token,
-                    },
-                    (data) => {
-                      toast.success(`Wallet ${walletAddress.slice(0, 6)}... connected successfully.`, {
-                        position: 'top-center',
-                        autoClose: 5000
-                      });
-                      queryClient.invalidateQueries(['userData', session.user.id, csrfToken]);
-                    },
-                    'Failed to connect wallet. Please try again.'
-                  );
-                } catch (walletErr) {
-                  toast.error(`Wallet connection failed: ${walletErr.message}`);
-                  setShowV2Modal(false);
-                  setPendingAction(null);
-                }
-                break;
-
-              default:
-                toast.error('Unknown action for fallback');
-            }
-          } catch (err) {
-            toast.error('Fallback verification setup failed');
-          } finally {
-            setShowV2Modal(false);
-            setPendingAction(null);
-            if (widgetId) grecaptcha.reset(widgetId);
-          }
-        },
-        'expired-callback': () => {
-          toast.error('reCAPTCHA expired. Please try again.');
-          setShowV2Modal(false);
-          setPendingAction(null);
-          if (widgetId) grecaptcha.reset(widgetId);
-        },
-      });
-    }
-    return () => {
-      if (widgetId) grecaptcha.reset(widgetId);
-    };
-  }, [showV2Modal, pendingAction, csrfToken, session, queryClient]);
-
   const onSignOut = async () => {
     setIsSigningOut(true);
     await handleSignOut();
@@ -493,32 +245,33 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   let isExecuting = false;
   const debouncedExecuteRecaptcha = useCallback(
     async (action, retries = 3) => {
-      if (typeof window === 'undefined' || !window.grecaptcha) {
-        throw new Error('reCAPTCHA v3 not loaded');
+      if (!recaptchaRef.current) {
+        if (process.env.NODE_ENV !== 'production') {
+          logger.error('reCAPTCHA ref is null');
+        }
+        throw new Error('reCAPTCHA not initialized');
       }
-      await new Promise((resolve) => window.grecaptcha.ready(resolve)); // Đảm bảo ready
-
       for (let i = 0; i < retries; i++) {
         try {
-          // Execute v3 với action
-          const token = await window.grecaptcha.execute(
-            process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
-            { action }
-          );
-          if (!token) throw new Error('Empty reCAPTCHA v3 token');
+          await recaptchaRef.current.reset();
+          const token = await Promise.race([
+            recaptchaRef.current.executeAsync(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('reCAPTCHA timeout')), 20000)),
+          ]);
+          if (!token) throw new Error('Empty reCAPTCHA token');
           return token;
         } catch (error) {
           if (process.env.NODE_ENV !== 'production') {
-            logger.error(`reCAPTCHA v3 attempt ${i + 1} failed for ${action}: ${error.message}`);
+            logger.error(`reCAPTCHA attempt ${i + 1} failed for ${action}: ${error.message}`);
           }
           if (i === retries - 1) {
-            throw new Error(`reCAPTCHA v3 failed after ${retries} attempts: ${error.message}`);
+            throw new Error(`reCAPTCHA failed after ${retries} attempts: ${error.message}`);
           }
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
     },
-    []
+    [recaptchaRef]
   );
 
   const createChargeMutation = useMutation({
@@ -546,12 +299,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       await queryClient.invalidateQueries(['userData', session?.user?.id]);
     },
     onError: (err) => {
-      // FIXED: Use startsWith
-      if (err.response?.status === 403 && err.response?.data?.detail?.startsWith('reCAPTCHA verification failed')) {
-        setPendingAction({ type: 'createCharge' });
-        setShowV2Modal(true);
-        return;
-      }
       let errorMessage = 'Unable to process payment initiation. Please try again shortly.';
       if (err.message.includes('CSRF token not available')) {
         errorMessage = 'Session security issue detected. Please refresh the page.';
@@ -774,12 +521,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       ]);
     },
     onError: (err) => {
-      // FIXED: Use startsWith
-      if (err.response?.status === 403 && err.response?.data?.detail?.startsWith('reCAPTCHA verification failed')) {
-        setPendingAction({ type: 'disconnectTwitter' });
-        setShowV2Modal(true);
-        return;
-      }
       let errorMessage = err.response?.data?.detail || 'Unable to disconnect Twitter at this time.';
       if (err.response?.status === 429) {
         errorMessage = 'Request limit reached. Please wait a moment and try again.';
@@ -825,12 +566,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      // FIXED: Use startsWith
-      if (err.response?.status === 403 && err.response?.data?.detail?.startsWith('reCAPTCHA verification failed')) {
-        setPendingAction({ type: 'connectWallet' });
-        setShowV2Modal(true);
-        return;
-      }
       toast.error(`Wallet connection failed: ${err.message}. Please ensure MetaMask is installed and try again.`, {
         position: 'top-center',
         autoClose: 5000
@@ -856,12 +591,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      // FIXED: Use startsWith
-      if (err.response?.status === 403 && err.response?.data?.detail?.startsWith('reCAPTCHA verification failed')) {
-        setPendingAction({ type: 'disconnectWallet' });
-        setShowV2Modal(true);
-        return;
-      }
       toast.error(`Unable to disconnect wallet: ${err.message}`, { position: 'top-center', autoClose: 5000 });
     },
   });
@@ -917,12 +646,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     onError: (err, variables) => {
       const task = variables?.task || { task_type: 'unknown' };
       const detail = err.response?.data?.detail;
-      // FIXED: Use startsWith for flexible matching
-      if (err.response?.status === 403 && detail?.startsWith('reCAPTCHA verification failed')) {
-        setPendingAction({ type: 'verifyTask', data: task });
-        setShowV2Modal(true);
-        return;
-      }
       let errorMessage = `Verification unsuccessful for ${task.description || 'this task'}. Please try again.`;
 
       if (err.response?.status === 429) {
@@ -1065,7 +788,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render Tasks Section - Removed small connect prompt (now handled in tab content)
   const renderTasksSection = useCallback(
     () => (
-      <div className="relative bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl overflow-y-auto min-h-[calc(45vh)] sm:min-h-[calc(45vh)] max-h-[calc(50vh)] sm:max-h-[calc(45vh-4rem)] hide-scrollbar border border-white/15 shadow-2xl shadow-black/30">
+      <div className="relative bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl overflow-y-auto min-h-[calc(45vh-1rem)] sm:min-h-[calc(45vh-1rem)] max-h-[calc(50vh)] sm:max-h-[calc(45vh-4rem)] hide-scrollbar border border-white/15 shadow-2xl shadow-black/30">
         <LoadingOverlay
           isLoading={tasksLoading || taskProgressLoading}
           isMobile={isMobile}
@@ -1126,7 +849,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                               >
                                 @XynapseAI
                               </a>{' '}
-                              on X
                               {task.is_daily
                                 ? ` (Daily ${taskProgress?.[task.id]?.completionCount || 0}/${task.max_completions})`
                                 : ''}
@@ -1262,7 +984,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
   // Render Leaderboard Section
   const renderLeaderboardSection = useCallback(
     () => (
-      <div className="relative bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl overflow-y-auto min-h-[calc(45vh)] sm:min-h-[calc(45vh)] max-h-[calc(50vh)] sm:max-h-[calc(45vh-4rem)] hide-scrollbar border border-white/15 shadow-2xl shadow-black/30">
+      <div className="relative bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl overflow-y-auto min-h-[calc(45vh-1rem)] sm:min-h-[calc(45vh-1rem)] max-h-[calc(50vh)] sm:max-h-[calc(45vh-4rem)] hide-scrollbar border border-white/15 shadow-2xl shadow-black/30">
         <LoadingOverlay
           isLoading={leaderboardLoading}
           isMobile={isMobile}
@@ -1410,38 +1132,6 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       className="font-saira w-full max-w-9xl mx-auto p-2 sm:p-4 bg-gradient-to-br from-black to-gray-900 flex flex-col h-[calc(100vh-3rem)] overflow-y-auto hide-scrollbar relative shadow-2xl"
     >
       <ActionLoadingOverlay isLoading={overallLoading} />
-      <AnimatePresence>
-        {showV2Modal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-gradient-to-br from-gray-900/95 to-black/95 border border-white/20 rounded-2xl p-6 max-w-md w-full text-center shadow-2xl"
-            >
-              <h3 className="text-white font-bold mb-4 text-lg">Verify You're Human</h3>
-              <p className="text-gray-500 mb-4 text-sm">Please complete the security challenge below to continue.</p>
-              <div ref={v2Ref} className="g-recaptcha mb-4"></div>
-              <motion.button
-                onClick={() => {
-                  setShowV2Modal(false);
-                  setPendingAction(null);
-                }}
-                className="px-4 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-500 hover:to-gray-600 transition-colors shadow-lg"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Cancel
-              </motion.button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
       <ToastContainer
         position="top-center"
         autoClose={5000}
@@ -1478,163 +1168,131 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               )}
               {userData && (
                 <div className="relative z-0 w-full">
-                  <div className="absolute top-3 right-3">
-                    <motion.button
-                      onClick={onSignOut}
-                      disabled={isSigningOut}
-                      className={`p-1 rounded-lg bg-gradient-to-r from-white/10 to-white/5 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/30'}`}
-                      whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
-                      whileTap={{ scale: isSigningOut ? 1 : 0.9 }}
-                      aria-label="Sign out"
-                    >
-                      {isSigningOut ? (
-                        <span className="text-[8px] sm:text-[10px] text-white">Signing out...</span>
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="w-4 h-4 text-red-400"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                      )}
-                    </motion.button>
-                  </div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Image
-                      src={getProfilePictureSrc(userData.profilePicture)}
-                      alt={userData.googleName || userData.twitterHandle || 'User Avatar'}
-                      width={40}
-                      height={40}
-                      className="rounded-xl border-2 border-white/20 shadow-lg"
-                    />
-                    <h4 className="text-base sm:text-xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                      {userData.googleName || userData.email}
-                    </h4>
-                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-[9px] sm:text-[11px]">
-                    <div className="rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20">
-                      <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                        <User className="w-4 h-4" />
-                        Account Info
-                      </h5>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-white/70">Tier:</span>
-                          <div className="flex items-center gap-1">
-                            {userData.tier === 'Basic' ? (
-                              <>
-                                <Shield className="w-3 h-3 text-white/80" />
-                                <span className="text-white/80">{userData.tier}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Crown className="w-3 h-3 text-yellow-400" />
-                                <span className="text-yellow-300">{userData.tier}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Days Active:</span>
-                          <span className="text-white font-semibold flex items-center gap-1">
-                            {getDaysActive()}
-                            {userData.streak >= 7 && (
-                              <Flame className="w-3 h-3 text-orange-500 animate-pulse" />
-                            )}
-                            {userData.streak >= 7 && <span className="text-orange-400 text-xs">({userData.streak} streak)</span>}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 relative">
-                      <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        Social
-                      </h5>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-1">
-                            <img src="/logos/google.webp" alt="Google Logo" className="w-3 h-3" />
-                            <span className="text-white/70">Google:</span>
-                            <span className="text-neon-blue truncate max-w-32">{userData.email}</span>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-1">
-                            <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3 text-blue-400" />
-                            <span className="text-white/70">(Twitter):</span>
-                            {userData.twitterHandle ? (
-                              <div className="flex items-center gap-2">
-                                <a
-                                  href={`https://x.com/${userData.twitterHandle}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-neon-blue hover:text-blue-300 flex items-center gap-1"
-                                >
-                                  @{userData.twitterHandle}
-                                  <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />
-                                </a>
-                                <motion.button
-                                  onClick={() => disconnectTwitterMutation.mutate()}
-                                  disabled={disconnectTwitterMutation.isLoading}
-                                  className={`p-1 rounded-lg bg-gradient-to-r from-white/10 to-white/5 ${disconnectTwitterMutation.isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/40'}`}
-                                  whileHover={{ scale: disconnectTwitterMutation.isLoading ? 1 : 1.05 }}
-                                  whileTap={{ scale: disconnectTwitterMutation.isLoading ? 1 : 0.95 }}
-                                  title="Disconnect X"
-                                >
-                                  {disconnectTwitterMutation.isLoading ? (
-                                    <span className="text-[8px] text-white">...</span>
-                                  ) : (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="w-3 h-3 text-red-400"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    >
-                                      <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                    </svg>
-                                  )}
-                                </motion.button>
-                              </div>
-                            ) : (
-                              <span className="text-white/50">Not connected</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      {!userData.twitterHandle && (
+                    <div className="h-[22vh] rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 relative">
+                      <div className="absolute top-1 right-1 p-2 flex gap-1 items-center z-10">
                         <motion.button
-                          onClick={() => connectTwitterMutation.mutate()}
-                          className="absolute bottom-2 right-2 px-3 py-1 rounded-xl text-[9px] sm:text-[11px] font-medium text-neon-blue border border-neon-blue/50 bg-gradient-to-r from-white/10 to-white/5 hover:bg-neon-blue/20 transition-all duration-300 shadow-lg"
+                          onClick={() => queryClient.invalidateQueries({ queryKey: ['userData', session?.user?.id, csrfToken] })}
+                          className="p-1 rounded-lg bg-gradient-to-r from-white/10 to-white/5 hover:bg-green-500/30 transition-all duration-300 z-10"
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
+                          title="Refresh Profile"
                         >
-                          Connect <img src="/logos/x.webp" alt="X Logo" className="inline w-3 h-3 mr-1" />
+                          <RefreshCw className="w-4 h-4 text-green-400" />
                         </motion.button>
-                      )}
-                    </div>
-                    <div className="rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20">
-                      <h5 className="font-bold text-white uppercase mb-2 flex items-center gap-1">
-                        <Coins className="w-4 h-4 text-white" />
-                        Points
-                      </h5>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-white/70">Total Points:</span>
-                          <span className="text-neon-blue/80 text-base font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-                            {userData?.points || 0}
+                        <motion.button
+                          onClick={onSignOut}
+                          disabled={isSigningOut}
+                          className={`p-1 rounded-lg bg-gradient-to-r from-white/10 to-white/5 ${isSigningOut ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-500/30'} z-10`}
+                          whileHover={{ scale: isSigningOut ? 1 : 1.05 }}
+                          whileTap={{ scale: isSigningOut ? 1 : 0.9 }}
+                          aria-label="Sign out"
+                        >
+                          {isSigningOut ? (
+                            <span className="text-[8px] sm:text-[10px] text-white">Signing out...</span>
+                          ) : (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-4 h-4 text-red-400"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                          )}
+                        </motion.button>
+                      </div>
+                      <div className="relative mb-3">
+                        <div className={`relative w-20 h-20 mx-auto border-4 rounded-full overflow-hidden ${userData.tier === 'Premium' ? 'border-yellow-400' : 'border-gray-400'} border-b-transparent`}>
+                          <Image
+                            src={getProfilePictureSrc(userData.profilePicture)}
+                            alt={userData.googleName || userData.twitterHandle || 'User Avatar'}
+                            width={80}
+                            height={80}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-gradient-to-br from-black/80 to-gray-900/80 border-2 ${userData.tier === 'Premium' ? 'border-yellow-400' : 'border-gray-400'} rounded-full px-2 py-0.5`}>
+                          <span className={`text-[9px] font-bold ${userData.tier === 'Premium' ? 'text-yellow-300' : 'text-white/80'}`}>
+                            {userData.tier}
                           </span>
                         </div>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 mb-3">
+                        <h4 className="text-sm sm:text-base font-bold text-white bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                          {userData.googleName}
+                        </h4>
+                        <div className="flex items-center gap-2 text-white/70 w-full justify-center">
+                          <span className="text-xs">
+                            {showEmail ? userData.email : userData.email.replace(/./g, '*')}
+                          </span>
+                          <motion.button
+                            onClick={() => setShowEmail(!showEmail)}
+                            className="p-1 rounded-lg hover:bg-white/10 transition-colors"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            {showEmail ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          </motion.button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="h-[22vh] rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 relative">
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="flex items-center gap-2">
+                          <img src="/logos/x.webp" alt="X Logo" className="w-4 h-4 text-blue-400" />
+                          <span className="text-neon-blue font-semibold">@{userData.twitterHandle || 'Not connected'}</span>
+                        </div>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${userData.twitterHandle ? 'bg-green-500/20 text-green-400 border border-green-400/30' : 'bg-gray-500/20 text-gray-400 border border-gray-400/30'}`}>
+                          {userData.twitterHandle ? <Check className="w-3 h-3 text-emerald-400" /> : null}
+                          {userData.twitterHandle ? 'Connected' : 'Not Connected'}
+                        </span>
+                      </div>
+                      <motion.button
+                        onClick={() => userData.twitterHandle ? disconnectTwitterMutation.mutate() : connectTwitterMutation.mutate()}
+                        disabled={disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading}
+                        className={`absolute bottom-3 right-3 px-4 py-2 rounded-xl text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg ${userData.twitterHandle
+                          ? 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 border border-red-500/30'
+                          : 'text-neon-blue border border-neon-blue/50 bg-gradient-to-r from-white/10 to-white/5 hover:bg-neon-blue/20'
+                          }`}
+                        whileHover={{ scale: (disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading) ? 1 : 1.03 }}
+                        whileTap={{ scale: (disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading) ? 1 : 0.97 }}
+                      >
+                        {disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading ? (
+                          <BlinkingDots />
+                        ) : userData.twitterHandle ? (
+                          <>
+                            Disconnect
+                            <svg className="w-3 h-3 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                          </>
+                        ) : (
+                          <>
+                            Connect
+                            <img src="/logos/x.webp" alt="X Logo" className="w-3 h-3" />
+                          </>
+                        )}
+                      </motion.button>
+                    </div>
+                    <div className="h-[22vh] relative rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 flex flex-col items-center justify-center">
+                      <span className="absolute top-3 left-3 text-white/70 text-xs uppercase">POINT</span>
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-neon-blue text-2xl sm:text-3xl font-bold">
+                          {userData?.points || 0}
+                        </span>
+                      </div>
+                      <div className="flex flex-row absolute bottom-3 right-3 text-white/70 text-[10px] flex items-center gap-1">
+                        <span>Days Active: </span>
+                        <span className=" font-bold">{getDaysActive()}</span>
+                        <span className={`flex ml-4 items-center gap-1 text-[10px] ${userData.streak >= 7 ? 'text-orange-400' : 'text-white/70'}`}>
+                          {userData.streak >= 7 && <Flame className="w-3 h-3 text-orange-500 animate-pulse" />}
+                          Streak: {userData.streak}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1697,13 +1355,13 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
           {/* Sửa: Connect prompt - thêm min-h để cân đối với tab content, border shadow */}
           {!userData?.twitterHandle ? (
             <motion.div
-              className="flex-1 flex items-center justify-center p-6 min-h-[calc(45vh-4rem)] bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl border-t border-white/15 shadow-2xl shadow-black/30" // Thêm min-h, shadow
+              className="flex-1 flex items-center justify-center p-6 min-h-[calc(45vh-1rem)] bg-gradient-to-br from-black/90 to-gray-900/90 rounded-b-xl border-t border-white/15 shadow-2xl shadow-black/30" // Thêm min-h, shadow
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
             >
               <div className="text-center max-w-md flex flex-col items-center justify-center gap-4"> {/* Thêm gap và center */}
-                <p className="text-[11px] sm:text-base text-white/80">
+                <p className="text-[8px] sm:text-[9px] text-white/80">
                   Connect your X (Twitter) account to unlock tasks, check-ins, and rewards.
                 </p>
                 <motion.button
