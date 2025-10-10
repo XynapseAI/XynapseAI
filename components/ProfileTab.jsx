@@ -111,8 +111,8 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
           return (
             <div key={index} className="flex flex-col items-center gap-1">
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold transition-all duration-300 ${checked
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-black shadow-lg shadow-gray-300/25'
-                  : 'bg-gradient-to-br from-white/10 to-white/5 text-white/50 border border-white/20'
+                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-black shadow-lg shadow-gray-300/25'
+                : 'bg-gradient-to-br from-white/10 to-white/5 text-white/50 border border-white/20'
                 }`}>
                 {checked ? (
                   <Check className="w-3 h-3 text-black" />
@@ -126,8 +126,8 @@ const DailyCheckinBar = ({ last7Days, streak, onCheckin, isLoading, userData, tw
                   onClick={handleCheckinClick}
                   disabled={isLoading || !twitterConnected}
                   className={`mt-1 px-2 py-1 rounded-full text-[9px] font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${isLoading || !twitterConnected
-                      ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/70 cursor-not-allowed relative overflow-hidden'
-                      : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
+                    ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/70 cursor-not-allowed relative overflow-hidden'
+                    : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/25'
                     }`}
                   whileHover={{ scale: (isLoading || !twitterConnected) ? 1 : 1.05 }}
                   whileTap={{ scale: (isLoading || !twitterConnected) ? 1 : 0.95 }}
@@ -404,6 +404,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     });
   };
 
+  let isExecuting = false;
   const debouncedExecuteRecaptcha = useCallback(
     async (action, retries = 3) => {
       if (!recaptchaRef.current) {
@@ -460,12 +461,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       await queryClient.invalidateQueries(['userData', session?.user?.id]);
     },
     onError: (err) => {
-      logger.error('Create charge error:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-      });
-      if (err.response?.status === 403 && err.response?.data?.detail === 'reCAPTCHA verification failed') {
+      // FIXED: Use startsWith
+      if (err.response?.status === 403 && err.response?.data?.detail?.startsWith('reCAPTCHA verification failed')) {
         setPendingAction({ type: 'createCharge' });
         setShowV2Modal(true);
         return;
@@ -692,8 +689,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       ]);
     },
     onError: (err) => {
-      logger.error('Disconnect Twitter mutation error:', err);
-      if (err.response?.status === 403 && err.response?.data?.detail === 'reCAPTCHA verification failed') {
+      // FIXED: Use startsWith
+      if (err.response?.status === 403 && err.response?.data?.detail?.startsWith('reCAPTCHA verification failed')) {
         setPendingAction({ type: 'disconnectTwitter' });
         setShowV2Modal(true);
         return;
@@ -743,7 +740,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      if (err.response?.status === 403 && err.response?.data?.detail === 'reCAPTCHA verification failed') {
+      // FIXED: Use startsWith
+      if (err.response?.status === 403 && err.response?.data?.detail?.startsWith('reCAPTCHA verification failed')) {
         setPendingAction({ type: 'connectWallet' });
         setShowV2Modal(true);
         return;
@@ -773,7 +771,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
       queryClient.invalidateQueries(['userData', session?.user?.id, csrfToken]);
     },
     onError: (err) => {
-      if (err.response?.status === 403 && err.response?.data?.detail === 'reCAPTCHA verification failed') {
+      // FIXED: Use startsWith
+      if (err.response?.status === 403 && err.response?.data?.detail?.startsWith('reCAPTCHA verification failed')) {
         setPendingAction({ type: 'disconnectWallet' });
         setShowV2Modal(true);
         return;
@@ -833,7 +832,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
     onError: (err, variables) => {
       const task = variables?.task || { task_type: 'unknown' };
       const detail = err.response?.data?.detail;
-      if (err.response?.status === 403 && detail === 'reCAPTCHA verification failed') {
+      // FIXED: Use startsWith for flexible matching
+      if (err.response?.status === 403 && detail?.startsWith('reCAPTCHA verification failed')) {
         setPendingAction({ type: 'verifyTask', data: task });
         setShowV2Modal(true);
         return;
@@ -1086,11 +1086,11 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                                   isCompleted
                                 }
                                 className={`px-2 py-1 rounded-lg text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg relative overflow-hidden ${immediateLoading ||
-                                    verifyTaskMutation.isLoading ||
-                                    !userData?.twitterHandle ||
-                                    isCompleted
-                                    ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/50 cursor-not-allowed opacity-50'
-                                    : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                                  verifyTaskMutation.isLoading ||
+                                  !userData?.twitterHandle ||
+                                  isCompleted
+                                  ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white/50 cursor-not-allowed opacity-50'
+                                  : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
                                   }`}
                                 whileHover={{
                                   scale:
