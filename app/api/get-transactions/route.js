@@ -1,4 +1,3 @@
-// app/api/get-transactions/route.js
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '../../../utils/serverLogger';
@@ -82,7 +81,7 @@ const resetTimeout = 120000;
 async function fetchWithRateLimit(url, config) {
   if (circuitOpen) throw new Error('Service temporarily unavailable.');
   try {
-    const response = await limiterBottleneck.schedule(() => axios.get(url, { ...config, timeout: 20000 }));
+    const response = await limiterBottleneck.schedule(() => axios.get(url, { ...config, timeout: 15000 }));
     failureCount = 0;
     return response;
   } catch (error) {
@@ -98,17 +97,18 @@ async function fetchWithRateLimit(url, config) {
   }
 }
 
+// Optimized Bottleneck for Etherscan's 5 calls/second
 const limiterBottleneck = new Bottleneck({
-  maxConcurrent: process.env.NODE_ENV === 'production' ? 10 : 3,
-  minTime: process.env.NODE_ENV === 'production' ? 500 : 1000,
-  reservoir: 50,
-  reservoirRefreshAmount: 50,
+  maxConcurrent: process.env.NODE_ENV === 'production' ? 5 : 2,
+  minTime: 300, // 200ms per call for 5 calls/second
+  reservoir: 100,
+  reservoirRefreshAmount: 100,
   reservoirRefreshInterval: 60 * 1000,
 });
 
 axiosRetry(axios, {
-  retries: 5,
-  retryDelay: (retryCount) => Math.pow(2, retryCount) * 500 + Math.random() * 100,
+  retries: 3,
+  retryDelay: (retryCount) => Math.pow(2, retryCount) * 300 + Math.random() * 50,
   retryCondition: (error) => error.response?.status === 429 || error.code === 'ECONNABORTED' || error.response?.status === 400,
 });
 
@@ -121,42 +121,16 @@ async function isAllowedOrigin(origin, referer, ip) {
     'https://xynapse-ai.vercel.app',
   ].filter(Boolean);
 
-  if (process.env.NODE_ENV !== 'production') {
-    return configured.includes(origin) || configured.includes(referer ? new URL(referer).origin : null);
-  }
+  if (process.env.NODE_ENV !== 'production') return configured.some(url => url === origin || (referer && new URL(referer).origin === url));
 
   try {
-    if (!origin && !referer) {
-      await trackViolation(ip, 'Missing origin and referer in production');
+    const source = origin && origin !== 'null' ? origin : referer ? new URL(referer).origin : null;
+    if (!source || !source.startsWith('https://')) {
+      await trackViolation(ip, 'Non-HTTPS or missing origin/referer');
       return false;
     }
-
-    if (origin && origin !== 'null') {
-      if (!origin.startsWith('https://')) {
-        await trackViolation(ip, 'Non-HTTPS origin in production');
-        return false;
-      }
-      if (configured.includes(origin)) {
-        return true;
-      }
-      await trackViolation(ip, 'Invalid origin');
-      return false;
-    }
-
-    if (referer) {
-      const refOrigin = new URL(referer).origin;
-      if (!refOrigin.startsWith('https://')) {
-        await trackViolation(ip, 'Non-HTTPS referer in production');
-        return false;
-      }
-      if (configured.includes(refOrigin)) {
-        return true;
-      }
-      await trackViolation(ip, 'Invalid referer');
-      return false;
-    }
-
-    await trackViolation(ip, 'Invalid origin or referer');
+    if (configured.includes(source)) return true;
+    await trackViolation(ip, 'Invalid origin/referer');
     return false;
   } catch {
     await trackViolation(ip, 'Error validating origin');
@@ -193,33 +167,14 @@ const bodySchema = z.object({
 
 function isValidTokenSymbol(symbol) {
   if (!symbol || typeof symbol !== 'string') return false;
-
   const cleanedSymbol = symbol.trim().toLowerCase();
-
-  if (cleanedSymbol.length < 2 || cleanedSymbol.length > 20) {
-    logger.warn(`Invalid token symbol length: ${symbol}`);
-    return false;
-  }
-
+  if (cleanedSymbol.length < 2 || cleanedSymbol.length > 20) return false;
   const validSymbolPattern = /^[a-z0-9\-_]+$/;
-  if (!validSymbolPattern.test(cleanedSymbol)) {
-    logger.warn(`Invalid token symbol characters: ${symbol}`);
-    return false;
-  }
-
+  if (!validSymbolPattern.test(cleanedSymbol)) return false;
   const urlPattern = /(https?:\/\/|www\.|\.com|\.org|\.net|\.io)/i;
-  if (urlPattern.test(cleanedSymbol)) {
-    logger.warn(`Token symbol contains URL: ${symbol}`);
-    return false;
-  }
-
+  if (urlPattern.test(cleanedSymbol)) return false;
   const suspiciousKeywords = ['claim', 'free', 'airdrop', 'promo', 'reward', 'bonus'];
-  if (suspiciousKeywords.some(keyword => cleanedSymbol.includes(keyword))) {
-    logger.warn(`Token symbol contains suspicious keyword: ${symbol}`);
-    return false;
-  }
-
-  return true;
+  return !suspiciousKeywords.some(keyword => cleanedSymbol.includes(keyword));
 }
 
 async function getChainLogo(coingeckoId) {
@@ -231,11 +186,11 @@ async function getChainLogo(coingeckoId) {
   try {
     const response = await fetchWithRateLimit('https://api.coingecko.com/api/v3/asset_platforms', {
       headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY },
-      timeout: 10000,
+      timeout: 8000,
     });
     const chain = response.data.find((c) => c.id === coingeckoId);
     const logo = chain?.image?.thumb || '/icons/default.webp';
-    await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, logo);
+    await redisClient.setEx(cacheKey, 30 * 24 * 60 * 60, logo); // Cache 30 days
     return logo;
   } catch {
     return '/icons/default.webp';
@@ -245,7 +200,7 @@ async function getChainLogo(coingeckoId) {
 async function getCurrentPrice(cgId) {
   const redisClient = await getRedisClient();
   const cacheKey = `price_${cgId}`;
-  let cached = await redisClient.get(cacheKey);
+  const cached = await redisClient.get(cacheKey);
   if (cached) return parseFloat(cached);
 
   try {
@@ -255,7 +210,7 @@ async function getCurrentPrice(cgId) {
     );
     const price = response.data[cgId]?.usd;
     if (price) {
-      await redisClient.setEx(cacheKey, 300, price.toString()); // 5 min
+      await redisClient.setEx(cacheKey, 300, price.toString());
       return price;
     }
   } catch (e) {
@@ -267,7 +222,7 @@ async function getCurrentPrice(cgId) {
 async function getTokenCurrentPrice(platform, contractAddress) {
   const redisClient = await getRedisClient();
   const cacheKey = `token_price_${platform}_${contractAddress.toLowerCase()}`;
-  let cached = await redisClient.get(cacheKey);
+  const cached = await redisClient.get(cacheKey);
   if (cached) return parseFloat(cached);
 
   try {
@@ -326,8 +281,7 @@ async function getNametagsBatch(addresses) {
         description: row.description || '',
         subcategory: row.subcategory || 'Others',
       };
-      // Cache
-      await redisClient.setEx(`nametag_${address}`, 7 * 24 * 60 * 60, JSON.stringify(cachedNametags[address]));
+      await redisClient.setEx(`nametag_${address}`, 30 * 24 * 60 * 60, JSON.stringify(cachedNametags[address]));
     }
   }
 
@@ -349,9 +303,7 @@ async function getNametagsBatch(addresses) {
       throw error;
     }
 
-    const ensStartTime = Date.now();
     const reverseNodes = addressesWithoutNametag.map((addr) => ethers.namehash(`${addr.toLowerCase().slice(2)}.addr.reverse`));
-
     const resolverCalls = reverseNodes.map((node) => ({
       contractAddress: ENS_REGISTRY,
       abi: REGISTRY_ABI,
@@ -390,7 +342,7 @@ async function getNametagsBatch(addresses) {
                 `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(shortName)}`,
                 {
                   headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY },
-                  timeout: 10000,
+                  timeout: 8000,
                 }
               );
               const coin = cgResponse.data.coins?.[0];
@@ -398,7 +350,7 @@ async function getNametagsBatch(addresses) {
             } catch (cgError) {
               logger.error(`Failed to fetch CoinGecko image for ENS ${shortName}:`, cgError.message);
             }
-            await redisClient.setEx(`nametag_${address}`, 7 * 24 * 60 * 60, JSON.stringify({ name, image }));
+            await redisClient.setEx(`nametag_${address}`, 30 * 24 * 60 * 60, JSON.stringify({ name, image }));
             await query(
               `INSERT INTO nametags (address, nametag, image, description, subcategory) 
                VALUES (LOWER($1), $2, $3, $4, $5) 
@@ -424,8 +376,6 @@ async function getNametagsBatch(addresses) {
         cachedNametags[address] = { address, name, image, description, subcategory };
       }
     });
-
-    logger.info(`ENS lookup for ${addressesWithoutNametag.length} addresses took ${Date.now() - ensStartTime}ms`);
   }
 
   for (const address of uniqueAddresses) {
@@ -437,7 +387,7 @@ async function getNametagsBatch(addresses) {
         description: '',
         subcategory: 'Others',
       };
-      await redisClient.setEx(`nametag_${address}`, 7 * 24 * 60 * 60, JSON.stringify(cachedNametags[address]));
+      await redisClient.setEx(`nametag_${address}`, 30 * 24 * 60 * 60, JSON.stringify(cachedNametags[address]));
     }
   }
 
@@ -460,7 +410,7 @@ async function getTokenImage(tokenAddress, chain) {
     );
     if (result.rows.length > 0 && result.rows[0].image) {
       const image = result.rows[0].image;
-      await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, image);
+      await redisClient.setEx(cacheKey, 30 * 24 * 60 * 60, image);
       logger.info(`Token image for ${tokenAddress} on ${chain}: ${image} (source: database)`);
       return image;
     }
@@ -469,16 +419,16 @@ async function getTokenImage(tokenAddress, chain) {
       `https://api.coingecko.com/api/v3/coins/${chainIdToName[chain]}/contract/${tokenAddress}`,
       {
         headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY },
-        timeout: 10000,
+        timeout: 8000,
       }
     );
     const image = cgResponse.data.image?.thumb || '/icons/default.webp';
-    await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, image);
+    await redisClient.setEx(cacheKey, 30 * 24 * 60 * 60, image);
     logger.info(`Token image for ${tokenAddress} on ${chain}: ${image} (source: CoinGecko)`);
     return image;
   } catch (error) {
     logger.error(`Failed to fetch token image for ${tokenAddress}:`, error.message);
-    await redisClient.setEx(cacheKey, 7 * 24 * 60 * 60, '/icons/default.webp');
+    await redisClient.setEx(cacheKey, 30 * 24 * 60 * 60, '/icons/default.webp');
     return '/icons/default.webp';
   }
 }
@@ -496,18 +446,13 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   logger.info(`Fetching Layer 3 transactions for ${validLayer2Addresses.length} valid Layer 2 addresses`);
 
   const layer3Limit = 50;
-  const batchSize = 10; // Process addresses in batches
+  const batchSize = 5; // Reduced batch size for Etherscan rate limit
   const batches = [];
   for (let i = 0; i < validLayer2Addresses.length; i += batchSize) {
     batches.push(validLayer2Addresses.slice(i, i + batchSize));
   }
 
-  // Pre-fetch native price for layer3
-  let nativePrice = 0;
-  const cgId = SUPPORTED_CHAINS[chain].coingeckoId;
-  nativePrice = await getCurrentPrice(cgId);
-
-  // Collect all raw tx data first for potential batching (though layer3 uses txlist, mainly native)
+  let nativePrice = await getCurrentPrice(chainConfig.coingeckoId);
   const allRawTxs = [];
   const batchPromises = batches.map(async (batch) => {
     const fetchPromises = batch.map(async (address) => {
@@ -523,9 +468,18 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
           apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=${page}&offset=${layer3Limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
         }
 
-        const response = await fetchWithRateLimit(apiUrl, { timeout: 20000 });
+        const cacheKey = `layer3_tx_${chain}_${address}_${page}_${layer3Limit}`;
+        const redisClient = await getRedisClient();
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          logger.info(`Layer3 cache hit for ${cacheKey}`);
+          return JSON.parse(cached).map(tx => ({ ...tx, fromAddress: address }));
+        }
+
+        const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
         let txData = response.data.result || response.data.transactions || response.data || [];
         if (!Array.isArray(txData)) txData = [];
+        await redisClient.setEx(cacheKey, 3600, JSON.stringify(txData));
         return txData.map(tx => ({ ...tx, fromAddress: address }));
       } catch (error) {
         logger.error(`Failed to fetch Layer 3 transactions for ${address}:`, error.message);
@@ -542,7 +496,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
   const allBatchResults = await Promise.all(batchPromises);
   allRawTxs.push(...allBatchResults.flat());
 
-  // Now process all raw txs in parallel
   const txPromises = allRawTxs.map(async (tx) => {
     let value = '0';
     let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
@@ -560,15 +513,13 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
       tokenSymbol = 'TRX';
       blockTime = tx.timestamp ? new Date(tx.timestamp).toISOString() : null;
     } else if (chain === 'bitcoin') {
-      // For layer3 Bitcoin, process incoming/outgoing based on vout/vin
       if (!tx.status || !tx.status.confirmed) return null;
       blockTime = tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : null;
       if (!blockTime) return null;
 
-      // Incoming: vout to fromAddress (layer2)
       const receivedVouts = tx.vout ? tx.vout.filter(v => v.scriptpubkey_address === tx.fromAddress) : [];
       for (const vout of receivedVouts) {
-        if (vout.value > 546) { // dust threshold
+        if (vout.value > 546) {
           value = (vout.value / 1e8).toString();
           tokenSymbol = 'BTC';
           usdValue = Number(value) * nativePrice;
@@ -587,7 +538,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
         }
       }
 
-      // Outgoing: vin from fromAddress (layer2)
       const spentVins = tx.vin ? tx.vin.filter(v => v.prevout && v.prevout.scriptpubkey_address === tx.fromAddress) : [];
       for (const vin of spentVins) {
         value = (vin.prevout.value / 1e8).toString();
@@ -609,7 +559,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
       return null;
     } else {
       value = (parseInt(tx.value) / 1e18).toString();
-      // FIXED2: Skip if value == 0 for layer3 native (avoid bogus rows)
       if (parseFloat(value) === 0) return null;
       blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
     }
@@ -619,7 +568,6 @@ async function fetchLayer3Transactions(layer2Addresses, chain, limit, page) {
       return null;
     }
 
-    // Use pre-fetched native price
     usdValue = Number(value) * nativePrice;
 
     return {
@@ -705,50 +653,57 @@ export async function POST(request) {
 
     const fetchPromises = [];
     let apiUrl;
-    let internalData = []; // FIXED: Khởi tạo cho internal txs
+    let internalData = [];
     if (chain === 'solana') {
       apiUrl = `${chainConfig.apiUrl}/account/transactions?account=${wallet_address}&limit=${limit}&offset=${(page - 1) * limit}`;
-      fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 20000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
+      fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 15000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
     } else if (chain === 'tron') {
       apiUrl = `${chainConfig.apiUrl}/transaction?address=${wallet_address}&limit=${limit}&start=${(page - 1) * limit}`;
-      fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 20000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
+      fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 15000 }).then((res) => ({ type: 'native', data: res.data.transactions || [] })));
     } else if (chain === 'bitcoin') {
       apiUrl = `${chainConfig.apiUrl}/address/${wallet_address}/txs?limit=${limit}`;
-      fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 20000 }).then((res) => ({ type: 'native', data: res.data || [] })));
+      fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 15000 }).then((res) => ({ type: 'native', data: res.data || [] })));
     } else {
-      // FIXED: Fetch thêm txlistinternal cho EVM chains để capture internal ETH transfers (e.g., từ swap)
-      apiUrl = `${chainConfig.apiUrl}?module=account&action=txlist&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
-      fetchPromises.push(fetchWithRateLimit(apiUrl, { timeout: 20000 }).then((res) => ({ type: 'native', data: res.data.result || [] })));
-      
-      const tokenApiUrl = `${chainConfig.apiUrl}?module=account&action=tokentx&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
-      fetchPromises.push(fetchWithRateLimit(tokenApiUrl, { timeout: 20000 }).then((res) => ({ type: 'token', data: res.data.result || [] })));
-      
-      // FIXED: Fetch internal txs parallel
-      const internalApiUrl = `${chainConfig.apiUrl}?module=account&action=txlistinternal&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
-      fetchPromises.push(fetchWithRateLimit(internalApiUrl, { timeout: 20000 }).then((res) => ({ type: 'internal', data: res.data.result || [] })));
+      const endpoints = [
+        { action: 'txlist', type: 'native' },
+        { action: 'tokentx', type: 'token' },
+        { action: 'txlistinternal', type: 'internal' }
+      ];
+      endpoints.forEach(({ action, type }) => {
+        const cacheKey = `api_${chain}_${wallet_address.toLowerCase()}_${action}_${page}_${limit}`;
+        fetchPromises.push(
+          (async () => {
+            const cached = await redisClient.get(cacheKey);
+            if (cached) {
+              logger.info(`API cache hit for ${cacheKey}`);
+              return { type, data: JSON.parse(cached) };
+            }
+            const url = `${chainConfig.apiUrl}?module=account&action=${action}&address=${wallet_address}&startblock=0&endblock=99999999&page=${page}&offset=${limit}&sort=desc&chainid=${chain}&apikey=${chainConfig.apiKey}`;
+            const response = await fetchWithRateLimit(url, { timeout: 15000 });
+            const data = response.data.result || [];
+            await redisClient.setEx(cacheKey, 3600, JSON.stringify(data));
+            return { type, data };
+          })()
+        );
+      });
     }
 
     const responses = await Promise.allSettled(fetchPromises);
     let transactions = [];
     let tokenTransactions = [];
-
     responses.forEach((result) => {
       if (result.status === 'fulfilled') {
         if (result.value.type === 'native') transactions = result.value.data;
         if (result.value.type === 'token') tokenTransactions = result.value.data;
-        if (result.value.type === 'internal') internalData = result.value.data; // FIXED: Lưu internal data
+        if (result.value.type === 'internal') internalData = result.value.data;
       }
     });
 
     if (!Array.isArray(transactions)) transactions = [];
     if (!Array.isArray(tokenTransactions)) tokenTransactions = [];
+    if (!Array.isArray(internalData)) internalData = [];
 
-    // Pre-fetch native price once
-    let nativePrice = 0;
-    const cgId = SUPPORTED_CHAINS[chain].coingeckoId;
-    nativePrice = await getCurrentPrice(cgId);
-
-    // Batch fetch token prices if EVM chain
+    let nativePrice = await getCurrentPrice(chainConfig.coingeckoId);
     let tokenPrices = {};
     if (chain !== 'solana' && chain !== 'tron' && chain !== 'bitcoin') {
       const uniqueContracts = [...new Set(tokenTransactions
@@ -758,20 +713,23 @@ export async function POST(request) {
       if (uniqueContracts.length > 0) {
         const platform = chainIdToName[chain];
         const contractList = uniqueContracts.join(',');
-        try {
-          const response = await fetchWithRateLimit(
-            `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${contractList}&vs_currencies=usd`,
-            { headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY } }
-          );
-          tokenPrices = response.data || {};
-          // Update caches for each
-          uniqueContracts.forEach(addr => {
-            const price = tokenPrices[addr.toLowerCase()]?.usd || 0;
-            redisClient.setEx(`token_price_${platform}_${addr.toLowerCase()}`, 300, price.toString());
-          });
-          logger.info(`Batch fetched prices for ${uniqueContracts.length} tokens`);
-        } catch (e) {
-          logger.error('Batch token price fetch failed, falling back to individual:', e.message);
+        const cacheKey = `token_prices_${platform}_${contractList}_${page}_${limit}`;
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          tokenPrices = JSON.parse(cached);
+          logger.info(`Token prices cache hit for ${cacheKey}`);
+        } else {
+          try {
+            const response = await fetchWithRateLimit(
+              `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${contractList}&vs_currencies=usd`,
+              { headers: { 'x-cg-demo-api-key': process.env.COINGECKO_API_KEY } }
+            );
+            tokenPrices = response.data || {};
+            await redisClient.setEx(cacheKey, 300, JSON.stringify(tokenPrices));
+            logger.info(`Batch fetched and cached prices for ${uniqueContracts.length} tokens`);
+          } catch (e) {
+            logger.error('Batch token price fetch failed:', e.message);
+          }
         }
       }
     }
@@ -781,7 +739,6 @@ export async function POST(request) {
     const addresses = new Set();
 
     if (chain === 'bitcoin') {
-      // Process Bitcoin transactions
       const bitcoinTxPromises = transactions.map(async (tx) => {
         if (!tx.status || !tx.status.confirmed) return null;
         const blockTime = tx.status.block_time ? new Date(tx.status.block_time * 1000).toISOString() : null;
@@ -793,10 +750,9 @@ export async function POST(request) {
         let tokenImage = '/icons/default.webp';
         let usdValue = 0;
 
-        // Incoming: vout to wallet_address
         const receivedVouts = tx.vout ? tx.vout.filter(v => v.scriptpubkey_address?.toLowerCase() === wallet_address.toLowerCase()) : [];
         for (const vout of receivedVouts) {
-          if (vout.value > 546) { // dust
+          if (vout.value > 546) {
             value = (vout.value / 1e8).toString();
             usdValue = Number(value) * nativePrice;
             const source = tx.vin && tx.vin[0] ? tx.vin[0].prevout.scriptpubkey_address : 'unknown';
@@ -814,7 +770,6 @@ export async function POST(request) {
           }
         }
 
-        // Outgoing: vin from wallet_address
         const spentVins = tx.vin ? tx.vin.filter(v => v.prevout && v.prevout.scriptpubkey_address?.toLowerCase() === wallet_address.toLowerCase()) : [];
         for (const vin of spentVins) {
           value = (vin.prevout.value / 1e8).toString();
@@ -849,7 +804,6 @@ export async function POST(request) {
         }
       });
     } else {
-      // FIXED: Process native txlist (top-level ETH)
       const nativeTxPromises = transactions.map(async (tx) => {
         let value = '0';
         let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
@@ -867,7 +821,7 @@ export async function POST(request) {
           tokenSymbol = 'TRX';
           blockTime = tx.timestamp ? new Date(tx.timestamp).toISOString() : null;
         } else {
-          value = ethers.formatEther(tx.value); // FIXED: Dùng ethers.formatEther cho chính xác
+          value = ethers.formatEther(tx.value);
           blockTime = tx.timeStamp ? new Date(parseInt(tx.timeStamp) * 1000).toISOString() : null;
         }
 
@@ -876,12 +830,8 @@ export async function POST(request) {
           return null;
         }
 
-        // FIXED2: Skip native tx if value == 0 (avoid bogus "ETH 0" rows for contract calls/swaps)
-        if (parseFloat(value) === 0) {
-          return null;
-        }
+        if (parseFloat(value) === 0) return null;
 
-        // Use pre-fetched native price
         usdValue = Number(value) * nativePrice;
 
         return {
@@ -911,27 +861,20 @@ export async function POST(request) {
         }
       });
 
-      // FIXED: Process internal txs cho EVM (capture internal ETH từ swap, etc.)
       if (chain !== 'solana' && chain !== 'tron' && internalData.length > 0) {
         const internalNativeTxPromises = internalData.map(async (itx) => {
-          if (itx.type !== 'call' || BigInt(itx.value) === 0n) return null; // Filter chỉ call với value > 0
-
-          let value = ethers.formatEther(itx.value); // FIXED: Format ETH chính xác
+          if (itx.type !== 'call' || BigInt(itx.value) === 0n) return null;
+          let value = ethers.formatEther(itx.value);
           let tokenSymbol = chainConfig.name === 'ethereum' ? 'ETH' : chainConfig.name.toUpperCase();
           let contractAddress = null;
           let tokenImage = '/icons/default.webp';
           let blockTime = itx.timeStamp ? new Date(parseInt(itx.timeStamp) * 1000).toISOString() : null;
-          let usdValue = 0;
+          let usdValue = Number(value) * nativePrice;
 
           if (!blockTime) {
             logger.warn(`Missing or invalid block_time for internal tx ${itx.hash} from address ${wallet_address}`);
             return null;
           }
-
-          // FIXED2: Already skipped if value == 0 above
-
-          // Use pre-fetched native price
-          usdValue = Number(value) * nativePrice;
 
           const from = itx.from.toLowerCase();
           const to = itx.to.toLowerCase();
@@ -941,7 +884,7 @@ export async function POST(request) {
 
           return {
             address,
-            hash: itx.hash, // Top-level tx hash
+            hash: itx.hash,
             value,
             usdValue: usdValue.toFixed(6),
             tokenSymbol,
@@ -965,20 +908,14 @@ export async function POST(request) {
             }
           }
         });
-        logger.info(`Processed ${internalTxResults.filter(r => r.status === 'fulfilled' && r.value).length} internal ETH transfers`);
       }
 
       const tokenPromises = tokenTransactions.map(async (tx) => {
-        if (!isAddress(tx.contractAddress)) return null;
-        if (BLOCKED_TOKEN_ADDRESSES.includes(tx.contractAddress.toLowerCase())) {
-          logger.warn(`Filtered out blocked token contract: ${tx.contractAddress}`);
-          return null;
-        }
-        if (!isValidTokenSymbol(tx.tokenSymbol)) {
-          logger.warn(`Filtered out invalid token symbol: ${tx.tokenSymbol} for contract ${tx.contractAddress}`);
+        if (!isAddress(tx.contractAddress) || BLOCKED_TOKEN_ADDRESSES.includes(tx.contractAddress.toLowerCase()) || !isValidTokenSymbol(tx.tokenSymbol)) {
           return null;
         }
         let value = (parseInt(tx.value) / Math.pow(10, parseInt(tx.tokenDecimal || 18))).toString();
+        if (parseFloat(value) === 0) return null;
         let tokenSymbol = tx.tokenSymbol || 'Unknown';
         let contractAddress = tx.contractAddress;
         let tokenImage = await getTokenImage(contractAddress, chain);
@@ -990,12 +927,6 @@ export async function POST(request) {
           return null;
         }
 
-        // FIXED2: Skip token tx if value == 0 (rare, but avoid zero token rows)
-        if (parseFloat(value) === 0) {
-          return null;
-        }
-
-        // Use batched token price or fallback
         const price = tokenPrices[contractAddress.toLowerCase()]?.usd || await getTokenCurrentPrice(chainIdToName[chain], contractAddress);
         usdValue = Number(value) * price;
 
@@ -1072,7 +1003,7 @@ export async function POST(request) {
     const calculateServerRisk = (txs) => {
       return txs.map(tx => ({
         ...tx,
-        riskScore: Math.random() > 0.8 ? 0.9 : 0.3 // Placeholder; integrate ML later
+        riskScore: Math.random() > 0.8 ? 0.9 : 0.3
       }));
     };
 

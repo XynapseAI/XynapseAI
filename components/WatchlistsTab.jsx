@@ -1335,7 +1335,7 @@ export default function WatchlistsTab({ initialTab = 'PORTFOLIO', initialAddress
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      className="font-saira w-full max-w-9xl mx-auto mt-2 p-2 sm:p-3 flex flex-row h-[calc(100vh-3rem)] rounded-xl overflow-hidden"
+      className="font-saira w-full max-w-9xl bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs mx-auto mt-2 p-2 sm:p-3 flex flex-row h-[calc(100vh-3rem)] rounded-xl overflow-hidden"
     >
       <ToastContainer position="top-center" autoClose={5000} theme="dark" />
 

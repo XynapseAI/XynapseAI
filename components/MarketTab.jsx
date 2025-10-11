@@ -664,7 +664,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className={`font-saira w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-black/80 backdrop-blur-3xl ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
+      className={`font-saira w-full max-w-9xl mx-auto mt-4 p-2 sm:p-4 h-[calc(100vh)] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-xs ${isMobile ? 'pb-8 overflow-y-auto' : ''}`}
       aria-label="Cryptocurrency Market Data"
     >
       <div className="w-full mb-1 mt-2 sm:mt-1">

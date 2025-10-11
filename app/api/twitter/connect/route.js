@@ -286,7 +286,9 @@ export async function GET(request) {
 
     const twitterUser = await userClient.v2.me({ 'user.fields': ['username', 'profile_image_url'] });
     const twitterHandle = twitterUser.data.username;
-    const twitterProfilePicture = twitterUser.data.profile_image_url;
+    let twitterProfilePicture = twitterUser.data.profile_image_url;
+
+    twitterProfilePicture = twitterProfilePicture.replace('_normal', '_400x400');
 
     if (!process.env.ENCRYPTION_KEY) {
       throw new Error('ENCRYPTION_KEY environment variable is missing');
