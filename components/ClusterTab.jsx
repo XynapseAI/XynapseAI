@@ -1390,7 +1390,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
   const renderPortfolioContent = () => {
     return (
       <div className="flex flex-col relative" ref={portfolioRef}>
-        <div className="bg-gradient-to-br from-black/90 via-black/80 to-black/90 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+        <div className="bg-gradient-to-br from-black/80 to-gray-900/80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
           {isLoadingPortfolio && (
             <LoadingOverlay
               isLoading={isLoadingPortfolio}
@@ -1402,7 +1402,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             <SkeletonLoader count={5} isMobile={isMobile} />
           ) : groupedPortfolio.length > 0 ? (
             <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/80 rounded-xl">
-              <thead className="border-b border-white/10 bg-gradient-to-r from-black/90 to-black/80">
+              <thead className="border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80">
                 <tr>
                   <th className={`${isMobile ? "w-[20%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Token</th>
                   <th className={`${isMobile ? "w-[30%]" : "w-[25%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Balance</th>
@@ -1469,7 +1469,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     }
     const totalValue = uniqueWalletData.reduce((sum, wallet) => sum + (Number(wallet.total_value_usd) || 0), 0);
     return (
-      <div className="relative bg-gradient-to-br from-black/90 via-black/80 to-black/90 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
+      <div className="relative bg-gradient-to-br from-black/80 to-gray-900/80 overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar">
         {isLoadingWallets && (
           <LoadingOverlay
             isLoading={isLoadingWallets}
@@ -1481,7 +1481,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           <SkeletonLoader count={5} isMobile={isMobile} />
         ) : uniqueWalletData.length > 0 ? (
           <table className="w-full table-fixed text-[9px] sm:text-[11px] bg-black/5 rounded-xl">
-            <thead className="border-b border-white/10 bg-gradient-to-r from-black/90 to-black/80">
+            <thead className="border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80">
               <tr>
                 <th className={`${isMobile ? "w-[40%]" : "w-[50%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Wallet</th>
                 {/* <th className={`${isMobile ? "w-[20%]" : "w-[20%]"} px-3 py-2 text-white text-left font-semibold truncate`}>Chain</th> */}
@@ -1690,7 +1690,6 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           </div>
           <div className="w-[30%] sm:w-[25%] px-2 sm:px-3 text-white/80 text-[8px] sm:text-[10px] text-center overflow-hidden text-ellipsis flex items-center justify-center">
             <div className="flex items-center gap-1 min-w-0 flex-1">
-              {/* FIX: Icon flow với chiều cao giảm, thiết kế half cylinder left + arrow end */}
               <div className={`flex flex-col items-center gap-0.5 ${directionColor}`}>
                 {pathLine}
                 <div className="-mt-0.5">{arrowIcon}</div>
@@ -1809,7 +1808,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           </p>
         ) : transactions.length > 0 ? (
           <div className="w-full table-fixed text-[9px] sm:text-[11px]">
-            <div className="border-b border-white/10 bg-gradient-to-r from-black/90 to-black/80 flex">
+            <div className="border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80 flex">
               <div className="w-[12%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Token</div>
               <div className="w-[30%] sm:w-[25%] px-3 py-2 text-white font-medium text-center">From/To</div>
               <div className="w-[20%] sm:w-[20%] px-3 py-2 text-white font-medium text-center">Token Value</div>
@@ -1875,7 +1874,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
 
       <div className="flex flex-col flex-1 gap-4 sm:gap-5">
         <motion.div
-          className="min-h-[30vh] border border-white/10 rounded-xl bg-gradient-to-br from-black/90 via-black/80 to-black/90 backdrop-blur-sm flex flex-col md:flex-row shadow-2xl"
+          className="min-h-[30vh] border border-white/10 rounded-xl bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm flex flex-col md:flex-row shadow-2xl"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -1903,9 +1902,9 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
                     initial={{ scale: 0.9 }}
                     animate={{ scale: 1 }}
                   >
-                    <div className="flex items-center gap-1 p-1 bg-gradient-to-r from-black/70 to-black/50 rounded-xl border border-white/10 shadow-md shadow-neon-blue/10 max-w-full">
+                    <div className="flex items-center gap-1 p-1 bg-gradient-to-br from-black/80 to-gray-900/80 rounded-xl border border-white/10 shadow-md shadow-neon-blue/10 max-w-full">
                       <div className="flex items-center gap-1 flex-wrap min-w-0">
-                        <span className="flex items-center font-bold text-white text-[11px] sm:text-xs whitespace-nowrap">
+                        <span className="p-1 flex items-center font-bold text-white text-[11px] sm:text-xs whitespace-nowrap">
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
                             className="h-4 w-4 text-emerald-400 flex-shrink-0 m-1"
@@ -2056,7 +2055,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
 
         <div className="flex flex-col md:flex-row gap-4 flex-1">
           <motion.div
-            className="flex-1 border border-white/10 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col"
+            className="flex-1 border border-white/10 rounded-xl bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm flex flex-col"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
@@ -2094,7 +2093,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
           </motion.div>
 
           <motion.div
-            className="flex-1 border border-white/10 rounded-xl bg-black/80 backdrop-blur-sm flex flex-col"
+            className="flex-1 border border-white/10 rounded-xl bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm flex flex-col"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}

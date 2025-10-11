@@ -762,7 +762,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   </a>
                 )}
                 {isCurrentUser && (
-                  <span className="ml-2 text-[7px] sm:text-[8px] font-medium text-neon-blue px-2 py-0.4 sm:0.5 rounded-full border border-neon-blue/50 bg-gradient-to-r from-neon-blue/10 to-neon-blue/5">
+                  <span className="ml-2 text-[7px] sm:text-[8px] font-semibold text-black/80 px-2 py-0.5 sm:0.5 rounded-lg border border-white/80 bg-gradient-to-r from-white/80 to-white/50">
                     You
                   </span>
                 )}
@@ -1193,7 +1193,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                           ) : (
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              className="w-4 h-4 text-red-400"
+                              className="w-4 h-4 text-red-500/80"
                               viewBox="0 0 24 24"
                               fill="none"
                               stroke="currentColor"
@@ -1216,7 +1216,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <div className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-gradient-to-br from-black/80 to-gray-900/80 border-2 ${userData.tier === 'Premium' ? 'border-yellow-400' : 'border-gray-400'} rounded-full px-2 py-0.5`}>
+                        <div className={`w-[60px] absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-gradient-to-br from-black/80 to-gray-900/80 border-2 ${userData.tier === 'Premium' ? 'border-yellow-400' : 'border-gray-400'} rounded-full px-2 py-0.5`}>
                           <span className={`text-[9px] font-bold ${userData.tier === 'Premium' ? 'text-yellow-300' : 'text-white/80'}`}>
                             {userData.tier}
                           </span>
@@ -1226,8 +1226,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         <h4 className="text-sm sm:text-base font-bold text-white bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
                           {userData.googleName}
                         </h4>
-                        <div className="flex items-center gap-2 text-white/70 w-full justify-center">
-                          <span className="text-xs">
+                        <div className="flex items-center gap-2 text-gray-500 w-full justify-center">
+                          <span className="text-[10px] sm:text-[11px]">
                             {showEmail ? userData.email : userData.email.replace(/./g, '*')}
                           </span>
                           <motion.button
@@ -1244,10 +1244,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <div className="h-[22vh] rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 relative">
                       <div className="flex justify-between items-center mb-3">
                         <div className="flex items-center gap-2">
-                          <img src="/logos/x.webp" alt="X Logo" className="w-4 h-4 text-blue-400" />
-                          <span className="text-neon-blue font-semibold">@{userData.twitterHandle || 'Not connected'}</span>
+                          <img src="/logos/x.webp" alt="X Logo" className="w-6 h-6 text-blue-400 m-2" />
+                          <span className="text-white text-sm font-semibold">@{userData.twitterHandle || null}</span>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${userData.twitterHandle ? 'bg-green-500/20 text-green-400 border border-green-400/30' : 'bg-gray-500/20 text-gray-400 border border-gray-400/30'}`}>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${userData.twitterHandle ? 'text-emerald-400' : 'text-gray-400'}`}>
                           {userData.twitterHandle ? <Check className="w-3 h-3 text-emerald-400" /> : null}
                           {userData.twitterHandle ? 'Connected' : 'Not Connected'}
                         </span>
@@ -1256,10 +1256,10 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         onClick={() => userData.twitterHandle ? disconnectTwitterMutation.mutate() : connectTwitterMutation.mutate()}
                         disabled={disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading}
                         className={`absolute bottom-3 right-3 px-4 py-2 rounded-xl text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg ${userData.twitterHandle
-                          ? 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 border border-red-500/30'
-                          : 'text-neon-blue border border-neon-blue/50 bg-gradient-to-r from-white/10 to-white/5 hover:bg-neon-blue/20'
+                          ? 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-500/80 border border-red-500/30'
+                          : 'text-white border border-neon-blue/50 bg-gradient-to-r from-white/10 to-white/5 hover:bg-neon-blue/20'
                           }`}
-                        whileHover={{ scale: (disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading) ? 1 : 1.03 }}
+                        whileHover={{ scale: (disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading) ? 1 : 1 }}
                         whileTap={{ scale: (disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading) ? 1 : 0.97 }}
                       >
                         {disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading ? (
@@ -1280,18 +1280,19 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                       </motion.button>
                     </div>
                     <div className="h-[22vh] relative rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 flex flex-col items-center justify-center">
-                      <span className="absolute top-3 left-3 text-white/70 text-xs uppercase">POINT</span>
+                      <span className="absolute top-3 left-3 m-2 text-white/80 text-xs uppercase">POINTS</span>
                       <div className="flex flex-col items-center gap-1">
-                        <span className="text-neon-blue text-2xl sm:text-3xl font-bold">
+                        <span className="text-white text-2xl sm:text-3xl font-bold">
                           {userData?.points || 0}
                         </span>
                       </div>
                       <div className="flex flex-row absolute bottom-3 right-3 text-white/70 text-[10px] flex items-center gap-1">
                         <span>Days Active: </span>
-                        <span className=" font-bold">{getDaysActive()}</span>
+                        <span className="text-white font-bold">{getDaysActive()}</span>
                         <span className={`flex ml-4 items-center gap-1 text-[10px] ${userData.streak >= 7 ? 'text-orange-400' : 'text-white/70'}`}>
                           {userData.streak >= 7 && <Flame className="w-3 h-3 text-orange-500 animate-pulse" />}
-                          Streak: {userData.streak}
+                          Streak:
+                          <span className="text-white font-bold">{userData.streak}</span>
                         </span>
                       </div>
                     </div>
@@ -1330,7 +1331,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                   onClick={() => setActiveTab(tab)}
                   className={`flex-1 text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider py-2 relative transition-all duration-300 flex items-center justify-center gap-1 ${isActive
                     ? 'text-white shadow-lg'
-                    : 'text-white/70 hover:text-neon-blue hover:bg-white/5'
+                    : 'text-white/70 hover:text-neon-blue'
                     }`}
                 >
                   {tab === 'tasks' && <svg className="w-3 h-3 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1361,8 +1362,8 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
               exit={{ opacity: 0, y: -10 }}
             >
               <div className="text-center max-w-md flex flex-col items-center justify-center gap-4"> {/* Thêm gap và center */}
-                <p className="text-[8px] sm:text-[9px] text-white/80">
-                  Connect your X (Twitter) account to unlock tasks, check-ins, and rewards.
+                <p className="text-[9px] sm:text-[10px] text-white/80">
+                  Connect your X (Twitter) account to unlock tasks.
                 </p>
                 <motion.button
                   onClick={() => connectTwitterMutation.mutate()}

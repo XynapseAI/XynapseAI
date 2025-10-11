@@ -201,8 +201,8 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
   };
 
   return (
-    <header className="sticky top-4 z-50 w-full m-2">
-      <div className="w-[80%] mx-auto h-[4vh] sm:h-[5vh] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm border border-white/20 rounded-xl flex justify-between items-center px-4 font-saira shadow-2xl">
+    <header className="sticky top-4 z-50 w-full m-1">
+      <div className="w-[80%] mx-auto h-[4.5vh] sm:h-[4.5vh] bg-gradient-to-br from-black/80 to-gray-900/80 backdrop-blur-sm border border-white/20 rounded-xl flex justify-between items-center px-4 font-saira shadow-2xl">
         <div className="block sm:hidden">
           <motion.button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -276,7 +276,7 @@ export default function Header({ activeTab, setActiveTab, handleSignOut, selecte
           {isMenuOpen && (
             <motion.div
               ref={menuRef}
-              className="fixed top-[5vh] left-0 -translate-x-1/2 w-[80vw] h-[60vh] bg-black/90 backdrop-blur-xs z-[60] flex flex-col p-4 sm:hidden rounded-xl border border-white/10 shadow-2xl shadow-neon-blue/20 overflow-y-auto hide-scrollbar"
+              className="fixed top-[5vh] left-0 -translate-x-1/2 w-[80vw] h-[60vh] bg-black/95 backdrop-blur-xs z-[60] flex flex-col p-4 sm:hidden rounded-xl border border-white/10 shadow-2xl shadow-neon-blue/20 overflow-y-auto hide-scrollbar"
               initial="closed"
               animate="open"
               exit="closed"
