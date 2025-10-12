@@ -1792,7 +1792,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
     };
 
     return (
-      <div className="relative overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar bg-gradient-to-br from-black/90 via-black/80 to-black/90 rounded-xl">
+      <div className="relative overflow-y-auto min-h-[calc(50vh)] sm:min-h-[calc(30vh)] max-h-[calc(50vh)] sm:max-h-[calc(50vh-5rem)] hide-scrollbar bg-gradient-to-br from-black/80 to-gray-900/80 rounded-xl">
         {isLoadingTransactions && (
           <LoadingOverlay
             isLoading={isLoadingTransactions}
@@ -1816,7 +1816,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
               <div className="w-[10%] sm:w-[15%] px-3 py-2 text-white font-medium text-center">Details</div>
             </div>
             <Virtuoso
-              className="hide-scrollbar virtuoso-container"
+              className="bg-gradient-to-br from-black/80 to-gray-900/80 hide-scrollbar virtuoso-container"
               style={{ height: 'calc(50vh - 5rem)' }}
               data={transactions}
               itemContent={renderTransactionRow}
@@ -2098,7 +2098,7 @@ const ClusterTab = ({ recaptchaRef, initialClusterId, activeTab: propActiveTab, 
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <div className="p-2 border-b border-white/10 bg-black/10 flex items-center h-[52px]">
+            <div className="p-2 border-b border-white/10 bg-gradient-to-br from-black/80 to-gray-900/80 flex items-center h-[52px]">
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
               </svg>

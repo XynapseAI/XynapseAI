@@ -208,7 +208,7 @@ export async function GET(request) {
     if (cachedData) {
       let parsed = JSON.parse(cachedData);
       const now = Math.floor(Date.now() / 1000);
-      const MAX_AGE_SECONDS = 2 * 60 * 60; // 2 hours
+      const MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // 7 days
       parsed.data = parsed.data
         .filter((tx) => tx.timestamp >= now - MAX_AGE_SECONDS)
         .sort((a, b) => b.timestamp - a.timestamp);
