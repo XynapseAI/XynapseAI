@@ -31,7 +31,7 @@ import { useCurrency } from './CurrencyContext';
 import { logger } from '../utils/clientLogger';
 import remarkGfm from 'remark-gfm';
 import ReactMarkdown from "react-markdown";
-import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
+import { Virtuoso } from 'react-virtuoso';
 
 const LazyImage = ({ src, alt, className, width, height, ...props }) => {
   const [imgSrc, setImgSrc] = useState(src || '/fallback-image.webp');
@@ -158,6 +158,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     isLoadingMempool,
     mempoolError,
     fetchMempoolTransactions,
+    loadMoreDexData,
+    hasMoreDex,
+    isLoadingMoreDex,
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
 
   const dropdownRef = useRef(null)
@@ -1489,7 +1492,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     }}
                     className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "holders" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
                       }`}
-                    whileHover={{ y: -1 }}
                     transition={{ duration: 0.2 }}
                     role="tab"
                     aria-selected={activeMarketTab === "holders"}
@@ -1512,7 +1514,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     }}
                     className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "cex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
                       }`}
-                    whileHover={{ y: -1 }}
                     transition={{ duration: 0.2 }}
                     role="tab"
                     aria-selected={activeMarketTab === "cex"}
@@ -1532,7 +1533,6 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                     onClick={handleDexTabClick}
                     className={`flex-1 px-6 py-2 font-semibold transition-all duration-300 relative p-1 ${activeMarketTab === "dex" ? "text-white" : "text-white/60 hover:text-white hover:bg-white/5"
                       }`}
-                    whileHover={{ y: -1 }}
                     transition={{ duration: 0.2 }}
                     role="tab"
                     aria-selected={activeMarketTab === "dex"}
@@ -1694,7 +1694,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             )}
                           </>
                         ) : (
-                            <LoginPrompt/>
+                          <LoginPrompt />
                         )}
                       </div>
                     )}
@@ -1787,214 +1787,252 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                   </div>
                   <div id="dex-panel" role="tabpanel" aria-labelledby="dex-tab" className={`flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px] ${activeMarketTab !== "dex" ? "hidden" : ""}`}>
                     {activeMarketTab === "dex" && (
+
                       <div className="flex-1 overflow-y-auto tab-content custom-scrollbar hide-scrollbar relative min-h-[500px] sm:min-h-[400px]">
                         {session ? (
                           <>
                             <LoadingOverlay
                               isLoading={
-                                (selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex) &&
+                                (selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) &&
                                 !(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades)?.length
                               }
                               isMobile={isMobile}
                               className="h-full w-full"
                             />
-                            {(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades).length > 0 ? (
-                              <Virtuoso
-                                style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                className="hide-scrollbar"
-                                data={(selectedToken?.id === "bitcoin" ? mempoolTransactions : dexData.trades).slice(0, 100)}
-                                itemContent={(index, item) => {
-                                  const isBitcoin = selectedToken?.id === "bitcoin";
-                                  const txHash = isBitcoin ? item.txid : item.tx_hash;
-                                  const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
-                                  const chain = isBitcoin ? 'bitcoin' : selectedChain;
-                                  const explorerInfo = getExplorerInfo(chain, txHash, null);
-                                  const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
-                                  const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
+                            {(() => {
+                              const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
+                              const trades = isBitcoin ? mempoolTransactions : dexData.trades;
+                              return trades.length > 0 ? (
+                                <>
+                                  <Virtuoso
+                                    style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                    className="hide-scrollbar"
+                                    data={trades.slice(0, 200)}
+                                    itemContent={(index, item) => {
+                                      const txHash = isBitcoin ? item.txid : item.tx_hash;
+                                      const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
+                                      const chain = isBitcoin ? 'bitcoin' : item.chain;  // Sửa: dùng item.chain thay vì selectedChain
+                                      const explorerInfo = getExplorerInfo(chain, txHash, null);
+                                      const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
+                                      const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
-                                  const DexRow = React.memo(() => (
-                                    <div className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]">
-                                      {/* Tx/Time */}
-                                      <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
-                                        <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
-                                          <LazyImage src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" width={12} height={12} />
-                                        </a>
-                                        <span className="text-[7px] sm:text-[9px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
-                                        {txHash && (
-                                          <motion.button
-                                            onClick={() => {
-                                              navigator.clipboard.writeText(txHash);
-                                              toast.success("Transaction hash copied!", { autoClose: 2000 });
-                                            }}
-                                            className="absolute right-0 top-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
-                                            title="Copy transaction hash"
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                          >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                            </svg>
-                                          </motion.button>
-                                        )}
-                                      </div>
+                                      const DexRow = React.memo(() => (
+                                        <div className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]">
+                                          {/* Tx/Time */}
+                                          <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
+                                            <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
+                                              <LazyImage src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" width={12} height={12} />
+                                            </a>
+                                            <span className="text-[7px] sm:text-[9px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
+                                            {txHash && (
+                                              <motion.button
+                                                onClick={() => {
+                                                  navigator.clipboard.writeText(txHash);
+                                                  toast.success("Transaction hash copied!", { autoClose: 2000 });
+                                                }}
+                                                className="absolute right-0 top-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                                title="Copy transaction hash"
+                                                whileHover={{ scale: 1.1 }}
+                                                whileTap={{ scale: 0.9 }}
+                                              >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                </svg>
+                                              </motion.button>
+                                            )}
+                                          </div>
 
-                                      {/* From Address */}
-                                      <div className="flex-[2] flex items-center justify-center gap-2 group relative">
-                                        {fromAddressInfo.image && <LazyImage src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />}
-                                        <a
-                                          href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(selectedChain, txHash, item.tx_from_address?.address).addressUrl}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="text-white hover:text-white/80 transition-colors font-medium text-[9px] sm:text-[11px]"
-                                          title={isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address}
-                                        >
-                                          {fromAddressInfo.nameTag ? (
-                                            <span className="flex items-center gap-1">
-                                              <span className="text-[10px]">{fromAddressInfo.nameTag}</span>
-                                            </span>
-                                          ) : (
-                                            <span className="text-[9px] sm:text-[11px]">{isBitcoin ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}` : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`}</span>
-                                          )}
-                                        </a>
-                                        <motion.button
-                                          onClick={() => navigator.clipboard.writeText(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
-                                          className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
-                                          title="Copy address"
-                                          whileHover={{ scale: 1.1 }}
-                                          whileTap={{ scale: 0.9 }}
-                                        >
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                          </svg>
-                                        </motion.button>
-                                      </div>
-
-                                      {/* To Address */}
-                                      <div className="flex-[2] flex items-center justify-center gap-2 group relative">
-                                        {toAddressInfo.image && <LazyImage src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />}
-                                        <a
-                                          href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(selectedChain, txHash, item.to_token_address?.address).addressUrl}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="text-white hover:text-white/80 transition-colors font-medium text-[10px]"
-                                          title={isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address}
-                                        >
-                                          {toAddressInfo.nameTag ? (
-                                            <span className="flex items-center gap-1">
-                                              <span className="text-[10px]">{toAddressInfo.nameTag}</span>
-                                            </span>
-                                          ) : (
-                                            <span className="text-[10px]">{isBitcoin ? `${item.outputs?.[0]?.address?.slice(0, 6)}...${item.outputs?.[0]?.address?.slice(-4)}` : `${item.to_token_address?.address?.slice(0, 6)}...${item.to_token_address?.address?.slice(-4)}`}</span>
-                                          )}
-                                        </a>
-                                        <motion.button
-                                          onClick={() => navigator.clipboard.writeText(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
-                                          className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
-                                          title="Copy address"
-                                          whileHover={{ scale: 1.1 }}
-                                          whileTap={{ scale: 0.9 }}
-                                        >
-                                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                          </svg>
-                                        </motion.button>
-                                      </div>
-
-                                      {/* Value */}
-                                      <div className="flex-1 flex flex-col gap-1 items-center justify-center text-[10px]">
-                                        <span className="font-semibold flex items-center gap-1 text-[8px] sm:text-[10px]">
-                                          {isBitcoin ? (
-                                            <>
-                                              {(item.value_btc || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                              <LazyImage src="/logos/bitcoin.webp" alt="BTC" className="w-3 h-3 rounded" width={12} height={12} />
-                                              <span>BTC</span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              {(Number.parseFloat(item.kind === "sell" ? item.from_token_amount : item.to_token_amount || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                              {(() => {
-                                                const tokenAddress = item.kind === "sell" ? item.from_token_address?.address : item.to_token_address?.address;
-                                                return tokenAddress?.toLowerCase() === selectedToken?.detail_platforms?.[chains.find((c) => c.value === selectedChain)?.coingeckoId]?.contract_address?.toLowerCase()
-                                                  ? selectedToken?.symbol?.toUpperCase()
-                                                  : "Token";
-                                              })()}
-                                            </>
-                                          )}
-                                        </span>
-                                        <div className="flex items-center gap-2 text-[7px] sm:text-[9px]">
-                                          <span className="text-white/60">${(Number.parseFloat(isBitcoin ? item.value_usd : item.volume_in_usd || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                        </div>
-                                      </div>
-
-                                      {/* Fee/Status */}
-                                      <div className="flex-1 flex flex-col gap-1 items-center justify-center text-center text-[9px] sm:text-[11px]">
-                                        {isBitcoin && <div className="text-[7px] sm:text-[9px] text-white/70 text-center">Fee: {item.fee.toLocaleString("en-US")} satoshis</div>}
-                                        {isBitcoin ? (
-                                          <span className={`px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center ${item.status.confirmed ? "bg-emerald-400/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-500"}`}>
-                                            {item.status.confirmed ? "Confirmed" : "Pending"}
-                                          </span>
-                                        ) : (
-                                          <span className="text-white/60 text-7px] sm:text-[9px] text-center">—</span>
-                                        )}
-                                      </div>
-
-                                      {/* Pool (if not Bitcoin) */}
-                                      {!isBitcoin && (
-                                        <div className="flex-1 flex justify-center">
-                                          <motion.button
-                                            onClick={() => item.pool_address && handlePoolClick(item.pool_address)}
-                                            className="flex items-center gap-1 text-[9px] sm:text-[11px] hover:bg-white/10 p-1 rounded-md transition-all duration-300"
-                                            title={dexData.pools.find((p) => p.attributes.address === item.pool_address)?.attributes.name || "View Pool Details"}
-                                            disabled={!item.pool_address || !dexData.poolTokens[item.pool_address]}
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                          >
-                                            {(() => {
-                                              const poolTokens = item.pool_address && typeof item.pool_address === "string" ? dexData.poolTokens[item.pool_address] || {} : {};
-                                              const tokenAddresses = Object.keys(poolTokens);
-                                              const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null;
-                                              const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null;
-                                              return token1 && token2 ? (
-                                                <div className="flex items-center gap-1">
-                                                  <LazyImage src={token1.image_url || "/placeholder.svg"} alt={`${token1.symbol} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />
-                                                  <span className="text-white/40">/</span>
-                                                  <LazyImage src={token2.image_url || "/placeholder.svg"} alt={`${token2.symbol} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />
-                                                </div>
+                                          {/* From Address */}
+                                          <div className="flex-[2] flex items-center justify-center gap-2 group relative">
+                                            {fromAddressInfo.image && <LazyImage src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />}
+                                            <a
+                                              href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(chain, null, item.tx_from_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="text-white hover:text-white/80 transition-colors font-medium text-[9px] sm:text-[11px]"
+                                              title={isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address}
+                                            >
+                                              {fromAddressInfo.nameTag ? (
+                                                <span className="flex items-center gap-1">
+                                                  <span className="text-[10px]">{fromAddressInfo.nameTag}</span>
+                                                </span>
                                               ) : (
-                                                <span className="text-white/60 text-[9px] sm:text-[11px]">N/A</span>
-                                              );
-                                            })()}
-                                          </motion.button>
+                                                <span className="text-[9px] sm:text-[11px]">{isBitcoin ? `${item.inputs?.[0]?.address?.slice(0, 6)}...${item.inputs?.[0]?.address?.slice(-4)}` : `${item.tx_from_address?.address?.slice(0, 6)}...${item.tx_from_address?.address?.slice(-4)}`}</span>
+                                              )}
+                                            </a>
+                                            <motion.button
+                                              onClick={() => navigator.clipboard.writeText(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
+                                              className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                              title="Copy address"
+                                              whileHover={{ scale: 1.1 }}
+                                              whileTap={{ scale: 0.9 }}
+                                            >
+                                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                              </svg>
+                                            </motion.button>
+                                          </div>
+
+                                          {/* To Address */}
+                                          <div className="flex-[2] flex items-center justify-center gap-2 group relative">
+                                            {toAddressInfo.image && <LazyImage src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />}
+                                            <a
+                                              href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(chain, null, item.to_token_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="text-white hover:text-white/80 transition-colors font-medium text-[10px]"
+                                              title={isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address}
+                                            >
+                                              {toAddressInfo.nameTag ? (
+                                                <span className="flex items-center gap-1">
+                                                  <span className="text-[10px]">{toAddressInfo.nameTag}</span>
+                                                </span>
+                                              ) : (
+                                                <span className="text-[10px]">{isBitcoin ? `${item.outputs?.[0]?.address?.slice(0, 6)}...${item.outputs?.[0]?.address?.slice(-4)}` : `${item.to_token_address?.address?.slice(0, 6)}...${item.to_token_address?.address?.slice(-4)}`}</span>
+                                              )}
+                                            </a>
+                                            <motion.button
+                                              onClick={() => navigator.clipboard.writeText(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address) && toast.success("Address copied!", { autoClose: 2000 })}
+                                              className="absolute right-0 text-white/40 hover:text-white/80 opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10"
+                                              title="Copy address"
+                                              whileHover={{ scale: 1.1 }}
+                                              whileTap={{ scale: 0.9 }}
+                                            >
+                                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                              </svg>
+                                            </motion.button>
+                                          </div>
+
+                                          {/* Value */}
+                                          <div className="flex-1 flex flex-col gap-1 items-center justify-center text-[10px]">
+                                            <span className="font-semibold flex items-center gap-1 text-[8px] sm:text-[10px]">
+                                              {isBitcoin ? (
+                                                <>
+                                                  {(item.value_btc || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                  <LazyImage src="/logos/bitcoin.webp" alt="BTC" className="w-3 h-3 rounded" width={12} height={12} />
+                                                  <span>BTC</span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  {(Number.parseFloat(item.to_token_amount || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                  {selectedToken?.symbol?.toUpperCase()}
+                                                </>
+                                              )}
+                                            </span>
+                                            <div className="flex items-center gap-2 text-[7px] sm:text-[9px]">
+                                              <span className="text-white/60">${(Number.parseFloat(isBitcoin ? item.value_usd : item.volume_in_usd || 0) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            </div>
+                                          </div>
+
+                                          {/* Fee/Status */}
+                                          <div className="flex-1 flex flex-col gap-1 items-center justify-center text-center text-[9px] sm:text-[11px]">
+                                            {isBitcoin ? (
+                                              <div className="text-[7px] sm:text-[9px] text-white/70 text-center">Fee: {item.fee.toLocaleString("en-US")} sat</div>
+                                            ) : (
+                                              <div className="text-[7px] sm:text-[9px] text-white/70 text-center">
+                                                Fee: {item.gas_fee ? `${parseFloat(item.gas_fee).toFixed(6)} ${chain === 'ethereum' ? 'ETH' : chain.toUpperCase()}` : '—'}
+                                              </div>
+                                            )}
+                                            {isBitcoin ? (
+                                              <span className={`px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center ${item.status.confirmed ? "bg-emerald-400/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-500"}`}>
+                                                {item.status.confirmed ? "Confirmed" : "Pending"}
+                                              </span>
+                                            ) : (
+                                              <span className="text-white/60 text-[7px] sm:text-[9px] text-center">Success</span>
+                                            )}
+                                          </div>
+                                          {!isBitcoin && (
+                                            <div className="flex-1 flex items-center justify-center">
+                                              <LazyImage
+                                                src={`/logos/${item.chain}.webp`}
+                                                alt={`${item.chain} logo`}
+                                                className="w-4 h-4 rounded"
+                                                fallback="/logos/ethereum.webp"
+                                                width={16} height={16}
+                                              />
+                                            </div>
+                                          )}
+                                          {!isBitcoin && (
+                                            <div className="flex-1 flex justify-center">
+                                              <span className="text-white/60 text-[9px] sm:text-[11px]">Transfer</span>
+                                            </div>
+                                          )}
+                                          {/* Pool (if not Bitcoin) */}
+                                          {!isBitcoin && (
+                                            <div className="flex-1 flex justify-center">
+                                              <motion.button
+                                                onClick={() => item.pool_address && handlePoolClick(item.pool_address)}
+                                                className="flex items-center gap-1 text-[9px] sm:text-[11px] hover:bg-white/10 p-1 rounded-md transition-all duration-300"
+                                                title={dexData.pools.find((p) => p.attributes.address === item.pool_address)?.attributes.name || "View Pool Details"}
+                                                disabled={!item.pool_address || !dexData.poolTokens[item.pool_address]}
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.95 }}
+                                              >
+                                                {(() => {
+                                                  const poolTokens = item.pool_address && typeof item.pool_address === "string" ? dexData.poolTokens[item.pool_address] || {} : {};
+                                                  const tokenAddresses = Object.keys(poolTokens);
+                                                  const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null;
+                                                  const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null;
+                                                  return token1 && token2 ? (
+                                                    <div className="flex items-center gap-1">
+                                                      <LazyImage src={token1.image_url || "/placeholder.svg"} alt={`${token1.symbol} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />
+                                                      <span className="text-white/40">/</span>
+                                                      <LazyImage src={token2.image_url || "/placeholder.svg"} alt={`${token2.symbol} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />
+                                                    </div>
+                                                  ) : (
+                                                    <span className="text-white/60 text-[9px] sm:text-[11px]">N/A</span>
+                                                  );
+                                                })()}
+                                              </motion.button>
+                                            </div>
+                                          )}
                                         </div>
-                                      )}
+                                      ));
+                                      return <DexRow key={index} />;
+                                    }}
+                                    components={{
+                                      Header: () => (
+                                        <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
+                                          <div className="flex-1 text-center">Tx/Time</div>
+                                          <div className="flex-[2] text-center">From Address</div>
+                                          <div className="flex-[2] text-center">To Address</div>
+                                          <div className="flex-1 text-center">Value</div>
+                                          <div className="flex-1 text-center">Fee</div>
+                                          <div className="flex-1 text-center">Chain</div>
+                                        </div>
+                                      ),
+                                    }}
+                                  />
+                                  {!isBitcoin && hasMoreDex && (
+                                    <div className="p-2 text-center border-t border-white/10">
+                                      <motion.button
+                                        onClick={() => {
+                                          const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+                                          loadMoreDexData(chain, tokenAddress);
+                                        }}
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm transition-all duration-300"
+                                        disabled={isLoadingMoreDex}
+                                      >
+                                        {isLoadingMoreDex ? 'Loading...' : 'Load More'}
+                                      </motion.button>
                                     </div>
-                                  ));
-                                  return <DexRow key={index} />;
-                                }}
-                                components={{
-                                  Header: () => (
-                                    <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
-                                      <div className="flex-1 text-center">Tx/Time</div>
-                                      <div className="flex-[2] text-center">From Address</div>
-                                      <div className="flex-[2] text-center">To Address</div>
-                                      <div className="flex-1 text-center">Value</div>
-                                      <div className="flex-1 text-center">Fee/Status</div>
-                                      {!selectedToken?.id === "bitcoin" && <div className="flex-1 text-center">Pool</div>}
-                                    </div>
-                                  ),
-                                }}
-                              />
-                            ) : (
-                              !(selectedToken?.id === "bitcoin" ? isLoadingMempool : isLoadingDex) && (
-                                <div className="text-[9px] sm:text-[11px] text-white/60 text-center p-6">
-                                  No {selectedToken?.id === "bitcoin" ? "mempool transactions" : "DEX data"} available for{" "}
-                                  {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
-                                  {selectedToken?.id === "bitcoin"
-                                    ? "Bitcoin network"
-                                    : chains.find((c) => c.value === selectedChain)?.label || "selected chain"}.
-                                </div>
-                              )
-                            )}
+                                  )}
+                                </>
+                              ) : (
+                                !(isBitcoin ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) && (
+                                  <div className="text-[9px] sm:text-[11px] text-white/60 text-center p-6">
+                                    No {isBitcoin ? "mempool transactions" : "DEX data"} available for{" "}
+                                    {selectedToken?.symbol?.toUpperCase() || "selected token"} on{" "}
+                                    {isBitcoin
+                                      ? "Bitcoin network"
+                                      : chains.find((c) => c.value === selectedChain)?.label || "selected chain"}.
+                                  </div>
+                                )
+                              );
+                            })()}
                           </>
                         ) : (
                           <LoginPrompt />

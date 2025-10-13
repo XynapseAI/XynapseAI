@@ -57,7 +57,7 @@ export const getExplorerUrls = (chain, hash, address) => {
     addressUrl = address ? `https://etherscan.io/address/${address}` : '#';
   } else {
     const chainName = CHAIN_ID_TO_NAME[normalizedChain] || normalizedChain;
-    const explorer = CHAIN_EXPLORER_MAP[normalizedChain] || CHAIN_EXPLORER_MAP.ethereum;
+    const explorer = CHAIN_EXPLORER_MAP[chainName] || CHAIN_EXPLORER_MAP.ethereum;
 
     logger.log('getExplorerUrls (EVM):', {
       inputChain: chain,

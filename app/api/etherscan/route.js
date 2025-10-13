@@ -1,3 +1,4 @@
+// Updated: app/api/etherscan/route.js
 // app/api/etherscan/route.js
 import { NextResponse } from 'next/server';
 import axios from 'axios';
@@ -31,6 +32,12 @@ const chainIdMap = {
   polygon: '137',
   arbitrum: '42161',
   optimism: '10',
+  avalanche: '43114',
+  celo: '42220',
+  base: '8453',
+  fantom: '250',
+  matic: '137', // Alias for polygon
+  avalanche_c: '43114', // Alias for avalanche
 };
 
 // Allowed origins
@@ -73,16 +80,18 @@ function isAllowedOrigin(origin, referer) {
 }
 
 const bodySchema = z.object({
-  action: z.enum(['wallet-balances', 'transactions', 'token-supply', 'token-info'], { message: 'Invalid action' }),
+  action: z.enum(['wallet-balances', 'transactions', 'token-supply', 'token-info', 'token-transactions'], { message: 'Invalid action' }),
   chain: z.string().nonempty('Chain is required'),
   address: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Wallet address must be a valid EVM address' }),
   tokenAddress: z.string().optional().refine((val) => !val || isAddress(val), { message: 'Token address must be a valid EVM address' }),
+  page: z.number().int().min(1).optional().default(1),
+  offset: z.number().int().min(1).max(10000).optional().default(100),
 }).refine(
   (data) => (['wallet-balances', 'transactions'].includes(data.action) ? !!data.address : true),
   { message: 'Wallet address is required for wallet-balances and transactions', path: ['address'] }
 ).refine(
-  (data) => (['token-supply', 'token-info'].includes(data.action) ? !!data.tokenAddress : true),
-  { message: 'Token address is required for token-supply and token-info', path: ['tokenAddress'] }
+  (data) => (['token-supply', 'token-info', 'token-transactions'].includes(data.action) ? !!data.tokenAddress : true),
+  { message: 'Token address is required for token-supply, token-info and token-transactions', path: ['tokenAddress'] }
 );
 
 // V2 unified base URL
@@ -138,7 +147,7 @@ export const POST = handlerWrapper(async (request) => {
 
   const internalToken = request.headers.get('x-internal-token');
   if (!internalToken || internalToken !== process.env.INTERNAL_API_TOKEN) {
-    const session = await auth(); 
+    const session = await auth();
     if (!session || !session.user?.id) {
       logger.error(`Authentication error: No session or UID`, { ip });
       return NextResponse.json({ detail: 'Unauthorized: Please log in.' }, { status: 401 });
@@ -225,6 +234,34 @@ export const POST = handlerWrapper(async (request) => {
             logger.warn(`'token-info' action not fully supported by Etherscan V2 directly. Requires contract interaction for full details.`, { ip, tokenAddress });
             controller.enqueue(JSON.stringify({ success: true, data: { tokenAddress, name: 'Unknown', symbol: 'Unknown', decimals: 0, note: 'Requires contract interaction for full details' } }));
             controller.close();
+          } else if (action === 'token-transactions' && tokenAddress) {
+            const pageNum = parsedBody.page;
+            const offsetNum = parsedBody.offset;
+            apiUrl += `&module=account&action=tokentx&contractaddress=${tokenAddress}&startblock=0&endblock=99999999&sort=desc&page=${pageNum}&offset=${offsetNum}&apikey=${process.env.ETHERSCAN_API_KEY}`;
+            logger.info(`Calling Etherscan V2 API for token transactions: ${apiUrl}`, { ip });
+            const response = await fetchWithRateLimit(apiUrl, { timeout: 15000 });
+
+            if (response.data.status === '1' && Array.isArray(response.data.result)) {
+              data = response.data.result.map((tx) => ({
+                chain,
+                txhash: tx.txhash,
+                timeStamp: tx.timeStamp,
+                from: tx.from,
+                to: tx.to,
+                value: tx.value,
+                tokenSymbol: tx.tokenSymbol,
+                tokenName: tx.tokenName,
+                tokenDecimal: tx.tokenDecimal,
+                gasUsed: tx.gasUsed,
+                gasPrice: tx.gasPrice,
+                decimals: parseInt(tx.tokenDecimal || 18),
+              }));
+            } else {
+              logger.warn(`Etherscan V2 API returned status ${response.data.status} for token tx: ${response.data.message}`, { ip, tokenAddress });
+            }
+            logger.info(`Token transactions response for ${tokenAddress}: ${data.length} transactions`, { ip });
+            controller.enqueue(JSON.stringify({ success: true, data }));
+            controller.close();
           } else {
             logger.warn(`Invalid parameters for action: ${action}`, { ip });
             controller.enqueue(JSON.stringify({ detail: `Invalid parameters for action: ${action}` }));
@@ -242,8 +279,8 @@ export const POST = handlerWrapper(async (request) => {
             status === 429
               ? 'Etherscan V2 API rate limit exceeded, please try again later.'
               : status === 404
-              ? 'Requested data not found.'
-              : `Etherscan V2 API error: ${error.message}`;
+                ? 'Requested data not found.'
+                : `Etherscan V2 API error: ${error.message}`;
           controller.enqueue(JSON.stringify({ detail }));
           controller.close();
         }

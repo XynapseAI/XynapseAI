@@ -1,3 +1,4 @@
+// Updated: components/MarketTabLogic.jsx
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -177,6 +178,9 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [mempoolError, setMempoolError] = useState(null);
   const mempoolWsRef = useRef(null);
   const mempoolTxCache = useRef(new Set());
+  const [currentDexPage, setCurrentDexPage] = useState(1);
+  const [hasMoreDex, setHasMoreDex] = useState(true);
+  const [isLoadingMoreDex, setIsLoadingMoreDex] = useState(false);
 
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
@@ -704,7 +708,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
         // Update mempoolTransactions with new data, keeping up to 100 transactions
         setMempoolTransactions((prev) => {
-          const updated = [...newTxs, ...prev].slice(0, 100).sort((a, b) => b.timestamp - a.timestamp);
+          const updated = [...newTxs, ...prev].slice(0, 200).sort((a, b) => b.timestamp - a.timestamp);
           return updated;
         });
       } else {
@@ -1026,7 +1030,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             }
 
             // Sort by balance and limit to top 100
-            topHolders = topHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
+            topHolders = topHolders.sort((a, b) => b.balance - a.balance).slice(0, 200);
 
             if (topHolders.length === 0) {
               throw new Error(`No data for ${chain}`);
@@ -1339,10 +1343,195 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     [chains, session, status, toast, executeRecaptcha]
   );
 
+  const getAvailableChains = useCallback(() => {
+    if (!selectedToken?.detail_platforms) return [];
+
+    const tokenSymbol = selectedToken.symbol?.toLowerCase();
+    if (tokenSymbol === 'bnb') {
+      const bnbPlatforms = {
+        'binance-smart-chain': {
+          address: '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
+          decimal_place: 18,
+        },
+        'ethereum': {
+          address: selectedToken.detail_platforms?.ethereum?.contract_address?.toLowerCase() || null,
+          decimal_place: selectedToken.detail_platforms?.ethereum?.decimal_place || 18,
+        },
+      };
+
+      const availableChains = chains.filter(
+        (chain) =>
+          bnbPlatforms[chain.value] &&
+          bnbPlatforms[chain.value].address?.match(/^0x[a-fA-F0-9]{40}$/) &&
+          (process.env.NODE_ENV === 'development' || !chain.testnet)
+      );
+      prevAvailableChainsRef.current = availableChains;
+      return availableChains;
+    }
+
+    const normalizedPlatforms = Object.keys(selectedToken.detail_platforms).reduce((acc, cgId) => {
+      const chain = chains.find((c) => c.coingeckoId === cgId || CHAIN_MAPPING[cgId]?.simChain === c.value);
+      if (chain && selectedToken.detail_platforms[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+        const decimalPlace = Number(selectedToken.detail_platforms[cgId].decimal_place) || 18;
+        acc[chain.value] = {
+          address: selectedToken.detail_platforms[cgId].contract_address.toLowerCase(),
+          decimal_place: decimalPlace,
+        };
+      }
+      return acc;
+    }, {});
+
+    const availableChains = chains.filter(
+      (chain) =>
+        normalizedPlatforms[chain.value] &&
+        (process.env.NODE_ENV === 'development' || !chain.testnet)
+    );
+
+    prevAvailableChainsRef.current = availableChains;
+    return availableChains;
+  }, [selectedToken, chains]);
+
+  const getDefaultChainAndAddress = useCallback(
+    (token, preferredChain = 'ethereum') => {
+      if (!token) {
+        console.warn('No token provided for getDefaultChainAndAddress');
+        return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
+      }
+
+      const tokenSymbol = token.symbol?.toLowerCase();
+      if (NON_EVM_CHAINS.includes(tokenSymbol)) {
+        return { chain: tokenSymbol, tokenAddress: null, decimalPlace: null };
+      }
+
+      // Special case for BNB
+      if (tokenSymbol === 'bnb') {
+        const bnbChainAddress = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
+        const bnbPlatforms = {
+          'binance-smart-chain': {
+            address: bnbChainAddress,
+            decimal_place: 18,
+          },
+          'ethereum': {
+            address: token.detail_platforms?.ethereum?.contract_address?.toLowerCase() || null,
+            decimal_place: token.detail_platforms?.ethereum?.decimal_place || 18,
+          },
+        };
+
+        // Ensure chains array is not empty
+        if (!chains || chains.length === 0) {
+          console.warn('Chains array is empty, falling back to BNB chain for BNB');
+          return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
+        }
+
+        // Filter available chains for BNB, excluding testnets in production
+        const availableChains = chains.filter(
+          (chain) =>
+            bnbPlatforms[chain.value] &&
+            bnbPlatforms[chain.value].address?.match(/^0x[a-fA-F0-9]{40}$/) &&
+            (process.env.NODE_ENV === 'development' || !chain.testnet)
+        );
+
+        // Prefer BNB chain if available, otherwise fall back to Ethereum
+        if (
+          bnbPlatforms['binance-smart-chain'] &&
+          chains.some((net) => net.value === 'bnb') &&
+          bnbPlatforms['binance-smart-chain'].address.match(/^0x[a-fA-F0-9]{40}$/)
+        ) {
+          return {
+            chain: 'bnb',
+            tokenAddress: bnbPlatforms['binance-smart-chain'].address,
+            decimalPlace: bnbPlatforms['binance-smart-chain'].decimal_place,
+          };
+        } else if (
+          bnbPlatforms['ethereum'] &&
+          chains.some((net) => net.value === 'ethereum') &&
+          bnbPlatforms['ethereum'].address?.match(/^0x[a-fA-F0-9]{40}$/)
+        ) {
+          return {
+            chain: 'ethereum',
+            tokenAddress: bnbPlatforms['ethereum'].address,
+            decimalPlace: bnbPlatforms['ethereum'].decimal_place,
+          };
+        }
+
+        setOnChainError('BNB does not have on-chain data available on supported chains.');
+        return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
+      }
+
+      // Existing logic for other tokens
+      if (!chains || chains.length === 0) {
+        console.warn('Chains array is empty, falling back to default chain: ethereum');
+        return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
+      }
+
+      const normalizedPlatforms = Object.keys(token.detail_platforms || {}).reduce((acc, cgId) => {
+        const chain = chains.find((c) => c.coingeckoId === cgId || CHAIN_MAPPING[cgId]?.simChain === c.value);
+        if (chain && token.detail_platforms[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
+          const decimalPlace = Number(token.detail_platforms[cgId].decimal_place) || 18;
+          acc[chain.value] = {
+            address: token.detail_platforms[cgId].contract_address.toLowerCase(),
+            decimal_place: decimalPlace,
+          };
+        }
+        return acc;
+      }, {});
+
+      const availableChains = chains.filter(
+        (chain) =>
+          normalizedPlatforms[chain.value] &&
+          (process.env.NODE_ENV === 'development' || !chain.testnet)
+      );
+
+      if (
+        normalizedPlatforms[preferredChain] &&
+        chains.some((net) => net.value === preferredChain) &&
+        normalizedPlatforms[preferredChain].address.match(/^0x[a-fA-F0-9]{40}$/)
+      ) {
+        return {
+          chain: preferredChain,
+          tokenAddress: normalizedPlatforms[preferredChain].address,
+          decimalPlace: normalizedPlatforms[preferredChain].decimal_place,
+        };
+      }
+
+      if (availableChains.length > 0) {
+        const defaultChain = availableChains[0].value;
+        const tokenAddress = normalizedPlatforms[defaultChain].address;
+        const decimalPlace = normalizedPlatforms[defaultChain].decimal_place;
+        return { chain: defaultChain, tokenAddress, decimalPlace };
+      }
+
+      const fallbackTokens = {
+        usdc: {
+          chain: 'ethereum',
+          tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          decimalPlace: 6,
+        },
+        dai: {
+          chain: 'ethereum',
+          tokenAddress: '0x6b175474e89094c44da98b954eedeac495271d0f',
+          decimalPlace: 18,
+        },
+        link: {
+          chain: 'ethereum',
+          tokenAddress: '0x514910771af9ca656af840dff83e8264ecf986ca',
+          decimalPlace: 18,
+        },
+      };
+
+      if (fallbackTokens[tokenSymbol]) {
+        return fallbackTokens[tokenSymbol];
+      }
+
+      setOnChainError('This token does not have on-chain data available on supported chains.');
+      return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
+    },
+    [chains, setOnChainError]
+  );
 
   const fetchDexData = useCallback(
     debounce(
-      async (chain, tokenAddress, retryCount = 0) => {
+      async (chain, tokenAddress, page = 1) => {
         if (status !== 'authenticated') {
           const errorMessage = 'Please log in to access DEX data.';
           setDexError(errorMessage);
@@ -1350,7 +1539,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        // Handle Bitcoin case
+        // Handle Bitcoin case - unchanged
         if (chain === 'bitcoin') {
           setIsLoadingDex(false);
           setDexError(null);
@@ -1359,18 +1548,18 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           return;
         }
 
-        // Handle EVM chains
-        if (!chain || !tokenAddress || !tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
-          const errorMessage = 'Invalid chain or token address for DEX data';
+        // For EVM chains, fetch token transactions from all supported EVM chains using Etherscan
+        if (!selectedToken || !selectedToken.detail_platforms) {
+          const errorMessage = 'Invalid token data for on-chain transactions';
           setDexError(errorMessage);
           setIsLoadingDex(false);
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
           return;
         }
 
-        const geckoChain = GECKOTERMINAL_CHAIN_MAPPING[chain];
-        if (!geckoChain) {
-          const errorMessage = `Unsupported chain for DEX data: ${chain}`;
+        const availableChains = getAvailableChains().filter(c => !c.testnet); // Exclude testnets
+        if (availableChains.length === 0) {
+          const errorMessage = `No supported EVM chains found for ${selectedToken.symbol}`;
           setDexError(errorMessage);
           setIsLoadingDex(false);
           toast.error(errorMessage, { position: 'top-center', autoClose: 5000 });
@@ -1396,147 +1585,234 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           setDexRequestCount((prev) => prev + 1);
         }
 
-        const cacheKey = `dex-${geckoChain}-${tokenAddress}-session_required`;
-        setIsLoadingDex(true);
+        const isAppend = page > 1;
+        const cacheKey = `onchain-tx-${selectedToken.id}${isAppend ? `-page-${page}` : ''}-session_required`;
+        setIsLoadingDex(!isAppend);
         setDexError(null);
 
         try {
           const fetchFn = async () => {
-            const poolResponse = await coingeckoAxios.get(
-              `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/tokens/${tokenAddress}/pools?page=1`,
-              {
-                headers: { accept: 'application/json' },
-                timeout: 10000,
-              }
-            );
-
-            let pools = poolResponse.data?.data || [];
-            pools.sort((a, b) => parseFloat(b.attributes.volume_usd.h24) - parseFloat(a.attributes.volume_usd.h24));
-            const topPools = pools.slice(0, 3);
-
-            const tradePromises = topPools.map((pool) =>
-              limit(() =>
-                coingeckoAxios.get(
-                  `https://api.geckoterminal.com/api/v2/networks/${geckoChain}/pools/${pool.attributes.address}/trades?trade_volume_in_usd_greater_than=100`,
-                  {
-                    headers: { accept: 'application/json' },
-                    timeout: 10000,
-                  }
-                ).then((response) => ({
-                  status: 'fulfilled',
-                  poolAddress: pool.attributes.address,
-                  poolName: pool.attributes.name,
-                  data: response.data?.data || [],
-                })).catch((error) => ({
-                  status: 'rejected',
-                  poolAddress: pool.attributes.address,
-                  poolName: pool.attributes.name,
-                  error: {
-                    message: error.message,
-                    status: error.response?.status,
-                    safeMessage: error.response?.status === 429 ? 'Rate limit exceeded' : 'Failed to fetch trades',
-                  },
-                }))
-              )
-            );
-
-            const tradeResults = await Promise.allSettled(tradePromises);
-            let trades = tradeResults.reduce((acc, result) => {
-              if (result.status === 'fulfilled') {
-                return acc.concat(
-                  result.value.data.map((trade) => ({
-                    ...trade.attributes,
-                    pool_name: result.value.poolName,
-                    pool_address: result.value.poolAddress,
-                    tx_from_address: { address: trade.attributes.tx_from_address || 'unknown' },
-                    to_token_address: { address: trade.attributes.to_token_address || 'unknown' },
-                  }))
-                );
-              }
-              return acc;
-            }, []);
-
-            const validTrades = trades.filter((trade) => {
-              const isValid =
-                trade.pool_address &&
-                typeof trade.pool_address === 'string' &&
-                trade.pool_address.match(/^0x[a-fA-F0-9]{40}$/) &&
-                trade.tx_from_address?.address &&
-                trade.to_token_address?.address &&
-                trade.tx_from_address.address !== 'unknown' &&
-                trade.to_token_address.address !== 'unknown';
-              return isValid;
-            });
-
-            // Collect unique wallet addresses from valid trades (tx_from_address)
+            const allTrades = [];
             const uniqueAddresses = new Set();
-            validTrades.forEach((trade) => {
-              const fromAddr = trade.tx_from_address?.address;
-              if (fromAddr && fromAddr !== 'unknown' && fromAddr.match(/^0x[a-fA-F0-9]{40}$/)) {
-                uniqueAddresses.add(fromAddr);
+
+            // Fetch from each available chain
+            const chainPromises = availableChains.map(async (ch) => {
+              const platformId = ch.coingeckoId;
+              const tokenAddr = selectedToken.detail_platforms?.[platformId]?.contract_address;
+              if (!tokenAddr || !tokenAddr.match(/^0x[a-fA-F0-9]{40}$/)) {
+                return { chain: ch.value, trades: [], addresses: new Set() };
+              }
+
+              const payload = {
+                action: 'token-transactions',
+                chain: ch.value,
+                tokenAddress: tokenAddr,
+                page,
+                offset: 25,
+              };
+
+              const response = await fetch('/api/etherscan', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(session?.accessToken && { Authorization: `Bearer ${session.accessToken}` }),
+                },
+                body: JSON.stringify(payload),
+              });
+
+              if (!response.ok) {
+                console.warn(`Failed to fetch token tx for ${ch.value}: ${response.status}`);
+                return { chain: ch.value, trades: [], addresses: new Set() };
+              }
+
+              const reader = response.body.getReader();
+              const decoder = new TextDecoder();
+              let buffer = '';
+              let trades = [];
+
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+
+                // Simple parsing for array of objects (adapt from existing streaming logic)
+                try {
+                  const parsed = JSON.parse(buffer);
+                  if (parsed.success && Array.isArray(parsed.data)) {
+                    trades = parsed.data;
+                  }
+                  buffer = '';
+                } catch (e) {
+                  // Continue accumulating
+                }
+              }
+
+              // Local set for this chain's addresses
+              const chainAddresses = new Set();
+
+              // Map to trade format
+              const chainTrades = trades.map((tx) => { // No slice, respect offset
+                const amount = parseFloat(tx.value) / Math.pow(10, parseInt(tx.decimals || 18));
+                const usdValue = amount * (selectedToken.current_price?.[currency] || 0);
+                const gasFee = (BigInt(tx.gasUsed || 0) * BigInt(tx.gasPrice || 0)) / BigInt(10 ** 18);
+
+                chainAddresses.add(tx.from);
+                chainAddresses.add(tx.to);
+
+                return {
+                  tx_hash: tx.txhash,
+                  block_timestamp: new Date(parseInt(tx.timeStamp) * 1000).toISOString(),
+                  tx_from_address: { address: tx.from },
+                  to_token_address: { address: tx.to },
+                  from_token_amount: '0', // For transfer, use to_token_amount
+                  to_token_amount: amount.toString(),
+                  volume_in_usd: usdValue,
+                  pool_name: `${ch.value.toUpperCase()} Transfer`, // Show chain
+                  pool_address: null,
+                  kind: 'transfer', // Custom kind for frontend compatibility
+                  chain: ch.value, // Add chain for display
+                  gas_fee: gasFee.toString(), // Native gas fee in ETH/BNB etc.
+                  decimals: parseInt(tx.tokenDecimal || 18),
+                  symbol: tx.tokenSymbol || selectedToken.symbol,
+                };
+              });
+
+              return { chain: ch.value, trades: chainTrades, addresses: chainAddresses };
+            });
+
+            const results = await Promise.allSettled(chainPromises);
+            results.forEach((result) => {
+              if (result.status === 'fulfilled') {
+                allTrades.push(...result.value.trades);
+                // Union the chain's addresses into the global uniqueAddresses
+                result.value.addresses.forEach(addr => uniqueAddresses.add(addr));
               }
             });
-            const addressesArray = Array.from(uniqueAddresses);
 
-            // Fetch nametags for these addresses (EVM, so uses API)
+            // Fetch nametags for unique EVM addresses
+            const addressesArray = Array.from(uniqueAddresses).filter(addr => addr.match(/^0x[a-fA-F0-9]{40}$/));
             if (addressesArray.length > 0) {
               await fetchNameTagsForAddresses(addressesArray);
             }
 
-            // Map nametags to trades
-            trades = validTrades.map((trade) => {
-              const fromAddr = trade.tx_from_address?.address;
-              const normalizedFromAddr = fromAddr?.toLowerCase();
-              const tagData = normalizedFromAddr ? nameTagsRef.current[normalizedFromAddr] : null;
+            // Apply nametags
+            const tradesWithTags = allTrades.map((trade) => {
+              const fromAddr = trade.tx_from_address?.address?.toLowerCase();
+              const toAddr = trade.to_token_address?.address?.toLowerCase();
+              const fromTag = fromAddr ? nameTagsRef.current[fromAddr] : null;
+              const toTag = toAddr ? nameTagsRef.current[toAddr] : null;
+
               return {
                 ...trade,
                 tx_from_address: {
                   ...trade.tx_from_address,
-                  nameTag: tagData?.nameTag || null,
-                  image: tagData?.image || null,
+                  nameTag: fromTag?.nameTag || null,
+                  image: fromTag?.image || null,
+                },
+                to_token_address: {
+                  ...trade.to_token_address,
+                  nameTag: toTag?.nameTag || null,
+                  image: toTag?.image || null,
                 },
               };
             });
 
-            const poolTokenPromises = topPools.map((pool) =>
-              limit(() => fetchPoolTokenMetadata(chain, pool.attributes.address))
-            );
-            const poolTokenResults = await Promise.allSettled(poolTokenPromises);
-            const poolTokens = poolTokenResults.reduce((acc, result, index) => {
-              if (result.status === 'fulfilled' && Object.keys(result.value).length > 0) {
-                acc[topPools[index].attributes.address] = result.value;
-              }
-              return acc;
-            }, {});
+            // Sort by timestamp desc
+            const finalTrades = tradesWithTags.sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
 
-            return { pools: topPools, trades, poolTokens };
+            // Pools and poolTokens as empty or fallback since not DEX-specific
+            return { pools: [], trades: finalTrades, poolTokens: {} };
           };
 
-          const dexData = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
-          setDexData(dexData);
+          const dexDataBatch = await getCachedData(cacheKey, fetchFn, CACHE_DURATIONS.DEFI_POOL, 0, true, session, status);
+
+          if (page === 1) {
+            setDexData(dexDataBatch);
+            setCurrentDexPage(1);
+            setHasMoreDex(true);
+          } else {
+            const newTrades = dexDataBatch.trades;
+            if (newTrades.length < 25) {
+              setHasMoreDex(false);
+            }
+            setDexData(prev => ({
+              ...prev,
+              trades: [...prev.trades, ...newTrades]
+            }));
+            setCurrentDexPage(page);
+          }
+
           setLastDexFetchTime(Date.now());
         } catch (error) {
           const safeErrorMessage =
             error.response?.status === 429
               ? 'Too many requests from your IP or API limit exceeded. Please try again later.'
               : error.response?.status === 404
-                ? `No DEX data found for token ${tokenAddress} on ${chain}.`
-                : 'Failed to load DEX data.';
+                ? `No on-chain data found for token ${selectedToken.symbol} on supported EVM chains.`
+                : 'Failed to load on-chain data.';
           setDexError(safeErrorMessage);
           toast.error(safeErrorMessage, { position: 'top-center', autoClose: 5000 });
           if (localCache.current[cacheKey]?.data) {
-            setDexData(localCache.current[cacheKey].data);
+            const cachedData = localCache.current[cacheKey].data;
+            if (page === 1) {
+              setDexData(cachedData);
+            } else {
+              setDexData(prev => ({
+                ...prev,
+                trades: [...prev.trades, ...cachedData.trades]
+              }));
+            }
           } else {
             setDexData({ pools: [], trades: [], poolTokens: {} });
           }
         } finally {
           setIsLoadingDex(false);
+          setIsLoadingMoreDex(false);
         }
       },
       300
     ),
-    [session, status, toast, fetchPoolTokenMetadata, fetchMempoolTransactions, fetchNameTagsForAddresses, nameTagsRef]
+    [session, status, toast, fetchNameTagsForAddresses, nameTagsRef, selectedToken, currency, getAvailableChains, fetchMempoolTransactions]
   );
+
+  const loadMoreDexData = useCallback(async () => {
+    if (!selectedToken || dexError || isLoadingMoreDex || !hasMoreDex) return;
+    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+    if (!chain || !tokenAddress) return;
+    await fetchDexData(chain, tokenAddress, currentDexPage + 1);
+  }, [selectedToken, dexError, isLoadingMoreDex, hasMoreDex, getDefaultChainAndAddress, currentDexPage, fetchDexData]);
+
+  // Update the useEffect for dex data fetch to pass page=1:
+  useEffect(() => {
+    if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
+      return;
+    }
+
+    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+    if (!chain || !tokenAddress) {
+      return;
+    }
+
+    // Initial fetch
+    fetchDexData(chain, tokenAddress, 1);
+
+    // Set up interval for background refresh (only initial)
+    const interval = setInterval(() => {
+      const cacheKey = `onchain-tx-${selectedToken.id}`;
+      const cached = tickerCache[cacheKey];
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATIONS.DEFI_POOL) {
+        return;
+      }
+      if (document.visibilityState === 'visible') {
+        fetchDexData(chain, tokenAddress, 1);
+      }
+    }, CACHE_DURATIONS.DEFI_POOL);
+
+    return () => {
+      clearInterval(interval);
+      fetchDexData.cancel && fetchDexData.cancel();
+    };
+  }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData, tickerCache]);
 
   const fetchTrendingTokens = useCallback(
     debounce(
@@ -1738,192 +2014,6 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     },
     [fetchOnChainData, executeRecaptcha, toast]
   );
-
-  const getDefaultChainAndAddress = useCallback(
-    (token, preferredChain = 'ethereum') => {
-      if (!token) {
-        console.warn('No token provided for getDefaultChainAndAddress');
-        return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
-      }
-
-      const tokenSymbol = token.symbol?.toLowerCase();
-      if (NON_EVM_CHAINS.includes(tokenSymbol)) {
-        return { chain: tokenSymbol, tokenAddress: null, decimalPlace: null };
-      }
-
-      // Special case for BNB
-      if (tokenSymbol === 'bnb') {
-        const bnbChainAddress = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
-        const bnbPlatforms = {
-          'binance-smart-chain': {
-            address: bnbChainAddress,
-            decimal_place: 18,
-          },
-          'ethereum': {
-            address: token.detail_platforms?.ethereum?.contract_address?.toLowerCase() || null,
-            decimal_place: token.detail_platforms?.ethereum?.decimal_place || 18,
-          },
-        };
-
-        // Ensure chains array is not empty
-        if (!chains || chains.length === 0) {
-          console.warn('Chains array is empty, falling back to BNB chain for BNB');
-          return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
-        }
-
-        // Filter available chains for BNB, excluding testnets in production
-        const availableChains = chains.filter(
-          (chain) =>
-            bnbPlatforms[chain.value] &&
-            bnbPlatforms[chain.value].address?.match(/^0x[a-fA-F0-9]{40}$/) &&
-            (process.env.NODE_ENV === 'development' || !chain.testnet)
-        );
-
-        // Prefer BNB chain if available, otherwise fall back to Ethereum
-        if (
-          bnbPlatforms['binance-smart-chain'] &&
-          chains.some((net) => net.value === 'bnb') &&
-          bnbPlatforms['binance-smart-chain'].address.match(/^0x[a-fA-F0-9]{40}$/)
-        ) {
-          return {
-            chain: 'bnb',
-            tokenAddress: bnbPlatforms['binance-smart-chain'].address,
-            decimalPlace: bnbPlatforms['binance-smart-chain'].decimal_place,
-          };
-        } else if (
-          bnbPlatforms['ethereum'] &&
-          chains.some((net) => net.value === 'ethereum') &&
-          bnbPlatforms['ethereum'].address?.match(/^0x[a-fA-F0-9]{40}$/)
-        ) {
-          return {
-            chain: 'ethereum',
-            tokenAddress: bnbPlatforms['ethereum'].address,
-            decimalPlace: bnbPlatforms['ethereum'].decimal_place,
-          };
-        }
-
-        setOnChainError('BNB does not have on-chain data available on supported chains.');
-        return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
-      }
-
-      // Existing logic for other tokens
-      if (!chains || chains.length === 0) {
-        console.warn('Chains array is empty, falling back to default chain: ethereum');
-        return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
-      }
-
-      const normalizedPlatforms = Object.keys(token.detail_platforms || {}).reduce((acc, cgId) => {
-        const chain = chains.find((c) => c.coingeckoId === cgId || CHAIN_MAPPING[cgId]?.simChain === c.value);
-        if (chain && token.detail_platforms[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
-          const decimalPlace = Number(token.detail_platforms[cgId].decimal_place) || 18;
-          acc[chain.value] = {
-            address: token.detail_platforms[cgId].contract_address.toLowerCase(),
-            decimal_place: decimalPlace,
-          };
-        }
-        return acc;
-      }, {});
-
-      const availableChains = chains.filter(
-        (chain) =>
-          normalizedPlatforms[chain.value] &&
-          (process.env.NODE_ENV === 'development' || !chain.testnet)
-      );
-
-      if (
-        normalizedPlatforms[preferredChain] &&
-        chains.some((net) => net.value === preferredChain) &&
-        normalizedPlatforms[preferredChain].address.match(/^0x[a-fA-F0-9]{40}$/)
-      ) {
-        return {
-          chain: preferredChain,
-          tokenAddress: normalizedPlatforms[preferredChain].address,
-          decimalPlace: normalizedPlatforms[preferredChain].decimal_place,
-        };
-      }
-
-      if (availableChains.length > 0) {
-        const defaultChain = availableChains[0].value;
-        const tokenAddress = normalizedPlatforms[defaultChain].address;
-        const decimalPlace = normalizedPlatforms[defaultChain].decimal_place;
-        return { chain: defaultChain, tokenAddress, decimalPlace };
-      }
-
-      const fallbackTokens = {
-        usdc: {
-          chain: 'ethereum',
-          tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-          decimalPlace: 6,
-        },
-        dai: {
-          chain: 'ethereum',
-          tokenAddress: '0x6b175474e89094c44da98b954eedeac495271d0f',
-          decimalPlace: 18,
-        },
-        link: {
-          chain: 'ethereum',
-          tokenAddress: '0x514910771af9ca656af840dff83e8264ecf986ca',
-          decimalPlace: 18,
-        },
-      };
-
-      if (fallbackTokens[tokenSymbol]) {
-        return fallbackTokens[tokenSymbol];
-      }
-
-      setOnChainError('This token does not have on-chain data available on supported chains.');
-      return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
-    },
-    [chains, setOnChainError]
-  );
-
-  const getAvailableChains = useCallback(() => {
-    if (!selectedToken?.detail_platforms) return [];
-
-    const tokenSymbol = selectedToken.symbol?.toLowerCase();
-    if (tokenSymbol === 'bnb') {
-      const bnbPlatforms = {
-        'binance-smart-chain': {
-          address: '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
-          decimal_place: 18,
-        },
-        'ethereum': {
-          address: selectedToken.detail_platforms?.ethereum?.contract_address?.toLowerCase() || null,
-          decimal_place: selectedToken.detail_platforms?.ethereum?.decimal_place || 18,
-        },
-      };
-
-      const availableChains = chains.filter(
-        (chain) =>
-          bnbPlatforms[chain.value] &&
-          bnbPlatforms[chain.value].address?.match(/^0x[a-fA-F0-9]{40}$/) &&
-          (process.env.NODE_ENV === 'development' || !chain.testnet)
-      );
-      prevAvailableChainsRef.current = availableChains;
-      return availableChains;
-    }
-
-    const normalizedPlatforms = Object.keys(selectedToken.detail_platforms).reduce((acc, cgId) => {
-      const chain = chains.find((c) => c.coingeckoId === cgId || CHAIN_MAPPING[cgId]?.simChain === c.value);
-      if (chain && selectedToken.detail_platforms[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
-        const decimalPlace = Number(selectedToken.detail_platforms[cgId].decimal_place) || 18;
-        acc[chain.value] = {
-          address: selectedToken.detail_platforms[cgId].contract_address.toLowerCase(),
-          decimal_place: decimalPlace,
-        };
-      }
-      return acc;
-    }, {});
-
-    const availableChains = chains.filter(
-      (chain) =>
-        normalizedPlatforms[chain.value] &&
-        (process.env.NODE_ENV === 'development' || !chain.testnet)
-    );
-
-    prevAvailableChainsRef.current = availableChains;
-    return availableChains;
-  }, [selectedToken, chains]);
 
   const debouncedHandleTokenSelect = useCallback(
     debounce(async (token, initialTokenData = null, onTokenSelect = null) => {
@@ -2509,6 +2599,88 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
   }, [selectedToken, timeRange, currency, fetchPriceHistory, setError]);
 
   useEffect(() => {
+    if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
+      return;
+    }
+
+    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+    if (!chain || !tokenAddress) {
+      return;
+    }
+
+    // Initial fetch
+    fetchDexData(chain, tokenAddress);
+
+    // Set up interval for background refresh
+    const interval = setInterval(() => {
+      const cacheKey = `onchain-tx-${selectedToken.id}`;
+      const cached = tickerCache[cacheKey];
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATIONS.DEFI_POOL) {
+        return;
+      }
+      if (document.visibilityState === 'visible') {
+        fetchDexData(chain, tokenAddress);
+      }
+    }, CACHE_DURATIONS.DEFI_POOL);
+
+    return () => {
+      clearInterval(interval);
+      fetchDexData.cancel && fetchDexData.cancel();
+    };
+  }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData, tickerCache]);
+
+  useEffect(() => {
+    if (walletBalances.length > 0 || walletBalancesError) {
+      setIsLoadingWalletBalances(false);
+    }
+  }, [walletBalances, walletBalancesError]);
+
+  useEffect(() => {
+    if (!selectedToken?.id) {
+      setTickerData([]);
+      return;
+    }
+    fetchTickerData(selectedToken.id);
+  }, [selectedToken?.id, fetchTickerData]);
+
+  useEffect(() => {
+    async function fetchDailyMarketInteractions() {
+      if (session?.user?.id) {
+        try {
+          const response = await axios.get(`/api/daily-ai-interactions?uid=${session.user.id}&interactionType=market`);
+          if (response.data.success) {
+            setDailyMarketInteractions(response.data.pointsCount);
+          }
+        } catch (err) {
+          // Handle error silently
+        }
+      }
+    }
+    fetchDailyMarketInteractions();
+  }, [session]);
+
+  useEffect(() => {
+    if (onChainData.topHolders.length > 0) {
+      const addresses = onChainData.topHolders
+        .map((holder) => holder.address)
+        .filter((addr) => addr && !nameTags[addr.toLowerCase()]);
+      if (addresses.length > 0) {
+        fetchNameTagsForAddresses(addresses);
+      } else {
+        setIsLoadingNameTags(false);
+      }
+    } else {
+      setIsLoadingNameTags(false);
+    }
+  }, [onChainData.topHolders, fetchNameTagsForAddresses, nameTags]);
+
+  useEffect(() => {
+    if (selectedWallet && selectedWallet.match(/^0x[a-fA-F0-9]{40}$/)) {
+      fetchNameTag(selectedWallet);
+    }
+  }, [selectedWallet, fetchNameTag]);
+
+  useEffect(() => {
     if (!selectedToken?.id || document.visibilityState !== 'visible') return;
 
     const tokenSymbol = selectedToken.id.toLowerCase();
@@ -2694,7 +2866,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
               ];
 
               // Sort by balance and take top 100
-              holders = mergedHolders.sort((a, b) => b.balance - a.balance).slice(0, 100);
+              holders = mergedHolders.sort((a, b) => b.balance - a.balance).slice(0, 200);
             }
 
             return holders;
@@ -2706,7 +2878,7 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
 
         try {
           const results = await Promise.all(topHoldersPromises);
-          const mergedHolders = results.flat().sort((a, b) => b.balance - a.balance).slice(0, 100); // Limit to top 100 holders
+          const mergedHolders = results.flat().sort((a, b) => b.balance - a.balance).slice(0, 200); // Limit to top 100 holders
           setOnChainData((prev) => ({
             ...prev,
             topHolders: mergedHolders,
@@ -2758,88 +2930,6 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
   useEffect(() => {
     prevTopHoldersRef.current = onChainData.topHolders;
   }, [onChainData.topHolders]);
-
-  useEffect(() => {
-    if (walletBalances.length > 0 || walletBalancesError) {
-      setIsLoadingWalletBalances(false);
-    }
-  }, [walletBalances, walletBalancesError]);
-
-  useEffect(() => {
-    if (!selectedToken?.id) {
-      setTickerData([]);
-      return;
-    }
-    fetchTickerData(selectedToken.id);
-  }, [selectedToken?.id, fetchTickerData]);
-
-  useEffect(() => {
-    async function fetchDailyMarketInteractions() {
-      if (session?.user?.id) {
-        try {
-          const response = await axios.get(`/api/daily-ai-interactions?uid=${session.user.id}&interactionType=market`);
-          if (response.data.success) {
-            setDailyMarketInteractions(response.data.pointsCount);
-          }
-        } catch (err) {
-          // Handle error silently
-        }
-      }
-    }
-    fetchDailyMarketInteractions();
-  }, [session]);
-
-  useEffect(() => {
-    if (onChainData.topHolders.length > 0) {
-      const addresses = onChainData.topHolders
-        .map((holder) => holder.address)
-        .filter((addr) => addr && !nameTags[addr.toLowerCase()]);
-      if (addresses.length > 0) {
-        fetchNameTagsForAddresses(addresses);
-      } else {
-        setIsLoadingNameTags(false);
-      }
-    } else {
-      setIsLoadingNameTags(false);
-    }
-  }, [onChainData.topHolders, fetchNameTagsForAddresses, nameTags]);
-
-  useEffect(() => {
-    if (!selectedToken?.id || ['bitcoin', 'ethereum'].includes(selectedToken.id.toLowerCase()) || document.visibilityState !== 'visible') {
-      return;
-    }
-
-    const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-    if (!chain || !tokenAddress) {
-      return;
-    }
-
-    // Initial fetch
-    fetchDexData(chain, tokenAddress);
-
-    // Set up interval for background refresh
-    const interval = setInterval(() => {
-      const cacheKey = `${GECKOTERMINAL_CHAIN_MAPPING[chain]}-${tokenAddress}`;
-      const cached = tickerCache[cacheKey];
-      if (cached && Date.now() - cached.timestamp < CACHE_DURATIONS.DEFI_POOL) {
-        return;
-      }
-      if (document.visibilityState === 'visible') {
-        fetchDexData(chain, tokenAddress);
-      }
-    }, CACHE_DURATIONS.DEFI_POOL);
-
-    return () => {
-      clearInterval(interval);
-      fetchDexData.cancel && fetchDexData.cancel();
-    };
-  }, [selectedToken?.id, selectedChain, getDefaultChainAndAddress, fetchDexData, tickerCache]);
-
-  useEffect(() => {
-    if (selectedWallet && selectedWallet.match(/^0x[a-fA-F0-9]{40}$/)) {
-      fetchNameTag(selectedWallet);
-    }
-  }, [selectedWallet, fetchNameTag]);
 
   return {
     dailyMarketInteractions,
@@ -2959,5 +3049,8 @@ Predict **${selectedToken.symbol}/USD** price movement (1-3 days) in Markdown fo
     isLoadingMempool,
     mempoolError,
     fetchMempoolTransactions,
+    loadMoreDexData,
+    hasMoreDex,
+    isLoadingMoreDex,
   };
 };
