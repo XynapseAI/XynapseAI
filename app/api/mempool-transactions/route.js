@@ -201,15 +201,6 @@ export async function GET(request) {
       );
     }
 
-    // Tối ưu: Parse query params để filter động
-    const url = new URL(request.url);
-    let maxAgeSeconds = parseInt(url.searchParams.get('maxAge')) || (2 * 60 * 60); // Mặc định 2h như file cũ
-    const maxAllowedAge = 7 * 24 * 60 * 60; // Max 7 ngày
-    if (maxAgeSeconds > maxAllowedAge) {
-      maxAgeSeconds = maxAllowedAge;
-    }
-    logger.info(`Using maxAgeSeconds: ${maxAgeSeconds} for request`);
-
     const cacheKey = 'mempool-transactions';
     const redisClient = await getRedisClient();
     const cachedData = await redisClient.get(cacheKey);
@@ -217,11 +208,11 @@ export async function GET(request) {
     if (cachedData) {
       let parsed = JSON.parse(cachedData);
       const now = Math.floor(Date.now() / 1000);
-      // Filter theo maxAge động thay vì fixed
+      const MAX_AGE_SECONDS = 2 * 60 * 60; // 2 hours
       parsed.data = parsed.data
-        .filter((tx) => tx.timestamp >= now - maxAgeSeconds)
+        .filter((tx) => tx.timestamp >= now - MAX_AGE_SECONDS)
         .sort((a, b) => b.timestamp - a.timestamp);
-      logger.info(`Cache hit for mempool transactions: ${cacheKey}`, { transactionCount: parsed.data.length, maxAgeSeconds });
+      logger.info(`Cache hit for mempool transactions: ${cacheKey}`, { transactionCount: parsed.data.length });
       return NextResponse.json(parsed, { headers });
     }
 
