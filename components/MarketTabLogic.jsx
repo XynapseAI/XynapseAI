@@ -178,7 +178,30 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const mempoolWsRef = useRef(null);
   const mempoolTxCache = useRef(new Set());
 
+  // New states for lowercased JSON to fix case sensitivity
+  const [btcNameTagsLower, setBtcNameTagsLower] = useState({});
+  const [dogeNameTagsLower, setDogeNameTagsLower] = useState({});
+  const [ltcNameTagsLower, setLtcNameTagsLower] = useState({});
+  const [bnbNameTagsLower, setBnbNameTagsLower] = useState({});
+  const [ethNameTagsLower, setEthNameTagsLower] = useState({});
+
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
+
+  // Preprocess JSON to lowercase keys for case-insensitive lookup
+  useEffect(() => {
+    const preprocessJson = (data, setter) => {
+      const lowercased = Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [key.toLowerCase(), value])
+      );
+      setter(lowercased);
+    };
+
+    preprocessJson(btcNameTags, setBtcNameTagsLower);
+    preprocessJson(dogeNameTags, setDogeNameTagsLower);
+    preprocessJson(ltcNameTags, setLtcNameTagsLower);
+    preprocessJson(bnbNameTags, setBnbNameTagsLower);
+    preprocessJson(ethNameTags, setEthNameTagsLower);
+  }, []);
 
   const getCachedData = async (key, fetchFn, ttl = CACHE_DURATIONS.DEFAULT, retryCount = 0, requiresSession = false, session = null, status = 'unauthenticated') => {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://xynapse-ai.vercel.app';
@@ -522,18 +545,30 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             const valueUSD = (tx.value_btc * btcPrice) || 0;
             return isNew && valueUSD >= 1000000; // Only take transactions >= 1M USD
           })
-          .map((tx) => {
+          .map(async (tx) => {
             mempoolTxCache.current.add(tx.txid);
-            const inputs = tx.inputs?.map((input) => ({
-              address: input.address || 'unknown',
-              nameTag: btcNameTags[input.address?.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
-              image: btcNameTags[input.address?.toLowerCase()]?.Labels?.bitcoin?.image || null,
-            })) || [];
-            const outputs = tx.outputs?.map((output) => ({
-              address: output.address || 'unknown',
-              nameTag: btcNameTags[output.address?.toLowerCase()]?.Labels?.bitcoin?.['Name Tag'] || null,
-              image: btcNameTags[output.address?.toLowerCase()]?.Labels?.bitcoin?.image || null,
-            })) || [];
+            const inputs = await Promise.all(
+              (tx.inputs || []).map(async (input) => {
+                const normalizedAddress = input.address?.toLowerCase() || 'unknown';
+                const nameTagData = await fetchNameTagForChain('bitcoin', normalizedAddress);
+                return {
+                  address: input.address || 'unknown',
+                  nameTag: nameTagData.nameTag,
+                  image: nameTagData.image,
+                };
+              })
+            );
+            const outputs = await Promise.all(
+              (tx.outputs || []).map(async (output) => {
+                const normalizedAddress = output.address?.toLowerCase() || 'unknown';
+                const nameTagData = await fetchNameTagForChain('bitcoin', normalizedAddress);
+                return {
+                  address: output.address || 'unknown',
+                  nameTag: nameTagData.nameTag,
+                  image: nameTagData.image,
+                };
+              })
+            );
             return {
               txid: tx.txid,
               value_usd: tx.value_btc * btcPrice,
@@ -547,9 +582,10 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
             };
           });
 
+        const resolvedTxs = await Promise.all(newTxs);
         // Update mempoolTransactions with new data, keeping up to 100 transactions
         setMempoolTransactions((prev) => {
-          const updated = [...newTxs, ...prev].slice(0, 100).sort((a, b) => b.timestamp - a.timestamp);
+          const updated = [...resolvedTxs, ...prev].slice(0, 100).sort((a, b) => b.timestamp - a.timestamp);
           return updated;
         });
       } else {
@@ -567,7 +603,59 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
     } finally {
       setIsLoadingMempool(false);
     }
-  }, [selectedToken, btcNameTags, session]);
+  }, [selectedToken, session]);
+
+  // Helper to fetch nametag for a specific chain (priority DB, fallback JSON lowercase)
+  const fetchNameTagForChain = useCallback(async (chain, address) => {
+    const normalizedAddress = address.toLowerCase();
+    if (status !== 'authenticated') {
+      // Fallback to lowercase JSON
+      const nameTagsLower = chain === 'bitcoin' ? btcNameTagsLower :
+        chain === 'dogecoin' ? dogeNameTagsLower :
+          chain === 'litecoin' ? ltcNameTagsLower :
+            chain === 'bnb' ? bnbNameTagsLower :
+              ethNameTagsLower;
+      const nameTagData = nameTagsLower[normalizedAddress];
+      return {
+        nameTag: nameTagData?.Labels?.[chain]?.['Name Tag'] || null,
+        image: nameTagData?.Labels?.[chain]?.image || null,
+      };
+    }
+
+    // Try DB query
+    try {
+      const response = await axios.post('/api/nametags',
+        { addresses: [normalizedAddress], chain },
+        {
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`,
+          },
+          timeout: 5000,
+        }
+      );
+      if (response.data.success && response.data.data?.[normalizedAddress]) {
+        const data = response.data.data[normalizedAddress];
+        return {
+          nameTag: data.Labels?.[chain]?.['Name Tag'] || null,
+          image: data.Labels?.[chain]?.image || '/icons/default.webp',
+        };
+      }
+    } catch (error) {
+      console.warn(`DB nametag fetch failed for ${chain} ${normalizedAddress}:`, error.message);
+    }
+
+    // Fallback to lowercase JSON
+    const nameTagsLower = chain === 'bitcoin' ? btcNameTagsLower :
+      chain === 'dogecoin' ? dogeNameTagsLower :
+        chain === 'litecoin' ? ltcNameTagsLower :
+          chain === 'bnb' ? bnbNameTagsLower :
+            ethNameTagsLower;
+    const nameTagData = nameTagsLower[normalizedAddress];
+    return {
+      nameTag: nameTagData?.Labels?.[chain]?.['Name Tag'] || null,
+      image: nameTagData?.Labels?.[chain]?.image || null,
+    };
+  }, [status, session, btcNameTagsLower, dogeNameTagsLower, ltcNameTagsLower, bnbNameTagsLower, ethNameTagsLower]);
 
 
 
@@ -688,33 +776,110 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setIsLoadingNameTags(true);
       const newNameTags = {};
 
-      // Handle non-EVM addresses (Bitcoin, Dogecoin, Litecoin)
+      // Handle non-EVM addresses (Bitcoin, Dogecoin, Litecoin) with DB priority + JSON fallback
       const nonEvmAddresses = addresses.filter((addr) => !addr.match(/^0x[a-fA-F0-9]{40}$/));
       const nameTagsMap = {
-        bitcoin: btcNameTags, // Use btc-top-holders.json for Bitcoin name tags
-        dogecoin: dogeNameTags,
-        litecoin: ltcNameTags,
-        ethereum: ethNameTags,
+        bitcoin: btcNameTagsLower, // Use lowercased for fix
+        dogecoin: dogeNameTagsLower,
+        litecoin: ltcNameTagsLower,
+        ethereum: ethNameTagsLower,
       };
 
+      // Group non-EVM by chain based on address format
+      const groupedNonEvm = { bitcoin: [], dogecoin: [], litecoin: [] };
       nonEvmAddresses.forEach((addr) => {
-        const normalizedAddress = addr.toLowerCase();
-        let nameTagData = null;
-        // Check each chain's name tag JSON file for the address
-        for (const [chain, tags] of Object.entries(nameTagsMap)) {
-          if (tags[normalizedAddress]?.Labels?.[chain]) {
-            nameTagData = tags[normalizedAddress].Labels[chain];
-            break;
-          }
+        const lowerAddr = addr.toLowerCase();
+        if (lowerAddr.startsWith('1') || lowerAddr.startsWith('3') || lowerAddr.startsWith('bc1')) {
+          groupedNonEvm.bitcoin.push(lowerAddr);
+        } else if (lowerAddr.startsWith('d')) {
+          groupedNonEvm.dogecoin.push(lowerAddr);
+        } else if (lowerAddr.startsWith('l') || lowerAddr.startsWith('ltc1')) {
+          groupedNonEvm.litecoin.push(lowerAddr);
         }
-        newNameTags[normalizedAddress] = {
-          nameTag: nameTagData?.['Name Tag'] || null,
-          image: nameTagData?.image || null,
-          timestamp: Date.now(),
-        };
       });
 
-      // Handle EVM addresses with batching
+      // Fetch from DB for each group if authenticated
+      if (status === 'authenticated') {
+        for (const [chain, chainAddrs] of Object.entries(groupedNonEvm)) {
+          if (chainAddrs.length > 0) {
+            try {
+              const batchSize = 50;
+              const batches = [];
+              for (let i = 0; i < chainAddrs.length; i += batchSize) {
+                batches.push(chainAddrs.slice(i, i + batchSize));
+              }
+
+              const batchPromises = batches.map((batch) =>
+                cacheLimiter.schedule(async () => {
+                  const cacheKey = `nametags-non-evem-batch-${batch.join('-')}-${chain}-session_required`;
+                  const fetchFn = async () => {
+                    const response = await axios.post(
+                      `/api/nametags`,
+                      { addresses: batch, chain },
+                      {
+                        headers: {
+                          Authorization: `Bearer ${session?.accessToken}`,
+                        },
+                        timeout: 40000,
+                      }
+                    );
+                    return response.data.data;
+                  };
+                  return await getCachedData(cacheKey, fetchFn, NAME_TAG_CACHE_DURATION, 0, true, session, status);
+                })
+              );
+
+              const responses = await Promise.allSettled(batchPromises);
+              responses.forEach((result, index) => {
+                if (result.status === 'fulfilled' && result.value) {
+                  const batchAddresses = batches[index];
+                  batchAddresses.forEach((address) => {
+                    const data = result.value?.[address];
+                    const nameTag = data?.Labels?.[chain]?.['Name Tag'] || null;
+                    const image = data?.Labels?.[chain]?.image || '/icons/default.webp';
+                    newNameTags[address] = { nameTag, image, timestamp: Date.now() };
+                  });
+                } else {
+                  batches[index].forEach((address) => {
+                    newNameTags[address] = { nameTag: null, image: null, timestamp: Date.now() };
+                  });
+                }
+              });
+            } catch (error) {
+              console.error(`DB fetch error for non-EVM ${chain}:`, error);
+              // Fallback to JSON for this group
+              chainAddrs.forEach((addr) => {
+                const nameTagData = nameTagsMap[chain]?.[addr];
+                newNameTags[addr] = {
+                  nameTag: nameTagData?.Labels?.[chain]?.['Name Tag'] || null,
+                  image: nameTagData?.Labels?.[chain]?.image || null,
+                  timestamp: Date.now(),
+                };
+              });
+            }
+          }
+        }
+      } else {
+        // Fallback to JSON if not authenticated
+        nonEvmAddresses.forEach((addr) => {
+          const normalizedAddress = addr.toLowerCase();
+          let nameTagData = null;
+          // Check each chain's name tag JSON file for the address
+          for (const [chain, tags] of Object.entries(nameTagsMap)) {
+            if (tags[normalizedAddress]?.Labels?.[chain]) {
+              nameTagData = tags[normalizedAddress].Labels[chain];
+              break;
+            }
+          }
+          newNameTags[normalizedAddress] = {
+            nameTag: nameTagData?.['Name Tag'] || null,
+            image: nameTagData?.image || null,
+            timestamp: Date.now(),
+          };
+        });
+      }
+
+      // Handle EVM addresses with batching (unchanged)
       const evmAddresses = addresses.filter((addr) => addr.match(/^0x[a-fA-F0-9]{40}$/));
       if (evmAddresses.length > 0 && status === 'authenticated') {
         try {
@@ -799,7 +964,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       });
       setIsLoadingNameTags(false);
     },
-    [session, status, toast]
+    [session, status, toast, btcNameTagsLower, dogeNameTagsLower, ltcNameTagsLower, ethNameTagsLower]
   );
 
   const fetchPriceHistory = useCallback(
@@ -923,21 +1088,15 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
               ethereum: ethNameTags,
             };
 
-            // Map token symbol to corresponding JSON file for name tags
-            const nameTagsMap = {
-              bitcoin: btcNameTags,
-              dogecoin: dogeNameTags,
-              litecoin: ltcNameTags,
-              ethereum: ethNameTags,
-            };
-
             const jsonData = topHoldersMap[chain];
-            const nameTagData = nameTagsMap[chain];
-
             if (jsonData) {
+              const addresses = Object.values(jsonData).map((holder) => holder.Address.toLowerCase());
+              // Fetch nametags from DB or fallback JSON for all addresses
+              await fetchNameTagsForAddresses(addresses);
               topHolders = Object.values(jsonData).map((holder) => {
                 const address = holder.Address.toLowerCase();
-                const nameTagEntry = nameTagData?.[address]?.Labels?.[chain];
+                const nameTagEntry = nameTagsRef.current[address]?.Labels?.[chain] ||
+                  (chain === 'bitcoin' ? btcNameTagsLower[address]?.Labels?.bitcoin : null);
                 return {
                   address,
                   balance: parseFloat(holder.Balance) || 0,
@@ -963,9 +1122,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
                 });
 
                 if (coingeckoResponse.data.success && Array.isArray(coingeckoResponse.data.data?.companies)) {
+                  const treasuryAddresses = coingeckoResponse.data.data.companies.map((company) => company.address?.toLowerCase()).filter(Boolean);
+                  if (treasuryAddresses.length > 0) {
+                    await fetchNameTagsForAddresses(treasuryAddresses);
+                  }
                   const treasuryData = coingeckoResponse.data.data.companies.map((company) => {
                     const address = company.address?.toLowerCase() || company.name?.toLowerCase() || 'unknown';
-                    const nameTagEntry = nameTagData?.[address]?.Labels?.[chain];
+                    const nameTagEntry = nameTagsRef.current[address]?.Labels?.[chain] ||
+                      (chain === 'bitcoin' ? btcNameTagsLower[address]?.Labels?.bitcoin : null);
                     return {
                       address,
                       balance: parseFloat(company.total_holdings) || 0,
@@ -1039,7 +1203,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       300,
       { leading: false, trailing: true }
     ),
-    [session, status, toast, executeRecaptcha]
+    [session, status, toast, executeRecaptcha, nameTagsRef, fetchNameTagsForAddresses, btcNameTagsLower]
   );
 
   const fetchTickerData = useCallback(
