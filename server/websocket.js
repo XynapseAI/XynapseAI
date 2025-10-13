@@ -184,6 +184,7 @@ function startWebSocketServer(httpServer) {
                 const iterator = mempoolTxCache.values();
                 mempoolTxCache.delete(iterator.next().value);
               }
+              // Tối ưu: Chỉ lưu address cho inputs/outputs, bỏ nameTag/image null để giảm size JSON
               transactions.push({
                 txid: tx.txid,
                 value_usd: totalValueUSD,
@@ -191,13 +192,9 @@ function startWebSocketServer(httpServer) {
                 timestamp: tx.firstSeen || Math.floor(Date.now() / 1000),
                 inputs: tx.vin?.map((vin) => ({
                   address: vin.prevout?.scriptpubkey_address || 'unknown',
-                  nameTag: null,
-                  image: null,
                 })) || [],
                 outputs: tx.vout?.map((vout) => ({
                   address: vout.scriptpubkey_address || 'unknown',
-                  nameTag: null,
-                  image: null,
                 })) || [],
                 fee: tx.fee || 0,
                 size: tx.size || 0,

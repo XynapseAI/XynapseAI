@@ -1,4 +1,5 @@
 // app/api/token-cluster/route.js
+// app/api/token-cluster/route.js
 import { NextResponse } from 'next/server';
 import { query } from '../../../utils/postgres';
 import { logger } from '../../../utils/serverLogger';
@@ -416,7 +417,7 @@ export async function GET(request) {
               'balance_usd', th.balance_usd,
               'wallets', json_build_array(
                 json_build_object(
-                  'holder_address', LOWER(th.holder_address),
+                  'holder_address', th.holder_address,
                   'balance', th.balance,
                   'value', th.balance_usd
                 )
@@ -447,7 +448,7 @@ export async function GET(request) {
      normalize_cluster_name(COALESCE(wh.cluster_name, wh.exchange_name))
    ) AS cluster_name,
    wh.chain,
-   LOWER(wh.holder_address) AS holder_address,
+   wh.holder_address AS holder_address,
    wh.total_value_usd,
    wh.token_count,
    wh.name_tag,
@@ -467,7 +468,7 @@ export async function GET(request) {
         SELECT 
           source AS cluster_name,
           chain,
-          LOWER(holder_address) AS holder_address,
+          holder_address AS holder_address,
           balance,
           balance_usd,
           1 AS token_count,

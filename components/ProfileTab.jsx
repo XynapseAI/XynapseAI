@@ -876,7 +876,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                             {task.task_type === 'follow' && !followedTasks.has(task.id) ? (
                               <motion.button
                                 onClick={() => handleFollow(task.id)}
-                                className="px-2 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-[9px] sm:text-[11px] font-medium hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-blue-500/25 transition-all duration-300 flex items-center gap-1"
+                                className="px-2 py-1 bg-emerald-400/80 text-white rounded-lg text-[9px] sm:text-[11px] font-medium hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-blue-500/25 transition-all duration-300 flex items-center gap-1"
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                               >
@@ -1207,7 +1207,7 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                         </motion.button>
                       </div>
                       <div className="relative mb-3">
-                        <div className={`relative w-20 h-20 mx-auto border-4 rounded-full overflow-hidden ${userData.tier === 'Premium' ? 'border-yellow-400' : 'border-gray-400'} border-b-transparent`}>
+                        <div className={`relative w-20 h-20 mx-auto border-4 rounded-3xl overflow-hidden ${userData.tier === 'Premium' ? 'border-yellow-400' : 'border-gray-400'} border-b-transparent`}>
                           <Image
                             src={getProfilePictureSrc(userData.profilePicture)}
                             alt={userData.googleName || userData.twitterHandle || 'User Avatar'}
@@ -1244,19 +1244,30 @@ export default function ProfileTab({ recaptchaRef, handleSignOut }) {
                     <div className="h-[22vh] rounded-xl p-3 bg-gradient-to-br from-black/80 to-gray-900/80 border border-white/20 shadow-lg shadow-black/20 relative">
                       <div className="flex justify-between items-center mb-3">
                         <div className="flex items-center gap-2">
-                          <img src="/logos/x.webp" alt="X Logo" className="w-6 h-6 text-blue-400 m-2" />
-                          <span className="text-white text-sm font-semibold">@{userData.twitterHandle || null}</span>
+                          <img src="/logos/x.webp" alt="X Logo" className="w-7 h-7 text-blue-400 m-2" />
                         </div>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${userData.twitterHandle ? 'text-emerald-400' : 'text-gray-400'}`}>
                           {userData.twitterHandle ? <Check className="w-3 h-3 text-emerald-400" /> : null}
                           {userData.twitterHandle ? 'Connected' : 'Not Connected'}
                         </span>
                       </div>
+                      {userData.twitterHandle && (
+                        <div className="absolute bottom-3 left-3">
+                          <a
+                            href={`https://x.com/${userData.twitterHandle}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-white text-sm font-semibold underline hover:decoration-blue-300 transition-colors"
+                          >
+                            @{userData.twitterHandle}
+                          </a>
+                        </div>
+                      )}
                       <motion.button
                         onClick={() => userData.twitterHandle ? disconnectTwitterMutation.mutate() : connectTwitterMutation.mutate()}
                         disabled={disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading}
                         className={`absolute bottom-3 right-3 px-4 py-2 rounded-xl text-[9px] sm:text-[11px] font-medium transition-all duration-300 flex items-center justify-center gap-1 shadow-lg ${userData.twitterHandle
-                          ? 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-500/80 border border-red-500/30'
+                          ? 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 border border-red-500/30'
                           : 'text-white border border-neon-blue/50 bg-gradient-to-r from-white/10 to-white/5 hover:bg-neon-blue/20'
                           }`}
                         whileHover={{ scale: (disconnectTwitterMutation.isLoading || connectTwitterMutation.isLoading) ? 1 : 1 }}
