@@ -33,27 +33,6 @@ import remarkGfm from 'remark-gfm';
 import ReactMarkdown from "react-markdown";
 import { Virtuoso } from 'react-virtuoso';
 
-const LazyImage = ({ src, alt, className, width, height, ...props }) => {
-  const [imgSrc, setImgSrc] = useState(src || '/fallback-image.webp');
-
-  useEffect(() => {
-    setImgSrc(src || '/fallback-image.webp');
-  }, [src]);
-
-  return (
-    <Image
-      src={imgSrc}
-      alt={alt || `Cryptocurrency image for ${imgSrc?.split('/')?.pop()?.split('.')[0] || 'unknown'}`}
-      className={className}
-      width={width}
-      height={height}
-      loading="lazy"
-      unoptimized={imgSrc.startsWith('http')}
-      {...props}
-    />
-  );
-};
-
 const CustomTooltip = ({ active, payload, label, currency }) => {
   if (active && payload && payload.length) {
     return (
@@ -161,6 +140,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     loadMoreDexData,
     hasMoreDex,
     isLoadingMoreDex,
+    setIsLoadingMoreDex, // Added for controlling loading state
+    setHasMoreDex, // Added to control hasMore state
   } = useMarketTabLogic({ recaptchaRef, toast, initialTokenData, toast })
 
   const dropdownRef = useRef(null)
@@ -300,12 +281,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         }}
       >
         <div className="flex items-center gap-3 mb-3">
-          <LazyImage
+          <Image
             src={token.large || "/placeholder.svg"}
             alt={`${token.symbol} logo`}
             className="w-8 h-8"
             width={32}
             height={32}
+            unoptimized
           />
           <div>
             <div className="font-bold text-sm text-white">{token.symbol.toUpperCase()}</div>
@@ -357,7 +339,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     return imageUrl
   }
 
-  const handleDexTabClick = () => {
+  const handleDexTabClick = useCallback(() => {
     if (!session) {
       setActiveMarketTab("dex");
       setShowTrades(false);
@@ -370,14 +352,15 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     setShowTrades(false);
     if (selectedToken) {
       if (selectedToken.id === "bitcoin") {
+        fetchMempoolTransactions(); // Ensure full load for Bitcoin
       } else {
         const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
         if (chain && tokenAddress) {
-          fetchDexData(chain, tokenAddress);
+          fetchDexData(chain, tokenAddress, 5000); // Load max 5000 initially
         }
       }
     }
-  };
+  }, [session, dexRequestCount, lastDexRequestTime, selectedToken, selectedChain, fetchMempoolTransactions, fetchDexData, getDefaultChainAndAddress, setActiveMarketTab, setShowTrades]);
 
   const handlePoolClick = (poolAddress) => {
     if (process.env.NODE_ENV === "development") {
@@ -433,12 +416,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
         <div className="flex flex-col sm:flex-row justify-between gap-6">
           <div className="flex-1 min-w-0">
             <h5 className="text-lg font-bold text-white mb-4 flex items-center justify-center gap-3">
-              <LazyImage
+              <Image
                 src={token1.image_url}
                 alt={`${token1.symbol} logo`}
                 className="w-8 h-8 rounded-full"
                 width={32}
                 height={32}
+                unoptimized
               />
               {token1.symbol}
             </h5>
@@ -482,12 +466,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
           </div>
           <div className="flex-1 min-w-0">
             <h5 className="text-lg font-bold text-white mb-4 flex items-center justify-center gap-3">
-              <LazyImage
+              <Image
                 src={token2.image_url}
                 alt={`${token2.symbol} logo`}
                 className="w-8 h-8 rounded-full ring-2 ring-white/20"
                 width={32}
                 height={32}
+                unoptimized
               />
               {token2.symbol}
             </h5>
@@ -856,12 +841,13 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                       whileHover={{ scale: 1.05, y: -1 }}  // Giảm y để nhẹ
                       whileTap={{ scale: 0.95 }}
                     >
-                      <LazyImage
+                      <Image
                         src={token.thumb || token.image?.thumb || "/fallback-image.webp"}
                         alt={`${token.symbol} logo`}
                         className="w-3 sm:w-4 h-3 sm:h-4 rounded-lg"
                         width={16}
                         height={16}
+                        unoptimized
                       />
                       <span className="text-white text-[8px] sm:text-[10px] font-medium">{token.symbol.toUpperCase()}</span>
                       <span
@@ -1626,12 +1612,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       <div className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]">
                                         <div className="flex-1 flex items-center gap-2 group relative">
                                           {image && (
-                                            <LazyImage
+                                            <img
                                               src={image}
                                               alt={`${displayText} logo`}
                                               className="w-5 h-5 sm:w-6 sm:h-6 rounded-md"
-                                              width={24}
-                                              height={24}
+                                              onError={(e) => e.target.style.display = 'none'}
                                             />
                                           )}
                                           {isBitcoin && isValidAddress ? (
@@ -1727,12 +1712,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 <div className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]">
                                   <div className="flex-[2] flex items-center justify-center gap-2">
                                     {ticker.market.logo && (
-                                      <LazyImage
+                                      <img
                                         src={ticker.market.logo}
                                         alt={`${ticker.market.name} logo`}
                                         className="w-5 h-5 rounded-md"
-                                        width={20}
-                                        height={20}
+                                        onError={(e) => e.target.style.display = 'none'}
                                       />
                                     )}
                                     <a
@@ -1802,12 +1786,21 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             {(() => {
                               const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
                               const trades = isBitcoin ? mempoolTransactions : dexData.trades;
+                              const handleEndReached = isBitcoin 
+                                ? () => {} // Bitcoin loads all initially, no more to load
+                                : () => {
+                                    if (hasMoreDex && !isLoadingMoreDex) {
+                                      const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
+                                      loadMoreDexData(chain, tokenAddress);
+                                    }
+                                  };
                               return trades.length > 0 ? (
                                 <>
                                   <Virtuoso
                                     style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                     className="hide-scrollbar"
-                                    data={trades.slice(0, 200)}
+                                    data={trades} // Remove slice(0,200), load full data
+                                    endReached={handleEndReached}
                                     itemContent={(index, item) => {
                                       console.log('Debug tx item:', {
                                         index,
@@ -1828,7 +1821,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           {/* Tx/Time */}
                                           <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
                                             <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
-                                              <LazyImage src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" width={12} height={12} />
+                                              <img src={explorerInfo.logo} alt="Explorer" className="w-3 h-3 rounded" onError={(e) => e.target.style.display = 'none'} />
                                             </a>
                                             <span className="text-[7px] sm:text-[9px] text-white/60 text-center">{formatDistanceToNow(new Date(timestamp), { addSuffix: true })}</span>
                                             {txHash && (
@@ -1851,7 +1844,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                                           {/* From Address */}
                                           <div className="flex-[2] flex items-center justify-center gap-2 group relative">
-                                            {fromAddressInfo.image && <LazyImage src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />}
+                                            {fromAddressInfo.image && <img src={fromAddressInfo.image} alt={`${fromAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
                                             <a
                                               href={isBitcoin ? `https://mempool.space/address/${item.inputs?.[0]?.address}` : getExplorerUrls(chain, null, item.tx_from_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
                                               target="_blank"
@@ -1882,7 +1875,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                                           {/* To Address */}
                                           <div className="flex-[2] flex items-center justify-center gap-2 group relative">
-                                            {toAddressInfo.image && <LazyImage src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />}
+                                            {toAddressInfo.image && <img src={toAddressInfo.image} alt={`${toAddressInfo.nameTag || 'Address'} logo`} className="w-3 h-3 rounded-md" onError={(e) => e.target.style.display = 'none'} />}
                                             <a
                                               href={isBitcoin ? `https://mempool.space/address/${item.outputs?.[0]?.address}` : getExplorerUrls(chain, null, item.to_token_address?.address).addressUrl}  // Sửa: dùng chain và null cho hash
                                               target="_blank"
@@ -1917,7 +1910,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               {isBitcoin ? (
                                                 <>
                                                   {(item.value_btc || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                  <LazyImage src="/logos/bitcoin.webp" alt="BTC" className="w-3 h-3 rounded" width={12} height={12} />
+                                                  <img src="/logos/bitcoin.webp" alt="BTC" className="w-3 h-3 rounded" onError={(e) => e.target.style.display = 'none'} />
                                                   <span>BTC</span>
                                                 </>
                                               ) : (
@@ -1949,12 +1942,11 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           </div>
                                           {!isBitcoin && (
                                             <div className="flex-1 flex items-center justify-center">
-                                              <LazyImage
+                                              <img
                                                 src={`/logos/${item.chain}.webp`}
                                                 alt={`${item.chain} logo`}
                                                 className="w-4 h-4 rounded"
-                                                fallback="/logos/ethereum.webp"
-                                                width={16} height={16}
+                                                onError={(e) => { e.target.src = "/logos/ethereum.webp"; }}
                                               />
                                             </div>
                                           )}
@@ -1988,24 +1980,16 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           );
                                         }
                                       },
+                                      Footer: () => isLoadingMoreDex && !isBitcoin ? (
+                                        <div className="p-2 text-center border-t border-white/10">
+                                          <div className="flex items-center justify-center gap-2 text-white/60 text-[10px]">
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            Loading more transactions...
+                                          </div>
+                                        </div>
+                                      ) : null,
                                     }}
                                   />
-                                  {!isBitcoin && hasMoreDex && (
-                                    <div className="p-2 text-center border-t border-white/10">
-                                      <motion.button
-                                        onClick={() => {
-                                          const { chain, tokenAddress } = getDefaultChainAndAddress(selectedToken, selectedChain);
-                                          loadMoreDexData(chain, tokenAddress);
-                                        }}
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                        className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white text-sm transition-all duration-300"
-                                        disabled={isLoadingMoreDex}
-                                      >
-                                        {isLoadingMoreDex ? 'Loading...' : 'Load More'}
-                                      </motion.button>
-                                    </div>
-                                  )}
                                 </>
                               ) : (
                                 !(isBitcoin ? isLoadingMempool : isLoadingDex || isLoadingMoreDex) && (
