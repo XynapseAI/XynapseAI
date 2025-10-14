@@ -244,7 +244,7 @@ export const POST = handlerWrapper(async (request) => {
             if (response.data.status === '1' && Array.isArray(response.data.result)) {
               data = response.data.result.map((tx) => ({
                 chain,
-                txhash: tx.txhash,
+                txhash: tx.hash || tx.txhash,  // ← SỬA: Lấy từ 'hash' (V2), fallback 'txhash' (V1)
                 timeStamp: tx.timeStamp,
                 from: tx.from,
                 to: tx.to,

@@ -79,6 +79,10 @@ const CACHE_DURATIONS = {
 };
 
 const MEMPOOL_POLLING_INTERVAL = 60 * 1000;
+const MAX_MEMPOOL_TXS = 200;
+const MEMPOOL_MAX_AGE = 5 * 24 * 60 * 60; // 5 days in seconds
+const MEMPOOL_POLL_LIMIT = 50; // Limit for polling
+const MEMPOOL_INIT_LIMIT = 100; // Higher limit for initial fetch
 
 if (!process.env.NEXT_PUBLIC_APP_URL && process.env.NODE_ENV === 'production') {
   console.warn('NEXT_PUBLIC_APP_URL is not set, defaulting to https://xynapse-ai.vercel.app');
@@ -181,6 +185,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
   const [currentDexPage, setCurrentDexPage] = useState(1);
   const [hasMoreDex, setHasMoreDex] = useState(true);
   const [isLoadingMoreDex, setIsLoadingMoreDex] = useState(false);
+  const isInitialMempoolFetch = useRef(true);
 
   const isTokenPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/token/');
 
@@ -635,85 +640,106 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return;
       }
 
-      // Fetch mempool transactions
-      const response = await axios.get('/api/mempool-transactions', {
-        headers: {
-          Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
-        },
-        timeout: 50000,
-      });
+      // Determine params based on initial fetch or polling
+      const isInitial = isInitialMempoolFetch.current && mempoolTransactions.length === 0;
+      const limit = isInitial ? MEMPOOL_INIT_LIMIT : MEMPOOL_POLL_LIMIT;
+      let allRawTxs = [];
+      let currentPage = 1;
+      let hasMore = true;
 
-      if (response.data.success && Array.isArray(response.data.data)) {
-        const rawNewTxs = response.data.data
-          .filter((tx) => {
-            const isNew = !mempoolTxCache.current.has(tx.txid);
-            const valueUSD = (tx.value_btc * btcPrice) || 0;
-            return isNew && valueUSD >= 1000000; // Only take transactions >= 1M USD
-          });
-
-        // Collect unique addresses from new transactions
-        const uniqueAddresses = new Set();
-        rawNewTxs.forEach((tx) => {
-          (tx.inputs || []).forEach((input) => {
-            const addr = input.address;
-            if (addr && addr !== 'unknown') uniqueAddresses.add(addr);
-          });
-          (tx.outputs || []).forEach((output) => {
-            const addr = output.address;
-            if (addr && addr !== 'unknown') uniqueAddresses.add(addr);
-          });
+      while (hasMore) {
+        const params = {
+          maxAge: MEMPOOL_MAX_AGE,
+          limit,
+          page: currentPage,
+        };
+        const response = await axios.get('/api/mempool-transactions', {
+          params,
+          headers: {
+            Authorization: session?.accessToken ? `Bearer ${session.accessToken}` : undefined,
+          },
+          timeout: 50000,
         });
-        const addressesArray = Array.from(uniqueAddresses);
 
-        // Fetch nametags for these addresses (will use JSON for BTC)
-        if (addressesArray.length > 0) {
-          await fetchNameTagsForAddresses(addressesArray);
+        if (response.data.success && Array.isArray(response.data.data)) {
+          allRawTxs = [...allRawTxs, ...response.data.data];
+          const pagination = response.data.pagination || {};
+          hasMore = pagination.totalPages > currentPage;
+          if (hasMore) currentPage++;
+          if (isInitial) isInitialMempoolFetch.current = false;
+        } else {
+          setMempoolError('Invalid mempool transaction data');
+          break;
         }
+      }
 
-        const newTxs = rawNewTxs
-          .map((tx) => {
-            mempoolTxCache.current.add(tx.txid);
-            const inputs = (tx.inputs || []).map((input) => {
-              const addr = input.address || 'unknown';
-              const normalizedAddr = addr.toLowerCase();
-              const tagData = nameTagsRef.current[normalizedAddr];
-              return {
-                address: addr,
-                nameTag: tagData?.nameTag || null,
-                image: tagData?.image || null,
-              };
-            });
-            const outputs = (tx.outputs || []).map((output) => {
-              const addr = output.address || 'unknown';
-              const normalizedAddr = addr.toLowerCase();
-              const tagData = nameTagsRef.current[normalizedAddr];
-              return {
-                address: addr,
-                nameTag: tagData?.nameTag || null,
-                image: tagData?.image || null,
-              };
-            });
+      const rawNewTxs = allRawTxs
+        .filter((tx) => {
+          const isNew = !mempoolTxCache.current.has(tx.txid);
+          const valueUSD = (tx.value_btc * btcPrice) || 0;
+          return isNew && valueUSD >= 1000000; // Only take transactions >= 1M USD
+        });
+
+      // Collect unique addresses from new transactions
+      const uniqueAddresses = new Set();
+      rawNewTxs.forEach((tx) => {
+        (tx.inputs || []).forEach((input) => {
+          const addr = input.address;
+          if (addr && addr !== 'unknown') uniqueAddresses.add(addr);
+        });
+        (tx.outputs || []).forEach((output) => {
+          const addr = output.address;
+          if (addr && addr !== 'unknown') uniqueAddresses.add(addr);
+        });
+      });
+      const addressesArray = Array.from(uniqueAddresses);
+
+      // Fetch nametags for these addresses (will use JSON for BTC)
+      if (addressesArray.length > 0) {
+        await fetchNameTagsForAddresses(addressesArray);
+      }
+
+      const newTxs = rawNewTxs
+        .map((tx) => {
+          mempoolTxCache.current.add(tx.txid);
+          const inputs = (tx.inputs || []).map((input) => {
+            const addr = input.address || 'unknown';
+            const normalizedAddr = addr.toLowerCase();
+            const tagData = nameTagsRef.current[normalizedAddr];
             return {
-              txid: tx.txid,
-              value_usd: tx.value_btc * btcPrice,
-              value_btc: tx.value_btc,
-              timestamp: tx.timestamp || Math.floor(Date.now() / 1000),
-              inputs,
-              outputs,
-              fee: tx.fee || 0,
-              size: tx.size || 0,
-              status: tx.status || {},
+              address: addr,
+              nameTag: tagData?.nameTag || null,
+              image: tagData?.image || null,
             };
           });
-
-        // Update mempoolTransactions with new data, keeping up to 100 transactions
-        setMempoolTransactions((prev) => {
-          const updated = [...newTxs, ...prev].slice(0, 200).sort((a, b) => b.timestamp - a.timestamp);
-          return updated;
+          const outputs = (tx.outputs || []).map((output) => {
+            const addr = output.address || 'unknown';
+            const normalizedAddr = addr.toLowerCase();
+            const tagData = nameTagsRef.current[normalizedAddr];
+            return {
+              address: addr,
+              nameTag: tagData?.nameTag || null,
+              image: tagData?.image || null,
+            };
+          });
+          return {
+            txid: tx.txid,
+            value_usd: tx.value_btc * btcPrice,
+            value_btc: tx.value_btc,
+            timestamp: tx.timestamp || Math.floor(Date.now() / 1000),
+            inputs,
+            outputs,
+            fee: tx.fee || 0,
+            size: tx.size || 0,
+            status: tx.status || {},
+          };
         });
-      } else {
-        setMempoolError('Invalid mempool transaction data');
-      }
+
+      // Update mempoolTransactions with new data, keeping up to MAX_MEMPOOL_TXS transactions
+      setMempoolTransactions((prev) => {
+        const updated = [...newTxs, ...prev].slice(0, MAX_MEMPOOL_TXS).sort((a, b) => b.timestamp - a.timestamp);
+        return updated;
+      });
     } catch (error) {
       const errorMessage =
         error.response?.status === 401
@@ -734,6 +760,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setMempoolTransactions([]);
       setIsLoadingMempool(false);
       setMempoolError(null);
+      isInitialMempoolFetch.current = true;
       return;
     }
 

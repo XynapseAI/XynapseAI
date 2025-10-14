@@ -4,7 +4,7 @@ import { createClient } from 'redis';
 import { logger } from '../utils/serverLogger.js';
 
 const MEMPOOL_WS_URL = 'wss://mempool.space/api/v1/ws';
-const CACHE_TTL = 2 * 60 * 60; // 2 hours
+const CACHE_TTL = 6 * 24 * 60 * 60; // 6 days (5 days + 1 day margin)
 const PING_INTERVAL = 60000; // 60 seconds
 const MAX_RECONNECT_ATTEMPTS = 10;
 const BASE_RECONNECT_DELAY = 5000;
@@ -12,8 +12,8 @@ const MIN_USD_THRESHOLD = 1000000;
 const BTC_PRICE_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const BTC_PRICE_RETRY_ATTEMPTS = 3;
 const BTC_PRICE_RETRY_DELAY = 3000;
-const MAX_CACHE_SIZE = 200;
-const MAX_AGE_SECONDS = 2 * 60 * 60; // 2 hours
+const MAX_CACHE_SIZE = 1000; // Giữ ở mức trung bình để tránh cache quá lớn, nhưng đủ cho 5 ngày với pagination
+const MAX_AGE_SECONDS = 5 * 24 * 60 * 60; // 5 days
 const MAX_PROCESSED_TX_CACHE_SIZE = 200;
 const MAX_NEW_TX_PER_BATCH = 20;
 
@@ -184,6 +184,7 @@ function startWebSocketServer(httpServer) {
                 const iterator = mempoolTxCache.values();
                 mempoolTxCache.delete(iterator.next().value);
               }
+              // Tối ưu: Chỉ lưu address cho inputs/outputs, bỏ nameTag/image null để giảm size JSON
               transactions.push({
                 txid: tx.txid,
                 value_usd: totalValueUSD,
@@ -191,13 +192,9 @@ function startWebSocketServer(httpServer) {
                 timestamp: tx.firstSeen || Math.floor(Date.now() / 1000),
                 inputs: tx.vin?.map((vin) => ({
                   address: vin.prevout?.scriptpubkey_address || 'unknown',
-                  nameTag: null,
-                  image: null,
                 })) || [],
                 outputs: tx.vout?.map((vout) => ({
                   address: vout.scriptpubkey_address || 'unknown',
-                  nameTag: null,
-                  image: null,
                 })) || [],
                 fee: tx.fee || 0,
                 size: tx.size || 0,

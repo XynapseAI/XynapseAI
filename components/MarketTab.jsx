@@ -1809,10 +1809,17 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     className="hide-scrollbar"
                                     data={trades.slice(0, 200)}
                                     itemContent={(index, item) => {
+                                      console.log('Debug tx item:', {
+                                        index,
+                                        tx_hash: item.tx_hash,  // ← Thêm log này
+                                        chain: item.chain,
+                                        fullItem: item
+                                      });
                                       const txHash = isBitcoin ? item.txid : item.tx_hash;
                                       const timestamp = isBitcoin ? item.timestamp * 1000 : item.block_timestamp;
                                       const chain = isBitcoin ? 'bitcoin' : item.chain;  // Sửa: dùng item.chain thay vì selectedChain
                                       const explorerInfo = getExplorerInfo(chain, txHash, null);
+                                      console.log('Debug explorerInfo:', { txHash, explorerInfo });
                                       const fromAddressInfo = getNameTagInfo(isBitcoin ? item.inputs?.[0]?.address : item.tx_from_address?.address, chain);
                                       const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
@@ -1931,7 +1938,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               <div className="text-[7px] sm:text-[9px] text-white/70 text-center">Fee: {item.fee.toLocaleString("en-US")} sat</div>
                                             ) : (
                                               <div className="text-[7px] sm:text-[9px] text-white/70 text-center">
-                                                Fee: {item.gas_fee ? `${parseFloat(item.gas_fee).toFixed(6)} ${chain === 'ethereum' ? 'ETH' : chain.toUpperCase()}` : '—'}
+                                                Fee: {item.gas_fee ? `${parseFloat(item.gas_fee).toFixed(6)}` : '—'}
                                               </div>
                                             )}
                                             {isBitcoin ? (

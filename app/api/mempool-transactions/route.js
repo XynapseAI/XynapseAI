@@ -201,6 +201,18 @@ export async function GET(request) {
       );
     }
 
+    // Tối ưu: Parse query params để filter động và pagination
+    const url = new URL(request.url);
+    let maxAgeSeconds = parseInt(url.searchParams.get('maxAge')) || (5 * 24 * 60 * 60); // Mặc định 5 ngày
+    const maxAllowedAge = 5 * 24 * 60 * 60; // Max 5 ngày
+    if (maxAgeSeconds > maxAllowedAge) {
+      maxAgeSeconds = maxAllowedAge;
+    }
+    const limit = Math.min(parseInt(url.searchParams.get('limit')) || 50, 100); // Giới hạn max 100 per page để giảm traffic
+    const page = Math.max(parseInt(url.searchParams.get('page')) || 1, 1);
+    const offset = (page - 1) * limit;
+    logger.info(`Using params: maxAgeSeconds=${maxAgeSeconds}, limit=${limit}, page=${page} for request`);
+
     const cacheKey = 'mempool-transactions';
     const redisClient = await getRedisClient();
     const cachedData = await redisClient.get(cacheKey);
@@ -208,18 +220,40 @@ export async function GET(request) {
     if (cachedData) {
       let parsed = JSON.parse(cachedData);
       const now = Math.floor(Date.now() / 1000);
-      const MAX_AGE_SECONDS = 2 * 60 * 60; // 2 hours
-      parsed.data = parsed.data
-        .filter((tx) => tx.timestamp >= now - MAX_AGE_SECONDS)
+      // Filter theo maxAge động
+      let filteredData = parsed.data
+        .filter((tx) => tx.timestamp >= now - maxAgeSeconds)
         .sort((a, b) => b.timestamp - a.timestamp);
-      logger.info(`Cache hit for mempool transactions: ${cacheKey}`, { transactionCount: parsed.data.length });
-      return NextResponse.json(parsed, { headers });
+      // Pagination
+      const totalCount = filteredData.length;
+      const paginatedData = filteredData.slice(offset, offset + limit);
+      const responseData = {
+        success: true,
+        data: paginatedData,
+        pagination: {
+          page,
+          limit,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limit),
+        },
+      };
+      logger.info(`Cache hit for mempool transactions: ${cacheKey}`, { transactionCount: paginatedData.length, maxAgeSeconds, page, totalCount });
+      return NextResponse.json(responseData, { headers });
     }
 
     // If no cache, return empty response (WebSocket server should populate Redis)
     logger.warn('No cached mempool transactions found');
     return NextResponse.json(
-      { success: true, data: [] },
+      {
+        success: true,
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 50,
+          totalCount: 0,
+          totalPages: 0,
+        },
+      },
       { status: 200, headers }
     );
   } catch (error) {
@@ -230,6 +264,12 @@ export async function GET(request) {
         success: false,
         detail: `Failed to fetch data: ${error.message}`,
         data: [],
+        pagination: {
+          page: 1,
+          limit: 50,
+          totalCount: 0,
+          totalPages: 0,
+        },
       },
       { status: 500, headers }
     );
