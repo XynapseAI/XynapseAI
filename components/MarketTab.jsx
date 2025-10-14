@@ -1913,7 +1913,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                                           {/* Value */}
                                           <div className="flex-1 flex flex-col gap-1 items-center justify-center text-[10px]">
-                                            <span className="font-semibold flex items-center gap-1 text-[8px] sm:text-[10px]">
+                                            <span className="font-semibold flex items-center gap-2 text-[8px] sm:text-[10px]">
                                               {isBitcoin ? (
                                                 <>
                                                   {(item.value_btc || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1934,19 +1934,17 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
                                           {/* Fee/Status */}
                                           <div className="flex-1 flex flex-col gap-1 items-center justify-center text-center text-[9px] sm:text-[11px]">
-                                            {isBitcoin ? (
+                                            {isBitcoin && (
                                               <div className="text-[7px] sm:text-[9px] text-white/70 text-center">Fee: {item.fee.toLocaleString("en-US")} sat</div>
-                                            ) : (
-                                              <div className="text-[7px] sm:text-[9px] text-white/70 text-center">
-                                                Fee: {item.gas_fee ? `${parseFloat(item.gas_fee).toFixed(6)}` : '—'}
-                                              </div>
                                             )}
                                             {isBitcoin ? (
                                               <span className={`px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center ${item.status.confirmed ? "bg-emerald-400/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-500"}`}>
                                                 {item.status.confirmed ? "Confirmed" : "Pending"}
                                               </span>
                                             ) : (
-                                              <span className="text-white/60 text-[7px] sm:text-[9px] text-center">Success</span>
+                                              <span className="px-1 py-0.5 rounded-full text-[7px] sm:text-[9px] font-semibold text-center bg-emerald-400/10 text-emerald-400">
+                                                Success
+                                              </span>
                                             )}
                                           </div>
                                           {!isBitcoin && (
@@ -1960,55 +1958,36 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               />
                                             </div>
                                           )}
-                                          {!isBitcoin && (
-                                            <div className="flex-1 flex justify-center">
-                                              <span className="text-white/60 text-[9px] sm:text-[11px]">Transfer</span>
-                                            </div>
-                                          )}
-                                          {/* Pool (if not Bitcoin) */}
-                                          {!isBitcoin && (
-                                            <div className="flex-1 flex justify-center">
-                                              <motion.button
-                                                onClick={() => item.pool_address && handlePoolClick(item.pool_address)}
-                                                className="flex items-center gap-1 text-[9px] sm:text-[11px] hover:bg-white/10 p-1 rounded-md transition-all duration-300"
-                                                title={dexData.pools.find((p) => p.attributes.address === item.pool_address)?.attributes.name || "View Pool Details"}
-                                                disabled={!item.pool_address || !dexData.poolTokens[item.pool_address]}
-                                                whileHover={{ scale: 1.05 }}
-                                                whileTap={{ scale: 0.95 }}
-                                              >
-                                                {(() => {
-                                                  const poolTokens = item.pool_address && typeof item.pool_address === "string" ? dexData.poolTokens[item.pool_address] || {} : {};
-                                                  const tokenAddresses = Object.keys(poolTokens);
-                                                  const token1 = tokenAddresses[0] ? poolTokens[tokenAddresses[0]] : null;
-                                                  const token2 = tokenAddresses[1] ? poolTokens[tokenAddresses[1]] : null;
-                                                  return token1 && token2 ? (
-                                                    <div className="flex items-center gap-1">
-                                                      <LazyImage src={token1.image_url || "/placeholder.svg"} alt={`${token1.symbol} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />
-                                                      <span className="text-white/40">/</span>
-                                                      <LazyImage src={token2.image_url || "/placeholder.svg"} alt={`${token2.symbol} logo`} className="w-3 h-3 rounded-md" width={12} height={12} />
-                                                    </div>
-                                                  ) : (
-                                                    <span className="text-white/60 text-[9px] sm:text-[11px]">N/A</span>
-                                                  );
-                                                })()}
-                                              </motion.button>
-                                            </div>
-                                          )}
                                         </div>
                                       ));
                                       return <DexRow key={index} />;
                                     }}
                                     components={{
-                                      Header: () => (
-                                        <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
-                                          <div className="flex-1 text-center">Tx/Time</div>
-                                          <div className="flex-[2] text-center">From Address</div>
-                                          <div className="flex-[2] text-center">To Address</div>
-                                          <div className="flex-1 text-center">Value</div>
-                                          <div className="flex-1 text-center">Fee</div>
-                                          <div className="flex-1 text-center">Chain</div>
-                                        </div>
-                                      ),
+                                      Header: () => {
+                                        const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
+                                        if (isBitcoin) {
+                                          return (
+                                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
+                                              <div className="flex-1 text-center">Tx/Time</div>
+                                              <div className="flex-[2] text-center">From Address</div>
+                                              <div className="flex-[2] text-center">To Address</div>
+                                              <div className="flex-1 text-center">Value</div>
+                                              <div className="flex-1 text-center">Fee</div>
+                                            </div>
+                                          );
+                                        } else {
+                                          return (
+                                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
+                                              <div className="flex-1 text-center">Tx/Time</div>
+                                              <div className="flex-[2] text-center">From Address</div>
+                                              <div className="flex-[2] text-center">To Address</div>
+                                              <div className="flex-1 text-center">Value</div>
+                                              <div className="flex-1 text-center">Status</div>
+                                              <div className="flex-1 text-center">Chain</div>
+                                            </div>
+                                          );
+                                        }
+                                      },
                                     }}
                                   />
                                   {!isBitcoin && hasMoreDex && (

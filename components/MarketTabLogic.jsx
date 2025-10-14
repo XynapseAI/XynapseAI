@@ -103,6 +103,23 @@ const WALLET_SEARCH_LIMIT = 10;
 const WALLET_SEARCH_WINDOW = 60 * 1000;
 const tokensPerPage = 30;
 
+// Hardcoded supported EVM mainnets for Etherscan (no testnets, full coverage)
+const SUPPORTED_EVM_CHAINS = [
+  { value: 'ethereum', coingeckoId: 'ethereum', label: 'Ethereum Mainnet', chainId: 1, testnet: false },
+  { value: 'bnb', coingeckoId: 'binance-smart-chain', label: 'BNB Smart Chain', chainId: 56, testnet: false },
+  { value: 'polygon', coingeckoId: 'polygon-pos', label: 'Polygon', chainId: 137, testnet: false },
+  { value: 'arbitrum', coingeckoId: 'arbitrum-one', label: 'Arbitrum One', chainId: 42161, testnet: false },
+  { value: 'optimism', coingeckoId: 'optimism', label: 'Optimism', chainId: 10, testnet: false },
+  { value: 'avalanche_c', coingeckoId: 'avalanche', label: 'Avalanche C-Chain', chainId: 43114, testnet: false },
+  { value: 'sonic', coingeckoId: 'sonic', label: 'Sonic', chainId: 146, testnet: false },
+  { value: 'base', coingeckoId: 'base', label: 'Base', chainId: 8453, testnet: false },
+  { value: 'celo', coingeckoId: 'celo', label: 'Celo', chainId: 42220, testnet: false },
+  { value: 'scroll', coingeckoId: 'scroll', label: 'Scroll', chainId: 534352, testnet: false },
+  { value: 'mantle', coingeckoId: 'mantle', label: 'Mantle', chainId: 5000, testnet: false },
+  { value: 'linea', coingeckoId: 'linea', label: 'Linea', chainId: 59144, testnet: false },
+
+];
+
 export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initialTokenData }) => {
   const { data: session, status } = useSession();
   const [tokens, setTokens] = useState([]);
@@ -1386,37 +1403,30 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         },
       };
 
-      const availableChains = chains.filter(
-        (chain) =>
-          bnbPlatforms[chain.value] &&
-          bnbPlatforms[chain.value].address?.match(/^0x[a-fA-F0-9]{40}$/) &&
-          (process.env.NODE_ENV === 'development' || !chain.testnet)
+      const availableChains = SUPPORTED_EVM_CHAINS.filter(
+        (chain) => {
+          const cgId = chain.coingeckoId;
+          return bnbPlatforms[cgId] &&
+            bnbPlatforms[cgId].address?.match(/^0x[a-fA-F0-9]{40}$/) &&
+            (process.env.NODE_ENV === 'development' || !chain.testnet)
+        }
       );
       prevAvailableChainsRef.current = availableChains;
       return availableChains;
     }
 
-    const normalizedPlatforms = Object.keys(selectedToken.detail_platforms).reduce((acc, cgId) => {
-      const chain = chains.find((c) => c.coingeckoId === cgId || CHAIN_MAPPING[cgId]?.simChain === c.value);
-      if (chain && selectedToken.detail_platforms[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
-        const decimalPlace = Number(selectedToken.detail_platforms[cgId].decimal_place) || 18;
-        acc[chain.value] = {
-          address: selectedToken.detail_platforms[cgId].contract_address.toLowerCase(),
-          decimal_place: decimalPlace,
-        };
+    // For other tokens, filter based on detail_platforms using full EVM chains
+    const availableChains = SUPPORTED_EVM_CHAINS.filter(
+      (chain) => {
+        const cgId = chain.coingeckoId;
+        return selectedToken.detail_platforms?.[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/) &&
+          (process.env.NODE_ENV === 'development' || !chain.testnet);
       }
-      return acc;
-    }, {});
-
-    const availableChains = chains.filter(
-      (chain) =>
-        normalizedPlatforms[chain.value] &&
-        (process.env.NODE_ENV === 'development' || !chain.testnet)
     );
 
     prevAvailableChainsRef.current = availableChains;
     return availableChains;
-  }, [selectedToken, chains]);
+  }, [selectedToken]);
 
   const getDefaultChainAndAddress = useCallback(
     (token, preferredChain = 'ethereum') => {
@@ -1444,24 +1454,27 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           },
         };
 
-        // Ensure chains array is not empty
-        if (!chains || chains.length === 0) {
-          console.warn('Chains array is empty, falling back to BNB chain for BNB');
+        // Ensure SUPPORTED_EVM_CHAINS is available
+        if (!SUPPORTED_EVM_CHAINS || SUPPORTED_EVM_CHAINS.length === 0) {
+          console.warn('SUPPORTED_EVM_CHAINS is empty, falling back to BNB chain for BNB');
           return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
         }
 
         // Filter available chains for BNB, excluding testnets in production
-        const availableChains = chains.filter(
-          (chain) =>
-            bnbPlatforms[chain.value] &&
-            bnbPlatforms[chain.value].address?.match(/^0x[a-fA-F0-9]{40}$/) &&
-            (process.env.NODE_ENV === 'development' || !chain.testnet)
+        const availableChains = SUPPORTED_EVM_CHAINS.filter(
+          (chain) => {
+            const cgId = chain.coingeckoId;
+            return bnbPlatforms[cgId] &&
+              bnbPlatforms[cgId].address?.match(/^0x[a-fA-F0-9]{40}$/) &&
+              (process.env.NODE_ENV === 'development' || !chain.testnet)
+          }
         );
 
         // Prefer BNB chain if available, otherwise fall back to Ethereum
+        const bnbChainEntry = SUPPORTED_EVM_CHAINS.find(c => c.value === 'bnb');
         if (
+          bnbChainEntry &&
           bnbPlatforms['binance-smart-chain'] &&
-          chains.some((net) => net.value === 'bnb') &&
           bnbPlatforms['binance-smart-chain'].address.match(/^0x[a-fA-F0-9]{40}$/)
         ) {
           return {
@@ -1471,7 +1484,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
           };
         } else if (
           bnbPlatforms['ethereum'] &&
-          chains.some((net) => net.value === 'ethereum') &&
+          SUPPORTED_EVM_CHAINS.some((net) => net.value === 'ethereum') &&
           bnbPlatforms['ethereum'].address?.match(/^0x[a-fA-F0-9]{40}$/)
         ) {
           return {
@@ -1485,14 +1498,14 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return { chain: 'bnb', tokenAddress: bnbChainAddress, decimalPlace: 18 };
       }
 
-      // Existing logic for other tokens
-      if (!chains || chains.length === 0) {
-        console.warn('Chains array is empty, falling back to default chain: ethereum');
+      // For other tokens, use full EVM chains
+      if (!SUPPORTED_EVM_CHAINS || SUPPORTED_EVM_CHAINS.length === 0) {
+        console.warn('SUPPORTED_EVM_CHAINS array is empty, falling back to default chain: ethereum');
         return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
       }
 
       const normalizedPlatforms = Object.keys(token.detail_platforms || {}).reduce((acc, cgId) => {
-        const chain = chains.find((c) => c.coingeckoId === cgId || CHAIN_MAPPING[cgId]?.simChain === c.value);
+        const chain = SUPPORTED_EVM_CHAINS.find((c) => c.coingeckoId === cgId);
         if (chain && token.detail_platforms[cgId]?.contract_address?.match(/^0x[a-fA-F0-9]{40}$/)) {
           const decimalPlace = Number(token.detail_platforms[cgId].decimal_place) || 18;
           acc[chain.value] = {
@@ -1503,7 +1516,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
         return acc;
       }, {});
 
-      const availableChains = chains.filter(
+      const availableChains = SUPPORTED_EVM_CHAINS.filter(
         (chain) =>
           normalizedPlatforms[chain.value] &&
           (process.env.NODE_ENV === 'development' || !chain.testnet)
@@ -1511,7 +1524,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
 
       if (
         normalizedPlatforms[preferredChain] &&
-        chains.some((net) => net.value === preferredChain) &&
+        SUPPORTED_EVM_CHAINS.some((net) => net.value === preferredChain) &&
         normalizedPlatforms[preferredChain].address.match(/^0x[a-fA-F0-9]{40}$/)
       ) {
         return {
@@ -1553,7 +1566,7 @@ export const useMarketTabLogic = ({ recaptchaRef, toast, initialTokenSlug, initi
       setOnChainError('This token does not have on-chain data available on supported chains.');
       return { chain: 'ethereum', tokenAddress: null, decimalPlace: null };
     },
-    [chains, setOnChainError]
+    [setOnChainError]
   );
 
   const fetchDexData = useCallback(
