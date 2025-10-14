@@ -653,6 +653,19 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
     return [...dexData.trades].sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
   }, [dexData.trades]);
 
+  // Row animation variants for subtle entrance without stagger during scroll
+  const rowVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.2,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+  };
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
@@ -1593,14 +1606,14 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                 <p className="text-white/60">Unable to load top holders data. Please try again.</p>
                               </div>
                             ) : onChainData.topHolders && onChainData.topHolders.length > 0 ? (
-                              <div className="flex flex-col h-full">
+                              <div className="flex flex-col h-[600px]">
                                 <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[10px] sticky top-0 z-10">
                                   <div className="flex-1">Address/Name</div>
                                   <div className="w-28 text-right">Balance</div>
                                 </div>
                                 <Virtuoso
                                   style={{ height: '100%', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                  className="hide-scrollbar custom-scrollbar"
+                                  className="hide-scrollbar"
                                   data={onChainData.topHolders.slice(0, 100)}
                                   itemContent={(index, holder) => {
                                     const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
@@ -1617,9 +1630,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                     const HolderRow = React.memo(() => (
                                       <motion.div
                                         className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3, delay: index * 0.02 }}
+                                        variants={rowVariants}
+                                        initial="hidden"
+                                        animate="visible"
                                       >
                                         <div className="flex-1 flex items-center gap-2 group relative">
                                           {image && (
@@ -1715,16 +1728,16 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                           <SkeletonLoader count={5} isMobile={isMobile} />
                         ) : tickerData.length > 0 ? (
                           <Virtuoso
-                            style={{ height: '100%', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                            className="hide-scrollbar custom-scrollbar"
+                            style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                            className="hide-scrollbar"
                             data={tickerData.slice(0, 30)}
                             itemContent={(index, ticker) => {
                               const TickerRow = React.memo(() => (
                                 <motion.div
                                   className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
-                                  initial={{ opacity: 0, y: 10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.3, delay: index * 0.02 }}
+                                  variants={rowVariants}
+                                  initial="hidden"
+                                  animate="visible"
                                 >
                                   <div className="flex-[2] flex items-center justify-center gap-2">
                                     {ticker.market.logo && (
@@ -1763,7 +1776,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             }}
                             components={{
                               Header: () => (
-                                <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
+                                <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
                                   <div className="flex-[2] text-center">Market</div>
                                   <div className="flex-1 text-center">Pair</div>
                                   <div className="flex-1 text-center">Price</div>
@@ -1813,8 +1826,8 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                               return trades.length > 0 ? (
                                 <>
                                   <Virtuoso
-                                    style={{ height: '100%', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                    className="hide-scrollbar custom-scrollbar"
+                                    style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                    className="hide-scrollbar"
                                     data={trades} // Use sorted trades
                                     endReached={handleEndReached}
                                     itemContent={(index, item) => {
@@ -1835,9 +1848,9 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       const DexRow = React.memo(() => (
                                         <motion.div
                                           className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
-                                          initial={{ opacity: 0, y: 10 }}
-                                          animate={{ opacity: 1, y: 0 }}
-                                          transition={{ duration: 0.3, delay: index * 0.02 }}
+                                          variants={rowVariants}
+                                          initial="hidden"
+                                          animate="visible"
                                         >
                                           {/* Tx/Time */}
                                           <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
@@ -1980,7 +1993,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
                                         if (isBitcoin) {
                                           return (
-                                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
+                                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
                                               <div className="flex-1 text-center">Tx/Time</div>
                                               <div className="flex-[2] text-center">From Address</div>
                                               <div className="flex-[2] text-center">To Address</div>
@@ -1990,7 +2003,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                           );
                                         } else {
                                           return (
-                                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px] sticky top-0 z-10">
+                                            <div className="flex bg-black/80 border-b border-white/10 p-2 font-semibold text-white text-[9px] sm:text-[11px]">
                                               <div className="flex-1 text-center">Tx/Time</div>
                                               <div className="flex-[2] text-center">From Address</div>
                                               <div className="flex-[2] text-center">To Address</div>
@@ -2002,7 +2015,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         }
                                       },
                                       Footer: () => isLoadingMoreDex && !isBitcoin ? (
-                                        <div className="p-2 text-center border-t border-white/10 bg-black/40 flex-1 flex items-center justify-center">
+                                        <div className="p-2 text-center border-t border-white/10 bg-black/40">
                                           <motion.div
                                             className="flex items-center justify-center gap-2 text-white text-[10px]"
                                             initial={{ opacity: 0, y: 10 }}
