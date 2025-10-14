@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { useSession } from "next-auth/react"
@@ -646,6 +646,25 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
 
     return () => observer.disconnect();
   }, []);
+
+  // Sort trades by timestamp descending (newest first)
+  const sortedTrades = useMemo(() => {
+    if (!dexData.trades || dexData.trades.length === 0) return [];
+    return [...dexData.trades].sort((a, b) => new Date(b.block_timestamp) - new Date(a.block_timestamp));
+  }, [dexData.trades]);
+
+  // Row animation variants for subtle entrance without stagger during scroll
+  const rowVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.2,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+  };
 
   return (
     <motion.section
@@ -1609,7 +1628,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       (holder.address.match(/^0x[a-fA-F0-9]{40}$/) || holder.address.match(/^(1|3|bc1)[a-zA-Z0-9]+$/));
 
                                     const HolderRow = React.memo(() => (
-                                      <div className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]">
+                                      <motion.div
+                                        className="flex border-t border-white/10 bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
+                                        variants={rowVariants}
+                                        initial="hidden"
+                                        animate="visible"
+                                      >
                                         <div className="flex-1 flex items-center gap-2 group relative">
                                           {image && (
                                             <img
@@ -1664,7 +1688,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         <div className="w-28 text-right font-bold text-white text-[10px]">
                                           <span>{Math.floor(holder.balance).toLocaleString("en-US")}</span>
                                         </div>
-                                      </div>
+                                      </motion.div>
                                     ));
                                     return <HolderRow key={index} />;
                                   }}
@@ -1709,7 +1733,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             data={tickerData.slice(0, 30)}
                             itemContent={(index, ticker) => {
                               const TickerRow = React.memo(() => (
-                                <div className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]">
+                                <motion.div
+                                  className="flex border-t border-white/10 hover:bg-black/80 px-3 py-2 text-[9px] sm:text-[11px]"
+                                  variants={rowVariants}
+                                  initial="hidden"
+                                  animate="visible"
+                                >
                                   <div className="flex-[2] flex items-center justify-center gap-2">
                                     {ticker.market.logo && (
                                       <img
@@ -1741,7 +1770,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   <div className="flex-1 text-center text-white/70 text-[9px] sm:text-[11px]">
                                     {ticker.last_traded_at ? new Date(ticker.last_traded_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A"}
                                   </div>
-                                </div>
+                                </motion.div>
                               ));
                               return <TickerRow key={index} />;
                             }}
@@ -1785,7 +1814,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                             />
                             {(() => {
                               const isBitcoin = selectedToken?.id.toLowerCase() === 'bitcoin';
-                              const trades = isBitcoin ? mempoolTransactions : dexData.trades;
+                              const trades = isBitcoin ? mempoolTransactions : sortedTrades; // Use sorted trades
                               const handleEndReached = isBitcoin 
                                 ? () => {} // Bitcoin loads all initially, no more to load
                                 : () => {
@@ -1799,7 +1828,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                   <Virtuoso
                                     style={{ height: '600px', overflow: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                     className="hide-scrollbar"
-                                    data={trades} // Remove slice(0,200), load full data
+                                    data={trades} // Use sorted trades
                                     endReached={handleEndReached}
                                     itemContent={(index, item) => {
                                       console.log('Debug tx item:', {
@@ -1817,7 +1846,12 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                       const toAddressInfo = getNameTagInfo(isBitcoin ? item.outputs?.[0]?.address : item.to_token_address?.address, chain);
 
                                       const DexRow = React.memo(() => (
-                                        <div className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]">
+                                        <motion.div
+                                          className="flex border-t border-white/10 bg-black/80 p-3 text-[9px] sm:text-[11px]"
+                                          variants={rowVariants}
+                                          initial="hidden"
+                                          animate="visible"
+                                        >
                                           {/* Tx/Time */}
                                           <div className="flex-1 flex flex-col gap-1 items-center justify-center group relative">
                                             <a href={explorerInfo.url} target="_blank" rel="noreferrer" className="p-1 rounded-md hover:bg-white/10 transition-all duration-300">
@@ -1950,7 +1984,7 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                               />
                                             </div>
                                           )}
-                                        </div>
+                                        </motion.div>
                                       ));
                                       return <DexRow key={index} />;
                                     }}
@@ -1981,11 +2015,16 @@ const MarketTab = ({ recaptchaRef, initialTokenSlug, onTokenSelect, toast, initi
                                         }
                                       },
                                       Footer: () => isLoadingMoreDex && !isBitcoin ? (
-                                        <div className="p-2 text-center border-t border-white/10">
-                                          <div className="flex items-center justify-center gap-2 text-white/60 text-[10px]">
+                                        <div className="p-2 text-center border-t border-white/10 bg-black/40">
+                                          <motion.div
+                                            className="flex items-center justify-center gap-2 text-white text-[10px]"
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -10 }}
+                                          >
                                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                             Loading more transactions...
-                                          </div>
+                                          </motion.div>
                                         </div>
                                       ) : null,
                                     }}
